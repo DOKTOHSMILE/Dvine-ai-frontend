@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RadialGradient;
+import android.graphics.RectF;
 import android.graphics.Shader;
 import android.text.Layout;
 import android.text.StaticLayout;
@@ -25,11 +26,11 @@ public final class MatrixStageView extends View {
     public interface Listener {
         void onHeadTap();
 
-        void onSwipeTo(boolean ivie);
-
         void onMic();
 
         void onType();
+
+        void onDraft(boolean send);
     }
 
     private static final int OBI = 0xFF00E5FF;
@@ -64,6 +65,17 @@ public final class MatrixStageView extends View {
     private int captionWidth;
     private String notice = "";
     private boolean listening;
+    private boolean staged;
+    private String draft = "";
+    private final String[] activity = new String[5];
+    private final String[] activityTime = new String[5];
+    private int activityCount;
+    private final RectF composer = new RectF();
+    private final RectF micHit = new RectF();
+    private final RectF keyHit = new RectF();
+    private final RectF sendHit = new RectF();
+    private final RectF shortHit = new RectF();
+    private final RectF headHit = new RectF();
     private float density = 1f;
     private int padTop;
     private int padBottom;
@@ -76,7 +88,6 @@ public final class MatrixStageView extends View {
     private float downX;
     private float downY;
     private boolean decided;
-    private boolean swiping;
     private boolean dragged;
 
     private final Choreographer.FrameCallback frame = new Choreographer.FrameCallback() {
@@ -117,7 +128,7 @@ public final class MatrixStageView extends View {
         text.setTextAlign(Paint.Align.CENTER);
         captionPaint.setColor(INK);
         captionPaint.setTextAlign(Paint.Align.CENTER);
-        setContentDescription("DVINE. One face. Swipe to call the other.");
+        setContentDescription("DVINE. One face. Say Obi switch or Ivie switch.");
     }
 
     public void setListener(Listener listener) {
@@ -149,6 +160,31 @@ public final class MatrixStageView extends View {
         listening = on;
         if (on) {
             rig().setMode(FaceMode.LISTENING);
+        }
+    }
+
+    public void setStaged(boolean on, String body) {
+        staged = on;
+        draft = body == null ? "" : body;
+        captionLayout = null;
+    }
+
+    public void pushActivity(String label) {
+        if (label == null || label.length() == 0) {
+            return;
+        }
+        String when = clock();
+        if (activityCount < activity.length) {
+            activity[activityCount] = label;
+            activityTime[activityCount] = when;
+            activityCount++;
+        } else {
+            for (int i = 1; i < activity.length; i++) {
+                activity[i - 1] = activity[i];
+                activityTime[i - 1] = activityTime[i];
+            }
+            activity[activity.length - 1] = label;
+            activityTime[activity.length - 1] = when;
         }
     }
 
@@ -215,79 +251,266 @@ public final class MatrixStageView extends View {
         boolean ivieOn = showingIvie;
         int color = ivieOn ? IVIE : OBI;
         float faceAlpha = 1f - dissolve.value;
-        float unit = Math.min(w * 0.46f, (h - padTop - padBottom - dp(150f)) * 0.50f);
+        float side = dp(20f);
+
+        text.setTextAlign(Paint.Align.LEFT);
+        text.setColor(INK);
+        text.setLetterSpacing(0.28f);
+        text.setTextSize(dp(15f));
+        text.setAlpha(230);
+        float headerY = padTop + dp(22f);
+        canvas.drawText("DVINE", side, headerY, text);
+
+        String link = staged ? "LOCK: STAGED" : "WS: LIVE";
+        text.setTextSize(dp(10f));
+        text.setLetterSpacing(0.08f);
+        float linkW = text.measureText(link) + dp(22f);
+        RectF linkBox = new RectF(w - side - linkW, headerY - dp(14f), w - side, headerY + dp(6f));
+        stroke.setColor(color);
+        stroke.setAlpha(160);
+        stroke.setStrokeWidth(dp(1f));
+        canvas.drawRoundRect(linkBox, dp(12f), dp(12f), stroke);
+        text.setColor(color);
+        text.setAlpha(220);
+        canvas.drawText(link, linkBox.left + dp(11f), headerY, text);
+
+        float unit = Math.min(w * 0.20f, dp(86f));
         float cx = w * 0.5f;
-        float cy = padTop + (h - padTop - padBottom) * 0.44f;
+        float cy = headerY + dp(28f) + unit * 1.05f;
+        headHit.set(cx - unit * 1.15f, cy - unit * 1.2f, cx + unit * 1.15f, cy + unit * 1.15f);
         ensureGlow(unit);
         glowPaint.setShader(ivieOn ? ivieGlow : obiGlow);
-        glowPaint.setAlpha((int) (255 * faceAlpha * clamp(rig.glow.value, 0f, 1.2f)));
-        canvas.save();
-        canvas.translate(cx, cy + unit * 0.15f);
-        canvas.drawCircle(0f, 0f, unit * 1.35f, glowPaint);
-        canvas.restore();
+        glowPaint.setAlpha((int) (180 * faceAlpha));
+        canvas.drawCircle(cx, cy + unit * 0.15f, unit * 1.25f, glowPaint);
+        float pose = ivieOn ? 18f : -18f;
+        float away = (ivieOn ? -12f : 12f) * dissolve.value;
+        drawSkull(canvas, ivieOn ? ivieHead : obiHead, rig, cx, cy, unit, color, faceAlpha, pose + away);
 
-        float away = (ivieOn ? -16f : 16f) * dissolve.value;
-        drawParticles(canvas, cx, cy, unit, color, faceAlpha, rig.time());
-        drawSkull(canvas, ivieOn ? ivieHead : obiHead, rig, cx, cy, unit, color, faceAlpha, away);
-        drawFeatures(canvas, rig, ivieOn, cx, cy, unit, color, faceAlpha, away);
-        if (ivieOn) {
-            drawHair(canvas, rig, cx, cy, unit, color, faceAlpha, away);
-        }
-        if (rig.mode() == FaceMode.SPEAKING && faceAlpha > 0.45f) {
-            drawWave(canvas, cx, cy + unit * 1.02f, unit, color, rig.jaw.value);
-        }
-
-        text.setTextSize(dp(13f));
-        text.setLetterSpacing(0.22f);
-        text.setAlpha((int) (220 * Math.max(faceAlpha, 0.35f)));
-        canvas.drawText(ivieOn ? "IVIE" : "OBI", cx, cy + unit * 1.22f, text);
-
-        if (caption.length() > 0) {
-            int width = Math.max(1, (int) (w * 0.78f));
-            if (captionLayout == null || captionWidth != width) {
-                captionWidth = width;
-                captionPaint.setTextSize(dp(15f));
-                captionLayout = StaticLayout.Builder.obtain(caption, 0, caption.length(), captionPaint, width)
-                        .setAlignment(Layout.Alignment.ALIGN_CENTER)
-                        .setMaxLines(3)
-                        .setEllipsize(TextUtils.TruncateAt.END)
-                        .build();
-            }
-            captionPaint.setAlpha((int) (210 * Math.max(faceAlpha, 0.4f)));
-            canvas.save();
-            canvas.translate((w - width) / 2f, cy + unit * 1.30f);
-            captionLayout.draw(canvas);
-            canvas.restore();
-        }
-
-        text.setLetterSpacing(0.28f);
+        float nameY = cy + unit * 1.22f;
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setColor(INK);
+        text.setLetterSpacing(0.04f);
+        text.setTextSize(dp(26f));
+        text.setAlpha((int) (240 * Math.max(faceAlpha, 0.5f)));
+        canvas.drawText(ivieOn ? "Ivie" : "Obi", cx, nameY, text);
         text.setTextSize(dp(12f));
+        text.setColor(0xFF9A9A9A);
+        text.setLetterSpacing(0.02f);
         text.setAlpha(180);
-        canvas.drawText("DVINE", w * 0.5f, padTop + dp(28f), text);
-        text.setTextSize(dp(10f));
-        text.setAlpha(140);
-        canvas.drawText(listening ? "LISTENING" : "LOCAL", w - dp(48f), padTop + dp(28f), text);
+        canvas.drawText(ivieOn ? "Thoughtful Assistant" : "Analytical Assistant", cx, nameY + dp(20f), text);
 
-        float controls = h - padBottom - dp(36f);
-        stroke.setShader(null);
-        stroke.setStrokeWidth(dp(1.4f));
+        float signalY = nameY + dp(48f);
+        if (staged) {
+            drawOrb(canvas, cx, signalY, color);
+        } else {
+            drawSignal(canvas, cx, signalY, color, rig);
+        }
+
+        String status = statusLabel(rig.mode());
+        text.setTextSize(dp(11f));
+        text.setLetterSpacing(0.06f);
+        float statusW = text.measureText(status) + dp(28f);
+        float pillY = signalY + dp(22f);
+        RectF statusBox = new RectF(cx - statusW / 2f, pillY - dp(12f), cx + statusW / 2f, pillY + dp(10f));
         stroke.setColor(color);
-        stroke.setAlpha(listening ? 230 : 150);
-        canvas.drawCircle(w * 0.5f, controls, dp(22f), stroke);
+        stroke.setAlpha(170);
+        canvas.drawRoundRect(statusBox, dp(14f), dp(14f), stroke);
+        text.setColor(color);
+        text.setAlpha(230);
+        canvas.drawText(status, cx, pillY + dp(4f), text);
+
+        float cardTop = statusBox.bottom + dp(16f);
+        float cardBottom = h - padBottom - dp(76f);
+        RectF card = new RectF(side, cardTop, w - side, cardBottom);
+        fill.setColor(0xFF0A0A0A);
+        fill.setAlpha(255);
+        canvas.drawRoundRect(card, dp(16f), dp(16f), fill);
+        stroke.setColor(color);
+        stroke.setAlpha(50);
+        canvas.drawRoundRect(card, dp(16f), dp(16f), stroke);
+        if (staged) {
+            drawDraft(canvas, card, color);
+        } else {
+            drawActivity(canvas, card, color);
+        }
+
+        float barTop = h - padBottom - dp(60f);
+        composer.set(side, barTop, w - side, barTop + dp(48f));
+        stroke.setColor(0xFF3A3A3A);
+        stroke.setAlpha(220);
+        canvas.drawRoundRect(composer, dp(24f), dp(24f), stroke);
+        float micCx = composer.left + dp(24f);
+        float micCy = composer.centerY();
+        micHit.set(composer.left, composer.top, composer.left + dp(48f), composer.bottom);
+        keyHit.set(composer.right - dp(48f), composer.top, composer.right, composer.bottom);
+        stroke.setColor(color);
+        stroke.setAlpha(listening ? 230 : 160);
+        canvas.drawCircle(micCx, micCy, dp(11f), stroke);
         fill.setColor(color);
-        fill.setAlpha(listening ? 180 : 40);
-        canvas.drawCircle(w * 0.5f, controls, listening ? dp(8f) : dp(5f), fill);
+        fill.setAlpha(listening ? 200 : 70);
+        canvas.drawCircle(micCx, micCy, listening ? dp(4.5f) : dp(3f), fill);
+        stroke.setStrokeWidth(dp(1.4f));
+        canvas.drawRoundRect(new RectF(composer.right - dp(30f), micCy - dp(8f), composer.right - dp(16f), micCy + dp(8f)), dp(2f), dp(2f), stroke);
+        text.setTextAlign(Paint.Align.LEFT);
+        text.setColor(0xFF8A8A8A);
+        text.setTextSize(dp(13f));
+        text.setLetterSpacing(0.01f);
+        text.setAlpha(notice.length() > 0 ? 210 : 160);
+        String hint = notice.length() > 0 ? notice : "Speak aloud or type a command...";
+        canvas.drawText(hint, composer.left + dp(46f), micCy + dp(4f), text);
+    }
+
+    private String statusLabel(FaceMode mode) {
+        if (staged || mode == FaceMode.APPROVAL) {
+            return "AWAITING VERBAL CONFIRMATION";
+        }
+        if (listening || mode == FaceMode.LISTENING) {
+            return "LISTENING  ·  TIER 0 ACTIVE";
+        }
+        if (mode == FaceMode.THINKING) {
+            return "THINKING";
+        }
+        if (mode == FaceMode.SPEAKING) {
+            return "SPEAKING";
+        }
+        if (mode == FaceMode.DONE) {
+            return "COMPLETED";
+        }
+        if (mode == FaceMode.ERROR) {
+            return "ERROR";
+        }
+        return "IDLE  ·  TIER 0";
+    }
+
+    private void drawSignal(Canvas canvas, float cx, float y, int color, FaceRig rig) {
+        int count = 27;
+        float gap = dp(3.4f);
+        boolean live = listening || rig.mode() == FaceMode.SPEAKING || rig.mode() == FaceMode.LISTENING;
+        stroke.setColor(color);
+        stroke.setStrokeWidth(dp(1.7f));
+        for (int i = 0; i < count; i++) {
+            float env = (float) Math.sin((i + 0.5f) / count * Math.PI);
+            float wobble = (float) Math.sin(rig.time() * (live ? 7.5f : 1.6f) + i * 0.65f);
+            float amp = live ? 0.25f + Math.abs(wobble) * (0.35f + rig.jaw.value) : 0.12f + Math.abs(wobble) * 0.08f;
+            float half = dp(16f) * env * amp + dp(1.5f);
+            stroke.setAlpha(live ? 210 : 90);
+            float x = cx + (i - (count - 1) / 2f) * gap;
+            canvas.drawLine(x, y - half, x, y + half, stroke);
+        }
+    }
+
+    private void drawOrb(Canvas canvas, float cx, float y, int color) {
+        fill.setColor(color);
+        fill.setAlpha(220);
+        canvas.drawCircle(cx, y, dp(4f), fill);
+        stroke.setColor(color);
+        stroke.setAlpha(140);
+        stroke.setStrokeWidth(dp(1f));
+        for (int i = 0; i < 10; i++) {
+            double ang = i / 10.0 * Math.PI * 2.0;
+            canvas.drawCircle(cx + (float) Math.cos(ang) * dp(12f), y + (float) Math.sin(ang) * dp(12f), dp(1.3f), fill);
+        }
+    }
+
+    private void drawActivity(Canvas canvas, RectF card, int color) {
+        sendHit.setEmpty();
+        shortHit.setEmpty();
+        text.setTextAlign(Paint.Align.LEFT);
+        text.setTextSize(dp(11f));
+        text.setLetterSpacing(0.12f);
+        text.setColor(color);
+        text.setAlpha(200);
+        canvas.drawText("LIVE ACTIVITY", card.left + dp(14f), card.top + dp(22f), text);
+        float y = card.top + dp(48f);
+        if (activityCount == 0) {
+            text.setColor(0xFF8A8A8A);
+            text.setLetterSpacing(0.02f);
+            text.setTextSize(dp(13f));
+            canvas.drawText("Waiting for a command", card.left + dp(14f), y, text);
+            return;
+        }
+        int start = Math.max(0, activityCount - 5);
+        for (int i = start; i < activityCount; i++) {
+            if (y > card.bottom - dp(16f)) {
+                break;
+            }
+            fill.setColor(color);
+            fill.setAlpha(180);
+            canvas.drawCircle(card.left + dp(18f), y - dp(4f), dp(2.4f), fill);
+            text.setColor(INK);
+            text.setAlpha(220);
+            text.setTextSize(dp(12f));
+            text.setLetterSpacing(0.01f);
+            String row = activity[i];
+            float max = card.width() - dp(78f);
+            canvas.drawText(fit(row, max), card.left + dp(28f), y, text);
+            text.setColor(0xFF8A8A8A);
+            text.setTextAlign(Paint.Align.RIGHT);
+            canvas.drawText(activityTime[i], card.right - dp(12f), y, text);
+            text.setTextAlign(Paint.Align.LEFT);
+            y += dp(26f);
+        }
+    }
+
+    private void drawDraft(Canvas canvas, RectF card, int color) {
+        text.setTextAlign(Paint.Align.LEFT);
         text.setTextSize(dp(11f));
         text.setLetterSpacing(0.08f);
-        text.setAlpha(160);
-        canvas.drawText("mic", w * 0.5f, controls + dp(40f), text);
-        canvas.drawText("type", w - dp(36f), controls + dp(4f), text);
-
-        if (notice.length() > 0) {
-            text.setTextSize(dp(12f));
-            text.setAlpha(170);
-            canvas.drawText(notice, w * 0.5f, controls - dp(36f), text);
+        text.setColor(color);
+        text.setAlpha(210);
+        canvas.drawText("STAGED DRAFT", card.left + dp(14f), card.top + dp(22f), text);
+        int width = Math.max(1, (int) (card.width() - dp(28f)));
+        String body = draft.length() > 0 ? draft : caption;
+        if (captionLayout == null || captionWidth != width) {
+            captionWidth = width;
+            captionPaint.setTextAlign(Paint.Align.LEFT);
+            captionPaint.setColor(INK);
+            captionPaint.setTextSize(dp(14f));
+            captionLayout = StaticLayout.Builder.obtain(body, 0, body.length(), captionPaint, width)
+                    .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                    .setMaxLines(5)
+                    .setEllipsize(TextUtils.TruncateAt.END)
+                    .build();
         }
+        canvas.save();
+        canvas.translate(card.left + dp(14f), card.top + dp(34f));
+        captionLayout.draw(canvas);
+        canvas.restore();
+        text.setTextSize(dp(13f));
+        text.setLetterSpacing(0.02f);
+        float actionY = card.bottom - dp(18f);
+        text.setColor(color);
+        canvas.drawText("Send it", card.left + dp(14f), actionY, text);
+        float sendW = text.measureText("Send it");
+        sendHit.set(card.left + dp(8f), actionY - dp(18f), card.left + dp(20f) + sendW, actionY + dp(8f));
+        text.setColor(0xFF9A9A9A);
+        canvas.drawText("or", card.left + dp(28f) + sendW, actionY, text);
+        text.setColor(color);
+        float shortX = card.left + dp(48f) + sendW;
+        canvas.drawText("Make it shorter", shortX, actionY, text);
+        shortHit.set(shortX - dp(6f), actionY - dp(18f), shortX + text.measureText("Make it shorter") + dp(6f), actionY + dp(8f));
+    }
+
+    private String fit(String value, float max) {
+        if (value == null) {
+            return "";
+        }
+        if (text.measureText(value) <= max) {
+            return value;
+        }
+        String ellipsis = "...";
+        int end = value.length();
+        while (end > 1 && text.measureText(value.substring(0, end) + ellipsis) > max) {
+            end--;
+        }
+        return value.substring(0, end) + ellipsis;
+    }
+
+    private static String clock() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        int hour = calendar.get(java.util.Calendar.HOUR_OF_DAY);
+        int minute = calendar.get(java.util.Calendar.MINUTE);
+        return (hour < 10 ? "0" : "") + hour + ":" + (minute < 10 ? "0" : "") + minute;
     }
 
     private void ensureGlow(float unit) {
@@ -322,7 +545,7 @@ public final class MatrixStageView extends View {
     private void drawSkull(Canvas canvas, LowPolyHead head, FaceRig rig, float cx, float cy, float unit,
                            int color, float faceAlpha, float awayYaw) {
         float breath = 1f + (float) Math.sin(rig.time() * 1.35f) * 0.012f;
-        head.deform(rig.smile.value, rig.jaw.value, rig.browL.value, rig.browR.value, deformed);
+        head.deform(rig.smile.value, rig.jaw.value, rig.browL.value, rig.browR.value, rig.time(), deformed);
         int count = head.rest.length / 3;
         float yaw = (float) Math.toRadians(rig.yaw.value + awayYaw);
         float pitch = (float) Math.toRadians(rig.pitch.value);
@@ -595,7 +818,6 @@ public final class MatrixStageView extends View {
                 downX = x;
                 downY = y;
                 decided = false;
-                swiping = false;
                 dragged = false;
                 return true;
             case MotionEvent.ACTION_MOVE:
@@ -603,9 +825,8 @@ public final class MatrixStageView extends View {
                 float dy = y - downY;
                 if (!decided && (Math.abs(dx) > slop || Math.abs(dy) > slop)) {
                     decided = true;
-                    swiping = Math.abs(dx) > Math.abs(dy) * 1.35f && y < getHeight() - padBottom - dp(80f);
                 }
-                if (decided && !swiping) {
+                if (decided && headHit.contains(downX, downY)) {
                     dragged = true;
                     rig().setDrag(dx / density * 0.11f, -dy / density * 0.08f, true);
                 }
@@ -613,30 +834,22 @@ public final class MatrixStageView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 rig().setDrag(0f, 0f, false);
-                if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                if (event.getActionMasked() == MotionEvent.ACTION_CANCEL || dragged) {
                     return true;
                 }
-                float ux = x - downX;
-                float uy = y - downY;
-                if (swiping && Math.abs(ux) > dp(72f)) {
-                    if (listener != null) {
-                        listener.onSwipeTo(!showingIvie);
-                    }
+                if (Math.hypot(x - downX, y - downY) > dp(14f) || listener == null) {
                     return true;
                 }
-                if (!dragged && Math.hypot(ux, uy) < dp(14f)) {
-                    float controls = getHeight() - padBottom - dp(36f);
-                    if (Math.hypot(x - getWidth() * 0.5f, y - controls) < dp(36f)) {
-                        if (listener != null) {
-                            listener.onMic();
-                        }
-                    } else if (x > getWidth() - dp(72f) && y > controls - dp(28f)) {
-                        if (listener != null) {
-                            listener.onType();
-                        }
-                    } else if (listener != null) {
-                        listener.onHeadTap();
-                    }
+                if (micHit.contains(x, y)) {
+                    listener.onMic();
+                } else if (keyHit.contains(x, y) || composer.contains(x, y)) {
+                    listener.onType();
+                } else if (staged && sendHit.contains(x, y)) {
+                    listener.onDraft(true);
+                } else if (staged && shortHit.contains(x, y)) {
+                    listener.onDraft(false);
+                } else if (headHit.contains(x, y)) {
+                    listener.onHeadTap();
                 }
                 return true;
             default:

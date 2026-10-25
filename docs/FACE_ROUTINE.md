@@ -10,7 +10,9 @@ Triggers:
 
 - A `SAY` or `THINK` line whose agent is the other persona.
 - You say their name.
-- Swipe, or the Talk buttons.
+- Say "Obi switch" or "Ivie switch". Speech may hear those as "Ubi switch" and "Eva switch"; both are accepted.
+- Ask a question and they switch on their own when the other one has a line.
+- Swipe does not change the persona.
 
 ## Motion
 

@@ -46,6 +46,55 @@ public final class LocalTurn {
         return lines;
     }
 
+    public static final class Route {
+        public final boolean switchOnly;
+        public final boolean ivie;
+        public final List<Line> lines;
+
+        public Route(boolean switchOnly, boolean ivie, List<Line> lines) {
+            this.switchOnly = switchOnly;
+            this.ivie = ivie;
+            this.lines = lines;
+        }
+    }
+
+    /**
+     * "Ivie switch" and "Obi switch" change who is on screen.
+     * Eva / Ubi are accepted because speech often hears the names that way.
+     * Any other sentence stays a conversation, and the faces switch themselves
+     * as each line starts.
+     */
+    public static Route route(String raw, String onScreen) {
+        String text = clean(raw).toLowerCase(Locale.US);
+        boolean ivie = calls(text, "ivie", "eva", "evee", "ivee");
+        boolean obi = calls(text, "obi", "ubi", "obee");
+        if (ivie && !obi) {
+            return new Route(true, true, call(true));
+        }
+        if (obi && !ivie) {
+            return new Route(true, false, call(false));
+        }
+        return new Route(false, false, script(raw, onScreen));
+    }
+
+    public static boolean consequential(String raw) {
+        return blocked(clean(raw).toLowerCase(Locale.US));
+    }
+
+    private static boolean calls(String text, String... names) {
+        for (int i = 0; i < names.length; i++) {
+            String name = names[i];
+            if (text.equals(name)
+                    || text.equals(name + " switch")
+                    || text.equals("switch " + name)
+                    || text.equals("switch to " + name)
+                    || text.equals(name + ", switch")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Typed or spoken words, split across the two voices without rewriting them. */
     public static List<Line> duet(String text) {
         String clean = clean(text);

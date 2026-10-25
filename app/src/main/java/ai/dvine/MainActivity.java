@@ -53,15 +53,17 @@ public final class MainActivity extends Activity implements MatrixStageView.List
     @Override
     public void onHeadTap() {
         stopPlay();
+        stage.setStaged(false, "");
         play(LocalTurn.call(stage.isIvie()));
     }
 
     @Override
-    public void onSwipeTo(boolean ivie) {
+    public void onDraft(boolean send) {
         stopPlay();
-        stage.setCaption("");
-        stage.setNotice("");
-        stage.ensureFace(ivie, () -> stage.setMode(FaceMode.CONTENT));
+        String line = send
+                ? "Nothing was sent. It stays staged until you confirm it out loud."
+                : "Shorter: we stop here, and nothing goes out.";
+        play(LocalTurn.speakAs(stage.isIvie(), line));
     }
 
     @Override
@@ -89,7 +91,9 @@ public final class MainActivity extends Activity implements MatrixStageView.List
             public void onResult(String text) {
                 stage.setListening(false);
                 stage.setNotice("");
-                play(LocalTurn.script(text, stage.agent()));
+                LocalTurn.Route route = LocalTurn.route(text, stage.agent());
+                stage.setStaged(!route.switchOnly && LocalTurn.consequential(text), text);
+                play(route.lines);
             }
 
             @Override
@@ -105,7 +109,7 @@ public final class MainActivity extends Activity implements MatrixStageView.List
     public void onType() {
         final EditText input = new EditText(this);
         input.setTextColor(0xFFEDEDED);
-        input.setHint("Say it, or call Obi or Ivie");
+        input.setHint("Obi switch, Ivie switch, or a question");
         input.setHintTextColor(0xFF8A8A8A);
         input.setBackgroundColor(0xFF000000);
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
@@ -113,9 +117,20 @@ public final class MainActivity extends Activity implements MatrixStageView.List
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle("Talk")
                 .setView(input)
-                .setNegativeButton("Obi", (d, w) -> play(LocalTurn.speakAs(false, input.getText().toString())))
-                .setPositiveButton("Ivie", (d, w) -> play(LocalTurn.speakAs(true, input.getText().toString())))
-                .setNeutralButton("Ask both", (d, w) -> play(LocalTurn.script(input.getText().toString(), stage.agent())))
+                .setNegativeButton("Obi", (d, w) -> {
+                    stage.setStaged(false, "");
+                    play(LocalTurn.speakAs(false, input.getText().toString()));
+                })
+                .setPositiveButton("Ivie", (d, w) -> {
+                    stage.setStaged(false, "");
+                    play(LocalTurn.speakAs(true, input.getText().toString()));
+                })
+                .setNeutralButton("Ask both", (d, w) -> {
+                    String typed = input.getText().toString();
+                    LocalTurn.Route route = LocalTurn.route(typed, stage.agent());
+                    stage.setStaged(!route.switchOnly && LocalTurn.consequential(typed), typed);
+                    play(route.lines);
+                })
                 .show();
     }
 
@@ -140,6 +155,7 @@ public final class MainActivity extends Activity implements MatrixStageView.List
         final boolean ivie = "ivie".equals(line.agent);
         if ("SAY".equals(line.cue)) {
             stage.setCaption(line.text == null ? "" : line.text);
+            stage.pushActivity("TTS  ·  " + shortLine(line.text));
             stage.ensureFace(ivie, () -> {
                 if (token != playId) {
                     return;
@@ -154,9 +170,21 @@ public final class MainActivity extends Activity implements MatrixStageView.List
                 }
                 stage.setMode(FaceMode.THINKING);
                 stage.setCaption(ivie ? "Ivie is thinking" : "Obi is thinking");
+                stage.pushActivity("GATE  ·  Checking the request");
                 handler.postDelayed(() -> step(token), 460);
             });
         }
+    }
+
+    private static String shortLine(String text) {
+        if (text == null) {
+            return "";
+        }
+        String clean = text.replace('\n', ' ').trim();
+        if (clean.length() <= 42) {
+            return clean;
+        }
+        return clean.substring(0, 41) + "...";
     }
 
     private void stopPlay() {
