@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.WindowInsets;
 
 import ai.dvine.gl.MeshGlView;
+import ai.dvine.face.HeadWebView;
 
 /**
  * One face. Obi and Ivie never share the screen.
@@ -124,9 +125,15 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
     }
 
     private MeshGlView meshGl;
+    private HeadWebView headWeb;
 
     public void setListener(StageListener listener) {
         this.listener = listener;
+    }
+
+    
+    public void setHeadWeb(HeadWebView headWeb) {
+        this.headWeb = headWeb;
     }
 
     public void setMesh(MeshGlView meshGl) {
@@ -294,6 +301,11 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         canvas.drawCircle(cx, cy + unit * 0.15f, unit * 1.25f, glowPaint);
         float pose = 0f;
         float away = (ivieOn ? -12f : 12f) * dissolve.value;
+        
+        if (headWeb != null) {
+            headWeb.drive(ivieOn, rig.smile.value, rig.jaw.value, (rig.browL.value + rig.browR.value) * 0.5f, rig.yaw.value);
+        }
+
         boolean gl = meshGl != null && meshGl.isLive();
         if (gl) {
             meshGl.publish(ivieOn, pose + away + rig.yaw.value, unit,

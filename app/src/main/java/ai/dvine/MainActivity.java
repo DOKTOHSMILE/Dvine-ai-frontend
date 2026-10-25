@@ -15,6 +15,7 @@ import ai.dvine.gl.MeshGlView;
 
 import ai.dvine.face.FaceMode;
 import ai.dvine.face.MatrixStageView;
+import ai.dvine.face.HeadWebView;
 import ai.dvine.face.StageListener;
 import ai.dvine.voice.ListenCallback;
 import ai.dvine.turn.LocalTurn;
@@ -34,6 +35,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private MatrixStageView stage;
+    private HeadWebView head;
     private MeshGlView mesh;
     private TalkBridge talk;
     private ListenBridge listen;
@@ -55,6 +57,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage = new MatrixStageView(this);
         stage.setListener(this);
         stage.setMesh(mesh);
+        stage.setHeadWeb(head);
         FrameLayout root = new FrameLayout(this);
         root.addView(stage, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -62,6 +65,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
         FrameLayout.LayoutParams slot = new FrameLayout.LayoutParams(1, 1, Gravity.TOP | Gravity.LEFT);
         root.addView(mesh, slot);
         setContentView(root);
+        head = new HeadWebView(this);
+        int h = (int) (getResources().getDisplayMetrics().heightPixels * 0.60f);
+        FrameLayout.LayoutParams hp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, h, Gravity.CENTER);
+        root.addView(head, hp);
+
         stage.requestApplyInsets();
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
