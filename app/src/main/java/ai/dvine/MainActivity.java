@@ -12,6 +12,8 @@ import android.widget.EditText;
 import ai.dvine.face.FaceMode;
 import ai.dvine.face.MatrixStageView;
 import ai.dvine.turn.LocalTurn;
+import ai.dvine.turn.TurnLine;
+import ai.dvine.turn.TurnRoute;
 import ai.dvine.voice.ListenBridge;
 import ai.dvine.voice.TalkBridge;
 
@@ -28,7 +30,7 @@ public final class MainActivity extends Activity implements MatrixStageView.List
     private MatrixStageView stage;
     private TalkBridge talk;
     private ListenBridge listen;
-    private List<LocalTurn.Line> lines = java.util.Collections.emptyList();
+    private List<TurnLine> lines = java.util.Collections.emptyList();
     private int index;
     private int playId;
 
@@ -91,7 +93,7 @@ public final class MainActivity extends Activity implements MatrixStageView.List
             public void onResult(String text) {
                 stage.setListening(false);
                 stage.setNotice("");
-                LocalTurn.Route route = LocalTurn.route(text, stage.agent());
+                TurnRoute route = LocalTurn.route(text, stage.agent());
                 stage.setStaged(!route.switchOnly && LocalTurn.consequential(text), text);
                 play(route.lines);
             }
@@ -127,14 +129,14 @@ public final class MainActivity extends Activity implements MatrixStageView.List
                 })
                 .setNeutralButton("Ask both", (d, w) -> {
                     String typed = input.getText().toString();
-                    LocalTurn.Route route = LocalTurn.route(typed, stage.agent());
+                    TurnRoute route = LocalTurn.route(typed, stage.agent());
                     stage.setStaged(!route.switchOnly && LocalTurn.consequential(typed), typed);
                     play(route.lines);
                 })
                 .show();
     }
 
-    private void play(List<LocalTurn.Line> next) {
+    private void play(List<TurnLine> next) {
         stopPlay();
         lines = next;
         index = 0;
@@ -150,7 +152,7 @@ public final class MainActivity extends Activity implements MatrixStageView.List
             stage.setMode(FaceMode.DONE);
             return;
         }
-        final LocalTurn.Line line = lines.get(index);
+        final TurnLine line = lines.get(index);
         index++;
         final boolean ivie = "ivie".equals(line.agent);
         if ("SAY".equals(line.cue)) {

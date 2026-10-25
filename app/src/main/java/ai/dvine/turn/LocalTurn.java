@@ -11,70 +11,40 @@ import java.util.Locale;
  * the player switches as each line starts.
  */
 public final class LocalTurn {
-    public static final class Line {
-        public final String agent;
-        public final String cue;
-        public final String text;
-
-        public Line(String agent, String cue, String text) {
-            this.agent = agent;
-            this.cue = cue;
-            this.text = text;
-        }
-    }
-
     private LocalTurn() {
     }
 
-    public static List<Line> call(boolean ivie) {
-        List<Line> lines = new ArrayList<Line>();
+    public static List<TurnLine> call(boolean ivie) {
+        List<TurnLine> lines = new ArrayList<TurnLine>();
         if (ivie) {
-            lines.add(new Line("ivie", "SAY", "I'm here. Tell me what you want, and I'll stay with you."));
+            lines.add(new TurnLine("ivie", "SAY", "I'm here. Tell me what you want, and I'll stay with you."));
         } else {
-            lines.add(new Line("obi", "SAY", "I'm here. Give me the goal and the constraint."));
+            lines.add(new TurnLine("obi", "SAY", "I'm here. Give me the goal and the constraint."));
         }
         return lines;
     }
 
-    public static List<Line> speakAs(boolean ivie, String text) {
-        List<Line> lines = new ArrayList<Line>();
+    public static List<TurnLine> speakAs(boolean ivie, String text) {
+        List<TurnLine> lines = new ArrayList<TurnLine>();
         String clean = clean(text);
         if (clean.length() == 0) {
             return call(ivie);
         }
-        lines.add(new Line(ivie ? "ivie" : "obi", "SAY", clean));
+        lines.add(new TurnLine(ivie ? "ivie" : "obi", "SAY", clean));
         return lines;
     }
 
-    public static final class Route {
-        public final boolean switchOnly;
-        public final boolean ivie;
-        public final List<Line> lines;
-
-        public Route(boolean switchOnly, boolean ivie, List<Line> lines) {
-            this.switchOnly = switchOnly;
-            this.ivie = ivie;
-            this.lines = lines;
-        }
-    }
-
-    /**
-     * "Ivie switch" and "Obi switch" change who is on screen.
-     * Eva / Ubi are accepted because speech often hears the names that way.
-     * Any other sentence stays a conversation, and the faces switch themselves
-     * as each line starts.
-     */
-    public static Route route(String raw, String onScreen) {
+    public static TurnRoute route(String raw, String onScreen) {
         String text = clean(raw).toLowerCase(Locale.US);
         boolean ivie = calls(text, "ivie", "eva", "evee", "ivee");
         boolean obi = calls(text, "obi", "ubi", "obee");
         if (ivie && !obi) {
-            return new Route(true, true, call(true));
+            return new TurnRoute(true, true, call(true));
         }
         if (obi && !ivie) {
-            return new Route(true, false, call(false));
+            return new TurnRoute(true, false, call(false));
         }
-        return new Route(false, false, script(raw, onScreen));
+        return new TurnRoute(false, false, script(raw, onScreen));
     }
 
     public static boolean consequential(String raw) {
@@ -96,9 +66,9 @@ public final class LocalTurn {
     }
 
     /** Typed or spoken words, split across the two voices without rewriting them. */
-    public static List<Line> duet(String text) {
+    public static List<TurnLine> duet(String text) {
         String clean = clean(text);
-        List<Line> lines = new ArrayList<Line>();
+        List<TurnLine> lines = new ArrayList<TurnLine>();
         if (clean.length() == 0) {
             return script("Should we plan this and compare the kind path?", "obi");
         }
@@ -115,9 +85,9 @@ public final class LocalTurn {
                 }
                 side.append(words[i]);
             }
-            lines.add(new Line("obi", "SAY", left.toString()));
+            lines.add(new TurnLine("obi", "SAY", left.toString()));
             if (right.length() > 0) {
-                lines.add(new Line("ivie", "SAY", right.toString()));
+                lines.add(new TurnLine("ivie", "SAY", right.toString()));
             }
             return lines;
         }
@@ -127,13 +97,13 @@ public final class LocalTurn {
             if (part.length() == 0) {
                 continue;
             }
-            lines.add(new Line(ivie ? "ivie" : "obi", "SAY", part));
+            lines.add(new TurnLine(ivie ? "ivie" : "obi", "SAY", part));
             ivie = !ivie;
         }
         return lines;
     }
 
-    public static List<Line> script(String raw, String onScreen) {
+    public static List<TurnLine> script(String raw, String onScreen) {
         String text = clean(raw).toLowerCase(Locale.US);
         boolean askIvie = hasWord(text, "ivie");
         boolean askObi = hasWord(text, "obi");
@@ -142,37 +112,37 @@ public final class LocalTurn {
         boolean complex = blocked || rush || askIvie && askObi || words(text) > 12
                 || hasWord(text, "should") || hasWord(text, "plan") || hasWord(text, "compare")
                 || hasWord(text, "which");
-        List<Line> lines = new ArrayList<Line>();
+        List<TurnLine> lines = new ArrayList<TurnLine>();
         if (!complex) {
             String agent = askIvie ? "ivie" : askObi ? "obi" : (onScreen == null ? "obi" : onScreen);
-            lines.add(new Line(agent, "THINK", null));
-            lines.add(new Line(agent, "SAY", "ivie".equals(agent)
+            lines.add(new TurnLine(agent, "THINK", null));
+            lines.add(new TurnLine(agent, "SAY", "ivie".equals(agent)
                     ? "I'm here. Tell me what you want, and I'll stay with you."
                     : "I'm here. Give me the goal and the constraint."));
             return lines;
         }
         boolean ivieOpens = askIvie && !askObi;
         if (ivieOpens) {
-            lines.add(new Line("ivie", "THINK", null));
-            lines.add(new Line("ivie", "SAY", openLine(true, blocked, rush)));
-            lines.add(new Line("obi", "THINK", null));
-            lines.add(new Line("obi", "SAY", replyLine(false, blocked, rush)));
+            lines.add(new TurnLine("ivie", "THINK", null));
+            lines.add(new TurnLine("ivie", "SAY", openLine(true, blocked, rush)));
+            lines.add(new TurnLine("obi", "THINK", null));
+            lines.add(new TurnLine("obi", "SAY", replyLine(false, blocked, rush)));
         } else {
-            lines.add(new Line("obi", "THINK", null));
-            lines.add(new Line("obi", "SAY", openLine(false, blocked, rush)));
-            lines.add(new Line("ivie", "THINK", null));
-            lines.add(new Line("ivie", "SAY", replyLine(true, blocked, rush)));
+            lines.add(new TurnLine("obi", "THINK", null));
+            lines.add(new TurnLine("obi", "SAY", openLine(false, blocked, rush)));
+            lines.add(new TurnLine("ivie", "THINK", null));
+            lines.add(new TurnLine("ivie", "SAY", replyLine(true, blocked, rush)));
         }
         if (rush) {
-            lines.add(new Line("obi", "THINK", null));
-            lines.add(new Line("obi", "SAY", "Then one small reversible step only, and we still verify it."));
-            lines.add(new Line("ivie", "SAY",
+            lines.add(new TurnLine("obi", "THINK", null));
+            lines.add(new TurnLine("obi", "SAY", "Then one small reversible step only, and we still verify it."));
+            lines.add(new TurnLine("ivie", "SAY",
                     "They did not start in agreement. The compromise is one small reversible step, and nothing consequential."));
         } else if (blocked) {
-            lines.add(new Line("ivie", "SAY",
+            lines.add(new TurnLine("ivie", "SAY",
                     "Obi checked the risk. Ivie considered the impact. Nothing was sent, deleted, or approved."));
         } else {
-            lines.add(new Line(ivieOpens ? "obi" : "ivie", "SAY",
+            lines.add(new TurnLine(ivieOpens ? "obi" : "ivie", "SAY",
                     "Obi checked the structure. Ivie considered the impact. We can go further when you name the goal."));
         }
         return lines;

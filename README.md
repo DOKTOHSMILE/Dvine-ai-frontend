@@ -14,7 +14,7 @@ Motion is sprung, not snapped: blink, glance, brow, jaw, and a slow breathe. Ivi
 
 ## Open
 
-Android Studio: File → Open this directory. It will create the Gradle wrapper from `gradle/wrapper/gradle-wrapper.properties` (Gradle 8.9, Android Gradle Plugin 8.7.3, Java 17, minSdk 26).
+Android Studio or CodeAssist: open this directory. Gradle 8.9, Android Gradle Plugin 8.7.3, Java 8 bytecode, compileSdk 35, minSdk 34, targetSdk 35.
 
 No provider key belongs in this project. `api_base` in `strings.xml` stays empty until a private desk URL is set, and even then the session token is not stored in source.
 
