@@ -8,6 +8,7 @@ import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.text.Layout;
 import android.text.StaticLayout;
+import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Choreographer;
@@ -47,7 +48,7 @@ public final class MatrixStageView extends View {
     private final Paint soft = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint captionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final TextPaint captionPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final Choreographer choreographer = Choreographer.getInstance();
 
     private Listener listener;
@@ -242,7 +243,7 @@ public final class MatrixStageView extends View {
         canvas.drawText(ivieOn ? "IVIE" : "OBI", cx, cy + unit * 1.22f, text);
 
         if (caption.length() > 0) {
-            int width = (int) (w * 0.78f);
+            int width = Math.max(1, (int) (w * 0.78f));
             if (captionLayout == null || captionWidth != width) {
                 captionWidth = width;
                 captionPaint.setTextSize(dp(15f));
