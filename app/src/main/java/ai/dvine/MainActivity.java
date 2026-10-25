@@ -140,6 +140,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private void play(List<TurnLine> next) {
         stopPlay();
+        stage.clearActivity();
         lines = next;
         index = 0;
         final int token = playId;

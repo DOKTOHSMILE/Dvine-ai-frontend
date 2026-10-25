@@ -1,9 +1,8 @@
 package ai.dvine.face;
 
 /**
- * Authored low-poly busts, not a dented sphere.
- * Obi is an angular masculine profile. Ivie is the same scaffold mirrored,
- * with a smaller jaw and long hair trailing behind her.
+ * Faceted busts. Obi is an angular profile facing right.
+ * Ivie is the same face mirrored, with hair trailing behind her.
  */
 public final class LowPolyHead {
     public final float[] rest;
@@ -18,101 +17,111 @@ public final class LowPolyHead {
 
     public static LowPolyHead create(boolean obi) {
         MeshBuilder b = new MeshBuilder();
-        float[][] rings = obi ? obiRings() : ivieRings();
-        int sectors = 10;
-        int[][] id = new int[rings.length][sectors];
-        int[] pos = new int[rings.length];
-        int[] neg = new int[rings.length];
-        float[] posAng = new float[rings.length];
-        float[] negAng = new float[rings.length];
-        for (int i = 0; i < rings.length; i++) {
-            posAng[i] = 99f;
-            negAng[i] = 99f;
-        }
-        for (int i = 0; i < rings.length; i++) {
-            for (int j = 0; j < sectors; j++) {
-                float ang = (float) (j * Math.PI * 2.0 / sectors);
-                float nx = (float) Math.cos(ang);
-                float nz = (float) Math.sin(ang);
-                float nose = (float) Math.pow(Math.max(0f, nx), 2.2f) * rings[i][3];
-                float flare = nz * nz * rings[i][4];
-                float x = nx * rings[i][1] + nose;
-                float z = nz * (rings[i][2] + flare);
-                float y = rings[i][0];
-                if (i == 3 && nx > 0.15f && Math.abs(nz) > 0.28f && Math.abs(nz) < 0.92f) {
-                    x -= obi ? 0.07f : 0.09f;
-                }
-                if (obi && i == 0) {
-                    y = 0.84f;
-                }
-                id[i][j] = b.add(x, y, z);
-                float dp = Math.abs(ang - (float) (Math.PI * 0.5));
-                float dn = Math.abs(ang - (float) (Math.PI * 1.5));
-                if (dn > Math.PI) {
-                    dn = (float) (Math.PI * 2.0 - dn);
-                }
-                if (dp < posAng[i]) {
-                    posAng[i] = dp;
-                    pos[i] = id[i][j];
-                }
-                if (dn < negAng[i]) {
-                    negAng[i] = dn;
-                    neg[i] = id[i][j];
-                }
-            }
-        }
-        for (int i = 0; i < rings.length - 1; i++) {
-            for (int j = 0; j < sectors; j++) {
-                int j2 = (j + 1) % sectors;
-                b.tri(id[i][j], id[i + 1][j2], id[i][j2]);
-                b.tri(id[i][j], id[i + 1][j], id[i + 1][j2]);
-            }
-        }
-        ear(b, pos, obi, 1f);
-        ear(b, neg, obi, -1f);
+        bust(b, obi);
         if (!obi) {
             hair(b);
-        }
-        if (!obi) {
             b.flipX();
         }
         return new LowPolyHead(b.verts(), b.tris(), obi);
     }
 
-    private static void ear(MeshBuilder b, int[] side, boolean obi, float sign) {
-        float out = (obi ? 0.72f : 0.60f) * sign;
-        int tip = b.add(0.04f, 0.20f, out);
-        int lobe = b.add(-0.08f, -0.06f, out * 0.92f);
-        b.tri(side[2], tip, side[4]);
-        b.tri(side[4], tip, lobe);
-        b.tri(side[4], lobe, side[6]);
+    private static void bust(MeshBuilder b, boolean obi) {
+        float n = obi ? 1f : 0.88f;
+        float jawScale = obi ? 1f : 0.78f;
+        float top = obi ? 0.78f : 0.92f;
+        int crown = b.add(0.00f, top, 0f);
+        int fore = b.add(0.16f, obi ? 0.58f : 0.64f, 0f);
+        int brow = b.add(0.30f, 0.40f, 0f);
+        int bridge = b.add(0.40f * n, 0.18f, 0f);
+        int tip = b.add(0.78f * n, 0.00f, 0f);
+        int under = b.add(0.46f * n, -0.10f, 0f);
+        int lip = b.add(0.40f, -0.22f, 0f);
+        int chin = b.add(0.28f * jawScale, -0.48f, 0f);
+        int throat = b.add(0.06f, -0.70f, 0f);
+        int neck = b.add(0.02f, -1.02f, 0f);
+        int occiput = b.add(-0.34f, obi ? 0.62f : 0.70f, 0f);
+        int back = b.add(-0.40f, 0.16f, 0f);
+        int nape = b.add(-0.18f, -0.22f, 0f);
+        int neckBack = b.add(-0.08f, -0.92f, 0f);
+
+        int temple = b.add(0.04f, 0.52f, 0.42f);
+        int browSide = b.add(0.22f, 0.34f, 0.36f);
+        int cheek = b.add(0.18f, 0.02f, 0.40f);
+        int jaw = b.add(0.06f, -0.30f, 0.34f * jawScale);
+        int ear = b.add(-0.06f, 0.08f, 0.58f);
+        int rear = b.add(-0.26f, 0.28f, 0.30f);
+        int neckSide = b.add(0.00f, -0.86f, 0.18f);
+
+        int templeL = b.add(0.04f, 0.52f, -0.42f);
+        int browSideL = b.add(0.22f, 0.34f, -0.36f);
+        int cheekL = b.add(0.18f, 0.02f, -0.40f);
+        int jawL = b.add(0.06f, -0.30f, -0.34f * jawScale);
+        int earL = b.add(-0.06f, 0.08f, -0.58f);
+        int rearL = b.add(-0.26f, 0.28f, -0.30f);
+        int neckSideL = b.add(0.00f, -0.86f, -0.18f);
+
+        side(b, crown, fore, brow, bridge, tip, under, lip, chin, throat, neck,
+                occiput, back, nape, neckBack, temple, browSide, cheek, jaw, ear, rear, neckSide, false);
+        side(b, crown, fore, brow, bridge, tip, under, lip, chin, throat, neck,
+                occiput, back, nape, neckBack, templeL, browSideL, cheekL, jawL, earL, rearL, neckSideL, true);
+        b.tri(neck, neckBack, neckSide);
+        b.tri(neck, neckSideL, neckBack);
+    }
+
+    private static void side(MeshBuilder b,
+                             int crown, int fore, int brow, int bridge, int tip, int under, int lip,
+                             int chin, int throat, int neck, int occiput, int back, int nape, int neckBack,
+                             int temple, int browSide, int cheek, int jaw, int ear, int rear, int neckSide,
+                             boolean far) {
+        int[][] faces = new int[][]{
+                {crown, fore, temple},
+                {fore, brow, browSide},
+                {fore, browSide, temple},
+                {brow, bridge, browSide},
+                {bridge, tip, cheek},
+                {bridge, cheek, browSide},
+                {tip, under, cheek},
+                {under, lip, jaw},
+                {under, jaw, cheek},
+                {lip, chin, jaw},
+                {chin, throat, jaw},
+                {throat, neck, neckSide},
+                {jaw, throat, neckSide},
+                {crown, occiput, temple},
+                {occiput, rear, temple},
+                {occiput, back, rear},
+                {back, nape, rear},
+                {nape, neckBack, neckSide},
+                {rear, nape, jaw},
+                {temple, cheek, ear},
+                {cheek, jaw, ear},
+                {temple, ear, rear}
+        };
+        for (int i = 0; i < faces.length; i++) {
+            int a = faces[i][0];
+            int c = faces[i][1];
+            int d = faces[i][2];
+            if (far) {
+                b.tri(a, d, c);
+            } else {
+                b.tri(a, c, d);
+            }
+        }
     }
 
     private static void hair(MeshBuilder b) {
-        int strands = 7;
-        for (int s = 0; s < strands; s++) {
-            float z0 = -0.46f + s * (0.92f / (strands - 1));
-            boolean edge = s == 0 || s == strands - 1;
+        float[] depth = new float[]{-0.36f, 0f, 0.36f};
+        for (int s = 0; s < depth.length; s++) {
             int prevL = -1;
             int prevR = -1;
-            int steps = 8;
-            for (int k = 0; k < steps; k++) {
-                float t = k / (float) (steps - 1);
-                float x;
-                float y;
-                float z;
-                if (edge) {
-                    float side = s == 0 ? -1f : 1f;
-                    x = -0.08f - t * 0.08f;
-                    y = 0.78f - t * 1.12f;
-                    z = side * (0.50f + t * 0.20f);
-                } else {
-                    x = -0.18f - t * 0.62f;
-                    y = 0.96f - t * 1.05f - Math.abs(z0) * 0.18f;
-                    z = z0 * (0.75f + t * 0.55f);
-                }
-                int left = b.add(x, y, z - 0.045f);
-                int right = b.add(x * 0.98f, y, z + 0.045f);
+            boolean edge = s != 1;
+            for (int k = 0; k < 6; k++) {
+                float t = k / 5f;
+                float x = edge ? -0.05f - t * 0.12f : -0.22f - t * 0.58f;
+                float y = edge ? 0.64f - t * 0.95f : 0.88f - t * 1.15f;
+                float z = depth[s] * (edge ? 1.15f : 0.85f + t * 0.3f);
+                int left = b.add(x, y, z - 0.05f);
+                int right = b.add(x, y - 0.02f, z + 0.05f);
                 if (prevL >= 0) {
                     b.tri(prevL, left, prevR);
                     b.tri(prevR, left, right);
@@ -121,37 +130,6 @@ public final class LowPolyHead {
                 prevR = right;
             }
         }
-    }
-
-    /** y, forward radius, side radius, nose, jaw flare. */
-    private static float[][] obiRings() {
-        return new float[][]{
-                {0.90f, 0.26f, 0.34f, 0.00f, 0.00f},
-                {0.70f, 0.42f, 0.48f, 0.02f, 0.00f},
-                {0.50f, 0.46f, 0.52f, 0.08f, 0.02f},
-                {0.30f, 0.40f, 0.50f, 0.14f, 0.02f},
-                {0.10f, 0.32f, 0.48f, 0.40f, 0.06f},
-                {-0.08f, 0.38f, 0.50f, 0.18f, 0.10f},
-                {-0.26f, 0.40f, 0.48f, 0.10f, 0.14f},
-                {-0.46f, 0.30f, 0.40f, 0.04f, 0.08f},
-                {-0.70f, 0.16f, 0.22f, 0.00f, 0.00f},
-                {-1.05f, 0.22f, 0.30f, 0.00f, 0.00f}
-        };
-    }
-
-    private static float[][] ivieRings() {
-        return new float[][]{
-                {0.96f, 0.24f, 0.32f, 0.00f, 0.00f},
-                {0.74f, 0.38f, 0.44f, 0.02f, 0.00f},
-                {0.52f, 0.42f, 0.46f, 0.06f, 0.00f},
-                {0.32f, 0.36f, 0.44f, 0.12f, 0.00f},
-                {0.12f, 0.28f, 0.42f, 0.32f, 0.02f},
-                {-0.06f, 0.32f, 0.42f, 0.14f, 0.04f},
-                {-0.22f, 0.34f, 0.40f, 0.08f, 0.04f},
-                {-0.40f, 0.24f, 0.32f, 0.03f, 0.02f},
-                {-0.64f, 0.14f, 0.20f, 0.00f, 0.00f},
-                {-1.00f, 0.18f, 0.24f, 0.00f, 0.00f}
-        };
     }
 
     public void deform(float smile, float jaw, float browL, float browR, float time, float[] out) {
@@ -185,8 +163,7 @@ public final class LowPolyHead {
             }
             if (hair) {
                 float fall = Math.min(1f, Math.max(0f, (x - 0.15f) / 0.7f));
-                float sway = (float) Math.sin(time * 0.7f + z * 3f) * 0.03f * fall;
-                z += sway;
+                z += (float) Math.sin(time * 0.7f + z * 3f) * 0.03f * fall;
                 y += (float) Math.sin(time * 0.45f + x) * 0.012f * fall;
             }
             out[o] = x;
@@ -194,64 +171,43 @@ public final class LowPolyHead {
             out[o + 2] = z;
         }
     }
-
-    public int frontFaceCount() {
-        int faces = 0;
-        for (int t = 0; t < tris.length; t += 3) {
-            int a = tris[t] * 3;
-            int b = tris[t + 1] * 3;
-            int c = tris[t + 2] * 3;
-            float ax = rest[b] - rest[a];
-            float ay = rest[b + 1] - rest[a + 1];
-            float az = rest[b + 2] - rest[a + 2];
-            float bx = rest[c] - rest[a];
-            float by = rest[c + 1] - rest[a + 1];
-            float bz = rest[c + 2] - rest[a + 2];
-            float nz = ax * by - ay * bx;
-            float cz = (rest[a + 2] + rest[b + 2] + rest[c + 2]) / 3f;
-            if (cz > 0f && nz != 0f) {
-                faces++;
-            }
-        }
-        return faces;
-    }
 }
 
 final class MeshBuilder {
-        private final float[] data = new float[900];
-        private final int[] idx = new int[1800];
-        private int n;
-        private int t;
+    private final float[] data = new float[900];
+    private final int[] idx = new int[1800];
+    private int n;
+    private int t;
 
-        int add(float x, float y, float z) {
-            int id = n / 3;
-            data[n++] = x;
-            data[n++] = y;
-            data[n++] = z;
-            return id;
-        }
+    int add(float x, float y, float z) {
+        int id = n / 3;
+        data[n++] = x;
+        data[n++] = y;
+        data[n++] = z;
+        return id;
+    }
 
-        void tri(int a, int b, int c) {
-            idx[t++] = a;
-            idx[t++] = b;
-            idx[t++] = c;
-        }
+    void tri(int a, int b, int c) {
+        idx[t++] = a;
+        idx[t++] = b;
+        idx[t++] = c;
+    }
 
-        void flipX() {
-            for (int i = 0; i < n; i += 3) {
-                data[i] = -data[i];
-            }
+    void flipX() {
+        for (int i = 0; i < n; i += 3) {
+            data[i] = -data[i];
         }
+    }
 
-        float[] verts() {
-            float[] out = new float[n];
-            System.arraycopy(data, 0, out, 0, n);
-            return out;
-        }
+    float[] verts() {
+        float[] out = new float[n];
+        System.arraycopy(data, 0, out, 0, n);
+        return out;
+    }
 
-        int[] tris() {
-            int[] out = new int[t];
-            System.arraycopy(idx, 0, out, 0, t);
-            return out;
-        }
+    int[] tris() {
+        int[] out = new int[t];
+        System.arraycopy(idx, 0, out, 0, t);
+        return out;
+    }
 }

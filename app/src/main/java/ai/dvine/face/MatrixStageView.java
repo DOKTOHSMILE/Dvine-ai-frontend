@@ -159,8 +159,16 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         captionLayout = null;
     }
 
+    public void clearActivity() {
+        activityCount = 0;
+    }
+
     public void pushActivity(String label) {
         if (label == null || label.length() == 0) {
+            return;
+        }
+        if (activityCount > 0 && label.equals(activity[activityCount - 1])) {
+            activityTime[activityCount - 1] = clock();
             return;
         }
         String when = clock();
@@ -264,7 +272,7 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         text.setAlpha(220);
         canvas.drawText(link, linkBox.left + dp(11f), headerY, text);
 
-        float unit = Math.min(w * 0.20f, dp(86f));
+        float unit = Math.min(w * 0.26f, dp(108f));
         float cx = w * 0.5f;
         float cy = headerY + dp(28f) + unit * 1.05f;
         headHit.set(cx - unit * 1.15f, cy - unit * 1.2f, cx + unit * 1.15f, cy + unit * 1.15f);
@@ -309,9 +317,14 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         text.setAlpha(230);
         canvas.drawText(status, cx, pillY + dp(4f), text);
 
-        float cardTop = statusBox.bottom + dp(16f);
-        float cardBottom = h - padBottom - dp(76f);
-        RectF card = new RectF(side, cardTop, w - side, cardBottom);
+        float cardTop = statusBox.bottom + dp(18f);
+        int rows = staged ? 4 : Math.max(activityCount, 1);
+        float cardH = staged ? dp(176f) : dp(36f) + rows * dp(26f) + dp(18f);
+        float cardMax = h - padBottom - dp(88f) - cardTop;
+        if (cardH > cardMax) {
+            cardH = Math.max(dp(72f), cardMax);
+        }
+        RectF card = new RectF(side, cardTop, w - side, cardTop + cardH);
         fill.setColor(0xFF0A0A0A);
         fill.setAlpha(255);
         canvas.drawRoundRect(card, dp(16f), dp(16f), fill);
@@ -339,8 +352,7 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         fill.setColor(color);
         fill.setAlpha(listening ? 200 : 70);
         canvas.drawCircle(micCx, micCy, listening ? dp(4.5f) : dp(3f), fill);
-        stroke.setStrokeWidth(dp(1.4f));
-        canvas.drawRoundRect(new RectF(composer.right - dp(30f), micCy - dp(8f), composer.right - dp(16f), micCy + dp(8f)), dp(2f), dp(2f), stroke);
+        drawKeys(canvas, composer.right - dp(18f), micCy, color);
         text.setTextAlign(Paint.Align.LEFT);
         text.setColor(0xFF8A8A8A);
         text.setTextSize(dp(13f));
@@ -373,19 +385,45 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
     }
 
     private void drawSignal(Canvas canvas, float cx, float y, int color, FaceRig rig) {
-        int count = 27;
-        float gap = dp(3.4f);
+        int count = 19;
+        float gap = dp(5.2f);
         boolean live = listening || rig.mode() == FaceMode.SPEAKING || rig.mode() == FaceMode.LISTENING;
         stroke.setColor(color);
-        stroke.setStrokeWidth(dp(1.7f));
+        stroke.setStrokeWidth(dp(1.6f));
         for (int i = 0; i < count; i++) {
             float env = (float) Math.sin((i + 0.5f) / count * Math.PI);
-            float wobble = (float) Math.sin(rig.time() * (live ? 7.5f : 1.6f) + i * 0.65f);
-            float amp = live ? 0.25f + Math.abs(wobble) * (0.35f + rig.jaw.value) : 0.12f + Math.abs(wobble) * 0.08f;
-            float half = dp(16f) * env * amp + dp(1.5f);
-            stroke.setAlpha(live ? 210 : 90);
+            float wobble = (float) Math.sin(rig.time() * (live ? 8f : 1.4f) + i * 0.85f);
+            float amp = live ? 0.55f + Math.abs(wobble) * 0.9f : 0.42f + Math.abs(wobble) * 0.28f;
+            float half = dp(20f) * env * amp;
+            if (half < dp(1.4f)) {
+                half = dp(1.4f);
+            }
+            stroke.setAlpha(live ? 230 : 150);
             float x = cx + (i - (count - 1) / 2f) * gap;
             canvas.drawLine(x, y - half, x, y + half, stroke);
+        }
+    }
+
+    private void drawKeys(Canvas canvas, float right, float cy, int color) {
+        stroke.setColor(color);
+        stroke.setAlpha(170);
+        stroke.setStrokeWidth(dp(1.15f));
+        float w = dp(16f);
+        float h = dp(11f);
+        float left = right - w;
+        float top = cy - h / 2f;
+        canvas.drawRoundRect(new RectF(left, top, right, top + h), dp(1.6f), dp(1.6f), stroke);
+        stroke.setStrokeWidth(dp(1f));
+        for (int row = 0; row < 2; row++) {
+            float y = top + dp(3.2f) + row * dp(3.6f);
+            int keys = row == 0 ? 4 : 3;
+            float span = w - dp(4f);
+            float gap = span / keys;
+            float start = left + dp(2.4f) + (row == 1 ? gap * 0.35f : 0f);
+            for (int k = 0; k < keys; k++) {
+                float x = start + k * gap;
+                canvas.drawLine(x, y, x + dp(1.6f), y, stroke);
+            }
         }
     }
 
