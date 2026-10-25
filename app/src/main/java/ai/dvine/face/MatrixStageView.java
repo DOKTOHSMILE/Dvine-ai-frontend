@@ -280,7 +280,7 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         glowPaint.setShader(ivieOn ? ivieGlow : obiGlow);
         glowPaint.setAlpha((int) (180 * faceAlpha));
         canvas.drawCircle(cx, cy + unit * 0.15f, unit * 1.25f, glowPaint);
-        float pose = ivieOn ? 18f : -18f;
+        float pose = ivieOn ? 28f : -28f;
         float away = (ivieOn ? -12f : 12f) * dissolve.value;
         drawSkull(canvas, ivieOn ? ivieHead : obiHead, rig, cx, cy, unit, color, faceAlpha, pose + away);
 
