@@ -17,6 +17,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 
+import ai.dvine.gl.MeshGlView;
+
 /**
  * One face. Obi and Ivie never share the screen.
  * The current head dissolves and the other assembles when that persona
@@ -121,8 +123,14 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         setContentDescription("DVINE. One face. Swipe to speak. Say Obi switch or Ivie switch.");
     }
 
+    private MeshGlView meshGl;
+
     public void setListener(StageListener listener) {
         this.listener = listener;
+    }
+
+    public void setMesh(MeshGlView meshGl) {
+        this.meshGl = meshGl;
     }
 
     public boolean isIvie() {
@@ -276,13 +284,24 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         float cx = w * 0.5f;
         float cy = headerY + dp(28f) + unit * 1.05f;
         headHit.set(cx - unit * 1.15f, cy - unit * 1.2f, cx + unit * 1.15f, cy + unit * 1.15f);
+        if (meshGl != null && meshGl.isLive()) {
+            meshGl.place(Math.round(headHit.left), Math.round(headHit.top),
+                    Math.round(headHit.right), Math.round(headHit.bottom));
+        }
         ensureGlow(unit);
         glowPaint.setShader(ivieOn ? ivieGlow : obiGlow);
         glowPaint.setAlpha((int) (180 * faceAlpha));
         canvas.drawCircle(cx, cy + unit * 0.15f, unit * 1.25f, glowPaint);
         float pose = ivieOn ? 28f : -28f;
         float away = (ivieOn ? -12f : 12f) * dissolve.value;
-        drawSkull(canvas, ivieOn ? ivieHead : obiHead, rig, cx, cy, unit, color, faceAlpha, pose + away);
+        boolean gl = meshGl != null && meshGl.isLive();
+        if (gl) {
+            meshGl.publish(ivieOn, pose + away + rig.yaw.value, unit,
+                    rig.smile.value, rig.jaw.value, rig.browL.value, rig.browR.value,
+                    rig.time(), faceAlpha);
+        } else {
+            drawSkull(canvas, ivieOn ? ivieHead : obiHead, rig, cx, cy, unit, color, faceAlpha, pose + away);
+        }
 
         float nameY = cy + unit * 1.22f;
         text.setTextAlign(Paint.Align.CENTER);
