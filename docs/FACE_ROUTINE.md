@@ -12,7 +12,7 @@ Triggers:
 - You say their name.
 - Say "Obi switch" or "Ivie switch". Speech may hear those as "Ubi switch" and "Eva switch"; both are accepted.
 - Ask a question and they switch on their own when the other one has a line.
-- Swipe does not change the persona.
+- Swipe turns the microphone on or off. It does not change the persona.
 
 ## Motion
 

@@ -89,6 +89,7 @@ public final class MatrixStageView extends View {
     private float downY;
     private boolean decided;
     private boolean dragged;
+    private boolean micSwipe;
 
     private final Choreographer.FrameCallback frame = new Choreographer.FrameCallback() {
         @Override
@@ -128,7 +129,7 @@ public final class MatrixStageView extends View {
         text.setTextAlign(Paint.Align.CENTER);
         captionPaint.setColor(INK);
         captionPaint.setTextAlign(Paint.Align.CENTER);
-        setContentDescription("DVINE. One face. Say Obi switch or Ivie switch.");
+        setContentDescription("DVINE. One face. Swipe to speak. Say Obi switch or Ivie switch.");
     }
 
     public void setListener(Listener listener) {
@@ -819,14 +820,16 @@ public final class MatrixStageView extends View {
                 downY = y;
                 decided = false;
                 dragged = false;
+                micSwipe = false;
                 return true;
             case MotionEvent.ACTION_MOVE:
                 float dx = x - downX;
                 float dy = y - downY;
                 if (!decided && (Math.abs(dx) > slop || Math.abs(dy) > slop)) {
                     decided = true;
+                    micSwipe = Math.abs(dx) > Math.abs(dy) * 1.2f && !composer.contains(downX, downY);
                 }
-                if (decided && headHit.contains(downX, downY)) {
+                if (decided && !micSwipe && headHit.contains(downX, downY)) {
                     dragged = true;
                     rig().setDrag(dx / density * 0.11f, -dy / density * 0.08f, true);
                 }
@@ -834,10 +837,17 @@ public final class MatrixStageView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 rig().setDrag(0f, 0f, false);
-                if (event.getActionMasked() == MotionEvent.ACTION_CANCEL || dragged) {
+                if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
                     return true;
                 }
-                if (Math.hypot(x - downX, y - downY) > dp(14f) || listener == null) {
+                float travel = Math.abs(x - downX);
+                if (micSwipe && travel > dp(64f)) {
+                    if (listener != null) {
+                        listener.onMic();
+                    }
+                    return true;
+                }
+                if (dragged || Math.hypot(x - downX, y - downY) > dp(14f) || listener == null) {
                     return true;
                 }
                 if (micHit.contains(x, y)) {

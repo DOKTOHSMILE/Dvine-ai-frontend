@@ -5,7 +5,7 @@ Native Java client. One face fills the screen. Obi (cyan `#00E5FF`) and Ivie (am
 The face changes only when that persona has a line, or when you call the other one.
 
 - Say **Obi switch** or **Ivie switch** to change who is on screen. Speech may hear those as "Ubi switch" and "Eva switch".
-- Ask a question and they switch by themselves as each one speaks. A swipe does not change the face.
+- Ask a question and they switch by themselves as each one speaks. A swipe starts the microphone. It does not change the face.
 - Tap the face and the one on screen speaks.
 - Mic runs the same turn rules as the desk: a short line stays with one voice. A real question lets Obi and Ivie each argue once from their own side, then one of them closes. A rush gets one rebuttal. A consequential ask is refused out loud.
 - Type → Obi or Ivie speaks your words. Ask both runs the turn rules.
