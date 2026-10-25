@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DVINE</string>
+    <!-- Empty until a private desk is configured. No token belongs in this file. -->
+    <string name="api_base"></string>
+</resources>
