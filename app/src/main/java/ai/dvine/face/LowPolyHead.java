@@ -9,6 +9,8 @@ public final class LowPolyHead {
     public final int[] tris;
     public final boolean obi;
 
+    private final LatticeControlMatrix lattice = new LatticeControlMatrix();
+
     private LowPolyHead(float[] rest, int[] tris, boolean obi) {
         this.rest = rest;
         this.tris = tris;
@@ -23,42 +25,20 @@ public final class LowPolyHead {
     }
 
     public void deform(float smile, float jaw, float browL, float browR, float time, float[] out) {
-        System.arraycopy(rest, 0, out, 0, rest.length);
+        lattice.update(smile, jaw, browL, browR, time, obi);
+        lattice.deform(rest, out);
+        if (obi) {
+            return;
+        }
         int count = rest.length / 3;
-        float hingeY = -0.06f;
-        float hingeX = 0.02f;
-        float ang = jaw * (obi ? 0.42f : 0.36f);
-        float ca = (float) Math.cos(ang);
-        float sa = (float) Math.sin(ang);
         for (int i = 0; i < count; i++) {
             int o = i * 3;
-            float x = out[o];
-            float y = out[o + 1];
-            float z = out[o + 2];
-            float faceX = obi ? x : -x;
-            if (y > 0.36f && y < 0.62f && faceX > 0.12f) {
-                y += (z > 0f ? browR : browL) * 0.045f;
-            }
-            if (y < -0.02f && y > -0.36f && faceX > 0.08f && Math.abs(z) > 0.10f && Math.abs(z) < 0.42f) {
-                y += smile * (obi ? 0.035f : 0.05f);
-            }
-            boolean hair = !obi && x > 0.15f && y < 0.95f;
-            if (!hair && y < hingeY && y > -0.78f && faceX > -0.20f) {
-                float dy = y - hingeY;
-                float dx = x - hingeX;
-                float along = obi ? dx : -dx;
-                float turned = hingeX + (obi ? 1f : -1f) * (along * ca + dy * sa);
-                y = hingeY + (-along * sa + dy * ca);
-                x = turned;
-            }
-            if (hair) {
+            float x = rest[o];
+            if (x > 0.15f && rest[o + 1] < 0.95f) {
                 float fall = Math.min(1f, Math.max(0f, (x - 0.10f) / 0.8f));
-                z += (float) Math.sin(time * 0.8f + z * 3.2f) * 0.035f * fall;
-                y += (float) Math.sin(time * 0.5f + x) * 0.015f * fall;
+                out[o + 2] += (float) Math.sin(time * 0.8f + out[o + 2] * 3.2f) * 0.035f * fall;
+                out[o + 1] += (float) Math.sin(time * 0.5f + x) * 0.015f * fall;
             }
-            out[o] = x;
-            out[o + 1] = y;
-            out[o + 2] = z;
         }
     }
 
