@@ -11,6 +11,8 @@ import android.widget.EditText;
 
 import ai.dvine.face.FaceMode;
 import ai.dvine.face.MatrixStageView;
+import ai.dvine.face.StageListener;
+import ai.dvine.voice.ListenCallback;
 import ai.dvine.turn.LocalTurn;
 import ai.dvine.turn.TurnLine;
 import ai.dvine.turn.TurnRoute;
@@ -23,7 +25,7 @@ import java.util.List;
  * One face on screen. Lines from {@link LocalTurn} switch the face
  * when Obi or Ivie has something to say, or when the user calls one of them.
  */
-public final class MainActivity extends Activity implements MatrixStageView.Listener {
+public final class MainActivity extends Activity implements StageListener, ListenCallback {
     private static final int MIC = 21;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -83,28 +85,28 @@ public final class MainActivity extends Activity implements MatrixStageView.List
         stage.setListening(true);
         stage.setNotice("");
         stage.setMode(FaceMode.LISTENING);
-        listen.start(new ListenBridge.Callback() {
-            @Override
-            public void onPartial(String text) {
-                stage.setNotice(text);
-            }
+        listen.start(this);
+    }
 
-            @Override
-            public void onResult(String text) {
-                stage.setListening(false);
-                stage.setNotice("");
-                TurnRoute route = LocalTurn.route(text, stage.agent());
-                stage.setStaged(!route.switchOnly && LocalTurn.consequential(text), text);
-                play(route.lines);
-            }
+    @Override
+    public void onPartial(String text) {
+        stage.setNotice(text);
+    }
 
-            @Override
-            public void onError(String message) {
-                stage.setListening(false);
-                stage.setNotice(message);
-                stage.setMode(FaceMode.ERROR);
-            }
-        });
+    @Override
+    public void onResult(String text) {
+        stage.setListening(false);
+        stage.setNotice("");
+        TurnRoute route = LocalTurn.route(text, stage.agent());
+        stage.setStaged(!route.switchOnly && LocalTurn.consequential(text), text);
+        play(route.lines);
+    }
+
+    @Override
+    public void onError(String message) {
+        stage.setListening(false);
+        stage.setNotice(message);
+        stage.setMode(FaceMode.ERROR);
     }
 
     @Override

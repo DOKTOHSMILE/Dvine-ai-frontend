@@ -10,37 +10,19 @@ import android.speech.tts.UtteranceProgressListener;
 import java.util.Locale;
 
 /** One utterance at a time. Pitch stays close to natural. */
-public final class TalkBridge {
-    public interface Done {
-        void onDone();
-    }
-
+public final class TalkBridge extends UtteranceProgressListener {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final TextToSpeech tts;
     private boolean ready;
     private int generation;
-    private Done pending;
+    private TalkDone pending;
 
     public TalkBridge(Context context) {
         tts = new TextToSpeech(context.getApplicationContext(), status -> ready = status == TextToSpeech.SUCCESS);
-        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-            @Override
-            public void onStart(String utteranceId) {
-            }
-
-            @Override
-            public void onDone(String utteranceId) {
-                finish(utteranceId, false);
-            }
-
-            @Override
-            public void onError(String utteranceId) {
-                finish(utteranceId, true);
-            }
-        });
+        tts.setOnUtteranceProgressListener(this);
     }
 
-    public void speak(boolean ivie, String text, Done done) {
+    public void speak(boolean ivie, String text, TalkDone done) {
         final int token = ++generation;
         pending = done;
         if (!ready || text == null || text.trim().isEmpty()) {
@@ -69,6 +51,20 @@ public final class TalkBridge {
         }
     }
 
+    @Override
+    public void onStart(String utteranceId) {
+    }
+
+    @Override
+    public void onDone(String utteranceId) {
+        finish(utteranceId);
+    }
+
+    @Override
+    public void onError(String utteranceId) {
+        finish(utteranceId);
+    }
+
     private void finish(String utteranceId) {
         int token = 0;
         int dash = utteranceId == null ? -1 : utteranceId.lastIndexOf('-');
@@ -83,15 +79,11 @@ public final class TalkBridge {
         main.post(() -> finish(heard));
     }
 
-    private void finish(String utteranceId, boolean error) {
-        finish(utteranceId);
-    }
-
     private void finish(int token) {
         if (token != generation || pending == null) {
             return;
         }
-        Done done = pending;
+        TalkDone done = pending;
         pending = null;
         done.onDone();
     }

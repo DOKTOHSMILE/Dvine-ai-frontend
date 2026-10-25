@@ -17,7 +17,7 @@ public final class LowPolyHead {
     }
 
     public static LowPolyHead create(boolean obi) {
-        Builder b = new Builder();
+        MeshBuilder b = new MeshBuilder();
         float[][] rings = obi ? obiRings() : ivieRings();
         int sectors = 10;
         int[][] id = new int[rings.length][sectors];
@@ -79,7 +79,7 @@ public final class LowPolyHead {
         return new LowPolyHead(b.verts(), b.tris(), obi);
     }
 
-    private static void ear(Builder b, int[] side, boolean obi, float sign) {
+    private static void ear(MeshBuilder b, int[] side, boolean obi, float sign) {
         float out = (obi ? 0.72f : 0.60f) * sign;
         int tip = b.add(0.04f, 0.20f, out);
         int lobe = b.add(-0.08f, -0.06f, out * 0.92f);
@@ -88,7 +88,7 @@ public final class LowPolyHead {
         b.tri(side[4], lobe, side[6]);
     }
 
-    private static void hair(Builder b) {
+    private static void hair(MeshBuilder b) {
         int strands = 7;
         for (int s = 0; s < strands; s++) {
             float z0 = -0.46f + s * (0.92f / (strands - 1));
@@ -215,8 +215,9 @@ public final class LowPolyHead {
         }
         return faces;
     }
+}
 
-    private static final class Builder {
+final class MeshBuilder {
         private final float[] data = new float[900];
         private final int[] idx = new int[1800];
         private int n;
@@ -253,5 +254,4 @@ public final class LowPolyHead {
             System.arraycopy(idx, 0, out, 0, t);
             return out;
         }
-    }
 }

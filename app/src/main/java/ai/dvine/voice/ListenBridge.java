@@ -9,18 +9,11 @@ import android.speech.SpeechRecognizer;
 
 import java.util.ArrayList;
 
-public final class ListenBridge {
-    public interface Callback {
-        void onPartial(String text);
-
-        void onResult(String text);
-
-        void onError(String message);
-    }
-
+public final class ListenBridge implements RecognitionListener {
     private final Context context;
     private SpeechRecognizer recognizer;
     private boolean listening;
+    private ListenCallback callback;
 
     public ListenBridge(Context context) {
         this.context = context.getApplicationContext();
@@ -30,62 +23,15 @@ public final class ListenBridge {
         return SpeechRecognizer.isRecognitionAvailable(context);
     }
 
-    public void start(final Callback callback) {
+    public void start(final ListenCallback callback) {
         stop();
+        this.callback = callback;
         if (!available()) {
             callback.onError("Speech recognition isn't on this phone.");
             return;
         }
         recognizer = SpeechRecognizer.createSpeechRecognizer(context);
-        recognizer.setRecognitionListener(new RecognitionListener() {
-            @Override
-            public void onReadyForSpeech(Bundle params) {
-            }
-
-            @Override
-            public void onBeginningOfSpeech() {
-            }
-
-            @Override
-            public void onRmsChanged(float rmsdB) {
-            }
-
-            @Override
-            public void onBufferReceived(byte[] buffer) {
-            }
-
-            @Override
-            public void onEndOfSpeech() {
-            }
-
-            @Override
-            public void onError(int error) {
-                listening = false;
-                if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                    callback.onError("I didn't catch that.");
-                } else if (error != SpeechRecognizer.ERROR_CLIENT) {
-                    callback.onError("Microphone stopped.");
-                }
-            }
-
-            @Override
-            public void onResults(Bundle results) {
-                listening = false;
-                callback.onResult(first(results));
-            }
-
-            @Override
-            public void onPartialResults(Bundle partial) {
-                String text = first(partial);
-                if (text.length() > 0) {
-                    callback.onPartial(text);
-                }
-            }
-
-            @Override
-            public void onEvent(int eventType, Bundle params) {
-            }
-        });
+        recognizer.setRecognitionListener(this);
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
@@ -116,5 +62,61 @@ public final class ListenBridge {
             return "";
         }
         return list.get(0).trim();
+    }
+
+    @Override
+    public void onReadyForSpeech(Bundle params) {
+    }
+
+    @Override
+    public void onBeginningOfSpeech() {
+    }
+
+    @Override
+    public void onRmsChanged(float rmsdB) {
+    }
+
+    @Override
+    public void onBufferReceived(byte[] buffer) {
+    }
+
+    @Override
+    public void onEndOfSpeech() {
+    }
+
+    @Override
+    public void onError(int error) {
+        listening = false;
+        if (callback == null) {
+            return;
+        }
+        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+            callback.onError("I didn't catch that.");
+        } else if (error != SpeechRecognizer.ERROR_CLIENT) {
+            callback.onError("Microphone stopped.");
+        }
+    }
+
+    @Override
+    public void onResults(Bundle results) {
+        listening = false;
+        if (callback != null) {
+            callback.onResult(first(results));
+        }
+    }
+
+    @Override
+    public void onPartialResults(Bundle partial) {
+        if (callback == null) {
+            return;
+        }
+        String text = first(partial);
+        if (text.length() > 0) {
+            callback.onPartial(text);
+        }
+    }
+
+    @Override
+    public void onEvent(int eventType, Bundle params) {
     }
 }

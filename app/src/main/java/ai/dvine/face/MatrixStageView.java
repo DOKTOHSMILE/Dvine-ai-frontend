@@ -22,16 +22,7 @@ import android.view.WindowInsets;
  * The current head dissolves and the other assembles when that persona
  * has a line, or when the user calls them.
  */
-public final class MatrixStageView extends View {
-    public interface Listener {
-        void onHeadTap();
-
-        void onMic();
-
-        void onType();
-
-        void onDraft(boolean send);
-    }
+public final class MatrixStageView extends View implements Choreographer.FrameCallback {
 
     private static final int OBI = 0xFF00E5FF;
     private static final int IVIE = 0xFFFFB300;
@@ -52,7 +43,7 @@ public final class MatrixStageView extends View {
     private final TextPaint captionPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final Choreographer choreographer = Choreographer.getInstance();
 
-    private Listener listener;
+    private StageListener listener;
     private boolean showingIvie;
     private boolean pendingIvie;
     private int phase; // 0 hold, 1 leave, 2 enter
@@ -91,18 +82,16 @@ public final class MatrixStageView extends View {
     private boolean dragged;
     private boolean micSwipe;
 
-    private final Choreographer.FrameCallback frame = new Choreographer.FrameCallback() {
-        @Override
-        public void doFrame(long nanos) {
-            float dt = lastNanos == 0L ? 0.016f : (nanos - lastNanos) / 1_000_000_000f;
-            lastNanos = nanos;
-            tick(dt);
-            invalidate();
-            if (framePosted) {
-                choreographer.postFrameCallback(this);
-            }
+    @Override
+    public void doFrame(long nanos) {
+        float dt = lastNanos == 0L ? 0.016f : (nanos - lastNanos) / 1_000_000_000f;
+        lastNanos = nanos;
+        tick(dt);
+        invalidate();
+        if (framePosted) {
+            choreographer.postFrameCallback(this);
         }
-    };
+    }
 
     public MatrixStageView(Context context) {
         super(context);
@@ -132,7 +121,7 @@ public final class MatrixStageView extends View {
         setContentDescription("DVINE. One face. Swipe to speak. Say Obi switch or Ivie switch.");
     }
 
-    public void setListener(Listener listener) {
+    public void setListener(StageListener listener) {
         this.listener = listener;
     }
 
@@ -895,12 +884,12 @@ public final class MatrixStageView extends View {
         }
         framePosted = true;
         lastNanos = 0L;
-        choreographer.postFrameCallback(frame);
+        choreographer.postFrameCallback(this);
     }
 
     private void stopFrames() {
         framePosted = false;
-        choreographer.removeFrameCallback(frame);
+        choreographer.removeFrameCallback(this);
     }
 
     @Override
