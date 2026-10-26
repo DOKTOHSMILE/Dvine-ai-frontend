@@ -116,7 +116,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
         window.setDecorFitsSystemWindows(false);
         stage = new StageView(this);
         stage.setListener(this);
-        setContentView(stage);
+        // the 3D wireframe human renders with OpenGL under the transparent stage overlay
+        final ai.dvine.render.HumanView humanView = new ai.dvine.render.HumanView(this);
+        final ai.dvine.render.HumanStage humanStage = new ai.dvine.render.HumanStage(humanView.renderer);
+        stage.attachHuman(humanStage, humanView);
+        humanStage.load(name -> getAssets().open(name), null);
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.setBackgroundColor(0xFF000000);
+        root.addView(humanView);
+        root.addView(stage);
+        setContentView(root);
         // only after setContentView: before it the window has no decor and this throws
         WindowInsetsController bars = window.getInsetsController();
         if (bars != null) {
@@ -132,10 +141,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.setSubtitles(prefs.getBoolean("subtitles", true));
         Look obiLook = Look.parse(prefs.getString("look_obi", null), false);
         Look ivieLook = Look.parse(prefs.getString("look_ivie", null), true);
+        if (prefs.getInt("look_version", 1) < 2) {
+            // looks saved before the 3D wireframe human was the default: keep the shape, switch the style once
+            obiLook.style = Look.Style.WIRE;
+            ivieLook.style = Look.Style.WIRE;
+            prefs.edit().putInt("look_version", 2).putString("look_obi", obiLook.serialize())
+                    .putString("look_ivie", ivieLook.serialize()).apply();
+        }
         stage.setLook(false, obiLook);
         stage.setLook(true, ivieLook);
         talk.setTuning(false, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
         talk.setTuning(true, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_ivie", null), true));
+        talk.setWordListener(stage::speechWord);
         talk.setListener((ivie, speaking) -> {
             ambient.setPersona(ivie);
             ambient.setLevel(speaking ? 1f : 0f);
@@ -278,7 +295,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         // the brain proposes; the engine validates, arbitrates and moves the body
         engine.perform(reply, now);
         if ("SELF_REPORT".equals(reply.command)) {
-            play(LocalTurn.speakAs(stage.isIvie(), engine.selfReport(now)), null);
+            play(LocalTurn.speakAs(stage.isIvie(), engine.selfReport(now) + " " + stage.inspect()), null);
             return;
         }
         if ("FAVOURITES".equals(reply.command)) {
@@ -370,6 +387,32 @@ public final class MainActivity extends Activity implements StageListener, Liste
     public void onHeadTap() {
         stopPlay();
         play(LocalTurn.call(stage.isIvie()), null);
+    }
+
+    /** A classified touch on the 3D body: the persona names the part, and reacts to repeats and holds. */
+    @Override
+    public void onBodyTouch(ai.dvine.human.touch.BodyTouch touch) {
+        String part = touch.spoken();
+        if (part == null) {
+            return;
+        }
+        boolean ivie = stage.isIvie();
+        if (touch.kind == ai.dvine.human.touch.BodyTouch.Kind.REPEAT && touch.count >= 3) {
+            stopPlay();
+            engine.onTouch(part, android.os.SystemClock.uptimeMillis());
+            play(LocalTurn.speakAs(ivie, ivie ? "Okay, okay! My " + part + " is very popular today." : "That is the third time. My " + part + " is fine."), null);
+            return;
+        }
+        if (touch.kind == ai.dvine.human.touch.BodyTouch.Kind.HOLD) {
+            stopPlay();
+            engine.onTouch(part, android.os.SystemClock.uptimeMillis());
+            play(LocalTurn.speakAs(ivie, "You're holding my " + part + ". I can see your finger there, though a screen can't tell me how hard you press."), null);
+            return;
+        }
+        if (touch.kind == ai.dvine.human.touch.BodyTouch.Kind.REPEAT) {
+            return; // a second quick tap: the first one already answered
+        }
+        onBodyTap(part);
     }
 
     /** A tap on the full body: the persona notices where, and the hand waves back. */

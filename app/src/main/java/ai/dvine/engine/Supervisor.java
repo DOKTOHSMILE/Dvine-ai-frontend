@@ -149,6 +149,7 @@ public final class Supervisor {
                 break;
             case "view.face":
                 bodyView = false;
+                port.setDemo(false);
                 Command body = active.remove(Command.Channel.BODY);
                 if (body != null) {
                     report(body, Command.Status.CANCELLED, "face view", c.createdAt);
@@ -172,6 +173,13 @@ public final class Supervisor {
                 break;
             case "face.gesture":
                 port.gesture(c.value);
+                break;
+            case "face.expression":
+                port.setExpression(c.value);
+                break;
+            case "view.demo":
+                bodyView = "on".equals(c.value);
+                port.setDemo(bodyView);
                 break;
             case "draw.sketch":
                 port.showSketch((ai.dvine.face.Sketch) c.payload);

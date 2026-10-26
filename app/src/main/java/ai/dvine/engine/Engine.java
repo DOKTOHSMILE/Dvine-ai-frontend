@@ -83,6 +83,12 @@ public final class Engine implements Supervisor.Listener {
                         episodes.record("ACTION", "pose:" + a.commandValue, "moved into " + a.commandValue, 0.4f, now);
                     }
                     break;
+                case "EXPRESSION":
+                    submit(new Command("face.expression", a.commandValue, Command.PRIORITY_USER, now));
+                    break;
+                case "DEMO":
+                    submit(new Command("view.demo", "on", Command.PRIORITY_USER, now));
+                    break;
                 case "STOP":
                     submit(new Command("body.stop", null, Command.PRIORITY_STOP, now));
                     affect.appraise("stop");

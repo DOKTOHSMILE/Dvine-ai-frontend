@@ -75,6 +75,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private float sceneStart;
     private int sceneBeat = -1;
     private float[] tapScreen = new float[0];
+    // the 3D wireframe human (OpenGL, under this transparent overlay)
+    private ai.dvine.render.HumanStage human;
+    private ai.dvine.render.HumanView humanView;
+    private final ai.dvine.human.touch.TouchClassifier touches = new ai.dvine.human.touch.TouchClassifier();
+    private boolean bodyTouchDown;
+    private final Runnable holdCheck = this::checkHold;
     private float lastYaw;
     private float lastPitch;
     private final HandPainter hands = new HandPainter();
@@ -240,11 +246,82 @@ public final class StageView extends View implements Choreographer.FrameCallback
      */
     public void setLook(boolean forIvie, Look look) {
         int side = forIvie ? 1 : 0;
-        if (look == null || !looks[side].shapeDiffers(look)) {
+        if (look == null) {
             return;
         }
+        boolean shape = looks[side].shapeDiffers(look);
         looks[side] = look.copy();
-        sculpt(forIvie);
+        if (shape) {
+            sculpt(forIvie);
+            if (human != null) {
+                human.rebuild(forIvie, look); // the 3D mesh is rebuilt in the background and swapped in when valid
+            }
+        }
+    }
+
+    /** Fires once a finger has rested on the body long enough: a HOLD touch. */
+    private void checkHold() {
+        if (!bodyTouchDown || decided || human == null) {
+            return;
+        }
+        long now = android.os.SystemClock.uptimeMillis();
+        ai.dvine.human.touch.BodyTouch.Kind k = touches.held(now);
+        if (k != null) {
+            ai.dvine.human.touch.BodyTouch t = human.pick(downX, downY, showingIvie, k, 1, now, touches.duration(now));
+            if (t != null) {
+                longFired = true;
+                human.react(t, showingIvie);
+                if (listener != null) {
+                    listener.onBodyTouch(t);
+                }
+            }
+        }
+    }
+
+    /** Attaches the 3D human renderer; until its assets load, the nano dots stand in. */
+    public void attachHuman(ai.dvine.render.HumanStage stage, ai.dvine.render.HumanView view) {
+        human = stage;
+        humanView = view;
+    }
+
+    /** True while the wireframe human draws this persona (else the nano-dot swarm does). */
+    private boolean wireOn() {
+        return human != null && human.ready(showingIvie) && looks[showingIvie ? 1 : 0].style != Look.Style.DOTS
+                && human.renderer.glErrors < 5;
+    }
+
+    /** A word the voice is starting to say: drives the mouth shapes. */
+    public void speechWord(String word) {
+        if (human != null) {
+            human.speechWord(showingIvie, word);
+        }
+    }
+
+    @Override
+    public void setExpression(String name) {
+        if (human != null) {
+            human.setExpression(showingIvie, name);
+        }
+        rig().setMode(FaceMode.DONE); // a brief glow in either style
+    }
+
+    @Override
+    public void setDemo(boolean on) {
+        if (human != null) {
+            human.setDemo(on);
+        }
+        if (on) {
+            setBodyMode(true);
+        }
+    }
+
+    /** Self-inspection of the visible persona's 3D body (with a local repair if needed). */
+    public String inspect() {
+        if (human == null) {
+            return "My 3D body isn't attached.";
+        }
+        String s = human.inspect(showingIvie);
+        return s + " Frames: " + human.renderer.stats.summary() + ".";
     }
 
     /**
@@ -327,6 +404,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     private void applyPose(String pose) {
         bodyPose = pose;
+        if (human != null) {
+            human.setPose(pose);
+        }
         DotBody o = obiBody, i = ivieBody;
         if (o != null) {
             o.setPose(pose);
@@ -339,6 +419,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
     /** One slow turn of the full body, like orbiting a model in a 3D studio. */
     public void turnAround() {
         setBodyMode(true);
+        if (human != null) {
+            human.turnAround();
+        }
         DotBody b = showingIvie ? ivieBody : obiBody;
         if (b != null) {
             b.turnAround();
@@ -495,7 +578,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
             b.setTalking(r.mode() == FaceMode.SPEAKING);
         }
         Forms.Head f = showingIvie ? ivieFace : obiFace;
-        if (wantBody && b != null) {
+        if (wireOn()) {
+            form = null; // the wireframe human is drawn by OpenGL; the dots rest
+        } else if (wantBody && b != null) {
             form = b;
             pose = b.pose();
         } else if (f != null) {
@@ -556,7 +641,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
     protected void onDraw(Canvas canvas) {
         float w = getWidth();
         float h = getHeight();
-        canvas.drawColor(0xFF000000);
+        boolean wire = wireOn();
+        if (wire) {
+            canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR); // the GL human shows through
+        } else {
+            canvas.drawColor(0xFF000000);
+        }
         FaceRig rig = rig();
         boolean ivieOn = showingIvie;
         int color = ivieOn ? IVIE : OBI;
@@ -573,13 +663,13 @@ public final class StageView extends View implements Choreographer.FrameCallback
         float e = 0f;
         float yaw = rig.yaw.value;
         float pitch = rig.pitch.value + 6f;
+        float faceUnit = unit, faceCy = cy;
         if (bodySpace) {
             // zoom from the face to the whole body: the head stays put while the camera pulls back
             float z = clamp(zoom.value, 0f, 1f);
             e = z * z * (3f - 2f * z);
             float u0 = unit / DotBody.FACE_SCALE;
             float u1 = Math.min(w * 0.42f, usable * 0.36f);
-            float faceCy = cy;
             unit = (float) Math.exp(lerp((float) Math.log(u0), (float) Math.log(u1), e));
             float focus = lerp(DotBody.FACE_Y, 0f, e);
             cy = lerp(faceCy, padTop + usable * 0.55f, e) + focus * unit;
@@ -588,6 +678,24 @@ public final class StageView extends View implements Choreographer.FrameCallback
             pitch = lerp(pitch, 8f, e);
         }
         boolean body = bodySpace && e > 0.5f;
+        if (wire) {
+            // the GL camera always works in body units: the face close-up is the camera near the head
+            float u0 = faceUnit / DotBody.FACE_SCALE, u1 = Math.min(w * 0.42f, usable * 0.36f);
+            ai.dvine.render.Camera c = human.camera;
+            c.width = w;
+            c.height = h;
+            c.cx = cx;
+            c.unit = (float) Math.exp(lerp((float) Math.log(u0), (float) Math.log(u1), e));
+            c.cy = lerp(faceCy, padTop + usable * 0.55f, e) + lerp(DotBody.FACE_Y, 0f, e) * c.unit;
+            c.distance = (float) Math.exp(lerp((float) Math.log(0.75f), (float) Math.log(4.4f), e));
+            c.pivot = lerp(DotBody.FACE_Y, 0f, e);
+            c.yawDeg = yaw;
+            c.pitchDeg = pitch;
+            c.update();
+            human.renderer.setCamera(c, -4.22f);
+            human.frame(clock, showingIvie, rig, e > 0.5f, rig.mode() == FaceMode.SPEAKING, faceAlpha);
+            humanView.requestRender();
+        }
         lastYaw = yaw;
         lastPitch = pitch;
         lastCx = cx;
@@ -615,10 +723,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
         canvas.drawCircle(0f, 0f, hu * 1.35f, glowPaint);
         canvas.restore();
 
-        // a Blender-like floor, then the persona as nano dots facing the user
-        nano.drawGrid(canvas, yaw * 0.3f, 14f, cx, cy, unit, floorY, 1f - mix, density);
-        nano.drawSwarm(canvas, swarm, yaw, pitch, cx, cy, unit, color,
-                Math.max(0.35f, faceAlpha) * clamp(rig.glow.value + 0.25f, 0.5f, 1.2f), density, clock);
+        // a Blender-like floor, then the persona as nano dots facing the user (the GL human draws its own)
+        if (!wire) {
+            nano.drawGrid(canvas, yaw * 0.3f, 14f, cx, cy, unit, floorY, 1f - mix, density);
+            nano.drawSwarm(canvas, swarm, yaw, pitch, cx, cy, unit, color,
+                    Math.max(0.35f, faceAlpha) * clamp(rig.glow.value + 0.25f, 0.5f, 1.2f), density, clock);
+        }
         if (!bodySpace) {
             hands.draw(canvas, nano, cx, cy, unit, color, faceAlpha, density);
         }
@@ -721,6 +831,18 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 dragged = false;
                 swipe = false;
                 longFired = false;
+                bodyTouchDown = false;
+                if (wireOn()) {
+                    // a finger on the body: tap, repeat or hold; elsewhere a long press still opens typing
+                    ai.dvine.human.touch.BodyTouch t = human.pick(x, y, showingIvie, ai.dvine.human.touch.BodyTouch.Kind.TAP,
+                            1, downAt, 0L);
+                    if (t != null) {
+                        bodyTouchDown = true;
+                        touches.down(t.region, downAt);
+                        postDelayed(holdCheck, ai.dvine.human.touch.TouchClassifier.HOLD_MS + 20L);
+                        return true;
+                    }
+                }
                 postDelayed(longPress, ViewConfiguration.getLongPressTimeout() + 200L);
                 return true;
             case MotionEvent.ACTION_MOVE: {
@@ -729,6 +851,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 if (!decided && (Math.abs(dx) > slop || Math.abs(dy) > slop)) {
                     decided = true;
                     removeCallbacks(longPress);
+                    removeCallbacks(holdCheck);
                     boolean onHead = headHit.contains(downX, downY);
                     swipe = !onHead || Math.abs(dx) > Math.abs(dy) * 2.2f && Math.abs(dx) > 40f * density;
                 }
@@ -741,6 +864,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 removeCallbacks(longPress);
+                removeCallbacks(holdCheck);
                 rig().setDrag(0f, 0f, false);
                 if (event.getActionMasked() == MotionEvent.ACTION_CANCEL || longFired || listener == null) {
                     return true;
@@ -748,6 +872,16 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 float travel = (float) Math.hypot(x - downX, y - downY);
                 if (swipe && travel > 56f * density) {
                     listener.onMic();
+                } else if (!dragged && travel < 14f * density && bodyTouchDown && human != null) {
+                    long now = event.getEventTime();
+                    long held = now - downAt;
+                    ai.dvine.human.touch.BodyTouch.Kind k = touches.up(now);
+                    ai.dvine.human.touch.BodyTouch t = k == null ? null
+                            : human.pick(x, y, showingIvie, k, touches.count(), now, held);
+                    if (t != null) {
+                        human.react(t, showingIvie);
+                        listener.onBodyTouch(t);
+                    }
                 } else if (!dragged && travel < 14f * density) {
                     String part = bodySpace && zoom.value > 0.9f ? partAt(x, y) : null;
                     if (part != null) {

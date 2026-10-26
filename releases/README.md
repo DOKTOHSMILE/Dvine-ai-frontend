@@ -2,7 +2,7 @@
 
 | File | Version | SHA-256 |
 |---|---|---|
-| `dvine-0.7.0-debug.apk` | 0.7.0 (code 8) | `00ebcfa65e38caca11a4bb508c2a363efee545cd520b670c44ca74ec7d6806de` |
+| `dvine-0.8.0-debug.apk` | 0.8.0 (code 9) | `8320068c797f04124dfe2784589a5eb25e5eb4c12f44aa6e0adcdc59451430d6` |
 
 Debug-signed, for testing only. Needs Android 14 or newer. Built from the commit that adds it.
 

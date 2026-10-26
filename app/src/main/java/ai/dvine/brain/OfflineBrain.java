@@ -245,6 +245,21 @@ public final class OfflineBrain {
             a.command = "STOP";
             return a;
         }
+        if (text.matches("^(please )?(smile|frown|look (surprised|shocked|sad|angry|attentive|serious)|pay attention"
+                + "|make a (happy|sad|angry|surprised) face)( for me)?( please)?$")) {
+            String e = ai.dvine.human.face.FaceDrive.expressionFor(text.replace("happy", "smile"));
+            if (e != null) {
+                BrainAnswer a = one(speaker, expressionLine(e, speaker), "LOOK");
+                a.command = "EXPRESSION";
+                a.commandValue = e;
+                return a;
+            }
+        }
+        if (text.matches("^(show (me )?(both( of you)?|the demo|obi and ivie|ivie and obi)|demo( scene)?|stand together|both of you together)( please)?$")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Here we are, both of us.", "Obi and I, side by side."), "LOOK");
+            a.command = "DEMO";
+            return a;
+        }
         if (text.matches("^(what are you doing|status report|self[- ]?check|body status|what is your status|what's your status)\\??$")) {
             BrainAnswer a = one(speaker, "Let me check myself.", "SELF");
             a.command = "SELF_REPORT";
@@ -443,6 +458,17 @@ public final class OfflineBrain {
             case "kick": return "A front kick.";
             case "talk": return "Standing tall.";
             default: return "Standing tall.";
+        }
+    }
+
+    private String expressionLine(String e, String speaker) {
+        switch (e) {
+            case "smile": return pick(speaker, "Like this?", "A big smile, just for you.");
+            case "frown": return "Hmm. Serious face.";
+            case "surprise": return pick(speaker, "Oh!", "Oh! Really?");
+            case "attention": return "I'm listening closely.";
+            case "sad": return "A sad face. I hope you're not feeling this way.";
+            default: return "Grr. Not really angry, just showing you.";
         }
     }
 

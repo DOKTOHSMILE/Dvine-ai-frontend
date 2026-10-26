@@ -16,11 +16,11 @@ import ai.dvine.face.WireHead;
  * {@link #FLOOR_OUT}.
  */
 public final class DotBody implements Swarm.Form {
-    static final int PELVIS = 0, SPINE = 1, CHEST = 2, NECK = 3, HEAD = 4;
-    static final int ARM_L = 5, FORE_L = 6, HAND_L = 7, ARM_R = 8, FORE_R = 9, HAND_R = 10;
-    static final int THIGH_L = 11, SHIN_L = 12, FOOT_L = 13, THIGH_R = 14, SHIN_R = 15, FOOT_R = 16;
-    static final int BONES = 17;
-    static final int[] PARENT = {-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15};
+    public static final int PELVIS = 0, SPINE = 1, CHEST = 2, NECK = 3, HEAD = 4;
+    public static final int ARM_L = 5, FORE_L = 6, HAND_L = 7, ARM_R = 8, FORE_R = 9, HAND_R = 10;
+    public static final int THIGH_L = 11, SHIN_L = 12, FOOT_L = 13, THIGH_R = 14, SHIN_R = 15, FOOT_R = 16;
+    public static final int BONES = 17;
+    public static final int[] PARENT = {-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15};
 
     public static final String[] POSES = {"stand", "tpose", "arms up", "wave", "point", "squat", "sit", "kneel",
             "run", "walk", "bow", "dance", "handstand",
@@ -30,7 +30,7 @@ public final class DotBody implements Swarm.Form {
             // the body talks with its hands while the persona explains
             "talk"};
     /** Extra pose channels after the bone angles: sideways travel and lift (body units). */
-    static final int TRAVEL = BONES * 3, LIFT = BONES * 3 + 1, CHANNELS = BONES * 3 + 2;
+    public static final int TRAVEL = BONES * 3, LIFT = BONES * 3 + 1, CHANNELS = BONES * 3 + 2;
 
     private static final float FLOOR = -4.2f;
     /** Output scale and centre: body units to camera units. */
@@ -181,7 +181,7 @@ public final class DotBody implements Swarm.Form {
     }
 
     /** Arms rest this many degrees below level. */
-    static final float BIND_ARM = 40f;
+    public static final float BIND_ARM = 40f;
 
     /** Joint of an arm bone, {@code along} units from the shoulder in the A-pose. */
     private void arm(int side, float sh, float along, int b) {
@@ -456,7 +456,7 @@ public final class DotBody implements Swarm.Form {
      * the upper arm gets R * Rz(+bind) (it first lifts to level), the forearm
      * and hand get Rz(-bind) * R * Rz(+bind) (the same hinge, seen from the rig).
      */
-    private static void fromLevel(float[] m, float bindDeg, boolean upper) {
+    public static void fromLevel(float[] m, float bindDeg, boolean upper) {
         float[] z = new float[9];
         float[] t = new float[9];
         euler(0f, 0f, bindDeg, z);
@@ -469,7 +469,7 @@ public final class DotBody implements Swarm.Form {
         mul(z, t, m);
     }
 
-    private static void mul(float[] a, float[] b, float[] out) {
+    public static void mul(float[] a, float[] b, float[] out) {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 out[i * 3 + j] = a[i * 3] * b[j] + a[i * 3 + 1] * b[3 + j] + a[i * 3 + 2] * b[6 + j];
@@ -478,7 +478,7 @@ public final class DotBody implements Swarm.Form {
     }
 
     /** Rotation Ry * Rx * Rz from degrees, row-major. */
-    static void euler(float xd, float yd, float zd, float[] m) {
+    public static void euler(float xd, float yd, float zd, float[] m) {
         double x = Math.toRadians(xd), y = Math.toRadians(yd), z = Math.toRadians(zd);
         float cx = (float) Math.cos(x), sx = (float) Math.sin(x);
         float cy = (float) Math.cos(y), sy = (float) Math.sin(y);
@@ -507,7 +507,7 @@ public final class DotBody implements Swarm.Form {
      * Signs: z+ lifts a left limb, x- swings a leg forward, x+ bends a knee or
      * leans the chest forward, y- swings a left arm or forearm forward.
      */
-    static void poseAngles(String name, float t, float[] a) {
+    public static void poseAngles(String name, float t, float[] a) {
         java.util.Arrays.fill(a, 0f);
         float breathe = (float) Math.sin(t * 1.3f);
         switch (name) {
@@ -793,7 +793,7 @@ public final class DotBody implements Swarm.Form {
     }
 
     /** Clamps every joint into its limits. Returns how many angles had to move. */
-    static int limit(float[] a) {
+    public static int limit(float[] a) {
         int moved = 0;
         for (int b = 0; b < BONES; b++) {
             float[] l = LIMITS[b];

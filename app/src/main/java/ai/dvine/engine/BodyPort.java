@@ -22,6 +22,12 @@ public interface BodyPort {
 
     void clearSketch();
 
+    /** A facial expression for a few seconds: smile, frown, surprise, attention, sad, angry. */
+    void setExpression(String name);
+
+    /** Both personas side by side (the demo scene), or back to one. */
+    void setDemo(boolean on);
+
     /** Small expression bias from the affect state: smile, brow, head tilt in degrees. */
     void setMood(float smile, float brow, float tiltDeg);
 }

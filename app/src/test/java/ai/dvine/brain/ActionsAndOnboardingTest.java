@@ -80,9 +80,10 @@ public class ActionsAndOnboardingTest {
         assertTrue(d.spoken().contains("7"));
         assertNotNull(brain.respond("draw a triangle", "obi").sketch);
         assertEquals("MUSIC_OFF", brain.respond("music off", "obi").command);
-        // everything is nano dots now: old style requests stay on dots and say so
-        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("wireframe mode", "obi").look.style);
-        assertTrue(brain.respond("make your skin darker", "obi").spoken().contains("nano dots"));
+        // the default look is the wireframe hologram; dots are a style you can ask for
+        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("wireframe mode", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("dot mode", "obi").look.style);
+        assertTrue(brain.respond("make your skin darker", "obi").spoken().contains("wireframe"));
         assertEquals("BODY_ON", brain.respond("show your full body", "obi").command);
         assertEquals("FACE_ON", brain.respond("show your face", "obi").command);
         assertEquals("REDRAW", brain.respond("redraw yourself", "obi").command);
@@ -109,6 +110,6 @@ public class ActionsAndOnboardingTest {
         assertTrue(hair.lookIvie);
         assertTrue(hair.look.hair > 1f);
         assertEquals(0f, brain.respond("Ivie remove your hair", "ivie").look.hair, 0f);
-        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("reset your look", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("reset your look", "obi").look.style);
     }
 }

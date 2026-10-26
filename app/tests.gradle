@@ -27,3 +27,13 @@ tasks.register("robolectricJars", Copy) {
     from configurations.robolectricRuntime
     into "${rootProject.buildDir}/robolectric"
 }
+
+// Builds the shipped 3D human assets (obi.dvhm, ivie.dvhm) from the anatomical recipe.
+// Pure Java: runs on the compiled app classes, no device needed.
+tasks.register('generateHumanAssets', JavaExec) {
+    dependsOn 'compileDebugJavaWithJavac'
+    classpath = files("$buildDir/intermediates/javac/debug/compileDebugJavaWithJavac/classes")
+    mainClass = 'ai.dvine.human.build.AssetTool'
+    args "$projectDir/src/main/assets/human"
+    maxHeapSize = '2g'
+}

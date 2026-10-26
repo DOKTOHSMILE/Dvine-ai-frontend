@@ -1,6 +1,6 @@
 # DVINE Android
 
-Native Java client. One face fills the screen: **O-bìì** (Obi, cyan `#00E5FF`) or **Ēèvié** (Ivie, gold `#FFB300`). They switch as each one speaks.
+Native Java client. One face fills the screen: **O-bìì** (Obi, cyan `#00E5FF`) or **Ēèvié** (Ivie, gold `#FFB300`). They switch as each one speaks. Each is a full anatomical 3D wireframe human (OpenGL ES 3): the head first, the whole body when you ask ("show me your body"), both together with "show both of you". Touch any body part and they react.
 
 The build plan is [`docs/DVINE_MASTER_BUILD_HANDBOOK.md`](docs/DVINE_MASTER_BUILD_HANDBOOK.md). Progress and evidence live in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md).
 
@@ -44,6 +44,6 @@ Android Studio or CodeAssist: open this directory. Gradle 8.9, AGP 8.7.3, Java 1
 gradle testDebugUnitTest assembleDebug
 ```
 
-Regenerate assets: `python3 tools/make_logo.py` (logo + launcher icons), `python3 tools/pack_source.py` (knowledge pack).
+Regenerate assets: `gradle :app:generateHumanAssets` (3D humans), `python3 tools/make_logo.py` (logo + launcher icons), `python3 tools/pack_source.py` (knowledge pack).
 
 No provider key belongs in this project. `api_base` in `strings.xml` stays empty until a private desk URL is set; sync does nothing until then.

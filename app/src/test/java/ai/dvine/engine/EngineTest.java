@@ -36,6 +36,8 @@ public class EngineTest {
         public void showObject(String kind) { calls.add("object " + kind); }
         public void clearSketch() { calls.add("clear"); }
         public void setMood(float s, float brow, float tilt) { smile = s; }
+        public void setExpression(String name) { calls.add("expression " + name); }
+        public void setDemo(boolean on) { calls.add("demo " + on); }
 
         String last() { return calls.get(calls.size() - 1); }
     }

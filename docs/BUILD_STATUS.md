@@ -9,6 +9,7 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 | M2 Nano-dot faces and body | VERIFIED (JVM) / device pending | v1.4: sculpted dot heads (`DotHead`), posable anatomy body with 13 poses (`DotBody`), 3D drawings and objects (`Forms`); `NanoSwarmTest` (7 tests: even surface sampling, every form fits and settles, every pose on the floor, speech/blink, drawings have depth); off-device render `docs/brand/face_preview.png` | frame-rate check on a mid-range phone |
 | v1.5 Living body | VERIFIED (JVM) / device pending | head-first, zoom-out to body on request; 12 exercises and stunts; talking gestures; 4 acted scenes (`brain/Scenes`); body-part taps; joint limits (`MotionTest`, 5 tests) | watch the zoom and frame rate on a phone |
 | v1.6 On-device engine | VERIFIED (JVM) | `engine/` (Supervisor, Skills, Command, Affect, WorkingMemory, Episodes, Engine): validated commands, priorities, stop, self-report, mood; episodes and favourites via the server (`EngineTest`, 8 tests) | device run; server episode store needs Track S V4 |
+| v1.7 3D wireframe human | VERIFIED (JVM) / device pending | handbook §28: anatomical male/female meshes (`human/`), 37-bone rig with fingers, IK, collisions; face rig and visemes; ray touch on 45 body parts; self-inspection and identity-preserving rebuild; OpenGL ES 3 renderer (`render/`); `HumanTest` (12), `WireRendererTest` (2); sheets `docs/brand/human_*.png` | run on a phone: frame rate, shaders, touch |
 | M3 Zero-screen stage | IN PROGRESS | `StageView` replaces `MatrixStageView`: no buttons; swipe, tap, drag, long-press; online dot; subtitle; sparkles; sketch canvas | device screenshot |
 | v1.1 Confirm-to-act | VERIFIED (JVM) | `ActionsAndOnboardingTest`: share asks → yes → hand-off intent; copy → clipboard; no cancels; money refused | try on device with WhatsApp/X |
 | v1.1 First-run name | VERIFIED (JVM) | `Onboarding` parse tests; greeting uses name | device run |
@@ -24,9 +25,10 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 | M7 Online client | NOT STARTED | — | after S-K/S-L |
 | M8 Voice polish | NOT STARTED | — | — |
 
-Commands run: `gradle testDebugUnitTest assembleDebug` → 62 tests passed (incl. Robolectric LaunchTest), APK built (v0.7.0).
+Commands run: `gradle testDebugUnitTest assembleDebug` → 76 tests passed (incl. Robolectric LaunchTest), APK built (v0.8.0). `gradle :app:generateHumanAssets` rebuilds the 3D assets.
 Not run: `lintDebug` (dependency download rate-limited in the sandbox), any on-device test.
 
 Known limits:
-- No device or emulator test yet; frame rate of the nano-dot swarm (up to 10k dots) is unmeasured.
+- No device or emulator test yet; frame rate of the GL wireframe human and of the nano-dot swarm (up to 10k dots) is unmeasured.
+- Deep hip bends stretch a few crotch edges (two-bone linear skinning); visemes are text-timed, not audio-driven.
 - Offline brain is rules + retrieval over the pack, not a language model; free-form reasoning needs the server.

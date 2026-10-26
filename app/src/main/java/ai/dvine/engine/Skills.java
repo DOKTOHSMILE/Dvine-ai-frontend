@@ -28,7 +28,10 @@ public final class Skills {
             case "body.stop":
                 return Command.Channel.BODY;
             case "face.gesture":
+            case "face.expression":
                 return Command.Channel.FACE;
+            case "view.demo":
+                return Command.Channel.VIEW;
             case "draw.sketch":
             case "draw.object":
             case "draw.clear":
@@ -58,6 +61,8 @@ public final class Skills {
                 return null;
             case "face.gesture":
                 return c.value != null && Gestures.get(c.value) != null ? null : "unknown gesture";
+            case "face.expression":
+                return ai.dvine.human.face.FaceDrive.known(c.value) ? null : "unknown expression";
             case "draw.object":
                 return known(Forms.OBJECTS, c.value) ? null : "unknown object";
             case "draw.sketch":
