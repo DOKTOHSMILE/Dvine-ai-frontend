@@ -65,22 +65,54 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private boolean awaitingName;
     private int nameTries;
 
+    /** Saves any crash to files/crash.txt, then lets Android close the app as usual. */
+    private void installCrashReporter() {
+        final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+        final File out = new File(getFilesDir(), "crash.txt");
+        Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
+            try (java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(out))) {
+                w.println("DVINE " + BuildConfigInfo.version(this) + " on Android " + android.os.Build.VERSION.RELEASE
+                        + " (" + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL + ")");
+                error.printStackTrace(w);
+            } catch (java.io.IOException ignored) {
+                // nothing more we can do
+            }
+            if (previous != null) {
+                previous.uncaughtException(thread, error);
+            }
+        });
+    }
+
+    private String takeCrashReport() {
+        File f = new File(getFilesDir(), "crash.txt");
+        if (!f.exists()) {
+            return null;
+        }
+        try {
+            return new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            return null;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        installCrashReporter();
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         window.setStatusBarColor(0xFF000000);
         window.setNavigationBarColor(0xFF000000);
         window.setDecorFitsSystemWindows(false);
+        stage = new StageView(this);
+        stage.setListener(this);
+        setContentView(stage);
+        // only after setContentView: before it the window has no decor and this throws
         WindowInsetsController bars = window.getInsetsController();
         if (bars != null) {
             bars.hide(WindowInsets.Type.systemBars());
             bars.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
         }
-        stage = new StageView(this);
-        stage.setListener(this);
-        setContentView(stage);
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
         talk = new TalkBridge(this);
@@ -116,6 +148,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     private void greetOnOpen() {
+        if (takeCrashReport() != null) {
+            play(LocalTurn.speakAs(true, "I closed unexpectedly last time. Say copy the crash report, and I'll put the details on your clipboard so you can send them to the developer."),
+                    this::greetAfterCrashNotice);
+            return;
+        }
+        greetAfterCrashNotice();
+    }
+
+    private void greetAfterCrashNotice() {
         String name = brain.userName();
         if (name == null) {
             awaitingName = true;
@@ -149,6 +190,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (awaitingName) {
             takeName(text);
+            return;
+        }
+        if (text.toLowerCase(java.util.Locale.US).matches(".*copy (the |my )?crash( report| log)?.*")) {
+            String report = takeCrashReport();
+            if (report == null) {
+                play(LocalTurn.speakAs(stage.isIvie(), "There's no crash report. Everything has been running fine."), null);
+            } else if (Actions.copy(this, report)) {
+                new File(getFilesDir(), "crash.txt").delete();
+                stage.burst(18);
+                play(LocalTurn.speakAs(stage.isIvie(), "Copied. The crash report is on your clipboard; paste it to the developer."), null);
+            }
             return;
         }
         TurnRoute route = LocalTurn.route(text, stage.agent());

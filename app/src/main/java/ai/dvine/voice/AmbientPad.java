@@ -44,6 +44,19 @@ public final class AmbientPad implements Runnable {
             return;
         }
         int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        if (min <= 0) {
+            min = RATE * 4; // one second of stereo 16-bit audio
+        }
+        try {
+            open(min);
+        } catch (RuntimeException refused) {
+            // the music is a nicety: if the phone refuses audio, carry on silently
+            track = null;
+            running = false;
+        }
+    }
+
+    private void open(int min) {
         track = new AudioTrack.Builder()
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ASSISTANT)
@@ -51,7 +64,7 @@ public final class AmbientPad implements Runnable {
                 .setAudioFormat(new AudioFormat.Builder().setSampleRate(RATE)
                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                         .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
-                .setBufferSizeInBytes(Math.max(min, RATE))
+                .setBufferSizeInBytes(Math.max(min, RATE * 2))
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build();
         running = true;
@@ -112,7 +125,11 @@ public final class AmbientPad implements Runnable {
                 buf[i + 1] = (short) (right * amp);
                 t += 1.0 / RATE;
             }
-            if (out.write(buf, 0, buf.length) < 0) {
+            try {
+                if (out.write(buf, 0, buf.length) < 0) {
+                    return;
+                }
+            } catch (RuntimeException released) {
                 return;
             }
         }

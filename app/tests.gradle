@@ -1,0 +1,29 @@
+// Unit and start-up tests. Not needed to build or install the app.
+android {
+    testOptions {
+        unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            // Robolectric runs offline from a jar Gradle downloads (works behind proxies too)
+            systemProperty "robolectric.offline", "true"
+            systemProperty "robolectric.dependency.dir", "${rootProject.buildDir}/robolectric"
+            dependsOn ":app:robolectricJars"
+        }
+    }
+}
+
+configurations {
+    robolectricRuntime
+}
+
+dependencies {
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.robolectric:robolectric:4.14.1"
+    robolectricRuntime "org.robolectric:android-all-instrumented:14-robolectric-10818077-i7"
+    robolectricRuntime "org.robolectric:android-all-instrumented:15-robolectric-12650502-i7"
+}
+
+tasks.register("robolectricJars", Copy) {
+    from configurations.robolectricRuntime
+    into "${rootProject.buildDir}/robolectric"
+}
