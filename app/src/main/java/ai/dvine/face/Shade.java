@@ -86,8 +86,8 @@ public final class Shade {
      * the persona's glow colour.
      */
     public static int skin(int base, int glow, float light, float alpha) {
-        float l = 0.48f + 0.95f * light;
-        float rim = Math.max(0f, light - 0.75f) * 1.2f;
+        float l = 0.42f + 0.80f * light;
+        float rim = Math.max(0f, light - 0.80f) * 0.9f;
         int r = (int) Math.min(255f, ((base >> 16) & 0xFF) * l + ((glow >> 16) & 0xFF) * rim * 0.35f);
         int g = (int) Math.min(255f, ((base >> 8) & 0xFF) * l + ((glow >> 8) & 0xFF) * rim * 0.35f);
         int b = (int) Math.min(255f, (base & 0xFF) * l + (glow & 0xFF) * rim * 0.35f);

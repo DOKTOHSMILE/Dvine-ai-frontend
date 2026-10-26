@@ -133,6 +133,17 @@ public final class Sketch {
         if (t.contains("heart")) return heart();
         if (t.contains("arrow")) return new Builder("arrow").arrow(0.9f, -0.7f, 0f, 0.7f, 0f).build();
         if (t.contains("water cycle")) return waterCycle();
+        if (t.contains("house") || t.contains("home")) return house();
+        if (t.contains("tree")) return tree();
+        if (t.contains("sun") && !t.contains("sunday")) return sun();
+        if (t.contains("flower")) return flower();
+        if (t.contains("person") || t.contains("man") || t.contains("woman") || t.contains("people")) return person();
+        if (t.contains("car")) return car();
+        if (t.contains("fish")) return fish();
+        if (t.contains("mountain")) return mountains();
+        if (t.contains("boat") || t.contains("ship")) return boat();
+        if (t.contains("moon")) return moon();
+        if (t.contains("eye")) return eye();
         return null;
     }
 
@@ -221,6 +232,101 @@ public final class Sketch {
         }
         s.arrow(0.4f, 0.55f, 0.25f, 0.85f, 0.25f);
         return s.build();
+    }
+
+    static Sketch house() {
+        return new Builder("house")
+                .line(0.9f, -0.6f, -0.7f, -0.6f, 0.1f, 0.6f, 0.1f, 0.6f, -0.7f, -0.6f, -0.7f)
+                .line(0.6f, -0.72f, 0.1f, 0f, 0.7f, 0.72f, 0.1f)
+                .line(0.5f, -0.15f, -0.7f, -0.15f, -0.25f, 0.15f, -0.25f, 0.15f, -0.7f)
+                .line(0.4f, 0.3f, -0.15f, 0.5f, -0.15f, 0.5f, 0.05f, 0.3f, 0.05f, 0.3f, -0.15f)
+                .label(0f, -0.92f, "walls, roof, door, window").build();
+    }
+
+    static Sketch tree() {
+        Builder s = new Builder("tree");
+        s.line(0.5f, -0.08f, -0.8f, -0.08f, -0.1f).line(0.5f, 0.08f, -0.8f, 0.08f, -0.1f);
+        s.circle(0.5f, 0f, 0.25f, 0.38f).circle(0.4f, -0.32f, 0.05f, 0.26f).circle(0.4f, 0.32f, 0.05f, 0.26f);
+        s.line(0.3f, -0.6f, -0.8f, 0.6f, -0.8f).label(0f, -0.95f, "roots, trunk, leaves");
+        return s.build();
+    }
+
+    static Sketch sun() {
+        Builder s = new Builder("sun").circle(0.7f, 0f, 0f, 0.3f);
+        for (int i = 0; i < 12; i++) {
+            double a = i * Math.PI / 6;
+            s.line(0.12f, 0.4f * (float) Math.cos(a), 0.4f * (float) Math.sin(a), 0.65f * (float) Math.cos(a), 0.65f * (float) Math.sin(a));
+        }
+        return s.build();
+    }
+
+    static Sketch flower() {
+        Builder s = new Builder("flower");
+        s.line(0.5f, 0f, -0.85f, 0f, 0.1f).line(0.3f, 0f, -0.45f, 0.3f, -0.25f);
+        for (int i = 0; i < 6; i++) {
+            double a = i * Math.PI / 3;
+            s.circle(0.25f, 0.2f * (float) Math.cos(a), 0.3f + 0.2f * (float) Math.sin(a), 0.13f);
+        }
+        return s.dot(0f, 0.3f, 0.08f).build();
+    }
+
+    static Sketch person() {
+        return new Builder("person").circle(0.5f, 0f, 0.6f, 0.18f)
+                .line(0.4f, 0f, 0.42f, 0f, -0.2f)
+                .line(0.4f, -0.4f, 0.2f, 0f, 0.3f, 0.4f, 0.2f)
+                .line(0.4f, -0.3f, -0.8f, 0f, -0.2f, 0.3f, -0.8f).build();
+    }
+
+    static Sketch car() {
+        return new Builder("car")
+                .line(1.0f, -0.8f, -0.3f, -0.8f, 0f, -0.45f, 0.05f, -0.25f, 0.35f, 0.3f, 0.35f, 0.5f, 0.05f, 0.8f, 0f, 0.8f, -0.3f, -0.8f, -0.3f)
+                .circle(0.4f, -0.45f, -0.32f, 0.16f).circle(0.4f, 0.45f, -0.32f, 0.16f)
+                .line(0.3f, 0.02f, 0.35f, 0.02f, 0.05f).build();
+    }
+
+    static Sketch fish() {
+        return new Builder("fish")
+                .line(1.0f, -0.6f, 0f, -0.2f, 0.3f, 0.35f, 0.15f, 0.5f, 0f, 0.35f, -0.15f, -0.2f, -0.3f, -0.6f, 0f)
+                .line(0.5f, 0.5f, 0f, 0.85f, 0.3f, 0.85f, -0.3f, 0.5f, 0f)
+                .dot(-0.35f, 0.07f, 0.04f).build();
+    }
+
+    static Sketch mountains() {
+        return new Builder("mountains")
+                .line(1.2f, -0.95f, -0.6f, -0.45f, 0.45f, -0.1f, -0.1f, 0.3f, 0.6f, 0.95f, -0.6f)
+                .line(0.4f, -0.58f, 0.2f, -0.45f, 0.45f, -0.32f, 0.2f)
+                .circle(0.4f, 0.65f, 0.7f, 0.12f).build();
+    }
+
+    static Sketch boat() {
+        return new Builder("boat")
+                .line(0.7f, -0.7f, -0.2f, 0.7f, -0.2f, 0.5f, -0.5f, -0.5f, -0.5f, -0.7f, -0.2f)
+                .line(0.4f, 0f, -0.2f, 0f, 0.75f).line(0.5f, 0f, 0.75f, 0.5f, -0.1f, 0f, -0.1f)
+                .line(0.6f, -0.9f, -0.7f, -0.5f, -0.62f, 0f, -0.7f, 0.5f, -0.62f, 0.9f, -0.7f).build();
+    }
+
+    static Sketch moon() {
+        int n = 24;
+        float[] pts = new float[(n * 2 + 1) * 2];
+        for (int i = 0; i <= n; i++) {
+            double a = Math.PI / 2 + i * Math.PI / n;
+            pts[i * 2] = 0.6f * (float) Math.cos(a);
+            pts[i * 2 + 1] = 0.6f * (float) Math.sin(a);
+        }
+        for (int i = 1; i <= n; i++) {
+            double a = -Math.PI / 2 + i * Math.PI / n;
+            pts[(n + i) * 2] = -0.25f - 0.35f * (float) Math.cos(a) * -1f;
+            pts[(n + i) * 2 + 1] = -0.6f * (float) Math.sin(a);
+        }
+        return new Builder("moon").line(1.4f, pts).dot(0.5f, 0.5f, 0.03f).dot(0.7f, 0.1f, 0.025f).build();
+    }
+
+    static Sketch eye() {
+        Builder s = new Builder("eye");
+        s.line(0.6f, -0.8f, 0f, -0.4f, 0.35f, 0f, 0.45f, 0.4f, 0.35f, 0.8f, 0f);
+        s.line(0.6f, -0.8f, 0f, -0.4f, -0.3f, 0f, -0.38f, 0.4f, -0.3f, 0.8f, 0f);
+        s.circle(0.5f, 0f, 0.03f, 0.28f).dot(0f, 0.03f, 0.12f);
+        return s.label(0f, -0.75f, "lid, iris, pupil").build();
     }
 
     static Sketch waterCycle() {

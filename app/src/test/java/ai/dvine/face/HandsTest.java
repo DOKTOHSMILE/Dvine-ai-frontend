@@ -31,7 +31,8 @@ public class HandsTest {
     @Test
     public void sketchesHaveStrokes() {
         String[] asks = {"draw a circle", "draw a square", "explain a half", "explain the solar system", "draw steps",
-                "draw a heart", "draw a star", "explain the water cycle", "explain 2 plus 5"};
+                "draw a heart", "draw a star", "explain the water cycle", "explain 2 plus 5", "draw a house", "draw a tree", "draw the sun", "draw a flower",
+                "draw a person", "draw a car", "draw a fish", "draw mountains", "draw a boat", "draw the moon", "explain the eye"};
         for (String a : asks) {
             Sketch s = Sketch.forRequest(a);
             assertNotNull(a, s);

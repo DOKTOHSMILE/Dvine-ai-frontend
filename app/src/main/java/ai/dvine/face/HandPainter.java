@@ -44,9 +44,9 @@ public final class HandPainter {
         holdUntil = time + seconds;
     }
 
-    public void setSkin(boolean on, boolean ivie) {
-        skinMode = on;
-        skinTone = ivie ? 0xFF9A6440 : 0xFF7E4E2E;
+    public void setLook(Look look) {
+        skinMode = look.style == Look.Style.SKIN;
+        skinTone = look.skinColor();
     }
 
     public boolean visible() {

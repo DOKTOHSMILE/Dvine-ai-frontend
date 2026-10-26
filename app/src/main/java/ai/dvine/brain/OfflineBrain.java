@@ -52,6 +52,8 @@ public final class OfflineBrain {
     private int turn;
     private String lastKey;
     private final ActionPlanner planner = new ActionPlanner();
+    private ai.dvine.face.Look obiLook = ai.dvine.face.Look.defaults(false);
+    private ai.dvine.face.Look ivieLook = ai.dvine.face.Look.defaults(true);
     private String userName;
     private String lastSaid;
 
@@ -74,6 +76,11 @@ public final class OfflineBrain {
 
     public synchronized void setUserName(String name) {
         userName = name;
+    }
+
+    public synchronized void setLooks(ai.dvine.face.Look obi, ai.dvine.face.Look ivie) {
+        obiLook = obi.copy();
+        ivieLook = ivie.copy();
     }
 
     public synchronized String userName() {
@@ -174,15 +181,9 @@ public final class OfflineBrain {
             a.command = "MUSIC_ON";
             return a;
         }
-        if (text.matches("^(wireframe|wire frame|lines only|glass) (mode|look)$|^(remove|hide) (the )?skin$")) {
-            BrainAnswer a = one(speaker, "Wireframe mode.", "SET");
-            a.command = "SKIN_OFF";
-            return a;
-        }
-        if (text.matches("^skin (mode|on)$|^(add|show) (the )?skin$|^solid (mode|look)$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Skin on.", "There, a little more human."), "SET");
-            a.command = "SKIN_ON";
-            return a;
+        BrainAnswer styled = restyle(raw, text, speaker);
+        if (styled != null) {
+            return styled;
         }
         if (text.matches("^(hide|turn off) (the )?(subtitles|captions)$")) {
             BrainAnswer a = one(speaker, "Subtitles hidden.", "SET");
@@ -213,6 +214,35 @@ public final class OfflineBrain {
         return null;
     }
 
+    /** "Make your skin darker", "dot mode", "make Ivie's hair longer": redraws a persona. */
+    private BrainAnswer restyle(String raw, String text, String speaker) {
+        String lower = raw == null ? "" : raw.toLowerCase(Locale.US);
+        boolean forIvie = lower.contains("ivie") ? !lower.contains("obi") || "ivie".equals(speaker)
+                : lower.contains("obi") ? false : "ivie".equals(speaker);
+        ai.dvine.face.Look target = (forIvie ? ivieLook : obiLook).copy();
+        String said;
+        if (text.matches(".*(reset|restore|original|default) (your |the )?(look|face|style).*|.*go back to (your )?normal( look)?.*")) {
+            target = ai.dvine.face.Look.defaults(forIvie);
+            said = "Back to how I first looked.";
+        } else {
+            said = target.apply(text.replaceAll("\\b(obi|ivie)'?s?\\b", "your"));
+        }
+        if (said == null) {
+            return null;
+        }
+        if (forIvie) {
+            ivieLook = target;
+        } else {
+            obiLook = target;
+        }
+        String who = forIvie ? "ivie" : "obi";
+        BrainAnswer a = one(who, said, "LOOK");
+        a.look = target;
+        a.lookIvie = forIvie;
+        a.gesture = "💅";
+        return a;
+    }
+
     private static String sketchLine(ai.dvine.face.Sketch s) {
         String t = s.title;
         if (t.contains(" plus ")) {
@@ -228,6 +258,17 @@ public final class OfflineBrain {
             case "solar system": return "The Sun sits in the middle. Mercury, Venus, Earth and Mars circle closest to it.";
             case "steps": return "Every plan moves the same way: name the goal, make the plan, check it, then do it.";
             case "water cycle": return "Water rises from the sea as vapour, gathers into clouds, and falls back as rain.";
+            case "house": return "A house: four walls, a roof that sheds the rain, a door to come in, and a window for light.";
+            case "tree": return "Roots hold it and drink, the trunk carries water up, and the leaves turn sunlight into food.";
+            case "sun": return "The Sun: a star, with its light reaching us in about eight minutes.";
+            case "flower": return "A flower: petals to invite bees, a centre that holds the seeds, and a stem with a leaf.";
+            case "person": return "A simple person: head, body, arms and legs.";
+            case "car": return "A car: the body, two wheels on this side, and the windows.";
+            case "fish": return "A fish: a smooth body for swimming, a tail to push, and an eye.";
+            case "mountains": return "Two mountains, snow on the tall one, and the sun behind them.";
+            case "boat": return "A small sailing boat on the water: hull, mast and sail.";
+            case "moon": return "A crescent moon, with two little stars.";
+            case "eye": return "An eye: the lids protect it, the iris gives the colour, and the pupil lets light in.";
             default: return "Let me draw a " + t + " for you.";
         }
     }

@@ -30,7 +30,7 @@ Obi: angular flat-top bust, big low-poly triangles, neck column with a slanted V
 
 ## Skin
 
-Default look: solid warm brown skin (medium tone; Obi a shade deeper than Ivie) on faces and hands, lit with a soft key light and a rim of the persona's glow, with the glowing wires on top. Triangles are depth-sorted each frame (`Shade.order`). Say "wireframe mode" for lines only, "skin mode" to bring the skin back.
+Default look: solid deep-brown skin (Obi a shade deeper than Ivie) on faces and hands, lit with a soft key light and a rim of the persona's glow, with the glowing wires on top. Triangles are depth-sorted each frame (`Shade.order`). Say "wireframe mode", "dot mode" (nano dots) or "skin mode". Shape requests ("bigger eyes", "slimmer face", "remove your hair"…) go through `Look`, which rebuilds the head once.
 
 ## Hands
 

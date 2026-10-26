@@ -30,8 +30,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     private final FaceRig obi = new FaceRig(false);
     private final FaceRig ivie = new FaceRig(true);
-    private final WirePainter obiHead = new WirePainter(WireHead.create(false));
-    private final WirePainter ivieHead = new WirePainter(WireHead.create(true));
+    private WirePainter obiHead = new WirePainter(WireHead.create(false));
+    private WirePainter ivieHead = new WirePainter(WireHead.create(true));
     private final HandPainter hands = new HandPainter();
     private final Choreographer choreographer = Choreographer.getInstance();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -62,7 +62,6 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private boolean subtitles = true;
     private boolean online;
     private boolean listening;
-    private boolean skin = true;
 
     private Sketch sketch;
     private float sketchStart;
@@ -161,11 +160,20 @@ public final class StageView extends View implements Choreographer.FrameCallback
         subtitles = on;
     }
 
-    /** Solid warm skin on faces and hands (default), or wireframe only. */
-    public void setSkin(boolean on) {
-        obiHead.setSkin(on);
-        ivieHead.setSkin(on);
-        skin = on;
+    /**
+     * Redraws a persona from a new look. The mesh is rebuilt once here, not per
+     * frame; a style-only change (skin, wire, dots, tone) is just as cheap.
+     */
+    public void setLook(boolean forIvie, Look look) {
+        WirePainter next = new WirePainter(WireHead.create(forIvie, look));
+        if (forIvie) {
+            ivieHead = next;
+        } else {
+            obiHead = next;
+        }
+        if (forIvie == showingIvie) {
+            burst(16);
+        }
     }
 
     public void gesture(String key) {
@@ -344,7 +352,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         painter.draw(canvas, rig, away, cx, cy, unit, color, faceAlpha, density,
                 cy + unit * 1.05f, cy + unit * 1.62f);
         drawScatter(canvas, cx, cy, unit, color, dissolve.value);
-        hands.setSkin(skin, ivieOn);
+        hands.setLook(painter.head().look);
         hands.draw(canvas, cx, cy, unit, color, faceAlpha, density);
         drawSparks(canvas, cx, cy, unit, color);
 

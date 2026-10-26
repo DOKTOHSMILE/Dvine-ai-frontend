@@ -47,8 +47,15 @@ public final class WireHead {
     private final float squareness;
     private final float flatTop;
 
-    private WireHead(boolean ivie) {
+    /** The look this head was built from. */
+    public final Look look;
+    /** Nano-dot samples: triangle index and two barycentric weights per dot. */
+    public final int[] dotTri;
+    public final float[] dotBary;
+
+    private WireHead(boolean ivie, Look look) {
         this.ivie = ivie;
+        this.look = look.copy();
         crownW = ivie ? 0.74f : 0.80f;
         crownD = ivie ? 0.88f : 0.92f;
         squareness = ivie ? 2.15f : 3.0f;
@@ -60,7 +67,7 @@ public final class WireHead {
         buildLips(b);
         buildNose(b);
         buildEars(b);
-        if (ivie) {
+        if (this.look.hair > 0.05f) {
             buildHair(b);
         }
         rest = b.positions();
@@ -70,10 +77,68 @@ public final class WireHead {
         edges = b.edgeArray();
         edgeGroup = b.groupArray();
         tris = b.triArray();
+        for (int i = 1; i < rest.length; i += 3) {
+            rest[i] *= this.look.height;
+        }
+        int[][] dots = sampleDots(rest, tris, ivie ? 5200 : 4600);
+        dotTri = dots[0];
+        float[] bary = new float[dotTri.length * 2];
+        for (int i = 0; i < dotTri.length; i++) {
+            bary[i * 2] = dots[1][i * 2] / 65535f;
+            bary[i * 2 + 1] = dots[1][i * 2 + 1] / 65535f;
+        }
+        dotBary = bary;
+    }
+
+    /** Spreads {@code target} dots over the skin, more where triangles are bigger. Deterministic. */
+    private static int[][] sampleDots(float[] pos, int[] tris, int target) {
+        int count = tris.length / 3;
+        float[] area = new float[count];
+        float total = 0f;
+        for (int t = 0; t < count; t++) {
+            int a = tris[t * 3] * 3;
+            int b = tris[t * 3 + 1] * 3;
+            int c = tris[t * 3 + 2] * 3;
+            float ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2];
+            float vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2];
+            float cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+            area[t] = 0.5f * (float) Math.sqrt(cx * cx + cy * cy + cz * cz);
+            total += area[t];
+        }
+        int[] tri = new int[target + count];
+        int[] bary = new int[(target + count) * 2];
+        int n = 0;
+        float carry = 0f;
+        int seed = 17;
+        for (int t = 0; t < count && n < tri.length; t++) {
+            carry += area[t] / Math.max(1e-6f, total) * target;
+            while (carry >= 1f && n < tri.length) {
+                carry -= 1f;
+                float r1 = (jitter(seed++) + 1f) * 0.5f;
+                float r2 = (jitter(seed++) + 1f) * 0.5f;
+                if (r1 + r2 > 1f) {
+                    r1 = 1f - r1;
+                    r2 = 1f - r2;
+                }
+                tri[n] = t;
+                bary[n * 2] = (int) (r1 * 65535f);
+                bary[n * 2 + 1] = (int) (r2 * 65535f);
+                n++;
+            }
+        }
+        int[] outTri = new int[n];
+        int[] outBary = new int[n * 2];
+        System.arraycopy(tri, 0, outTri, 0, n);
+        System.arraycopy(bary, 0, outBary, 0, n * 2);
+        return new int[][]{outTri, outBary};
     }
 
     public static WireHead create(boolean ivie) {
-        return new WireHead(ivie);
+        return new WireHead(ivie, Look.defaults(ivie));
+    }
+
+    public static WireHead create(boolean ivie, Look look) {
+        return new WireHead(ivie, look == null ? Look.defaults(ivie) : look);
     }
 
     public int vertexCount() {
@@ -88,6 +153,11 @@ public final class WireHead {
 
     /** Half width of the head at height y. */
     float width(float y) {
+        float jawMix = smooth((-0.45f - y) / 0.4f);
+        return baseWidth(y) * look.width * (1f + (look.jaw - 1f) * jawMix);
+    }
+
+    private float baseWidth(float y) {
         if (y >= 0.2f) {
             float s = Math.min(1f, (y - 0.2f) / 0.8f);
             return crownW * superRoot(s);
@@ -115,11 +185,11 @@ public final class WireHead {
     /** Forward push of facial structure at (x, y). Only the front of the head uses it. */
     float feature(float x, float y) {
         float ax = Math.abs(x);
-        float nose = gauss(x, 0.085f) * (0.05f * band(y, 0.08f, -0.42f) + (ivie ? 0.15f : 0.18f) * gauss(y + 0.38f, 0.09f));
+        float nose = look.nose * gauss(x, 0.085f) * (0.05f * band(y, 0.08f, -0.42f) + (ivie ? 0.15f : 0.18f) * gauss(y + 0.38f, 0.09f));
         float sockets = -0.085f * gauss(ax - 0.30f, 0.13f) * gauss(y - 0.02f, 0.08f);
         float brow = (ivie ? 0.035f : 0.065f) * gauss(y - 0.17f, 0.055f) * gauss(x, 0.55f);
         float cheeks = (ivie ? 0.06f : 0.045f) * gauss(ax - 0.40f, 0.14f) * gauss(y + 0.24f, 0.12f);
-        float lips = (ivie ? 0.075f : 0.055f) * gauss(x, 0.17f) * gauss(y + 0.63f, 0.06f);
+        float lips = look.lips * (ivie ? 0.075f : 0.055f) * gauss(x, 0.17f) * gauss(y + 0.63f, 0.06f);
         float groove = -0.025f * gauss(x, 0.14f) * gauss(y + 0.75f, 0.03f);
         float chin = (ivie ? 0.04f : 0.065f) * gauss(x, ivie ? 0.12f : 0.17f) * gauss(y + 0.88f, 0.08f);
         return nose + sockets + brow + cheeks + lips + groove + chin;
@@ -232,8 +302,8 @@ public final class WireHead {
 
     private void buildEyes(Builder b) {
         int pts = 14;
-        float rx = ivie ? 0.15f : 0.14f;
-        float ry = ivie ? 0.065f : 0.052f;
+        float rx = (ivie ? 0.15f : 0.14f) * look.eyes;
+        float ry = (ivie ? 0.065f : 0.052f) * look.eyes;
         for (int side = -1; side <= 1; side += 2) {
             float ex = side * 0.30f;
             float ey = 0.02f;
@@ -294,9 +364,9 @@ public final class WireHead {
             float arch = (float) Math.sin(t * Math.PI);
             float x = lerp(-half, half, t);
             float cupid = ivie ? 0.012f * (float) Math.cos(t * Math.PI * 4) * arch : 0f;
-            float yu = -0.60f + arch * (ivie ? 0.045f : 0.032f) + cupid;
+            float yu = -0.60f + arch * (ivie ? 0.045f : 0.032f) * look.lips + cupid;
             float ym = -0.625f;
-            float yl = -0.65f - arch * (ivie ? 0.055f : 0.04f);
+            float yl = -0.65f - arch * (ivie ? 0.055f : 0.04f) * look.lips;
             up[i] = b.vertex(x, yu, surfaceZ(x, yu) + 0.012f, T_LIP_UP, arch, 0f);
             mid[i] = b.vertex(x, ym, surfaceZ(x, ym) + 0.006f, T_LIP_MID, arch, 0f);
             lo[i] = b.vertex(x, yl, surfaceZ(x, yl) + 0.012f, T_LIP_LO, arch, 0f);
@@ -368,7 +438,7 @@ public final class WireHead {
     private void buildHair(Builder b) {
         int strands = 13;
         int onSkull = 7;
-        int tail = 9;
+        int tail = Math.max(3, Math.round(9 * look.hair));
         int pts = onSkull + tail;
         int[] prev = null;
         for (int s = 0; s < strands; s++) {

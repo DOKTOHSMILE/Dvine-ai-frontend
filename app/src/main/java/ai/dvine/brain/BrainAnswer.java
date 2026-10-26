@@ -24,6 +24,9 @@ public final class BrainAnswer {
     public String newName;
     /** Device setting change: MUSIC_ON, MUSIC_OFF, SUBS_ON, SUBS_OFF, or null. */
     public String command;
+    /** A persona's new look to draw and remember, or null. */
+    public ai.dvine.face.Look look;
+    public boolean lookIvie;
 
     BrainAnswer(List<TurnLine> lines, boolean answered, boolean needsOnline, String source) {
         this.lines = Collections.unmodifiableList(lines);
