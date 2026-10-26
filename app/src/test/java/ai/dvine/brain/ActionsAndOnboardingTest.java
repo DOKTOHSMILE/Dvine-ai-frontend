@@ -96,6 +96,11 @@ public class ActionsAndOnboardingTest {
         BrainAnswer scene = brain.respond("act out the tortoise and the hare", "ivie");
         assertNotNull(scene.scenePoses);
         assertEquals(scene.scenePoses.length, scene.sceneSeconds.length);
+        assertEquals("the hare and the tortoise", scene.sceneTitle);
+        assertEquals("STOP", brain.respond("stop", "obi").command);
+        assertEquals("STOP", brain.respond("that's enough", "ivie").command);
+        assertEquals("SELF_REPORT", brain.respond("what are you doing", "obi").command);
+        assertEquals("FAVOURITES", brain.respond("what do I like", "obi").command);
         // ordinary talk is not a pose
         assertTrue(!"POSE".equals(brain.respond("how do I run a business", "obi").command));
         assertEquals("globe", brain.respond("draw the globe", "obi").object3d);

@@ -19,8 +19,10 @@ import ai.dvine.brain.LearningJournal;
 import ai.dvine.brain.MiniJson;
 
 /**
- * Runs when the phone comes online. Uploads consented learning and pulls a
- * newer knowledge pack. Does nothing while no desk URL is configured.
+ * Runs when the phone comes online. Uploads consented learning and episodes,
+ * pulls a newer knowledge pack and the server's consolidated profile. These
+ * are the engine's secondary jobs; nothing on the phone waits for them.
+ * Does nothing while no desk URL is configured.
  * Contracts: docs/DVINE_MASTER_BUILD_HANDBOOK.md §5.
  */
 public final class SyncWorker {
@@ -42,6 +44,8 @@ public final class SyncWorker {
     private final java.util.function.Supplier<String> baseSource;
     private final java.util.function.Supplier<String> deviceId;
     private UploadListener uploads;
+    private ai.dvine.engine.Episodes episodes;
+    private java.util.function.Consumer<Map<String, Object>> profiles;
     private volatile boolean again;
     private final LearningJournal journal;
     private final KnowledgeStore store;
@@ -61,6 +65,12 @@ public final class SyncWorker {
 
     public void setUploadListener(UploadListener l) {
         uploads = l;
+    }
+
+    /** Episodes to archive on the server, and where the consolidated profile goes when it comes back. */
+    public void setEpisodes(ai.dvine.engine.Episodes episodes, java.util.function.Consumer<Map<String, Object>> profiles) {
+        this.episodes = episodes;
+        this.profiles = profiles;
     }
 
     private String base() {
@@ -91,6 +101,8 @@ public final class SyncWorker {
                     if (sent > 0 && uploads != null) {
                         uploads.onUploaded(sent);
                     }
+                    uploadEpisodes();
+                    pullProfile();
                 } while (again);
             } finally {
                 running = false;
@@ -157,6 +169,54 @@ public final class SyncWorker {
             }
         }
         return sent;
+    }
+
+    /** Archives the phone's recent episodes on the server; returns how many it accepted. */
+    private int uploadEpisodes() {
+        if (episodes == null || episodes.pending(1).isEmpty()) {
+            return 0;
+        }
+        String token = tokens.token();
+        if (token == null || token.isEmpty()) {
+            return 0;
+        }
+        int sent = 0;
+        for (int round = 0; round < 10; round++) {
+            List<ai.dvine.engine.Episodes.Episode> batch = episodes.pending(200);
+            if (batch.isEmpty()) {
+                break;
+            }
+            try {
+                String reply = post(base() + "/api/v1/episodes/sync",
+                        ai.dvine.engine.Episodes.syncBody(deviceId.get(), batch), token);
+                Map<String, Object> r = MiniJson.obj(MiniJson.parse(reply));
+                List<String> done = new ArrayList<String>(MiniJson.strings(r.get("accepted")));
+                for (Object x : MiniJson.list(r.get("rejected"))) {
+                    done.add(MiniJson.str(MiniJson.obj(x).get("id"), ""));
+                }
+                if (done.isEmpty()) {
+                    break;
+                }
+                episodes.markUploaded(done, System.currentTimeMillis());
+                sent += done.size();
+            } catch (IOException | IllegalArgumentException e) {
+                break;
+            }
+        }
+        return sent;
+    }
+
+    /** Fetches the favourites the server consolidated from all of this user's episodes. */
+    private void pullProfile() {
+        String token = tokens.token();
+        if (profiles == null || token == null || token.isEmpty()) {
+            return;
+        }
+        try {
+            profiles.accept(MiniJson.obj(MiniJson.parse(get(base() + "/api/v1/episodes/profile", token))));
+        } catch (IOException | IllegalArgumentException ignored) {
+            // the engine works without it
+        }
     }
 
     private static String get(String url, String token) throws IOException {

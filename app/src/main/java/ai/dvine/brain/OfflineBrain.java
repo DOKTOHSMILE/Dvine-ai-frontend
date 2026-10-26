@@ -236,7 +236,23 @@ public final class OfflineBrain {
             }
             BrainAnswer a = new BrainAnswer(lines, true, false, "SCENE");
             a.scenePoses = scene.poses;
+            a.sceneTitle = scene.title;
             a.sceneSeconds = scene.seconds();
+            return a;
+        }
+        if (text.matches("^(stop|stop it|stop moving|enough|that'?s enough|freeze|cancel that|be still)( now| please)?$")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, I'll be still."), "LOOK");
+            a.command = "STOP";
+            return a;
+        }
+        if (text.matches("^(what are you doing|status report|self[- ]?check|body status|what is your status|what's your status)\\??$")) {
+            BrainAnswer a = one(speaker, "Let me check myself.", "SELF");
+            a.command = "SELF_REPORT";
+            return a;
+        }
+        if (text.matches("^(what do i (like|usually ask for|ask you for most)|what are my favou?rites|do you know my favou?rites)\\??$")) {
+            BrainAnswer a = one(speaker, "Let me remember.", "SELF");
+            a.command = "FAVOURITES";
             return a;
         }
         String pose = posePhrase(text);

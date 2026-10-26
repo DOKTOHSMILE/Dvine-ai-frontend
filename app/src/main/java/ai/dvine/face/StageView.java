@@ -27,7 +27,7 @@ import ai.dvine.face.nano.Swarm;
  * The whole app on screen: one persona on black, their hands, an explanation
  * canvas, sparkles and a faint subtitle. No buttons, no menus.
  */
-public final class StageView extends View implements Choreographer.FrameCallback {
+public final class StageView extends View implements Choreographer.FrameCallback, ai.dvine.engine.BodyPort {
     private static final int OBI = 0xFF00E5FF;
     private static final int IVIE = 0xFFFFB300;
     private static final int GREY = 0xFF5A5A5A;
@@ -261,6 +261,13 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 scenePoses = null;
             }
         }
+    }
+
+    /** Expression bias from the engine's affect state, applied to both personas. */
+    @Override
+    public void setMood(float smile, float brow, float tiltDeg) {
+        obi.setMood(smile, brow, tiltDeg);
+        ivie.setMood(smile, brow, tiltDeg);
     }
 
     public boolean isBodyMode() {

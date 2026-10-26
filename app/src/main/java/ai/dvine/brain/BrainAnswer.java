@@ -30,6 +30,7 @@ public final class BrainAnswer {
     public String commandValue;
     /** A scene to act with the full body: one pose per SAY line, and how long each holds. */
     public String[] scenePoses;
+    public String sceneTitle;
     public float[] sceneSeconds;
     /** A persona's new look to draw and remember, or null. */
     public ai.dvine.face.Look look;

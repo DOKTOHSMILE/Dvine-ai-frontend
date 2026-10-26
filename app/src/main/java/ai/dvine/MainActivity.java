@@ -47,6 +47,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private static final int MIC = 21;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    /** The on-device brain-and-body control engine (primary functions; runs offline). */
+    private ai.dvine.engine.Engine engine;
+    /** Behaviour rate: about 10 Hz, between the 60 Hz frame loop and the slower brain. */
+    private final Runnable engineTick = new Runnable() {
+        @Override
+        public void run() {
+            engine.tick(android.os.SystemClock.uptimeMillis());
+            handler.postDelayed(this, 100L);
+        }
+    };
     private StageView stage;
     private TalkBridge talk;
     private ListenBridge listen;
@@ -156,6 +166,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     final ai.dvine.brain.KnowledgePack full = store.load();
                     handler.post(() -> brain.replacePack(full));
                 });
+        engine = new ai.dvine.engine.Engine(stage, getFilesDir(), journal::consent);
+        sync.setEpisodes(engine.episodes, profile -> handler.post(
+                () -> engine.applyProfile(profile, android.os.SystemClock.uptimeMillis())));
         sync.setUploadListener(count -> handler.post(() -> {
             stage.burst(12);
             stage.setSubtitle("Backed up " + count + (count == 1 ? " thing" : " things") + " I learned.");
@@ -231,12 +244,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             return;
         }
+        long now = android.os.SystemClock.uptimeMillis();
+        engine.onHeard(text, now);
         TurnRoute route = LocalTurn.route(text, stage.agent());
         if (route.switchOnly) {
             play(route.lines, null);
             return;
         }
         final BrainAnswer reply = brain.respond(text, stage.agent());
+        engine.setPersona(stage.agent(), now);
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
         }
@@ -259,17 +275,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             stage.setLook(reply.lookIvie, reply.look);
             prefs.edit().putString(reply.lookIvie ? "look_ivie" : "look_obi", reply.look.serialize()).apply();
         }
-        if (reply.gesture != null) {
-            stage.gesture(reply.gesture);
+        // the brain proposes; the engine validates, arbitrates and moves the body
+        engine.perform(reply, now);
+        if ("SELF_REPORT".equals(reply.command)) {
+            play(LocalTurn.speakAs(stage.isIvie(), engine.selfReport(now)), null);
+            return;
         }
-        if (reply.sketch != null) {
-            stage.showSketch(reply.sketch);
-        }
-        if (reply.object3d != null) {
-            stage.showObject(reply.object3d);
-        }
-        if (reply.scenePoses != null) {
-            stage.playScene(reply.scenePoses, reply.sceneSeconds);
+        if ("FAVOURITES".equals(reply.command)) {
+            play(LocalTurn.speakAs(stage.isIvie(), engine.favouritesLine()), null);
+            return;
         }
         final PendingAction act = reply.action;
         if (act != null && act.kind == PendingAction.Kind.COPY) {
@@ -328,21 +342,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 ambient.setEnabled(true);
                 prefs.edit().putBoolean("music", true).apply();
                 break;
-            case "BODY_ON":
-                stage.setBodyMode(true);
-                break;
-            case "FACE_ON":
-                stage.setBodyMode(false);
-                break;
-            case "REDRAW":
-                stage.redraw();
-                break;
-            case "POSE":
-                stage.setPose(value);
-                break;
-            case "TURN":
-                stage.turnAround();
-                break;
             case "SYNC_NOW":
                 syncSoon();
                 break;
@@ -382,9 +381,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         stopPlay();
         boolean ivie = stage.isIvie();
-        if (part.endsWith("hand")) {
-            stage.playScene(new String[]{"wave"}, new float[]{2.6f});
-        }
+        engine.onTouch(part, android.os.SystemClock.uptimeMillis());
         String[] said = ivie
                 ? new String[]{"Hey, that's my " + part + "!", "You found my " + part + ".", "My " + part + ", gently please."}
                 : new String[]{"That is my " + part + ".", "My " + part + ". Noted.", "You tapped my " + part + "."};
@@ -545,7 +542,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
     @Override
     protected void onPause() {
         stopPlay();
+        handler.removeCallbacks(engineTick);
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        handler.removeCallbacks(engineTick);
+        handler.post(engineTick);
     }
 
     @Override
