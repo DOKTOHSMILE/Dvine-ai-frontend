@@ -15,12 +15,14 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 | v1.1 Voices + ambience | IN PROGRESS | `TalkBridge` en-NG voice ranking; `AmbientPad` synth | listen on a phone with Google TTS en-NG |
 | v1.1 Offline up to 1 GB | IN PROGRESS | `KnowledgeStore` merges `shards/*.json`; SQLite shards planned (M10) | shard download flow |
 | M4 Offline brain | VERIFIED (JVM) | `OfflineBrainTest`, `CalculatorTest`, `MiniJsonTest` | airplane-mode demo on device |
-| M5 Learning journal | VERIFIED (JVM) | `LearningJournalTest` (consent, redaction, forget, restart) | — |
+| M5 Learning journal | VERIFIED (JVM) | `LearningJournalTest`; v1.2 general facts, answer-after-unknown, corrections override pack (`ThoughtsAndLearningTest`) | — |
+| v1.2 Basic knowledge | VERIFIED (JVM) | core pack v2 (142 facts, 45 wisdom); WordNet dictionary shard 20,775 words; nearest-meaning pivot | device load time |
+| v1.2 Inner thoughts | VERIFIED (JVM) | THINK lines with text, whisper voice in `TalkBridge.whisper`; toggle by voice | listen on device |
 | M6 Connectivity + sync | IN PROGRESS | `Connectivity`, `KnowledgeStore`, `SyncWorker` compile; inert while `api_base` is empty | needs Track S endpoints S-K, S-L |
 | M7 Online client | NOT STARTED | — | after S-K/S-L |
 | M8 Voice polish | NOT STARTED | — | — |
 
-Commands run: `gradle testDebugUnitTest assembleDebug` → 29 tests passed, APK built (v1.1).
+Commands run: `gradle testDebugUnitTest assembleDebug` → 37 tests passed (incl. Robolectric LaunchTest), APK built (v0.3.0).
 Not run: `lintDebug` (dependency download rate-limited in the sandbox), any on-device test.
 
 Known limits:

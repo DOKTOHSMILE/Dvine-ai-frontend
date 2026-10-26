@@ -30,6 +30,11 @@ public final class OfflineBrain {
     private static final Pattern RECALL = Pattern.compile(
             "^(?:do you (?:know|remember) )?(?:what|who|where|when)(?:'s| is| are| was)? (my|our) (.+?)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern CORRECT = Pattern.compile("^no[, ]+(?:it'?s|it is|they are|the answer is) (.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TEACH_ANY = Pattern.compile(
+            "^(?:please )?(?:remember|learn|note)(?: that)? (.+?) (?:is|are|was|means) (.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ANSWER_IS = Pattern.compile("^(?:the answer is|it'?s|it is|answer:) (.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SYNONYM = Pattern.compile(
+            "^(?:what is |what's |give me )?(?:another word for|a synonym for|synonyms? (?:of|for)|other words for) (.+)$");
     private static final Pattern UNIT = Pattern.compile(
             "(-?\\d+(?:\\.\\d+)?) ?([a-z°]+(?: [a-z]+)?) (?:to|in|into) ([a-z°]+)");
     private static final Pattern DEFINE = Pattern.compile(
@@ -51,6 +56,7 @@ public final class OfflineBrain {
     private final TimeZone zone;
     private int turn;
     private String lastKey;
+    private String lastUnanswered;
     private final ActionPlanner planner = new ActionPlanner();
     private ai.dvine.face.Look obiLook = ai.dvine.face.Look.defaults(false);
     private ai.dvine.face.Look ivieLook = ai.dvine.face.Look.defaults(true);
@@ -124,9 +130,11 @@ public final class OfflineBrain {
         if (a == null) a = timeAndDate(text, speaker);
         if (a == null) a = units(text, speaker);
         if (a == null) a = maths(text, speaker);
+        if (a == null) a = learned(text, speaker);
         if (a == null) a = intents(text, speaker);
-        if (a == null) a = definitions(text, speaker);
+        if (a == null) a = synonyms(text, speaker);
         if (a == null) a = facts(text, speaker);
+        if (a == null) a = definitions(text, speaker);
         if (a == null) a = wisdomAsk(text, speaker);
         if (a != null) {
             return a;
@@ -184,6 +192,18 @@ public final class OfflineBrain {
         BrainAnswer styled = restyle(raw, text, speaker);
         if (styled != null) {
             return styled;
+        }
+        if (text.matches("^(stop|don'?t) think(ing)? (aloud|out loud)$|^(no|hide) (inner )?thoughts$")) {
+            thoughts = false;
+            BrainAnswer a = one(speaker, "Alright. I'll keep my thinking to myself.", "SET");
+            a.command = "THOUGHTS_OFF";
+            return a;
+        }
+        if (text.matches("^think (aloud|out loud)$|^(show|share) (your )?(inner )?thoughts$")) {
+            thoughts = true;
+            BrainAnswer a = one(speaker, "Alright. You'll hear me think.", "SET");
+            a.command = "THOUGHTS_ON";
+            return a;
         }
         if (text.matches("^(hide|turn off) (the )?(subtitles|captions)$")) {
             BrainAnswer a = one(speaker, "Subtitles hidden.", "SET");
@@ -291,6 +311,8 @@ public final class OfflineBrain {
                 return "✋";
             case "LEARN":
                 return "👌";
+            case "FACT":
+                return "☝";
             case "PACK": {
                 String s = a.spoken().toLowerCase(Locale.US);
                 if (s.startsWith("hello") || s.startsWith("hi") || s.startsWith("good to see") || s.startsWith("goodbye")
@@ -327,8 +349,20 @@ public final class OfflineBrain {
         }
         if (text.matches("^what (have|did) you learn(ed|t)?( from me)?$")) {
             int n = journal.taughtCount();
-            return one(speaker, n == 0 ? "Nothing yet. Tell me something with \"remember that my\", and I'll keep it."
-                    : "You've taught me " + n + (n == 1 ? " thing" : " things") + " on this phone."
+            if (n == 0) {
+                return one(speaker, "Nothing yet. Say remember that, and what you want me to know, and I'll keep it.", "LEARN");
+            }
+            List<String> latest = new ArrayList<String>();
+            List<LearningJournal.Entry> all = journal.all();
+            for (int i = all.size() - 1; i >= 0 && latest.size() < 3; i--) {
+                LearningJournal.Entry e = all.get(i);
+                if (LearningJournal.TAUGHT_FACT.equals(e.kind) || LearningJournal.CORRECTION.equals(e.kind)) {
+                    latest.add(e.text.replaceFirst("^my ", "your ") + " is " + e.answer);
+                }
+            }
+            return think(speaker, "Let me look back at what you taught me.",
+                    "You've taught me " + n + (n == 1 ? " thing" : " things") + " on this phone. Most recently: "
+                    + join(latest, 3) + "."
                     + (journal.consent() ? " I'll share them when we're online." : " They stay here unless you say share what you learned."), "LEARN");
         }
         Matcher m = CORRECT.matcher(cased);
@@ -337,8 +371,10 @@ public final class OfflineBrain {
             if (journal.add(LearningJournal.CORRECTION, lastKey, value) == null) {
                 return one(speaker, "I won't keep that. It looks like private information.", "LEARN");
             }
-            return pair("Corrected. " + capital(lastKey) + " is " + value + ".",
-                    "Thank you for setting me straight.", speaker, "LEARN");
+            String said = lastKey.startsWith("my ") || lastKey.startsWith("our ")
+                    ? "Corrected. " + capital(lastKey) + " is " + value + "."
+                    : "Thank you. I've corrected it: " + value + ".";
+            return pair(said, "Thank you for setting me straight.", speaker, "LEARN");
         }
         m = TEACH.matcher(cased);
         if (!m.matches() && !text.endsWith("?")) {
@@ -353,6 +389,28 @@ public final class OfflineBrain {
             lastKey = key;
             return one(speaker, pick(speaker, "Noted. " + capital(key) + " is " + value + ".",
                     "I'll remember that " + key + " is " + value + "."), "LEARN");
+        }
+        m = ANSWER_IS.matcher(cased);
+        if (m.matches() && lastUnanswered != null) {
+            String key = LearningJournal.normalizeKey(topicOf(lastUnanswered));
+            String value = m.group(1).replaceAll("[.!]+$", "");
+            if (journal.add(LearningJournal.TAUGHT_FACT, key, value) == null) {
+                return one(speaker, "I won't keep that. It looks like private information.", "LEARN");
+            }
+            lastUnanswered = null;
+            lastKey = key;
+            return pair("Thank you. Now I know: " + value + ".",
+                    "Learned on this phone. Next time you ask, we'll remember.", speaker, "LEARN");
+        }
+        m = TEACH_ANY.matcher(cased);
+        if (m.matches() && !m.group(1).toLowerCase(Locale.US).matches("^(my|our) .*")) {
+            String key = LearningJournal.normalizeKey(m.group(1));
+            String value = m.group(2).replaceAll("[.!]+$", "");
+            if (journal.add(LearningJournal.TAUGHT_FACT, key, value) == null) {
+                return one(speaker, "I won't remember that. It looks like private information.", "LEARN");
+            }
+            lastKey = key;
+            return one(speaker, "Noted: " + m.group(1).trim() + " is " + value + ". I'll remember it.", "LEARN");
         }
         m = RECALL.matcher(stripQuestion(text));
         if (m.matches()) {
@@ -479,40 +537,138 @@ public final class OfflineBrain {
         return one(speaker, line, "PACK");
     }
 
-    private BrainAnswer definitions(String text, String speaker) {
-        Matcher m = DEFINE.matcher(stripQuestion(text));
-        if (!m.matches()) {
+    /** Answers from what the user taught on this phone. Learned answers win over the pack. */
+    private BrainAnswer learned(String text, String speaker) {
+        Set<String> q = tokens(stripQuestion(text));
+        if (q.isEmpty()) {
             return null;
         }
-        String word = null;
-        for (int g = 1; g <= m.groupCount(); g++) {
-            if (m.group(g) != null) {
-                word = m.group(g).trim().replaceAll("^(a|an|the) ", "");
-                break;
+        List<LearningJournal.Entry> all = journal.all();
+        for (int i = all.size() - 1; i >= 0; i--) {
+            LearningJournal.Entry e = all.get(i);
+            if (!LearningJournal.TAUGHT_FACT.equals(e.kind) && !LearningJournal.CORRECTION.equals(e.kind)) {
+                continue;
             }
-        }
-        if (word == null) {
-            return null;
-        }
-        for (KnowledgePack.Word w : pack.words) {
-            if (w.word.equals(word) || (w.word + "s").equals(word)) {
-                return one(speaker, capital(w.word) + " means " + w.meaning, "DICT");
+            if (e.text.startsWith("my ") || e.text.startsWith("our ")) {
+                continue; // personal facts answer through "what is my …"
+            }
+            Set<String> k = tokens(e.text);
+            if (!k.isEmpty() && q.containsAll(k) && k.size() * 2 >= q.size()) {
+                lastKey = e.text;
+                return think(speaker, "I remember you taught me this.", e.answer.endsWith(".") ? e.answer : e.answer + ".", "MEMORY");
             }
         }
         return null;
     }
 
+    private BrainAnswer synonyms(String text, String speaker) {
+        Matcher m = SYNONYM.matcher(stripQuestion(text));
+        if (!m.matches()) {
+            return null;
+        }
+        KnowledgePack.Word w = lookup(m.group(1).trim().replaceAll("^(a|an|the) ", ""));
+        if (w == null || w.synonyms.isEmpty()) {
+            return null;
+        }
+        return think(speaker, "Let me check my dictionary.",
+                "Words close to " + w.word + ": " + join(w.synonyms, 5) + ".", "DICT");
+    }
+
+    private BrainAnswer definitions(String text, String speaker) {
+        String t = stripQuestion(text);
+        Matcher m = DEFINE.matcher(t);
+        String word = null;
+        if (m.matches()) {
+            for (int g = 1; g <= m.groupCount(); g++) {
+                if (m.group(g) != null) {
+                    word = m.group(g).trim().replaceAll("^(a|an|the) ", "");
+                    break;
+                }
+            }
+        } else if (words(t) <= 2) {
+            word = t; // "photosynthesis?" on its own
+        }
+        if (word == null) {
+            return null;
+        }
+        KnowledgePack.Word w = lookup(word);
+        if (w == null) {
+            return null;
+        }
+        lastKey = LearningJournal.normalizeKey(word);
+        StringBuilder sb = new StringBuilder(capital(w.word));
+        if (w.pos.length() > 0) {
+            sb.append(", ").append(w.pos).append(",");
+        }
+        sb.append(" means ").append(w.meaning);
+        if (w.example.length() > 0) {
+            sb.append(" For example: ").append(w.example).append('.');
+        }
+        return think(speaker, "Let me check my dictionary.", sb.toString(), "DICT");
+    }
+
+    /** Rough word stem so largest/large and biggest/big line up. */
+    static String stem(String w) {
+        String s = w;
+        String[][] rules = {{"iest", "y"}, {"ier", "y"}, {"ies", "y"}, {"est", ""}, {"er", ""}, {"ing", ""}, {"ed", ""},
+                {"es", ""}, {"s", ""}};
+        for (String[] r : rules) {
+            if (s.endsWith(r[0]) && s.length() > r[0].length() + 2) {
+                s = s.substring(0, s.length() - r[0].length()) + r[1];
+                break;
+            }
+        }
+        int n = s.length();
+        if (n > 3 && s.charAt(n - 1) == s.charAt(n - 2) && "aeiou".indexOf(s.charAt(n - 1)) < 0) {
+            s = s.substring(0, n - 1);
+        }
+        if (s.length() > 3 && s.endsWith("e")) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    /** Dictionary lookup that also tries simple word endings: planets, studies, running, walked. */
+    private KnowledgePack.Word lookup(String raw) {
+        String w = raw.toLowerCase(Locale.US).trim();
+        KnowledgePack.Word hit = pack.word(w);
+        if (hit != null) {
+            return hit;
+        }
+        String[][] rules = {{"ies", "y"}, {"es", ""}, {"s", ""}, {"ing", ""}, {"ing", "e"}, {"ed", ""}, {"ed", "e"},
+                {"ly", ""}, {"er", ""}, {"est", ""}};
+        for (String[] r : rules) {
+            if (w.endsWith(r[0]) && w.length() > r[0].length() + 2) {
+                hit = pack.word(w.substring(0, w.length() - r[0].length()) + r[1]);
+                if (hit != null) {
+                    return hit;
+                }
+            }
+        }
+        if (w.length() > 4 && w.charAt(w.length() - 3) == w.charAt(w.length() - 4) && w.endsWith("ing")) {
+            hit = pack.word(w.substring(0, w.length() - 4)); // running -> run
+        }
+        return hit;
+    }
+
     private BrainAnswer facts(String text, String speaker) {
-        Set<String> tokens = tokens(text);
+        return factsFor(tokens(text), text, speaker, null);
+    }
+
+    private BrainAnswer factsFor(Set<String> tokens, String text, String speaker, String thought) {
         if (tokens.isEmpty()) {
             return null;
+        }
+        Set<String> stems = new HashSet<String>();
+        for (String t : tokens) {
+            stems.add(stem(t));
         }
         KnowledgePack.Fact best = null;
         double bestScore = 0;
         for (KnowledgePack.Fact f : pack.facts) {
             int hit = 0;
             for (String k : f.keys) {
-                if (k.indexOf(' ') > 0 ? text.contains(k) : tokens.contains(k)) {
+                if (k.indexOf(' ') > 0 ? text.contains(k) : tokens.contains(k) || stems.contains(stem(k))) {
                     hit++;
                 }
             }
@@ -527,7 +683,37 @@ public final class OfflineBrain {
         if (best == null) {
             return null;
         }
-        return one(speaker, best.answer, "PACK");
+        lastKey = LearningJournal.normalizeKey(topicOf(text));
+        return think(speaker, thought != null ? thought : "Let me look through what I know.", best.answer, "FACT");
+    }
+
+    /**
+     * The fluid pivot: when the exact words find nothing, try words that mean
+     * the same (dictionary synonyms both ways) before giving up.
+     */
+    private BrainAnswer nearestMeaning(String text, String speaker) {
+        Set<String> base = tokens(text);
+        if (base.isEmpty()) {
+            return null;
+        }
+        Set<String> wide = new HashSet<String>(base);
+        for (String t : base) {
+            KnowledgePack.Word w = lookup(t);
+            String root = w != null ? w.word : t;
+            if (pack.word(stem(t)) != null) {
+                root = stem(t);
+            }
+            wide.add(root);
+            for (String r : pack.related(root)) {
+                if (r.indexOf(' ') < 0) {
+                    wide.add(r);
+                }
+            }
+        }
+        if (wide.size() == base.size()) {
+            return null;
+        }
+        return factsFor(wide, text, speaker, "That exact wording isn't in my notes. Let me try words that mean the same.");
     }
 
     private BrainAnswer wisdomAsk(String text, String speaker) {
@@ -552,18 +738,23 @@ public final class OfflineBrain {
     }
 
     private BrainAnswer unknown(String raw, String text, String speaker) {
+        BrainAnswer pivot = nearestMeaning(text, speaker);
+        if (pivot != null) {
+            return pivot;
+        }
         journal.add(LearningJournal.UNANSWERED, raw == null ? "" : raw.trim(), "");
+        lastUnanswered = stripQuestion(text);
         String line = pack.offlineLine;
         boolean complex = words(text) > 12 || anyWord(text, "should", "plan", "compare", "which", "why", "strategy");
         if (complex) {
             List<TurnLine> lines = new ArrayList<TurnLine>();
-            lines.add(new TurnLine("obi", "THINK", null));
+            lines.add(new TurnLine("obi", "THINK", thoughts ? "Let me think this through. I don't have enough in my notes for this one." : null));
             lines.add(new TurnLine("obi", "SAY", line));
-            lines.add(new TurnLine("ivie", "SAY", "I've saved your question, so we can look at it properly together once you're connected."));
+            lines.add(new TurnLine("ivie", "SAY", "I've saved your question, so we can look at it properly together once you're connected. If you know the answer, tell me and I'll learn it."));
             return new BrainAnswer(lines, false, true, "OFFLINE");
         }
         List<TurnLine> lines = new ArrayList<TurnLine>();
-        lines.add(new TurnLine(speaker, "THINK", null));
+        lines.add(new TurnLine(speaker, "THINK", thoughts ? "Hmm. Let me look through what I know." : null));
         lines.add(new TurnLine(speaker, "SAY", line));
         return new BrainAnswer(lines, false, true, "OFFLINE");
     }
@@ -580,11 +771,51 @@ public final class OfflineBrain {
         return found.isEmpty() ? null : found.get(turn % found.size());
     }
 
-    private BrainAnswer one(String speaker, String text, String source) {
+    private boolean thoughts = true;
+
+    /** Inner thoughts spoken softly while working: on by default, "stop thinking aloud" turns them off. */
+    public synchronized void setThoughts(boolean on) {
+        thoughts = on;
+    }
+
+    private BrainAnswer think(String speaker, String thought, String text, String source) {
         List<TurnLine> lines = new ArrayList<TurnLine>();
-        lines.add(new TurnLine(speaker, "THINK", null));
+        lines.add(new TurnLine(speaker, "THINK", thoughts ? thought : null));
         lines.add(new TurnLine(speaker, "SAY", text));
         return new BrainAnswer(lines, true, false, source);
+    }
+
+    private static String topicOf(String question) {
+        return question.replaceAll("^(what|who|where|when|which|how)( is| are| was| were|'s| does| do| did)?( the| a| an)? ", "")
+                .replaceAll("\\?+$", "").trim();
+    }
+
+    private static String join(List<String> items, int max) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < items.size() && i < max; i++) {
+            if (i > 0) {
+                sb.append(i == Math.min(items.size(), max) - 1 ? " and " : ", ");
+            }
+            sb.append(items.get(i));
+        }
+        return sb.toString();
+    }
+
+    private BrainAnswer one(String speaker, String text, String source) {
+        List<TurnLine> lines = new ArrayList<TurnLine>();
+        lines.add(new TurnLine(speaker, "THINK", thoughts ? thoughtFor(source) : null));
+        lines.add(new TurnLine(speaker, "SAY", text));
+        return new BrainAnswer(lines, true, false, source);
+    }
+
+    private String thoughtFor(String source) {
+        switch (source) {
+            case "CALC": return turn % 2 == 0 ? "Let me work that out." : "Counting it through.";
+            case "WISDOM": return "Let me find the right words for this.";
+            case "DRAW": return "Let me draw it out.";
+            case "MEMORY": return "Let me remember what you told me.";
+            default: return null;
+        }
     }
 
     private BrainAnswer pair(String first, String second, String firstSpeaker, String source) {

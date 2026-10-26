@@ -203,7 +203,7 @@ public final class LearningJournal {
         return MiniJson.write(body);
     }
 
-    static String normalizeKey(String key) {
+    public static String normalizeKey(String key) {
         if (key == null) {
             return "";
         }

@@ -32,9 +32,35 @@ public final class KnowledgeStore {
         current = new File(dir, "base_knowledge.json");
     }
 
-    /** Core pack merged with every downloaded shard in files/knowledge/shards. */
+    /** The core pack alone: small and fast, safe to load on the main thread. */
+    public KnowledgePack loadCore() {
+        return loadCoreFile();
+    }
+
+    /**
+     * Core pack merged with the bundled shards (e.g. the English dictionary)
+     * and every downloaded shard in files/knowledge/shards. Slow: call it off
+     * the main thread.
+     */
     public KnowledgePack load() {
-        KnowledgePack core = loadCore();
+        KnowledgePack core = loadCoreFile();
+        try {
+            String[] bundled = context.getAssets().list("knowledge/shards");
+            if (bundled != null) {
+                java.util.Arrays.sort(bundled);
+                for (String name : bundled) {
+                    if (name.endsWith(".json")) {
+                        try {
+                            core = core.merge(KnowledgePack.parse(read(context.getAssets().open("knowledge/shards/" + name))));
+                        } catch (IOException | IllegalArgumentException broken) {
+                            // skip a damaged shard
+                        }
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+            // no bundled shards
+        }
         File[] shards = new File(current.getParentFile(), "shards").listFiles();
         if (shards != null) {
             java.util.Arrays.sort(shards);
@@ -52,7 +78,7 @@ public final class KnowledgeStore {
         return core;
     }
 
-    private KnowledgePack loadCore() {
+    private KnowledgePack loadCoreFile() {
         if (current.exists()) {
             try {
                 return KnowledgePack.parse(read(new FileInputStream(current)));

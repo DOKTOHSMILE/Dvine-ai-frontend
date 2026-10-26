@@ -131,11 +131,27 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
         KnowledgeStore store = new KnowledgeStore(this);
         journal = new LearningJournal(new File(getFilesDir(), "learning"));
-        brain = new OfflineBrain(store.load(), journal, System::currentTimeMillis, TimeZone.getDefault());
+        // core pack now (small); the dictionary and other shards load in the background
+        brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis, TimeZone.getDefault());
+        brain.setThoughts(prefs.getBoolean("thoughts", true));
+        Thread loader = new Thread(() -> {
+            try {
+                final ai.dvine.brain.KnowledgePack full = store.load();
+                handler.post(() -> brain.replacePack(full));
+            } catch (RuntimeException broken) {
+                // keep the core pack
+            }
+        }, "dvine-knowledge");
+        loader.setPriority(Thread.MIN_PRIORITY);
+        loader.start();
         brain.setUserName(prefs.getString("user_name", null));
         brain.setLooks(obiLook, ivieLook);
         sync = new SyncWorker(getString(R.string.api_base), deviceId(), journal, store,
-                () -> null, pack -> handler.post(() -> brain.replacePack(pack)));
+                () -> null, pack -> {
+                    // a newer core pack arrived: re-merge it with the dictionary and shards
+                    final ai.dvine.brain.KnowledgePack full = store.load();
+                    handler.post(() -> brain.replacePack(full));
+                });
         connectivity = new Connectivity(this, online -> {
             stage.setOnline(online);
             if (online) {
@@ -279,6 +295,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 ambient.setEnabled(true);
                 prefs.edit().putBoolean("music", true).apply();
                 break;
+            case "THOUGHTS_OFF":
+                prefs.edit().putBoolean("thoughts", false).apply();
+                break;
+            case "THOUGHTS_ON":
+                prefs.edit().putBoolean("thoughts", true).apply();
+                break;
             case "SUBS_OFF":
                 stage.setSubtitles(false);
                 prefs.edit().putBoolean("subtitles", false).apply();
@@ -396,6 +418,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 stage.setMode(FaceMode.SPEAKING);
                 stage.setSubtitle(line.text);
                 talk.speak(ivie, line.text, () -> step(token));
+            } else if (line.text != null && line.text.length() > 0) {
+                // inner thought: softer voice, thinking face, dim subtitle
+                stage.setMode(FaceMode.THINKING);
+                stage.setSubtitle("… " + line.text);
+                talk.whisper(ivie, line.text, () -> step(token));
             } else {
                 stage.setMode(FaceMode.THINKING);
                 handler.postDelayed(() -> step(token), 520);

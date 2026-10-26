@@ -68,6 +68,28 @@ public final class TalkBridge extends UtteranceProgressListener {
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
     }
 
+    /**
+     * The inner-thought voice: softer, slightly lower and slower, so the user
+     * hears the persona thinking before the answer.
+     */
+    public void whisper(boolean ivie, String text, TalkDone done) {
+        final int token = ++generation;
+        pending = done;
+        if (!ready || text == null || text.trim().isEmpty()) {
+            main.postDelayed(() -> finish(token), 280);
+            return;
+        }
+        Voice v = ivie ? ivieVoice : obiVoice;
+        if (v != null) {
+            tts.setVoice(v);
+        }
+        tts.setPitch(ivie ? 0.94f : 0.78f);
+        tts.setSpeechRate(ivie ? 0.84f : 0.80f);
+        Bundle params = new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.45f);
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, (ivie ? "IVIE-" : "OBI-") + token);
+    }
+
     public void stop() {
         generation++;
         pending = null;

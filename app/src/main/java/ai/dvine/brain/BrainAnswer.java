@@ -35,11 +35,11 @@ public final class BrainAnswer {
         this.source = source;
     }
 
-    /** All spoken text joined, for tests and logs. */
+    /** What is said aloud (SAY lines), joined. Inner thoughts are not included. */
     public String spoken() {
         StringBuilder sb = new StringBuilder();
         for (TurnLine l : lines) {
-            if (l.text != null) {
+            if (l.text != null && "SAY".equals(l.cue)) {
                 if (sb.length() > 0) {
                     sb.append(' ');
                 }
