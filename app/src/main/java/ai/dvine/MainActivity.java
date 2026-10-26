@@ -148,12 +148,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
         loader.start();
         brain.setUserName(prefs.getString("user_name", null));
         brain.setLooks(obiLook, ivieLook);
-        sync = new SyncWorker(getString(R.string.api_base), deviceId(), journal, store,
-                () -> null, pack -> {
+        final ai.dvine.net.SessionClient session = new ai.dvine.net.SessionClient(this::serverUrl, prefs,
+                new ai.dvine.net.DeviceVault(prefs));
+        sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store,
+                session::token, pack -> {
                     // a newer core pack arrived: re-merge it with the dictionary and shards
                     final ai.dvine.brain.KnowledgePack full = store.load();
                     handler.post(() -> brain.replacePack(full));
                 });
+        sync.setUploadListener(count -> handler.post(() -> {
+            stage.burst(12);
+            stage.setSubtitle("Backed up " + count + (count == 1 ? " thing" : " things") + " I learned.");
+        }));
         connectivity = new Connectivity(this, online -> {
             stage.setOnline(online);
             if (online) {
@@ -191,13 +197,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
-    private String deviceId() {
-        String id = prefs.getString("device_id", null);
-        if (id == null) {
-            id = UUID.randomUUID().toString();
-            prefs.edit().putString("device_id", id).apply();
+    /** Server address: the one set by voice, else the build's api_base. */
+    private String serverUrl() {
+        String set = prefs.getString("server", null);
+        return set != null && !set.isEmpty() ? set : getString(R.string.api_base);
+    }
+
+    /** Uploads right away when online; otherwise the next time we come online. */
+    private void syncSoon() {
+        if (connectivity != null && connectivity.isOnline()) {
+            sync.kick(brain.pack().version);
         }
-        return id;
     }
 
     // ------------------------------------------------------------ the one entry point
@@ -237,6 +247,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
         } else {
             applyCommand(reply.command);
+        }
+        if ("SERVER_SET".equals(reply.command) && reply.commandValue != null) {
+            prefs.edit().putString("server", reply.commandValue).apply();
+            syncSoon();
+        }
+        if ("LEARN".equals(reply.source) || "MEMORY".equals(reply.source) || "OFFLINE".equals(reply.source)) {
+            syncSoon(); // new learning (or a saved unanswered question) goes up as soon as we can
         }
         if (reply.look != null) {
             stage.setLook(reply.lookIvie, reply.look);
@@ -286,6 +303,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         prefs.edit().putString("user_name", name).apply();
         brain.setUserName(name);
         journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
+        syncSoon();
         stage.gesture("🫶");
         stage.burst(24);
         play(LocalTurn.speakAs(true, Onboarding.welcome(name)), null);
@@ -303,6 +321,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
             case "MUSIC_ON":
                 ambient.setEnabled(true);
                 prefs.edit().putBoolean("music", true).apply();
+                break;
+            case "SYNC_NOW":
+                syncSoon();
                 break;
             case "THOUGHTS_OFF":
                 prefs.edit().putBoolean("thoughts", false).apply();

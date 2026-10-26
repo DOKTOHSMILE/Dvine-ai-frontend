@@ -162,6 +162,10 @@ public final class OfflineBrain {
             a.gesture = "✋";
             return a;
         }
+        BrainAnswer synced = syncCommands(raw, text, speaker);
+        if (synced != null) {
+            return synced; // before the planner, so "upload what you learned" isn't read as a social post
+        }
         String cased = cased(raw);
         PendingAction planned = planner.plan(cased, lastSaid, now);
         if (planned != null) {
@@ -234,6 +238,40 @@ public final class OfflineBrain {
             BrainAnswer a = one(speaker, pick(speaker, "Here.", "Here you go."), "GESTURE");
             a.gesture = g;
             return a;
+        }
+        return null;
+    }
+
+    /** "Connect to server https://…", "upload what you learned", "sync status". */
+    private BrainAnswer syncCommands(String raw, String text, String speaker) {
+        Matcher m = Pattern.compile("(?i)^(?:connect to|use|set)(?: the| my)? server(?: to| at)? (https://\\S+)$")
+                .matcher(cased(raw).replaceAll("[.!]+$", ""));
+        if (m.matches()) {
+            BrainAnswer a = one(speaker, "Done. I'll use that server, and back up what I learn whenever we're online.", "SET");
+            a.command = "SERVER_SET";
+            a.commandValue = m.group(1);
+            return a;
+        }
+        if (text.matches("^(connect to|use|set)( the| my)? server.*")) {
+            return one(speaker, "The server address must start with https. Say connect to server, then the full address.", "SET");
+        }
+        if (text.matches("^(sync|back ?up|upload)( now| what you('ve)? learn(ed|t)?| your learning)?( now)?$")) {
+            if (!journal.consent()) {
+                return one(speaker, "Sharing is off, so what I learn stays on this phone. Say share what you learned to turn it back on.", "SET");
+            }
+            int n = journal.pendingCount();
+            BrainAnswer a = one(speaker, n == 0 ? "Everything I've learned is already backed up."
+                    : "Backing up " + n + (n == 1 ? " thing" : " things") + " I learned, as soon as we're online.", "SET");
+            a.command = "SYNC_NOW";
+            return a;
+        }
+        if (text.matches("^(sync status|have you (uploaded|backed up|synced)( what you learned| everything)?|is (everything|my learning) backed up)$")) {
+            if (!journal.consent()) {
+                return one(speaker, "Sharing is off. What I learn stays on this phone.", "SET");
+            }
+            int n = journal.pendingCount();
+            return one(speaker, n == 0 ? "Yes. Everything I've learned is backed up."
+                    : n + (n == 1 ? " thing is" : " things are") + " waiting to upload the next time we're online.", "SET");
         }
         return null;
     }
@@ -372,11 +410,13 @@ public final class OfflineBrain {
         if (text.matches("^(share|upload|send) (what you('ve)? learn(ed|t)?|your learning)$")
                 || text.equals("you can share what you learn")) {
             journal.setConsent(true);
-            return one(speaker, "Done. When we're online I'll share what I learned so the main database can review it. Nothing private like passwords is kept.", "LEARN");
+            BrainAnswer on = one(speaker, "Done. Whenever we're online I'll back up what I learn to your DVINE account. Nothing private like passwords is kept.", "LEARN");
+            on.command = "SYNC_NOW";
+            return on;
         }
         if (text.matches("^(stop|don'?t) shar(e|ing).*")) {
             journal.setConsent(false);
-            return one(speaker, "Understood. What I learn stays on this phone.", "LEARN");
+            return one(speaker, "Understood. From now on, what I learn stays on this phone.", "LEARN");
         }
         if (text.matches("^forget (everything|all|it all)( you learned)?$")) {
             journal.forgetAll();

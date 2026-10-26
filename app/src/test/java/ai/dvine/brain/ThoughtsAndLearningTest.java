@@ -91,4 +91,19 @@ public class ThoughtsAndLearningTest {
         BrainAnswer a = brain.respond("which is the biggest planet", "obi");
         assertTrue(a.spoken(), a.spoken().contains("Jupiter"));
     }
+
+    @Test
+    public void syncCommands() {
+        BrainAnswer set = brain.respond("connect to server https://dvine.example.com", "obi");
+        assertEquals("SERVER_SET", set.command);
+        assertEquals("https://dvine.example.com", set.commandValue);
+        assertEquals(null, brain.respond("connect to server http://insecure.example.com", "obi").command);
+        brain.respond("remember that the market opens at 7", "obi");
+        BrainAnswer up = brain.respond("upload what you learned", "obi");
+        assertEquals("SYNC_NOW", up.command);
+        assertTrue(up.spoken().contains("1 thing"));
+        assertTrue(brain.respond("sync status", "obi").spoken().contains("waiting to upload"));
+        brain.respond("stop sharing", "obi");
+        assertTrue(brain.respond("sync status", "obi").spoken().contains("Sharing is off"));
+    }
 }
