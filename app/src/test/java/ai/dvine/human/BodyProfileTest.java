@@ -150,7 +150,7 @@ public class BodyProfileTest {
             float crown = s.pos[a.landmark("crown") * 3 + 1], chin = s.pos[a.landmark("chin") * 3 + 1];
             assertEquals(who + " head", P.headRatio, (crown - chin) / h, P.headRatio * 0.06f);
             assertEquals(who + " shoulders", P.shoulderRatio * BodyProfile.shoulderFactor(a.female), 2f * sw / h, 0.03f * P.shoulderRatio);
-            assertEquals(who + " hips", P.hipRatio, 2f * hw / h, 0.04f * P.hipRatio);
+            assertEquals(who + " hips", P.hipRatio * BodyProfile.hipFactor(a.female), 2f * hw / h, 0.04f * P.hipRatio);
             assertEquals(who + " span", P.spanRatio, 2f * span / h, 0.02f);
             assertEquals(who + " leg", P.legRatio, (hipY - j[DotBody.FOOT_L * 3 + 1]) / h, 0.03f * P.legRatio);
         }

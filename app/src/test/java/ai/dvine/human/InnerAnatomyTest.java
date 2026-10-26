@@ -9,12 +9,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-import ai.dvine.face.Look;
-import ai.dvine.face.nano.Sculpt;
-import ai.dvine.human.build.Anatomy;
-import ai.dvine.human.build.BodyFit;
 import ai.dvine.human.build.InnerAnatomy;
-import ai.dvine.human.rig.Skeleton;
 
 /** The inside of the body: every structure inside the skin, and riding its bone when the body moves. */
 public class InnerAnatomyTest {
@@ -26,24 +21,14 @@ public class InnerAnatomyTest {
                 a = HumanAsset.read(in);
             }
             assertTrue(a.inner != null && a.innerNames.length > 40);
-            // the sculpts are in the blockout layout: take each point back through the profile fit
-            Skeleton sk = new Skeleton(a.female);
-            BodyFit fit = BodyFit.of(a);
-            Sculpt body = Anatomy.body(sk), head = Anatomy.head(a.female, Look.defaults(a.female));
-            Sculpt hand = Anatomy.hand(a.female);
+            // the skin as built (bind pose): every inner structure must be inside it
+            MeshInside skin = new MeshInside(a.mesh.pos, a.mesh.tri);
             List<String> outside = new ArrayList<String>();
             int[] bad = new int[a.innerNames.length], total = new int[a.innerNames.length];
             for (int v = 0; v < a.inner.pos.length / 3; v++) {
                 int part = a.inner.region[v] & 0xff;
-                float[] p = fit.unfit(a.inner.bone0[v], a.inner.pos[v * 3], a.inner.pos[v * 3 + 1], a.inner.pos[v * 3 + 2]);
-                float x = p[0], y = p[1], z = p[2];
                 total[part]++;
-                float d = Math.min(body.d(x, y, z), head.d(x / Anatomy.HEAD_SCALE, (y - Anatomy.HEAD_Y) / Anatomy.HEAD_SCALE,
-                        z / Anatomy.HEAD_SCALE) * Anatomy.HEAD_SCALE);
-                if (a.innerNames[part].contains("hand") || a.innerNames[part].contains("finger")) {
-                    d = Math.min(d, handDistance(hand, sk, x, y, z));
-                }
-                if (d > 0.004f) {
+                if (!skin.inside(a.inner.pos[v * 3], a.inner.pos[v * 3 + 1], a.inner.pos[v * 3 + 2])) {
                     bad[part]++;
                 }
             }
@@ -90,19 +75,5 @@ public class InnerAnatomyTest {
         float t = Math.max(0f, Math.min(1f, (px * dx + py * dy + pz * dz) / (dx * dx + dy * dy + dz * dz)));
         float x = px - t * dx, y = py - t * dy, z = pz - t * dz;
         return (float) Math.sqrt(x * x + y * y + z * z);
-    }
-
-    /** Distance to the hand sculpt (built in arm-local coordinates) for a body point on either side. */
-    private static float handDistance(Sculpt hand, Skeleton sk, float x, float y, float z) {
-        float best = Float.MAX_VALUE;
-        for (int side = -1; side <= 1; side += 2) {
-            // invert Skeleton.armToBody: x_b = side*(sh + lx*c + ly*s), y_b = -0.02 - lx*s + ly*c
-            double ang = Math.toRadians(ai.dvine.face.nano.DotBody.BIND_ARM);
-            float c = (float) Math.cos(ang), s = (float) Math.sin(ang);
-            float u = side * x - sk.sh, w = y + 0.02f;
-            float lx = u * c - w * s, ly = u * s + w * c;
-            best = Math.min(best, hand.d(lx, ly, z));
-        }
-        return best;
     }
 }

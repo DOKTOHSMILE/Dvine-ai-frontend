@@ -151,7 +151,7 @@ public final class InnerAnatomy {
             String s = side > 0 ? " left" : " right";
             int o = side > 0 ? 0 : 3;
             add("pectoral" + s, MUSCLE, DotBody.CHEST, Geo.sphere(side * 0.18f * k, -0.3f, 0.1f, 0.15f * k, 0.1f, 8));
-            float[] d = Skeleton.armToBody(side, sh, 0.02f, -0.03f, 0f);
+            float[] d = sk.arm(side, 0.02f, -0.03f, 0f);
             add("deltoid" + s, MUSCLE, DotBody.ARM_L + o, Geo.sphere(d[0], d[1], d[2], 0.11f * a, 0.12f * a, 8));
             add("biceps" + s, MUSCLE, DotBody.ARM_L + o, arm(side, 0.24f, 0.02f, 0.03f, 0.62f, 0.01f, 0.03f, 0.055f * a));
             add("triceps" + s, MUSCLE, DotBody.ARM_L + o, arm(side, 0.28f, -0.01f, -0.03f, 0.7f, 0f, -0.03f, 0.05f * a));
@@ -206,12 +206,12 @@ public final class InnerAnatomy {
     // ------------------------------------------------------------ helpers
 
     private TriMesh arm(int side, float x0, float y0, float z0, float x1, float y1, float z1, float r) {
-        float[] p = Skeleton.armToBody(side, sh, x0, y0, z0), q = Skeleton.armToBody(side, sh, x1, y1, z1);
+        float[] p = sk.arm(side, x0, y0, z0), q = sk.arm(side, x1, y1, z1);
         return Geo.cylinder(p[0], p[1], p[2], q[0], q[1], q[2], r, 8);
     }
 
     private TriMesh armCone(int side, float x0, float x1, float r0, float r1) {
-        float[] p = Skeleton.armToBody(side, sh, x0, 0f, 0f), q = Skeleton.armToBody(side, sh, x1, 0f, 0f);
+        float[] p = sk.arm(side, x0, 0f, 0f), q = sk.arm(side, x1, 0f, 0f);
         return Geo.cone(p[0], p[1], p[2], q[0], q[1], q[2], r0, r1, 10);
     }
 

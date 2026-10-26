@@ -36,7 +36,7 @@ public final class BodyProfile {
     /** Where the soles stand in body units. */
     public static final float FLOOR = -4.2f;
     /** The smallest gap between the shoulder joint and the chin a natural neck keeps (fraction of height). */
-    public static final float MIN_NECK_GAP = 0.045f;
+    public static final float MIN_NECK_GAP = 0.07f;
 
     public final float heightM;
     public final float headRatio, shoulderRatio, hipRatio, spanRatio, legRatio;
@@ -139,13 +139,18 @@ public final class BodyProfile {
 
     /**
      * The character profile over the neutral baseline (the profile allows
-     * per-character customisation): Obi keeps the athletic V-taper of the
-     * reference, about 10 % broader across the shoulders; Ivie's frame is
-     * slightly narrower than the neutral one. Hips, span and joint heights
-     * are the baseline for both.
+     * per-character customisation): Obi keeps an athletic V-taper, about 10 %
+     * broader across the shoulders; Ivie's frame is slightly narrower at the
+     * shoulders and 5 % wider at the hips, as the standard female body is.
+     * Span and joint heights are the baseline for both.
      */
     public static float shoulderFactor(boolean female) {
         return female ? 0.98f : 1.1f;
+    }
+
+    /** See {@link #shoulderFactor}. */
+    public static float hipFactor(boolean female) {
+        return female ? 1.05f : 1f;
     }
 
     /** A landmark's normalised height. */

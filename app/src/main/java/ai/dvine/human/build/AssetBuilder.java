@@ -31,11 +31,9 @@ public final class AssetBuilder {
     /** Triangle budgets per piece. */
     public static final class Budget {
         public float headCell = 0.02f;
-        public float bodyCell = 0.022f;
-        public float handCell = 0.0055f;
         public int headTris = 3200;
-        public int bodyTris = 4200;
-        public int handTris = 520;
+        public int bodyTris = 5200;
+        public int handTris = 900;
     }
 
     private final boolean female;
@@ -63,15 +61,13 @@ public final class AssetBuilder {
     public HumanAsset build() {
         TriMesh head = headPiece();
         TriMesh body = bodyPiece();
-        TriMesh handL = handPiece(1);
-        TriMesh handR = handPiece(-1);
         TriMesh eyeL = eye(1);
         TriMesh eyeR = eye(-1);
         TriMesh teeth = teeth();
-        TriMesh solid = TriMesh.merge(head, body, handL, handR, eyeL, eyeR, teeth);
+        TriMesh solid = TriMesh.merge(head, body, eyeL, eyeR, teeth);
         int solidCount = solid.vertexCount();
         int headCount = head.vertexCount();
-        int eyeStart = headCount + body.vertexCount() + handL.vertexCount() + handR.vertexCount();
+        int eyeStart = headCount + body.vertexCount();
         int teethStart = eyeStart + eyeL.vertexCount() + eyeR.vertexCount();
 
         // feature lines and hair are line-only vertices, appended after the solids
@@ -156,76 +152,105 @@ public final class AssetBuilder {
         return m;
     }
 
+    /**
+     * The standard body (torso, limbs, hands and feet; see {@link StandardBody})
+     * on the blockout skeleton, simplified with more triangles on the hands,
+     * labelled by body part and skinned. Its neck runs up into the head piece.
+     */
     private TriMesh bodyPiece() {
-        final Sculpt s = Anatomy.body(sk);
-        TriMesh raw = SurfaceNets.extract(s::d, new float[]{-1.95f, -4.3f, -0.48f}, new float[]{1.95f, 0.34f, 0.52f},
-                budget.bodyCell);
-        TriMesh m = Decimator.simplify(raw, budget.bodyTris, (x, y, z) -> bodyImportance(x, y, z), 0.0015);
+        final Sculpt hs = Anatomy.head(female, bald(look));
+        final float k = Anatomy.HEAD_SCALE;
+        SurfaceNets.Field inHead = (x, y, z) -> {
+            float hy = (y - Anatomy.HEAD_Y) / k;
+            return Math.max(hs.d(x / k, hy, z / k), Anatomy.HEAD_CUT_Y - hy) * k;
+        };
+        StandardBody.Result std = StandardBody.build(female, sk, inHead);
+        if (std.farSnaps > 0) {
+            throw new IllegalStateException(std.farSnaps + " neck edge vertices are too far from the head to join it");
+        }
+        TriMesh raw = std.mesh;
+        if (MeshValidator.volume(raw.pos, raw.tri) < 0) {
+            flip(raw);
+        }
+        TriMesh m = Decimator.simplify(raw, budget.bodyTris + 2 * budget.handTris, this::bodyImportance, 0.0015);
         require(m, "body");
         int n = m.vertexCount();
         m.region = new byte[n];
         m.bone0 = new byte[n];
         m.bone1 = new byte[n];
         m.weight0 = new float[n];
+        int[] nearest = nearestVertices(raw.pos, m.pos);
         for (int i = 0; i < n; i++) {
             float x = m.pos[i * 3], y = m.pos[i * 3 + 1], z = m.pos[i * 3 + 2];
-            int bone = s.tagAt(x, y, z);
-            m.region[i] = (byte) bodyRegion(bone, x, y, z);
-            skin(m, i, bone, x, y, z, bone <= DotBody.HEAD ? 0.32f : 0.2f);
+            int src = nearest[i];
+            int bone = std.bone[src];
+            m.region[i] = (byte) (bone == DotBody.HAND_L || bone == DotBody.HAND_R || Skeleton.isFinger(bone)
+                    ? handRegion(bone, x) : bodyRegion(bone, x, y, z));
+            // MakeHuman's own skin weights, made for this body
+            m.bone0[i] = (byte) bone;
+            m.bone1[i] = (byte) std.bone1[src];
+            m.weight0[i] = std.weight0[src];
         }
-        smoothWeights(m, BODY_SMOOTHING);
+        blurWeights(m, WEIGHT_BLUR);
+        m.computeNormals();
         return m;
     }
 
-    /** One hand, built in arm-local coordinates and placed on its side (the right one mirrored). */
-    private TriMesh handPiece(int side) {
-        final Sculpt s = Anatomy.hand(female);
-        SurfaceNets.Field f = (x, y, z) -> Math.max(s.d(x, y, z), 1.49f - x);
-        TriMesh raw = SurfaceNets.extract(f, new float[]{1.47f, -0.08f, -0.12f}, new float[]{2.06f, 0.06f, 0.24f},
-                budget.handCell);
-        TriMesh m = Decimator.simplify(raw, budget.handTris, (x, y, z) -> x > Skeleton.KNUCKLE - 0.04f ? 2f : 1f, 0.02);
-        require(m, "hand");
-        int n = m.vertexCount();
-        m.region = new byte[n];
-        m.bone0 = new byte[n];
-        m.bone1 = new byte[n];
-        m.weight0 = new float[n];
-        int fingerBase = side > 0 ? Skeleton.FINGER_L : Skeleton.FINGER_R;
-        int hand = side > 0 ? DotBody.HAND_L : DotBody.HAND_R;
-        int fore = side > 0 ? DotBody.FORE_L : DotBody.FORE_R;
-        float[] joint = sk.joint;
-        for (int i = 0; i < n; i++) {
-            float x = m.pos[i * 3], y = m.pos[i * 3 + 1], z = m.pos[i * 3 + 2];
-            int tag = s.tagAt(x, y, z);
-            float[] b = Skeleton.armToBody(side, sk.sh, x, y, z);
-            m.pos[i * 3] = b[0];
-            m.pos[i * 3 + 1] = b[1];
-            m.pos[i * 3 + 2] = b[2];
-            if (tag == 100) {
-                m.region[i] = (byte) (side > 0 ? Regions.PALM_L : Regions.PALM_R);
-                m.bone0[i] = (byte) hand;
-                m.bone1[i] = (byte) fore;
-                m.weight0[i] = 0.5f + 0.5f * smooth((x - Skeleton.WRIST) / 0.05f);
-            } else {
-                int bone = fingerBase + tag;
-                int finger = tag / 2;
-                int region = (side > 0 ? Regions.THUMB_L : Regions.THUMB_R) + finger * 2;
-                m.region[i] = (byte) region;
-                // blend toward the parent near the segment's own joint
-                float dx = b[0] - joint[bone * 3], dy = b[1] - joint[bone * 3 + 1], dz = b[2] - joint[bone * 3 + 2];
-                float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                float t = Math.min(1f, d / 0.035f);
-                m.bone0[i] = (byte) bone;
-                m.bone1[i] = (byte) Skeleton.PARENT[bone];
-                m.weight0[i] = 1f - 0.5f * (1f - t * t * (3f - 2f * t));
+    /** Palm and finger labels. */
+    private static int handRegion(int bone, float x) {
+        boolean left = x >= 0f;
+        if (bone == DotBody.HAND_L || bone == DotBody.HAND_R) {
+            return left ? Regions.PALM_L : Regions.PALM_R;
+        }
+        int base = bone < Skeleton.FINGER_R ? Skeleton.FINGER_L : Skeleton.FINGER_R;
+        return (base == Skeleton.FINGER_L ? Regions.THUMB_L : Regions.THUMB_R) + (bone - base) / 2 * 2;
+    }
+
+    /** For each point of {@code to}, the index of the nearest point of {@code from} (a grid search). */
+    static int[] nearestVertices(float[] from, float[] to) {
+        float cell = 0.05f;
+        java.util.HashMap<Long, List<Integer>> grid = new java.util.HashMap<Long, List<Integer>>();
+        for (int i = 0; i < from.length / 3; i++) {
+            grid.computeIfAbsent(cellKey(from[i * 3], from[i * 3 + 1], from[i * 3 + 2], cell, 0, 0, 0),
+                    k -> new ArrayList<Integer>()).add(i);
+        }
+        int[] out = new int[to.length / 3];
+        for (int v = 0; v < out.length; v++) {
+            float x = to[v * 3], y = to[v * 3 + 1], z = to[v * 3 + 2];
+            int best = -1;
+            float bd = Float.MAX_VALUE;
+            for (int r = 1; best < 0 || r <= 2; r++) {
+                for (int i = -r; i <= r; i++) {
+                    for (int j = -r; j <= r; j++) {
+                        for (int k = -r; k <= r; k++) {
+                            List<Integer> c = grid.get(cellKey(x, y, z, cell, i, j, k));
+                            if (c == null) {
+                                continue;
+                            }
+                            for (int f : c) {
+                                float dx = from[f * 3] - x, dy = from[f * 3 + 1] - y, dz = from[f * 3 + 2] - z;
+                                float d = dx * dx + dy * dy + dz * dz;
+                                if (d < bd) {
+                                    bd = d;
+                                    best = f;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (r > 40) {
+                    throw new IllegalStateException("no vertex near " + x + ", " + y + ", " + z);
+                }
             }
+            out[v] = best;
         }
-        smoothWeights(m, HAND_SMOOTHING);
-        if (side < 0) {
-            flip(m); // mirroring turns the winding inside out
-        }
-        m.computeNormals();
-        return m;
+        return out;
+    }
+
+    private static long cellKey(float x, float y, float z, float cell, int i, int j, int k) {
+        long a = (long) Math.floor(x / cell) + i + 100000, b = (long) Math.floor(y / cell) + j + 100000,
+                c = (long) Math.floor(z / cell) + k + 100000;
+        return (a << 40) | (b << 20) | c;
     }
 
     /** A low-poly eyeball (an icosphere) in its socket. */
@@ -544,9 +569,107 @@ public final class AssetBuilder {
         m.weight0[i] = 1f - best;
     }
 
-    /** Weight-diffusion passes over the body and hand meshes (more passes, softer joints). */
-    private static final int BODY_SMOOTHING = 8;
-    private static final int HAND_SMOOTHING = 4;
+    /** Weight-diffusion passes over the body mesh (more passes, softer joints). */
+    /** The radius over which the body's skin weights are averaged (the hands keep theirs). */
+    private static final float WEIGHT_BLUR = 0.09f;
+
+    /**
+     * Averages each body vertex's skin weights with every body vertex within
+     * {@code radius} (a smooth falloff), then keeps the two strongest bones.
+     * Unlike diffusion over edges this is the same whatever the triangle
+     * sizes, so a weight never jumps across a run of tiny triangles. Hands and
+     * fingers are left alone so neighbouring fingers do not blend.
+     */
+    static void blurWeights(TriMesh m, float radius) {
+        int n = m.vertexCount(), bones = Skeleton.COUNT;
+        float[] w = new float[n * bones];
+        boolean[] hand = new boolean[n];
+        for (int v = 0; v < n; v++) {
+            w[v * bones + (m.bone0[v] & 0xff)] += m.weight0[v];
+            w[v * bones + (m.bone1[v] & 0xff)] += 1f - m.weight0[v];
+            int b = m.bone0[v] & 0xff;
+            hand[v] = b == DotBody.HAND_L || b == DotBody.HAND_R || Skeleton.isFinger(b);
+        }
+        // neighbours along the surface
+        List<List<Integer>> nb = new ArrayList<List<Integer>>();
+        for (int v = 0; v < n; v++) {
+            nb.add(new ArrayList<Integer>());
+        }
+        for (int t = 0; t < m.tri.length; t += 3) {
+            for (int k = 0; k < 3; k++) {
+                int a = m.tri[t + k], c = m.tri[t + (k + 1) % 3];
+                nb.get(a).add(c);
+                nb.get(c).add(a);
+            }
+        }
+        float[] dist = new float[n];
+        java.util.Arrays.fill(dist, Float.MAX_VALUE);
+        float[] acc = new float[bones];
+        List<Integer> reached = new ArrayList<Integer>();
+        java.util.PriorityQueue<float[]> queue = new java.util.PriorityQueue<float[]>((p, q) -> Float.compare(p[0], q[0]));
+        byte[] b0s = new byte[n], b1s = new byte[n];
+        float[] w0s = new float[n];
+        for (int v = 0; v < n; v++) {
+            b0s[v] = m.bone0[v];
+            b1s[v] = m.bone1[v];
+            w0s[v] = m.weight0[v];
+            if (hand[v]) {
+                continue;
+            }
+            // the body vertices within radius along the surface (Dijkstra over edge lengths)
+            java.util.Arrays.fill(acc, 0f);
+            reached.clear();
+            queue.clear();
+            dist[v] = 0f;
+            queue.add(new float[]{0f, v});
+            while (!queue.isEmpty()) {
+                float[] e = queue.poll();
+                int u = (int) e[1];
+                if (e[0] > dist[u]) {
+                    continue;
+                }
+                reached.add(u);
+                for (int x : nb.get(u)) {
+                    if (hand[x]) {
+                        continue;
+                    }
+                    float dx = m.pos[x * 3] - m.pos[u * 3], dy = m.pos[x * 3 + 1] - m.pos[u * 3 + 1], dz = m.pos[x * 3 + 2] - m.pos[u * 3 + 2];
+                    float d = dist[u] + (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    if (d < radius && d < dist[x]) {
+                        dist[x] = d;
+                        queue.add(new float[]{d, x});
+                    }
+                }
+            }
+            for (int u : reached) {
+                float r = dist[u] / radius;
+                float f = (1f - r * r) * (1f - r * r);
+                for (int b = 0; b < bones; b++) {
+                    acc[b] += f * w[u * bones + b];
+                }
+                dist[u] = Float.MAX_VALUE;
+            }
+            int b0 = 0, b1 = 0;
+            float w0 = -1f, w1 = -1f;
+            for (int b = 0; b < bones; b++) {
+                if (acc[b] > w0) {
+                    b1 = b0;
+                    w1 = w0;
+                    b0 = b;
+                    w0 = acc[b];
+                } else if (acc[b] > w1) {
+                    b1 = b;
+                    w1 = acc[b];
+                }
+            }
+            b0s[v] = (byte) b0;
+            b1s[v] = (byte) b1;
+            w0s[v] = w0 + w1 > 1e-9f ? w0 / (w0 + Math.max(0f, w1)) : 1f;
+        }
+        m.bone0 = b0s;
+        m.bone1 = b1s;
+        m.weight0 = w0s;
+    }
 
     /**
      * Diffuses skin weights over the mesh (each pass mixes every vertex half
@@ -641,8 +764,8 @@ public final class AssetBuilder {
                 toBody(0.21f, Anatomy.MOUTH_Y, 0.85f), toBody(-0.21f, Anatomy.MOUTH_Y, 0.85f),
                 toBody(0.86f, 0f, -0.08f), toBody(-0.86f, 0f, -0.08f), {0f, 0.05f, 0.15f}, {0f, -0.4f, 0.3f},
                 {0f, -1.05f, 0.25f},
-                Skeleton.armToBody(1, sk.sh, Skeleton.KNUCKLE + Skeleton.FINGER_LEN[1], -0.02f, Skeleton.FINGER_Z[1] * Skeleton.SPREAD_TIP),
-                Skeleton.armToBody(-1, sk.sh, Skeleton.KNUCKLE + Skeleton.FINGER_LEN[1], -0.02f, Skeleton.FINGER_Z[1] * Skeleton.SPREAD_TIP),
+                sk.arm(1, Skeleton.KNUCKLE + Skeleton.FINGER_LEN[1], -0.02f, Skeleton.FINGER_Z[1] * Skeleton.SPREAD_TIP),
+                sk.arm(-1, Skeleton.KNUCKLE + Skeleton.FINGER_LEN[1], -0.02f, Skeleton.FINGER_Z[1] * Skeleton.SPREAD_TIP),
                 {sk.hx + 0.02f, -2.86f, 0.18f}, {-sk.hx - 0.02f, -2.86f, 0.18f},
                 {sk.hx + 0.05f, -4.16f, 0.38f}, {-sk.hx - 0.05f, -4.16f, 0.38f}};
         a.landmarkNames = names;
@@ -684,14 +807,9 @@ public final class AssetBuilder {
         return 0.8f + face * (2f + 5f * eye + 5f * mouth + 3f * nose) + ear;
     }
 
+    /** Even triangles over the body; hands and fingers keep more, so they keep their shape. */
     private float bodyImportance(float x, float y, float z) {
-        float[] j = sk.joint;
-        float imp = 1f;
-        for (int b : new int[]{DotBody.FORE_L, DotBody.FORE_R, DotBody.SHIN_L, DotBody.SHIN_R, DotBody.ARM_L, DotBody.ARM_R}) {
-            float d = dist(j, b, x, y, z);
-            imp += 1.2f * (float) Math.exp(-d * d / 0.03f);
-        }
-        return imp;
+        return sk.local(x >= 0f ? 1 : -1, x, y, z)[0] > Skeleton.WRIST - 0.04f && y > -1.6f ? 4f : 1f;
     }
 
     private static float dist(float[] j, int b, float x, float y, float z) {
