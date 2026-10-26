@@ -40,6 +40,18 @@ public final class TalkBridge extends UtteranceProgressListener {
         this.listener = listener;
     }
 
+    /** Told each word as the voice starts saying it (drives the mouth shapes). */
+    public interface WordListener {
+        void onWord(String word);
+    }
+
+    private WordListener words;
+    private volatile String speaking = "";
+
+    public void setWordListener(WordListener l) {
+        words = l;
+    }
+
     public TalkBridge(Context context) {
         tts = new TextToSpeech(context.getApplicationContext(), status -> {
             ready = status == TextToSpeech.SUCCESS;
@@ -90,6 +102,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         }
         tts.setPitch(thought ? t.thoughtPitch() : t.pitch);
         tts.setSpeechRate(thought ? t.thoughtRate() : t.rate);
+        speaking = text;
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, thought ? VoiceTuning.THOUGHT_VOLUME : 1f);
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, (ivie ? "IVIE-" : "OBI-") + token);
@@ -163,6 +176,15 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (listener != null && utteranceId != null) {
             final boolean ivie = utteranceId.startsWith("IVIE");
             main.post(() -> listener.onSpeaking(ivie, true));
+        }
+    }
+
+    @Override
+    public void onRangeStart(String utteranceId, int start, int end, int frame) {
+        String text = speaking;
+        if (words != null && start >= 0 && end <= text.length() && start < end) {
+            final String w = text.substring(start, end);
+            main.post(() -> words.onWord(w));
         }
     }
 

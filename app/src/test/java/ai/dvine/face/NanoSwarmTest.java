@@ -113,7 +113,7 @@ public class NanoSwarmTest {
     public void objectsAndDrawingsBuildFromDots() {
         Swarm s = new Swarm(4000);
         for (String k : Forms.OBJECTS) {
-            settle(s, new Forms.Object3D(k), 3f);
+            settle(s, new Forms.Object3D(k), 8f); // the longest builds (Lorenz, the tree) draw themselves over ~7 s
             assertTrue(k + " " + s.active(), s.active() > 300 && s.active() < s.capacity);
         }
         Forms.Drawing house = new Forms.Drawing(Sketch.forRequest("draw a house"));

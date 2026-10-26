@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.TimeZone;
 
-final class TestPack {
+public final class TestPack {
     private TestPack() {
     }
 
@@ -18,6 +18,15 @@ final class TestPack {
         // 2026-10-26 09:30 UTC, a Monday
         final long now = 1793007000000L;
         return new OfflineBrain(load(), new LearningJournal(dir), () -> now, TimeZone.getTimeZone("UTC"));
+    }
+
+    /** A brain with a fresh journal, for tests outside this package. */
+    public static OfflineBrain brain() {
+        try {
+            return brain(tempDir());
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     static File tempDir() throws Exception {

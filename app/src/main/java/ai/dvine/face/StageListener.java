@@ -15,4 +15,9 @@ public interface StageListener {
     default void onBodyTap(String part) {
         onHeadTap();
     }
+
+    /** A classified touch on the 3D body (tap, repeated taps or a hold), with the exact part and contact point. */
+    default void onBodyTouch(ai.dvine.human.touch.BodyTouch touch) {
+        onBodyTap(touch.spoken());
+    }
 }

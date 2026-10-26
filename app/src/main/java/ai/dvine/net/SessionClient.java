@@ -71,6 +71,17 @@ public final class SessionClient {
         }
     }
 
+    /** Forgets the current token (the server refused it); the next {@link #token()} signs in again. */
+    public synchronized void invalidate() {
+        token = null;
+        expiresAt = 0L;
+    }
+
+    /** The https server root, or null when no secure server is set. */
+    public String serverRoot() {
+        return root();
+    }
+
     /** The id this phone uses on the server; shared with learning sync. */
     public synchronized String deviceId() {
         String id = prefs.getString("device_id", null);
@@ -115,11 +126,12 @@ public final class SessionClient {
         }
     }
 
-    static final class Reply {
-        final int code;
-        final String body;
+    /** An HTTP status and body. */
+    public static final class Reply {
+        public final int code;
+        public final String body;
 
-        Reply(int code, String body) {
+        public Reply(int code, String body) {
             this.code = code;
             this.body = body;
         }

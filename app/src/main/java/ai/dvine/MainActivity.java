@@ -47,6 +47,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private static final int MIC = 21;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    /** The on-device brain-and-body control engine (primary functions; runs offline). */
+    private ai.dvine.engine.Engine engine;
+    /** Behaviour rate: about 10 Hz, between the 60 Hz frame loop and the slower brain. */
+    private final Runnable engineTick = new Runnable() {
+        @Override
+        public void run() {
+            engine.tick(android.os.SystemClock.uptimeMillis());
+            handler.postDelayed(this, 100L);
+        }
+    };
     private StageView stage;
     private TalkBridge talk;
     private ListenBridge listen;
@@ -55,6 +65,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private LearningJournal journal;
     private Connectivity connectivity;
     private SyncWorker sync;
+    /** M7: questions the phone can't answer go to the server's Obi/Ivie desk when online. */
+    private ai.dvine.net.DeskClient desk;
+    private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private int askId;
     private SharedPreferences prefs;
 
     private List<TurnLine> lines = new ArrayList<TurnLine>();
@@ -106,7 +120,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
         window.setDecorFitsSystemWindows(false);
         stage = new StageView(this);
         stage.setListener(this);
-        setContentView(stage);
+        // the 3D wireframe human renders with OpenGL under the transparent stage overlay
+        final ai.dvine.render.HumanView humanView = new ai.dvine.render.HumanView(this);
+        final ai.dvine.render.HumanStage humanStage = new ai.dvine.render.HumanStage(humanView.renderer);
+        stage.attachHuman(humanStage, humanView);
+        humanStage.load(name -> getAssets().open(name), null);
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.setBackgroundColor(0xFF000000);
+        root.addView(humanView);
+        root.addView(stage);
+        setContentView(root);
         // only after setContentView: before it the window has no decor and this throws
         WindowInsetsController bars = window.getInsetsController();
         if (bars != null) {
@@ -122,10 +145,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.setSubtitles(prefs.getBoolean("subtitles", true));
         Look obiLook = Look.parse(prefs.getString("look_obi", null), false);
         Look ivieLook = Look.parse(prefs.getString("look_ivie", null), true);
+        if (prefs.getInt("look_version", 1) < 2) {
+            // looks saved before the 3D wireframe human was the default: keep the shape, switch the style once
+            obiLook.style = Look.Style.WIRE;
+            ivieLook.style = Look.Style.WIRE;
+            prefs.edit().putInt("look_version", 2).putString("look_obi", obiLook.serialize())
+                    .putString("look_ivie", ivieLook.serialize()).apply();
+        }
         stage.setLook(false, obiLook);
         stage.setLook(true, ivieLook);
         talk.setTuning(false, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
         talk.setTuning(true, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_ivie", null), true));
+        talk.setWordListener(stage::speechWord);
         talk.setListener((ivie, speaking) -> {
             ambient.setPersona(ivie);
             ambient.setLevel(speaking ? 1f : 0f);
@@ -156,6 +187,21 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     final ai.dvine.brain.KnowledgePack full = store.load();
                     handler.post(() -> brain.replacePack(full));
                 });
+        desk = new ai.dvine.net.DeskClient(session::serverRoot, session::token, session::invalidate,
+                new ai.dvine.net.DeskClient.RoomStore() {
+                    @Override
+                    public String get() {
+                        return prefs.getString("desk_room", null);
+                    }
+
+                    @Override
+                    public void put(String roomId) {
+                        prefs.edit().putString("desk_room", roomId).apply();
+                    }
+                }, null);
+        engine = new ai.dvine.engine.Engine(stage, getFilesDir(), journal::consent);
+        sync.setEpisodes(engine.episodes, profile -> handler.post(
+                () -> engine.applyProfile(profile, android.os.SystemClock.uptimeMillis())));
         sync.setUploadListener(count -> handler.post(() -> {
             stage.burst(12);
             stage.setSubtitle("Backed up " + count + (count == 1 ? " thing" : " things") + " I learned.");
@@ -216,6 +262,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (text == null || text.trim().isEmpty()) {
             return;
         }
+        askId++; // a newer question makes any desk answer still on its way stale
         if (awaitingName) {
             takeName(text);
             return;
@@ -231,12 +278,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             return;
         }
+        long now = android.os.SystemClock.uptimeMillis();
+        engine.onHeard(text, now);
         TurnRoute route = LocalTurn.route(text, stage.agent());
         if (route.switchOnly) {
             play(route.lines, null);
             return;
         }
         final BrainAnswer reply = brain.respond(text, stage.agent());
+        engine.setPersona(stage.agent(), now);
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
         }
@@ -259,17 +309,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             stage.setLook(reply.lookIvie, reply.look);
             prefs.edit().putString(reply.lookIvie ? "look_ivie" : "look_obi", reply.look.serialize()).apply();
         }
-        if (reply.gesture != null) {
-            stage.gesture(reply.gesture);
+        // the brain proposes; the engine validates, arbitrates and moves the body
+        engine.perform(reply, now);
+        if ("SELF_REPORT".equals(reply.command)) {
+            play(LocalTurn.speakAs(stage.isIvie(), engine.selfReport(now) + " " + stage.inspect()), null);
+            return;
         }
-        if (reply.sketch != null) {
-            stage.showSketch(reply.sketch);
-        }
-        if (reply.object3d != null) {
-            stage.showObject(reply.object3d);
-        }
-        if (reply.scenePoses != null) {
-            stage.playScene(reply.scenePoses, reply.sceneSeconds);
+        if ("FAVOURITES".equals(reply.command)) {
+            play(LocalTurn.speakAs(stage.isIvie(), engine.favouritesLine()), null);
+            return;
         }
         final PendingAction act = reply.action;
         if (act != null && act.kind == PendingAction.Kind.COPY) {
@@ -290,7 +338,37 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
+        if (reply.needsOnline && askDesk(text, reply)) {
+            return;
+        }
         play(reply.lines, reply.listenAfter ? this::startListening : null);
+    }
+
+    /**
+     * Online: hands the question to the server's desk while a thought bubble
+     * shows, then plays its lines. If the server can't be reached the
+     * offline answer plays instead. Returns false when offline.
+     */
+    private boolean askDesk(final String text, final BrainAnswer offline) {
+        if (desk == null || connectivity == null || !connectivity.isOnline() || serverUrl() == null
+                || !serverUrl().trim().startsWith("https://")) {
+            return false;
+        }
+        final int id = ++askId;
+        final String onScreen = stage.agent();
+        stopPlay();
+        stage.setThought(stage.isIvie() ? "Let me ask the desk…" : "Checking with the desk…");
+        stage.setMode(FaceMode.THINKING);
+        deskThread.execute(() -> {
+            final List<TurnLine> lines = desk.ask(text, onScreen);
+            handler.post(() -> {
+                if (id != askId || isFinishing()) {
+                    return; // the user has moved on
+                }
+                play(lines != null ? lines : offline.lines, null);
+            });
+        });
+        return true;
     }
 
     private void takeName(String text) {
@@ -328,21 +406,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 ambient.setEnabled(true);
                 prefs.edit().putBoolean("music", true).apply();
                 break;
-            case "BODY_ON":
-                stage.setBodyMode(true);
-                break;
-            case "FACE_ON":
-                stage.setBodyMode(false);
-                break;
-            case "REDRAW":
-                stage.redraw();
-                break;
-            case "POSE":
-                stage.setPose(value);
-                break;
-            case "TURN":
-                stage.turnAround();
-                break;
             case "SYNC_NOW":
                 syncSoon();
                 break;
@@ -373,6 +436,32 @@ public final class MainActivity extends Activity implements StageListener, Liste
         play(LocalTurn.call(stage.isIvie()), null);
     }
 
+    /** A classified touch on the 3D body: the persona names the part, and reacts to repeats and holds. */
+    @Override
+    public void onBodyTouch(ai.dvine.human.touch.BodyTouch touch) {
+        String part = touch.spoken();
+        if (part == null) {
+            return;
+        }
+        boolean ivie = stage.isIvie();
+        if (touch.kind == ai.dvine.human.touch.BodyTouch.Kind.REPEAT && touch.count >= 3) {
+            stopPlay();
+            engine.onTouch(part, android.os.SystemClock.uptimeMillis());
+            play(LocalTurn.speakAs(ivie, ivie ? "Okay, okay! My " + part + " is very popular today." : "That is the third time. My " + part + " is fine."), null);
+            return;
+        }
+        if (touch.kind == ai.dvine.human.touch.BodyTouch.Kind.HOLD) {
+            stopPlay();
+            engine.onTouch(part, android.os.SystemClock.uptimeMillis());
+            play(LocalTurn.speakAs(ivie, "You're holding my " + part + ". I can see your finger there, though a screen can't tell me how hard you press."), null);
+            return;
+        }
+        if (touch.kind == ai.dvine.human.touch.BodyTouch.Kind.REPEAT) {
+            return; // a second quick tap: the first one already answered
+        }
+        onBodyTap(part);
+    }
+
     /** A tap on the full body: the persona notices where, and the hand waves back. */
     @Override
     public void onBodyTap(String part) {
@@ -382,9 +471,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         stopPlay();
         boolean ivie = stage.isIvie();
-        if (part.endsWith("hand")) {
-            stage.playScene(new String[]{"wave"}, new float[]{2.6f});
-        }
+        engine.onTouch(part, android.os.SystemClock.uptimeMillis());
         String[] said = ivie
                 ? new String[]{"Hey, that's my " + part + "!", "You found my " + part + ".", "My " + part + ", gently please."}
                 : new String[]{"That is my " + part + ".", "My " + part + ". Noted.", "You tapped my " + part + "."};
@@ -485,14 +572,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             if ("SAY".equals(line.cue)) {
                 stage.setMode(FaceMode.SPEAKING);
+                stage.setThought(null);
                 stage.setSubtitle(line.text);
                 talk.speak(ivie, line.text, () -> step(token));
             } else if (line.text != null && line.text.length() > 0) {
-                // inner thought: softer voice, thinking face, dim subtitle
+                // inner thought: softer voice, thinking face, the words in a bubble above the head
+                stage.setThought(line.text);
                 stage.setMode(FaceMode.THINKING);
-                stage.setSubtitle("… " + line.text);
+                stage.setSubtitle("");
                 talk.whisper(ivie, line.text, () -> step(token));
             } else {
+                stage.setThought(null);
                 stage.setMode(FaceMode.THINKING);
                 handler.postDelayed(() -> step(token), 520);
             }
@@ -545,7 +635,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
     @Override
     protected void onPause() {
         stopPlay();
+        handler.removeCallbacks(engineTick);
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        handler.removeCallbacks(engineTick);
+        handler.post(engineTick);
     }
 
     @Override
@@ -553,6 +651,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         talk.shutdown();
         listen.stop();
         sync.shutdown();
+        deskThread.shutdownNow();
         super.onDestroy();
     }
 }

@@ -16,6 +16,8 @@ public final class Swarm {
     /** Current brightness, eased toward the target. */
     public final float[] light;
     private int active;
+    /** Brightness of particles the form does not use yet (0: they fade out; above 0: they glow as drifting dust). */
+    public float parkedLight;
     private float omega = 9f;
     private float zeta = 0.82f;
 
@@ -48,7 +50,7 @@ public final class Swarm {
     public void shape(Form form, float time) {
         int n = form == null ? 0 : Math.min(capacity, form.fill(target, targetLight, capacity, time));
         for (int i = n; i < capacity; i++) {
-            targetLight[i] = 0f;
+            targetLight[i] = parkedLight;
             // parked particles hover around where they are
             target[i * 3] = pos[i * 3];
             target[i * 3 + 1] = pos[i * 3 + 1] + 0.002f;

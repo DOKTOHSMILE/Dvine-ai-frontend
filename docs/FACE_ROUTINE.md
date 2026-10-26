@@ -1,5 +1,7 @@
 # Face routine
 
+**Current (v0.8):** the default look is the anatomical 3D wireframe human (handbook §28): `human/` builds and animates the meshes, `render/` draws them with OpenGL ES 3. Expressions come from `human/face/FaceDrive` and blend shapes in `FaceShapes`; sheets are in `docs/brand/human_*.png`. The notes below describe the older nano-dot and wire looks, still available by voice ("dot mode").
+
 Everything is drawn as nano dots on curved, sculpted surfaces (see handbook §22). One persona on black, over a dotted Blender-like floor.
 
 One head on pure black. The other persona is not drawn beside them.

@@ -236,12 +236,47 @@ public final class OfflineBrain {
             }
             BrainAnswer a = new BrainAnswer(lines, true, false, "SCENE");
             a.scenePoses = scene.poses;
+            a.sceneTitle = scene.title;
             a.sceneSeconds = scene.seconds();
+            return a;
+        }
+        if (text.matches("^(stop|stop it|stop moving|enough|that'?s enough|freeze|cancel that|be still)( now| please)?$")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, I'll be still."), "LOOK");
+            a.command = "STOP";
+            return a;
+        }
+        if (text.matches("^(please )?(smile|frown|look (surprised|shocked|sad|angry|attentive|serious)|pay attention"
+                + "|make a (happy|sad|angry|surprised) face)( for me)?( please)?$")) {
+            String e = ai.dvine.human.face.FaceDrive.expressionFor(text.replace("happy", "smile"));
+            if (e != null) {
+                BrainAnswer a = one(speaker, expressionLine(e, speaker), "LOOK");
+                a.command = "EXPRESSION";
+                a.commandValue = e;
+                return a;
+            }
+        }
+        if (text.matches("^(show (me )?(both( of you)?|the demo|obi and ivie|ivie and obi)|demo( scene)?|stand together|both of you together)( please)?$")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Here we are, both of us.", "Obi and I, side by side."), "LOOK");
+            a.command = "DEMO";
+            return a;
+        }
+        if (text.matches("^(what are you doing|status report|self[- ]?check|body status|what is your status|what's your status)\\??$")) {
+            BrainAnswer a = one(speaker, "Let me check myself.", "SELF");
+            a.command = "SELF_REPORT";
+            return a;
+        }
+        if (text.matches("^(what do i (like|usually ask for|ask you for most)|what are my favou?rites|do you know my favou?rites)\\??$")) {
+            BrainAnswer a = one(speaker, "Let me remember.", "SELF");
+            a.command = "FAVOURITES";
             return a;
         }
         String pose = posePhrase(text);
         if (pose != null) {
-            BrainAnswer a = one(speaker, poseLine(pose, speaker), "LOOK");
+            String line = poseLine(pose, speaker);
+            if (text.matches("^(can|could|will|would|are) you\\b.*")) {
+                line = pick(speaker, "Yes, I can. ", "Of course! ") + line;
+            }
+            BrainAnswer a = one(speaker, line, "LOOK");
             a.command = "POSE";
             a.commandValue = pose;
             return a;
@@ -389,13 +424,19 @@ public final class OfflineBrain {
 
     /** A pose for the full body, only when the request is clearly about the persona's body. */
     static String posePhrase(String text) {
-        String t = text.trim();
-        if (!t.matches("^(please |can you |could you |now )?(do |show me |strike |get into )?(a |an |the |your )?"
-                + "(t[- ]?pose|handstand|squat|crouch|bow|dance|kneel( down)?|sit( down)?|sit cross[- ]legged|meditate|stand( up)?"
-                + "|run|jog|walk|raise your (hands|arms)|hands up|arms up|arms out|spread your arms|relax"
-                + "|(some |\\d+ |ten |twenty )?(push[- ]?ups?|press[- ]ups?|sit[- ]?ups?|crunches|squats|lunges|jumping jacks|star jumps)"
-                + "|plank|stretch|cartwheel|back ?flip|flip|somersault|spin|pirouette|box|boxing|punch|kick|fight)"
-                + "( pose)?( for me)?( please)?$")) {
+        String t = stripQuestion(text.trim()).replaceAll("[,!]", "");
+        if (!t.matches("^((please|can you|could you|will you|would you|are you able to|let me see you|let'?s see you|i want to see you"
+                + "|i want you to|show me how you|show me you|go ahead and|now|start|keep|try to|try|do|show me|strike|get into"
+                + "|a|an|the|your|some|\\d+|ten|twenty) )*"
+                + "(t[- ]?pose|handstand|squat(ting)?|crouch(ing)?|bow(ing)?|danc(e|ing)|kneel(ing)?( down)?|sit(ting)?( down)?"
+                + "|sit cross[- ]legged|meditat(e|ing)|stand( up)?|standing( up)?|run(ning)?( around| fast)?|jog(ging)?|walk(ing)?( around)?"
+                + "|raise your (hands|arms)|hands up|arms up|arms out|spread your arms|relax"
+                + "|(push[- ]?ups?|press[- ]ups?|sit[- ]?ups?|crunches|squats|lunges|jumping jacks|star jumps)"
+                + "|plank|stretch(ing)?|cartwheels?|(back|front) ?flips?|flip( over)?|flips|somersaults?|spin(ning)?|pirouettes?"
+                + "|box(ing)?|punch|kick(ing)?|fight"
+                + "|jump(ing)?( up( and down)?| around| high)?|hop|leap"
+                + "|roll(ing)?( over| around| on the floor)?|(lie|lay)( down| on (your|the) back| on the floor)|lying down)"
+                + "( pose)?( for me)?( (please|now|again|a bit|for a while|for me))*$")) {
             return null;
         }
         return ai.dvine.face.nano.DotBody.poseFor(t);
@@ -423,10 +464,24 @@ public final class OfflineBrain {
             case "cartwheel": return pick(speaker, "Cartwheels, side to side.", "Watch this cartwheel!");
             case "backflip": return pick(speaker, "A backflip. Please leave this one to the nano dots.", "Backflip!");
             case "spin": return "Spinning.";
+            case "jump": return pick(speaker, "Jump! Bend the knees, swing the arms, up!", "Up I go!");
+            case "roll": return pick(speaker, "Rolling over, arms past my head.", "Watch me roll!");
+            case "lie": return pick(speaker, "Lying down for a moment. Breathe in, breathe out.", "Time to lie back and rest.");
             case "boxing": return pick(speaker, "Guard up. Jab, jab.", "Float like a butterfly.");
             case "kick": return "A front kick.";
             case "talk": return "Standing tall.";
             default: return "Standing tall.";
+        }
+    }
+
+    private String expressionLine(String e, String speaker) {
+        switch (e) {
+            case "smile": return pick(speaker, "Like this?", "A big smile, just for you.");
+            case "frown": return "Hmm. Serious face.";
+            case "surprise": return pick(speaker, "Oh!", "Oh! Really?");
+            case "attention": return "I'm listening closely.";
+            case "sad": return "A sad face. I hope you're not feeling this way.";
+            default: return "Grr. Not really angry, just showing you.";
         }
     }
 
@@ -441,6 +496,18 @@ public final class OfflineBrain {
             case "cone": return "A cone: a round base narrowing smoothly to a single point.";
             case "cylinder": return "A cylinder: two equal circles joined by one curved side, like a tin.";
             case "heart": return "A heart, solid and round, built from dots.";
+            case "galaxy": return "A spiral galaxy: a bright bulge of old stars, and two arms where new stars are born. Our Sun sits in an arm like this.";
+            case "black hole": return "A black hole: gravity so strong that not even light escapes. Hot gas swirls around it in a disk, and its light bends over the top.";
+            case "tesseract": return "A tesseract, a cube in four dimensions. What you see is its shadow in our three, turning through the fourth.";
+            case "lorenz": return "The Lorenz attractor. One path that never repeats: tiny changes grow huge. That's the butterfly effect.";
+            case "fractal tree": return "A fractal tree. Every branch splits into three smaller copies of itself, again and again.";
+            case "rocket": return "A rocket: the nose cuts the air, fins keep it straight, and the engine pushes fire down so the rocket goes up.";
+            case "butterfly": return "A butterfly. Its wing shape comes from one equation, and watch, it flaps.";
+            case "eiffel tower": return "The Eiffel Tower: four curved iron legs, three platforms, 330 metres tall.";
+            case "brain": return "A brain: two hemispheres covered in folds, the cerebellum behind for balance, the brain stem below.";
+            case "mobius": return "A Möbius strip: a surface with only one side. Follow it round and you come back upside down.";
+            case "saturn": return "Saturn, with its rings of ice and rock. The gap in the rings is the Cassini division.";
+            case "ripples": return "Ripples spreading on water: waves carry energy outward, getting smaller as they spread.";
             default: return "A sphere: every point on its surface is the same distance from the centre.";
         }
     }

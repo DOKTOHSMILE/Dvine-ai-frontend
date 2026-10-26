@@ -80,9 +80,10 @@ public class ActionsAndOnboardingTest {
         assertTrue(d.spoken().contains("7"));
         assertNotNull(brain.respond("draw a triangle", "obi").sketch);
         assertEquals("MUSIC_OFF", brain.respond("music off", "obi").command);
-        // everything is nano dots now: old style requests stay on dots and say so
-        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("wireframe mode", "obi").look.style);
-        assertTrue(brain.respond("make your skin darker", "obi").spoken().contains("nano dots"));
+        // the default look is the wireframe hologram; dots are a style you can ask for
+        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("wireframe mode", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("dot mode", "obi").look.style);
+        assertTrue(brain.respond("make your skin darker", "obi").spoken().contains("wireframe"));
         assertEquals("BODY_ON", brain.respond("show your full body", "obi").command);
         assertEquals("FACE_ON", brain.respond("show your face", "obi").command);
         assertEquals("REDRAW", brain.respond("redraw yourself", "obi").command);
@@ -93,17 +94,42 @@ public class ActionsAndOnboardingTest {
         assertEquals("TURN", brain.respond("turn around", "obi").command);
         assertEquals("pushups", brain.respond("do 10 push ups", "obi").commandValue);
         assertEquals("cartwheel", brain.respond("do a cartwheel", "ivie").commandValue);
+        // asked as questions, in everyday words
+        String[][] moves = {{"can you run?", "run"}, {"Can you walk?", "walk"}, {"jump", "jump"}, {"can you jump?", "jump"},
+                {"sit", "sit"}, {"sit down please", "sit"}, {"dance", "dance"}, {"can you dance for me?", "dance"},
+                {"roll over", "roll"}, {"can you roll over?", "roll"}, {"flip", "backflip"}, {"do a flip", "backflip"},
+                {"can you do a backflip?", "backflip"}, {"lie down", "lie"}, {"start running", "run"},
+                {"keep dancing", "dance"}, {"jump up and down", "jump"}, {"show me how you walk", "walk"}};
+        for (String[] m : moves) {
+            BrainAnswer a = brain.respond(m[0], "obi");
+            assertEquals(m[0], "POSE", a.command);
+            assertEquals(m[0], m[1], a.commandValue);
+        }
+        assertTrue(brain.respond("can you run?", "obi").spoken().startsWith("Yes") || brain.respond("can you run?", "obi").spoken().startsWith("Of course"));
+        assertTrue(!"POSE".equals(brain.respond("can you walk me through the steps", "obi").command));
+        assertTrue(!"POSE".equals(brain.respond("can you run the numbers", "obi").command));
         BrainAnswer scene = brain.respond("act out the tortoise and the hare", "ivie");
         assertNotNull(scene.scenePoses);
         assertEquals(scene.scenePoses.length, scene.sceneSeconds.length);
+        assertEquals("the hare and the tortoise", scene.sceneTitle);
+        assertEquals("STOP", brain.respond("stop", "obi").command);
+        assertEquals("STOP", brain.respond("that's enough", "ivie").command);
+        assertEquals("SELF_REPORT", brain.respond("what are you doing", "obi").command);
+        assertEquals("FAVOURITES", brain.respond("what do I like", "obi").command);
         // ordinary talk is not a pose
         assertTrue(!"POSE".equals(brain.respond("how do I run a business", "obi").command));
         assertEquals("globe", brain.respond("draw the globe", "obi").object3d);
         assertEquals("dna", brain.respond("show me dna", "obi").object3d);
+        assertEquals("galaxy", brain.respond("can you draw a galaxy?", "obi").object3d);
+        assertEquals("black hole", brain.respond("draw a black hole", "ivie").object3d);
+        assertEquals("tesseract", brain.respond("show me a 4d cube", "obi").object3d);
+        assertEquals("lorenz", brain.respond("draw the butterfly effect", "obi").object3d);
+        assertEquals("butterfly", brain.respond("draw a butterfly", "ivie").object3d);
+        assertEquals("eiffel tower", brain.respond("please draw the eiffel tower", "obi").object3d);
         BrainAnswer hair = brain.respond("make Ivie's hair longer", "obi");
         assertTrue(hair.lookIvie);
         assertTrue(hair.look.hair > 1f);
         assertEquals(0f, brain.respond("Ivie remove your hair", "ivie").look.hair, 0f);
-        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("reset your look", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("reset your look", "obi").look.style);
     }
 }

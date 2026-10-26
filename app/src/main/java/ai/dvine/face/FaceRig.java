@@ -52,6 +52,18 @@ public final class FaceRig {
         nextGlance = ivie ? 4.2f : 6.4f;
     }
 
+    // mood from the engine's affect state: a small, regulated bias on top of the routine
+    private float moodSmile;
+    private float moodBrow;
+    private float moodTilt;
+
+    /** Expression bias from the engine (each clamped small so speech and blinks always win). */
+    public void setMood(float smile, float brow, float tiltDeg) {
+        moodSmile = clamp(smile, -0.3f, 0.3f);
+        moodBrow = clamp(brow, -0.2f, 0.25f);
+        moodTilt = clamp(tiltDeg, -8f, 8f);
+    }
+
     public FaceMode mode() {
         return mode;
     }
@@ -153,7 +165,7 @@ public final class FaceRig {
         if (mode == FaceMode.LISTENING) {
             smileTarget += 0.04f;
         }
-        smileTarget = clamp(smileTarget, 0f, 1f);
+        smileTarget = clamp(smileTarget + moodSmile, 0f, 1f);
 
         float jawTarget = 0.02f + (float) Math.sin(time * 1.25f + phase) * 0.008f;
         float wideTarget = 0.34f + smile.value * 0.06f;
@@ -199,13 +211,16 @@ public final class FaceRig {
         }
         glowTarget += (float) Math.sin(time * 1.6f + phase) * 0.025f;
 
-        float left = browKick * (kickLeft || mode == FaceMode.SPEAKING ? 1f : 0.25f) + speechBrow;
-        float right = browKick * (!kickLeft || mode == FaceMode.SPEAKING ? 1f : 0.25f) + speechBrow;
+        float left = browKick * (kickLeft || mode == FaceMode.SPEAKING ? 1f : 0.25f) + speechBrow + moodBrow;
+        float right = browKick * (!kickLeft || mode == FaceMode.SPEAKING ? 1f : 0.25f) + speechBrow + moodBrow;
         if (mode == FaceMode.LISTENING) {
             left += ivie ? 0.18f : 0.10f;
             right += ivie ? 0.18f : 0.10f;
         }
 
+        if (!dragging) {
+            rollTarget += moodTilt;
+        }
         yaw.step(yawTarget, dt);
         pitch.step(pitchTarget, dt);
         roll.step(rollTarget, dt);

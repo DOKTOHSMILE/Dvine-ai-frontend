@@ -156,7 +156,7 @@ public final class DotHead {
     }
 
     /** The head as melted shapes. */
-    static Sculpt skull(boolean ivie, Look l) {
+    public static Sculpt skull(boolean ivie, Look l) {
         float w = l.width;
         float j = l.jaw;
         float n = l.nose;
@@ -207,7 +207,7 @@ public final class DotHead {
     }
 
     /** The neck ends in a sculpted V: long at the front, short at the back. */
-    static float neckCut(float x, float z, boolean ivie) {
+    public static float neckCut(float x, float z, boolean ivie) {
         float v = Math.max(0f, 1f - Math.abs(x) / (ivie ? 0.34f : 0.42f)) * smooth((z + 0.05f) / 0.4f);
         return (ivie ? -1.2f : -1.28f) - (ivie ? 0.5f : 0.62f) * v;
     }

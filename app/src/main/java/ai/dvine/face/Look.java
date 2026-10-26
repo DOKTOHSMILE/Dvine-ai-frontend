@@ -14,7 +14,8 @@ public final class Look {
         DOTS
     }
 
-    public Style style = Style.DOTS;
+    /** WIRE: the triangulated 3D hologram (default); DOTS: the nano-dot swarm. SKIN is kept for old saves and draws as WIRE. */
+    public Style style = Style.WIRE;
     /** 0 light .. 1 deep brown. */
     public float tone = 0.85f;
     public float width = 1f;
@@ -110,10 +111,13 @@ public final class Look {
         if (has(t, "dot mode", "dots mode", "nano dot", "dotted", "made of dots", "dot look")) {
             style = Style.DOTS;
             said = "Now I'm drawn in tiny dots.";
-        } else if (has(t, "wireframe", "wire frame", "lines only", "skin mode", "solid", "with skin", "add skin",
-                "show skin", "skin on") || (t.contains("skin") && has(t, "darker", "deeper", "lighter", "brighter"))) {
-            style = Style.DOTS;
-            said = "I'm made of nano dots now, all of me. Ask me to change my eyes, nose, lips, jaw or hair.";
+        } else if (has(t, "wireframe", "wire frame", "mesh mode", "hologram", "lines mode", "polygon", "triangle mode")) {
+            style = Style.WIRE;
+            said = "Back to my wireframe hologram.";
+        } else if (has(t, "skin mode", "solid", "with skin", "add skin", "show skin", "skin on")
+                || (t.contains("skin") && has(t, "darker", "deeper", "lighter", "brighter"))) {
+            style = Style.WIRE;
+            said = "My skin is a glowing wireframe now. Ask me to change my eyes, nose, lips, jaw or hair.";
         } else if (t.contains("hair") && has(t, "remove", "no hair", "bald", "take off", "without")) {
             hair = 0f;
             said = "Hair off.";

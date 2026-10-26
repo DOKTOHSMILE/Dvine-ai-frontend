@@ -16,21 +16,21 @@ import ai.dvine.face.WireHead;
  * {@link #FLOOR_OUT}.
  */
 public final class DotBody implements Swarm.Form {
-    static final int PELVIS = 0, SPINE = 1, CHEST = 2, NECK = 3, HEAD = 4;
-    static final int ARM_L = 5, FORE_L = 6, HAND_L = 7, ARM_R = 8, FORE_R = 9, HAND_R = 10;
-    static final int THIGH_L = 11, SHIN_L = 12, FOOT_L = 13, THIGH_R = 14, SHIN_R = 15, FOOT_R = 16;
-    static final int BONES = 17;
-    static final int[] PARENT = {-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15};
+    public static final int PELVIS = 0, SPINE = 1, CHEST = 2, NECK = 3, HEAD = 4;
+    public static final int ARM_L = 5, FORE_L = 6, HAND_L = 7, ARM_R = 8, FORE_R = 9, HAND_R = 10;
+    public static final int THIGH_L = 11, SHIN_L = 12, FOOT_L = 13, THIGH_R = 14, SHIN_R = 15, FOOT_R = 16;
+    public static final int BONES = 17;
+    public static final int[] PARENT = {-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15};
 
     public static final String[] POSES = {"stand", "tpose", "arms up", "wave", "point", "squat", "sit", "kneel",
             "run", "walk", "bow", "dance", "handstand",
             // exercises and stunts (they loop until another pose is asked for)
             "pushups", "jumping jacks", "squats", "lunges", "plank", "stretch", "situps", "boxing", "kick",
-            "cartwheel", "backflip", "spin",
+            "cartwheel", "backflip", "spin", "jump", "roll", "lie",
             // the body talks with its hands while the persona explains
             "talk"};
     /** Extra pose channels after the bone angles: sideways travel and lift (body units). */
-    static final int TRAVEL = BONES * 3, LIFT = BONES * 3 + 1, CHANNELS = BONES * 3 + 2;
+    public static final int TRAVEL = BONES * 3, LIFT = BONES * 3 + 1, CHANNELS = BONES * 3 + 2;
 
     private static final float FLOOR = -4.2f;
     /** Output scale and centre: body units to camera units. */
@@ -181,7 +181,7 @@ public final class DotBody implements Swarm.Form {
     }
 
     /** Arms rest this many degrees below level. */
-    static final float BIND_ARM = 40f;
+    public static final float BIND_ARM = 40f;
 
     /** Joint of an arm bone, {@code along} units from the shoulder in the A-pose. */
     private void arm(int side, float sh, float along, int b) {
@@ -251,6 +251,9 @@ public final class DotBody implements Swarm.Form {
         if (t.contains("plank")) return "plank";
         if (t.contains("stretch")) return "stretch";
         if (t.contains("cartwheel")) return "cartwheel";
+        if (t.matches(".*\\broll(ing)?\\b.*")) return "roll";
+        if (t.matches(".*\\b(lie|lay|laying|lying)( down| on (your|the) back| on the floor)?\\b.*")) return "lie";
+        if (t.matches(".*\\b(jump(ing)?|hop|leap)\\b.*") && !t.contains("jumping jack")) return "jump";
         if (t.contains("backflip") || t.contains("back flip") || t.matches(".*\\bflip\\b.*") || t.contains("somersault")) return "backflip";
         if (t.contains("spin") || t.contains("pirouette")) return "spin";
         if (t.matches(".*\\b(box|boxing|punch(es)?|fight)\\b.*")) return "boxing";
@@ -261,12 +264,12 @@ public final class DotBody implements Swarm.Form {
         if (t.contains("wave")) return "wave";
         if (t.contains("point")) return "point";
         if (t.contains("squat") || t.contains("crouch")) return "squat";
-        if (t.contains("sit") || t.contains("meditate") || t.contains("cross leg")) return "sit";
+        if (t.contains("sit") || t.contains("meditat") || t.contains("cross leg")) return "sit";
         if (t.contains("kneel")) return "kneel";
         if (t.contains("run") || t.contains("jog")) return "run";
         if (t.contains("walk")) return "walk";
         if (t.contains("bow")) return "bow";
-        if (t.contains("dance")) return "dance";
+        if (t.matches(".*\\bdanc(e|ing)\\b.*")) return "dance";
         if (t.contains("stand") || t.contains("relax") || t.contains("normal pose")) return "stand";
         return null;
     }
@@ -456,7 +459,7 @@ public final class DotBody implements Swarm.Form {
      * the upper arm gets R * Rz(+bind) (it first lifts to level), the forearm
      * and hand get Rz(-bind) * R * Rz(+bind) (the same hinge, seen from the rig).
      */
-    private static void fromLevel(float[] m, float bindDeg, boolean upper) {
+    public static void fromLevel(float[] m, float bindDeg, boolean upper) {
         float[] z = new float[9];
         float[] t = new float[9];
         euler(0f, 0f, bindDeg, z);
@@ -469,7 +472,7 @@ public final class DotBody implements Swarm.Form {
         mul(z, t, m);
     }
 
-    private static void mul(float[] a, float[] b, float[] out) {
+    public static void mul(float[] a, float[] b, float[] out) {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 out[i * 3 + j] = a[i * 3] * b[j] + a[i * 3 + 1] * b[3 + j] + a[i * 3 + 2] * b[6 + j];
@@ -478,7 +481,7 @@ public final class DotBody implements Swarm.Form {
     }
 
     /** Rotation Ry * Rx * Rz from degrees, row-major. */
-    static void euler(float xd, float yd, float zd, float[] m) {
+    public static void euler(float xd, float yd, float zd, float[] m) {
         double x = Math.toRadians(xd), y = Math.toRadians(yd), z = Math.toRadians(zd);
         float cx = (float) Math.cos(x), sx = (float) Math.sin(x);
         float cy = (float) Math.cos(y), sy = (float) Math.sin(y);
@@ -507,7 +510,7 @@ public final class DotBody implements Swarm.Form {
      * Signs: z+ lifts a left limb, x- swings a leg forward, x+ bends a knee or
      * leans the chest forward, y- swings a left arm or forearm forward.
      */
-    static void poseAngles(String name, float t, float[] a) {
+    public static void poseAngles(String name, float t, float[] a) {
         java.util.Arrays.fill(a, 0f);
         float breathe = (float) Math.sin(t * 1.3f);
         switch (name) {
@@ -601,6 +604,47 @@ public final class DotBody implements Swarm.Form {
                 set(a, SHIN_R, 24f * Math.max(0f, -s), 0f, 0f, true);
                 break;
             }
+            case "jump": { // crouch, leap with the arms swinging up, land soft
+                float f = (t % 1.6f) / 1.6f;
+                if (f < 0.3f) {
+                    float u = f / 0.3f;
+                    u = u * u * (3f - 2f * u);
+                    both(a, THIGH_L, -55f * u, 0f, 3f);
+                    both(a, SHIN_L, 80f * u, 0f, 0f);
+                    a[CHEST * 3] = 20f * u;
+                    both(a, ARM_L, 0f, 40f * u, -72f);
+                } else if (f < 0.75f) {
+                    float s = (float) Math.sin((f - 0.3f) / 0.45f * Math.PI);
+                    a[LIFT] = 0.9f * s;
+                    both(a, THIGH_L, -20f * s, 0f, 3f);
+                    both(a, SHIN_L, 30f * s, 0f, 0f);
+                    both(a, ARM_L, 0f, -20f * s, -72f + 150f * s);
+                    both(a, FOOT_L, 25f * s, 0f, 0f);
+                } else {
+                    float u = 1f - (f - 0.75f) / 0.25f;
+                    both(a, THIGH_L, -45f * u, 0f, 3f);
+                    both(a, SHIN_L, 65f * u, 0f, 0f);
+                    a[CHEST * 3] = 15f * u;
+                    both(a, ARM_L, 0f, 15f * u, -72f);
+                }
+                break;
+            }
+            case "roll": { // roll over on the floor, arms stretched past the head, along the body's length
+                a[PELVIS * 3 + 2] = -90f;
+                a[PELVIS * 3] = -360f * ((t % 2.6f) / 2.6f);
+                both(a, ARM_L, 0f, 0f, 82f);
+                both(a, THIGH_L, 0f, 0f, 2f);
+                both(a, FOOT_L, 30f, 0f, 0f);
+                break;
+            }
+            case "lie": // on the back, face up, one knee raised, breathing
+                a[PELVIS * 3 + 2] = -90f;
+                a[PELVIS * 3] = -90f;
+                both(a, ARM_L, 0f, 0f, -70f);
+                set(a, THIGH_L, -40f, 0f, 2f, false);
+                set(a, SHIN_L, 75f, 0f, 0f, false);
+                a[CHEST * 3] = 2f * breathe;
+                break;
             case "handstand":
                 a[PELVIS * 3 + 2] = 180f;
                 both(a, ARM_L, 0f, 0f, 84f);
@@ -793,7 +837,7 @@ public final class DotBody implements Swarm.Form {
     }
 
     /** Clamps every joint into its limits. Returns how many angles had to move. */
-    static int limit(float[] a) {
+    public static int limit(float[] a) {
         int moved = 0;
         for (int b = 0; b < BONES; b++) {
             float[] l = LIMITS[b];
