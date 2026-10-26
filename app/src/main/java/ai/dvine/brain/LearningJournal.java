@@ -20,7 +20,8 @@ import java.util.regex.Pattern;
 
 /**
  * What DVINE learned while talking, kept on the phone. Entries are uploaded
- * only after the user agrees, and secrets are dropped before anything is written.
+ * to the user's DVINE account when online, unless they said "stop sharing";
+ * secrets are dropped before anything is written.
  */
 public final class LearningJournal {
     public static final String TAUGHT_FACT = "TAUGHT_FACT";
@@ -71,8 +72,9 @@ public final class LearningJournal {
             throw new IllegalStateException("cannot create " + dir);
         }
         file = new File(dir, "journal.jsonl");
-        consentFile = new File(dir, "consent");
-        consent = consentFile.exists();
+        // sharing is on unless the user said "stop sharing" (which leaves a no_share marker)
+        consentFile = new File(dir, "no_share");
+        consent = !consentFile.exists();
         load();
     }
 
@@ -148,10 +150,10 @@ public final class LearningJournal {
     public synchronized void setConsent(boolean on) {
         consent = on;
         try {
-            if (on) {
+            if (!on) {
                 new FileOutputStream(consentFile).close();
             } else if (consentFile.exists() && !consentFile.delete()) {
-                throw new IOException("cannot clear consent");
+                throw new IOException("cannot turn sharing back on");
             }
         } catch (IOException e) {
             throw new IllegalStateException(e);
@@ -159,6 +161,20 @@ public final class LearningJournal {
     }
 
     /** Entries waiting to go to the server, oldest first, at most {@code max}. */
+    /** How many entries are waiting to upload (0 when sharing is off). */
+    public synchronized int pendingCount() {
+        if (!consent) {
+            return 0;
+        }
+        int n = 0;
+        for (Entry e : entries) {
+            if (!e.uploaded) {
+                n++;
+            }
+        }
+        return n;
+    }
+
     public synchronized List<Entry> pending(int max) {
         List<Entry> out = new ArrayList<Entry>();
         if (!consent) {
@@ -203,7 +219,7 @@ public final class LearningJournal {
         return MiniJson.write(body);
     }
 
-    static String normalizeKey(String key) {
+    public static String normalizeKey(String key) {
         if (key == null) {
             return "";
         }

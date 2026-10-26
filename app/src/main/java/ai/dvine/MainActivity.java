@@ -124,6 +124,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         Look ivieLook = Look.parse(prefs.getString("look_ivie", null), true);
         stage.setLook(false, obiLook);
         stage.setLook(true, ivieLook);
+        talk.setTuning(false, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
+        talk.setTuning(true, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_ivie", null), true));
         talk.setListener((ivie, speaking) -> {
             ambient.setPersona(ivie);
             ambient.setLevel(speaking ? 1f : 0f);
@@ -131,11 +133,33 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
         KnowledgeStore store = new KnowledgeStore(this);
         journal = new LearningJournal(new File(getFilesDir(), "learning"));
-        brain = new OfflineBrain(store.load(), journal, System::currentTimeMillis, TimeZone.getDefault());
+        // core pack now (small); the dictionary and other shards load in the background
+        brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis, TimeZone.getDefault());
+        brain.setThoughts(prefs.getBoolean("thoughts", true));
+        Thread loader = new Thread(() -> {
+            try {
+                final ai.dvine.brain.KnowledgePack full = store.load();
+                handler.post(() -> brain.replacePack(full));
+            } catch (RuntimeException broken) {
+                // keep the core pack
+            }
+        }, "dvine-knowledge");
+        loader.setPriority(Thread.MIN_PRIORITY);
+        loader.start();
         brain.setUserName(prefs.getString("user_name", null));
         brain.setLooks(obiLook, ivieLook);
-        sync = new SyncWorker(getString(R.string.api_base), deviceId(), journal, store,
-                () -> null, pack -> handler.post(() -> brain.replacePack(pack)));
+        final ai.dvine.net.SessionClient session = new ai.dvine.net.SessionClient(this::serverUrl, prefs,
+                new ai.dvine.net.DeviceVault(prefs));
+        sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store,
+                session::token, pack -> {
+                    // a newer core pack arrived: re-merge it with the dictionary and shards
+                    final ai.dvine.brain.KnowledgePack full = store.load();
+                    handler.post(() -> brain.replacePack(full));
+                });
+        sync.setUploadListener(count -> handler.post(() -> {
+            stage.burst(12);
+            stage.setSubtitle("Backed up " + count + (count == 1 ? " thing" : " things") + " I learned.");
+        }));
         connectivity = new Connectivity(this, online -> {
             stage.setOnline(online);
             if (online) {
@@ -173,13 +197,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
-    private String deviceId() {
-        String id = prefs.getString("device_id", null);
-        if (id == null) {
-            id = UUID.randomUUID().toString();
-            prefs.edit().putString("device_id", id).apply();
+    /** Server address: the one set by voice, else the build's api_base. */
+    private String serverUrl() {
+        String set = prefs.getString("server", null);
+        return set != null && !set.isEmpty() ? set : getString(R.string.api_base);
+    }
+
+    /** Uploads right away when online; otherwise the next time we come online. */
+    private void syncSoon() {
+        if (connectivity != null && connectivity.isOnline()) {
+            sync.kick(brain.pack().version);
         }
-        return id;
     }
 
     // ------------------------------------------------------------ the one entry point
@@ -212,7 +240,21 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
         }
-        applyCommand(reply.command);
+        if (reply.command != null && reply.command.startsWith("VOICE_")) {
+            if (talk.adjust(reply.lookIvie, reply.command)) {
+                prefs.edit().putString(reply.lookIvie ? "voice_ivie" : "voice_obi",
+                        talk.tuning(reply.lookIvie).serialize()).apply();
+            }
+        } else {
+            applyCommand(reply.command, reply.commandValue);
+        }
+        if ("SERVER_SET".equals(reply.command) && reply.commandValue != null) {
+            prefs.edit().putString("server", reply.commandValue).apply();
+            syncSoon();
+        }
+        if ("LEARN".equals(reply.source) || "MEMORY".equals(reply.source) || "OFFLINE".equals(reply.source)) {
+            syncSoon(); // new learning (or a saved unanswered question) goes up as soon as we can
+        }
         if (reply.look != null) {
             stage.setLook(reply.lookIvie, reply.look);
             prefs.edit().putString(reply.lookIvie ? "look_ivie" : "look_obi", reply.look.serialize()).apply();
@@ -222,6 +264,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (reply.sketch != null) {
             stage.showSketch(reply.sketch);
+        }
+        if (reply.object3d != null) {
+            stage.showObject(reply.object3d);
+        }
+        if (reply.scenePoses != null) {
+            stage.playScene(reply.scenePoses, reply.sceneSeconds);
         }
         final PendingAction act = reply.action;
         if (act != null && act.kind == PendingAction.Kind.COPY) {
@@ -261,12 +309,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         prefs.edit().putString("user_name", name).apply();
         brain.setUserName(name);
         journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
+        syncSoon();
         stage.gesture("🫶");
         stage.burst(24);
         play(LocalTurn.speakAs(true, Onboarding.welcome(name)), null);
     }
 
-    private void applyCommand(String command) {
+    private void applyCommand(String command, String value) {
         if (command == null) {
             return;
         }
@@ -278,6 +327,30 @@ public final class MainActivity extends Activity implements StageListener, Liste
             case "MUSIC_ON":
                 ambient.setEnabled(true);
                 prefs.edit().putBoolean("music", true).apply();
+                break;
+            case "BODY_ON":
+                stage.setBodyMode(true);
+                break;
+            case "FACE_ON":
+                stage.setBodyMode(false);
+                break;
+            case "REDRAW":
+                stage.redraw();
+                break;
+            case "POSE":
+                stage.setPose(value);
+                break;
+            case "TURN":
+                stage.turnAround();
+                break;
+            case "SYNC_NOW":
+                syncSoon();
+                break;
+            case "THOUGHTS_OFF":
+                prefs.edit().putBoolean("thoughts", false).apply();
+                break;
+            case "THOUGHTS_ON":
+                prefs.edit().putBoolean("thoughts", true).apply();
                 break;
             case "SUBS_OFF":
                 stage.setSubtitles(false);
@@ -298,6 +371,24 @@ public final class MainActivity extends Activity implements StageListener, Liste
     public void onHeadTap() {
         stopPlay();
         play(LocalTurn.call(stage.isIvie()), null);
+    }
+
+    /** A tap on the full body: the persona notices where, and the hand waves back. */
+    @Override
+    public void onBodyTap(String part) {
+        if (part == null || part.equals("face") || part.equals("head")) {
+            onHeadTap();
+            return;
+        }
+        stopPlay();
+        boolean ivie = stage.isIvie();
+        if (part.endsWith("hand")) {
+            stage.playScene(new String[]{"wave"}, new float[]{2.6f});
+        }
+        String[] said = ivie
+                ? new String[]{"Hey, that's my " + part + "!", "You found my " + part + ".", "My " + part + ", gently please."}
+                : new String[]{"That is my " + part + ".", "My " + part + ". Noted.", "You tapped my " + part + "."};
+        play(LocalTurn.speakAs(ivie, said[(int) (System.nanoTime() / 1000L % said.length)]), null);
     }
 
     @Override
@@ -396,6 +487,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 stage.setMode(FaceMode.SPEAKING);
                 stage.setSubtitle(line.text);
                 talk.speak(ivie, line.text, () -> step(token));
+            } else if (line.text != null && line.text.length() > 0) {
+                // inner thought: softer voice, thinking face, dim subtitle
+                stage.setMode(FaceMode.THINKING);
+                stage.setSubtitle("… " + line.text);
+                talk.whisper(ivie, line.text, () -> step(token));
             } else {
                 stage.setMode(FaceMode.THINKING);
                 handler.postDelayed(() -> step(token), 520);

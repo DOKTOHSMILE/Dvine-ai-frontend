@@ -1,6 +1,6 @@
 {
  "schemaVersion": 1,
- "version": 1,
+ "version": 2,
  "language": "en",
  "offlineLine": "I'm unable to connect to my database to get more information. Please connect to the internet and ask me again.",
  "intents": [
@@ -249,6 +249,82 @@
    ],
    "ivie": [
     "Just say Ivie switch or Obi switch."
+   ]
+  },
+  {
+   "id": "pidgin_greet",
+   "patterns": [
+    "how far",
+    "wetin dey happen",
+    "how body",
+    "how you dey",
+    "wetin dey"
+   ],
+   "obi": [
+    "I dey o. Body dey inside cloth. Wetin you wan make we do today?"
+   ],
+   "ivie": [
+    "I dey well, thank you. How you dey? Wetin dey your mind?"
+   ]
+  },
+  {
+   "id": "pidgin_thanks",
+   "patterns": [
+    "thank you well well",
+    "e se",
+    "daalu",
+    "na gode",
+    "i hail o"
+   ],
+   "obi": [
+    "You welcome. Na we dey here."
+   ],
+   "ivie": [
+    "You too much. Anytime."
+   ]
+  },
+  {
+   "id": "morning",
+   "patterns": [
+    "good morning obi",
+    "good morning ivie",
+    "morning",
+    "good day"
+   ],
+   "obi": [
+    "Good morning. A new day, a clean page. What's first?"
+   ],
+   "ivie": [
+    "Good morning. I hope you rested well. What would make today good?"
+   ]
+  },
+  {
+   "id": "tired",
+   "patterns": [
+    "i am tired",
+    "i'm tired",
+    "i am exhausted",
+    "i'm exhausted"
+   ],
+   "obi": [
+    "Then rest is the wise move. The work will be clearer after."
+   ],
+   "ivie": [
+    "Please rest a little. You've carried a lot. We can pick this up when you're ready."
+   ]
+  },
+  {
+   "id": "motivate",
+   "patterns": [
+    "motivate me",
+    "i need motivation",
+    "encourage me"
+   ],
+   "obi": [
+    "Start small and start now. One finished step beats ten perfect plans."
+   ],
+   "ivie": [
+    "You've come further than you think. Take the next small step; I'm with you."
    ]
   }
  ],
@@ -770,6 +846,482 @@
     "day"
    ],
    "answer": "Many adults need about 2 to 3 litres of fluid a day, more in heat or with exercise."
+  },
+  {
+   "keys": [
+    "nigeria",
+    "population"
+   ],
+   "answer": "Nigeria has more than 200 million people, the largest population in Africa."
+  },
+  {
+   "keys": [
+    "nigeria",
+    "languages"
+   ],
+   "answer": "Nigeria has over 500 languages. English is the official language; Hausa, Yoruba and Igbo are the largest."
+  },
+  {
+   "keys": [
+    "nigeria",
+    "president",
+    "first"
+   ],
+   "answer": "Nnamdi Azikiwe was Nigeria's first president, from 1963 to 1966."
+  },
+  {
+   "keys": [
+    "niger",
+    "river"
+   ],
+   "answer": "The Niger is West Africa's main river, about 4,180 kilometres long. It meets the Benue at Lokoja."
+  },
+  {
+   "keys": [
+    "benin",
+    "kingdom"
+   ],
+   "answer": "The Benin Kingdom, in today's Edo State, was famed for its bronzes and its Oba, who still reigns in Benin City."
+  },
+  {
+   "keys": [
+    "capital",
+    "rivers",
+    "state"
+   ],
+   "answer": "Port Harcourt is the capital of Rivers State."
+  },
+  {
+   "keys": [
+    "capital",
+    "kano"
+   ],
+   "answer": "Kano city is the capital of Kano State."
+  },
+  {
+   "keys": [
+    "capital",
+    "oyo"
+   ],
+   "answer": "Ibadan is the capital of Oyo State."
+  },
+  {
+   "keys": [
+    "capital",
+    "enugu"
+   ],
+   "answer": "Enugu city is the capital of Enugu State."
+  },
+  {
+   "keys": [
+    "capital",
+    "anambra"
+   ],
+   "answer": "Awka is the capital of Anambra State."
+  },
+  {
+   "keys": [
+    "capital",
+    "kaduna"
+   ],
+   "answer": "Kaduna city is the capital of Kaduna State."
+  },
+  {
+   "keys": [
+    "capital",
+    "ethiopia"
+   ],
+   "answer": "Addis Ababa is the capital of Ethiopia."
+  },
+  {
+   "keys": [
+    "capital",
+    "senegal"
+   ],
+   "answer": "Dakar is the capital of Senegal."
+  },
+  {
+   "keys": [
+    "capital",
+    "cameroon"
+   ],
+   "answer": "Yaoundé is the capital of Cameroon."
+  },
+  {
+   "keys": [
+    "capital",
+    "tanzania"
+   ],
+   "answer": "Dodoma is the official capital of Tanzania; Dar es Salaam is its largest city."
+  },
+  {
+   "keys": [
+    "capital",
+    "rwanda"
+   ],
+   "answer": "Kigali is the capital of Rwanda."
+  },
+  {
+   "keys": [
+    "capital",
+    "uganda"
+   ],
+   "answer": "Kampala is the capital of Uganda."
+  },
+  {
+   "keys": [
+    "capital",
+    "morocco"
+   ],
+   "answer": "Rabat is the capital of Morocco."
+  },
+  {
+   "keys": [
+    "capital",
+    "italy"
+   ],
+   "answer": "Rome is the capital of Italy."
+  },
+  {
+   "keys": [
+    "capital",
+    "spain"
+   ],
+   "answer": "Madrid is the capital of Spain."
+  },
+  {
+   "keys": [
+    "capital",
+    "russia"
+   ],
+   "answer": "Moscow is the capital of Russia."
+  },
+  {
+   "keys": [
+    "capital",
+    "saudi",
+    "arabia"
+   ],
+   "answer": "Riyadh is the capital of Saudi Arabia."
+  },
+  {
+   "keys": [
+    "african",
+    "countries"
+   ],
+   "answer": "Africa has 54 countries recognised by the United Nations."
+  },
+  {
+   "keys": [
+    "largest",
+    "country",
+    "africa"
+   ],
+   "answer": "Algeria is Africa's largest country by area."
+  },
+  {
+   "keys": [
+    "largest",
+    "country",
+    "world"
+   ],
+   "answer": "Russia is the largest country by area."
+  },
+  {
+   "keys": [
+    "most",
+    "populous",
+    "country"
+   ],
+   "answer": "India has the largest population, just ahead of China."
+  },
+  {
+   "keys": [
+    "tallest",
+    "building"
+   ],
+   "answer": "The Burj Khalifa in Dubai is the tallest building, about 828 metres."
+  },
+  {
+   "keys": [
+    "deepest",
+    "ocean"
+   ],
+   "answer": "The Mariana Trench in the Pacific is the deepest point in the ocean, nearly 11,000 metres."
+  },
+  {
+   "keys": [
+    "boiling",
+    "point",
+    "fahrenheit"
+   ],
+   "answer": "Water boils at 212 degrees Fahrenheit at sea level."
+  },
+  {
+   "keys": [
+    "oxygen",
+    "air"
+   ],
+   "answer": "Air is about 21 percent oxygen and 78 percent nitrogen."
+  },
+  {
+   "keys": [
+    "atom"
+   ],
+   "answer": "An atom is the smallest unit of an element: a nucleus of protons and neutrons with electrons around it."
+  },
+  {
+   "keys": [
+    "cell",
+    "biology"
+   ],
+   "answer": "A cell is the basic unit of life. Your body has tens of trillions of them."
+  },
+  {
+   "keys": [
+    "electricity"
+   ],
+   "answer": "Electricity is the flow of electric charge, usually electrons moving through a conductor."
+  },
+  {
+   "keys": [
+    "volt"
+   ],
+   "answer": "A volt measures electrical pressure. Nigeria's mains supply is about 230 volts at 50 hertz."
+  },
+  {
+   "keys": [
+    "solar",
+    "energy"
+   ],
+   "answer": "Solar panels turn sunlight into electricity using semiconductor cells."
+  },
+  {
+   "keys": [
+    "climate",
+    "change"
+   ],
+   "answer": "Climate change is the long-term warming of Earth, driven mostly by greenhouse gases from burning fossil fuels."
+  },
+  {
+   "keys": [
+    "malaria"
+   ],
+   "answer": "Malaria is spread by infected mosquitoes. Sleep under treated nets, clear standing water, and see a health worker for fever."
+  },
+  {
+   "keys": [
+    "malaria",
+    "symptoms"
+   ],
+   "answer": "Malaria often starts with fever, chills, headache and body pains. Get tested quickly, especially for children."
+  },
+  {
+   "keys": [
+    "fever",
+    "child"
+   ],
+   "answer": "For a child with fever, give fluids, keep them cool, and see a health worker, especially if under five or very drowsy."
+  },
+  {
+   "keys": [
+    "blood",
+    "pressure",
+    "normal"
+   ],
+   "answer": "A typical healthy adult blood pressure is around 120 over 80. Check with a health worker for your own targets."
+  },
+  {
+   "keys": [
+    "cpr"
+   ],
+   "answer": "For adult CPR: call for help, then press hard and fast in the centre of the chest, about 100 to 120 times a minute."
+  },
+  {
+   "keys": [
+    "dehydration"
+   ],
+   "answer": "Signs of dehydration include thirst, dark urine, dizziness and dry mouth. Oral rehydration salts help."
+  },
+  {
+   "keys": [
+    "oral",
+    "rehydration"
+   ],
+   "answer": "To make oral rehydration solution: one litre of clean water, six level teaspoons of sugar, and half a teaspoon of salt."
+  },
+  {
+   "keys": [
+    "handwashing"
+   ],
+   "answer": "Wash hands with soap and water for at least 20 seconds, especially before eating and after the toilet."
+  },
+  {
+   "keys": [
+    "area",
+    "circle"
+   ],
+   "answer": "The area of a circle is pi times the radius squared."
+  },
+  {
+   "keys": [
+    "area",
+    "rectangle"
+   ],
+   "answer": "The area of a rectangle is length times width."
+  },
+  {
+   "keys": [
+    "area",
+    "triangle"
+   ],
+   "answer": "The area of a triangle is half the base times the height."
+  },
+  {
+   "keys": [
+    "pythagoras"
+   ],
+   "answer": "Pythagoras: in a right-angled triangle, a squared plus b squared equals c squared."
+  },
+  {
+   "keys": [
+    "simple",
+    "interest"
+   ],
+   "answer": "Simple interest is principal times rate times time."
+  },
+  {
+   "keys": [
+    "compound",
+    "interest"
+   ],
+   "answer": "Compound interest grows on the interest too: amount equals principal times one plus the rate, to the power of the years."
+  },
+  {
+   "keys": [
+    "profit",
+    "margin"
+   ],
+   "answer": "Profit margin is profit divided by revenue, shown as a percentage."
+  },
+  {
+   "keys": [
+    "break",
+    "even"
+   ],
+   "answer": "Break-even is where income equals costs: fixed costs divided by the profit on each unit."
+  },
+  {
+   "keys": [
+    "inflation",
+    "meaning"
+   ],
+   "answer": "Inflation is the rise in prices over time, so the same money buys less."
+  },
+  {
+   "keys": [
+    "budget",
+    "rule"
+   ],
+   "answer": "A simple budget rule: about half for needs, some for wants, and set aside savings first."
+  },
+  {
+   "keys": [
+    "savings",
+    "emergency"
+   ],
+   "answer": "An emergency fund of three to six months of expenses protects you from shocks."
+  },
+  {
+   "keys": [
+    "first",
+    "man",
+    "moon"
+   ],
+   "answer": "Neil Armstrong was the first person on the Moon, in July 1969."
+  },
+  {
+   "keys": [
+    "world",
+    "war",
+    "two"
+   ],
+   "answer": "The Second World War lasted from 1939 to 1945."
+  },
+  {
+   "keys": [
+    "telephone",
+    "invented"
+   ],
+   "answer": "Alexander Graham Bell patented the telephone in 1876."
+  },
+  {
+   "keys": [
+    "light",
+    "bulb"
+   ],
+   "answer": "Thomas Edison made the first practical long-lasting light bulb in 1879, building on earlier inventors."
+  },
+  {
+   "keys": [
+    "sermon",
+    "mount"
+   ],
+   "answer": "The Sermon on the Mount is Jesus' teaching in Matthew chapters 5 to 7, including the Beatitudes and the Lord's Prayer."
+  },
+  {
+   "keys": [
+    "lord's",
+    "prayer"
+   ],
+   "answer": "The Lord's Prayer begins: Our Father which art in heaven, hallowed be thy name. Matthew 6:9."
+  },
+  {
+   "keys": [
+    "fruit",
+    "spirit"
+   ],
+   "answer": "The fruit of the Spirit is love, joy, peace, longsuffering, gentleness, goodness, faith, meekness and temperance. Galatians 5:22 to 23."
+  },
+  {
+   "keys": [
+    "beatitudes"
+   ],
+   "answer": "The Beatitudes begin: Blessed are the poor in spirit, for theirs is the kingdom of heaven. Matthew 5:3."
+  },
+  {
+   "keys": [
+    "good",
+    "samaritan"
+   ],
+   "answer": "The Good Samaritan, in Luke 10, teaches that your neighbour is anyone who needs your mercy."
+  },
+  {
+   "keys": [
+    "prodigal",
+    "son"
+   ],
+   "answer": "The Prodigal Son, in Luke 15, shows a father's grace welcoming home a son who wasted everything."
+  },
+  {
+   "keys": [
+    "obi",
+    "persona"
+   ],
+   "answer": "Obi is DVINE's calm strategist: he checks structure, risk and what can be verified."
+  },
+  {
+   "keys": [
+    "ivie",
+    "persona"
+   ],
+   "answer": "Ivie is DVINE's visionary and diplomat: she looks at people, meaning and how things land."
+  },
+  {
+   "keys": [
+    "dvine"
+   ],
+   "answer": "DVINE is a voice-first assistant with two personas, Obi and Ivie, who think together and answer as one."
   }
  ],
  "words": [
@@ -992,6 +1544,82 @@
   {
    "word": "wahala",
    "meaning": "Nigerian Pidgin for trouble or problems."
+  },
+  {
+   "word": "wetin",
+   "meaning": "Nigerian Pidgin for what."
+  },
+  {
+   "word": "abeg",
+   "meaning": "Nigerian Pidgin for please."
+  },
+  {
+   "word": "oya",
+   "meaning": "Nigerian Pidgin for come on, or let's go."
+  },
+  {
+   "word": "chop",
+   "meaning": "Nigerian Pidgin for eat, or to spend."
+  },
+  {
+   "word": "pikin",
+   "meaning": "Nigerian Pidgin for child."
+  },
+  {
+   "word": "una",
+   "meaning": "Nigerian Pidgin for you, plural."
+  },
+  {
+   "word": "dey",
+   "meaning": "Nigerian Pidgin for is, am, or to be present."
+  },
+  {
+   "word": "comot",
+   "meaning": "Nigerian Pidgin for go out or remove."
+  },
+  {
+   "word": "gbege",
+   "meaning": "Nigerian Pidgin for serious trouble."
+  },
+  {
+   "word": "japa",
+   "meaning": "Nigerian slang for to leave quickly, often to emigrate."
+  },
+  {
+   "word": "ehen",
+   "meaning": "Nigerian expression meaning I see, or go on."
+  },
+  {
+   "word": "e se",
+   "meaning": "Yoruba for thank you."
+  },
+  {
+   "word": "daalu",
+   "meaning": "Igbo for thank you."
+  },
+  {
+   "word": "na gode",
+   "meaning": "Hausa for thank you."
+  },
+  {
+   "word": "ekaabo",
+   "meaning": "Yoruba for welcome."
+  },
+  {
+   "word": "nnoo",
+   "meaning": "Igbo for welcome."
+  },
+  {
+   "word": "sannu",
+   "meaning": "Hausa for hello."
+  },
+  {
+   "word": "ubuntu",
+   "meaning": "a Nguni word for the idea that a person is a person through other people."
+  },
+  {
+   "word": "grace and necessity",
+   "meaning": "DVINE's guiding balance: truth and accountability, held with mercy and patience."
   }
  ],
  "wisdom": [
@@ -1152,6 +1780,186 @@
    ],
    "text": "Feelings are fast and often wrong; give big decisions a slow second look.",
    "source": "Daniel Kahneman, paraphrased"
+  },
+  {
+   "tags": [
+    "sad",
+    "rest"
+   ],
+   "text": "He healeth the broken in heart, and bindeth up their wounds.",
+   "source": "Psalm 147:3"
+  },
+  {
+   "tags": [
+    "fear"
+   ],
+   "text": "The Lord is my shepherd; I shall not want.",
+   "source": "Psalm 23:1"
+  },
+  {
+   "tags": [
+    "fear",
+    "encourage"
+   ],
+   "text": "Fear thou not; for I am with thee: be not dismayed; for I am thy God.",
+   "source": "Isaiah 41:10"
+  },
+  {
+   "tags": [
+    "fear"
+   ],
+   "text": "Peace I leave with you, my peace I give unto you. Let not your heart be troubled.",
+   "source": "John 14:27"
+  },
+  {
+   "tags": [
+    "encourage"
+   ],
+   "text": "They that wait upon the Lord shall renew their strength; they shall mount up with wings as eagles.",
+   "source": "Isaiah 40:31"
+  },
+  {
+   "tags": [
+    "encourage",
+    "work"
+   ],
+   "text": "Let us not be weary in well doing: for in due season we shall reap, if we faint not.",
+   "source": "Galatians 6:9"
+  },
+  {
+   "tags": [
+    "love"
+   ],
+   "text": "Thou shalt love thy neighbour as thyself.",
+   "source": "Matthew 22:39"
+  },
+  {
+   "tags": [
+    "love",
+    "encourage"
+   ],
+   "text": "Greater love hath no man than this, that a man lay down his life for his friends.",
+   "source": "John 15:13"
+  },
+  {
+   "tags": [
+    "wisdom"
+   ],
+   "text": "The fear of the Lord is the beginning of wisdom.",
+   "source": "Proverbs 9:10"
+  },
+  {
+   "tags": [
+    "wisdom",
+    "decision"
+   ],
+   "text": "In all thy ways acknowledge him, and he shall direct thy paths.",
+   "source": "Proverbs 3:6"
+  },
+  {
+   "tags": [
+    "wisdom"
+   ],
+   "text": "A soft answer turneth away wrath: but grievous words stir up anger.",
+   "source": "Proverbs 15:1"
+  },
+  {
+   "tags": [
+    "wisdom",
+    "work"
+   ],
+   "text": "Seest thou a man diligent in his business? he shall stand before kings.",
+   "source": "Proverbs 22:29"
+  },
+  {
+   "tags": [
+    "work"
+   ],
+   "text": "For which of you, intending to build a tower, sitteth not down first, and counteth the cost?",
+   "source": "Luke 14:28"
+  },
+  {
+   "tags": [
+    "purpose"
+   ],
+   "text": "Ye are the light of the world. A city that is set on an hill cannot be hid.",
+   "source": "Matthew 5:14"
+  },
+  {
+   "tags": [
+    "purpose",
+    "work"
+   ],
+   "text": "Whosoever will be great among you, let him be your servant.",
+   "source": "Matthew 20:26"
+  },
+  {
+   "tags": [
+    "sad",
+    "encourage"
+   ],
+   "text": "All things work together for good to them that love God.",
+   "source": "Romans 8:28"
+  },
+  {
+   "tags": [
+    "wisdom"
+   ],
+   "text": "Be quick to listen, slow to speak and slow to anger.",
+   "source": "James 1:19"
+  },
+  {
+   "tags": [
+    "fear",
+    "wisdom"
+   ],
+   "text": "You have power over your mind, not outside events. Realise this, and you will find strength.",
+   "source": "Marcus Aurelius, paraphrased"
+  },
+  {
+   "tags": [
+    "purpose"
+   ],
+   "text": "Everything can be taken from a person but one thing: the freedom to choose one's attitude.",
+   "source": "Viktor Frankl, paraphrased"
+  },
+  {
+   "tags": [
+    "work",
+    "purpose"
+   ],
+   "text": "Your gift will make room for you. Find it, develop it, and serve others with it.",
+   "source": "Myles Munroe, after Proverbs 18:16"
+  },
+  {
+   "tags": [
+    "wisdom",
+    "work"
+   ],
+   "text": "A leader is one who knows the way, goes the way and shows the way.",
+   "source": "John C. Maxwell"
+  },
+  {
+   "tags": [
+    "encourage"
+   ],
+   "text": "However long the night, the dawn will break.",
+   "source": "African proverb"
+  },
+  {
+   "tags": [
+    "wisdom"
+   ],
+   "text": "If you want to go fast, go alone. If you want to go far, go together.",
+   "source": "African proverb"
+  },
+  {
+   "tags": [
+    "wisdom",
+    "work"
+   ],
+   "text": "The best time to plant a tree was twenty years ago. The second best time is now.",
+   "source": "Proverb"
   }
  ],
  "units": [

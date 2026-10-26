@@ -14,7 +14,7 @@ public final class Look {
         DOTS
     }
 
-    public Style style = Style.SKIN;
+    public Style style = Style.DOTS;
     /** 0 light .. 1 deep brown. */
     public float tone = 0.85f;
     public float width = 1f;
@@ -110,15 +110,10 @@ public final class Look {
         if (has(t, "dot mode", "dots mode", "nano dot", "dotted", "made of dots", "dot look")) {
             style = Style.DOTS;
             said = "Now I'm drawn in tiny dots.";
-        } else if (has(t, "wireframe", "wire frame", "lines only")) {
-            style = Style.WIRE;
-            said = "Wireframe it is.";
-        } else if (has(t, "skin mode", "solid", "with skin", "add skin", "show skin", "skin on")) {
-            style = Style.SKIN;
-            said = "Skin on.";
-        } else if (t.contains("skin") && (has(t, "darker", "deeper") || has(t, "lighter", "brighter"))) {
-            tone += has(t, "darker", "deeper") ? 0.12f : -0.12f;
-            said = has(t, "darker", "deeper") ? "A little darker." : "A little lighter.";
+        } else if (has(t, "wireframe", "wire frame", "lines only", "skin mode", "solid", "with skin", "add skin",
+                "show skin", "skin on") || (t.contains("skin") && has(t, "darker", "deeper", "lighter", "brighter"))) {
+            style = Style.DOTS;
+            said = "I'm made of nano dots now, all of me. Ask me to change my eyes, nose, lips, jaw or hair.";
         } else if (t.contains("hair") && has(t, "remove", "no hair", "bald", "take off", "without")) {
             hair = 0f;
             said = "Hair off.";

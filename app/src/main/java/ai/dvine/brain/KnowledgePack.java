@@ -38,10 +38,16 @@ public final class KnowledgePack {
     public static final class Word {
         public final String word;
         public final String meaning;
+        public final String pos;
+        public final List<String> synonyms;
+        public final String example;
 
-        Word(String word, String meaning) {
+        Word(String word, String meaning, String pos, List<String> synonyms, String example) {
             this.word = word;
             this.meaning = meaning;
+            this.pos = pos;
+            this.synonyms = synonyms;
+            this.example = example;
         }
     }
 
@@ -79,6 +85,8 @@ public final class KnowledgePack {
     public final List<Word> words;
     public final List<Wisdom> wisdom;
     public final List<Unit> units;
+    private final java.util.Map<String, Word> wordIndex = new java.util.HashMap<String, Word>();
+    private final java.util.Map<String, List<String>> related = new java.util.HashMap<String, List<String>>();
 
     private KnowledgePack(int version, String language, String offlineLine, List<Intent> intents,
                           List<Fact> facts, List<Word> words, List<Wisdom> wisdom, List<Unit> units) {
@@ -90,6 +98,41 @@ public final class KnowledgePack {
         this.words = Collections.unmodifiableList(words);
         this.wisdom = Collections.unmodifiableList(wisdom);
         this.units = Collections.unmodifiableList(units);
+        for (Word w : words) {
+            if (!wordIndex.containsKey(w.word)) {
+                wordIndex.put(w.word, w);
+            }
+            for (String syn : w.synonyms) {
+                link(w.word, syn);
+                link(syn, w.word);
+            }
+        }
+    }
+
+    private void link(String a, String b) {
+        List<String> list = related.get(a);
+        if (list == null) {
+            list = new ArrayList<String>(4);
+            related.put(a, list);
+        }
+        if (!list.contains(b) && list.size() < 12) {
+            list.add(b);
+        }
+    }
+
+    /** Dictionary entry for a word (core pack wins over shards), or null. */
+    public Word word(String w) {
+        return w == null ? null : wordIndex.get(w);
+    }
+
+    /** Words with a close meaning (synonyms both ways), for search pivots. */
+    public List<String> related(String w) {
+        List<String> r = related.get(w);
+        return r == null ? Collections.<String>emptyList() : r;
+    }
+
+    public int wordCount() {
+        return wordIndex.size();
     }
 
     /** Parses and validates a pack. Throws IllegalArgumentException when it is not usable. */
@@ -130,7 +173,8 @@ public final class KnowledgePack {
             String w = MiniJson.str(m.get("word"), "").toLowerCase(Locale.US).trim();
             String meaning = MiniJson.str(m.get("meaning"), "");
             if (w.length() > 0 && meaning.length() > 0) {
-                words.add(new Word(w, meaning));
+                words.add(new Word(w, meaning, MiniJson.str(m.get("pos"), ""),
+                        lower(MiniJson.strings(m.get("synonyms"))), MiniJson.str(m.get("example"), "")));
             }
         }
         List<Wisdom> wisdom = new ArrayList<Wisdom>();

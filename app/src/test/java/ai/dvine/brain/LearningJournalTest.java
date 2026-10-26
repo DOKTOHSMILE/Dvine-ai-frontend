@@ -12,11 +12,15 @@ import org.junit.Test;
 
 public class LearningJournalTest {
     @Test
-    public void nothingUploadsWithoutConsent() throws Exception {
+    public void sharingIsOnByDefaultAndStopSharingHoldsEverything() throws Exception {
         File dir = TestPack.tempDir();
         LearningJournal j = new LearningJournal(dir);
         j.add(LearningJournal.TAUGHT_FACT, "my city", "Sapele");
+        assertEquals(1, j.pendingCount());
+        j.setConsent(false);
         assertTrue(j.pending(10).isEmpty());
+        assertEquals(0, j.pendingCount());
+        assertTrue(!new LearningJournal(dir).consent());
         j.setConsent(true);
         List<LearningJournal.Entry> p = j.pending(10);
         assertEquals(1, p.size());

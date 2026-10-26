@@ -33,18 +33,25 @@ public final class SyncWorker {
         void onNewPack(KnowledgePack pack);
     }
 
+    /** Told how many learned entries the server accepted in one run. */
+    public interface UploadListener {
+        void onUploaded(int count);
+    }
+
     private final ExecutorService io = Executors.newSingleThreadExecutor();
-    private final String base;
-    private final String deviceId;
+    private final java.util.function.Supplier<String> baseSource;
+    private final java.util.function.Supplier<String> deviceId;
+    private UploadListener uploads;
+    private volatile boolean again;
     private final LearningJournal journal;
     private final KnowledgeStore store;
     private final TokenSource tokens;
     private final PackListener packs;
     private volatile boolean running;
 
-    public SyncWorker(String base, String deviceId, LearningJournal journal, KnowledgeStore store,
-                      TokenSource tokens, PackListener packs) {
-        this.base = base == null ? "" : base.trim().replaceAll("/+$", "");
+    public SyncWorker(java.util.function.Supplier<String> base, java.util.function.Supplier<String> deviceId,
+                      LearningJournal journal, KnowledgeStore store, TokenSource tokens, PackListener packs) {
+        this.baseSource = base;
         this.deviceId = deviceId;
         this.journal = journal;
         this.store = store;
@@ -52,19 +59,39 @@ public final class SyncWorker {
         this.packs = packs;
     }
 
-    public boolean configured() {
-        return base.startsWith("https://");
+    public void setUploadListener(UploadListener l) {
+        uploads = l;
     }
 
+    private String base() {
+        String b = baseSource.get();
+        return b == null ? "" : b.trim().replaceAll("/+$", "");
+    }
+
+    public boolean configured() {
+        return base().startsWith("https://");
+    }
+
+    /** Runs a sync now (pack check + upload). A kick during a run queues one more run. */
     public void kick(final int packVersion) {
-        if (!configured() || running) {
+        if (!configured()) {
+            return;
+        }
+        if (running) {
+            again = true;
             return;
         }
         running = true;
         io.execute(() -> {
             try {
-                refreshPack(packVersion);
-                uploadLearning();
+                do {
+                    again = false;
+                    refreshPack(packVersion);
+                    int sent = uploadLearning();
+                    if (sent > 0 && uploads != null) {
+                        uploads.onUploaded(sent);
+                    }
+                } while (again);
             } finally {
                 running = false;
             }
@@ -76,6 +103,7 @@ public final class SyncWorker {
     }
 
     private void refreshPack(int have) {
+        String base = base();
         try {
             Map<String, Object> manifest = MiniJson.obj(MiniJson.parse(get(base + "/api/v1/knowledge/manifest", null)));
             int version = (int) MiniJson.num(manifest.get("version"), 0);
@@ -97,30 +125,38 @@ public final class SyncWorker {
         }
     }
 
-    private void uploadLearning() {
+    /** Uploads pending learning; returns how many entries the server accepted. */
+    private int uploadLearning() {
+        if (journal.pending(1).isEmpty()) {
+            return 0;
+        }
         String token = tokens.token();
         if (token == null || token.isEmpty()) {
-            return;
+            return 0;
         }
+        String base = base();
+        int sent = 0;
         for (int round = 0; round < 10; round++) {
             List<LearningJournal.Entry> batch = journal.pending(100);
             if (batch.isEmpty()) {
-                return;
+                return sent;
             }
             try {
-                String reply = post(base + "/api/v1/learning/sync", LearningJournal.syncBody(deviceId, batch), token);
+                String reply = post(base + "/api/v1/learning/sync", LearningJournal.syncBody(deviceId.get(), batch), token);
                 List<String> accepted = new ArrayList<String>(MiniJson.strings(MiniJson.obj(MiniJson.parse(reply)).get("accepted")));
                 for (Object r : MiniJson.list(MiniJson.obj(MiniJson.parse(reply)).get("rejected"))) {
                     accepted.add(MiniJson.str(MiniJson.obj(r).get("id"), ""));
                 }
                 if (accepted.isEmpty()) {
-                    return;
+                    return sent;
                 }
                 journal.markUploaded(accepted);
+                sent += accepted.size();
             } catch (IOException | IllegalArgumentException e) {
-                return;
+                return sent;
             }
         }
+        return sent;
     }
 
     private static String get(String url, String token) throws IOException {
