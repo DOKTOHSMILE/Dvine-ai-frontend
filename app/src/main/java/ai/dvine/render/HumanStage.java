@@ -303,13 +303,13 @@ public final class HumanStage {
                 p = s;
             }
             float r = slot == 0 ? 0f : 0.996f, g = slot == 0 ? 0.9f : 0.70f, b = slot == 0 ? 1f : 0f;
-            float lod = bodyView ? 0.7f : 1f;
+            float lod = bodyView ? 0.7f : 1.35f; // particle size: bigger in the close-up
             ai.dvine.anre.TransformationController.View v = morph[slot] == null ? null : morph[slot].view(t);
             if (v != null) {
                 ai.dvine.create.ObjectSession os = showingBar && slot == objectSlot ? bar : objects;
                 float[] om = os.model() != null && slot == objectSlot ? os.matrix(FLOOR, t) : null;
                 renderer.transition(slot, v.from, v.to, v.progress, v.byObject, v.reverse, om,
-                        os == objects ? objects.selected() : -1f, v.bodyFill, new float[]{demo ? (slot == 0 ? -1.5f : 1.5f) : 0f, -1.9f, 0f, 2.4f});
+                        os == objects ? objects.selected() : -1f, v.bodyFill, new float[]{0f, 0.2f, 0f, 0.9f});
             }
             renderer.submit(slot, p, h.nor, r, g, b, demo ? 1f : alpha, lod, true);
         }

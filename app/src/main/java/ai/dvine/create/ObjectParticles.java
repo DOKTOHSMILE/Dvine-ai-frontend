@@ -50,6 +50,8 @@ public final class ObjectParticles {
         }
         float[] pos = new float[s.count * 3];
         s.positions(merged.pos, pos);
+        float[] nor = new float[s.count * 3];
+        s.positions(merged.nor, nor);
         // order the samples: build step, then height within the step
         Integer[] idx = new Integer[s.count];
         for (int i = 0; i < idx.length; i++) {
@@ -73,7 +75,12 @@ public final class ObjectParticles {
             out[pi * 5] = pos[smp * 3];
             out[pi * 5 + 1] = pos[smp * 3 + 1];
             out[pi * 5 + 2] = pos[smp * 3 + 2];
-            out[pi * 5 + 3] = c.id + 256f * Materials.index(c.material);
+            // shading baked per particle (0..15), from its surface normal against a soft key light
+            float nx = nor[smp * 3], ny = nor[smp * 3 + 1], nz = nor[smp * 3 + 2];
+            float nl = (float) Math.sqrt(nx * nx + ny * ny + nz * nz) + 1e-6f;
+            float key = Math.max(0f, (-0.45f * nx + 0.55f * ny + 0.7f * nz) / (nl * 1.0006f));
+            int shade = Math.min(15, Math.round((0.25f + 0.75f * key) * 15f));
+            out[pi * 5 + 3] = c.id + 256f * Materials.index(c.material) + 4096f * shade;
             out[pi * 5 + 4] = n <= 1 ? 0f : k / (float) (n - 1);
         }
         return out;

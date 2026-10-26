@@ -11,7 +11,7 @@ import ai.dvine.human.Regions;
  */
 public final class HumanParticles {
     /** Surface particles for a full body; the face takes about a third of them. */
-    public static final int BUDGET = 26000;
+    public static final int BUDGET = 40000;
     /** Spacing of particles along feature lines (body units). */
     static final float LINE_SPACING = 0.0075f;
     static final long SEED = 0x414E5245L; // "ANRE"

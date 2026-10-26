@@ -51,8 +51,8 @@ public final class WireRenderer {
          */
         public boolean orderByObject;
         public boolean headFirst;
-        /** Centre and radius of the scattered cloud (body units). */
-        public final float[] scatter = {0f, -1.6f, 0f, 2.2f};
+        /** The scattered cloud: an offset from the body and how far particles stray from their place (body units). */
+        public final float[] scatter = {0f, 0.2f, 0f, 0.9f};
         /** Object placement (object space → body space), and the component to highlight (-1 none). */
         public final float[] object = identity();
         public float selected = -1f;
@@ -674,7 +674,7 @@ public final class WireRenderer {
             + "vec3 place(int k, out vec3 n){\n"
             + "  if (k == 1 || k == 3) { n = normalize(mat3(uObject) * vec3(0.0, 0.3, 1.0));\n"
             + "    return (uObject * vec4(k == 1 ? aTo.xyz : aPrev.xyz, 1.0)).xyz; }\n"
-            + "  if (k == 2) { n = normalize(aAux.xyz + vec3(1e-4)); return uScatter.xyz + aAux.xyz * uScatter.w; }\n"
+            + "  if (k == 2) { vec3 b = bodyAt(n); return b + uScatter.xyz + aAux.xyz * uScatter.w; }\n" // a loose cloud in the body's own shape
             + "  return bodyAt(n); }\n"
             + "void main(){\n"
             + "  vec3 n0, n1; vec3 p0 = place(uFrom, n0); vec3 p1 = place(uTo, n1);\n"
@@ -683,13 +683,18 @@ public final class WireRenderer {
             + "  float e = clamp((uProgress * (1.0 + spread) - order * spread), 0.0, 1.0);\n"
             + "  e = e * e * (3.0 - 2.0 * e);\n"
             + "  float fly = sin(e * 3.14159265);\n"
-            + "  vec3 arc = (vec3(0.0, 0.6, 0.0) + aAux.xyz * 0.8) * fly * min(1.0, length(p1 - p0) * 0.35);\n"
+            + "  vec3 arc = (vec3(0.0, 0.35, 0.0) + aAux.xyz * 0.22) * fly * min(1.0, length(p1 - p0) * 0.3);\n"
             + "  vec3 p = mix(p0, p1, e) + arc;\n"
             + "  vec3 n = uRot * normalize(mix(n0, n1, e) + vec3(1e-5));\n"
             + "  gl_Position = uMvp * vec4(p, 1.0);\n"
             + "  float rim = 1.0 - abs(n.z);\n"
-            + "  vLight = (0.42 + 0.58 * rim * rim) * (1.0 + 0.6 * fly);\n"
+            + "  float key = max(0.0, dot(n, normalize(vec3(-0.45, 0.55, 0.7))));\n" // a soft key light shows the form
+            + "  float lit = 0.07 + 0.95 * key * key + 0.45 * rim * rim;\n"
+            + "  float onObj = ((uTo == 1 || uTo == 3) ? e : 0.0) + ((uFrom == 1 || uFrom == 3) ? 1.0 - e : 0.0);\n"
+            + "  lit = mix(lit, 0.12 + 0.9 * shade, clamp(onObj, 0.0, 1.0));\n" // object particles carry their own surface shading
+            + "  vLight = lit * (1.0 + 0.6 * fly);\n"
             + "  float comp = mod(aTo.w, 256.0); vMat = uPalette[int(aTo.w / 256.0) & 15];\n"
+            + "  float shade = floor(aTo.w / 4096.0) / 15.0;\n"
             + "  vObj = ((uTo == 1 || uTo == 3) ? e : 0.0) + ((uFrom == 1 || uFrom == 3) ? 1.0 - e : 0.0);\n"
             + "  vSel = (uFrom == 1 && uTo == 1 && uSelected >= 0.0 && abs(comp - uSelected) < 0.5) ? 1.0 : 0.0;\n"
             + "  gl_PointSize = uSize * aBary.z * (1.0 + 0.35 * fly + 0.6 * vSel);\n"

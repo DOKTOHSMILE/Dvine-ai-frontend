@@ -14,7 +14,7 @@ import java.util.List;
  */
 public final class ObjectSession {
     /** The object's height on screen, in body units (the human is about 4.4 tall). */
-    static final float SHOW_HEIGHT = 3.6f, SHOW_WIDTH = 5.2f;
+    static final float SHOW_HEIGHT = 3.4f, SHOW_WIDTH = 2.3f; // fits a portrait stage beside nothing
 
     private ObjectModel model;
     private final Deque<ObjectSpec> undo = new ArrayDeque<ObjectSpec>();
