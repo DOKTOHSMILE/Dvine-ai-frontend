@@ -420,15 +420,31 @@ The black space around the face is a drawing canvas. When a drawing helps, the f
 - Server side keeps every upload owner-scoped and PENDING review (§5 S-L).
 
 
-## 22. Nano-bot rendering, JARVIS style (v1.3)
+## 22. Nano-dot rendering (v1.4)
 
-Replaces the line, skin and wire looks. **Everything on screen is nano dots.**
+**Everything on screen is nano dots on curved 3D surfaces.** Lines only ever show edges. Dots can sit anywhere on a surface, so cheeks, lips, skulls, limbs, spheres and tori are true curves. There is no suit, no armour and no HUD rings. The persona is a glowing being of dots.
 
-- **Swarm** (`face/nano/Swarm.java`): up to 10,000 particles, each springing to a target point from the current *form*. Changing the form makes the dots fly apart and reassemble: switching persona, face ↔ full body, "redraw yourself", new looks.
-- **Forms** (`face/nano/Forms.java`): `Head` (the living procedural head: skin samples, brighter eyes, brows, nose and lips, hair strands; it speaks, blinks and smiles), `Body` (full standing figure: the same head scaled, neck, chest, waist, arms, hands, legs, feet, a small core light; Ivie narrower shoulders, fuller hips), `Drawing` (any sketch, stroke by stroke), `Object3D` (globe, cube, pyramid, torus, DNA, atom, sphere, slowly turning).
-- **Look** (`face/nano/NanoPainter.java`): every dot gets a soft glow pass and a bright core with a faint shimmer, bucketed by brightness and depth.
-- **Scene**: a Blender-like dotted grid floor with red X and green depth axes, and three JARVIS-style rings of dots turning around the face.
-- **Hands** are dots too (points along every bone).
-- Voice: "show your full body", "show your face", "redraw yourself", "draw the globe / a cube / a pyramid / a torus / DNA / an atom / a sphere", and every 2D drawing from §14.
-- Shape requests still work (eyes, nose, lips, jaw, face width and height, hair). Old skin and wireframe requests answer that they are nano dots now.
-- Budget: ~6–9k dots per frame for the persona, up to 4k for a drawing. Frame rate on a mid-range phone is still to be measured (Stage M2 gate).
+- **Swarm** (`face/nano/Swarm.java`): up to 10,000 particles, each springing to a target point from the current *form*. Changing the form makes the dots fly apart and reassemble: switching persona, face ↔ full body, poses, "redraw yourself", new looks.
+- **Sculpt** (`face/nano/Sculpt.java`): a small signed-distance sculpting kit. Ellipsoids, tapered capsules, rounded boxes and tori are melted together with a smooth union, and ellipsoids can be carved out. `sample()` spreads dots evenly over the melted surface: it throws candidates on each shape, pulls them onto the surface with Newton steps, then applies Poisson-disc thinning. It also returns normals for shading and curvature, so creases glow.
+- **Head** (`face/nano/DotHead.java`): sculpted from cranium, face, jaw, chin, cheekbones, brow ridge, eye sockets and eyeballs, nose bridge, tip and wings, lips, cupped ears and neck. Styled on the two reference heads.
+  - **Obi**: angular squared crown, square jaw and chin, and a neck ending in a V cut whose edge glows.
+  - **Ivie**: soft oval, a hair cap, and about 40 strands that sweep back from the hairline over the skull and stream out behind, rippling in a breeze.
+  - Shading: a soft key light and a bright silhouette, plus extra glow where the surface bends sharply (nose, lips, ears, brow). This gives the glowing-outline hologram look.
+  - Lids, brows, nostrils and lip lines are rows of dots seated on the skin by ray casting. Speech, blinks, smiles, brows and glances move the dots each frame; nothing is rebuilt.
+- **Body** (`face/nano/DotBody.java`): a holographic anatomy figure, like a 3D studio reference model.
+  - **Skin**: a smooth sculpted surface with a bright silhouette, including hands with fingers and thumbs, and feet. It rests in an A-pose.
+  - **Inside**: a faint skeleton of spine, ribs, breastbone, collarbones, pelvis, long bones and kneecaps, plus a heart glow.
+  - **Rig**: 17 bones with linear-blend skinning at the joints.
+  - **Poses** blend in half a second: stand, T-pose, arms up, wave, point, squat, sit cross-legged, kneel, run, walk, bow, dance and handstand.
+  - **Motion**: the lowest point always rests on the floor. The body slowly turns, and "turn around" orbits it a full circle.
+  - **Head**: the persona's living head rides the head bone.
+  - **Scale**: the body is handed to the camera at 0.4 scale so its perspective matches the face view.
+- **Drawings** (`Forms.Drawing`): every sketch from §14 is built in 3D. Lines become round tubes of dots, and closed outlines (heart, star, house, fish, moon, polygons) become cushioned solids with a curved front and back. Circles become rings, and balls (tree canopy, sun, planets, flower centre, clouds) become shaded spheres. The drawing sways gently so the depth shows; labels stay as glowing text.
+- **Objects** (`Forms.Object3D`): solid, shaded and slowly turning: globe, rounded cube, pyramid with filled faces, torus, cone, cylinder, a 3D heart, DNA (tube strands and base pairs) and an atom (nucleus of spheres, orbits, electrons).
+- **Painter** (`face/nano/NanoPainter.java`): every dot gets a soft glow pass and a bright core with a faint shimmer, bucketed by brightness and dimmed with depth. The scene is a Blender-like dotted grid floor with red X and green depth axes.
+- **Performance**: heads and bodies are sculpted once per look on a background thread (about 0.1–0.2 s each on a desktop). Each frame only moves dots. Budget: about 5–8.5k dots for a head, about 8k for a body, and up to 3.9k for a drawing. Frame rate on a mid-range phone is still to be measured (Stage M2 gate).
+- **Voice**:
+  - Views and redrawing: "show your full body", "show your face", "redraw yourself", "turn around".
+  - Poses: "do a T-pose", "arms up", "squat", "sit cross-legged", "kneel", "run", "walk", "bow", "dance", "do a handstand", "stand up". In body mode, 👋 and 👉 become wave and point poses.
+  - Objects: "draw the globe / a cube / a pyramid / a torus / a cone / a cylinder / DNA / an atom / a sphere / a 3D heart".
+  - Drawings: every drawing from §14. Shape requests (eyes, nose, lips, jaw, face width and height, hair) re-sculpt the head.

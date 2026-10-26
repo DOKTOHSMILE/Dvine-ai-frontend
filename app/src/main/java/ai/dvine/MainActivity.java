@@ -246,7 +246,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         talk.tuning(reply.lookIvie).serialize()).apply();
             }
         } else {
-            applyCommand(reply.command);
+            applyCommand(reply.command, reply.commandValue);
         }
         if ("SERVER_SET".equals(reply.command) && reply.commandValue != null) {
             prefs.edit().putString("server", reply.commandValue).apply();
@@ -312,7 +312,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         play(LocalTurn.speakAs(true, Onboarding.welcome(name)), null);
     }
 
-    private void applyCommand(String command) {
+    private void applyCommand(String command, String value) {
         if (command == null) {
             return;
         }
@@ -333,6 +333,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 break;
             case "REDRAW":
                 stage.redraw();
+                break;
+            case "POSE":
+                stage.setPose(value);
+                break;
+            case "TURN":
+                stage.turnAround();
                 break;
             case "SYNC_NOW":
                 syncSoon();

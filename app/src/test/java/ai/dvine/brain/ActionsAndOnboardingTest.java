@@ -86,6 +86,13 @@ public class ActionsAndOnboardingTest {
         assertEquals("BODY_ON", brain.respond("show your full body", "obi").command);
         assertEquals("FACE_ON", brain.respond("show your face", "obi").command);
         assertEquals("REDRAW", brain.respond("redraw yourself", "obi").command);
+        BrainAnswer pose = brain.respond("do a t-pose", "obi");
+        assertEquals("POSE", pose.command);
+        assertEquals("tpose", pose.commandValue);
+        assertEquals("squat", brain.respond("can you squat", "ivie").commandValue);
+        assertEquals("TURN", brain.respond("turn around", "obi").command);
+        // ordinary talk is not a pose
+        assertTrue(!"POSE".equals(brain.respond("how do I run a business", "obi").command));
         assertEquals("globe", brain.respond("draw the globe", "obi").object3d);
         assertEquals("dna", brain.respond("show me dna", "obi").object3d);
         BrainAnswer hair = brain.respond("make Ivie's hair longer", "obi");

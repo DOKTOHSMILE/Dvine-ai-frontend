@@ -226,7 +226,19 @@ public final class OfflineBrain {
         if (text.matches("^what('s| is) my name$") && userName != null) {
             return one(speaker, "Your name is " + userName + ".", "MEMORY");
         }
-        if (text.matches(".*\\b(full body|whole body|your body|stand up|show (me )?all of you)\\b.*")) {
+        String pose = posePhrase(text);
+        if (pose != null) {
+            BrainAnswer a = one(speaker, poseLine(pose, speaker), "LOOK");
+            a.command = "POSE";
+            a.commandValue = pose;
+            return a;
+        }
+        if (text.matches("^(please )?(turn around|spin( around)?|show me your back|turn (round|360))( please)?$")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Have a look all round.", "All the way round, slowly."), "LOOK");
+            a.command = "TURN";
+            return a;
+        }
+        if (text.matches(".*\\b(full body|whole body|your body|show (me )?all of you)\\b.*")) {
             BrainAnswer a = one(speaker, pick(speaker, "Here I am, all of me.", "Here I am. Head to toe, all nano dots."), "LOOK");
             a.command = "BODY_ON";
             return a;
@@ -362,6 +374,34 @@ public final class OfflineBrain {
         return a;
     }
 
+    /** A pose for the full body, only when the request is clearly about the persona's body. */
+    static String posePhrase(String text) {
+        String t = text.trim();
+        if (!t.matches("^(please |can you |could you |now )?(do |show me |strike |get into )?(a |an |the |your )?"
+                + "(t[- ]?pose|handstand|squat|crouch|bow|dance|kneel( down)?|sit( down)?|sit cross[- ]legged|meditate|stand( up)?"
+                + "|run|jog|walk|raise your (hands|arms)|hands up|arms up|arms out|spread your arms|relax)"
+                + "( pose)?( for me)?( please)?$")) {
+            return null;
+        }
+        return ai.dvine.face.nano.DotBody.poseFor(t);
+    }
+
+    private String poseLine(String pose, String speaker) {
+        switch (pose) {
+            case "tpose": return "Arms out. This is how a model is checked in a 3D studio.";
+            case "arms up": return pick(speaker, "Hands up.", "Arms to the sky!");
+            case "squat": return "A deep squat. Knees out, back straight.";
+            case "sit": return pick(speaker, "Sitting cross-legged. Breathe with me.", "Let us sit a while.");
+            case "kneel": return "Kneeling.";
+            case "run": return pick(speaker, "Running.", "Off I go!");
+            case "walk": return "A gentle walk.";
+            case "bow": return pick(speaker, "A respectful bow.", "I bow to you.");
+            case "dance": return pick(speaker, "Small steps. I am a careful dancer.", "Dance with me!");
+            case "handstand": return "Upside down, balanced on my hands.";
+            default: return "Standing tall.";
+        }
+    }
+
     private static String objectLine(String kind) {
         switch (kind) {
             case "globe": return "Our Earth: lines of latitude run east to west, longitude from pole to pole.";
@@ -370,6 +410,9 @@ public final class OfflineBrain {
             case "torus": return "A torus, like a ring or a doughnut: a circle swept around a bigger circle.";
             case "dna": return "DNA: two strands twisted into a double helix, joined by base pairs like the rungs of a ladder.";
             case "atom": return "An atom: a tiny nucleus in the middle, with electrons moving around it.";
+            case "cone": return "A cone: a round base narrowing smoothly to a single point.";
+            case "cylinder": return "A cylinder: two equal circles joined by one curved side, like a tin.";
+            case "heart": return "A heart, solid and round, built from dots.";
             default: return "A sphere: every point on its surface is the same distance from the centre.";
         }
     }

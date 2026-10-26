@@ -17,6 +17,8 @@ import android.view.WindowInsets;
 
 import java.util.Random;
 
+import ai.dvine.face.nano.DotBody;
+import ai.dvine.face.nano.DotHead;
 import ai.dvine.face.nano.Forms;
 import ai.dvine.face.nano.NanoPainter;
 import ai.dvine.face.nano.Swarm;
@@ -32,11 +34,15 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     private final FaceRig obi = new FaceRig(false);
     private final FaceRig ivie = new FaceRig(true);
-    // everything is nano dots: one swarm for the persona, one for drawings and objects
-    private Forms.Head obiFace = new Forms.Head(WireHead.create(false));
-    private Forms.Head ivieFace = new Forms.Head(WireHead.create(true));
-    private Forms.Body obiBody = new Forms.Body(WireHead.create(false));
-    private Forms.Body ivieBody = new Forms.Body(WireHead.create(true));
+    // everything is nano dots: one swarm for the persona, one for drawings and objects.
+    // Heads and bodies are sculpted on a background thread; until then the dots wait as a cloud.
+    private volatile Forms.Head obiFace;
+    private volatile Forms.Head ivieFace;
+    private volatile DotBody obiBody;
+    private volatile DotBody ivieBody;
+    private final Look[] looks = {Look.defaults(false), Look.defaults(true)};
+    private final int[] lookToken = new int[2];
+    private String bodyPose = "stand";
     private final Swarm swarm = new Swarm(10000);
     private final NanoPainter nano = new NanoPainter(10000);
     private final Swarm drawSwarm = new Swarm(4000);
@@ -45,6 +51,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private float drawUntil;
     private boolean bodyMode;
     private final HandPainter hands = new HandPainter();
+    private final WireHead.Pose scratchPose = new WireHead.Pose();
     private final Choreographer choreographer = Choreographer.getInstance();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -123,6 +130,38 @@ public final class StageView extends View implements Choreographer.FrameCallback
         labelPaint.setTextAlign(Paint.Align.CENTER);
         labelPaint.setTextSize(16f * density);
         setContentDescription("DVINE. Swipe anywhere to speak. Tap the face to hear them. Long-press to type.");
+        sculpt(false);
+        sculpt(true);
+    }
+
+    /** Sculpts a persona's head and body off the UI thread, then swaps them in. */
+    private void sculpt(boolean forIvie) {
+        final int side = forIvie ? 1 : 0;
+        final int token = ++lookToken[side];
+        final Look look = looks[side].copy();
+        Thread t = new Thread(() -> {
+            DotHead head = new DotHead(forIvie, look);
+            Forms.Head face = new Forms.Head(head);
+            DotBody body = new DotBody(head);
+            post(() -> {
+                if (token != lookToken[side]) {
+                    return; // a newer look is on its way
+                }
+                body.setPose(bodyPose);
+                if (forIvie) {
+                    ivieFace = face;
+                    ivieBody = body;
+                } else {
+                    obiFace = face;
+                    obiBody = body;
+                }
+                if (forIvie == showingIvie && awake) {
+                    redraw();
+                }
+            });
+        }, "dvine-sculpt");
+        t.setPriority(Thread.NORM_PRIORITY - 1);
+        t.start();
     }
 
     // ------------------------------------------------------------ public API
@@ -169,21 +208,16 @@ public final class StageView extends View implements Choreographer.FrameCallback
     }
 
     /**
-     * Redraws a persona from a new look. The mesh is rebuilt once here, not per
-     * frame; a style-only change (skin, wire, dots, tone) is just as cheap.
+     * Redraws a persona from a new look. The head and body are re-sculpted
+     * once in the background, then the dots fly into the new shape.
      */
     public void setLook(boolean forIvie, Look look) {
-        WireHead head = WireHead.create(forIvie, look);
-        if (forIvie) {
-            ivieFace = new Forms.Head(head);
-            ivieBody = new Forms.Body(head);
-        } else {
-            obiFace = new Forms.Head(head);
-            obiBody = new Forms.Body(head);
+        int side = forIvie ? 1 : 0;
+        if (look == null || !looks[side].shapeDiffers(look)) {
+            return;
         }
-        if (forIvie == showingIvie) {
-            redraw();
-        }
+        looks[side] = look.copy();
+        sculpt(forIvie);
     }
 
     /** Full standing body (true) or the face (false). The swarm flies between them. */
@@ -191,6 +225,31 @@ public final class StageView extends View implements Choreographer.FrameCallback
         if (on != bodyMode) {
             bodyMode = on;
             swarm.scatter(1.2f);
+        }
+    }
+
+    /** Full body in a pose ("tpose", "squat", "sit", "run"…); the dots flow between poses. */
+    public void setPose(String pose) {
+        if (pose == null) {
+            return;
+        }
+        bodyPose = pose;
+        setBodyMode(true);
+        DotBody o = obiBody, i = ivieBody;
+        if (o != null) {
+            o.setPose(pose);
+        }
+        if (i != null) {
+            i.setPose(pose);
+        }
+    }
+
+    /** One slow turn of the full body, like orbiting a model in a 3D studio. */
+    public void turnAround() {
+        setBodyMode(true);
+        DotBody b = showingIvie ? ivieBody : obiBody;
+        if (b != null) {
+            b.turnAround();
         }
     }
 
@@ -209,6 +268,18 @@ public final class StageView extends View implements Choreographer.FrameCallback
     }
 
     public void gesture(String key) {
+        if (bodyMode) {
+            // the whole body answers instead of floating hands
+            String k = key == null ? "" : key;
+            if (k.startsWith("👋")) {
+                setPose("wave");
+            } else if (k.startsWith("👉") || k.startsWith("☝")) {
+                setPose("point");
+            } else if (k.startsWith("🙌") || k.startsWith("🙏")) {
+                setPose(k.startsWith("🙌") ? "arms up" : "bow");
+            }
+            return;
+        }
         hands.show(key, 2.8f);
     }
 
@@ -310,16 +381,20 @@ public final class StageView extends View implements Choreographer.FrameCallback
         obi.tick(dt);
         ivie.tick(dt);
         FaceRig r = rig();
-        Swarm.Form form;
-        WireHead.Pose pose;
+        Swarm.Form form = null;
+        WireHead.Pose pose = scratchPose;
         if (bodyMode && !sketching) {
-            Forms.Body b = showingIvie ? ivieBody : obiBody;
-            form = b;
-            pose = b.pose();
+            DotBody b = showingIvie ? ivieBody : obiBody;
+            if (b != null) {
+                form = b;
+                pose = b.pose();
+            }
         } else {
             Forms.Head f = showingIvie ? ivieFace : obiFace;
-            form = f;
-            pose = f.pose;
+            if (f != null) {
+                form = f;
+                pose = f.pose;
+            }
         }
         pose.jaw = r.jaw.value;
         pose.smile = r.smile.value;
@@ -391,15 +466,16 @@ public final class StageView extends View implements Choreographer.FrameCallback
         boolean body = bodyMode && mix < 0.05f;
         float floorY = -2.25f;
         if (body) {
-            unit = Math.min(w * 0.2f, usable * 0.085f);
-            cy = padTop + usable * 0.5f - 1.6f * unit;
-            floorY = -4.25f;
+            // the body arrives scaled to camera units, feet on DotBody.FLOOR_OUT
+            unit = Math.min(w * 0.42f, usable * 0.4f);
+            cy = padTop + usable * 0.5f;
+            floorY = DotBody.FLOOR_OUT - 0.02f;
         }
         lastCx = cx;
         lastCy = cy;
         lastUnit = unit;
         if (body) {
-            headHit.set(cx - unit * 1.4f, cy - unit * 1.2f, cx + unit * 1.4f, cy + unit * 4.4f);
+            headHit.set(cx - unit * 0.6f, cy - unit * 1.1f, cx + unit * 0.6f, cy + unit * 1.1f);
         } else {
             headHit.set(cx - unit * 1.3f, cy - unit * 1.3f, cx + unit * 1.6f, cy + unit * 1.6f);
         }
@@ -417,14 +493,10 @@ public final class StageView extends View implements Choreographer.FrameCallback
         canvas.drawCircle(0f, 0f, unit * 1.35f, glowPaint);
         canvas.restore();
 
-        // a Blender-like floor, JARVIS rings, then the persona as nano dots facing the user
-        float yaw = rig.yaw.value;
-        float pitch = rig.pitch.value + 6f;
+        // a Blender-like floor, then the persona as nano dots facing the user
+        float yaw = body ? rig.yaw.value * 0.3f : rig.yaw.value;
+        float pitch = body ? 8f : rig.pitch.value + 6f;
         nano.drawGrid(canvas, yaw * 0.3f, 14f, cx, cy, unit, floorY, 1f - mix, density);
-        if (!body) {
-            nano.drawRings(canvas, clock, cx, cy, unit, color, (1f - mix) * (0.55f + 0.45f * rig.glow.value),
-                    density, 1.45f);
-        }
         nano.drawSwarm(canvas, swarm, yaw, pitch, cx, cy, unit, color,
                 Math.max(0.35f, faceAlpha) * clamp(rig.glow.value + 0.25f, 0.5f, 1.2f), density, clock);
         if (!body) {

@@ -15,7 +15,9 @@ public final class Sketch {
         CIRCLE,
         ARROW,
         LABEL,
-        DOT
+        DOT,
+        /** A solid ball of dots (cx, cy, r): drawn as a shaded sphere, not an outline. */
+        BALL
     }
 
     public static final class Stroke {
@@ -81,6 +83,12 @@ public final class Sketch {
         public Builder dot(float cx, float cy, float r) {
             strokes.add(new Stroke(Kind.DOT, new float[]{cx, cy, r}, null, t, 0.12f));
             t += 0.12f;
+            return this;
+        }
+
+        public Builder ball(float duration, float cx, float cy, float r) {
+            strokes.add(new Stroke(Kind.BALL, new float[]{cx, cy, r}, null, t, duration));
+            t += duration;
             return this;
         }
 
@@ -210,7 +218,7 @@ public final class Sketch {
 
     static Sketch solarSystem() {
         Builder s = new Builder("solar system");
-        s.circle(0.5f, 0f, 0f, 0.1f).label(0f, -0.2f, "Sun");
+        s.ball(0.5f, 0f, 0f, 0.11f).label(0f, -0.2f, "Sun");
         String[] names = {"Mercury", "Venus", "Earth", "Mars"};
         for (int i = 0; i < names.length; i++) {
             float r = 0.25f + i * 0.17f;
@@ -246,13 +254,13 @@ public final class Sketch {
     static Sketch tree() {
         Builder s = new Builder("tree");
         s.line(0.5f, -0.08f, -0.8f, -0.08f, -0.1f).line(0.5f, 0.08f, -0.8f, 0.08f, -0.1f);
-        s.circle(0.5f, 0f, 0.25f, 0.38f).circle(0.4f, -0.32f, 0.05f, 0.26f).circle(0.4f, 0.32f, 0.05f, 0.26f);
+        s.ball(0.6f, 0f, 0.3f, 0.36f).ball(0.5f, -0.32f, 0.08f, 0.25f).ball(0.5f, 0.32f, 0.08f, 0.25f);
         s.line(0.3f, -0.6f, -0.8f, 0.6f, -0.8f).label(0f, -0.95f, "roots, trunk, leaves");
         return s.build();
     }
 
     static Sketch sun() {
-        Builder s = new Builder("sun").circle(0.7f, 0f, 0f, 0.3f);
+        Builder s = new Builder("sun").ball(0.7f, 0f, 0f, 0.3f);
         for (int i = 0; i < 12; i++) {
             double a = i * Math.PI / 6;
             s.line(0.12f, 0.4f * (float) Math.cos(a), 0.4f * (float) Math.sin(a), 0.65f * (float) Math.cos(a), 0.65f * (float) Math.sin(a));
@@ -267,11 +275,11 @@ public final class Sketch {
             double a = i * Math.PI / 3;
             s.circle(0.25f, 0.2f * (float) Math.cos(a), 0.3f + 0.2f * (float) Math.sin(a), 0.13f);
         }
-        return s.dot(0f, 0.3f, 0.08f).build();
+        return s.ball(0.3f, 0f, 0.3f, 0.09f).build();
     }
 
     static Sketch person() {
-        return new Builder("person").circle(0.5f, 0f, 0.6f, 0.18f)
+        return new Builder("person").ball(0.5f, 0f, 0.6f, 0.17f)
                 .line(0.4f, 0f, 0.42f, 0f, -0.2f)
                 .line(0.4f, -0.4f, 0.2f, 0f, 0.3f, 0.4f, 0.2f)
                 .line(0.4f, -0.3f, -0.8f, 0f, -0.2f, 0.3f, -0.8f).build();
@@ -295,7 +303,7 @@ public final class Sketch {
         return new Builder("mountains")
                 .line(1.2f, -0.95f, -0.6f, -0.45f, 0.45f, -0.1f, -0.1f, 0.3f, 0.6f, 0.95f, -0.6f)
                 .line(0.4f, -0.58f, 0.2f, -0.45f, 0.45f, -0.32f, 0.2f)
-                .circle(0.4f, 0.65f, 0.7f, 0.12f).build();
+                .ball(0.4f, 0.65f, 0.7f, 0.12f).build();
     }
 
     static Sketch boat() {
@@ -325,7 +333,7 @@ public final class Sketch {
         Builder s = new Builder("eye");
         s.line(0.6f, -0.8f, 0f, -0.4f, 0.35f, 0f, 0.45f, 0.4f, 0.35f, 0.8f, 0f);
         s.line(0.6f, -0.8f, 0f, -0.4f, -0.3f, 0f, -0.38f, 0.4f, -0.3f, 0.8f, 0f);
-        s.circle(0.5f, 0f, 0.03f, 0.28f).dot(0f, 0.03f, 0.12f);
+        s.circle(0.5f, 0f, 0.03f, 0.28f).ball(0.3f, 0f, 0.03f, 0.12f);
         return s.label(0f, -0.75f, "lid, iris, pupil").build();
     }
 
@@ -333,7 +341,7 @@ public final class Sketch {
         Builder s = new Builder("water cycle");
         s.line(0.6f, -0.9f, -0.6f, 0.9f, -0.6f).label(-0.5f, -0.8f, "sea");
         s.arrow(0.5f, -0.5f, -0.5f, -0.5f, 0.4f).label(-0.75f, 0f, "rises");
-        s.circle(0.4f, 0f, 0.6f, 0.18f).label(0f, 0.9f, "cloud");
+        s.ball(0.3f, -0.1f, 0.6f, 0.14f).ball(0.3f, 0.08f, 0.64f, 0.17f).ball(0.2f, 0.24f, 0.58f, 0.12f).label(0f, 0.9f, "cloud");
         s.arrow(0.5f, 0.5f, 0.4f, 0.5f, -0.5f).label(0.78f, 0f, "rain");
         return s.build();
     }

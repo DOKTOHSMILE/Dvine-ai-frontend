@@ -8,7 +8,7 @@ import ai.dvine.face.WireHead;
 /**
  * Draws nano dots: every point gets a soft glow pass and a bright core,
  * bucketed by brightness so a whole swarm is a few drawPoints calls.
- * Also draws the Blender-style dotted grid floor and the JARVIS rings.
+ * Also draws the Blender-style dotted grid floor.
  */
 public final class NanoPainter {
     private static final int BUCKETS = 5;
@@ -21,10 +21,8 @@ public final class NanoPainter {
     private float[] scratch = new float[0];
     private final float[] grid;
     private final int gridMajor;
-    private final float[] rings;
     private float[] gridWorld;
     private float gridFloor = Float.NaN;
-    private float[] ringWorld;
 
     public NanoPainter(int capacity) {
         for (int i = 0; i < BUCKETS; i++) {
@@ -55,25 +53,6 @@ public final class NanoPainter {
             }
         }
         gridMajor = major;
-        // three rings of dots with gaps, like a holographic gyroscope
-        java.util.List<float[]> r = new java.util.ArrayList<float[]>();
-        for (int ring = 0; ring < 3; ring++) {
-            int n = 220 + ring * 60;
-            for (int j = 0; j < n; j++) {
-                double a = j * Math.PI * 2 / n;
-                double gap = Math.sin(a * (3 + ring)) ;
-                if (gap < -0.55) {
-                    continue;
-                }
-                r.add(new float[]{ring, (float) a, j % 11 == 0 ? 1f : 0.55f});
-            }
-        }
-        rings = new float[r.size() * 3];
-        for (int i = 0; i < r.size(); i++) {
-            rings[i * 3] = r.get(i)[0];
-            rings[i * 3 + 1] = r.get(i)[1];
-            rings[i * 3 + 2] = r.get(i)[2];
-        }
     }
 
     /** Draws the swarm projected with the given camera. */
@@ -149,42 +128,6 @@ public final class NanoPainter {
         core.setColor(0xFF6BCB4A);
         core.setAlpha((int) (150 * alpha));
         canvas.drawPoints(green, 0, c, core);
-    }
-
-    /** Three tilted rings of dots slowly turning around the persona. */
-    public void drawRings(Canvas canvas, float time, float cx, float cy, float unit, int color, float alpha,
-                          float density, float radius) {
-        int n = rings.length / 3;
-        if (scratch.length < n * 3) {
-            scratch = new float[n * 3];
-        }
-        if (ringWorld == null) {
-            ringWorld = new float[n * 3];
-        }
-        float[] p = ringWorld;
-        for (int i = 0; i < n; i++) {
-            int ring = (int) rings[i * 3];
-            float a = rings[i * 3 + 1] + time * (0.25f + ring * 0.12f) * (ring == 1 ? -1f : 1f);
-            float r = radius * (1f + ring * 0.12f);
-            float x = (float) Math.cos(a) * r;
-            float y = (float) Math.sin(a) * r;
-            float tilt = 0.9f + ring * 0.55f;
-            float ct = (float) Math.cos(tilt), st = (float) Math.sin(tilt);
-            float roll = ring * 1.1f;
-            float cr = (float) Math.cos(roll), sr = (float) Math.sin(roll);
-            float yy = y * ct, zz = y * st;
-            p[i * 3] = x * cr - yy * sr;
-            p[i * 3 + 1] = x * sr + yy * cr - 0.35f;
-            p[i * 3 + 2] = zz;
-        }
-        WireHead.project(p, n, 0f, 0f, 0f, cx, cy, unit, scratch);
-        clear();
-        for (int i = 0; i < n; i++) {
-            float z = scratch[i * 3 + 2];
-            float depth = Math.max(0.1f, Math.min(1f, (z + 1.6f) / 3f));
-            put(scratch[i * 3], scratch[i * 3 + 1], rings[i * 3 + 2] * depth * 0.6f);
-        }
-        flush(canvas, color, alpha * 0.7f, Math.max(density * 0.9f, unit * 0.006f));
     }
 
     /** Draws loose points (already in screen space) as nano dots. */

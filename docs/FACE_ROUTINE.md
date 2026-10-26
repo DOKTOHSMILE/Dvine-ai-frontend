@@ -1,6 +1,6 @@
 # Face routine
 
-Everything is drawn as nano dots (see handbook §22). One persona on black, over a dotted Blender-like floor, with JARVIS rings behind the face.
+Everything is drawn as nano dots on curved, sculpted surfaces (see handbook §22). One persona on black, over a dotted Blender-like floor.
 
 One head on pure black. The other persona is not drawn beside them.
 
@@ -32,7 +32,7 @@ Obi: angular flat-top bust, big low-poly triangles, neck column with a slanted V
 
 ## Skin
 
-Default look: solid deep-brown skin (Obi a shade deeper than Ivie) on faces and hands, lit with a soft key light and a rim of the persona's glow, with the glowing wires on top. Triangles are depth-sorted each frame (`Shade.order`). Say "wireframe mode", "dot mode" (nano dots) or "skin mode". Shape requests ("bigger eyes", "slimmer face", "remove your hair"…) go through `Look`, which rebuilds the head once.
+Look: glowing dots on a sculpted head, with a soft key light, a bright silhouette and extra glow on creases (nose, lips, ears, brow). Obi has an angular crown and a V-cut neck; Ivie's hair streams back. Shape requests ("bigger eyes", "slimmer face", "remove your hair"…) go through `Look`, which re-sculpts the head and body once, in the background. Full body: "show your full body", poses ("do a T-pose", "squat", "sit cross-legged", "run"…), "turn around".
 
 ## Hands
 
