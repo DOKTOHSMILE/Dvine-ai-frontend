@@ -13,6 +13,15 @@ public final class HandPainter {
     private final Spring1D lift = new Spring1D(7f, 0.9f, 0f);
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final float[] normals = new float[pos.length];
+    private final float[] light = new float[hand.vertexCount()];
+    private final float[] verts2d = new float[hand.vertexCount() * 2];
+    private final int[] colors = new int[hand.vertexCount()];
+    private final short[] indices = new short[hand.tris.length];
+    private final long[] keys = new long[hand.tris.length / 3];
+    private final Paint skinPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private boolean skinMode = true;
+    private int skinTone = 0xFF8A5634;
     private Gestures.Gesture gesture;
     private float holdUntil;
     private float time;
@@ -33,6 +42,11 @@ public final class HandPainter {
         gesture = g;
         live.set(g.pose);
         holdUntil = time + seconds;
+    }
+
+    public void setSkin(boolean on, boolean ivie) {
+        skinMode = on;
+        skinTone = ivie ? 0xFF9A6440 : 0xFF7E4E2E;
     }
 
     public boolean visible() {
@@ -86,21 +100,32 @@ public final class HandPainter {
             float ox = (g.twoHands ? g.x + wobble : g.x) * (mirror ? -1f : 1f) + dx;
             hand.pose(live, mirror, 0.62f, ox, g.y - 0.35f - rise + dy, 0.5f, pos);
             WireHead.project(pos, hand.vertexCount(), 0f, 0f, 0f, cx, cy, unit, screen);
+            float a = alpha * lift.value;
+            if (skinMode) {
+                Shade.light(screen, hand.tris, hand.vertexCount(), unit, normals, light);
+                for (int i = 0; i < hand.vertexCount(); i++) {
+                    verts2d[i * 2] = screen[i * 3];
+                    verts2d[i * 2 + 1] = screen[i * 3 + 1];
+                    colors[i] = Shade.skin(skinTone, color, light[i], a * 0.97f);
+                }
+                int count = Shade.order(screen, hand.tris, -10f, keys, indices);
+                canvas.drawVertices(Canvas.VertexMode.TRIANGLES, hand.vertexCount() * 2, verts2d, 0, null, 0,
+                        colors, 0, indices, 0, count, skinPaint);
+            }
             int n = 0;
             for (int e = 0; e < hand.edges.length; e += 2) {
-                int a = hand.edges[e] * 3;
-                int b = hand.edges[e + 1] * 3;
-                lines[n++] = screen[a];
-                lines[n++] = screen[a + 1];
-                lines[n++] = screen[b];
-                lines[n++] = screen[b + 1];
+                int va = hand.edges[e] * 3;
+                int vb = hand.edges[e + 1] * 3;
+                lines[n++] = screen[va];
+                lines[n++] = screen[va + 1];
+                lines[n++] = screen[vb];
+                lines[n++] = screen[vb + 1];
             }
-            float a = alpha * lift.value;
             glow.setStrokeWidth(thin * 5f);
             glow.setAlpha((int) (45 * a));
             canvas.drawLines(lines, 0, n, glow);
             line.setStrokeWidth(thin);
-            line.setAlpha((int) (230 * a));
+            line.setAlpha((int) ((skinMode ? 150 : 230) * a));
             canvas.drawLines(lines, 0, n, line);
         }
     }

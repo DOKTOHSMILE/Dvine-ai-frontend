@@ -80,5 +80,7 @@ public class ActionsAndOnboardingTest {
         assertTrue(d.spoken().contains("7"));
         assertNotNull(brain.respond("draw a triangle", "obi").sketch);
         assertEquals("MUSIC_OFF", brain.respond("music off", "obi").command);
+        assertEquals("SKIN_OFF", brain.respond("wireframe mode", "obi").command);
+        assertEquals("SKIN_ON", brain.respond("skin mode", "obi").command);
     }
 }

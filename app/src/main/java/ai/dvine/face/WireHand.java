@@ -24,6 +24,8 @@ public final class WireHand {
     private static final int PALM_COLS = 4;
 
     public final int[] edges;
+    /** Skin triangles: palm grid and the four faces of every finger segment. */
+    public final int[] tris;
     private final int vertexCount;
 
     public WireHand() {
@@ -75,6 +77,32 @@ public final class WireHand {
         }
         edges = new int[n];
         System.arraycopy(e, 0, edges, 0, n);
+        int[] t = new int[4096];
+        int m = 0;
+        for (int r = 0; r + 1 < PALM_ROWS; r++) {
+            for (int c = 0; c + 1 < PALM_COLS; c++) {
+                int i = r * PALM_COLS + c;
+                t[m++] = i; t[m++] = i + 1; t[m++] = i + PALM_COLS + 1;
+                t[m++] = i; t[m++] = i + PALM_COLS + 1; t[m++] = i + PALM_COLS;
+            }
+        }
+        for (int f = 0; f < 5; f++) {
+            int first = palm + f * 4 * RING;
+            for (int j = 0; j < 3; j++) {
+                int ring = first + j * RING;
+                for (int k = 0; k < RING; k++) {
+                    int a = ring + k;
+                    int b = ring + (k + 1) % RING;
+                    t[m++] = a; t[m++] = b; t[m++] = b + RING;
+                    t[m++] = a; t[m++] = b + RING; t[m++] = a + RING;
+                }
+            }
+            int tip = first + 3 * RING;
+            t[m++] = tip; t[m++] = tip + 1; t[m++] = tip + 2;
+            t[m++] = tip; t[m++] = tip + 2; t[m++] = tip + 3;
+        }
+        tris = new int[m];
+        System.arraycopy(t, 0, tris, 0, m);
     }
 
     public int vertexCount() {

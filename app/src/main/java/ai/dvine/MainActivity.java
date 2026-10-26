@@ -87,6 +87,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         ambient = new AmbientPad();
         ambient.setEnabled(prefs.getBoolean("music", true));
         stage.setSubtitles(prefs.getBoolean("subtitles", true));
+        stage.setSkin(prefs.getBoolean("skin", true));
         talk.setListener((ivie, speaking) -> {
             ambient.setPersona(ivie);
             ambient.setLevel(speaking ? 1f : 0f);
@@ -216,6 +217,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
             case "MUSIC_ON":
                 ambient.setEnabled(true);
                 prefs.edit().putBoolean("music", true).apply();
+                break;
+            case "SKIN_ON":
+                stage.setSkin(true);
+                prefs.edit().putBoolean("skin", true).apply();
+                break;
+            case "SKIN_OFF":
+                stage.setSkin(false);
+                prefs.edit().putBoolean("skin", false).apply();
                 break;
             case "SUBS_OFF":
                 stage.setSubtitles(false);

@@ -174,6 +174,16 @@ public final class OfflineBrain {
             a.command = "MUSIC_ON";
             return a;
         }
+        if (text.matches("^(wireframe|wire frame|lines only|glass) (mode|look)$|^(remove|hide) (the )?skin$")) {
+            BrainAnswer a = one(speaker, "Wireframe mode.", "SET");
+            a.command = "SKIN_OFF";
+            return a;
+        }
+        if (text.matches("^skin (mode|on)$|^(add|show) (the )?skin$|^solid (mode|look)$")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Skin on.", "There, a little more human."), "SET");
+            a.command = "SKIN_ON";
+            return a;
+        }
         if (text.matches("^(hide|turn off) (the )?(subtitles|captions)$")) {
             BrainAnswer a = one(speaker, "Subtitles hidden.", "SET");
             a.command = "SUBS_OFF";

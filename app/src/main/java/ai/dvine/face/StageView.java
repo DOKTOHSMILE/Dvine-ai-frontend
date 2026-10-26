@@ -62,6 +62,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private boolean subtitles = true;
     private boolean online;
     private boolean listening;
+    private boolean skin = true;
 
     private Sketch sketch;
     private float sketchStart;
@@ -158,6 +159,13 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     public void setSubtitles(boolean on) {
         subtitles = on;
+    }
+
+    /** Solid warm skin on faces and hands (default), or wireframe only. */
+    public void setSkin(boolean on) {
+        obiHead.setSkin(on);
+        ivieHead.setSkin(on);
+        skin = on;
     }
 
     public void gesture(String key) {
@@ -336,6 +344,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         painter.draw(canvas, rig, away, cx, cy, unit, color, faceAlpha, density,
                 cy + unit * 1.05f, cy + unit * 1.62f);
         drawScatter(canvas, cx, cy, unit, color, dissolve.value);
+        hands.setSkin(skin, ivieOn);
         hands.draw(canvas, cx, cy, unit, color, faceAlpha, density);
         drawSparks(canvas, cx, cy, unit, color);
 

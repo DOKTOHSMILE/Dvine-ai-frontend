@@ -24,6 +24,9 @@ public final class WirePainter {
     private final float[] verts2d;
     private final int[] colors;
     private final short[] indices;
+    private final long[] keys;
+    private boolean skinMode = true;
+    private final int skinTone;
     private final Paint skin = new Paint(Paint.ANTI_ALIAS_FLAG);
     private float top;
     private float bottom;
@@ -37,6 +40,9 @@ public final class WirePainter {
         verts2d = new float[head.vertexCount() * 2];
         colors = new int[head.vertexCount()];
         indices = new short[head.tris.length];
+        keys = new long[head.tris.length / 3];
+        // warm brown, the medium skin tone; Obi a shade deeper than Ivie
+        skinTone = head.ivie ? 0xFF9A6440 : 0xFF7E4E2E;
         for (int i = 0; i < lines.length; i++) {
             lines[i] = new float[head.edgeCount() * 4];
         }
@@ -45,6 +51,11 @@ public final class WirePainter {
         glow.setStyle(Paint.Style.STROKE);
         glow.setStrokeCap(Paint.Cap.ROUND);
         dot.setStyle(Paint.Style.FILL);
+    }
+
+    /** Solid skin (true) or glowing wireframe only (false). */
+    public void setSkin(boolean on) {
+        skinMode = on;
     }
 
     /** Top of the drawn head in screen pixels after the last draw. */
@@ -134,7 +145,7 @@ public final class WirePainter {
                     continue;
                 }
                 float level = (k + 0.5f) / BUCKETS;
-                float a = alpha * glowLevel * boost * level;
+                float a = alpha * glowLevel * boost * level * (skinMode && group == WireHead.SKIN ? 0.55f : 1f);
                 glow.setStrokeWidth(width * 4.5f);
                 glow.setAlpha(clampAlpha(a * 40f));
                 canvas.drawLines(lines[slot], 0, fill[slot], glow);
@@ -158,7 +169,7 @@ public final class WirePainter {
         }
     }
 
-    /** Translucent lit skin under the wires: this is what makes the head read as 3D. */
+    /** Lit skin under the wires: solid warm brown in skin mode, a faint glow otherwise. */
     private void drawSkin(Canvas canvas, float unit, int color, float alpha, float fadeTop, float fadeBottom) {
         head.light(screen, unit, normals, light);
         int n = head.vertexCount();
@@ -170,21 +181,14 @@ public final class WirePainter {
             float y = screen[i * 3 + 1];
             verts2d[i * 2 + 1] = y;
             float f = y > fadeTop ? Math.max(0f, (fadeBottom - y) / Math.max(1f, fadeBottom - fadeTop)) : 1f;
-            float l = light[i] * f;
-            int a = clampAlpha(alpha * 150f * l);
-            colors[i] = (a << 24) | (r << 16) | (g << 8) | b;
-        }
-        int count = 0;
-        int[] tris = head.tris;
-        for (int t = 0; t < tris.length; t += 3) {
-            float z = (screen[tris[t] * 3 + 2] + screen[tris[t + 1] * 3 + 2] + screen[tris[t + 2] * 3 + 2]) / 3f;
-            if (z < -0.05f) {
-                continue;
+            if (skinMode) {
+                colors[i] = Shade.skin(skinTone, color, light[i], Math.min(1f, alpha) * f * 0.96f);
+            } else {
+                int a = clampAlpha(alpha * 150f * light[i] * f);
+                colors[i] = (a << 24) | (r << 16) | (g << 8) | b;
             }
-            indices[count++] = (short) tris[t];
-            indices[count++] = (short) tris[t + 1];
-            indices[count++] = (short) tris[t + 2];
         }
+        int count = Shade.order(screen, head.tris, -0.05f, keys, indices);
         if (count > 0) {
             canvas.drawVertices(Canvas.VertexMode.TRIANGLES, n * 2, verts2d, 0, null, 0, colors, 0,
                     indices, 0, count, skin);

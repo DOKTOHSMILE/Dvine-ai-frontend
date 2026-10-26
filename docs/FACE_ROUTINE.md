@@ -28,6 +28,10 @@ All channels go through `Spring1D` via `FaceRig`: blink, glance, brow lifts, smi
 
 Obi: angular flat-top bust, big low-poly triangles, neck column with a slanted V cut, resting in three-quarter view facing right. Ivie: smooth face with light swept-back hair streaming behind, same bust cut, resting in near profile facing left. Both turn toward the user while listening. A translucent lit skin under the wires gives the 3D depth.
 
+## Skin
+
+Default look: solid warm brown skin (medium tone; Obi a shade deeper than Ivie) on faces and hands, lit with a soft key light and a rim of the persona's glow, with the glowing wires on top. Triangles are depth-sorted each frame (`Shade.order`). Say "wireframe mode" for lines only, "skin mode" to bring the skin back.
+
 ## Hands
 
 `WireHand` (palm grid + three-segment fingers as small tubes) and `Gestures` (~42 emoji poses, skin tones accepted, 🖕 left out). `HandPainter` raises them under the chin, holds ~3 s with the gesture's motion (wave, shake, tap, clap, scribble) and lowers them.

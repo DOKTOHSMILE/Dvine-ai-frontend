@@ -539,54 +539,9 @@ public final class WireHead {
         }
     }
 
-    /**
-     * Per-vertex light (0..1) for the shaded skin, from projected positions.
-     * Writes into {@code light}; vertices not on the skin stay 0.
-     */
+    /** Per-vertex light (0..1) for the skin, from projected positions. */
     public void light(float[] screen, float unit, float[] normals, float[] light) {
-        int n = vertexCount();
-        for (int i = 0; i < n * 3; i++) {
-            normals[i] = 0f;
-        }
-        for (int t = 0; t < tris.length; t += 3) {
-            int a = tris[t] * 3;
-            int b = tris[t + 1] * 3;
-            int c = tris[t + 2] * 3;
-            float ax = (screen[b] - screen[a]) / unit;
-            float ay = -(screen[b + 1] - screen[a + 1]) / unit;
-            float az = screen[b + 2] - screen[a + 2];
-            float bx = (screen[c] - screen[a]) / unit;
-            float by = -(screen[c + 1] - screen[a + 1]) / unit;
-            float bz = screen[c + 2] - screen[a + 2];
-            float nx = ay * bz - az * by;
-            float ny = az * bx - ax * bz;
-            float nz = ax * by - ay * bx;
-            if (nz < 0f) {
-                nx = -nx;
-                ny = -ny;
-                nz = -nz;
-            }
-            for (int k = 0; k < 3; k++) {
-                int v = tris[t + k] * 3;
-                normals[v] += nx;
-                normals[v + 1] += ny;
-                normals[v + 2] += nz;
-            }
-        }
-        for (int i = 0; i < n; i++) {
-            float nx = normals[i * 3];
-            float ny = normals[i * 3 + 1];
-            float nz = normals[i * 3 + 2];
-            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len < 1e-6f) {
-                light[i] = 0f;
-                continue;
-            }
-            float d = (-0.35f * nx + 0.45f * ny + 0.82f * nz) / len;
-            float rim = 1f - nz / len;
-            float lit = Math.max(0f, d);
-            light[i] = clamp(0.04f + 0.9f * lit * lit + 0.45f * rim * rim * rim, 0f, 1f);
-        }
+        Shade.light(screen, tris, vertexCount(), unit, normals, light);
     }
 
     // ------------------------------------------------------------------ helpers

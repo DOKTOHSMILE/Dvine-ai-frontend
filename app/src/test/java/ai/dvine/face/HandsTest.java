@@ -38,4 +38,27 @@ public class HandsTest {
             assertTrue(a, s.strokes.size() > 0 && s.length > 0f);
         }
     }
+
+    @Test
+    public void skinTrianglesAreValidAndOrdered() {
+        WireHand hand = new WireHand();
+        for (int t : hand.tris) {
+            assertTrue(t >= 0 && t < hand.vertexCount());
+        }
+        WireHead head = WireHead.create(true);
+        float[] d = new float[head.rest.length];
+        float[] s = new float[head.rest.length];
+        head.deform(new WireHead.Pose(), d);
+        WireHead.project(d, head.vertexCount(), -30f, 0f, 0f, 300f, 300f, 150f, s);
+        long[] keys = new long[head.tris.length / 3];
+        short[] out = new short[head.tris.length];
+        int n = Shade.order(s, head.tris, -0.05f, keys, out);
+        assertTrue(n > 0 && n % 3 == 0);
+        float prev = -Float.MAX_VALUE;
+        for (int i = 0; i < n; i += 3) {
+            float z = (s[out[i] * 3 + 2] + s[out[i + 1] * 3 + 2] + s[out[i + 2] * 3 + 2]) / 3f;
+            assertTrue(z >= prev - 1e-4f);
+            prev = z;
+        }
+    }
 }
