@@ -345,9 +345,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
         canvas.drawCircle(0f, 0f, unit * 1.35f, glowPaint);
         canvas.restore();
 
-        // rest in three-quarter view like the approved art; turn toward the user while listening
-        float rest = (ivieOn ? -34f : 26f) * (listening ? 0.35f : 1f) * (1f - 0.5f * mix);
-        float away = (ivieOn ? -14f : 14f) * dissolve.value + rest;
+        // face the user straight on; only the small living motion from FaceRig moves the head
+        float away = (ivieOn ? -14f : 14f) * dissolve.value;
         WirePainter painter = ivieOn ? ivieHead : obiHead;
         painter.draw(canvas, rig, away, cx, cy, unit, color, faceAlpha, density,
                 cy + unit * 1.05f, cy + unit * 1.62f);

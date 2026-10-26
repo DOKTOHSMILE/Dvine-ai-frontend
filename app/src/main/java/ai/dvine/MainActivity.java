@@ -124,6 +124,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         Look ivieLook = Look.parse(prefs.getString("look_ivie", null), true);
         stage.setLook(false, obiLook);
         stage.setLook(true, ivieLook);
+        talk.setTuning(false, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
+        talk.setTuning(true, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_ivie", null), true));
         talk.setListener((ivie, speaking) -> {
             ambient.setPersona(ivie);
             ambient.setLevel(speaking ? 1f : 0f);
@@ -228,7 +230,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
         }
-        applyCommand(reply.command);
+        if (reply.command != null && reply.command.startsWith("VOICE_")) {
+            if (talk.adjust(reply.lookIvie, reply.command)) {
+                prefs.edit().putString(reply.lookIvie ? "voice_ivie" : "voice_obi",
+                        talk.tuning(reply.lookIvie).serialize()).apply();
+            }
+        } else {
+            applyCommand(reply.command);
+        }
         if (reply.look != null) {
             stage.setLook(reply.lookIvie, reply.look);
             prefs.edit().putString(reply.lookIvie ? "look_ivie" : "look_obi", reply.look.serialize()).apply();

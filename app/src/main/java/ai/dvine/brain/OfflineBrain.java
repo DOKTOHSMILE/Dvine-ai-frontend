@@ -189,6 +189,10 @@ public final class OfflineBrain {
             a.command = "MUSIC_ON";
             return a;
         }
+        BrainAnswer voiced = revoice(raw, text, speaker);
+        if (voiced != null) {
+            return voiced;
+        }
         BrainAnswer styled = restyle(raw, text, speaker);
         if (styled != null) {
             return styled;
@@ -232,6 +236,41 @@ public final class OfflineBrain {
             return a;
         }
         return null;
+    }
+
+    /** "Another voice", "speak slower", "deeper voice": tunes how a persona sounds. */
+    private BrainAnswer revoice(String raw, String text, String speaker) {
+        String cmd = null;
+        String said = null;
+        if (text.matches(".*\\b(change|switch|try)( your)?( a)?( different| another| new)? voices?\\b.*|.*\\b(another|next|different|new) voice\\b.*")) {
+            cmd = "VOICE_NEXT";
+            said = "How does this voice sound?";
+        } else if (text.matches(".*\\b(speak|talk) (more )?slow(er|ly)\\b.*|^slow down.*|^(a bit |little )?slower( please)?$")) {
+            cmd = "VOICE_SLOWER";
+            said = "I'll speak a little slower. Is this better?";
+        } else if (text.matches(".*\\b(speak|talk) (more )?(faster|quickly)\\b.*|^speed up.*|^(a bit |little )?faster( please)?$")) {
+            cmd = "VOICE_FASTER";
+            said = "A little faster now. Is this better?";
+        } else if (text.matches(".*\\b(deeper|lower) (your )?voice\\b.*|.*\\bvoice (deeper|lower)\\b.*|.*\\bspeak deeper\\b.*")) {
+            cmd = "VOICE_LOWER";
+            said = "A little deeper. How is this?";
+        } else if (text.matches(".*\\b(higher|lighter) (your )?voice\\b.*|.*\\bvoice (higher|lighter)\\b.*")) {
+            cmd = "VOICE_HIGHER";
+            said = "A little higher. How is this?";
+        } else if (text.matches(".*\\b(reset|default|original) (your )?voice\\b.*")) {
+            cmd = "VOICE_RESET";
+            said = "Back to my usual voice.";
+        }
+        if (cmd == null) {
+            return null;
+        }
+        String lower = raw == null ? "" : raw.toLowerCase(Locale.US);
+        boolean forIvie = lower.contains("ivie") ? !lower.contains("obi") || "ivie".equals(speaker)
+                : !lower.contains("obi") && "ivie".equals(speaker);
+        BrainAnswer a = one(forIvie ? "ivie" : "obi", said, "SET");
+        a.command = cmd;
+        a.lookIvie = forIvie;
+        return a;
     }
 
     /** "Make your skin darker", "dot mode", "make Ivie's hair longer": redraws a persona. */

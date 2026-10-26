@@ -10,15 +10,15 @@ import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 /**
- * One utterance at a time. Prefers Nigerian English voices (en-NG), then other
- * African and British English, and speaks slowly and gently. Obi takes the
- * deeper voice and Ivie the warmer one when two voices exist.
+ * One utterance at a time, in each persona's own voice. Voices are chosen by
+ * {@link VoiceTuning} (Nigerian English first, a different voice for each
+ * persona) and can be tuned by voice; inner thoughts use the same voice,
+ * a little softer, lower and slower.
  */
 public final class TalkBridge extends UtteranceProgressListener {
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -26,9 +26,10 @@ public final class TalkBridge extends UtteranceProgressListener {
     private boolean ready;
     private int generation;
     private TalkDone pending;
-    private Voice obiVoice;
-    private Voice ivieVoice;
     private Listener listener;
+    private final VoiceTuning[] tuning = {VoiceTuning.defaults(false), VoiceTuning.defaults(true)};
+    private List<VoiceTuning.Candidate> ranked = new ArrayList<VoiceTuning.Candidate>();
+    private final java.util.Map<String, Voice> byName = new java.util.HashMap<String, Voice>();
 
     /** Lets the ambience swell while a line is spoken. */
     public interface Listener {
@@ -43,50 +44,54 @@ public final class TalkBridge extends UtteranceProgressListener {
         tts = new TextToSpeech(context.getApplicationContext(), status -> {
             ready = status == TextToSpeech.SUCCESS;
             if (ready) {
-                pickVoices();
+                main.post(this::loadVoices);
             }
         });
         tts.setOnUtteranceProgressListener(this);
     }
 
-    public void speak(boolean ivie, String text, TalkDone done) {
-        final int token = ++generation;
-        pending = done;
-        if (!ready || text == null || text.trim().isEmpty()) {
-            main.postDelayed(() -> finish(token), 280);
-            return;
+    /** Restores saved tuning (from preferences); null keeps the defaults. */
+    public void setTuning(boolean ivie, VoiceTuning t) {
+        if (t != null) {
+            tuning[ivie ? 1 : 0] = t;
         }
-        Voice v = ivie ? ivieVoice : obiVoice;
-        if (v != null) {
-            tts.setVoice(v);
-        } else {
-            tts.setLanguage(new Locale("en", "NG"));
-        }
-        tts.setPitch(ivie ? 1.02f : 0.86f);
-        tts.setSpeechRate(ivie ? 0.90f : 0.86f);
-        String id = (ivie ? "IVIE-" : "OBI-") + token;
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
     }
 
-    /**
-     * The inner-thought voice: softer, slightly lower and slower, so the user
-     * hears the persona thinking before the answer.
-     */
+    public VoiceTuning tuning(boolean ivie) {
+        return tuning[ivie ? 1 : 0];
+    }
+
+    /** Applies a voice command for one persona. Returns true if it changed. */
+    public boolean adjust(boolean ivie, String command) {
+        String other = tuning[ivie ? 0 : 1].voice;
+        return tuning[ivie ? 1 : 0].apply(command, ivie, ranked, other);
+    }
+
+    public void speak(boolean ivie, String text, TalkDone done) {
+        say(ivie, text, done, false);
+    }
+
+    /** The inner-thought voice: same voice, softer, a touch lower and slower. */
     public void whisper(boolean ivie, String text, TalkDone done) {
+        say(ivie, text, done, true);
+    }
+
+    private void say(boolean ivie, String text, TalkDone done, boolean thought) {
         final int token = ++generation;
         pending = done;
         if (!ready || text == null || text.trim().isEmpty()) {
             main.postDelayed(() -> finish(token), 280);
             return;
         }
-        Voice v = ivie ? ivieVoice : obiVoice;
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        Voice v = t.voice == null ? null : byName.get(t.voice);
         if (v != null) {
             tts.setVoice(v);
         }
-        tts.setPitch(ivie ? 0.94f : 0.78f);
-        tts.setSpeechRate(ivie ? 0.84f : 0.80f);
+        tts.setPitch(thought ? t.thoughtPitch() : t.pitch);
+        tts.setSpeechRate(thought ? t.thoughtRate() : t.rate);
         Bundle params = new Bundle();
-        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.45f);
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, thought ? VoiceTuning.THOUGHT_VOLUME : 1f);
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, (ivie ? "IVIE-" : "OBI-") + token);
     }
 
@@ -105,8 +110,8 @@ public final class TalkBridge extends UtteranceProgressListener {
         }
     }
 
-    /** Orders offline voices: en-NG first, then other African English, then en-GB, then any English. */
-    private void pickVoices() {
+    /** Reads the engine's English voices, ranks them and fills in any persona without a saved voice. */
+    private void loadVoices() {
         Set<Voice> all;
         try {
             all = tts.getVoices();
@@ -116,49 +121,41 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (all == null) {
             return;
         }
-        List<Voice> ranked = new ArrayList<Voice>();
+        List<VoiceTuning.Candidate> list = new ArrayList<VoiceTuning.Candidate>();
         for (Voice v : all) {
             Locale l = v.getLocale();
-            if (l != null && "en".equals(l.getLanguage()) && !v.isNetworkConnectionRequired()) {
-                ranked.add(v);
+            if (l == null || !"en".equals(l.getLanguage())) {
+                continue;
+            }
+            byName.put(v.getName(), v);
+            list.add(new VoiceTuning.Candidate(v.getName(), l.getCountry(), v.isNetworkConnectionRequired(), gender(v)));
+        }
+        ranked = VoiceTuning.rank(list);
+        String[] picks = VoiceTuning.pick(ranked);
+        if (tuning[0].voice == null || !byName.containsKey(tuning[0].voice)) {
+            tuning[0].voice = picks[0];
+        }
+        if (tuning[1].voice == null || !byName.containsKey(tuning[1].voice)) {
+            tuning[1].voice = picks[1];
+        }
+        if (picks[0] == null) {
+            Locale ng = new Locale("en", "NG");
+            if (tts.isLanguageAvailable(ng) >= TextToSpeech.LANG_AVAILABLE) {
+                tts.setLanguage(ng);
             }
         }
-        if (ranked.isEmpty()) {
-            return;
-        }
-        Collections.sort(ranked, (a, b) -> {
-            int ra = rank(a);
-            int rb = rank(b);
-            return ra != rb ? ra - rb : a.getName().compareTo(b.getName());
-        });
-        int best = rank(ranked.get(0));
-        List<Voice> top = new ArrayList<Voice>();
-        for (Voice v : ranked) {
-            if (rank(v) == best) {
-                top.add(v);
-            }
-        }
-        obiVoice = pickGender(top, "male", 0);
-        ivieVoice = pickGender(top, "female", top.size() > 1 ? 1 : 0);
     }
 
-    private static int rank(Voice v) {
-        String c = v.getLocale().getCountry();
-        if ("NG".equals(c)) return 0;
-        if ("GH".equals(c) || "KE".equals(c) || "ZA".equals(c) || "TZ".equals(c)) return 1;
-        if ("GB".equals(c)) return 2;
-        return 3;
-    }
-
-    private static Voice pickGender(List<Voice> voices, String gender, int fallback) {
-        for (Voice v : voices) {
-            String n = v.getName().toLowerCase(Locale.US);
-            Set<String> f = v.getFeatures();
-            if ((f != null && f.contains("gender=" + gender)) || n.contains("-" + gender) || n.contains("_" + gender)) {
-                return v;
-            }
+    private static String gender(Voice v) {
+        Set<String> f = v.getFeatures();
+        String n = v.getName().toLowerCase(Locale.US);
+        if ((f != null && f.contains("gender=female")) || n.contains("female")) {
+            return "female";
         }
-        return voices.get(Math.min(fallback, voices.size() - 1));
+        if ((f != null && f.contains("gender=male")) || n.contains("male")) {
+            return "male";
+        }
+        return "";
     }
 
     @Override

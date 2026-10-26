@@ -135,7 +135,7 @@ public final class FaceRig {
             nextGlance = time + 7f + random.nextFloat() * 4f;
         }
         if (time < glanceUntil && mode == FaceMode.CONTENT) {
-            glance = ivie ? -8f : 8f;
+            glance = ivie ? -4f : 4f;
             lookTargetX = ivie ? -0.35f : 0.35f;
         }
 
@@ -174,7 +174,7 @@ public final class FaceRig {
             pitchTarget = dragPitch;
             rollTarget = 0f;
         } else if (mode == FaceMode.THINKING) {
-            yawTarget = (float) Math.sin(time * Math.PI / 2.0) * 12f;
+            yawTarget = (float) Math.sin(time * Math.PI / 2.0) * 5f;
             pitchTarget = ivie ? 4f : 1.5f;
         } else if (mode == FaceMode.LISTENING) {
             yawTarget = (ivie ? -4f : 4f) + microYaw;
