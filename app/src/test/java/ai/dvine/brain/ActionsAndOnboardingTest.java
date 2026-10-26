@@ -80,14 +80,18 @@ public class ActionsAndOnboardingTest {
         assertTrue(d.spoken().contains("7"));
         assertNotNull(brain.respond("draw a triangle", "obi").sketch);
         assertEquals("MUSIC_OFF", brain.respond("music off", "obi").command);
-        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("wireframe mode", "obi").look.style);
-        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("dot mode", "obi").look.style);
-        BrainAnswer dark = brain.respond("make your skin darker", "obi");
-        assertTrue(dark.look.tone > ai.dvine.face.Look.defaults(false).tone);
+        // everything is nano dots now: old style requests stay on dots and say so
+        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("wireframe mode", "obi").look.style);
+        assertTrue(brain.respond("make your skin darker", "obi").spoken().contains("nano dots"));
+        assertEquals("BODY_ON", brain.respond("show your full body", "obi").command);
+        assertEquals("FACE_ON", brain.respond("show your face", "obi").command);
+        assertEquals("REDRAW", brain.respond("redraw yourself", "obi").command);
+        assertEquals("globe", brain.respond("draw the globe", "obi").object3d);
+        assertEquals("dna", brain.respond("show me dna", "obi").object3d);
         BrainAnswer hair = brain.respond("make Ivie's hair longer", "obi");
         assertTrue(hair.lookIvie);
         assertTrue(hair.look.hair > 1f);
         assertEquals(0f, brain.respond("Ivie remove your hair", "ivie").look.hair, 0f);
-        assertEquals(ai.dvine.face.Look.Style.SKIN, brain.respond("reset your look", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("reset your look", "obi").look.style);
     }
 }

@@ -14,6 +14,8 @@ public final class BrainAnswer {
     public final String source;
     /** Gesture key for the hands (an emoji such as "👋"), or null. */
     public String gesture;
+    /** 3D object the nano swarm builds (globe, cube, pyramid, torus, dna, atom, sphere), or null. */
+    public String object3d;
     /** Drawing to show while speaking, or null. */
     public ai.dvine.face.Sketch sketch;
     /** Confirmed action to run before speaking, or null. */

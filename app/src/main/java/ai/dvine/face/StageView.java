@@ -3,8 +3,6 @@ package ai.dvine.face;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.PathMeasure;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
 import android.graphics.Shader;
@@ -19,6 +17,10 @@ import android.view.WindowInsets;
 
 import java.util.Random;
 
+import ai.dvine.face.nano.Forms;
+import ai.dvine.face.nano.NanoPainter;
+import ai.dvine.face.nano.Swarm;
+
 /**
  * The whole app on screen: one persona on black, their hands, an explanation
  * canvas, sparkles and a faint subtitle. No buttons, no menus.
@@ -30,8 +32,18 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     private final FaceRig obi = new FaceRig(false);
     private final FaceRig ivie = new FaceRig(true);
-    private WirePainter obiHead = new WirePainter(WireHead.create(false));
-    private WirePainter ivieHead = new WirePainter(WireHead.create(true));
+    // everything is nano dots: one swarm for the persona, one for drawings and objects
+    private Forms.Head obiFace = new Forms.Head(WireHead.create(false));
+    private Forms.Head ivieFace = new Forms.Head(WireHead.create(true));
+    private Forms.Body obiBody = new Forms.Body(WireHead.create(false));
+    private Forms.Body ivieBody = new Forms.Body(WireHead.create(true));
+    private final Swarm swarm = new Swarm(10000);
+    private final NanoPainter nano = new NanoPainter(10000);
+    private final Swarm drawSwarm = new Swarm(4000);
+    private final NanoPainter drawNano = new NanoPainter(4000);
+    private Swarm.Form drawForm;
+    private float drawUntil;
+    private boolean bodyMode;
     private final HandPainter hands = new HandPainter();
     private final Choreographer choreographer = Choreographer.getInstance();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -39,11 +51,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint subPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint labelPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-    private final Path path = new Path();
-    private final Path part = new Path();
-    private final PathMeasure measure = new PathMeasure();
     private final RectF headHit = new RectF();
-    private final RectF oval = new RectF();
 
     private StageListener listener;
     private boolean showingIvie;
@@ -165,15 +173,39 @@ public final class StageView extends View implements Choreographer.FrameCallback
      * frame; a style-only change (skin, wire, dots, tone) is just as cheap.
      */
     public void setLook(boolean forIvie, Look look) {
-        WirePainter next = new WirePainter(WireHead.create(forIvie, look));
+        WireHead head = WireHead.create(forIvie, look);
         if (forIvie) {
-            ivieHead = next;
+            ivieFace = new Forms.Head(head);
+            ivieBody = new Forms.Body(head);
         } else {
-            obiHead = next;
+            obiFace = new Forms.Head(head);
+            obiBody = new Forms.Body(head);
         }
         if (forIvie == showingIvie) {
-            burst(16);
+            redraw();
         }
+    }
+
+    /** Full standing body (true) or the face (false). The swarm flies between them. */
+    public void setBodyMode(boolean on) {
+        if (on != bodyMode) {
+            bodyMode = on;
+            swarm.scatter(1.2f);
+        }
+    }
+
+    /** The nano dots fly apart and reassemble: "redraw yourself". */
+    public void redraw() {
+        swarm.scatter(4f);
+        burst(16);
+    }
+
+    /** A slowly turning 3D object (globe, cube, pyramid, torus, dna, atom, sphere) built by the swarm. */
+    public void showObject(String kind) {
+        sketch = null;
+        drawForm = new Forms.Object3D(kind);
+        sketchStart = clock;
+        drawUntil = clock + 22f;
     }
 
     public void gesture(String key) {
@@ -182,11 +214,14 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     public void showSketch(Sketch s) {
         sketch = s;
+        drawForm = new Forms.Drawing(s);
         sketchStart = clock;
+        drawUntil = clock + s.length + 18f;
     }
 
     public void clearSketch() {
         sketch = null;
+        drawForm = null;
     }
 
     /** A soft burst of sparkles: answer ready, copy done, hand-off done. */
@@ -245,6 +280,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 showingIvie = pendingIvie;
                 phase = 2;
                 rig().setMode(FaceMode.CONTENT);
+                swarm.scatter(2.2f); // the dots fly apart and become the other persona
                 burst(10);
             }
         } else if (phase == 2 || dissolve.value > 0.03f) {
@@ -265,13 +301,38 @@ public final class StageView extends View implements Choreographer.FrameCallback
         } else if (pendingIvie != showingIvie) {
             phase = 1;
         }
-        boolean sketching = sketch != null && clock - sketchStart < sketch.length + 18f;
-        if (sketch != null && !sketching) {
+        boolean sketching = drawForm != null && clock < drawUntil;
+        if (drawForm != null && !sketching) {
+            drawForm = null;
             sketch = null;
         }
         sketchMix.step(sketching ? 1f : 0f, dt);
         obi.tick(dt);
         ivie.tick(dt);
+        FaceRig r = rig();
+        Swarm.Form form;
+        WireHead.Pose pose;
+        if (bodyMode && !sketching) {
+            Forms.Body b = showingIvie ? ivieBody : obiBody;
+            form = b;
+            pose = b.pose();
+        } else {
+            Forms.Head f = showingIvie ? ivieFace : obiFace;
+            form = f;
+            pose = f.pose;
+        }
+        pose.jaw = r.jaw.value;
+        pose.smile = r.smile.value;
+        pose.browL = r.browL.value;
+        pose.browR = r.browR.value;
+        pose.blink = r.blink.value;
+        pose.lookX = r.lookX.value;
+        pose.lookY = r.lookY.value;
+        pose.breathe = (float) Math.sin(clock * 1.35f) * 0.010f;
+        swarm.shape(form, clock);
+        swarm.step(dt);
+        drawSwarm.shape(drawForm, clock);
+        drawSwarm.step(dt);
         hands.tick(dt);
         FaceMode m = rig().mode();
         if (m == FaceMode.THINKING) {
@@ -327,10 +388,21 @@ public final class StageView extends View implements Choreographer.FrameCallback
         float unit = lerp(bigUnit, smallUnit, mix);
         float cx = w * 0.5f;
         float cy = padTop + lerp(usable * 0.40f, smallUnit * 1.35f + 12f * density, mix);
+        boolean body = bodyMode && mix < 0.05f;
+        float floorY = -2.25f;
+        if (body) {
+            unit = Math.min(w * 0.2f, usable * 0.085f);
+            cy = padTop + usable * 0.5f - 1.6f * unit;
+            floorY = -4.25f;
+        }
         lastCx = cx;
         lastCy = cy;
         lastUnit = unit;
-        headHit.set(cx - unit * 1.3f, cy - unit * 1.3f, cx + unit * 1.3f, cy + unit * 1.6f);
+        if (body) {
+            headHit.set(cx - unit * 1.4f, cy - unit * 1.2f, cx + unit * 1.4f, cy + unit * 4.4f);
+        } else {
+            headHit.set(cx - unit * 1.3f, cy - unit * 1.3f, cx + unit * 1.6f, cy + unit * 1.6f);
+        }
 
         // online dot: persona colour when online, grey when not
         fill.setColor(online ? color : GREY);
@@ -345,14 +417,19 @@ public final class StageView extends View implements Choreographer.FrameCallback
         canvas.drawCircle(0f, 0f, unit * 1.35f, glowPaint);
         canvas.restore();
 
-        // face the user straight on; only the small living motion from FaceRig moves the head
-        float away = (ivieOn ? -14f : 14f) * dissolve.value;
-        WirePainter painter = ivieOn ? ivieHead : obiHead;
-        painter.draw(canvas, rig, away, cx, cy, unit, color, faceAlpha, density,
-                cy + unit * 1.05f, cy + unit * 1.62f);
-        drawScatter(canvas, cx, cy, unit, color, dissolve.value);
-        hands.setLook(painter.head().look);
-        hands.draw(canvas, cx, cy, unit, color, faceAlpha, density);
+        // a Blender-like floor, JARVIS rings, then the persona as nano dots facing the user
+        float yaw = rig.yaw.value;
+        float pitch = rig.pitch.value + 6f;
+        nano.drawGrid(canvas, yaw * 0.3f, 14f, cx, cy, unit, floorY, 1f - mix, density);
+        if (!body) {
+            nano.drawRings(canvas, clock, cx, cy, unit, color, (1f - mix) * (0.55f + 0.45f * rig.glow.value),
+                    density, 1.45f);
+        }
+        nano.drawSwarm(canvas, swarm, yaw, pitch, cx, cy, unit, color,
+                Math.max(0.35f, faceAlpha) * clamp(rig.glow.value + 0.25f, 0.5f, 1.2f), density, clock);
+        if (!body) {
+            hands.draw(canvas, nano, cx, cy, unit, color, faceAlpha, density);
+        }
         drawSparks(canvas, cx, cy, unit, color);
 
         if (listening) {
@@ -363,11 +440,17 @@ public final class StageView extends View implements Choreographer.FrameCallback
             canvas.drawCircle(cx, cy + unit * 0.1f, unit * (1.45f + 0.04f * pulse), stroke);
         }
 
-        if (sketch != null && mix > 0.05f) {
+        if (drawForm != null && mix > 0.05f) {
             float top = cy + smallUnit * 1.9f;
             float bottom = h - padBottom - 70f * density;
             float half = Math.min(w * 0.42f, (bottom - top) * 0.5f);
-            drawSketch(canvas, sketch, clock - sketchStart, cx, (top + bottom) * 0.5f, half, color, mix);
+            float dcy = (top + bottom) * 0.5f;
+            boolean solid = drawForm instanceof Forms.Object3D;
+            nano.drawGrid(canvas, 0f, 14f, cx, dcy, half, solid ? -1.15f : -1.25f, mix * 0.8f, density);
+            drawNano.drawSwarm(canvas, drawSwarm, 0f, 0f, cx, dcy + half * 0.35f, half, color, mix, density, clock);
+            if (sketch != null) {
+                drawLabels(canvas, sketch, clock - sketchStart, cx, dcy, half, color, mix);
+            }
         }
 
         if (subtitles && subtitle.length() > 0) {
@@ -383,25 +466,6 @@ public final class StageView extends View implements Choreographer.FrameCallback
             subPaint.setAlpha(200);
             subLayout.draw(canvas);
             canvas.restore();
-        }
-    }
-
-    /** Points that fly in and out when the face assembles or dissolves. */
-    private void drawScatter(Canvas canvas, float cx, float cy, float unit, int color, float amount) {
-        if (amount < 0.03f) {
-            return;
-        }
-        fill.setColor(color);
-        Random r = new Random(42L);
-        for (int i = 0; i < 90; i++) {
-            float bx = (r.nextFloat() - 0.5f) * 1.4f;
-            float by = (r.nextFloat() - 0.5f) * 2.0f;
-            double ang = r.nextDouble() * Math.PI * 2;
-            float fly = amount * (0.6f + r.nextFloat() * 1.2f);
-            float x = cx + (bx + (float) Math.cos(ang) * fly) * unit;
-            float y = cy - (by + (float) Math.sin(ang) * fly) * unit;
-            fill.setAlpha((int) (200 * amount * (1f - amount * 0.6f)));
-            canvas.drawCircle(x, y, 1.6f * density, fill);
         }
     }
 
@@ -421,67 +485,22 @@ public final class StageView extends View implements Choreographer.FrameCallback
         }
     }
 
-    private void drawSketch(Canvas canvas, Sketch s, float t, float cx, float cy, float half, int color, float alpha) {
-        stroke.setColor(color);
-        stroke.setStrokeWidth(Math.max(2f * density, half * 0.012f));
-        fill.setColor(color);
+    /** Sketch labels as glowing text; the strokes themselves are nano dots. */
+    private void drawLabels(Canvas canvas, Sketch s, float t, float cx, float cy, float half, int color, float alpha) {
         labelPaint.setColor(color);
         labelPaint.setTextSize(Math.max(14f * density, half * 0.09f));
-        int a = (int) (230 * alpha);
+        labelPaint.setShadowLayer(8f * density, 0f, 0f, color);
         for (Sketch.Stroke st : s.strokes) {
-            float p = st.duration <= 0f ? 1f : clamp((t - st.start) / st.duration, 0f, 1f);
+            if (st.kind != Sketch.Kind.LABEL) {
+                continue;
+            }
+            float p = clamp((t - st.start) / Math.max(0.01f, st.duration), 0f, 1f);
             if (p <= 0f) {
                 continue;
             }
-            stroke.setAlpha(a);
-            fill.setAlpha(a);
-            switch (st.kind) {
-                case LINE:
-                case ARROW: {
-                    path.rewind();
-                    for (int i = 0; i + 1 < st.pts.length; i += 2) {
-                        float x = cx + st.pts[i] * half;
-                        float y = cy - st.pts[i + 1] * half;
-                        if (i == 0) {
-                            path.moveTo(x, y);
-                        } else {
-                            path.lineTo(x, y);
-                        }
-                    }
-                    measure.setPath(path, false);
-                    part.rewind();
-                    measure.getSegment(0f, measure.getLength() * p, part, true);
-                    canvas.drawPath(part, stroke);
-                    if (st.kind == Sketch.Kind.ARROW && p > 0.85f) {
-                        float x0 = st.pts[0], y0 = st.pts[1], x1 = st.pts[2], y1 = st.pts[3];
-                        double ang = Math.atan2(y1 - y0, x1 - x0);
-                        float hx = cx + x1 * half;
-                        float hy = cy - y1 * half;
-                        float len = half * 0.1f;
-                        for (int k = -1; k <= 1; k += 2) {
-                            double b = ang + Math.PI - k * 0.5;
-                            canvas.drawLine(hx, hy, hx + (float) Math.cos(b) * len, hy - (float) Math.sin(b) * len, stroke);
-                        }
-                    }
-                    break;
-                }
-                case CIRCLE: {
-                    float r = st.pts[2] * half;
-                    oval.set(cx + st.pts[0] * half - r, cy - st.pts[1] * half - r,
-                            cx + st.pts[0] * half + r, cy - st.pts[1] * half + r);
-                    canvas.drawArc(oval, -90f, 360f * p, false, stroke);
-                    break;
-                }
-                case DOT:
-                    canvas.drawCircle(cx + st.pts[0] * half, cy - st.pts[1] * half, st.pts[2] * half * p, fill);
-                    break;
-                case LABEL:
-                    labelPaint.setAlpha((int) (a * p));
-                    canvas.drawText(st.text, cx + st.pts[0] * half, cy - st.pts[1] * half + labelPaint.getTextSize() * 0.35f, labelPaint);
-                    break;
-                default:
-                    break;
-            }
+            labelPaint.setAlpha((int) (230 * alpha * p));
+            canvas.drawText(st.text, cx + st.pts[0] * half,
+                    cy - st.pts[1] * half + half * 0.35f + labelPaint.getTextSize() * 0.35f, labelPaint);
         }
     }
 

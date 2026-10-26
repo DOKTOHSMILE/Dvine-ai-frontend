@@ -1,5 +1,7 @@
 # Face routine
 
+Everything is drawn as nano dots (see handbook §22). One persona on black, over a dotted Blender-like floor, with JARVIS rings behind the face.
+
 One head on pure black. The other persona is not drawn beside them.
 
 ## Geometry (procedural)

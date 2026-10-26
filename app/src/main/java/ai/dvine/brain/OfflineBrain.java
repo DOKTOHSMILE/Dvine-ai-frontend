@@ -226,6 +226,28 @@ public final class OfflineBrain {
         if (text.matches("^what('s| is) my name$") && userName != null) {
             return one(speaker, "Your name is " + userName + ".", "MEMORY");
         }
+        if (text.matches(".*\\b(full body|whole body|your body|stand up|show (me )?all of you)\\b.*")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Here I am, all of me.", "Here I am. Head to toe, all nano dots."), "LOOK");
+            a.command = "BODY_ON";
+            return a;
+        }
+        if (text.matches("^(show|back to) (me )?(your|the) face$|^just (your|the) face$|^face mode$|^close up$")) {
+            BrainAnswer a = one(speaker, "Back to my face.", "LOOK");
+            a.command = "FACE_ON";
+            return a;
+        }
+        if (text.matches("^(redraw|rebuild|reassemble|refresh|reform) (yourself|your face|your body)$")) {
+            BrainAnswer a = one(speaker, pick(speaker, "Reassembling.", "Watch the dots find their way back."), "LOOK");
+            a.command = "REDRAW";
+            return a;
+        }
+        String object = ai.dvine.face.nano.Forms.objectFor(text);
+        if (object != null) {
+            BrainAnswer a = one(speaker, objectLine(object), "DRAW");
+            a.object3d = object;
+            a.gesture = "👉";
+            return a;
+        }
         ai.dvine.face.Sketch sketch = ai.dvine.face.Sketch.forRequest(text);
         if (sketch != null) {
             BrainAnswer a = one(speaker, sketchLine(sketch), "DRAW");
@@ -338,6 +360,18 @@ public final class OfflineBrain {
         a.lookIvie = forIvie;
         a.gesture = "💅";
         return a;
+    }
+
+    private static String objectLine(String kind) {
+        switch (kind) {
+            case "globe": return "Our Earth: lines of latitude run east to west, longitude from pole to pole.";
+            case "cube": return "A cube: six square faces, twelve edges and eight corners.";
+            case "pyramid": return "A square pyramid: a square base and four triangles meeting at the top.";
+            case "torus": return "A torus, like a ring or a doughnut: a circle swept around a bigger circle.";
+            case "dna": return "DNA: two strands twisted into a double helix, joined by base pairs like the rungs of a ladder.";
+            case "atom": return "An atom: a tiny nucleus in the middle, with electrons moving around it.";
+            default: return "A sphere: every point on its surface is the same distance from the centre.";
+        }
     }
 
     private static String sketchLine(ai.dvine.face.Sketch s) {

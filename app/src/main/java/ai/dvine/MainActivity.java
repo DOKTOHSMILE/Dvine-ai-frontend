@@ -265,6 +265,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (reply.sketch != null) {
             stage.showSketch(reply.sketch);
         }
+        if (reply.object3d != null) {
+            stage.showObject(reply.object3d);
+        }
         final PendingAction act = reply.action;
         if (act != null && act.kind == PendingAction.Kind.COPY) {
             if (Actions.copy(this, act.content)) {
@@ -321,6 +324,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             case "MUSIC_ON":
                 ambient.setEnabled(true);
                 prefs.edit().putBoolean("music", true).apply();
+                break;
+            case "BODY_ON":
+                stage.setBodyMode(true);
+                break;
+            case "FACE_ON":
+                stage.setBodyMode(false);
+                break;
+            case "REDRAW":
+                stage.redraw();
                 break;
             case "SYNC_NOW":
                 syncSoon();
