@@ -353,17 +353,20 @@ public final class WireRenderer {
         gl.vertexAttrib(0, 4, 16, 0);
         gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.quadIbo);
         int edges = Math.max(1, (int) (s.edgeQuads * Math.max(0.3f, Math.min(1f, f.lod))));
-        line(f, a * 0.16f, 5.5f * density, 0.25f, 0.7f, edges, 0);          // glow
-        line(f, a * 0.85f, 1.3f * density, 0.45f, 0.9f, edges, 0);          // core
+        boolean far = f.lod < 1f; // body view: finer lines and dots so the figure reads clearly
+        line(f, a * 0.1f, (far ? 3f : 4.5f) * density, 0.25f, 0.7f, edges, 0);   // glow
+        line(f, a * 0.85f, (far ? 0.9f : 1.2f) * density, 0.45f, 0.9f, edges, 0); // core
         if (s.lineQuads > 0) {
-            line(f, a * 0.2f, 6f * density, 0.6f, 0.4f, s.lineQuads, s.edgeQuads);
+            if (!far) {
+                line(f, a * 0.2f, 6f * density, 0.6f, 0.4f, s.lineQuads, s.edgeQuads);
+            }
             line(f, a, 1.6f * density, 0.9f, 0.4f, s.lineQuads, s.edgeQuads);
         }
         // 4. vertex dots
         gl.useProgram(pointProg);
         gl.uniformMatrix4(gl.uniform(pointProg, "uMvp"), camera.mvp);
         gl.uniformMatrix3(gl.uniform(pointProg, "uRot"), camera.rot3);
-        gl.uniform1f(gl.uniform(pointProg, "uSize"), 3.4f * density);
+        gl.uniform1f(gl.uniform(pointProg, "uSize"), (far ? 2f : 3.2f) * density);
         gl.uniform4f(gl.uniform(pointProg, "uColor"), f.r, f.g, f.b, a);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
         gl.vertexAttrib(0, 3, 12, 0);

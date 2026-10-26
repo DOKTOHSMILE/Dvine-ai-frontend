@@ -31,7 +31,7 @@ public final class Inspector {
     /**
      * An edge stretched beyond this many times its rest length is a torn
      * deformation (a wrong bone or weight). Ordinary skin stretch stays far
-     * below it: under 2.6 in everyday poses, up to about 5.7 in the crotch at
+     * below it: under 3 in everyday poses (the armpit when the arms go up), up to about 3.7 in the crotch at
      * the deepest hip bends (sitting, squatting), where two-bone linear skinning
      * reaches its limit.
      */

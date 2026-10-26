@@ -26,7 +26,7 @@ public final class DotBody implements Swarm.Form {
             "run", "walk", "bow", "dance", "handstand",
             // exercises and stunts (they loop until another pose is asked for)
             "pushups", "jumping jacks", "squats", "lunges", "plank", "stretch", "situps", "boxing", "kick",
-            "cartwheel", "backflip", "spin",
+            "cartwheel", "backflip", "spin", "jump", "roll", "lie",
             // the body talks with its hands while the persona explains
             "talk"};
     /** Extra pose channels after the bone angles: sideways travel and lift (body units). */
@@ -251,6 +251,9 @@ public final class DotBody implements Swarm.Form {
         if (t.contains("plank")) return "plank";
         if (t.contains("stretch")) return "stretch";
         if (t.contains("cartwheel")) return "cartwheel";
+        if (t.matches(".*\\broll(ing)?\\b.*")) return "roll";
+        if (t.matches(".*\\b(lie|lay|laying|lying)( down| on (your|the) back| on the floor)?\\b.*")) return "lie";
+        if (t.matches(".*\\b(jump(ing)?|hop|leap)\\b.*") && !t.contains("jumping jack")) return "jump";
         if (t.contains("backflip") || t.contains("back flip") || t.matches(".*\\bflip\\b.*") || t.contains("somersault")) return "backflip";
         if (t.contains("spin") || t.contains("pirouette")) return "spin";
         if (t.matches(".*\\b(box|boxing|punch(es)?|fight)\\b.*")) return "boxing";
@@ -261,12 +264,12 @@ public final class DotBody implements Swarm.Form {
         if (t.contains("wave")) return "wave";
         if (t.contains("point")) return "point";
         if (t.contains("squat") || t.contains("crouch")) return "squat";
-        if (t.contains("sit") || t.contains("meditate") || t.contains("cross leg")) return "sit";
+        if (t.contains("sit") || t.contains("meditat") || t.contains("cross leg")) return "sit";
         if (t.contains("kneel")) return "kneel";
         if (t.contains("run") || t.contains("jog")) return "run";
         if (t.contains("walk")) return "walk";
         if (t.contains("bow")) return "bow";
-        if (t.contains("dance")) return "dance";
+        if (t.matches(".*\\bdanc(e|ing)\\b.*")) return "dance";
         if (t.contains("stand") || t.contains("relax") || t.contains("normal pose")) return "stand";
         return null;
     }
@@ -601,6 +604,47 @@ public final class DotBody implements Swarm.Form {
                 set(a, SHIN_R, 24f * Math.max(0f, -s), 0f, 0f, true);
                 break;
             }
+            case "jump": { // crouch, leap with the arms swinging up, land soft
+                float f = (t % 1.6f) / 1.6f;
+                if (f < 0.3f) {
+                    float u = f / 0.3f;
+                    u = u * u * (3f - 2f * u);
+                    both(a, THIGH_L, -55f * u, 0f, 3f);
+                    both(a, SHIN_L, 80f * u, 0f, 0f);
+                    a[CHEST * 3] = 20f * u;
+                    both(a, ARM_L, 0f, 40f * u, -72f);
+                } else if (f < 0.75f) {
+                    float s = (float) Math.sin((f - 0.3f) / 0.45f * Math.PI);
+                    a[LIFT] = 0.9f * s;
+                    both(a, THIGH_L, -20f * s, 0f, 3f);
+                    both(a, SHIN_L, 30f * s, 0f, 0f);
+                    both(a, ARM_L, 0f, -20f * s, -72f + 150f * s);
+                    both(a, FOOT_L, 25f * s, 0f, 0f);
+                } else {
+                    float u = 1f - (f - 0.75f) / 0.25f;
+                    both(a, THIGH_L, -45f * u, 0f, 3f);
+                    both(a, SHIN_L, 65f * u, 0f, 0f);
+                    a[CHEST * 3] = 15f * u;
+                    both(a, ARM_L, 0f, 15f * u, -72f);
+                }
+                break;
+            }
+            case "roll": { // roll over on the floor, arms stretched past the head, along the body's length
+                a[PELVIS * 3 + 2] = -90f;
+                a[PELVIS * 3] = -360f * ((t % 2.6f) / 2.6f);
+                both(a, ARM_L, 0f, 0f, 82f);
+                both(a, THIGH_L, 0f, 0f, 2f);
+                both(a, FOOT_L, 30f, 0f, 0f);
+                break;
+            }
+            case "lie": // on the back, face up, one knee raised, breathing
+                a[PELVIS * 3 + 2] = -90f;
+                a[PELVIS * 3] = -90f;
+                both(a, ARM_L, 0f, 0f, -70f);
+                set(a, THIGH_L, -40f, 0f, 2f, false);
+                set(a, SHIN_L, 75f, 0f, 0f, false);
+                a[CHEST * 3] = 2f * breathe;
+                break;
             case "handstand":
                 a[PELVIS * 3 + 2] = 180f;
                 both(a, ARM_L, 0f, 0f, 84f);

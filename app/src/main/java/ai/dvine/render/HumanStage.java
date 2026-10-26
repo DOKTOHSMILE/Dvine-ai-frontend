@@ -167,7 +167,7 @@ public final class HumanStage {
                 p = s;
             }
             float r = slot == 0 ? 0f : 1f, g = slot == 0 ? 0.9f : 0.70f, b = slot == 0 ? 1f : 0f;
-            float lod = bodyView ? 0.6f : 1f;
+            float lod = bodyView ? 0.85f : 1f;
             renderer.submit(slot, p, h.nor, r, g, b, demo ? 1f : alpha, lod, true);
         }
     }

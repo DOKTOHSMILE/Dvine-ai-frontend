@@ -49,6 +49,25 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private final NanoPainter drawNano = new NanoPainter(4000);
     private Swarm.Form drawForm;
     private float drawUntil;
+    /**
+     * Wire look only: 1 while the body has broken into dots that build the
+     * drawing, 2 while the dots fly home to the body, 0 otherwise.
+     */
+    private int dotsPhase;
+    private float dotsSince;
+    /** How much of the GL body shows (0 while its dots are out drawing). */
+    private float humanFade = 1f;
+    /** The drawing frame in wire mode (screen): centre and half size. */
+    private float drawCx, drawCy, drawHalf = 1f;
+    /** Where each dot belongs on the body, in drawing-frame units, refreshed every frame on the way home. */
+    private final float[] homeDots = new float[4000 * 3];
+    private int homeCount;
+    private final Swarm.Form homeForm = (xyz, lit, max, time) -> {
+        int n = Math.min(max, homeCount);
+        System.arraycopy(homeDots, 0, xyz, 0, n * 3);
+        java.util.Arrays.fill(lit, 0, n, 1f);
+        return n;
+    };
     private boolean bodyMode;
     // zoom between the close-up face (0) and the full body (1); while zooming everything is in body units
     private final Spring1D zoom = new Spring1D(3.2f, 1f, 0f);
@@ -124,6 +143,11 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private final float[] slife = new float[SPARKS];
     private final Random random = new Random(7L);
     private float sparkDebt;
+    /** The inner thought shown in the bubble above the head (null: animated thinking dots). */
+    private String thought;
+    private StaticLayout thoughtLayout;
+    private float thoughtShown;
+    private final TextPaint thoughtPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 
     private float density = 1f;
     private int padTop;
@@ -218,6 +242,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
         } else if (mode == FaceMode.DONE) {
             burst(14);
         }
+    }
+
+    /** Shows an inner thought in a bubble above the head while thinking; null shows thinking dots. */
+    public void setThought(String text) {
+        thought = text == null || text.trim().isEmpty() ? null : text.trim();
+        thoughtLayout = null;
     }
 
     public void setOnline(boolean value) {
@@ -440,6 +470,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         drawForm = new Forms.Object3D(kind);
         sketchStart = clock;
         drawUntil = clock + 22f;
+        scatterBody();
     }
 
     public void gesture(String key) {
@@ -463,11 +494,76 @@ public final class StageView extends View implements Choreographer.FrameCallback
         drawForm = new Forms.Drawing(s);
         sketchStart = clock;
         drawUntil = clock + s.length + 18f;
+        scatterBody();
     }
 
     public void clearSketch() {
+        if (dotsPhase == 1) {
+            dotsHome();
+            return;
+        }
         sketch = null;
         drawForm = null;
+    }
+
+    /**
+     * Wire look: the body breaks into dots where its vertices are, the dots
+     * burst apart, and the swarm then builds the drawing from them.
+     */
+    private void scatterBody() {
+        if (dotsPhase == 2) {
+            dotsPhase = 1; // already dots on their way home: turn them round to the new drawing
+            dotsSince = clock;
+            return;
+        }
+        if (!wireOn() || dotsPhase == 1 || !captureHome()) {
+            return;
+        }
+        int n = homeCount;
+        for (int i = 0; i < drawSwarm.capacity; i++) {
+            int k = i < n ? i : i % Math.max(1, n);
+            drawSwarm.pos[i * 3] = homeDots[k * 3] + (i < n ? 0f : Swarm.noise(i * 5) * 0.01f);
+            drawSwarm.pos[i * 3 + 1] = homeDots[k * 3 + 1] + (i < n ? 0f : Swarm.noise(i * 5 + 1) * 0.01f);
+            drawSwarm.pos[i * 3 + 2] = 0f;
+            drawSwarm.vel[i * 3] = 0f;
+            drawSwarm.vel[i * 3 + 1] = 0f;
+            drawSwarm.vel[i * 3 + 2] = 0f;
+            drawSwarm.light[i] = 1f;
+        }
+        drawSwarm.scatter(2.6f);
+        dotsPhase = 1;
+        dotsSince = clock;
+        burst(18);
+    }
+
+    /** The drawing is done: its dots fly back to their places on the body, then the body returns. */
+    private void dotsHome() {
+        sketch = null;
+        drawForm = homeForm;
+        dotsPhase = 2;
+        dotsSince = clock;
+    }
+
+    /** Projects the body's vertices into the drawing frame (one dot per vertex, up to the swarm's size). */
+    private boolean captureHome() {
+        ai.dvine.human.HumanInstance hi = human == null ? null : human.instance(showingIvie);
+        if (hi == null) {
+            return false;
+        }
+        float[] p = hi.pos;
+        int verts = p.length / 3;
+        int n = Math.min(drawSwarm.capacity, verts);
+        int stride = Math.max(1, verts / n);
+        float cy = drawCy + drawHalf * 0.35f;
+        for (int i = 0; i < n; i++) {
+            int v = Math.min(verts - 1, i * stride);
+            float[] sp = human.camera.project(p[v * 3], p[v * 3 + 1], p[v * 3 + 2]);
+            homeDots[i * 3] = (sp[0] - drawCx) / drawHalf;
+            homeDots[i * 3 + 1] = -(sp[1] - cy) / drawHalf;
+            homeDots[i * 3 + 2] = 0f;
+        }
+        homeCount = n;
+        return n > 0;
     }
 
     /** A soft burst of sparkles: answer ready, copy done, hand-off done. */
@@ -547,11 +643,25 @@ public final class StageView extends View implements Choreographer.FrameCallback
         } else if (pendingIvie != showingIvie) {
             phase = 1;
         }
-        boolean sketching = drawForm != null && clock < drawUntil;
-        if (drawForm != null && !sketching) {
-            drawForm = null;
-            sketch = null;
+        boolean sketching = drawForm != null && drawForm != homeForm && clock < drawUntil;
+        if (drawForm != null && drawForm != homeForm && !sketching) {
+            if (dotsPhase == 1) {
+                dotsHome();
+            } else {
+                drawForm = null;
+                sketch = null;
+            }
         }
+        if (dotsPhase == 1 && !wireOn()) {
+            dotsPhase = 0;
+        } else if (dotsPhase == 2 && clock - dotsSince > 1.5f) {
+            dotsPhase = 0;
+            drawForm = null;
+        }
+        // freshly scattered body dots glow as dust until the drawing claims them
+        drawSwarm.parkedLight = dotsPhase == 1 ? Math.max(0f, 0.55f * (1f - (clock - dotsSince) / 5f)) : 0f;
+        float bodyWant = dotsPhase == 1 || dotsPhase == 2 && clock - dotsSince < 0.9f ? 0f : 1f;
+        humanFade += (bodyWant - humanFade) * Math.min(1f, dt * (bodyWant > humanFade ? 4f : 9f));
         sketchMix.step(sketching ? 1f : 0f, dt);
         obi.tick(dt);
         ivie.tick(dt);
@@ -601,6 +711,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
         drawSwarm.step(dt);
         hands.tick(dt);
         FaceMode m = rig().mode();
+        float want = m == FaceMode.THINKING ? 1f : 0f;
+        thoughtShown += (want - thoughtShown) * Math.min(1f, dt * (want > thoughtShown ? 7f : 3f));
         if (m == FaceMode.THINKING) {
             sparkDebt += dt * 9f;
         } else if (m == FaceMode.SPEAKING) {
@@ -693,7 +805,15 @@ public final class StageView extends View implements Choreographer.FrameCallback
             c.pitchDeg = pitch;
             c.update();
             human.renderer.setCamera(c, -4.22f);
-            human.frame(clock, showingIvie, rig, e > 0.5f, rig.mode() == FaceMode.SPEAKING, faceAlpha);
+            human.frame(clock, showingIvie, rig, e > 0.5f, rig.mode() == FaceMode.SPEAKING, faceAlpha * humanFade);
+            // the drawing frame: in the wire look the body's own dots draw, so the drawing gets the whole stage
+            float top = padTop + 56f * density, bottom = h - padBottom - 70f * density;
+            drawCx = cx;
+            drawCy = (top + bottom) * 0.5f;
+            drawHalf = Math.min(w * 0.44f, (bottom - top) * 0.5f);
+            if (dotsPhase == 2) {
+                captureHome();
+            }
             humanView.requestRender();
         }
         lastYaw = yaw;
@@ -719,7 +839,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         canvas.save();
         canvas.translate(cx, hy + hu * 0.1f);
         glowPaint.setShader(ivieOn ? ivieGlow : obiGlow);
-        glowPaint.setAlpha((int) (140 * faceAlpha * Math.max(0.4f, rig.glow.value)));
+        glowPaint.setAlpha((int) (140 * faceAlpha * (wire ? humanFade : 1f) * Math.max(0.4f, rig.glow.value)));
         canvas.drawCircle(0f, 0f, hu * 1.35f, glowPaint);
         canvas.restore();
 
@@ -733,6 +853,19 @@ public final class StageView extends View implements Choreographer.FrameCallback
             hands.draw(canvas, nano, cx, cy, unit, color, faceAlpha, density);
         }
         drawSparks(canvas, cx, hy, hu, color);
+        if (thoughtShown > 0.02f) {
+            float headX = cx, headTop = hy - hu * 1.25f;
+            if (wire) {
+                ai.dvine.human.HumanInstance hi = human.instance(showingIvie);
+                int crown = hi == null ? -1 : hi.asset.landmark("crown");
+                if (crown >= 0) {
+                    float[] p = human.camera.project(hi.pos[crown * 3], hi.pos[crown * 3 + 1], hi.pos[crown * 3 + 2]);
+                    headX = p[0];
+                    headTop = p[1];
+                }
+            }
+            drawThought(canvas, headX, headTop, w, color, thoughtShown);
+        }
 
         if (listening) {
             float pulse = 0.5f + 0.5f * (float) Math.sin(clock * 5f);
@@ -742,7 +875,17 @@ public final class StageView extends View implements Choreographer.FrameCallback
             canvas.drawCircle(cx, hy + hu * 0.1f, hu * (1.45f + 0.04f * pulse), stroke);
         }
 
-        if (drawForm != null && mix > 0.05f) {
+        if (wire && dotsPhase != 0 && drawForm != null) {
+            // the body's dots, building the drawing or flying home
+            float alpha = dotsPhase == 2 ? 1f - humanFade : 1f;
+            float gridAlpha = dotsPhase == 1 ? Math.min(1f, (clock - dotsSince) * 0.8f) : 0f;
+            boolean solid = drawForm instanceof Forms.Object3D;
+            nano.drawGrid(canvas, 0f, 14f, drawCx, drawCy, drawHalf, solid ? -1.15f : -1.25f, gridAlpha * 0.8f, density);
+            drawNano.drawSwarm(canvas, drawSwarm, 0f, 0f, drawCx, drawCy + drawHalf * 0.35f, drawHalf, color, alpha, density, clock);
+            if (sketch != null && dotsPhase == 1) {
+                drawLabels(canvas, sketch, clock - sketchStart, drawCx, drawCy, drawHalf, color, 1f);
+            }
+        } else if (drawForm != null && drawForm != homeForm && mix > 0.05f) {
             float top = cy + smallUnit * 1.9f;
             float bottom = h - padBottom - 70f * density;
             float half = Math.min(w * 0.42f, (bottom - top) * 0.5f);
@@ -768,6 +911,82 @@ public final class StageView extends View implements Choreographer.FrameCallback
             subPaint.setAlpha(200);
             subLayout.draw(canvas);
             canvas.restore();
+        }
+    }
+
+    /**
+     * A cloud-shaped thought bubble above and to the side of the head, with
+     * three shrinking puffs leading down to it. Inside: the thought, or three
+     * dots that pulse while the persona thinks.
+     */
+    private void drawThought(Canvas canvas, float headX, float headTop, float w, int color, float alpha) {
+        float d = density;
+        float bw = Math.min(w * 0.62f, 300f * d);
+        float textW = bw * 0.72f;
+        float bh;
+        if (thought != null) {
+            if (thoughtLayout == null || thoughtLayout.getWidth() != (int) textW) {
+                thoughtPaint.setTextSize(14f * d);
+                thoughtLayout = StaticLayout.Builder.obtain(thought, 0, thought.length(), thoughtPaint, (int) textW)
+                        .setAlignment(Layout.Alignment.ALIGN_CENTER).setMaxLines(4)
+                        .setEllipsize(android.text.TextUtils.TruncateAt.END).build();
+            }
+            bh = Math.max(64f * d, thoughtLayout.getHeight() + 40f * d);
+        } else {
+            bh = 58f * d;
+            bw = Math.min(bw, 130f * d);
+        }
+        float bx = clamp(headX + bw * 0.22f, bw * 0.5f + 12f * d, w - bw * 0.5f - 12f * d);
+        float by = Math.max(padTop + 24f * d + bh * 0.5f, headTop - bh * 0.75f - 26f * d);
+        float rise = (1f - alpha) * 14f * d;
+        by += rise;
+        int a = (int) (255 * alpha);
+        // the cloud: overlapping puffs around an oval, filled dark, outlined in the persona colour
+        android.graphics.Path cloud = new android.graphics.Path();
+        int puffs = 9;
+        for (int i = 0; i < puffs; i++) {
+            double t = Math.PI * 2 * i / puffs;
+            float px = bx + (float) Math.cos(t) * bw * 0.42f;
+            float py = by + (float) Math.sin(t) * bh * 0.36f;
+            float r = Math.min(bw, bh) * (0.26f + 0.04f * (float) Math.sin(i * 1.7f + clock * 1.2f));
+            cloud.addCircle(px, py, r, android.graphics.Path.Direction.CW);
+        }
+        cloud.addOval(bx - bw * 0.42f, by - bh * 0.36f, bx + bw * 0.42f, by + bh * 0.36f, android.graphics.Path.Direction.CW);
+        cloud.setFillType(android.graphics.Path.FillType.WINDING);
+        android.graphics.Path outline = new android.graphics.Path();
+        outline.op(cloud, android.graphics.Path.Op.UNION);
+        fill.setColor(0xFF05080B);
+        fill.setAlpha((int) (225 * alpha));
+        canvas.drawPath(cloud, fill);
+        stroke.setColor(color);
+        stroke.setStrokeWidth(1.6f * d);
+        stroke.setAlpha((int) (200 * alpha));
+        stroke.setShadowLayer(6f * d, 0f, 0f, color);
+        canvas.drawPath(outline, stroke);
+        // three puffs trailing down to the head
+        float tx = headX + (bx - headX) * 0.35f, ty = headTop - 6f * d;
+        for (int i = 0; i < 3; i++) {
+            float f = (i + 1) / 4f;
+            float px = tx + (bx - bw * 0.15f - tx) * f, py = ty + (by + bh * 0.42f - ty) * f;
+            float r = (3f + 2.5f * i) * d;
+            canvas.drawCircle(px, py, r, fill);
+            canvas.drawCircle(px, py, r, stroke);
+        }
+        stroke.clearShadowLayer();
+        if (thought != null && thoughtLayout != null) {
+            thoughtPaint.setColor(color);
+            thoughtPaint.setAlpha(a);
+            canvas.save();
+            canvas.translate(bx - thoughtLayout.getWidth() * 0.5f, by - thoughtLayout.getHeight() * 0.5f);
+            thoughtLayout.draw(canvas);
+            canvas.restore();
+        } else {
+            fill.setColor(color);
+            for (int i = 0; i < 3; i++) {
+                float pulse = 0.5f + 0.5f * (float) Math.sin(clock * 5f - i * 0.9f);
+                fill.setAlpha((int) (a * (0.35f + 0.65f * pulse)));
+                canvas.drawCircle(bx + (i - 1) * 14f * d, by - pulse * 3f * d, (3f + pulse) * d, fill);
+            }
         }
     }
 

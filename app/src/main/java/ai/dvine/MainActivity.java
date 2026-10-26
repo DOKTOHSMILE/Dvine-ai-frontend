@@ -525,14 +525,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             if ("SAY".equals(line.cue)) {
                 stage.setMode(FaceMode.SPEAKING);
+                stage.setThought(null);
                 stage.setSubtitle(line.text);
                 talk.speak(ivie, line.text, () -> step(token));
             } else if (line.text != null && line.text.length() > 0) {
-                // inner thought: softer voice, thinking face, dim subtitle
+                // inner thought: softer voice, thinking face, the words in a bubble above the head
+                stage.setThought(line.text);
                 stage.setMode(FaceMode.THINKING);
-                stage.setSubtitle("… " + line.text);
+                stage.setSubtitle("");
                 talk.whisper(ivie, line.text, () -> step(token));
             } else {
+                stage.setThought(null);
                 stage.setMode(FaceMode.THINKING);
                 handler.postDelayed(() -> step(token), 520);
             }

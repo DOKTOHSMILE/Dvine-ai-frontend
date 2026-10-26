@@ -1,6 +1,6 @@
 # DVINE Android
 
-Native Java client. One face fills the screen: **O-bìì** (Obi, cyan `#00E5FF`) or **Ēèvié** (Ivie, gold `#FFB300`). They switch as each one speaks. Each is a full anatomical 3D wireframe human (OpenGL ES 3): the head first, the whole body when you ask ("show me your body"), both together with "show both of you". Touch any body part and they react.
+Native Java client. One face fills the screen: **O-bìì** (Obi, cyan `#00E5FF`) or **Ēèvié** (Ivie, gold `#FFB300`). They switch as each one speaks. Each is a full anatomical 3D wireframe human (OpenGL ES 3): the head first, the whole body when you ask ("show me your body"), both together with "show both of you". Touch any body part and they react. Ask "can you run?", "jump", "dance", "roll over", "do a flip". Ask them to draw ("draw a galaxy", "show me a black hole", "draw a tesseract") and their body breaks into dots that build the drawing, then reassemble. While they think, a thought bubble floats above their head.
 
 The build plan is [`docs/DVINE_MASTER_BUILD_HANDBOOK.md`](docs/DVINE_MASTER_BUILD_HANDBOOK.md). Progress and evidence live in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md).
 
