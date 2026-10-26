@@ -7,15 +7,18 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.Gravity;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 
-import ai.dvine.gl.MeshGlView;
-
+import ai.dvine.brain.BrainAnswer;
+import ai.dvine.brain.LearningJournal;
+import ai.dvine.brain.OfflineBrain;
 import ai.dvine.face.FaceMode;
 import ai.dvine.face.MatrixStageView;
 import ai.dvine.face.StageListener;
+import ai.dvine.net.Connectivity;
+import ai.dvine.net.KnowledgeStore;
+import ai.dvine.net.SyncWorker;
 import ai.dvine.voice.ListenCallback;
 import ai.dvine.turn.LocalTurn;
 import ai.dvine.turn.TurnLine;
@@ -23,7 +26,10 @@ import ai.dvine.turn.TurnRoute;
 import ai.dvine.voice.ListenBridge;
 import ai.dvine.voice.TalkBridge;
 
+import java.io.File;
 import java.util.List;
+import java.util.TimeZone;
+import java.util.UUID;
 
 /**
  * One face on screen. Lines from {@link LocalTurn} switch the face
@@ -34,8 +40,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private MatrixStageView stage;
-    private MeshGlView mesh;
     private TalkBridge talk;
+    private OfflineBrain brain;
+    private Connectivity connectivity;
+    private SyncWorker sync;
     private ListenBridge listen;
     private List<TurnLine> lines = java.util.Collections.emptyList();
     private int index;
@@ -51,20 +59,52 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             window.setDecorFitsSystemWindows(false);
         }
-        mesh = new MeshGlView(this);
         stage = new MatrixStageView(this);
         stage.setListener(this);
-        stage.setMesh(mesh);
         FrameLayout root = new FrameLayout(this);
         root.addView(stage, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
-        FrameLayout.LayoutParams slot = new FrameLayout.LayoutParams(1, 1, Gravity.TOP | Gravity.LEFT);
-        root.addView(mesh, slot);
         setContentView(root);
         stage.requestApplyInsets();
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
+
+        KnowledgeStore store = new KnowledgeStore(this);
+        LearningJournal journal = new LearningJournal(new File(getFilesDir(), "learning"));
+        brain = new OfflineBrain(store.load(), journal, System::currentTimeMillis, TimeZone.getDefault());
+        sync = new SyncWorker(getString(R.string.api_base), deviceId(), journal, store,
+                () -> null, pack -> handler.post(() -> brain.replacePack(pack)));
+        connectivity = new Connectivity(this, online -> {
+            stage.setOnline(online);
+            if (online) {
+                sync.kick(brain.pack().version);
+            }
+        });
+    }
+
+    private String deviceId() {
+        android.content.SharedPreferences prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        String id = prefs.getString("device_id", null);
+        if (id == null) {
+            id = UUID.randomUUID().toString();
+            prefs.edit().putString("device_id", id).apply();
+        }
+        return id;
+    }
+
+    /** One place decides who answers: a persona switch, or the brain. */
+    private void answer(String text) {
+        TurnRoute route = LocalTurn.route(text, stage.agent());
+        if (route.switchOnly) {
+            stage.setStaged(false, "");
+            play(route.lines);
+            return;
+        }
+        BrainAnswer reply = brain.respond(text, stage.agent());
+        stage.setStaged(false, "");
+        play(reply.lines);
+        stage.pushActivity(reply.source + "  ·  " + shortLine(text));
     }
 
     @Override
@@ -110,9 +150,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     public void onResult(String text) {
         stage.setListening(false);
         stage.setNotice("");
-        TurnRoute route = LocalTurn.route(text, stage.agent());
-        stage.setStaged(!route.switchOnly && LocalTurn.consequential(text), text);
-        play(route.lines);
+        answer(text);
     }
 
     @Override
@@ -126,28 +164,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
     public void onType() {
         final EditText input = new EditText(this);
         input.setTextColor(0xFFEDEDED);
-        input.setHint("Obi switch, Ivie switch, or a question");
+        input.setHint("Ask anything, or say Obi switch / Ivie switch");
         input.setHintTextColor(0xFF8A8A8A);
         input.setBackgroundColor(0xFF000000);
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         input.setPadding(pad, pad, pad, pad);
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Talk")
+                .setTitle(stage.isIvie() ? "Talk to Ivie" : "Talk to Obi")
                 .setView(input)
-                .setNegativeButton("Obi", (d, w) -> {
-                    stage.setStaged(false, "");
-                    play(LocalTurn.speakAs(false, input.getText().toString()));
-                })
-                .setPositiveButton("Ivie", (d, w) -> {
-                    stage.setStaged(false, "");
-                    play(LocalTurn.speakAs(true, input.getText().toString()));
-                })
-                .setNeutralButton("Ask both", (d, w) -> {
-                    String typed = input.getText().toString();
-                    TurnRoute route = LocalTurn.route(typed, stage.agent());
-                    stage.setStaged(!route.switchOnly && LocalTurn.consequential(typed), typed);
-                    play(route.lines);
-                })
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Ask", (d, w) -> answer(input.getText().toString()))
                 .show();
     }
 
@@ -228,18 +254,19 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (mesh != null) {
-            mesh.onResume();
-        }
+    protected void onStart() {
+        super.onStart();
+        connectivity.start();
+    }
+
+    @Override
+    protected void onStop() {
+        connectivity.stop();
+        super.onStop();
     }
 
     @Override
     protected void onPause() {
-        if (mesh != null) {
-            mesh.onPause();
-        }
         stopPlay();
         super.onPause();
     }
@@ -248,6 +275,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
     protected void onDestroy() {
         if (talk != null) {
             talk.shutdown();
+        }
+        if (sync != null) {
+            sync.shutdown();
         }
         if (listen != null) {
             listen.stop();

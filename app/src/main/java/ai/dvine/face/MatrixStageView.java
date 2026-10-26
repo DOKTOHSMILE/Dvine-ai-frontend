@@ -17,8 +17,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 
-import ai.dvine.gl.MeshGlView;
-
 /**
  * One face. Obi and Ivie never share the screen.
  * The current head dissolves and the other assembles when that persona
@@ -32,10 +30,8 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
 
     private final FaceRig obi = new FaceRig(false);
     private final FaceRig ivie = new FaceRig(true);
-    private final LowPolyHead obiHead = LowPolyHead.create(true);
-    private final LowPolyHead ivieHead = LowPolyHead.create(false);
-    private final float[] deformed = new float[Math.max(obiHead.rest.length, ivieHead.rest.length)];
-    private final float[] projected = new float[deformed.length];
+    private final WirePainter obiHead = new WirePainter(WireHead.create(false));
+    private final WirePainter ivieHead = new WirePainter(WireHead.create(true));
     private final Path path = new Path();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -123,14 +119,15 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         setContentDescription("DVINE. One face. Swipe to speak. Say Obi switch or Ivie switch.");
     }
 
-    private MeshGlView meshGl;
+    private boolean online;
 
     public void setListener(StageListener listener) {
         this.listener = listener;
     }
 
-    public void setMesh(MeshGlView meshGl) {
-        this.meshGl = meshGl;
+    /** Real network state, shown in the badge. */
+    public void setOnline(boolean value) {
+        online = value;
     }
 
     public boolean isIvie() {
@@ -267,7 +264,7 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         float headerY = padTop + dp(22f);
         canvas.drawText("DVINE", side, headerY, text);
 
-        String link = staged ? "LOCK: STAGED" : "WS: LIVE";
+        String link = staged ? "LOCK: STAGED" : online ? "ONLINE" : "OFFLINE";
         text.setTextSize(dp(10f));
         text.setLetterSpacing(0.08f);
         float linkW = text.measureText(link) + dp(22f);
@@ -280,30 +277,24 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         text.setAlpha(220);
         canvas.drawText(link, linkBox.left + dp(11f), headerY, text);
 
-        float unit = Math.min(w * 0.26f, dp(108f));
+        float faceRoom = h - padBottom - dp(300f) - headerY;
+        float unit = Math.max(dp(48f), Math.min(w * 0.30f, faceRoom * 0.30f));
         float cx = w * 0.5f;
-        float cy = headerY + dp(28f) + unit * 1.05f;
-        headHit.set(cx - unit * 1.15f, cy - unit * 1.2f, cx + unit * 1.15f, cy + unit * 1.15f);
-        if (meshGl != null && meshGl.isLive()) {
-            meshGl.place(Math.round(headHit.left), Math.round(headHit.top),
-                    Math.round(headHit.right), Math.round(headHit.bottom));
-        }
+        float cy = headerY + dp(16f) + unit * 1.25f;
+        headHit.set(cx - unit * 1.3f, cy - unit * 1.3f, cx + unit * 1.3f, cy + unit * 1.6f);
         ensureGlow(unit);
+        canvas.save();
+        canvas.translate(cx, cy + unit * 0.1f);
         glowPaint.setShader(ivieOn ? ivieGlow : obiGlow);
-        glowPaint.setAlpha((int) (180 * faceAlpha));
-        canvas.drawCircle(cx, cy + unit * 0.15f, unit * 1.25f, glowPaint);
-        float pose = 0f;
-        float away = (ivieOn ? -12f : 12f) * dissolve.value;
-        boolean gl = meshGl != null && meshGl.isLive();
-        if (gl) {
-            meshGl.publish(ivieOn, pose + away + rig.yaw.value, unit,
-                    rig.smile.value, rig.jaw.value, rig.browL.value, rig.browR.value,
-                    rig.time(), faceAlpha);
-        } else {
-            drawSkull(canvas, ivieOn ? ivieHead : obiHead, rig, cx, cy, unit, color, faceAlpha, pose + away);
-        }
+        glowPaint.setAlpha((int) (150 * faceAlpha));
+        canvas.drawCircle(0f, 0f, unit * 1.35f, glowPaint);
+        canvas.restore();
+        float away = (ivieOn ? -14f : 14f) * dissolve.value;
+        WirePainter painter = ivieOn ? ivieHead : obiHead;
+        painter.draw(canvas, rig, away, cx, cy, unit, color, faceAlpha, density,
+                cy + unit * 1.05f, cy + unit * 1.62f);
 
-        float nameY = cy + unit * 1.22f;
+        float nameY = cy + unit * 1.62f + dp(16f);
         text.setTextAlign(Paint.Align.CENTER);
         text.setColor(INK);
         text.setLetterSpacing(0.04f);
@@ -567,292 +558,6 @@ public final class MatrixStageView extends View implements Choreographer.FrameCa
         glowUnit = unit;
         obiGlow = new RadialGradient(0f, 0f, unit * 1.35f, new int[]{0x6600E5FF, 0x00000000}, null, Shader.TileMode.CLAMP);
         ivieGlow = new RadialGradient(0f, 0f, unit * 1.35f, new int[]{0x66FFB300, 0x00000000}, null, Shader.TileMode.CLAMP);
-    }
-
-    private void drawParticles(Canvas canvas, float cx, float cy, float unit, int color, float faceAlpha, float time) {
-        fill.setColor(color);
-        for (int i = 0; i < 8; i++) {
-            float seed = i * 0.77f;
-            float ang = seed * 6.2f + time * (0.18f + (i % 3) * 0.04f);
-            float rad = unit * (0.10f + 0.05f * (float) Math.sin(time * 0.35f + seed));
-            rad += unit * dissolve.value * 0.50f;
-            float px = cx + (float) Math.cos(ang) * rad * 0.85f;
-            float py = cy + unit * 0.78f + (float) Math.sin(ang) * rad * 0.45f;
-            int alpha = (int) ((28 + dissolve.value * 90f) * Math.max(faceAlpha, 0.25f));
-            fill.setAlpha(Math.min(160, alpha));
-            path.rewind();
-            path.moveTo(px, py - dp(2.2f));
-            path.lineTo(px + dp(2.4f), py + dp(1.6f));
-            path.lineTo(px - dp(2.4f), py + dp(1.6f));
-            path.close();
-            canvas.drawPath(path, fill);
-        }
-    }
-
-    private void drawSkull(Canvas canvas, LowPolyHead head, FaceRig rig, float cx, float cy, float unit,
-                           int color, float faceAlpha, float awayYaw) {
-        float breath = 1f + (float) Math.sin(rig.time() * 1.35f) * 0.012f;
-        head.deform(rig.smile.value, rig.jaw.value, rig.browL.value, rig.browR.value, rig.time(), deformed);
-        int count = head.rest.length / 3;
-        float yaw = (float) Math.toRadians(rig.yaw.value + awayYaw);
-        float pitch = (float) Math.toRadians(rig.pitch.value);
-        float roll = (float) Math.toRadians(rig.roll.value);
-        for (int i = 0; i < count; i++) {
-            project(deformed[i * 3] * breath, deformed[i * 3 + 1] * breath, deformed[i * 3 + 2],
-                    yaw, pitch, roll, cx, cy, unit, projected, i * 3);
-        }
-        int glowA = (int) (36 * faceAlpha * clamp(rig.glow.value, 0.2f, 1.2f));
-        int lineA = (int) (210 * faceAlpha * clamp(rig.glow.value, 0.35f, 1.15f));
-        soft.setColor(color);
-        soft.setAlpha(Math.max(0, Math.min(255, glowA)));
-        soft.setStrokeWidth(Math.max(dp(1.6f), unit * 0.012f));
-        stroke.setColor(color);
-        stroke.setAlpha(Math.max(0, Math.min(255, lineA)));
-        stroke.setStrokeWidth(Math.max(dp(1.05f), unit * 0.0048f));
-        fill.setColor(color);
-        for (int t = 0; t < head.tris.length; t += 3) {
-            int ia = head.tris[t] * 3;
-            int ib = head.tris[t + 1] * 3;
-            int ic = head.tris[t + 2] * 3;
-            float ax = projected[ib] - projected[ia];
-            float ay = projected[ib + 1] - projected[ia + 1];
-            float bx = projected[ic] - projected[ia];
-            float by = projected[ic + 1] - projected[ia + 1];
-            if (ax * by - ay * bx >= 0f) {
-                continue;
-            }
-            path.rewind();
-            path.moveTo(projected[ia], projected[ia + 1]);
-            path.lineTo(projected[ib], projected[ib + 1]);
-            path.lineTo(projected[ic], projected[ic + 1]);
-            path.close();
-            fill.setAlpha((int) (18 * faceAlpha));
-            canvas.drawPath(path, fill);
-            canvas.drawPath(path, soft);
-            canvas.drawPath(path, stroke);
-        }
-    }
-
-    private void drawFeatures(Canvas canvas, FaceRig rig, boolean ivieOn, float cx, float cy, float unit,
-                              int color, float faceAlpha, float awayYaw) {
-        float yaw = (float) Math.toRadians(rig.yaw.value + awayYaw);
-        float pitch = (float) Math.toRadians(rig.pitch.value);
-        float roll = (float) Math.toRadians(rig.roll.value);
-        stroke.setColor(color);
-        stroke.setAlpha((int) (235 * faceAlpha));
-        stroke.setStrokeWidth(Math.max(dp(1.7f), unit * 0.008f));
-        float smile = rig.smile.value;
-        float jaw = rig.jaw.value;
-        float wide = rig.wide.value;
-        float blink = clamp(rig.blink.value, 0f, 1f);
-        float happy = ivieOn ? 0.28f : 0.12f;
-
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, ear(ivieOn, -1f));
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, ear(ivieOn, 1f));
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, new float[]{
-                0f, 0.30f, 0.55f,
-                0f, 0.10f, 0.78f,
-                0f, -0.04f, 0.70f
-        });
-
-        float eyeY = 0.12f;
-        float eyeR = ivieOn ? 0.13f : 0.11f;
-        drawEye(canvas, yaw, pitch, roll, cx, cy, unit, -0.30f, eyeY, eyeR, blink, smile, happy, rig.lookX.value, rig.lookY.value);
-        drawEye(canvas, yaw, pitch, roll, cx, cy, unit, 0.30f, eyeY, eyeR, blink, smile, happy, rig.lookX.value, rig.lookY.value);
-
-        stroke.setStrokeWidth(Math.max(dp(2.1f), unit * 0.010f));
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, brow(-1f, ivieOn, rig.browL.value));
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, brow(1f, ivieOn, rig.browR.value));
-
-        stroke.setStrokeWidth(Math.max(dp(2.0f), unit * 0.009f));
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, lip(false, smile, jaw, wide));
-        float[] lower = lip(true, smile, jaw, wide);
-        hinge(lower, jaw);
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, lower);
-        if (jaw > 0.08f) {
-            stroke.setAlpha((int) (120 * faceAlpha));
-            drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, new float[]{
-                    -0.08f, -0.22f - jaw * 0.05f, 0.60f,
-                    0.08f, -0.22f - jaw * 0.05f, 0.60f
-            });
-        }
-    }
-
-    private void drawEye(Canvas canvas, float yaw, float pitch, float roll, float cx, float cy, float unit,
-                         float ex, float ey, float rx, float blink, float smile, float happy, float lookX, float lookY) {
-        int steps = 7;
-        float ry = rx * 0.42f * (1f - 0.92f * blink) * (1f - smile * happy);
-        float[] upper = new float[steps * 3];
-        float[] lower = new float[steps * 3];
-        for (int i = 0; i < steps; i++) {
-            float t = i / (float) (steps - 1);
-            float x = ex + (t * 2f - 1f) * rx;
-            float arch = (float) Math.sin(t * Math.PI);
-            upper[i * 3] = x;
-            upper[i * 3 + 1] = ey + arch * ry;
-            upper[i * 3 + 2] = 0.64f;
-            lower[i * 3] = x;
-            lower[i * 3 + 1] = ey - arch * ry * 0.55f + smile * 0.012f;
-            lower[i * 3 + 2] = 0.64f;
-        }
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, upper);
-        drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, lower);
-        float iris = Math.max(dp(2.2f), unit * 0.018f * (1f - blink));
-        float[] p = projectTo(ex + lookX * 0.04f, ey + lookY * 0.03f, 0.70f, yaw, pitch, roll, cx, cy, unit);
-        fill.setColor(stroke.getColor());
-        fill.setAlpha(stroke.getAlpha());
-        canvas.drawCircle(p[0], p[1], iris, fill);
-    }
-
-    private void drawHair(Canvas canvas, FaceRig rig, float cx, float cy, float unit, int color, float faceAlpha, float awayYaw) {
-        float yaw = (float) Math.toRadians(rig.yaw.value + awayYaw);
-        float pitch = (float) Math.toRadians(rig.pitch.value);
-        float roll = (float) Math.toRadians(rig.roll.value);
-        stroke.setColor(color);
-        stroke.setAlpha((int) (180 * faceAlpha));
-        stroke.setStrokeWidth(Math.max(dp(1.2f), unit * 0.004f));
-        float time = rig.time();
-        for (int s = 0; s < 7; s++) {
-            float side = -1f + s * (2f / 6f);
-            boolean edge = s == 0 || s == 6;
-            float[] strand = new float[8 * 3];
-            for (int k = 0; k < 8; k++) {
-                float t = k / 7f;
-                float drift = (float) Math.sin(time * 0.55f + s * 0.7f + t * 2.2f) * 0.012f * t;
-                float x;
-                float y;
-                float z;
-                if (edge) {
-                    x = side * (0.52f + t * 0.34f) + drift;
-                    y = 0.58f - t * 0.70f;
-                    z = 0.12f - t * 0.08f;
-                } else {
-                    x = side * 0.40f + side * t * 0.18f + drift;
-                    y = 0.74f - Math.abs(side) * 0.08f - t * 0.42f;
-                    z = -0.05f - t * 0.30f;
-                }
-                strand[k * 3] = x;
-                strand[k * 3 + 1] = y;
-                strand[k * 3 + 2] = z;
-            }
-            drawPoly(canvas, yaw, pitch, roll, cx, cy, unit, strand);
-        }
-    }
-
-    private void drawWave(Canvas canvas, float cx, float y, float unit, int color, float jaw) {
-        fill.setColor(color);
-        for (int i = 0; i < 5; i++) {
-            float shift = (i - 2) * dp(7f);
-            float h = dp(4f) + jaw * unit * (0.08f + 0.04f * (i % 2));
-            fill.setAlpha(160);
-            canvas.drawRect(cx + shift, y - h, cx + shift + dp(2.2f), y, fill);
-        }
-    }
-
-    private static float[] ear(boolean ivie, float side) {
-        float s = ivie ? 0.92f : 1.05f;
-        return new float[]{
-                side * 0.72f * s, 0.26f, 0.02f,
-                side * 0.96f * s, 0.16f, 0.00f,
-                side * 1.00f * s, -0.02f, 0.00f,
-                side * 0.86f * s, -0.16f, 0.02f,
-                side * 0.70f * s, -0.02f, 0.06f
-        };
-    }
-
-    private static float[] brow(float side, boolean ivie, float raise) {
-        float[] pts = new float[6 * 3];
-        for (int i = 0; i < 6; i++) {
-            float t = i / 5f;
-            float arch = (float) Math.sin(t * Math.PI);
-            float x = side < 0f ? lerp(-0.50f, -0.12f, t) : lerp(0.12f, 0.50f, t);
-            float outer = side < 0f ? 1f - t : t;
-            float y = (ivie ? 0.36f : 0.33f) + arch * (ivie ? 0.055f : 0.018f) + raise * 0.055f
-                    + (ivie ? outer * 0.02f : 0f);
-            pts[i * 3] = x;
-            pts[i * 3 + 1] = y;
-            pts[i * 3 + 2] = 0.60f;
-        }
-        return pts;
-    }
-
-    private static float[] lip(boolean lower, float smile, float jaw, float wide) {
-        float[] pts = new float[8 * 3];
-        for (int i = 0; i < 8; i++) {
-            float t = i / 7f;
-            float arch = (float) Math.sin(t * Math.PI);
-            float corner = 1f - arch;
-            float x = lerp(-0.30f, 0.30f, t) * (0.78f + wide * 0.35f);
-            float y;
-            if (!lower) {
-                y = -0.16f + arch * 0.040f + smile * 0.055f * corner;
-            } else {
-                y = -0.20f - arch * (0.035f + jaw * 0.13f) + smile * 0.050f * corner;
-            }
-            pts[i * 3] = x;
-            pts[i * 3 + 1] = y;
-            pts[i * 3 + 2] = 0.66f + arch * 0.03f;
-        }
-        return pts;
-    }
-
-    private static void hinge(float[] pts, float jaw) {
-        float ang = jaw * 0.45f;
-        float ca = (float) Math.cos(ang);
-        float sa = (float) Math.sin(ang);
-        float hingeY = -0.08f;
-        for (int i = 0; i < pts.length; i += 3) {
-            float y = pts[i + 1];
-            float z = pts[i + 2];
-            float dy = y - hingeY;
-            pts[i + 1] = hingeY + dy * ca - (z - 0.2f) * sa;
-            pts[i + 2] = 0.2f + dy * sa + (z - 0.2f) * ca;
-        }
-    }
-
-    private void drawPoly(Canvas canvas, float yaw, float pitch, float roll, float cx, float cy, float unit, float[] local) {
-        path.rewind();
-        for (int i = 0; i < local.length; i += 3) {
-            float[] p = projectTo(local[i], local[i + 1], local[i + 2], yaw, pitch, roll, cx, cy, unit);
-            if (i == 0) {
-                path.moveTo(p[0], p[1]);
-            } else {
-                path.lineTo(p[0], p[1]);
-            }
-        }
-        canvas.drawPath(path, stroke);
-    }
-
-    private void project(float x, float y, float z, float yaw, float pitch, float roll,
-                         float cx, float cy, float unit, float[] out, int o) {
-        float[] p = projectTo(x, y, z, yaw, pitch, roll, cx, cy, unit);
-        out[o] = p[0];
-        out[o + 1] = p[1];
-        out[o + 2] = p[2];
-    }
-
-    private final float[] tmp = new float[3];
-
-    private float[] projectTo(float x, float y, float z, float yaw, float pitch, float roll,
-                              float cx, float cy, float unit) {
-        float cr = (float) Math.cos(roll);
-        float sr = (float) Math.sin(roll);
-        float x1 = x * cr - y * sr;
-        float y1 = x * sr + y * cr;
-        float cp = (float) Math.cos(pitch);
-        float sp = (float) Math.sin(pitch);
-        float y2 = y1 * cp - z * sp;
-        float z2 = y1 * sp + z * cp;
-        float cyaw = (float) Math.cos(yaw);
-        float syaw = (float) Math.sin(yaw);
-        float x3 = x1 * cyaw + z2 * syaw;
-        float z3 = -x1 * syaw + z2 * cyaw;
-        float depth = 4.5f - z3;
-        float s = unit * (3.15f / depth);
-        tmp[0] = cx + x3 * s;
-        tmp[1] = cy - y2 * s;
-        tmp[2] = depth;
-        return tmp;
     }
 
     @Override

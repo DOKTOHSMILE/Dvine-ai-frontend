@@ -1,23 +1,41 @@
 # DVINE Android
 
-Native Java client. One face fills the screen. Obi (cyan `#00E5FF`) and Ivie (amber `#FFB300`) do not appear together.
+Native Java client. One face fills the screen: **O-bìì** (Obi, cyan `#00E5FF`) or **Ēèvié** (Ivie, gold `#FFB300`). They switch as each one speaks.
 
-The face changes only when that persona has a line, or when you call the other one.
+The build plan is [`docs/DVINE_MASTER_BUILD_HANDBOOK.md`](docs/DVINE_MASTER_BUILD_HANDBOOK.md). Progress and evidence live in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md).
 
-- Say **Obi switch** or **Ivie switch** to change who is on screen. Speech may hear those as "Ubi switch" and "Eva switch".
-- Ask a question and they switch by themselves as each one speaks. A swipe starts the microphone. It does not change the face.
-- Tap the face and the one on screen speaks.
-- Mic runs the same turn rules as the desk: a short line stays with one voice. A real question lets Obi and Ivie each argue once from their own side, then one of them closes. A rush gets one rebuttal. A consequential ask is refused out loud.
-- Type → Obi or Ivie speaks your words. Ask both runs the turn rules.
+## What works without internet
 
-Motion is sprung, not snapped: blink, glance, brow, jaw, and a slow breathe. Ivie rests happier. Obi rests content. Lips and brows are rigged, not a flat zoom.
+The app ships a basic knowledge file (`app/src/main/assets/knowledge/base_knowledge.json`). With no connection it can:
 
-## Open
+- talk (greetings, who are you, jokes, riddles, help)
+- do maths: "what is 12 times 7", "15 percent of 200", "square root of 81"
+- convert units: "100 km to miles", "30 celsius to fahrenheit"
+- tell the time and date
+- define words: "what does stewardship mean"
+- answer basic facts: "capital of Nigeria"
+- comfort on sad news and share scripture or wisdom with its reference
+- learn: "remember that my brother's name is Tobi" → later "what is my brother's name"
 
-Android Studio or CodeAssist: open this directory. Gradle 8.9, Android Gradle Plugin 8.7.3, Java 17, compileSdk 35, minSdk 34, targetSdk 35.
+When it doesn't know, it says: *"I'm unable to connect to my database to get more information. Please connect to the internet and ask me again."*
 
-No provider key belongs in this project. `api_base` in `strings.xml` stays empty until a private desk URL is set, and even then the session token is not stored in source.
+What it learns stays on the phone. Say **"share what you learned"** to allow upload when online; **"forget that"** / **"forget everything"** to delete. Passwords, PINs, codes and card numbers are never kept.
 
-## Status
+## Controls
 
-Phase 4 is in progress. The turn order is covered by `LocalTurn` and matched on the server. It has not been run on a device in this commit.
+- Swipe across the screen: microphone on/off.
+- Tap the face: the one on screen speaks. Drag the face: turn the head.
+- Tap the input row: type.
+- Say **Obi switch** or **Ivie switch** to change who is on screen.
+
+## Build
+
+Android Studio or CodeAssist: open this directory. Gradle 8.9, AGP 8.7.3, Java 17, compileSdk 35, minSdk 34.
+
+```
+gradle testDebugUnitTest assembleDebug
+```
+
+Regenerate assets: `python3 tools/make_logo.py` (logo + launcher icons), `python3 tools/pack_source.py` (knowledge pack).
+
+No provider key belongs in this project. `api_base` in `strings.xml` stays empty until a private desk URL is set; sync does nothing until then.
