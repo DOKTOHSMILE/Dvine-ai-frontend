@@ -27,9 +27,10 @@ public class MotionTest {
         a[DotBody.NECK * 3 + 1] = 170f;        // head turned round
         a[DotBody.FORE_R * 3 + 1] = -60f;      // right elbow the wrong way (mirrored sign)
         assertEquals(3, DotBody.limit(a));
-        assertEquals(-5f, a[DotBody.SHIN_L * 3], 0f);
-        assertEquals(75f, a[DotBody.NECK * 3 + 1], 0f);
-        assertEquals(-10f, a[DotBody.FORE_R * 3 + 1], 0f);
+        // the body-dimension profile's limits: knee 0..140, neck rotation ±65, elbow 0..145
+        assertEquals(0f, a[DotBody.SHIN_L * 3], 0f);
+        assertEquals(65f, a[DotBody.NECK * 3 + 1], 0f);
+        assertEquals(0f, a[DotBody.FORE_R * 3 + 1], 0f);
     }
 
     @Test

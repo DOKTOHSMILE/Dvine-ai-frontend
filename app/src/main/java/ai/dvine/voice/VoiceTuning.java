@@ -70,6 +70,17 @@ public final class VoiceTuning {
                 if (ranked.isEmpty()) {
                     return false;
                 }
+                // another voice of the persona's own gender first, if the phone has one
+                String want = ivie ? "female" : "male";
+                List<Candidate> same = new ArrayList<Candidate>();
+                for (Candidate c : ranked) {
+                    if (want.equals(c.gender)) {
+                        same.add(c);
+                    }
+                }
+                if (same.size() > 1 || same.size() == 1 && !same.get(0).name.equals(voice)) {
+                    ranked = same;
+                }
                 int at = -1;
                 for (int i = 0; i < ranked.size(); i++) {
                     if (ranked.get(i).name.equals(voice)) {
@@ -112,36 +123,96 @@ public final class VoiceTuning {
         return out;
     }
 
-    /** Default picks: different voices for Obi and Ivie, matching gender when the engine says. */
+    /**
+     * Default picks: a male voice for Obi and a female voice for Ivie. Gender
+     * comes first, then the accent ({@link #rank} order): a male American voice
+     * beats a Nigerian voice of unknown gender for Obi. Only when the phone
+     * has no voice of a gender does a persona borrow another, and then
+     * {@link #pitchFor} shifts it toward the persona.
+     */
     public static String[] pick(List<Candidate> ranked) {
         if (ranked.isEmpty()) {
             return new String[]{null, null};
         }
-        int best = score(ranked.get(0));
-        String male = null;
-        String female = null;
-        for (Candidate c : ranked) {
-            if (score(c) != best) {
-                continue;
-            }
-            if (male == null && "male".equals(c.gender)) male = c.name;
-            if (female == null && "female".equals(c.gender)) female = c.name;
-        }
-        String obi = male != null ? male : ranked.get(0).name;
-        String ivie = female;
-        if (ivie == null) {
-            for (Candidate c : ranked) {
-                if (!c.name.equals(obi)) {
-                    ivie = c.name;
-                    break;
-                }
-            }
-        }
-        if (ivie == null) {
-            ivie = obi;
-        }
+        String obi = first(ranked, "male", null);
+        if (obi == null) obi = first(ranked, "", null);
+        if (obi == null) obi = ranked.get(0).name;
+        String ivie = first(ranked, "female", obi);
+        if (ivie == null) ivie = first(ranked, "", obi);
+        if (ivie == null) ivie = first(ranked, "male", obi);
+        if (ivie == null) ivie = obi;
         return new String[]{obi, ivie};
     }
+
+    private static String first(List<Candidate> ranked, String gender, String not) {
+        for (Candidate c : ranked) {
+            if (gender.equals(c.gender) && !c.name.equals(not)) {
+                return c.name;
+            }
+        }
+        return null;
+    }
+
+    /** Which gender has no voice on this phone ("male", "female"), or null when both do. */
+    public static String missing(List<Candidate> ranked) {
+        boolean male = false, female = false;
+        for (Candidate c : ranked) {
+            male |= "male".equals(c.gender);
+            female |= "female".equals(c.gender);
+        }
+        return !male ? "male" : !female ? "female" : null;
+    }
+
+    /**
+     * The pitch to speak with: the persona's own, shifted when the voice is
+     * of the other gender (a borrowed voice), so Obi still sounds deeper
+     * than Ivie on a phone with only one kind of voice.
+     */
+    public float pitchFor(boolean ivie, String voiceGender) {
+        if (!ivie && "female".equals(voiceGender)) {
+            return clamp(pitch * 0.8f, 0.55f, 1.6f);
+        }
+        if (ivie && "male".equals(voiceGender)) {
+            return clamp(pitch * 1.2f, 0.55f, 1.6f);
+        }
+        return pitch;
+    }
+
+    /**
+     * The gender of a system voice. Engines rarely say it in the features, so
+     * known voice names are read too: Google's three-letter voice codes
+     * ("en-us-x-iom-local"), old Google names ("…#male_1-local") and Samsung's
+     * ("en-US-SMTf00"). Unknown voices return "".
+     */
+    public static String genderOf(String name, java.util.Set<String> features) {
+        if (features != null) {
+            for (String f : features) {
+                String l = f.toLowerCase(Locale.US);
+                if (l.equals("gender=female") || l.equals("female")) return "female";
+                if (l.equals("gender=male") || l.equals("male")) return "male";
+            }
+        }
+        String n = name == null ? "" : name.toLowerCase(Locale.US);
+        if (n.contains("#female") || n.matches(".*\\bfemale\\b.*")) return "female";
+        if (n.contains("#male") || n.matches(".*\\bmale\\b.*")) return "male";
+        java.util.regex.Matcher smt = java.util.regex.Pattern.compile("smt([fm])\\d").matcher(n);
+        if (smt.find()) {
+            return smt.group(1).equals("f") ? "female" : "male";
+        }
+        java.util.regex.Matcher g = java.util.regex.Pattern.compile("^[a-z]{2,3}-[a-z]{2}-x-([a-z]{3})").matcher(n);
+        if (g.find()) {
+            String code = g.group(1);
+            if (GOOGLE_FEMALE.contains(code)) return "female";
+            if (GOOGLE_MALE.contains(code)) return "male";
+        }
+        return "";
+    }
+
+    /** Google TTS English voice codes by gender (US, GB, AU, IN). Others are left unknown rather than guessed. */
+    static final java.util.Set<String> GOOGLE_FEMALE = new java.util.HashSet<String>(java.util.Arrays.asList(
+            "sfg", "iob", "iog", "tpc", "tpf", "gba", "gbc", "gbg", "afh", "aua", "auc", "ahp", "cxx", "ene"));
+    static final java.util.Set<String> GOOGLE_MALE = new java.util.HashSet<String>(java.util.Arrays.asList(
+            "iol", "iom", "tpd", "gbb", "gbd", "rjs", "aub", "aud", "ena", "end"));
 
     static int score(Candidate c) {
         String country = c.country.toUpperCase(Locale.US);

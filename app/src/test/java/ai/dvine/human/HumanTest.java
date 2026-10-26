@@ -163,15 +163,21 @@ public class HumanTest {
     @Test
     public void theHeadStaysConnectedToTheNeck() {
         for (HumanAsset a : new HumanAsset[]{obi, ivie}) {
-            ai.dvine.face.nano.Sculpt body = Anatomy.body(new Skeleton(a.female));
-            // the head piece ends inside the body's neck: its lowest ring is hidden inside
+            // the head piece ends inside the standard body's neck: its lowest ring is hidden inside the body
             float cut = Anatomy.HEAD_CUT_Y * Anatomy.HEAD_SCALE + Anatomy.HEAD_Y;
+            ai.dvine.human.build.BodyFit fit = ai.dvine.human.build.BodyFit.of(a);
+            MeshInside skin = new MeshInside(a.mesh.pos, a.mesh.tri);
             int inside = 0, ring = 0;
             for (int v = 0; v < a.mesh.vertexCount(); v++) {
-                float y = a.mesh.pos[v * 3 + 1];
-                if (a.mesh.region[v] == Regions.NECK && Math.abs(y - cut) < 0.01f) {
+                float[] p = fit.unfit(a.mesh.bone0[v], a.mesh.bone1[v], a.mesh.weight0[v],
+                        a.mesh.pos[v * 3], a.mesh.pos[v * 3 + 1], a.mesh.pos[v * 3 + 2]);
+                if (a.mesh.region[v] == Regions.NECK && Math.abs(p[1] - cut) < 0.01f) {
+                    int own = skin.pieceOfVertex(v);
+                    if (own < 0) {
+                        continue;
+                    }
                     ring++;
-                    if (body.d(a.mesh.pos[v * 3], y, a.mesh.pos[v * 3 + 2]) < 0.004f) {
+                    if ((skin.insideMask(a.mesh.pos[v * 3], a.mesh.pos[v * 3 + 1], a.mesh.pos[v * 3 + 2]) & ~(1L << own)) != 0L) {
                         inside++;
                     }
                 }

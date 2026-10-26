@@ -3,7 +3,7 @@ local.properties
 .idea/
 *.iml
 .DS_Store
-build/
+/build/
 app/build/
 captures/
 *.apk

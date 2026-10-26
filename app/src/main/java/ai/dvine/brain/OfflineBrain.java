@@ -260,6 +260,13 @@ public final class OfflineBrain {
             a.command = "DEMO";
             return a;
         }
+        String inside = anatomyPhrase(text);
+        if (inside != null) {
+            BrainAnswer a = one(speaker, anatomyLine(inside, speaker), "LOOK");
+            a.command = "ANATOMY";
+            a.commandValue = inside;
+            return a;
+        }
         if (text.matches("^(what are you doing|status report|self[- ]?check|body status|what is your status|what's your status)\\??$")) {
             BrainAnswer a = one(speaker, "Let me check myself.", "SELF");
             a.command = "SELF_REPORT";
@@ -362,7 +369,13 @@ public final class OfflineBrain {
     private BrainAnswer revoice(String raw, String text, String speaker) {
         String cmd = null;
         String said = null;
-        if (text.matches(".*\\b(change|switch|try)( your)?( a)?( different| another| new)? voices?\\b.*|.*\\b(another|next|different|new) voice\\b.*")) {
+        if (text.matches("^(test|check|play)( your| the| both)? voices?( test)?( please)?\\??$|^voice (test|check)$|^how do you (both )?sound\\??$")) {
+            cmd = "VOICE_TEST";
+            said = "Let's hear us both.";
+        } else if (text.matches("^(install|add|download|get)( (more|new|better|male|female))? voices?( data)?( please)?$|^voice settings$")) {
+            cmd = "VOICE_INSTALL";
+            said = "Opening the phone's voice settings. Install an English voice pack with male and female voices, then come back.";
+        } else if (text.matches(".*\\b(change|switch|try)( your)?( a)?( different| another| new)? voices?\\b.*|.*\\b(another|next|different|new) voice\\b.*")) {
             cmd = "VOICE_NEXT";
             said = "How does this voice sound?";
         } else if (text.matches(".*\\b(speak|talk) (more )?slow(er|ly)\\b.*|^slow down.*|^(a bit |little )?slower( please)?$")) {
@@ -440,6 +453,52 @@ public final class OfflineBrain {
             return null;
         }
         return ai.dvine.face.nano.DotBody.poseFor(t);
+    }
+
+    /** "Show me your skeleton", "x-ray", "show your heart", "cover up": the anatomical view (Mode B). */
+    static String anatomyPhrase(String text) {
+        String t = stripQuestion(text.trim()).replaceAll("[,!]", "");
+        if (t.matches("^((hide|cover|put away) (your |the )?(skeleton|bones|muscles|organs|insides?|anatomy|x-?ray)|cover up|"
+                + "(stop|end|turn off|exit)( the)? x-?ray( mode)?|back to (your )?(normal )?skin|normal skin)( please)?$")) {
+            return "off";
+        }
+        if (t.matches("^(x-?ray( mode)?|go (transparent|see[- ]through)|show (me )?(everything|what's|what is) inside( you)?|show (me )?your (insides?|anatomy|inner body))( please)?$")) {
+            return "all";
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(?:(?:can you |please |could you )*)(?:show|reveal|display|let me see|show me)(?: me)? (?:your |the )?"
+                + "(skeleton|bones|muscles|organs|blood vessels|vessels|veins|arteries|heart|brain|lungs?|liver|stomach|kidneys?|ribs|rib cage|chest|skull)"
+                + "(?: inside)?(?: please)?$").matcher(t);
+        if (!m.find()) {
+            return null;
+        }
+        String w = m.group(1);
+        switch (w) {
+            case "bones": return "skeleton";
+            case "blood vessels": case "veins": case "arteries": return "vessels";
+            case "lung": return "lungs";
+            case "kidney": return "kidneys";
+            case "ribs": case "rib cage": return "chest";
+            case "skull": return "head";
+            default: return w;
+        }
+    }
+
+    private String anatomyLine(String what, String speaker) {
+        String model = " These are digital models: they show where things are, they don't work like real ones.";
+        switch (what) {
+            case "off": return pick(speaker, "Skin back on.", "Covered up again.");
+            case "skeleton": return "My skeleton: skull, spine, ribs, pelvis and the bones of my arms, hands and legs." + model;
+            case "muscles": return "My main muscles: chest, shoulders, arms, belly, glutes, thighs and calves." + model;
+            case "organs": return "My organs: brain, heart, lungs, liver, stomach, kidneys and intestines." + model;
+            case "vessels": return "The great blood vessels: the aorta, the vena cava, the carotids and the arteries of the legs." + model;
+            case "all": return "Everything inside at once: bones, muscles, organs and vessels." + model;
+            case "heart": return "My heart sits behind the breastbone, a little to the left. It's a model: it doesn't beat.";
+            case "brain": return "My brain, inside the skull. A model of one; my thinking runs on this phone's processor.";
+            case "lungs": return "My two lungs fill most of the chest, either side of the heart." + model;
+            case "chest": return "Inside my chest: the rib cage, the lungs and the heart, with the great vessels." + model;
+            case "head": return "Inside my head: the skull, the jaw and the brain." + model;
+            default: return "Here's my " + what + "." + model;
+        }
     }
 
     private String poseLine(String pose, String speaker) {

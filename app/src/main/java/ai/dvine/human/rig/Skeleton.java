@@ -54,16 +54,33 @@ public final class Skeleton {
     public static final float[] THUMB_DIR = {0.62f, -0.18f, 0.76f};
 
     public final boolean female;
-    /** Shoulder half-width and hip half-width. */
+    /** Shoulder half-width, shoulder joint height and hip half-width. */
     public final float sh;
+    public final float shy;
     public final float hx;
     /** Bind joint positions, xyz per bone. */
     public final float[] joint = new float[COUNT * 3];
 
+    /** A skeleton with the given bind joints (an asset's, fitted to the body-dimension profile). */
+    public Skeleton(boolean female, float[] joints) {
+        this.female = female;
+        sh = Math.abs(joints[DotBody.ARM_L * 3]);
+        shy = joints[DotBody.ARM_L * 3 + 1];
+        hx = Math.abs(joints[DotBody.THIGH_L * 3]);
+        System.arraycopy(joints, 0, joint, 0, COUNT * 3);
+    }
+
+    /**
+     * The blockout layout the sculpts are authored in. Built assets carry
+     * joints fitted to {@link BodyProfile}; rig an asset with those.
+     */
     public Skeleton(boolean female) {
         this.female = female;
-        sh = female ? 0.47f : 0.55f;
-        hx = female ? 0.27f : 0.25f;
+        // shoulder and hip joints where the standard body (StandardBody) has them; the shoulder width is
+        // trimmed toward the body-dimension profile (Obi with his athletic character factor)
+        sh = female ? 0.444f : 0.528f;
+        shy = female ? -0.18f : -0.2f;
+        hx = female ? 0.256f : 0.344f;
         set(DotBody.PELVIS, 0f, -1.5f, 0f);
         set(DotBody.SPINE, 0f, -1.15f, 0f);
         set(DotBody.CHEST, 0f, -0.6f, 0f);
@@ -97,14 +114,26 @@ public final class Skeleton {
     }
 
     private void setArm(int b, int side, float x, float y, float z) {
-        float[] p = armToBody(side, sh, x, y, z);
+        float[] p = arm(side, x, y, z);
         set(b, p[0], p[1], p[2]);
     }
 
-    /** Arm-local → body bind coordinates for one side, in the A-pose. */
-    public static float[] armToBody(int side, float sh, float x, float y, float z) {
+    /** Arm-local → body bind coordinates for one side, in the A-pose, the shoulder joint at (±sh, shy). */
+    public static float[] armToBody(int side, float sh, float shy, float x, float y, float z) {
         float c = (float) Math.cos(Math.toRadians(DotBody.BIND_ARM)), s = (float) Math.sin(Math.toRadians(DotBody.BIND_ARM));
-        return new float[]{side * (sh + x * c + y * s), -0.02f - x * s + y * c, z};
+        return new float[]{side * (sh + x * c + y * s), shy - x * s + y * c, z};
+    }
+
+    /** Arm-local → body bind coordinates on this skeleton. */
+    public float[] arm(int side, float x, float y, float z) {
+        return armToBody(side, sh, shy, x, y, z);
+    }
+
+    /** Body → arm-local coordinates on this skeleton (the inverse of {@link #arm}); {@code side} picks the arm. */
+    public float[] local(int side, float x, float y, float z) {
+        float c = (float) Math.cos(Math.toRadians(DotBody.BIND_ARM)), s = (float) Math.sin(Math.toRadians(DotBody.BIND_ARM));
+        float u = side * x - sh, w = y - shy;
+        return new float[]{u * c - w * s, u * s + w * c, z};
     }
 
     /** True for bones on the persona's right side (stored mirrored in the pose library). */
