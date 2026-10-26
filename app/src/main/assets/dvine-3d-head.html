@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>DVINE 3D Head</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; overflow:hidden; font-family:system-ui,sans-serif; }
+  canvas { display:block; width:100%; height:100%; }
+  #ui {
+    position:absolute; bottom:0; left:0; right:0;
+    background:rgba(10,10,12,0.9); border-top:1px solid #222;
+    padding:12px; display:flex; flex-wrap:wrap; gap:8px;
+    z-index:10;
+  }
+  .ctrl { flex:1; min-width:140px; }
+  .ctrl label { display:block; font-size:10px; color:#888; letter-spacing:0.1em; margin-bottom:4px; }
+  .ctrl input { width:100%; accent-color:#00E5FF; }
+  .btn {
+    height:36px; padding:0 14px; border:1px solid #333; background:#111;
+    color:#00E5FF; font-size:11px; letter-spacing:0.08em; border-radius:6px;
+    cursor:pointer;
+  }
+  .btn.gold { color:#FFB300; border-color:#FFB300; }
+  #status { position:absolute; top:12px; left:12px; color:#00E5FF; font-size:11px; letter-spacing:0.1em; }
+</style>
+</head>
+<body>
+<div id="status">DVINE 3D</div>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="ctrl"><label>SMILE</label><input type="range" id="smile" min="0" max="1" step="0.01" value="0.2"></div>
+  <div class="ctrl"><label>JAW</label><input type="range" id="jaw" min="0" max="1" step="0.01" value="0"></div>
+  <div class="ctrl"><label>BROW</label><input type="range" id="brow" min="-1" max="1" step="0.01" value="0"></div>
+  <div class="ctrl"><label>YAW</label><input type="range" id="yaw" min="-1" max="1" step="0.01" value="0"></div>
+  <button class="btn" id="obi">OBI</button>
+  <button class="btn gold" id="ivie">IVIE</button>
+  <button class="btn" id="talk">TALK</button>
+</div>
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+const canvas = document.getElementById('c');
+const status = document.getElementById('status');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:false, powerPreference:'low-power', alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 10);
+camera.position.set(0, 0.1, 2.2);
+
+const light = new THREE.DirectionalLight(0xffffff, 1.2);
+light.position.set(0.5, 0.8, 1);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040));
+
+function makeHead(color, isIvie) {
+  const geo = new THREE.SphereGeometry(0.55, 24, 18);
+  // Flatten bottom into chin
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let y = pos.getY(i);
+    if (y < -0.1) pos.setX(i, pos.getX(i) * (0.7 + 0.3 * (y + 0.1) / -0.45));
+  }
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: color,
+    wireframe: true,
+    emissive: color,
+    emissiveIntensity: 0.4,
+    roughness: 0.4
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+
+  // Eyes
+  const eyeGeo = new THREE.SphereGeometry(0.06, 12, 8);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+  leftEye.position.set(-0.18, 0.08, 0.42);
+  const rightEye = leftEye.clone();
+  rightEye.position.x = 0.18;
+  mesh.add(leftEye, rightEye);
+
+  // Mouth (simple plane that scales)
+  const mouthGeo = new THREE.PlaneGeometry(0.28, 0.08);
+  const mouthMat = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide });
+  const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+  mouth.position.set(0, -0.18, 0.48);
+  mesh.add(mouth);
+
+  if (isIvie) {
+    // Simple hair planes
+    for (let s = 0; s < 5; s++) {
+      const hairGeo = new THREE.PlaneGeometry(0.08, 0.7);
+      const hairMat = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent:true, opacity:0.7 });
+      const hair = new THREE.Mesh(hairGeo, hairMat);
+      const side = s < 2 ? -1 : 1;
+      hair.position.set(side * (0.25 + s * 0.04), -0.1, -0.1);
+      hair.rotation.z = side * 0.3;
+      mesh.add(hair);
+    }
+  }
+  return { mesh, mouth, leftEye, rightEye };
+}
+
+let current = makeHead(0x00E5FF, false);
+scene.add(current.mesh);
+
+const smile = document.getElementById('smile');
+const jaw = document.getElementById('jaw');
+const brow = document.getElementById('brow');
+const yaw = document.getElementById('yaw');
+document.getElementById('obi').onclick = () => {
+  scene.remove(current.mesh);
+  current = makeHead(0x00E5FF, false);
+  scene.add(current.mesh);
+  status.textContent = 'OBI';
+};
+document.getElementById('ivie').onclick = () => {
+  scene.remove(current.mesh);
+  current = makeHead(0xFFB300, true);
+  scene.add(current.mesh);
+  status.textContent = 'IVIE';
+};
+
+let talking = false;
+document.getElementById('talk').onclick = () => {
+  talking = !talking;
+  status.textContent = talking ? 'TALKING' : 'IDLE';
+};
+
+let t = 0;
+let last = 0;
+function animate(now) {
+  requestAnimationFrame(animate);
+  if (now - last < 33) return; // ~30fps
+  last = now;
+  t += 0.016;
+
+  const s = parseFloat(smile.value);
+  const j = talking ? Math.max(0, Math.sin(t * 8)) * 0.6 : parseFloat(jaw.value);
+  const b = parseFloat(brow.value);
+  const y = parseFloat(yaw.value);
+
+  current.mesh.rotation.y = y * 0.6 + Math.sin(t * 0.3) * 0.05;
+  current.mouth.scale.y = 1 + j * 1.5;
+  current.mouth.position.y = -0.18 - j * 0.04;
+  current.leftEye.scale.y = 1 - Math.abs(b) * 0.4;
+  current.rightEye.scale.y = 1 - Math.abs(b) * 0.4;
+
+  // Subtle breathing
+  current.mesh.scale.y = 1 + Math.sin(t * 1.5) * 0.008;
+
+  renderer.render(scene, camera);
+}
+animate(0);
+
+window.onresize = () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+};
+</script>
+</body>
+</html>
