@@ -33,12 +33,24 @@ public final class HumanStage {
     private final FaceDrive[] face = {new FaceDrive(), new FaceDrive()};
     private final Inspector[] inspector = new Inspector[2];
     private final float[][] shifted = new float[2][];
+    /** ANRE: each persona's particle skin, and the state machine that moves those particles. */
+    private final ai.dvine.anre.ParticleSet[] particles = new ai.dvine.anre.ParticleSet[2];
+    private final ai.dvine.anre.TransformationController[] morph = new ai.dvine.anre.TransformationController[2];
+    /** The object the particles build (shared by both personas), and the download bar. */
+    public final ai.dvine.create.ObjectSession objects = new ai.dvine.create.ObjectSession();
+    private final ai.dvine.create.ObjectSession bar = new ai.dvine.create.ObjectSession();
+    private boolean showingBar;
+    private float barShown = -1f;
+    private int objectSlot = -1;
     private String pose = "stand";
     private boolean demo;
     private float time;
     // gaze toward a touched part for a moment
     private final float[] touchAt = new float[3];
     private float touchUntil = -1f;
+
+    /** The floor the body stands on (body units), where objects stand too. */
+    public static final float FLOOR = -4.2f;
 
     public HumanStage(WireRenderer renderer) {
         this.renderer = renderer;
@@ -84,7 +96,131 @@ public final class HumanStage {
             inspector[slot] = new Inspector(a);
         }
         shifted[slot] = new float[h.pos.length];
-        renderer.setAsset(slot, a);
+        particles[slot] = ai.dvine.anre.HumanParticles.build(a, ai.dvine.anre.HumanParticles.BUDGET);
+        final int sl = slot;
+        morph[slot] = new ai.dvine.anre.TransformationController(() -> bodyIntact(sl));
+        renderer.setAsset(slot, a, particles[slot]);
+        // Mode C: the body assembles from a cloud of its own particles, head first
+        morph[slot].assemble(time);
+    }
+
+    /** The body checks out: geometry, rig, and every particle on its surface (the gate for BODY_RESTORED). */
+    private boolean bodyIntact(int slot) {
+        HumanInstance h = inst[slot];
+        Inspector in = inspector[slot];
+        if (h == null || in == null || particles[slot] == null) {
+            return false;
+        }
+        boolean particlesOk = ai.dvine.anre.ParticleSurfaceMapper.validate(particles[slot], h.asset.mesh,
+                ai.dvine.anre.HumanParticles.parts(h.asset)).isEmpty();
+        if (!particlesOk) {
+            // a damaged layout is re-made exactly from the validated mesh
+            particles[slot] = ai.dvine.anre.HumanParticles.build(h.asset, ai.dvine.anre.HumanParticles.BUDGET);
+            renderer.setAsset(slot, h.asset, particles[slot]);
+        }
+        return in.inspect(h).isEmpty();
+    }
+
+    // ------------------------------------------------------------ transformation (ANRE)
+
+    /**
+     * The visible persona's particles leave the body and build this object (a
+     * validated model only). If the particles already are an object, they
+     * re-form into the new one. Returns false when it can't start.
+     */
+    public synchronized boolean becomeObject(boolean ivie, ai.dvine.create.ObjectModel m) {
+        int slot = ivie ? 1 : 0;
+        if (inst[slot] == null || m == null || !m.valid()) {
+            return false;
+        }
+        upload(slot, m);
+        objectSlot = slot;
+        ai.dvine.anre.TransformationController tc = morph[slot];
+        ai.dvine.anre.TransformationController.State st = tc.state();
+        if (st == ai.dvine.anre.TransformationController.State.OBJECT_COMPLETE
+                || st == ai.dvine.anre.TransformationController.State.OBJECT_MODIFYING) {
+            return tc.modify(true, time);
+        }
+        return tc.begin(true, time);
+    }
+
+    /** The object (or its view) changed: the particles morph from the old version to the new one. */
+    public synchronized boolean objectChanged(boolean ivie) {
+        int slot = ivie ? 1 : 0;
+        ai.dvine.create.ObjectModel m = (showingBar ? bar : objects).model();
+        if (m == null || objectSlot != slot) {
+            return false;
+        }
+        upload(slot, m);
+        return morph[slot].modify(true, time);
+    }
+
+    private void upload(int slot, ai.dvine.create.ObjectModel m) {
+        java.util.List<Integer> triPart = new java.util.ArrayList<Integer>();
+        ai.dvine.human.mesh.TriMesh merged = m.merged(triPart);
+        renderer.setObject(slot, merged.pos, merged.tri, ai.dvine.create.ObjectParticles.targets(m, particles[slot]));
+    }
+
+    /** "Return to your normal form": the object dissolves and the body rebuilds, head first. */
+    public synchronized boolean restoreBody(boolean ivie) {
+        int slot = ivie ? 1 : 0;
+        return morph[slot] != null && morph[slot].restore(time);
+    }
+
+    public synchronized ai.dvine.anre.TransformationController.State morphState(boolean ivie) {
+        ai.dvine.anre.TransformationController tc = morph[ivie ? 1 : 0];
+        return tc == null ? null : tc.state();
+    }
+
+    /** Whether the particles are (becoming) an object, so the stage shows the whole scene. */
+    public synchronized boolean objectMode(boolean ivie) {
+        ai.dvine.anre.TransformationController tc = morph[ivie ? 1 : 0];
+        return tc != null && tc.objectMode();
+    }
+
+    /**
+     * A progress bar made of the body's particles (a download, an install):
+     * {@code fraction} 0..1 fills it; null or a negative value ends it and the
+     * body comes back.
+     */
+    public synchronized void progress(boolean ivie, float fraction) {
+        int slot = ivie ? 1 : 0;
+        if (inst[slot] == null) {
+            return;
+        }
+        if (fraction < 0f) {
+            if (showingBar) {
+                showingBar = false;
+                barShown = -1f;
+                morph[slot].restore(time);
+            }
+            return;
+        }
+        float f = Math.max(0f, Math.min(1f, fraction));
+        if (showingBar && Math.abs(f - barShown) < 0.03f && f < 1f) {
+            return; // re-form only every few percent
+        }
+        ai.dvine.create.ObjectSpec spec = ai.dvine.create.ObjectSpec.of("progress").with("progress", f, true);
+        ai.dvine.create.ObjectModel m = showingBar ? bar.modify(spec) : bar.create(spec, null);
+        if (m == null) {
+            return;
+        }
+        bar.spin = false;
+        bar.yaw = 0f;
+        bar.pitch = 0f;
+        barShown = f;
+        if (!showingBar) {
+            if (morph[slot].objectMode()) {
+                return; // already showing a design: don't take it over
+            }
+            showingBar = true;
+            upload(slot, m);
+            objectSlot = slot;
+            morph[slot].begin(true, time);
+        } else {
+            upload(slot, m);
+            morph[slot].modify(true, time);
+        }
     }
 
     public synchronized boolean ready(boolean ivie) {
@@ -166,8 +302,15 @@ public final class HumanStage {
                 }
                 p = s;
             }
-            float r = slot == 0 ? 0f : 1f, g = slot == 0 ? 0.9f : 0.70f, b = slot == 0 ? 1f : 0f;
-            float lod = bodyView ? 0.85f : 1f;
+            float r = slot == 0 ? 0f : 0.996f, g = slot == 0 ? 0.9f : 0.70f, b = slot == 0 ? 1f : 0f;
+            float lod = bodyView ? 0.7f : 1f;
+            ai.dvine.anre.TransformationController.View v = morph[slot] == null ? null : morph[slot].view(t);
+            if (v != null) {
+                ai.dvine.create.ObjectSession os = showingBar && slot == objectSlot ? bar : objects;
+                float[] om = os.model() != null && slot == objectSlot ? os.matrix(FLOOR, t) : null;
+                renderer.transition(slot, v.from, v.to, v.progress, v.byObject, v.reverse, om,
+                        os == objects ? objects.selected() : -1f, v.bodyFill, new float[]{demo ? (slot == 0 ? -1.5f : 1.5f) : 0f, -1.9f, 0f, 2.4f});
+            }
             renderer.submit(slot, p, h.nor, r, g, b, demo ? 1f : alpha, lod, true);
         }
     }
@@ -178,7 +321,7 @@ public final class HumanStage {
     public synchronized BodyTouch pick(float sx, float sy, boolean ivie, BodyTouch.Kind kind, int count, long now,
                                        long duration) {
         HumanInstance h = inst[ivie ? 1 : 0];
-        if (h == null || demo) {
+        if (h == null || demo || objectMode(ivie)) {
             return null;
         }
         float[] ray = camera.ray(sx, sy);
@@ -188,6 +331,17 @@ public final class HumanStage {
         }
         int bone = h.asset.mesh.bone0[h.asset.mesh.tri[hit.triangle * 3]] & 0xff;
         return new BodyTouch(hit.region, kind, count, now, duration, hit.point, bone, h.toBoneLocal(bone, hit.point));
+    }
+
+    /** The part of the object under a screen point (selected and returned), or null. */
+    public synchronized ai.dvine.create.Component pickObject(float sx, float sy, boolean ivie) {
+        if (!objectMode(ivie) || objects.model() == null || showingBar) {
+            return null;
+        }
+        float[] ray = camera.ray(sx, sy);
+        int id = objects.pick(objects.matrix(FLOOR, time), ray[0], ray[1], ray[2], ray[3], ray[4], ray[5]);
+        objects.select(id);
+        return id < 0 ? null : objects.model().component(id);
     }
 
     /** The body reacts to a touch: it looks at the spot, and a hand comes to a touched shoulder or arm. */

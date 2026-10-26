@@ -69,6 +69,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private ai.dvine.net.DeskClient desk;
     private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors.newSingleThreadExecutor();
     private int askId;
+    /** ANRE: the particles build researched, editable 3D objects. */
+    private ai.dvine.create.CreationDirector creation;
+    private ai.dvine.net.WebClient web;
     private SharedPreferences prefs;
 
     private List<TurnLine> lines = new ArrayList<TurnLine>();
@@ -199,6 +202,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         prefs.edit().putString("desk_room", roomId).apply();
                     }
                 }, null);
+        web = new ai.dvine.net.WebClient(session::serverRoot, session::token, session::invalidate, null);
+        creation = new ai.dvine.create.CreationDirector(humanStage.objects, new File(getFilesDir(), "designs"));
         engine = new ai.dvine.engine.Engine(stage, getFilesDir(), journal::consent);
         sync.setEpisodes(engine.episodes, profile -> handler.post(
                 () -> engine.applyProfile(profile, android.os.SystemClock.uptimeMillis())));
@@ -211,6 +216,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             if (online) {
                 sync.kick(brain.pack().version);
             }
+            // research for 3D objects goes through the server while online
+            creation.setFetcher(online && serverUrl() != null && serverUrl().trim().startsWith("https://") ? web::fetch : null);
         });
 
         stage.wake();
@@ -278,6 +285,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             return;
         }
+        if (create(text)) {
+            return;
+        }
         long now = android.os.SystemClock.uptimeMillis();
         engine.onHeard(text, now);
         TurnRoute route = LocalTurn.route(text, stage.agent());
@@ -289,6 +299,33 @@ public final class MainActivity extends Activity implements StageListener, Liste
         engine.setPersona(stage.agent(), now);
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
+        }
+        if ("VOICE_TEST".equals(reply.command)) {
+            List<TurnLine> test = new ArrayList<TurnLine>();
+            test.add(new TurnLine("obi", "SAY", "This is Obi."));
+            test.add(new TurnLine("ivie", "SAY", "And this is Ivie."));
+            String missing = talk.missingGender();
+            if (missing != null) {
+                boolean ivieBorrows = "female".equals(missing);
+                test.add(new TurnLine(ivieBorrows ? "ivie" : "obi", "SAY", "This phone has no " + missing
+                        + " voice, so I'm borrowing one and tuning it. Say install voices to add one."));
+            }
+            play(test, null);
+            return;
+        }
+        if ("VOICE_INSTALL".equals(reply.command)) {
+            play(reply.lines, () -> {
+                try {
+                    startActivity(new android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA));
+                } catch (RuntimeException noInstaller) {
+                    try {
+                        startActivity(new android.content.Intent("com.android.settings.TTS_SETTINGS"));
+                    } catch (RuntimeException none) {
+                        play(LocalTurn.speakAs(stage.isIvie(), "I couldn't open the voice settings on this phone."), null);
+                    }
+                }
+            });
+            return;
         }
         if (reply.command != null && reply.command.startsWith("VOICE_")) {
             if (talk.adjust(reply.lookIvie, reply.command)) {
@@ -342,6 +379,68 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         play(reply.lines, reply.listenAfter ? this::startListening : null);
+    }
+
+    /**
+     * 3D creation: "design me a modern two-storey house with a pool", "make it
+     * three storeys", "show the floor plan", "return to your normal form".
+     * Building (and reading references) runs off the main thread while a
+     * thought bubble shows; the particles then leave the body and build it.
+     */
+    private boolean create(final String text) {
+        final ai.dvine.create.ObjectRequestInterpreter.Request r = creation.parse(text, stage.objectShown());
+        if (r == null) {
+            return false;
+        }
+        boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
+                || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN;
+        if (!slow) {
+            applyCreation(creation.perform(r));
+            return true;
+        }
+        final int id = ++askId;
+        stopPlay();
+        stage.setThought(creation.researchAvailable() ? "Researching it, then building the geometry…" : "Designing the geometry…");
+        stage.setMode(FaceMode.THINKING);
+        deskThread.execute(() -> {
+            final ai.dvine.create.CreationDirector.Outcome o = creation.perform(r);
+            handler.post(() -> {
+                if (id == askId && !isFinishing()) {
+                    applyCreation(o);
+                }
+            });
+        });
+        return true;
+    }
+
+    private void applyCreation(ai.dvine.create.CreationDirector.Outcome o) {
+        switch (o.action) {
+            case BECOME:
+                stage.setBodyMode(true);
+                if (!stage.becomeObject(o.model)) {
+                    o.lines.clear();
+                    o.lines.add("I couldn't start the transformation just now. Try again in a moment.");
+                }
+                break;
+            case CHANGED:
+                stage.objectChanged();
+                break;
+            case RESTORE:
+                stage.restoreBody();
+                break;
+            default:
+                break;
+        }
+        List<TurnLine> lines = new ArrayList<TurnLine>();
+        for (String l : o.lines) {
+            lines.add(new TurnLine(stage.agent(), "SAY", l));
+        }
+        play(lines, null);
+    }
+
+    @Override
+    public void onObjectPart(ai.dvine.create.Component part) {
+        play(LocalTurn.speakAs(stage.isIvie(), creation.describe(part)), null);
     }
 
     /**

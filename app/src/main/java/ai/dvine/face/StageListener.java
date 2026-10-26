@@ -20,4 +20,8 @@ public interface StageListener {
     default void onBodyTouch(ai.dvine.human.touch.BodyTouch touch) {
         onBodyTap(touch.spoken());
     }
+
+    /** Tap on a part of the object the particles have built (a window, a wheel), already selected. */
+    default void onObjectPart(ai.dvine.create.Component part) {
+    }
 }

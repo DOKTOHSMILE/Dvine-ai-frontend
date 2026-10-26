@@ -362,7 +362,13 @@ public final class OfflineBrain {
     private BrainAnswer revoice(String raw, String text, String speaker) {
         String cmd = null;
         String said = null;
-        if (text.matches(".*\\b(change|switch|try)( your)?( a)?( different| another| new)? voices?\\b.*|.*\\b(another|next|different|new) voice\\b.*")) {
+        if (text.matches("^(test|check|play)( your| the| both)? voices?( test)?( please)?\\??$|^voice (test|check)$|^how do you (both )?sound\\??$")) {
+            cmd = "VOICE_TEST";
+            said = "Let's hear us both.";
+        } else if (text.matches("^(install|add|download|get)( (more|new|better|male|female))? voices?( data)?( please)?$|^voice settings$")) {
+            cmd = "VOICE_INSTALL";
+            said = "Opening the phone's voice settings. Install an English voice pack with male and female voices, then come back.";
+        } else if (text.matches(".*\\b(change|switch|try)( your)?( a)?( different| another| new)? voices?\\b.*|.*\\b(another|next|different|new) voice\\b.*")) {
             cmd = "VOICE_NEXT";
             said = "How does this voice sound?";
         } else if (text.matches(".*\\b(speak|talk) (more )?slow(er|ly)\\b.*|^slow down.*|^(a bit |little )?slower( please)?$")) {

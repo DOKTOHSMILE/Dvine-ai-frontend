@@ -30,6 +30,9 @@ public final class TalkBridge extends UtteranceProgressListener {
     private final VoiceTuning[] tuning = {VoiceTuning.defaults(false), VoiceTuning.defaults(true)};
     private List<VoiceTuning.Candidate> ranked = new ArrayList<VoiceTuning.Candidate>();
     private final java.util.Map<String, Voice> byName = new java.util.HashMap<String, Voice>();
+    private final java.util.Map<String, String> genders = new java.util.HashMap<String, String>();
+    /** "male" or "female" when the phone has no voice of that gender (a persona borrows one), else null. */
+    private volatile String missing;
 
     /** Lets the ambience swell while a line is spoken. */
     public interface Listener {
@@ -100,7 +103,9 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (v != null) {
             tts.setVoice(v);
         }
-        tts.setPitch(thought ? t.thoughtPitch() : t.pitch);
+        String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
+        float pitch = t.pitchFor(ivie, g);
+        tts.setPitch(thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch);
         tts.setSpeechRate(thought ? t.thoughtRate() : t.rate);
         speaking = text;
         Bundle params = new Bundle();
@@ -141,9 +146,12 @@ public final class TalkBridge extends UtteranceProgressListener {
                 continue;
             }
             byName.put(v.getName(), v);
-            list.add(new VoiceTuning.Candidate(v.getName(), l.getCountry(), v.isNetworkConnectionRequired(), gender(v)));
+            String g = VoiceTuning.genderOf(v.getName(), v.getFeatures());
+            genders.put(v.getName(), g);
+            list.add(new VoiceTuning.Candidate(v.getName(), l.getCountry(), v.isNetworkConnectionRequired(), g));
         }
         ranked = VoiceTuning.rank(list);
+        missing = VoiceTuning.missing(ranked);
         String[] picks = VoiceTuning.pick(ranked);
         if (tuning[0].voice == null || !byName.containsKey(tuning[0].voice)) {
             tuning[0].voice = picks[0];
@@ -159,16 +167,16 @@ public final class TalkBridge extends UtteranceProgressListener {
         }
     }
 
-    private static String gender(Voice v) {
-        Set<String> f = v.getFeatures();
-        String n = v.getName().toLowerCase(Locale.US);
-        if ((f != null && f.contains("gender=female")) || n.contains("female")) {
-            return "female";
-        }
-        if ((f != null && f.contains("gender=male")) || n.contains("male")) {
-            return "male";
-        }
-        return "";
+    /** "male" or "female" when the phone has no voice of that gender, else null (known once voices load). */
+    public String missingGender() {
+        return missing;
+    }
+
+    /** The voice each persona speaks with and its gender, for "test your voices". */
+    public String describe(boolean ivie) {
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
+        return (t.voice == null ? "the phone's default voice" : t.voice) + (g.isEmpty() ? "" : " (" + g + ")");
     }
 
     @Override

@@ -45,6 +45,7 @@ public class WireRendererTest {
         public void uniform1i(int loc, int v) { }
         public void uniform2f(int loc, float a, float b) { }
         public void uniform4f(int loc, float a, float b, float c, float d) { }
+        public void uniform3fv(int loc, float[] v) { assertEquals(0, v.length % 3); }
         public void uniformMatrix4(int loc, float[] m) { assertEquals(16, m.length); }
         public void uniformMatrix3(int loc, float[] m) { assertEquals(9, m.length); }
         public int buffer() { return make(); }
@@ -81,8 +82,8 @@ public class WireRendererTest {
         }
         FakeGl gl = new FakeGl();
         WireRenderer r = new WireRenderer(gl);
-        r.setAsset(0, obi);
-        r.setAsset(1, ivie);
+        r.setAsset(0, obi, ai.dvine.anre.HumanParticles.build(obi, 4000));
+        r.setAsset(1, ivie, ai.dvine.anre.HumanParticles.build(ivie, 4000));
         r.onCreated();
         r.onSize(1080, 2000);
         HumanInstance h = new HumanInstance(obi);
@@ -104,7 +105,7 @@ public class WireRendererTest {
         // the GL context is lost: a new one gets fresh objects and drawing continues
         FakeGl gl2 = new FakeGl();
         WireRenderer r2 = new WireRenderer(gl2);
-        r2.setAsset(0, obi);
+        r2.setAsset(0, obi, ai.dvine.anre.HumanParticles.build(obi, 4000));
         r2.onCreated();
         r2.onSize(1080, 2000);
         r2.submit(0, h.pos, h.nor, 0f, 0.9f, 1f, 1f, 1f, true);

@@ -68,4 +68,60 @@ public class VoiceTest {
         assertEquals("VOICE_LOWER", b.respond("deeper voice", "obi").command);
         assertEquals(null, b.respond("the economy is slower this year", "obi").command);
     }
+
+    @Test
+    public void voiceNamesRevealGender() {
+        assertEquals("male", VoiceTuning.genderOf("en-us-x-iom-local", null));
+        assertEquals("female", VoiceTuning.genderOf("en-gb-x-gba-network", null));
+        assertEquals("male", VoiceTuning.genderOf("en-gb-x-rjs-local", null));
+        assertEquals("female", VoiceTuning.genderOf("en-us-x-sfg#female_2-local", null));
+        assertEquals("male", VoiceTuning.genderOf("en-us-x-sfg#male_1-local", null));
+        assertEquals("female", VoiceTuning.genderOf("en-US-SMTf00", null));
+        assertEquals("male", VoiceTuning.genderOf("en-GB-SMTm01", null));
+        assertEquals("female", VoiceTuning.genderOf("anything", new java.util.HashSet<String>(Arrays.asList("gender=female"))));
+        assertEquals("", VoiceTuning.genderOf("en-ng-x-tfn-local", null)); // not guessed
+    }
+
+    @Test
+    public void genderComesBeforeAccent() {
+        List<VoiceTuning.Candidate> r = VoiceTuning.rank(Arrays.asList(
+                new VoiceTuning.Candidate("en-ng-x-tfn-local", "NG", false, ""),
+                new VoiceTuning.Candidate("en-us-x-iom-local", "US", false, "male"),
+                new VoiceTuning.Candidate("en-gb-x-gba-local", "GB", false, "female"),
+                new VoiceTuning.Candidate("en-gb-x-rjs-local", "GB", false, "male")));
+        String[] picks = VoiceTuning.pick(r);
+        assertEquals("a British male beats an American male, both beat a Nigerian voice of unknown gender",
+                "en-gb-x-rjs-local", picks[0]);
+        assertEquals("en-gb-x-gba-local", picks[1]);
+        assertEquals(null, VoiceTuning.missing(r));
+        // "another voice" keeps Obi male
+        VoiceTuning obi = VoiceTuning.defaults(false);
+        obi.voice = "en-gb-x-rjs-local";
+        obi.apply("VOICE_NEXT", false, r, "en-gb-x-gba-local");
+        assertEquals("en-us-x-iom-local", obi.voice);
+    }
+
+    @Test
+    public void aBorrowedVoiceIsShiftedTowardThePersona() {
+        List<VoiceTuning.Candidate> onlyFemale = VoiceTuning.rank(Arrays.asList(
+                new VoiceTuning.Candidate("en-gb-x-gba-local", "GB", false, "female"),
+                new VoiceTuning.Candidate("en-gb-x-gbc-local", "GB", false, "female")));
+        assertEquals("male", VoiceTuning.missing(onlyFemale));
+        String[] picks = VoiceTuning.pick(onlyFemale);
+        assertNotEquals(picks[0], picks[1]);
+        VoiceTuning obi = VoiceTuning.defaults(false), ivie = VoiceTuning.defaults(true);
+        assertTrue(obi.pitchFor(false, "female") < obi.pitch);
+        assertTrue(obi.pitchFor(false, "female") < ivie.pitchFor(true, "female") * 0.8f);
+        assertEquals(ivie.pitch, ivie.pitchFor(true, "female"), 0f);
+        assertTrue(ivie.pitchFor(true, "male") > ivie.pitch);
+    }
+
+    @Test
+    public void testAndInstallVoiceCommands() throws Exception {
+        OfflineBrain b = TestPack.brain(TestPack.tempDir());
+        assertEquals("VOICE_TEST", b.respond("test your voices", "obi").command);
+        assertEquals("VOICE_TEST", b.respond("voice test", "ivie").command);
+        assertEquals("VOICE_INSTALL", b.respond("install voices", "obi").command);
+        assertEquals("VOICE_INSTALL", b.respond("download male voices", "obi").command);
+    }
 }

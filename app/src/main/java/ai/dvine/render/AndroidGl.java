@@ -51,6 +51,11 @@ public final class AndroidGl implements GlApi {
     @Override public void uniform1i(int loc, int v) { GLES30.glUniform1i(loc, v); }
     @Override public void uniform2f(int loc, float a, float b) { GLES30.glUniform2f(loc, a, b); }
     @Override public void uniform4f(int loc, float a, float b, float c, float d) { GLES30.glUniform4f(loc, a, b, c, d); }
+
+    @Override
+    public void uniform3fv(int loc, float[] values) {
+        GLES30.glUniform3fv(loc, values.length / 3, values, 0);
+    }
     @Override public void uniformMatrix4(int loc, float[] m) { GLES30.glUniformMatrix4fv(loc, 1, false, m, 0); }
     @Override public void uniformMatrix3(int loc, float[] m) { GLES30.glUniformMatrix3fv(loc, 1, false, m, 0); }
 

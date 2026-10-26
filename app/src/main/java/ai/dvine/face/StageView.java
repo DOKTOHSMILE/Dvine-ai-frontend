@@ -244,6 +244,41 @@ public final class StageView extends View implements Choreographer.FrameCallback
         }
     }
 
+    // ------------------------------------------------------------ ANRE: the particles as a 3D object
+
+    /** The particles leave the body and build this validated object (or re-form into it). */
+    public boolean becomeObject(ai.dvine.create.ObjectModel m) {
+        return human != null && human.becomeObject(showingIvie, m);
+    }
+
+    /** The object or its view changed: the particles re-form. */
+    public boolean objectChanged() {
+        return human != null && human.objectChanged(showingIvie);
+    }
+
+    /** The object dissolves; the body comes back, head first. */
+    public boolean restoreBody() {
+        return human != null && human.restoreBody(showingIvie);
+    }
+
+    /** Whether the particles are an object (complete or being edited) right now. */
+    public boolean objectShown() {
+        ai.dvine.anre.TransformationController.State st = human == null ? null : human.morphState(showingIvie);
+        return st == ai.dvine.anre.TransformationController.State.OBJECT_COMPLETE
+                || st == ai.dvine.anre.TransformationController.State.OBJECT_MODIFYING;
+    }
+
+    /** A progress bar built from the body's particles (0..1); a negative value ends it. */
+    public void progress(float fraction) {
+        if (human != null) {
+            human.progress(showingIvie, fraction);
+        }
+    }
+
+    public ai.dvine.render.HumanStage humanStage() {
+        return human;
+    }
+
     /** Shows an inner thought in a bubble above the head while thinking; null shows thinking dots. */
     public void setThought(String text) {
         thought = text == null || text.trim().isEmpty() ? null : text.trim();
@@ -667,7 +702,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
         ivie.tick(dt);
         FaceRig r = rig();
         tickScene();
-        boolean wantBody = bodyMode && !sketching;
+        // while the particles are (becoming) an object the camera shows the whole scene
+        boolean objectScene = human != null && human.objectMode(showingIvie);
+        boolean wantBody = (bodyMode || objectScene) && !sketching;
         zoom.step(wantBody ? 1f : 0f, dt);
         boolean space = wantBody || zoom.value > 0.002f;
         if (space != bodySpace) {
@@ -1040,6 +1077,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
     public boolean onTouchEvent(MotionEvent event) {
         float x = event.getX();
         float y = event.getY();
+        if (human != null && human.objectMode(showingIvie) && objectGesture(event)) {
+            return true;
+        }
         float slop = 10f * density;
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -1113,6 +1153,65 @@ public final class StageView extends View implements Choreographer.FrameCallback
             default:
                 return super.onTouchEvent(event);
         }
+    }
+
+    private float pinchStart, zoomStart, twoX, yawStart, twoY, pitchStart;
+    private boolean twoFingers;
+
+    /**
+     * Inspecting an object: two fingers pinch to zoom and drag to turn or tilt
+     * it; a one-finger tap selects the part under it. (A one-finger swipe still
+     * toggles the microphone, handled by the caller.)
+     */
+    private boolean objectGesture(MotionEvent e) {
+        ai.dvine.create.ObjectSession os = human.objects;
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_POINTER_DOWN:
+                if (e.getPointerCount() == 2) {
+                    twoFingers = true;
+                    removeCallbacks(longPress);
+                    pinchStart = spread(e);
+                    zoomStart = os.zoom;
+                    twoX = (e.getX(0) + e.getX(1)) / 2;
+                    twoY = (e.getY(0) + e.getY(1)) / 2;
+                    yawStart = os.yaw;
+                    pitchStart = os.pitch;
+                    os.spin = false;
+                }
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                if (twoFingers && e.getPointerCount() >= 2) {
+                    float k = spread(e) / Math.max(1f, pinchStart);
+                    os.zoom = Math.max(0.4f, Math.min(2.5f, zoomStart * k));
+                    float mx = (e.getX(0) + e.getX(1)) / 2, my = (e.getY(0) + e.getY(1)) / 2;
+                    os.yaw = yawStart + (mx - twoX) / density * 0.6f;
+                    os.pitch = Math.max(-10f, Math.min(85f, pitchStart + (my - twoY) / density * 0.4f));
+                    return true;
+                }
+                return false;
+            case MotionEvent.ACTION_POINTER_UP:
+                return true;
+            case MotionEvent.ACTION_UP:
+                if (twoFingers) {
+                    twoFingers = false;
+                    return true;
+                }
+                if (Math.hypot(e.getX() - downX, e.getY() - downY) < 14f * density && listener != null) {
+                    removeCallbacks(longPress);
+                    ai.dvine.create.Component c = human.pickObject(e.getX(), e.getY(), showingIvie);
+                    if (c != null) {
+                        listener.onObjectPart(c);
+                        return true;
+                    }
+                }
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    private static float spread(MotionEvent e) {
+        return (float) Math.hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1));
     }
 
     /** The body part under a screen point, from the dot nearest to it, or null. */
