@@ -22,11 +22,11 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 | M5 Learning journal | VERIFIED (JVM) | `LearningJournalTest`; v1.2 general facts, answer-after-unknown, corrections override pack (`ThoughtsAndLearningTest`) | — |
 | v1.2 Basic knowledge | VERIFIED (JVM) | core pack v2 (142 facts, 45 wisdom); WordNet dictionary shard 20,775 words; nearest-meaning pivot | device load time |
 | v1.2 Inner thoughts | VERIFIED (JVM) | THINK lines with text, whisper voice in `TalkBridge.whisper`; toggle by voice | listen on device |
-| M6 Connectivity + sync | IN PROGRESS | `Connectivity`, `KnowledgeStore`, `SyncWorker` compile; inert while `api_base` is empty | needs Track S endpoints S-K, S-L |
-| M7 Online client | NOT STARTED | — | after S-K/S-L |
+| M6 Connectivity + sync | VERIFIED (JVM) / device pending | `Connectivity`, `SessionClient` (device sign-in, no secret in the app), `KnowledgeStore`, `SyncWorker` (packs, learning, episodes) against Track S S-K, S-L, S-E; inert while no https server is set ("set server to https://…") | point a phone at a deployed server |
+| M7 Online client | VERIFIED (JVM + local server) / device pending | `net/DeskClient`: questions the phone can't answer go to the server desk when online; thought bubble while waiting; THINK lines in the bubble, SAY lines spoken; one desk room kept, recreated on 404, re-sign-in on 401, offline answer on any failure; `DeskClientTest` (4) and a run against the real backend | real model behind the desk (Track S Phase 2: provider to be chosen) |
 | M8 Voice polish | NOT STARTED | — | — |
 
-Commands run: `gradle testDebugUnitTest assembleDebug` → 76 tests passed (incl. Robolectric LaunchTest), APK built (v0.9.0). `gradle :app:generateHumanAssets` rebuilds the 3D assets.
+Commands run: `gradle testDebugUnitTest assembleDebug` → 80 tests passed (incl. Robolectric LaunchTest), APK built (v0.10.0). `gradle :app:generateHumanAssets` rebuilds the 3D assets.
 Not run: `lintDebug` (dependency download rate-limited in the sandbox), any on-device test.
 
 Known limits:

@@ -65,6 +65,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private LearningJournal journal;
     private Connectivity connectivity;
     private SyncWorker sync;
+    /** M7: questions the phone can't answer go to the server's Obi/Ivie desk when online. */
+    private ai.dvine.net.DeskClient desk;
+    private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private int askId;
     private SharedPreferences prefs;
 
     private List<TurnLine> lines = new ArrayList<TurnLine>();
@@ -183,6 +187,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     final ai.dvine.brain.KnowledgePack full = store.load();
                     handler.post(() -> brain.replacePack(full));
                 });
+        desk = new ai.dvine.net.DeskClient(session::serverRoot, session::token, session::invalidate,
+                new ai.dvine.net.DeskClient.RoomStore() {
+                    @Override
+                    public String get() {
+                        return prefs.getString("desk_room", null);
+                    }
+
+                    @Override
+                    public void put(String roomId) {
+                        prefs.edit().putString("desk_room", roomId).apply();
+                    }
+                }, null);
         engine = new ai.dvine.engine.Engine(stage, getFilesDir(), journal::consent);
         sync.setEpisodes(engine.episodes, profile -> handler.post(
                 () -> engine.applyProfile(profile, android.os.SystemClock.uptimeMillis())));
@@ -246,6 +262,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (text == null || text.trim().isEmpty()) {
             return;
         }
+        askId++; // a newer question makes any desk answer still on its way stale
         if (awaitingName) {
             takeName(text);
             return;
@@ -321,7 +338,37 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
+        if (reply.needsOnline && askDesk(text, reply)) {
+            return;
+        }
         play(reply.lines, reply.listenAfter ? this::startListening : null);
+    }
+
+    /**
+     * Online: hands the question to the server's desk while a thought bubble
+     * shows, then plays its lines. If the server can't be reached the
+     * offline answer plays instead. Returns false when offline.
+     */
+    private boolean askDesk(final String text, final BrainAnswer offline) {
+        if (desk == null || connectivity == null || !connectivity.isOnline() || serverUrl() == null
+                || !serverUrl().trim().startsWith("https://")) {
+            return false;
+        }
+        final int id = ++askId;
+        final String onScreen = stage.agent();
+        stopPlay();
+        stage.setThought(stage.isIvie() ? "Let me ask the desk…" : "Checking with the desk…");
+        stage.setMode(FaceMode.THINKING);
+        deskThread.execute(() -> {
+            final List<TurnLine> lines = desk.ask(text, onScreen);
+            handler.post(() -> {
+                if (id != askId || isFinishing()) {
+                    return; // the user has moved on
+                }
+                play(lines != null ? lines : offline.lines, null);
+            });
+        });
+        return true;
     }
 
     private void takeName(String text) {
@@ -604,6 +651,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         talk.shutdown();
         listen.stop();
         sync.shutdown();
+        deskThread.shutdownNow();
         super.onDestroy();
     }
 }
