@@ -33,3 +33,18 @@ Known limits:
 - No device or emulator test yet; frame rate of the GL wireframe human and of the nano-dot swarm (up to 10k dots) is unmeasured.
 - Deep hip bends stretch a few crotch edges (two-bone linear skinning); visemes are text-timed, not audio-driven.
 - Offline brain is rules + retrieval over the pack, not a language model; free-form reasoning needs the server.
+
+## ANRE body-dimension profile
+
+- `app/src/main/resources/ai/dvine/human/body_dimensions.json` (ANRE_BODY_DIMENSIONS_V1, shipped unchanged) is the single source of joint heights, widths, span and joint limits. `BodyProfile` loads it, validates it (schema, units, finite positions, ordered limits) and converts profile space (metres, front −Z, anatomical left −X) to body space (front +Z, persona left +X, floor −4.2). The body's own height is the scale: `y_body = floor + y·H`.
+- The sculpts are authored in a blockout layout; `BodyFit` re-proportions trunk and legs with a piecewise-linear height map whose knots are the joints, lifts the arms with the shoulder and lengthens upper arm and forearm until the T-pose span matches. The head is left untouched (face identity). The same map moves the skin, the inner anatomy and the joints; the asset carries the fitted joints and the rig uses them.
+- Measured (fitted, standing): hip joint 0.537, knee 0.268, ankle 0.058, shoulder joint 0.822, span 0.997, leg 0.479; hips 0.188 (Obi) and 0.187 (Ivie) against 0.192; head 0.132 (Obi) and 0.142 (Ivie) against 0.135.
+- Character profile over the neutral baseline: Obi's shoulders ×1.1 (0.285, the athletic V-taper of the reference image), Ivie's ×0.98 (0.253).
+- Joint limits from the profile drive the rig where the axes map: neck flexion ±45 and rotation ±65, elbow 0–145, forearm pronation ±80, wrist flexion ±70, hip −30/+120 and abduction ±40, knee 0–140. Shoulder, ankle and wrist deviation keep the rig's own limits (their Euler axes do not map one-to-one). The running stride was trimmed to the 30° hip extension.
+- Contradictions in the profile, reported by `BodyProfile.consistency()` and resolved:
+  - The chin (0.942) and eye line (0.99) contradict the head ratio (0.135 puts the chin near 0.865). The head keeps the ratio.
+  - Because of that, the shoulder joint at 0.835 would leave 0.03 H of neck. It is applied at 0.820 (0.045 H below the implied chin).
+  - The knee landmark (0.265) disagrees with the knee part (0.29), and the ankle landmark (0.055) with the ankle part (0.065). The landmarks are used.
+  - The leg ratio is 0.49, but hip minus ankle in the landmarks is 0.48.
+- Not checked: mesh self-intersection (the validator covers closed shells, indices, normals and degenerate triangles, and the tests cover symmetry, bounds and the joint hierarchy). The legacy nano-dot figure (`DotBody`) keeps its own layout.
+- Inspection views (front, 3/4, side, rear): `docs/brand/anre_obi_profile_views.png`, `docs/brand/anre_ivie_profile_views.png`.

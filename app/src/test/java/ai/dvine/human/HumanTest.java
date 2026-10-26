@@ -166,12 +166,16 @@ public class HumanTest {
             ai.dvine.face.nano.Sculpt body = Anatomy.body(new Skeleton(a.female));
             // the head piece ends inside the body's neck: its lowest ring is hidden inside
             float cut = Anatomy.HEAD_CUT_Y * Anatomy.HEAD_SCALE + Anatomy.HEAD_Y;
+            // the sculpts are in the blockout layout: take each vertex back through the profile fit
+            ai.dvine.human.build.BodyFit fit = ai.dvine.human.build.BodyFit.of(a);
             int inside = 0, ring = 0;
             for (int v = 0; v < a.mesh.vertexCount(); v++) {
-                float y = a.mesh.pos[v * 3 + 1];
+                float[] p = fit.unfit(a.mesh.bone0[v], a.mesh.bone1[v], a.mesh.weight0[v],
+                        a.mesh.pos[v * 3], a.mesh.pos[v * 3 + 1], a.mesh.pos[v * 3 + 2]);
+                float y = p[1];
                 if (a.mesh.region[v] == Regions.NECK && Math.abs(y - cut) < 0.01f) {
                     ring++;
-                    if (body.d(a.mesh.pos[v * 3], y, a.mesh.pos[v * 3 + 2]) < 0.004f) {
+                    if (body.d(p[0], y, p[2]) < 0.004f) {
                         inside++;
                     }
                 }

@@ -36,7 +36,8 @@ public final class HumanInstance {
 
     public HumanInstance(HumanAsset asset) {
         this.asset = asset;
-        this.rig = new HumanRig(new Skeleton(asset.female));
+        this.rig = new HumanRig(asset.joints != null && asset.joints.length >= Skeleton.COUNT * 3
+                ? new Skeleton(asset.female, asset.joints) : new Skeleton(asset.female));
         int n = asset.mesh.vertexCount();
         pos = new float[n * 3];
         nor = new float[n * 3];

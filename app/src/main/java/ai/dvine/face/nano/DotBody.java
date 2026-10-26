@@ -573,7 +573,7 @@ public final class DotBody implements Swarm.Form {
                     boolean right = s == 1;
                     float p = ph + (right ? (float) Math.PI : 0f);
                     float sin = (float) Math.sin(p);
-                    set(a, THIGH_L + s * 3, -10f * amp - 42f * amp * sin, 0f, 2f, right);
+                    set(a, THIGH_L + s * 3, -10f * amp - 40f * amp * sin, 0f, 2f, right); // back leg ends at the 30° hip extension limit
                     set(a, SHIN_L + s * 3, (run ? 25f : 8f) + 70f * amp * Math.max(0f, (float) Math.sin(p - 1.3f)), 0f, 0f, right);
                     set(a, FOOT_L + s * 3, -10f * sin * amp, 0f, 0f, right);
                     set(a, ARM_L + s * 3, 0f, 40f * amp * sin, -76f, right);
@@ -833,6 +833,12 @@ public final class DotBody implements Swarm.Form {
             LIMITS[THIGH_L + o] = new float[]{-130f, 45f, -60f, 75f, -35f, 75f};
             LIMITS[SHIN_L + o] = new float[]{-5f, 160f, -15f, 15f, -130f, 15f};
             LIMITS[FOOT_L + o] = new float[]{-60f, 60f, -30f, 30f, -35f, 35f};
+        }
+        // the body-dimension profile's limits replace these where the axes map onto its motions
+        try {
+            ai.dvine.human.rig.BodyProfile.standard().applyLimits(LIMITS);
+        } catch (RuntimeException missing) {
+            // keep the built-in limits
         }
     }
 

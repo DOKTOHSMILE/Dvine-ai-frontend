@@ -60,10 +60,22 @@ public final class Skeleton {
     /** Bind joint positions, xyz per bone. */
     public final float[] joint = new float[COUNT * 3];
 
+    /** A skeleton with the given bind joints (an asset's, fitted to the body-dimension profile). */
+    public Skeleton(boolean female, float[] joints) {
+        this.female = female;
+        sh = Math.abs(joints[DotBody.ARM_L * 3]);
+        hx = Math.abs(joints[DotBody.THIGH_L * 3]);
+        System.arraycopy(joints, 0, joint, 0, COUNT * 3);
+    }
+
+    /**
+     * The blockout layout the sculpts are authored in. Built assets carry
+     * joints fitted to {@link BodyProfile}; rig an asset with those.
+     */
     public Skeleton(boolean female) {
         this.female = female;
-        sh = female ? 0.47f : 0.55f;
-        hx = female ? 0.27f : 0.25f;
+        sh = female ? 0.47f : 0.51f;
+        hx = female ? 0.27f : 0.28f;
         set(DotBody.PELVIS, 0f, -1.5f, 0f);
         set(DotBody.SPINE, 0f, -1.15f, 0f);
         set(DotBody.CHEST, 0f, -0.6f, 0f);

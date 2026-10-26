@@ -12,6 +12,7 @@ import org.junit.Test;
 import ai.dvine.face.Look;
 import ai.dvine.face.nano.Sculpt;
 import ai.dvine.human.build.Anatomy;
+import ai.dvine.human.build.BodyFit;
 import ai.dvine.human.build.InnerAnatomy;
 import ai.dvine.human.rig.Skeleton;
 
@@ -25,14 +26,17 @@ public class InnerAnatomyTest {
                 a = HumanAsset.read(in);
             }
             assertTrue(a.inner != null && a.innerNames.length > 40);
+            // the sculpts are in the blockout layout: take each point back through the profile fit
             Skeleton sk = new Skeleton(a.female);
+            BodyFit fit = BodyFit.of(a);
             Sculpt body = Anatomy.body(sk), head = Anatomy.head(a.female, Look.defaults(a.female));
             Sculpt hand = Anatomy.hand(a.female);
             List<String> outside = new ArrayList<String>();
             int[] bad = new int[a.innerNames.length], total = new int[a.innerNames.length];
             for (int v = 0; v < a.inner.pos.length / 3; v++) {
-                float x = a.inner.pos[v * 3], y = a.inner.pos[v * 3 + 1], z = a.inner.pos[v * 3 + 2];
                 int part = a.inner.region[v] & 0xff;
+                float[] p = fit.unfit(a.inner.bone0[v], a.inner.pos[v * 3], a.inner.pos[v * 3 + 1], a.inner.pos[v * 3 + 2]);
+                float x = p[0], y = p[1], z = p[2];
                 total[part]++;
                 float d = Math.min(body.d(x, y, z), head.d(x / Anatomy.HEAD_SCALE, (y - Anatomy.HEAD_Y) / Anatomy.HEAD_SCALE,
                         z / Anatomy.HEAD_SCALE) * Anatomy.HEAD_SCALE);

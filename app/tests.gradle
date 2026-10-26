@@ -32,7 +32,7 @@ tasks.register("robolectricJars", Copy) {
 // Pure Java: runs on the compiled app classes, no device needed.
 tasks.register('generateHumanAssets', JavaExec) {
     dependsOn 'compileDebugJavaWithJavac'
-    classpath = files("$buildDir/intermediates/javac/debug/compileDebugJavaWithJavac/classes")
+    classpath = files("$buildDir/intermediates/javac/debug/compileDebugJavaWithJavac/classes", "$projectDir/src/main/resources")
     mainClass = 'ai.dvine.human.build.AssetTool'
     args "$projectDir/src/main/assets/human"
     maxHeapSize = '2g'
