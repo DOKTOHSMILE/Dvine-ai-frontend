@@ -226,6 +226,19 @@ public final class OfflineBrain {
         if (text.matches("^what('s| is) my name$") && userName != null) {
             return one(speaker, "Your name is " + userName + ".", "MEMORY");
         }
+        Scenes.Scene scene = Scenes.forRequest(text, sceneTurn);
+        if (scene != null) {
+            sceneTurn++;
+            List<TurnLine> lines = new ArrayList<TurnLine>();
+            lines.add(new TurnLine(speaker, "THINK", thoughts ? "A scene. I will use my whole body." : null));
+            for (String line : scene.lines) {
+                lines.add(new TurnLine(speaker, "SAY", line));
+            }
+            BrainAnswer a = new BrainAnswer(lines, true, false, "SCENE");
+            a.scenePoses = scene.poses;
+            a.sceneSeconds = scene.seconds();
+            return a;
+        }
         String pose = posePhrase(text);
         if (pose != null) {
             BrainAnswer a = one(speaker, poseLine(pose, speaker), "LOOK");
@@ -379,7 +392,9 @@ public final class OfflineBrain {
         String t = text.trim();
         if (!t.matches("^(please |can you |could you |now )?(do |show me |strike |get into )?(a |an |the |your )?"
                 + "(t[- ]?pose|handstand|squat|crouch|bow|dance|kneel( down)?|sit( down)?|sit cross[- ]legged|meditate|stand( up)?"
-                + "|run|jog|walk|raise your (hands|arms)|hands up|arms up|arms out|spread your arms|relax)"
+                + "|run|jog|walk|raise your (hands|arms)|hands up|arms up|arms out|spread your arms|relax"
+                + "|(some |\\d+ |ten |twenty )?(push[- ]?ups?|press[- ]ups?|sit[- ]?ups?|crunches|squats|lunges|jumping jacks|star jumps)"
+                + "|plank|stretch|cartwheel|back ?flip|flip|somersault|spin|pirouette|box|boxing|punch|kick|fight)"
                 + "( pose)?( for me)?( please)?$")) {
             return null;
         }
@@ -398,6 +413,19 @@ public final class OfflineBrain {
             case "bow": return pick(speaker, "A respectful bow.", "I bow to you.");
             case "dance": return pick(speaker, "Small steps. I am a careful dancer.", "Dance with me!");
             case "handstand": return "Upside down, balanced on my hands.";
+            case "pushups": return pick(speaker, "Push-ups. Back straight, all the way down.", "Push-ups! Count with me.");
+            case "jumping jacks": return "Jumping jacks. Arms up, feet out!";
+            case "squats": return "Squats. Down, and up.";
+            case "lunges": return "Lunges, one leg then the other.";
+            case "plank": return "Holding a plank. Strong belly, steady breath.";
+            case "situps": return "Sit-ups. Slow and controlled.";
+            case "stretch": return pick(speaker, "A long stretch. Breathe out as you lean.", "Stretching. That feels good.");
+            case "cartwheel": return pick(speaker, "Cartwheels, side to side.", "Watch this cartwheel!");
+            case "backflip": return pick(speaker, "A backflip. Please leave this one to the nano dots.", "Backflip!");
+            case "spin": return "Spinning.";
+            case "boxing": return pick(speaker, "Guard up. Jab, jab.", "Float like a butterfly.");
+            case "kick": return "A front kick.";
+            case "talk": return "Standing tall.";
             default: return "Standing tall.";
         }
     }
@@ -928,6 +956,8 @@ public final class OfflineBrain {
     }
 
     private boolean thoughts = true;
+    /** Counts acted scenes, so "act a scene" plays a different one each time. */
+    private int sceneTurn;
 
     /** Inner thoughts spoken softly while working: on by default, "stop thinking aloud" turns them off. */
     public synchronized void setThoughts(boolean on) {

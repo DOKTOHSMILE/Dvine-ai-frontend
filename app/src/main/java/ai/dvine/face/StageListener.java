@@ -10,4 +10,9 @@ public interface StageListener {
 
     /** Long-press anywhere (accessibility): silent typing. */
     void onType();
+
+    /** Tap on the full body: which part was touched ("left hand", "chest", "face"…). */
+    default void onBodyTap(String part) {
+        onHeadTap();
+    }
 }

@@ -32,7 +32,7 @@ Obi: angular flat-top bust, big low-poly triangles, neck column with a slanted V
 
 ## Skin
 
-Look: glowing dots on a sculpted head, with a soft key light, a bright silhouette and extra glow on creases (nose, lips, ears, brow). Obi has an angular crown and a V-cut neck; Ivie's hair streams back. Shape requests ("bigger eyes", "slimmer face", "remove your hair"…) go through `Look`, which re-sculpts the head and body once, in the background. Full body: "show your full body", poses ("do a T-pose", "squat", "sit cross-legged", "run"…), "turn around".
+Look: glowing dots on a sculpted head, with a soft key light, a bright silhouette and extra glow on creases (nose, lips, ears, brow). Obi has an angular crown and a V-cut neck; Ivie's hair streams back. Shape requests ("bigger eyes", "slimmer face", "remove your hair"…) go through `Look`, which re-sculpts the head and body once, in the background. Full body (only when asked; the camera zooms out from the face): "show your full body", poses ("do a T-pose", "squat", "sit cross-legged", "run"…), exercises and stunts ("do push-ups", "jumping jacks", "do a cartwheel", "backflip"…), scenes ("act a scene", "let's do a workout", "show me some stunts"), "turn around". While speaking, the body gestures with its hands. Tap a body part and the persona names it.
 
 ## Hands
 

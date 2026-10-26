@@ -83,6 +83,18 @@ public final class Swarm {
         }
     }
 
+    /** Moves every particle into another frame: p * scale + (0, dy, 0). Used when the camera zooms between face and body. */
+    public void remap(float scale, float dy) {
+        for (int i = 0; i < capacity; i++) {
+            pos[i * 3] *= scale;
+            pos[i * 3 + 1] = pos[i * 3 + 1] * scale + dy;
+            pos[i * 3 + 2] *= scale;
+            vel[i * 3] *= scale;
+            vel[i * 3 + 1] *= scale;
+            vel[i * 3 + 2] *= scale;
+        }
+    }
+
     /** Throws every particle outward; the springs bring them back into the form ("redraw yourself"). */
     public void scatter(float strength) {
         for (int i = 0; i < capacity; i++) {

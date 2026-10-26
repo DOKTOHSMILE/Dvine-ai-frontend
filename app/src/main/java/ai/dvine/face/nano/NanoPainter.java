@@ -86,7 +86,9 @@ public final class NanoPainter {
             scratch = new float[n * 3];
         }
         if (gridWorld == null || gridFloor != floorY) {
-            gridWorld = new float[n * 3];
+            if (gridWorld == null) {
+                gridWorld = new float[n * 3];
+            }
             for (int i = 0; i < n; i++) {
                 gridWorld[i * 3] = grid[i * 3];
                 gridWorld[i * 3 + 1] = floorY;

@@ -268,6 +268,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (reply.object3d != null) {
             stage.showObject(reply.object3d);
         }
+        if (reply.scenePoses != null) {
+            stage.playScene(reply.scenePoses, reply.sceneSeconds);
+        }
         final PendingAction act = reply.action;
         if (act != null && act.kind == PendingAction.Kind.COPY) {
             if (Actions.copy(this, act.content)) {
@@ -368,6 +371,24 @@ public final class MainActivity extends Activity implements StageListener, Liste
     public void onHeadTap() {
         stopPlay();
         play(LocalTurn.call(stage.isIvie()), null);
+    }
+
+    /** A tap on the full body: the persona notices where, and the hand waves back. */
+    @Override
+    public void onBodyTap(String part) {
+        if (part == null || part.equals("face") || part.equals("head")) {
+            onHeadTap();
+            return;
+        }
+        stopPlay();
+        boolean ivie = stage.isIvie();
+        if (part.endsWith("hand")) {
+            stage.playScene(new String[]{"wave"}, new float[]{2.6f});
+        }
+        String[] said = ivie
+                ? new String[]{"Hey, that's my " + part + "!", "You found my " + part + ".", "My " + part + ", gently please."}
+                : new String[]{"That is my " + part + ".", "My " + part + ". Noted.", "You tapped my " + part + "."};
+        play(LocalTurn.speakAs(ivie, said[(int) (System.nanoTime() / 1000L % said.length)]), null);
     }
 
     @Override

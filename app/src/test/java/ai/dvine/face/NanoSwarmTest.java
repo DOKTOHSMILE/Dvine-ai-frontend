@@ -69,7 +69,8 @@ public class NanoSwarmTest {
         float[] xyz = new float[10000 * 3];
         float[] lit = new float[10000];
         float t = 0f;
-        for (String pose : DotBody.POSES) {
+        for (String pose : new String[]{"stand", "tpose", "arms up", "wave", "point", "squat", "sit", "kneel",
+                "run", "walk", "bow", "dance", "handstand", "pushups", "plank", "situps", "stretch", "talk"}) {
             b.setPose(pose);
             int n = 0;
             for (int i = 0; i < 120; i++, t += 1 / 60f) {

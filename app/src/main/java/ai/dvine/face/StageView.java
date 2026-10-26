@@ -50,6 +50,33 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private Swarm.Form drawForm;
     private float drawUntil;
     private boolean bodyMode;
+    // zoom between the close-up face (0) and the full body (1); while zooming everything is in body units
+    private final Spring1D zoom = new Spring1D(3.2f, 1f, 0f);
+    private boolean bodySpace;
+    private final Swarm.Form faceInBody = new Swarm.Form() {
+        @Override
+        public int fill(float[] xyz, float[] lit, int max, float time) {
+            Forms.Head f = showingIvie ? ivieFace : obiFace;
+            if (f == null) {
+                return 0;
+            }
+            int n = f.fill(xyz, lit, max, time);
+            for (int i = 0; i < n * 3; i += 3) {
+                xyz[i] *= DotBody.FACE_SCALE;
+                xyz[i + 1] = xyz[i + 1] * DotBody.FACE_SCALE + DotBody.FACE_Y;
+                xyz[i + 2] *= DotBody.FACE_SCALE;
+            }
+            return n;
+        }
+    };
+    // scenes: a list of poses with how long each lasts
+    private String[] scenePoses;
+    private float[] sceneEnds;
+    private float sceneStart;
+    private int sceneBeat = -1;
+    private float[] tapScreen = new float[0];
+    private float lastYaw;
+    private float lastPitch;
     private final HandPainter hands = new HandPainter();
     private final WireHead.Pose scratchPose = new WireHead.Pose();
     private final Choreographer choreographer = Choreographer.getInstance();
@@ -220,11 +247,64 @@ public final class StageView extends View implements Choreographer.FrameCallback
         sculpt(forIvie);
     }
 
-    /** Full standing body (true) or the face (false). The swarm flies between them. */
+    /**
+     * Full body (true) or the face (false). The app opens on the face; the
+     * camera zooms out to the whole body only when asked, while the dots fly
+     * from the head into the body.
+     */
     public void setBodyMode(boolean on) {
         if (on != bodyMode) {
             bodyMode = on;
-            swarm.scatter(1.2f);
+            swarm.scatter(0.35f);
+            burst(10);
+            if (!on) {
+                scenePoses = null;
+            }
+        }
+    }
+
+    public boolean isBodyMode() {
+        return bodyMode;
+    }
+
+    /**
+     * Acts out a scene: each pose holds for its seconds, in order, while the
+     * persona narrates. Ends standing.
+     */
+    public void playScene(String[] poses, float[] seconds) {
+        if (poses == null || seconds == null || poses.length == 0 || poses.length != seconds.length) {
+            return;
+        }
+        sceneEnds = new float[seconds.length];
+        float t = 0f;
+        for (int i = 0; i < seconds.length; i++) {
+            t += Math.max(0.5f, seconds[i]);
+            sceneEnds[i] = t;
+        }
+        scenePoses = poses.clone();
+        sceneStart = clock;
+        sceneBeat = -1;
+        setBodyMode(true);
+    }
+
+    private void tickScene() {
+        String[] poses = scenePoses;
+        if (poses == null) {
+            return;
+        }
+        float t = clock - sceneStart;
+        int beat = 0;
+        while (beat < sceneEnds.length && t >= sceneEnds[beat]) {
+            beat++;
+        }
+        if (beat >= poses.length) {
+            scenePoses = null;
+            setPose("stand");
+            return;
+        }
+        if (beat != sceneBeat) {
+            sceneBeat = beat;
+            applyPose(poses[beat]);
         }
     }
 
@@ -233,8 +313,13 @@ public final class StageView extends View implements Choreographer.FrameCallback
         if (pose == null) {
             return;
         }
-        bodyPose = pose;
+        scenePoses = null;
         setBodyMode(true);
+        applyPose(pose);
+    }
+
+    private void applyPose(String pose) {
+        bodyPose = pose;
         DotBody o = obiBody, i = ivieBody;
         if (o != null) {
             o.setPose(pose);
@@ -381,20 +466,34 @@ public final class StageView extends View implements Choreographer.FrameCallback
         obi.tick(dt);
         ivie.tick(dt);
         FaceRig r = rig();
+        tickScene();
+        boolean wantBody = bodyMode && !sketching;
+        zoom.step(wantBody ? 1f : 0f, dt);
+        boolean space = wantBody || zoom.value > 0.002f;
+        if (space != bodySpace) {
+            // carry the dots into the other camera frame so nothing jumps
+            if (space) {
+                swarm.remap(DotBody.FACE_SCALE, DotBody.FACE_Y);
+            } else {
+                swarm.remap(1f / DotBody.FACE_SCALE, -DotBody.FACE_Y / DotBody.FACE_SCALE);
+                zoom.value = 0f;
+                zoom.velocity = 0f;
+            }
+            bodySpace = space;
+        }
         Swarm.Form form = null;
         WireHead.Pose pose = scratchPose;
-        if (bodyMode && !sketching) {
-            DotBody b = showingIvie ? ivieBody : obiBody;
-            if (b != null) {
-                form = b;
-                pose = b.pose();
-            }
-        } else {
-            Forms.Head f = showingIvie ? ivieFace : obiFace;
-            if (f != null) {
-                form = f;
-                pose = f.pose;
-            }
+        DotBody b = showingIvie ? ivieBody : obiBody;
+        if (b != null) {
+            b.setTalking(r.mode() == FaceMode.SPEAKING);
+        }
+        Forms.Head f = showingIvie ? ivieFace : obiFace;
+        if (wantBody && b != null) {
+            form = b;
+            pose = b.pose();
+        } else if (f != null) {
+            form = bodySpace ? faceInBody : f;
+            pose = f.pose;
         }
         pose.jaw = r.jaw.value;
         pose.smile = r.smile.value;
@@ -463,14 +562,27 @@ public final class StageView extends View implements Choreographer.FrameCallback
         float unit = lerp(bigUnit, smallUnit, mix);
         float cx = w * 0.5f;
         float cy = padTop + lerp(usable * 0.40f, smallUnit * 1.35f + 12f * density, mix);
-        boolean body = bodyMode && mix < 0.05f;
         float floorY = -2.25f;
-        if (body) {
-            // the body arrives scaled to camera units, feet on DotBody.FLOOR_OUT
-            unit = Math.min(w * 0.42f, usable * 0.4f);
-            cy = padTop + usable * 0.5f;
-            floorY = DotBody.FLOOR_OUT - 0.02f;
+        float e = 0f;
+        float yaw = rig.yaw.value;
+        float pitch = rig.pitch.value + 6f;
+        if (bodySpace) {
+            // zoom from the face to the whole body: the head stays put while the camera pulls back
+            float z = clamp(zoom.value, 0f, 1f);
+            e = z * z * (3f - 2f * z);
+            float u0 = unit / DotBody.FACE_SCALE;
+            float u1 = Math.min(w * 0.42f, usable * 0.36f);
+            float faceCy = cy;
+            unit = (float) Math.exp(lerp((float) Math.log(u0), (float) Math.log(u1), e));
+            float focus = lerp(DotBody.FACE_Y, 0f, e);
+            cy = lerp(faceCy, padTop + usable * 0.55f, e) + focus * unit;
+            floorY = lerp(-2.25f * DotBody.FACE_SCALE + DotBody.FACE_Y, DotBody.FLOOR_OUT - 0.02f, e);
+            yaw = lerp(yaw, yaw * 0.3f, e);
+            pitch = lerp(pitch, 8f, e);
         }
+        boolean body = bodySpace && e > 0.5f;
+        lastYaw = yaw;
+        lastPitch = pitch;
         lastCx = cx;
         lastCy = cy;
         lastUnit = unit;
@@ -485,31 +597,32 @@ public final class StageView extends View implements Choreographer.FrameCallback
         fill.setAlpha(online ? 200 : 140);
         canvas.drawCircle(w * 0.5f, padTop + 10f * density, 3f * density, fill);
 
-        ensureGlow(unit);
+        // glow, sparkles and the listening ring stay with the head as the camera zooms out
+        float hu = bodySpace ? unit * DotBody.FACE_SCALE : unit;
+        float hy = bodySpace ? cy - DotBody.FACE_Y * unit : cy;
+        ensureGlow(hu);
         canvas.save();
-        canvas.translate(cx, cy + unit * 0.1f);
+        canvas.translate(cx, hy + hu * 0.1f);
         glowPaint.setShader(ivieOn ? ivieGlow : obiGlow);
         glowPaint.setAlpha((int) (140 * faceAlpha * Math.max(0.4f, rig.glow.value)));
-        canvas.drawCircle(0f, 0f, unit * 1.35f, glowPaint);
+        canvas.drawCircle(0f, 0f, hu * 1.35f, glowPaint);
         canvas.restore();
 
         // a Blender-like floor, then the persona as nano dots facing the user
-        float yaw = body ? rig.yaw.value * 0.3f : rig.yaw.value;
-        float pitch = body ? 8f : rig.pitch.value + 6f;
         nano.drawGrid(canvas, yaw * 0.3f, 14f, cx, cy, unit, floorY, 1f - mix, density);
         nano.drawSwarm(canvas, swarm, yaw, pitch, cx, cy, unit, color,
                 Math.max(0.35f, faceAlpha) * clamp(rig.glow.value + 0.25f, 0.5f, 1.2f), density, clock);
-        if (!body) {
+        if (!bodySpace) {
             hands.draw(canvas, nano, cx, cy, unit, color, faceAlpha, density);
         }
-        drawSparks(canvas, cx, cy, unit, color);
+        drawSparks(canvas, cx, hy, hu, color);
 
         if (listening) {
             float pulse = 0.5f + 0.5f * (float) Math.sin(clock * 5f);
             stroke.setColor(color);
             stroke.setStrokeWidth(1.5f * density);
             stroke.setAlpha((int) (60 + 80 * pulse));
-            canvas.drawCircle(cx, cy + unit * 0.1f, unit * (1.45f + 0.04f * pulse), stroke);
+            canvas.drawCircle(cx, hy + hu * 0.1f, hu * (1.45f + 0.04f * pulse), stroke);
         }
 
         if (drawForm != null && mix > 0.05f) {
@@ -628,13 +741,44 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 float travel = (float) Math.hypot(x - downX, y - downY);
                 if (swipe && travel > 56f * density) {
                     listener.onMic();
-                } else if (!dragged && travel < 14f * density && headHit.contains(x, y)) {
-                    listener.onHeadTap();
+                } else if (!dragged && travel < 14f * density) {
+                    String part = bodySpace && zoom.value > 0.9f ? partAt(x, y) : null;
+                    if (part != null) {
+                        listener.onBodyTap(part);
+                    } else if (headHit.contains(x, y)) {
+                        listener.onHeadTap();
+                    }
                 }
                 return true;
             default:
                 return super.onTouchEvent(event);
         }
+    }
+
+    /** The body part under a screen point, from the dot nearest to it, or null. */
+    private String partAt(float x, float y) {
+        DotBody b = showingIvie ? ivieBody : obiBody;
+        if (b == null || !bodyMode) {
+            return null;
+        }
+        int n = swarm.active();
+        if (tapScreen.length < n * 3) {
+            tapScreen = new float[swarm.capacity * 3];
+        }
+        WireHead.project(swarm.pos, n, lastYaw, lastPitch, 0f, lastCx, lastCy, lastUnit, tapScreen);
+        float best = (28f * density) * (28f * density);
+        int hit = -1;
+        for (int i = 0; i < n; i++) {
+            float dx = tapScreen[i * 3] - x, dy = tapScreen[i * 3 + 1] - y;
+            float d = dx * dx + dy * dy;
+            // prefer the nearer surface when parts overlap on screen
+            d -= tapScreen[i * 3 + 2] * 40f * density;
+            if (d < best) {
+                best = d;
+                hit = i;
+            }
+        }
+        return b.partAt(hit);
     }
 
     // ------------------------------------------------------------ lifecycle

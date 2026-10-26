@@ -23,7 +23,14 @@ public final class DotBody implements Swarm.Form {
     static final int[] PARENT = {-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15};
 
     public static final String[] POSES = {"stand", "tpose", "arms up", "wave", "point", "squat", "sit", "kneel",
-            "run", "walk", "bow", "dance", "handstand"};
+            "run", "walk", "bow", "dance", "handstand",
+            // exercises and stunts (they loop until another pose is asked for)
+            "pushups", "jumping jacks", "squats", "lunges", "plank", "stretch", "situps", "boxing", "kick",
+            "cartwheel", "backflip", "spin",
+            // the body talks with its hands while the persona explains
+            "talk"};
+    /** Extra pose channels after the bone angles: sideways travel and lift (body units). */
+    static final int TRAVEL = BONES * 3, LIFT = BONES * 3 + 1, CHANNELS = BONES * 3 + 2;
 
     private static final float FLOOR = -4.2f;
     /** Output scale and centre: body units to camera units. */
@@ -31,6 +38,9 @@ public final class DotBody implements Swarm.Form {
     private static final float CENTRE = -1.6f;
     /** Where the feet land in camera units. */
     public static final float FLOOR_OUT = (FLOOR - CENTRE) * OUT;
+    /** How the close-up face maps into body camera units (scale, then height of the head centre). */
+    public static final float FACE_SCALE = 0.34f * OUT;
+    public static final float FACE_Y = (0.66f - CENTRE) * OUT;
     private static final float HEAD_SCALE = 0.34f;
     private static final float HEAD_Y = 0.66f;
 
@@ -52,9 +62,10 @@ public final class DotBody implements Swarm.Form {
 
     // pose state
     private String pose = "stand";
-    private final float[] from = new float[BONES * 3];
-    private final float[] to = new float[BONES * 3];
-    private final float[] now = new float[BONES * 3];
+    private final float[] from = new float[CHANNELS];
+    private final float[] to = new float[CHANNELS];
+    private final float[] now = new float[CHANNELS];
+    private boolean talking;
     private float blendStart = -10f;
     private float lastTime;
     private float ground;
@@ -232,6 +243,18 @@ public final class DotBody implements Swarm.Form {
     /** Which pose a spoken request names ("do a t-pose", "squat", "sit down"…), or null. */
     public static String poseFor(String lower) {
         String t = lower.toLowerCase(Locale.US);
+        if (t.matches(".*\\bpush[- ]?ups?\\b.*") || t.contains("press up") || t.contains("press-up")) return "pushups";
+        if (t.contains("jumping jack") || t.contains("star jump")) return "jumping jacks";
+        if (t.matches(".*\\b(sit[- ]?ups?|crunch(es)?)\\b.*")) return "situps";
+        if (t.matches(".*\\bsquats\\b.*")) return "squats";
+        if (t.contains("lunge")) return "lunges";
+        if (t.contains("plank")) return "plank";
+        if (t.contains("stretch")) return "stretch";
+        if (t.contains("cartwheel")) return "cartwheel";
+        if (t.contains("backflip") || t.contains("back flip") || t.matches(".*\\bflip\\b.*") || t.contains("somersault")) return "backflip";
+        if (t.contains("spin") || t.contains("pirouette")) return "spin";
+        if (t.matches(".*\\b(box|boxing|punch(es)?|fight)\\b.*")) return "boxing";
+        if (t.contains("kick")) return "kick";
         if (t.contains("t-pose") || t.contains("t pose") || t.contains("arms out") || t.contains("spread your arms")) return "tpose";
         if (t.contains("handstand") || t.contains("upside down")) return "handstand";
         if (t.contains("raise your hands") || t.contains("raise your arms") || t.contains("hands up") || t.contains("arms up")) return "arms up";
@@ -266,6 +289,30 @@ public final class DotBody implements Swarm.Form {
         return pose;
     }
 
+    /** While the persona speaks, a standing body explains with its hands; other poses carry on. */
+    public void setTalking(boolean on) {
+        if (on == talking) {
+            return;
+        }
+        talking = on;
+        if (pose.equals("stand")) {
+            System.arraycopy(now, 0, from, 0, now.length);
+            blendStart = lastTime;
+        }
+    }
+
+    private static final String[] PART = {"hips", "belly", "chest", "neck", "head", "left arm", "left forearm",
+            "left hand", "right arm", "right forearm", "right hand", "left thigh", "left knee", "left foot",
+            "right thigh", "right knee", "right foot"};
+
+    /** The body part that dot {@code index} of the last frame belongs to ("left hand", "chest", "face"…). */
+    public String partAt(int index) {
+        if (index < 0) {
+            return null;
+        }
+        return index < count ? PART[bone[index]] : "face";
+    }
+
     /** One full turn so the user sees every side, like orbiting the model in Blender. */
     public void turnAround() {
         spinStart = lastTime;
@@ -275,7 +322,8 @@ public final class DotBody implements Swarm.Form {
     @Override
     public int fill(float[] xyz, float[] lit, int max, float time) {
         lastTime = time;
-        poseAngles(pose, time, to);
+        poseAngles(talking && pose.equals("stand") ? "talk" : pose, time, to);
+        limit(to);
         float b = Math.min(1f, (time - blendStart) / 0.6f);
         b = b * b * (3f - 2f * b);
         for (int i = 0; i < now.length; i++) {
@@ -336,13 +384,16 @@ public final class DotBody implements Swarm.Form {
         }
         // keep the lowest point on the floor (feet, knees, hands in a handstand)
         float want = FLOOR - low;
-        ground += (want - ground) * (time - blendStart < 0.05f ? 1f : 0.6f);
+        // never let the body sink into the floor; settle down onto it softly
+        ground = want > ground ? want : ground + (want - ground) * (time - blendStart < 0.05f ? 1f : 0.6f);
         if (Math.abs(want - ground) > 1.5f) {
             ground = want;
         }
+        float travel = now[TRAVEL];
+        float lift = now[LIFT];
         for (int i = 0; i < n * 3; i += 3) {
-            xyz[i] *= OUT;
-            xyz[i + 1] = (xyz[i + 1] + ground - CENTRE) * OUT;
+            xyz[i] = (xyz[i] + travel) * OUT;
+            xyz[i + 1] = (xyz[i + 1] + ground + lift - CENTRE) * OUT;
             xyz[i + 2] *= OUT;
         }
         return n;
@@ -555,6 +606,152 @@ public final class DotBody implements Swarm.Form {
                 both(a, ARM_L, 0f, 0f, 84f);
                 both(a, THIGH_L, 0f, 0f, 6f + 2f * breathe);
                 break;
+            case "pushups":
+            case "plank": {
+                float d = name.equals("plank") ? 0f : wave(t, 2.2f);
+                float tilt = 12f - 9f * d;
+                a[PELVIS * 3] = 90f - tilt;
+                a[PELVIS * 3 + 1] = 90f; // lie sideways to the viewer, head to the right
+                both(a, ARM_L, 0f, -90f, tilt - 55f * d);
+                both(a, FORE_L, 0f, 0f, 55f * d);
+                both(a, FOOT_L, -35f, 0f, 0f);
+                a[NECK * 3] = -tilt - 10f;
+                break;
+            }
+            case "situps": {
+                float u = wave(t, 2.6f);
+                a[PELVIS * 3] = -90f;
+                a[PELVIS * 3 + 1] = 90f;
+                both(a, THIGH_L, -50f, 0f, 3f);
+                both(a, SHIN_L, 95f, 0f, 0f);
+                a[SPINE * 3] = 30f * u;
+                a[CHEST * 3] = 55f * u;
+                a[NECK * 3] = 10f + 15f * u;
+                both(a, ARM_L, 0f, -80f, -20f + 10f * u);
+                break;
+            }
+            case "jumping jacks": {
+                float u = wave(t, 1.1f);
+                both(a, ARM_L, 0f, 0f, -75f + 155f * u);
+                both(a, FORE_L, 0f, 0f, 8f * u);
+                both(a, THIGH_L, 0f, 0f, 2f + 16f * u);
+                a[LIFT] = 0.22f * Math.abs((float) Math.sin(t * Math.PI * 2 / 1.1f));
+                break;
+            }
+            case "squats": {
+                float[] up = new float[CHANNELS];
+                poseAngles("stand", t, up);
+                poseAngles("squat", t, a);
+                both(a, ARM_L, 0f, -80f, -8f); // arms forward for balance
+                float u = wave(t, 2.4f);
+                for (int i = 0; i < CHANNELS; i++) {
+                    a[i] = up[i] + (a[i] - up[i]) * u;
+                }
+                break;
+            }
+            case "lunges": {
+                float u = wave(t, 3f);
+                boolean right = ((int) (t / 3f)) % 2 == 1;
+                int front = right ? THIGH_R : THIGH_L, back = right ? THIGH_L : THIGH_R;
+                set(a, front, -82f * u, 0f, 3f, right);
+                set(a, front + 1, 88f * u, 0f, 0f, right);
+                set(a, back, 18f * u, 0f, 3f, !right);
+                set(a, back + 1, 95f * u, 0f, 0f, !right);
+                set(a, back + 2, 35f * u, 0f, 0f, !right);
+                both(a, ARM_L, 0f, -25f, -55f);
+                both(a, FORE_L, 0f, -105f, 0f); // hands on hips
+                break;
+            }
+            case "stretch": {
+                float sway = (float) Math.sin(t * 1.1f);
+                both(a, ARM_L, 0f, 0f, 82f);
+                both(a, FORE_L, 0f, 0f, 4f);
+                a[SPINE * 3 + 2] = 9f * sway;
+                a[CHEST * 3 + 2] = 20f * sway;
+                a[NECK * 3 + 2] = 8f * sway;
+                break;
+            }
+            case "boxing": {
+                float hop = Math.abs((float) Math.sin(t * 5f));
+                both(a, THIGH_L, -14f, 0f, 6f);
+                both(a, SHIN_L, 26f, 0f, 0f);
+                both(a, ARM_L, 0f, -62f, -55f);
+                both(a, FORE_L, 0f, -118f, 0f); // fists up, guarding the face
+                int k = (int) (t / 0.6f);
+                float jab = Math.max(0f, (float) Math.sin((t % 0.6f) / 0.6f * Math.PI));
+                boolean right = k % 2 == 1;
+                set(a, right ? ARM_R : ARM_L, 0f, -62f - 26f * jab, -55f + 52f * jab, right);
+                set(a, right ? FORE_R : FORE_L, 0f, -118f * (1f - jab), 0f, right);
+                a[CHEST * 3 + 1] = (right ? 14f : -14f) * jab;
+                a[LIFT] = 0.05f * hop;
+                break;
+            }
+            case "kick": {
+                float k = Math.max(0f, (float) Math.sin((t % 2f) / 2f * Math.PI * 2));
+                both(a, ARM_L, 0f, -62f, -55f);
+                both(a, FORE_L, 0f, -118f, 0f);
+                set(a, THIGH_R, -95f * k, 0f, 4f, true);
+                set(a, SHIN_R, 95f * (1f - k) * (k > 0.05f ? 1f : 0f), 0f, 0f, true);
+                set(a, FOOT_R, -30f * k, 0f, 0f, true);
+                a[CHEST * 3] = -12f * k;
+                break;
+            }
+            case "cartwheel": {
+                float f = (t % 2.4f) / 2.4f;
+                float dir = ((int) (t / 2.4f)) % 2 == 0 ? 1f : -1f;
+                a[PELVIS * 3 + 2] = -360f * f * dir;
+                both(a, ARM_L, 0f, 0f, 80f);
+                both(a, THIGH_L, 0f, 0f, 30f);
+                a[TRAVEL] = dir * (-1.1f + 2.2f * f);
+                break;
+            }
+            case "backflip": {
+                float f = (t % 2.8f) / 2.8f;
+                if (f < 0.25f) { // crouch and swing the arms back
+                    float u = f / 0.25f;
+                    both(a, THIGH_L, -70f * u, 0f, 4f);
+                    both(a, SHIN_L, 95f * u, 0f, 0f);
+                    a[CHEST * 3] = 25f * u;
+                    both(a, ARM_L, 0f, 35f * u, -70f);
+                } else if (f < 0.75f) { // in the air, tucked, turning over backwards
+                    float u = (f - 0.25f) / 0.5f;
+                    float tuck = (float) Math.sin(u * Math.PI);
+                    a[PELVIS * 3] = -360f * u;
+                    both(a, THIGH_L, -115f * tuck, 0f, 4f);
+                    both(a, SHIN_L, 125f * tuck, 0f, 0f);
+                    both(a, ARM_L, 0f, -40f * tuck, -70f + 150f * (1f - tuck));
+                    a[LIFT] = 1.1f * tuck;
+                } else { // land soft, knees bent, then stand tall
+                    float u = 1f - (f - 0.75f) / 0.25f;
+                    both(a, THIGH_L, -60f * u, 0f, 4f);
+                    both(a, SHIN_L, 85f * u, 0f, 0f);
+                    a[CHEST * 3] = 18f * u;
+                    both(a, ARM_L, 0f, -60f * u, -70f + 60f * u);
+                }
+                break;
+            }
+            case "spin":
+                a[PELVIS * 3 + 1] = (t * 300f) % 360f;
+                both(a, ARM_L, 0f, -20f, 70f);
+                both(a, FORE_L, 0f, 0f, 30f);
+                set(a, THIGH_L, -35f, 0f, 30f, false);
+                set(a, SHIN_L, 85f, 0f, 0f, false);
+                break;
+            case "talk": {
+                // conversational gestures: hands open and turn, a shrug, a nod, a little weight shift
+                float l = (float) Math.sin(t * 1.7f), r = (float) Math.sin(t * 1.3f + 1.5f);
+                set(a, ARM_L, 0f, -18f - 12f * l, -68f + 9f * l, false);
+                set(a, FORE_L, 0f, -62f - 28f * l, 0f, false);
+                set(a, HAND_L, 0f, 0f, 18f * l, false);
+                set(a, ARM_R, 0f, -18f - 12f * r, -68f + 9f * r, true);
+                set(a, FORE_R, 0f, -62f - 28f * r, 0f, true);
+                set(a, HAND_R, 0f, 0f, 18f * r, true);
+                a[CHEST * 3 + 1] = 6f * (float) Math.sin(t * 0.9f);
+                a[NECK * 3] = 4f * (float) Math.sin(t * 2.1f);
+                a[PELVIS * 3 + 2] = 1.5f * (float) Math.sin(t * 0.6f);
+                both(a, THIGH_L, 0f, 0f, 1.5f);
+                break;
+            }
             default: // stand: relaxed, arms down, a little breath and weight shift
                 both(a, ARM_L, 0f, -6f, -77f + 1.5f * breathe);
                 both(a, FORE_L, 0f, -14f, 0f);
@@ -564,6 +761,57 @@ public final class DotBody implements Swarm.Form {
                 both(a, THIGH_L, 0f, 0f, 1.5f);
                 break;
         }
+    }
+
+    /** 0 → 1 → 0 once per period, smooth at both ends. */
+    private static float wave(float t, float period) {
+        return 0.5f - 0.5f * (float) Math.cos(t * Math.PI * 2 / period);
+    }
+
+    /**
+     * Joint limits (degrees, left-side convention: x min, x max, y min, y max,
+     * z min, z max) so no request can bend a knee backwards, twist a neck
+     * round or fold an elbow the wrong way. The hips (root) turn freely so
+     * the whole body can flip, lie down or cartwheel. Arms use the level-arm
+     * frame the poses are written in.
+     */
+    static final float[][] LIMITS = new float[BONES][];
+
+    static {
+        LIMITS[SPINE] = new float[]{-30f, 60f, -40f, 40f, -35f, 35f};
+        LIMITS[CHEST] = new float[]{-30f, 70f, -45f, 45f, -35f, 35f};
+        LIMITS[NECK] = new float[]{-45f, 50f, -75f, 75f, -40f, 40f};
+        LIMITS[HEAD] = new float[]{-45f, 50f, -75f, 75f, -40f, 40f};
+        for (int o = 0; o <= 3; o += 3) {
+            LIMITS[ARM_L + o] = new float[]{-100f, 100f, -135f, 70f, -90f, 185f};
+            LIMITS[FORE_L + o] = new float[]{-30f, 30f, -155f, 10f, -20f, 160f};
+            LIMITS[HAND_L + o] = new float[]{-80f, 80f, -45f, 45f, -70f, 70f};
+            LIMITS[THIGH_L + o] = new float[]{-130f, 45f, -60f, 75f, -35f, 75f};
+            LIMITS[SHIN_L + o] = new float[]{-5f, 160f, -15f, 15f, -130f, 15f};
+            LIMITS[FOOT_L + o] = new float[]{-60f, 60f, -30f, 30f, -35f, 35f};
+        }
+    }
+
+    /** Clamps every joint into its limits. Returns how many angles had to move. */
+    static int limit(float[] a) {
+        int moved = 0;
+        for (int b = 0; b < BONES; b++) {
+            float[] l = LIMITS[b];
+            if (l == null) {
+                continue;
+            }
+            boolean right = b >= ARM_R && b <= HAND_R || b >= THIGH_R;
+            for (int k = 0; k < 3; k++) {
+                float sign = right && k > 0 ? -1f : 1f; // right side stores y and z mirrored
+                float v = a[b * 3 + k] * sign;
+                float c = Math.max(l[k * 2], Math.min(l[k * 2 + 1], v));
+                if (c != v) {
+                    moved++;
+                    a[b * 3 + k] = c * sign;
+                }
+            }
+        }
+        return moved;
     }
 
     private static void both(float[] a, int leftBone, float x, float y, float z) {

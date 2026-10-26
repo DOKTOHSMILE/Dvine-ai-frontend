@@ -28,6 +28,9 @@ public final class BrainAnswer {
     public String command;
     /** Extra value for a command, e.g. the server address for SERVER_SET. */
     public String commandValue;
+    /** A scene to act with the full body: one pose per SAY line, and how long each holds. */
+    public String[] scenePoses;
+    public float[] sceneSeconds;
     /** A persona's new look to draw and remember, or null. */
     public ai.dvine.face.Look look;
     public boolean lookIvie;

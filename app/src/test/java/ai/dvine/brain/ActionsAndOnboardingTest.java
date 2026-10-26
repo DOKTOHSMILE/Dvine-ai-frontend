@@ -91,6 +91,11 @@ public class ActionsAndOnboardingTest {
         assertEquals("tpose", pose.commandValue);
         assertEquals("squat", brain.respond("can you squat", "ivie").commandValue);
         assertEquals("TURN", brain.respond("turn around", "obi").command);
+        assertEquals("pushups", brain.respond("do 10 push ups", "obi").commandValue);
+        assertEquals("cartwheel", brain.respond("do a cartwheel", "ivie").commandValue);
+        BrainAnswer scene = brain.respond("act out the tortoise and the hare", "ivie");
+        assertNotNull(scene.scenePoses);
+        assertEquals(scene.scenePoses.length, scene.sceneSeconds.length);
         // ordinary talk is not a pose
         assertTrue(!"POSE".equals(brain.respond("how do I run a business", "obi").command));
         assertEquals("globe", brain.respond("draw the globe", "obi").object3d);
