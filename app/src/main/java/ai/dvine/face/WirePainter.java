@@ -19,6 +19,12 @@ public final class WirePainter {
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final float[] normals;
+    private final float[] light;
+    private final float[] verts2d;
+    private final int[] colors;
+    private final short[] indices;
+    private final Paint skin = new Paint(Paint.ANTI_ALIAS_FLAG);
     private float top;
     private float bottom;
 
@@ -26,6 +32,11 @@ public final class WirePainter {
         this.head = head;
         deformed = new float[head.rest.length];
         screen = new float[head.rest.length];
+        normals = new float[head.rest.length];
+        light = new float[head.vertexCount()];
+        verts2d = new float[head.vertexCount() * 2];
+        colors = new int[head.vertexCount()];
+        indices = new short[head.tris.length];
         for (int i = 0; i < lines.length; i++) {
             lines[i] = new float[head.edgeCount() * 4];
         }
@@ -75,6 +86,8 @@ public final class WirePainter {
                 bottom = y;
             }
         }
+
+        drawSkin(canvas, unit, color, alpha * WireHead.clamp(rig.glow.value, 0.3f, 1.1f), fadeTop, fadeBottom);
 
         for (int i = 0; i < fill.length; i++) {
             fill[i] = 0;
@@ -142,6 +155,39 @@ public final class WirePainter {
                 dot.setAlpha(clampAlpha(alpha * glowLevel * 150f * Math.min(1f, z)));
                 canvas.drawCircle(screen[i * 3], screen[i * 3 + 1], r, dot);
             }
+        }
+    }
+
+    /** Translucent lit skin under the wires: this is what makes the head read as 3D. */
+    private void drawSkin(Canvas canvas, float unit, int color, float alpha, float fadeTop, float fadeBottom) {
+        head.light(screen, unit, normals, light);
+        int n = head.vertexCount();
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = color & 0xFF;
+        for (int i = 0; i < n; i++) {
+            verts2d[i * 2] = screen[i * 3];
+            float y = screen[i * 3 + 1];
+            verts2d[i * 2 + 1] = y;
+            float f = y > fadeTop ? Math.max(0f, (fadeBottom - y) / Math.max(1f, fadeBottom - fadeTop)) : 1f;
+            float l = light[i] * f;
+            int a = clampAlpha(alpha * 150f * l);
+            colors[i] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+        int count = 0;
+        int[] tris = head.tris;
+        for (int t = 0; t < tris.length; t += 3) {
+            float z = (screen[tris[t] * 3 + 2] + screen[tris[t + 1] * 3 + 2] + screen[tris[t + 2] * 3 + 2]) / 3f;
+            if (z < -0.05f) {
+                continue;
+            }
+            indices[count++] = (short) tris[t];
+            indices[count++] = (short) tris[t + 1];
+            indices[count++] = (short) tris[t + 2];
+        }
+        if (count > 0) {
+            canvas.drawVertices(Canvas.VertexMode.TRIANGLES, n * 2, verts2d, 0, null, 0, colors, 0,
+                    indices, 0, count, skin);
         }
     }
 

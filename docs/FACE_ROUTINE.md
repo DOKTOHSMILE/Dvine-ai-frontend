@@ -24,6 +24,14 @@ Change a shape by editing the profile tables or `feature()` in `WireHead`; `docs
 
 All channels go through `Spring1D` via `FaceRig`: blink, glance, brow lifts, smile pulses, jaw on speech, head tilt while listening, slow sway while thinking.
 
+## Target art (approved)
+
+Obi: angular flat-top bust, big low-poly triangles, neck column with a slanted V cut, resting in three-quarter view facing right. Ivie: smooth face with light swept-back hair streaming behind, same bust cut, resting in near profile facing left. Both turn toward the user while listening. A translucent lit skin under the wires gives the 3D depth.
+
+## Hands
+
+`WireHand` (palm grid + three-segment fingers as small tubes) and `Gestures` (~42 emoji poses, skin tones accepted, 🖕 left out). `HandPainter` raises them under the chin, holds ~3 s with the gesture's motion (wave, shake, tap, clap, scribble) and lowers them.
+
 ## Decision note
 
-Ivie has flowing hair (v5.1 note and the latest reference art). Obi is hairless. This overrides v5.0's hairless line for Ivie.
+Ivie keeps light hair (the approved art). It can be removed by deleting `buildHair` if it proves too busy on small screens. Obi is hairless.

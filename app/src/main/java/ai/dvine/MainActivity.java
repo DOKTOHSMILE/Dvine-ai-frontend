@@ -2,52 +2,67 @@ package ai.dvine;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.widget.EditText;
-import android.widget.FrameLayout;
-
-import ai.dvine.brain.BrainAnswer;
-import ai.dvine.brain.LearningJournal;
-import ai.dvine.brain.OfflineBrain;
-import ai.dvine.face.FaceMode;
-import ai.dvine.face.MatrixStageView;
-import ai.dvine.face.StageListener;
-import ai.dvine.net.Connectivity;
-import ai.dvine.net.KnowledgeStore;
-import ai.dvine.net.SyncWorker;
-import ai.dvine.voice.ListenCallback;
-import ai.dvine.turn.LocalTurn;
-import ai.dvine.turn.TurnLine;
-import ai.dvine.turn.TurnRoute;
-import ai.dvine.voice.ListenBridge;
-import ai.dvine.voice.TalkBridge;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.UUID;
 
+import ai.dvine.act.Actions;
+import ai.dvine.brain.BrainAnswer;
+import ai.dvine.brain.LearningJournal;
+import ai.dvine.brain.OfflineBrain;
+import ai.dvine.brain.Onboarding;
+import ai.dvine.brain.PendingAction;
+import ai.dvine.face.FaceMode;
+import ai.dvine.face.StageListener;
+import ai.dvine.face.StageView;
+import ai.dvine.net.Connectivity;
+import ai.dvine.net.KnowledgeStore;
+import ai.dvine.net.SyncWorker;
+import ai.dvine.turn.LocalTurn;
+import ai.dvine.turn.TurnLine;
+import ai.dvine.turn.TurnRoute;
+import ai.dvine.voice.AmbientPad;
+import ai.dvine.voice.ListenBridge;
+import ai.dvine.voice.ListenCallback;
+import ai.dvine.voice.TalkBridge;
+
 /**
- * One face on screen. Lines from {@link LocalTurn} switch the face
- * when Obi or Ivie has something to say, or when the user calls one of them.
+ * No screen UI. One persona on black; swipe to speak. Anything that leaves
+ * the app is asked out loud first and runs only after a spoken yes.
  */
 public final class MainActivity extends Activity implements StageListener, ListenCallback {
     private static final int MIC = 21;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private MatrixStageView stage;
+    private StageView stage;
     private TalkBridge talk;
+    private ListenBridge listen;
+    private AmbientPad ambient;
     private OfflineBrain brain;
+    private LearningJournal journal;
     private Connectivity connectivity;
     private SyncWorker sync;
-    private ListenBridge listen;
-    private List<TurnLine> lines = java.util.Collections.emptyList();
+    private SharedPreferences prefs;
+
+    private List<TurnLine> lines = new ArrayList<TurnLine>();
     private int index;
     private int playId;
+    private Runnable afterPlay;
+
+    private boolean awaitingName;
+    private int nameTries;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,23 +71,31 @@ public final class MainActivity extends Activity implements StageListener, Liste
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         window.setStatusBarColor(0xFF000000);
         window.setNavigationBarColor(0xFF000000);
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
-            window.setDecorFitsSystemWindows(false);
+        window.setDecorFitsSystemWindows(false);
+        WindowInsetsController bars = window.getInsetsController();
+        if (bars != null) {
+            bars.hide(WindowInsets.Type.systemBars());
+            bars.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
         }
-        stage = new MatrixStageView(this);
+        stage = new StageView(this);
         stage.setListener(this);
-        FrameLayout root = new FrameLayout(this);
-        root.addView(stage, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT));
-        setContentView(root);
-        stage.requestApplyInsets();
+        setContentView(stage);
+
+        prefs = getSharedPreferences("dvine", MODE_PRIVATE);
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
+        ambient = new AmbientPad();
+        ambient.setEnabled(prefs.getBoolean("music", true));
+        stage.setSubtitles(prefs.getBoolean("subtitles", true));
+        talk.setListener((ivie, speaking) -> {
+            ambient.setPersona(ivie);
+            ambient.setLevel(speaking ? 1f : 0f);
+        });
 
         KnowledgeStore store = new KnowledgeStore(this);
-        LearningJournal journal = new LearningJournal(new File(getFilesDir(), "learning"));
+        journal = new LearningJournal(new File(getFilesDir(), "learning"));
         brain = new OfflineBrain(store.load(), journal, System::currentTimeMillis, TimeZone.getDefault());
+        brain.setUserName(prefs.getString("user_name", null));
         sync = new SyncWorker(getString(R.string.api_base), deviceId(), journal, store,
                 () -> null, pack -> handler.post(() -> brain.replacePack(pack)));
         connectivity = new Connectivity(this, online -> {
@@ -81,10 +104,29 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 sync.kick(brain.pack().version);
             }
         });
+
+        stage.wake();
+        handler.postDelayed(this::greetOnOpen, 700);
+    }
+
+    private void greetOnOpen() {
+        String name = brain.userName();
+        if (name == null) {
+            awaitingName = true;
+            nameTries = 0;
+            List<TurnLine> l = new ArrayList<TurnLine>();
+            l.add(new TurnLine("obi", "SAY", Onboarding.welcomeQuestion()));
+            stage.gesture("👋");
+            play(l, this::startListening);
+        } else {
+            List<TurnLine> l = new ArrayList<TurnLine>();
+            l.add(new TurnLine(stage.agent(), "SAY", "Welcome back, " + name + "."));
+            stage.gesture("👋");
+            play(l, null);
+        }
     }
 
     private String deviceId() {
-        android.content.SharedPreferences prefs = getSharedPreferences("dvine", MODE_PRIVATE);
         String id = prefs.getString("device_id", null);
         if (id == null) {
             id = UUID.randomUUID().toString();
@@ -93,34 +135,107 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return id;
     }
 
-    /** One place decides who answers: a persona switch, or the brain. */
+    // ------------------------------------------------------------ the one entry point
+
     private void answer(String text) {
-        TurnRoute route = LocalTurn.route(text, stage.agent());
-        if (route.switchOnly) {
-            stage.setStaged(false, "");
-            play(route.lines);
+        if (text == null || text.trim().isEmpty()) {
             return;
         }
-        BrainAnswer reply = brain.respond(text, stage.agent());
-        stage.setStaged(false, "");
-        play(reply.lines);
-        stage.pushActivity(reply.source + "  ·  " + shortLine(text));
+        if (awaitingName) {
+            takeName(text);
+            return;
+        }
+        TurnRoute route = LocalTurn.route(text, stage.agent());
+        if (route.switchOnly) {
+            play(route.lines, null);
+            return;
+        }
+        final BrainAnswer reply = brain.respond(text, stage.agent());
+        if (reply.newName != null) {
+            prefs.edit().putString("user_name", reply.newName).apply();
+        }
+        applyCommand(reply.command);
+        if (reply.gesture != null) {
+            stage.gesture(reply.gesture);
+        }
+        if (reply.sketch != null) {
+            stage.showSketch(reply.sketch);
+        }
+        final PendingAction act = reply.action;
+        if (act != null && act.kind == PendingAction.Kind.COPY) {
+            if (Actions.copy(this, act.content)) {
+                stage.burst(18);
+                play(reply.lines, null);
+            } else {
+                play(LocalTurn.speakAs(stage.isIvie(), "The clipboard refused that. Nothing was copied."), null);
+            }
+            return;
+        }
+        if (act != null && act.kind == PendingAction.Kind.SHARE) {
+            play(reply.lines, () -> {
+                stage.burst(18);
+                if (!Actions.share(this, act)) {
+                    play(LocalTurn.speakAs(stage.isIvie(), "I couldn't find an app to share with on this phone."), null);
+                }
+            });
+            return;
+        }
+        play(reply.lines, reply.listenAfter ? this::startListening : null);
     }
+
+    private void takeName(String text) {
+        String name = Onboarding.parseName(text);
+        if (name == null) {
+            nameTries++;
+            if (nameTries < 2) {
+                play(LocalTurn.speakAs(true, "Sorry, I didn't catch your name. What should we call you?"), this::startListening);
+            } else {
+                awaitingName = false;
+                play(LocalTurn.speakAs(true, "No problem. Whenever you like, just say call me, and your name."), null);
+            }
+            return;
+        }
+        awaitingName = false;
+        prefs.edit().putString("user_name", name).apply();
+        brain.setUserName(name);
+        journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
+        stage.gesture("🫶");
+        stage.burst(24);
+        play(LocalTurn.speakAs(true, Onboarding.welcome(name)), null);
+    }
+
+    private void applyCommand(String command) {
+        if (command == null) {
+            return;
+        }
+        switch (command) {
+            case "MUSIC_OFF":
+                ambient.setEnabled(false);
+                prefs.edit().putBoolean("music", false).apply();
+                break;
+            case "MUSIC_ON":
+                ambient.setEnabled(true);
+                prefs.edit().putBoolean("music", true).apply();
+                break;
+            case "SUBS_OFF":
+                stage.setSubtitles(false);
+                prefs.edit().putBoolean("subtitles", false).apply();
+                break;
+            case "SUBS_ON":
+                stage.setSubtitles(true);
+                prefs.edit().putBoolean("subtitles", true).apply();
+                break;
+            default:
+                break;
+        }
+    }
+
+    // ------------------------------------------------------------ stage input
 
     @Override
     public void onHeadTap() {
         stopPlay();
-        stage.setStaged(false, "");
-        play(LocalTurn.call(stage.isIvie()));
-    }
-
-    @Override
-    public void onDraft(boolean send) {
-        stopPlay();
-        String line = send
-                ? "Nothing was sent. It stays staged until you confirm it out loud."
-                : "Shorter: we stop here, and nothing goes out.";
-        play(LocalTurn.speakAs(stage.isIvie(), line));
+        play(LocalTurn.call(stage.isIvie()), null);
     }
 
     @Override
@@ -130,60 +245,65 @@ public final class MainActivity extends Activity implements StageListener, Liste
             stage.setListening(false);
             return;
         }
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        startListening();
+    }
+
+    private void startListening() {
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, MIC);
             return;
         }
         stopPlay();
         stage.setListening(true);
-        stage.setNotice("");
+        stage.setSubtitle("");
         stage.setMode(FaceMode.LISTENING);
         listen.start(this);
-    }
-
-    @Override
-    public void onPartial(String text) {
-        stage.setNotice(text);
-    }
-
-    @Override
-    public void onResult(String text) {
-        stage.setListening(false);
-        stage.setNotice("");
-        answer(text);
-    }
-
-    @Override
-    public void onError(String message) {
-        stage.setListening(false);
-        stage.setNotice(message);
-        stage.setMode(FaceMode.ERROR);
     }
 
     @Override
     public void onType() {
         final EditText input = new EditText(this);
         input.setTextColor(0xFFEDEDED);
-        input.setHint("Ask anything, or say Obi switch / Ivie switch");
+        input.setHint(awaitingName ? "Your name" : "Ask anything");
         input.setHintTextColor(0xFF8A8A8A);
         input.setBackgroundColor(0xFF000000);
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         input.setPadding(pad, pad, pad, pad);
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(stage.isIvie() ? "Talk to Ivie" : "Talk to Obi")
                 .setView(input)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Ask", (d, w) -> answer(input.getText().toString()))
                 .show();
     }
 
-    private void play(List<TurnLine> next) {
+    @Override
+    public void onPartial(String text) {
+        stage.setSubtitle(text);
+    }
+
+    @Override
+    public void onResult(String text) {
+        stage.setListening(false);
+        stage.setSubtitle(text);
+        answer(text);
+    }
+
+    @Override
+    public void onError(String message) {
+        stage.setListening(false);
+        stage.setSubtitle(message);
+        stage.setMode(FaceMode.ERROR);
+    }
+
+    // ------------------------------------------------------------ playback
+
+    private void play(List<TurnLine> next, Runnable done) {
         stopPlay();
-        stage.clearActivity();
         lines = next;
         index = 0;
-        final int token = playId;
-        step(token);
+        afterPlay = done;
+        step(playId);
     }
 
     private void step(final int token) {
@@ -192,47 +312,38 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (index >= lines.size()) {
             stage.setMode(FaceMode.DONE);
+            Runnable done = afterPlay;
+            afterPlay = null;
+            if (done != null) {
+                handler.postDelayed(() -> {
+                    if (token == playId) {
+                        done.run();
+                    }
+                }, 250);
+            }
             return;
         }
         final TurnLine line = lines.get(index);
         index++;
         final boolean ivie = "ivie".equals(line.agent);
-        if ("SAY".equals(line.cue)) {
-            stage.setCaption(line.text == null ? "" : line.text);
-            stage.pushActivity("TTS  ·  " + shortLine(line.text));
-            stage.ensureFace(ivie, () -> {
-                if (token != playId) {
-                    return;
-                }
+        stage.ensureFace(ivie, () -> {
+            if (token != playId) {
+                return;
+            }
+            if ("SAY".equals(line.cue)) {
                 stage.setMode(FaceMode.SPEAKING);
+                stage.setSubtitle(line.text);
                 talk.speak(ivie, line.text, () -> step(token));
-            });
-        } else {
-            stage.ensureFace(ivie, () -> {
-                if (token != playId) {
-                    return;
-                }
+            } else {
                 stage.setMode(FaceMode.THINKING);
-                stage.setCaption(ivie ? "Ivie is thinking" : "Obi is thinking");
-                stage.pushActivity("GATE  ·  Checking the request");
-                handler.postDelayed(() -> step(token), 460);
-            });
-        }
-    }
-
-    private static String shortLine(String text) {
-        if (text == null) {
-            return "";
-        }
-        String clean = text.replace('\n', ' ').trim();
-        if (clean.length() <= 42) {
-            return clean;
-        }
-        return clean.substring(0, 41) + "...";
+                handler.postDelayed(() -> step(token), 520);
+            }
+        });
     }
 
     private void stopPlay() {
         playId++;
+        afterPlay = null;
         handler.removeCallbacksAndMessages(null);
         if (talk != null) {
             talk.stop();
@@ -243,13 +354,19 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
+    // ------------------------------------------------------------ lifecycle
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == MIC && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            onMic();
-        } else if (requestCode == MIC) {
-            stage.setNotice("Microphone is off. Type instead.");
+        if (requestCode != MIC) {
+            return;
+        }
+        if (results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            startListening();
+        } else {
+            play(LocalTurn.speakAs(stage.isIvie(),
+                    "I need the microphone to hear you. You can still type by pressing and holding the screen."), null);
         }
     }
 
@@ -257,11 +374,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
     protected void onStart() {
         super.onStart();
         connectivity.start();
+        ambient.start();
     }
 
     @Override
     protected void onStop() {
         connectivity.stop();
+        ambient.stop();
         super.onStop();
     }
 
@@ -273,15 +392,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     @Override
     protected void onDestroy() {
-        if (talk != null) {
-            talk.shutdown();
-        }
-        if (sync != null) {
-            sync.shutdown();
-        }
-        if (listen != null) {
-            listen.stop();
-        }
+        talk.shutdown();
+        listen.stop();
+        sync.shutdown();
         super.onDestroy();
     }
 }

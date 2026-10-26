@@ -21,12 +21,20 @@ When it doesn't know, it says: *"I'm unable to connect to my database to get mor
 
 What it learns stays on the phone. Say **"share what you learned"** to allow upload when online; **"forget that"** / **"forget everything"** to delete. Passwords, PINs, codes and card numbers are never kept.
 
-## Controls
+## Controls (there is no screen UI)
 
-- Swipe across the screen: microphone on/off.
+- Swipe anywhere: microphone on/off.
 - Tap the face: the one on screen speaks. Drag the face: turn the head.
-- Tap the input row: type.
+- Long-press (accessibility): type silently.
 - Say **Obi switch** or **Ivie switch** to change who is on screen.
+
+On first open Obi asks your name and remembers it ("call me …" changes it).
+
+Actions are asked, then confirmed by voice:
+- "Post this on WhatsApp: Good morning" → "Shall I open WhatsApp with this post…?" → "yes" → WhatsApp opens on the post screen with the text; **you** press send.
+- "Copy that" → "Shall I copy…?" → "yes" → "Copied. It's on your clipboard."
+
+They gesture with wireframe hands (👍 👋 🙏 🤝 🫶 🤲 and ~40 more; "show me a thumbs up"), draw explanations on the black canvas ("explain 3 plus 4", "draw a triangle", "explain the solar system"), and speak slowly in Nigerian English voices where the phone has them, over a soft synthesised pad ("music off" / "music on", "hide subtitles").
 
 ## Build
 

@@ -12,6 +12,18 @@ public final class BrainAnswer {
     public final boolean needsOnline;
     /** Short label for the activity card, e.g. "CALC" or "PACK". */
     public final String source;
+    /** Gesture key for the hands (an emoji such as "👋"), or null. */
+    public String gesture;
+    /** Drawing to show while speaking, or null. */
+    public ai.dvine.face.Sketch sketch;
+    /** Confirmed action to run before speaking, or null. */
+    public PendingAction action;
+    /** Open the microphone after the last line (a question was asked). */
+    public boolean listenAfter;
+    /** A name the user just gave ("call me …"), to store in the profile. */
+    public String newName;
+    /** Device setting change: MUSIC_ON, MUSIC_OFF, SUBS_ON, SUBS_OFF, or null. */
+    public String command;
 
     BrainAnswer(List<TurnLine> lines, boolean answered, boolean needsOnline, String source) {
         this.lines = Collections.unmodifiableList(lines);

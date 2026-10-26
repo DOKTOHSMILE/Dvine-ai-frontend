@@ -51,6 +51,9 @@ public final class OfflineBrain {
     private final TimeZone zone;
     private int turn;
     private String lastKey;
+    private final ActionPlanner planner = new ActionPlanner();
+    private String userName;
+    private String lastSaid;
 
     public OfflineBrain(KnowledgePack pack, LearningJournal journal, Clock clock, TimeZone zone) {
         this.pack = pack;
@@ -69,13 +72,41 @@ public final class OfflineBrain {
         return pack;
     }
 
+    public synchronized void setUserName(String name) {
+        userName = name;
+    }
+
+    public synchronized String userName() {
+        return userName;
+    }
+
     public synchronized BrainAnswer respond(String raw, String onScreen) {
+        BrainAnswer a = respondInner(raw, onScreen);
+        if (a.gesture == null) {
+            a.gesture = gestureFor(a);
+        }
+        if (a.action == null && !a.listenAfter && planner.pending(clock.now()) == null) {
+            for (int i = a.lines.size() - 1; i >= 0; i--) {
+                if ("SAY".equals(a.lines.get(i).cue) && a.lines.get(i).text != null) {
+                    lastSaid = a.lines.get(i).text;
+                    break;
+                }
+            }
+        }
+        return a;
+    }
+
+    private BrainAnswer respondInner(String raw, String onScreen) {
         turn++;
         String speaker = "ivie".equals(onScreen) ? "ivie" : "obi";
         String text = normalize(raw);
         if (text.length() == 0) {
             return one(speaker, pick(speaker, "I'm here. Give me the goal and the constraint.",
                     "I'm here. Tell me what you want, and I'll stay with you."), "PACK");
+        }
+        BrainAnswer pre = beforeGate(raw, text, speaker);
+        if (pre != null) {
+            return pre;
         }
         if (LocalTurn.consequential(text)) {
             return new BrainAnswer(LocalTurn.script(raw, speaker), true, false, "GATE");
@@ -97,6 +128,133 @@ public final class OfflineBrain {
     }
 
     // ------------------------------------------------------------ handlers
+
+    /** Confirmations, actions, settings, gestures and drawings: handled before the safety gate. */
+    private BrainAnswer beforeGate(String raw, String text, String speaker) {
+        long now = clock.now();
+        ActionPlanner.Reply reply = planner.reply(text, now);
+        if (reply == ActionPlanner.Reply.CONFIRMED) {
+            PendingAction act = planner.take();
+            BrainAnswer a = act.kind == PendingAction.Kind.COPY
+                    ? one(speaker, "Copied. It's on your clipboard.", "ACT")
+                    : one(speaker, "Opening " + act.appName() + " now. The post is ready; press send when you're happy with it.", "ACT");
+            a.action = act;
+            a.gesture = "👍";
+            return a;
+        }
+        if (reply == ActionPlanner.Reply.CANCELLED) {
+            BrainAnswer a = one(speaker, "Cancelled. Nothing was shared.", "ACT");
+            a.gesture = "✋";
+            return a;
+        }
+        String cased = cased(raw);
+        PendingAction planned = planner.plan(cased, lastSaid, now);
+        if (planned != null) {
+            BrainAnswer a = one(speaker, ActionPlanner.question(planned), "ACT");
+            a.listenAfter = true;
+            a.gesture = "🫴";
+            return a;
+        }
+        String name = Onboarding.rename(cased);
+        if (name != null) {
+            userName = name;
+            journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
+            BrainAnswer a = one(speaker, "Alright, " + name + ". I'll call you that.", "LEARN");
+            a.newName = name;
+            a.gesture = "🤝";
+            return a;
+        }
+        if (text.matches("^(turn |switch )?(the )?music (off|stop)$|^(stop|mute) (the )?music$|^no music$")) {
+            BrainAnswer a = one(speaker, "Music off.", "SET");
+            a.command = "MUSIC_OFF";
+            return a;
+        }
+        if (text.matches("^(turn |switch )?(the )?music on$|^play (the )?music$")) {
+            BrainAnswer a = one(speaker, "Music on, softly.", "SET");
+            a.command = "MUSIC_ON";
+            return a;
+        }
+        if (text.matches("^(hide|turn off) (the )?(subtitles|captions)$")) {
+            BrainAnswer a = one(speaker, "Subtitles hidden.", "SET");
+            a.command = "SUBS_OFF";
+            return a;
+        }
+        if (text.matches("^(show|turn on) (the )?(subtitles|captions)$")) {
+            BrainAnswer a = one(speaker, "Subtitles on.", "SET");
+            a.command = "SUBS_ON";
+            return a;
+        }
+        if (text.matches("^what('s| is) my name$") && userName != null) {
+            return one(speaker, "Your name is " + userName + ".", "MEMORY");
+        }
+        ai.dvine.face.Sketch sketch = ai.dvine.face.Sketch.forRequest(text);
+        if (sketch != null) {
+            BrainAnswer a = one(speaker, sketchLine(sketch), "DRAW");
+            a.sketch = sketch;
+            a.gesture = "👉";
+            return a;
+        }
+        String g = ai.dvine.face.Gestures.find(raw);
+        if (g != null) {
+            BrainAnswer a = one(speaker, pick(speaker, "Here.", "Here you go."), "GESTURE");
+            a.gesture = g;
+            return a;
+        }
+        return null;
+    }
+
+    private static String sketchLine(ai.dvine.face.Sketch s) {
+        String t = s.title;
+        if (t.contains(" plus ")) {
+            String[] p = t.split(" plus ");
+            int a = Integer.parseInt(p[0]);
+            int b = Integer.parseInt(p[1]);
+            return "Here are " + a + " dots, and here are " + b + " more. Put them together and count: " + (a + b) + ".";
+        }
+        switch (t) {
+            case "one half": return "Cut a circle into two equal parts. Each part is one half.";
+            case "one quarter": return "Cut it into four equal parts. Each one is a quarter.";
+            case "one third": return "Three equal parts. Each one is a third.";
+            case "solar system": return "The Sun sits in the middle. Mercury, Venus, Earth and Mars circle closest to it.";
+            case "steps": return "Every plan moves the same way: name the goal, make the plan, check it, then do it.";
+            case "water cycle": return "Water rises from the sea as vapour, gathers into clouds, and falls back as rain.";
+            default: return "Let me draw a " + t + " for you.";
+        }
+    }
+
+    private String gestureFor(BrainAnswer a) {
+        if (a.source == null) {
+            return null;
+        }
+        switch (a.source) {
+            case "CARE":
+                return a.spoken().contains("sorry") ? "🤲" : (turn % 2 == 0 ? "🙏" : "🤝");
+            case "CALC":
+            case "DICT":
+                return "☝";
+            case "WISDOM":
+                return "🙌";
+            case "OFFLINE":
+                return "🫴";
+            case "GATE":
+                return "✋";
+            case "LEARN":
+                return "👌";
+            case "PACK": {
+                String s = a.spoken().toLowerCase(Locale.US);
+                if (s.startsWith("hello") || s.startsWith("hi") || s.startsWith("good to see") || s.startsWith("goodbye")
+                        || s.startsWith("until next") || s.startsWith("sleep well")) {
+                    return "👋";
+                }
+                if (s.contains("joke") || s.contains("cache") || s.contains("checked a sunrise") || s.contains("quick plan")) {
+                    return "🤙";
+                }
+                return null;
+            }
+            default:
+                return null;
+        }
+    }
 
     private BrainAnswer memoryCommands(String text, String cased, String speaker) {
         if (text.matches("^(share|upload|send) (what you('ve)? learn(ed|t)?|your learning)$")
@@ -263,7 +421,11 @@ public final class OfflineBrain {
             return null;
         }
         List<String> options = "ivie".equals(speaker) ? best.ivie : best.obi;
-        return one(speaker, options.get(turn % options.size()), "PACK");
+        String line = options.get(turn % options.size());
+        if (userName != null && ("greet".equals(best.id) || "bye".equals(best.id))) {
+            line = line.replaceFirst("^(Hello|Hi|Goodbye|Good to see you|Sleep well|Until next time)", "$1, " + userName);
+        }
+        return one(speaker, line, "PACK");
     }
 
     private BrainAnswer definitions(String text, String speaker) {

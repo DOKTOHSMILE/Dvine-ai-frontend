@@ -32,7 +32,27 @@ public final class KnowledgeStore {
         current = new File(dir, "base_knowledge.json");
     }
 
+    /** Core pack merged with every downloaded shard in files/knowledge/shards. */
     public KnowledgePack load() {
+        KnowledgePack core = loadCore();
+        File[] shards = new File(current.getParentFile(), "shards").listFiles();
+        if (shards != null) {
+            java.util.Arrays.sort(shards);
+            for (File f : shards) {
+                if (!f.getName().endsWith(".json")) {
+                    continue;
+                }
+                try {
+                    core = core.merge(KnowledgePack.parse(read(new FileInputStream(f))));
+                } catch (IOException | IllegalArgumentException broken) {
+                    // a damaged shard is skipped; the rest still work
+                }
+            }
+        }
+        return core;
+    }
+
+    private KnowledgePack loadCore() {
         if (current.exists()) {
             try {
                 return KnowledgePack.parse(read(new FileInputStream(current)));

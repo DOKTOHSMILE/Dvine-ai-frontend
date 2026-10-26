@@ -33,6 +33,8 @@ public final class WireHead {
     public final int[] edges;
     /** Draw group per edge: SKIN, FEATURE or HAIR. */
     public final int[] edgeGroup;
+    /** Skin triangles, three vertex indices each, for the shaded fill. */
+    public final int[] tris;
     final int[] tag;
     /** Per-vertex parameter: eye upper(1)/lower(0), lip arch, hair t, brow side. */
     final float[] pa;
@@ -49,8 +51,8 @@ public final class WireHead {
         this.ivie = ivie;
         crownW = ivie ? 0.74f : 0.80f;
         crownD = ivie ? 0.88f : 0.92f;
-        squareness = ivie ? 2.15f : 2.7f;
-        flatTop = ivie ? 2.0f : 3.4f;
+        squareness = ivie ? 2.15f : 3.0f;
+        flatTop = ivie ? 2.0f : 6.5f;
         Builder b = new Builder();
         buildSkin(b);
         buildEyes(b);
@@ -67,6 +69,7 @@ public final class WireHead {
         pb = b.paramB();
         edges = b.edgeArray();
         edgeGroup = b.groupArray();
+        tris = b.triArray();
     }
 
     public static WireHead create(boolean ivie) {
@@ -141,10 +144,10 @@ public final class WireHead {
     // ------------------------------------------------------------------ build
 
     private void buildSkin(Builder b) {
-        int around = ivie ? 30 : 22;
-        int faceRings = ivie ? 24 : 18;
-        int neckRings = ivie ? 5 : 7;
-        float neckBottom = ivie ? -1.6f : -1.8f;
+        int around = ivie ? 24 : 14;
+        int faceRings = ivie ? 18 : 11;
+        int neckRings = ivie ? 4 : 4;
+        float neckBottom = ivie ? -1.85f : -2.05f;
         float neckW = ivie ? 0.33f : 0.42f;
         int apex = b.vertex(0f, 1f, 0f, T_SKIN, 0f, 0f);
         int[] prev = null;
@@ -162,10 +165,10 @@ public final class WireHead {
             } else {
                 float t = (r - faceRings) / (float) neckRings;
                 y = -1f + (neckBottom + 1f) * t;
-                float flare = (float) Math.pow(t, 3) * (ivie ? 0.10f : 0.20f);
-                w = lerp(ivie ? 0.24f : 0.32f, neckW, Math.min(1f, t * 2f)) + flare;
-                d = lerp(0.30f, 0.40f, Math.min(1f, t * 2f)) + flare * 0.3f;
-                cz = lerp(-0.06f, -0.18f, Math.min(1f, t * 2f));
+                // a column with a slanted sculpted cut: long at the front, short at the back
+                w = lerp(ivie ? 0.27f : 0.34f, neckW, Math.min(1f, t * 2.5f));
+                d = lerp(0.33f, 0.40f, Math.min(1f, t * 2.5f));
+                cz = -0.10f + 0.06f * t;
             }
             int[] ring = new int[around];
             float baseY = y;
@@ -176,7 +179,17 @@ public final class WireHead {
                 float x = w * sgnPow(sx, 2f / squareness);
                 float zn = sgnPow(czz, 2f / squareness);
                 float z = d * zn + cz;
-                if (r < total) {
+                if (!face) {
+                    float t = (r - faceRings) / (float) neckRings;
+                    float reach = 0.30f + 0.70f * (0.5f + 0.5f * czz);
+                    y = -1f + (neckBottom + 1f) * t * reach;
+                    if (r == total) {
+                        float front = Math.max(0f, czz);
+                        x *= 1f - 0.92f * front * front;
+                        z += 0.08f * front;
+                    }
+                }
+                if (r < total && face) {
                     float jx = jitter(r * 131 + j * 17) * (w * 0.09f);
                     float jy = jitter(r * 71 + j * 29) * (face ? 0.025f : 0.04f);
                     x += jx * Math.abs(czz);
@@ -192,7 +205,19 @@ public final class WireHead {
                 b.edge(ring[j], ring[(j + 1) % around], SKIN);
                 if (prev == null) {
                     b.edge(apex, ring[j], SKIN);
+                    b.tri(apex, ring[j], ring[(j + 1) % around]);
                 } else {
+                    int p0 = prev[j];
+                    int p1 = prev[(j + 1) % around];
+                    int r0 = ring[j];
+                    int r1 = ring[(j + 1) % around];
+                    if (((r + j) & 1) == 0) {
+                        b.tri(p0, r0, r1);
+                        b.tri(p0, r1, p1);
+                    } else {
+                        b.tri(p0, r0, p1);
+                        b.tri(p1, r0, r1);
+                    }
                     b.edge(prev[j], ring[j], SKIN);
                     if (((r + j) & 1) == 0) {
                         b.edge(prev[j], ring[(j + 1) % around], SKIN);
@@ -335,43 +360,60 @@ public final class WireHead {
         }
     }
 
+    /**
+     * Swept-back hair, blown behind the head as in the approved art.
+     * Strands start at the hairline, follow the skull over the top and stream
+     * out behind (-z) in loose waves. Kept light on purpose.
+     */
     private void buildHair(Builder b) {
-        int strands = 14;
-        int pts = 18;
-        for (int side = -1; side <= 1; side += 2) {
-            int[] prev = null;
-            for (int s = 0; s < strands; s++) {
-                float a = (s + 0.5f) / strands;
-                double ang = a * Math.PI * 0.5;
-                float rootY = 0.58f + 0.47f * (float) Math.cos(ang);
-                float rootX = side * width(rootY) * 0.96f * (float) Math.sin(ang) + side * 0.02f;
-                float rootZ = Math.max(surfaceZ(rootX, rootY), 0f) * (1f - a * 0.6f) + 0.07f;
-                float phase = s * 0.9f + (side > 0 ? 1.7f : 0f);
-                float length = 2.75f + 0.35f * a + 0.15f * (float) Math.sin(s * 2.3f);
-                int[] col = new int[pts];
-                for (int k = 0; k < pts; k++) {
-                    float t = k / (float) (pts - 1);
-                    float y = rootY - t * length;
-                    float out = t * (0.62f + 0.40f * a) + 0.16f * t * (float) Math.sin(t * Math.PI * 2.6f + phase);
-                    float x = Math.abs(rootX) + out;
-                    if (y < 0.95f && y > -1.05f) {
-                        x = Math.max(x, width(y) + 0.07f + 0.10f * a);
-                    }
-                    float ease = t < 0.25f ? t / 0.25f : 1f;
-                    float z = lerp(rootZ, 0.08f - 0.42f * a, ease * ease * (3f - 2f * ease));
-                    col[k] = b.vertex(side * x, y, z, T_HAIR, t, phase);
-                    if (k > 0) {
-                        b.edge(col[k - 1], col[k], HAIR);
-                    }
-                    if (prev != null) {
-                        b.edge(prev[k], col[k], HAIR);
-                        if (k > 0) {
-                            b.edge(((s + k) & 1) == 0 ? prev[k - 1] : prev[k], ((s + k) & 1) == 0 ? col[k] : col[k - 1], HAIR);
-                        }
+        int strands = 13;
+        int onSkull = 7;
+        int tail = 9;
+        int pts = onSkull + tail;
+        int[] prev = null;
+        for (int s = 0; s < strands; s++) {
+            float u = s / (float) (strands - 1) * 2f - 1f; // -1 .. 1 across the hairline
+            float phase = s * 1.37f;
+            int[] col = new int[pts];
+            float lastX = 0f;
+            float lastY = 0f;
+            float lastZ = 0f;
+            for (int k = 0; k < pts; k++) {
+                float x;
+                float y;
+                float z;
+                float t;
+                if (k < onSkull) {
+                    float q = k / (float) (onSkull - 1);
+                    double phi = Math.toRadians(lerp(52f - 18f * Math.abs(u), -118f, q));
+                    double lam = Math.toRadians(u * 68f);
+                    x = (crownW + 0.08f) * (float) Math.sin(lam);
+                    y = 0.15f + 0.95f * (float) (Math.cos(lam) * Math.cos(phi));
+                    z = (crownD + 0.08f) * (float) (Math.cos(lam) * Math.sin(phi));
+                    t = q * 0.3f;
+                } else {
+                    float q = (k - onSkull + 1) / (float) tail;
+                    float wave = (float) Math.sin(q * Math.PI * 2.2f + phase) * 0.10f * q;
+                    x = lastX * (1f + 0.10f * q) + wave * 0.4f;
+                    y = lastY - q * (0.05f + 0.06f * Math.abs(u)) + wave * 1.2f + u * 0.07f * q;
+                    z = lastZ - (0.14f + 0.10f * q) * (1f + 0.25f * (float) Math.cos(phase));
+                    t = 0.3f + 0.7f * q;
+                }
+                col[k] = b.vertex(x, y, z, T_HAIR, t, phase);
+                if (k > 0) {
+                    b.edge(col[k - 1], col[k], HAIR);
+                }
+                if (prev != null && (k % 2 == 0 || k < onSkull)) {
+                    b.edge(prev[k], col[k], HAIR);
+                    if (k > 0 && k < pts - 1) {
+                        b.edge(((s + k) & 1) == 0 ? prev[k - 1] : prev[k], ((s + k) & 1) == 0 ? col[k] : col[k - 1], HAIR);
                     }
                 }
-                prev = col;
+                lastX = x;
+                lastY = y;
+                lastZ = z;
             }
+            prev = col;
         }
     }
 
@@ -451,10 +493,9 @@ public final class WireHead {
                 case T_HAIR: {
                     float t = pa[i];
                     float amp = t * (float) Math.sqrt(t);
-                    float sign = x < 0f ? -1f : 1f;
-                    x += sign * 0.055f * amp * (float) Math.sin(p.time * 1.05f + pb[i] + t * 3.1f);
-                    y += 0.02f * amp * (float) Math.sin(p.time * 0.8f + pb[i] * 1.3f);
-                    z += 0.04f * amp * (float) Math.cos(p.time * 0.9f + pb[i]);
+                    x += 0.04f * amp * (float) Math.sin(p.time * 0.9f + pb[i] + t * 2.4f);
+                    y += 0.07f * amp * (float) Math.sin(p.time * 1.3f + pb[i] * 1.3f + t * 3.0f);
+                    z += 0.05f * amp * (float) Math.cos(p.time * 1.1f + pb[i]);
                     break;
                 }
                 default:
@@ -495,6 +536,56 @@ public final class WireHead {
             screen[i * 3] = cx + x3 * s;
             screen[i * 3 + 1] = cy - (y2 - 0.35f) * s;
             screen[i * 3 + 2] = z3;
+        }
+    }
+
+    /**
+     * Per-vertex light (0..1) for the shaded skin, from projected positions.
+     * Writes into {@code light}; vertices not on the skin stay 0.
+     */
+    public void light(float[] screen, float unit, float[] normals, float[] light) {
+        int n = vertexCount();
+        for (int i = 0; i < n * 3; i++) {
+            normals[i] = 0f;
+        }
+        for (int t = 0; t < tris.length; t += 3) {
+            int a = tris[t] * 3;
+            int b = tris[t + 1] * 3;
+            int c = tris[t + 2] * 3;
+            float ax = (screen[b] - screen[a]) / unit;
+            float ay = -(screen[b + 1] - screen[a + 1]) / unit;
+            float az = screen[b + 2] - screen[a + 2];
+            float bx = (screen[c] - screen[a]) / unit;
+            float by = -(screen[c + 1] - screen[a + 1]) / unit;
+            float bz = screen[c + 2] - screen[a + 2];
+            float nx = ay * bz - az * by;
+            float ny = az * bx - ax * bz;
+            float nz = ax * by - ay * bx;
+            if (nz < 0f) {
+                nx = -nx;
+                ny = -ny;
+                nz = -nz;
+            }
+            for (int k = 0; k < 3; k++) {
+                int v = tris[t + k] * 3;
+                normals[v] += nx;
+                normals[v + 1] += ny;
+                normals[v + 2] += nz;
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            float nx = normals[i * 3];
+            float ny = normals[i * 3 + 1];
+            float nz = normals[i * 3 + 2];
+            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+            if (len < 1e-6f) {
+                light[i] = 0f;
+                continue;
+            }
+            float d = (-0.35f * nx + 0.45f * ny + 0.82f * nz) / len;
+            float rim = 1f - nz / len;
+            float lit = Math.max(0f, d);
+            light[i] = clamp(0.04f + 0.9f * lit * lit + 0.45f * rim * rim * rim, 0f, 1f);
         }
     }
 
@@ -560,6 +651,19 @@ public final class WireHead {
         private int[] edgeBuf = new int[4096];
         private int[] groupBuf = new int[2048];
         private int edgeCount;
+        private final List<int[]> triList = new ArrayList<int[]>();
+
+        void tri(int a, int b, int c) {
+            triList.add(new int[]{a, b, c});
+        }
+
+        int[] triArray() {
+            int[] out = new int[triList.size() * 3];
+            for (int i = 0; i < triList.size(); i++) {
+                System.arraycopy(triList.get(i), 0, out, i * 3, 3);
+            }
+            return out;
+        }
 
         int vertex(float x, float y, float z, int tag, float a, float b) {
             verts.add(new float[]{x, y, z, tag, a, b});

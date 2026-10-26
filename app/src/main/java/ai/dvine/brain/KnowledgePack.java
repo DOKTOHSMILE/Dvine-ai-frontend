@@ -156,6 +156,24 @@ public final class KnowledgePack {
                 intents, facts, words, wisdom, units);
     }
 
+    /** This pack plus a shard's entries. Intents and facts in this pack win when both match. */
+    public KnowledgePack merge(KnowledgePack shard) {
+        if (shard == null) {
+            return this;
+        }
+        List<Intent> i = new ArrayList<Intent>(intents);
+        i.addAll(shard.intents);
+        List<Fact> f = new ArrayList<Fact>(facts);
+        f.addAll(shard.facts);
+        List<Word> w = new ArrayList<Word>(words);
+        w.addAll(shard.words);
+        List<Wisdom> x = new ArrayList<Wisdom>(wisdom);
+        x.addAll(shard.wisdom);
+        List<Unit> u = new ArrayList<Unit>(units);
+        u.addAll(shard.units);
+        return new KnowledgePack(version, language, offlineLine, i, f, w, x, u);
+    }
+
     private static List<String> lower(List<String> in) {
         List<String> out = new ArrayList<String>();
         for (String s : in) {
