@@ -39,6 +39,9 @@ public interface GlApi {
     /** A vec3 array uniform (count = values.length / 3). */
     void uniform3fv(int loc, float[] values);
 
+    /** A float array uniform. */
+    void uniform1fv(int loc, float[] values);
+
     void uniformMatrix4(int loc, float[] m);
 
     void uniformMatrix3(int loc, float[] m);

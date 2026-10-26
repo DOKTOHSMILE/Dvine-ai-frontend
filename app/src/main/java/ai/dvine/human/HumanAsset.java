@@ -16,7 +16,7 @@ import ai.dvine.human.mesh.TriMesh;
  * binary file with a CRC so a damaged asset is detected, never drawn.
  */
 public final class HumanAsset {
-    public static final int FORMAT = 1;
+    public static final int FORMAT = 2;
     private static final int MAGIC = 0x4456484D; // "DVHM"
 
     public boolean female;
@@ -37,6 +37,14 @@ public final class HumanAsset {
     public Morph[] morphs = new Morph[0];
     public String[] landmarkNames = new String[0];
     public int[] landmarkVertex = new int[0];
+    /**
+     * The inside of the body for the anatomical view (format 2): one mesh
+     * (region = part index, bone0 = the bone it rides), and per part its name
+     * and layer (skeleton, muscles, organs, vessels). Visual only.
+     */
+    public TriMesh inner;
+    public String[] innerNames = new String[0];
+    public byte[] innerLayer = new byte[0];
     /** CRC32 of the payload, filled in by {@link #write} and checked by {@link #read}. */
     public long checksum;
 
@@ -102,6 +110,18 @@ public final class HumanAsset {
             o.writeUTF(landmarkNames[i]);
             o.writeInt(landmarkVertex[i]);
         }
+        o.writeBoolean(inner != null);
+        if (inner != null) {
+            floats(o, inner.pos);
+            ints(o, inner.tri);
+            bytes(o, inner.region);
+            bytes(o, inner.bone0);
+            o.writeInt(innerNames.length);
+            for (String n : innerNames) {
+                o.writeUTF(n);
+            }
+            bytes(o, innerLayer);
+        }
         o.flush();
         byte[] payload = body.toByteArray();
         CRC32 crc = new CRC32();
@@ -124,7 +144,8 @@ public final class HumanAsset {
         if (f.readInt() != MAGIC) {
             throw new IOException("not a DVINE human asset");
         }
-        if (f.readInt() != FORMAT) {
+        int format = f.readInt();
+        if (format != FORMAT && format != 1) {
             throw new IOException("unsupported asset format");
         }
         long sum = f.readLong();
@@ -170,6 +191,33 @@ public final class HumanAsset {
         for (int i = 0; i < nl; i++) {
             a.landmarkNames[i] = o.readUTF();
             a.landmarkVertex[i] = o.readInt();
+        }
+        if (format >= 2 && o.readBoolean()) {
+            TriMesh in2 = new TriMesh();
+            in2.pos = floats(o);
+            in2.tri = ints(o);
+            in2.region = bytes(o);
+            in2.bone0 = bytes(o);
+            int n = in2.pos.length / 3;
+            if (in2.region.length != n || in2.bone0.length != n) {
+                throw new IOException("bad inner anatomy");
+            }
+            for (int t : in2.tri) {
+                if (t < 0 || t >= n) {
+                    throw new IOException("bad inner anatomy");
+                }
+            }
+            in2.bone1 = in2.bone0.clone();
+            in2.weight0 = new float[n];
+            java.util.Arrays.fill(in2.weight0, 1f);
+            in2.computeNormals();
+            int np = o.readInt();
+            a.innerNames = new String[np];
+            for (int i = 0; i < np; i++) {
+                a.innerNames[i] = o.readUTF();
+            }
+            a.innerLayer = bytes(o);
+            a.inner = in2;
         }
         m.computeNormals();
         return a;

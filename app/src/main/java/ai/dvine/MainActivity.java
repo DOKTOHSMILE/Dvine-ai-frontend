@@ -497,6 +497,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         switch (command) {
+            case "ANATOMY":
+                stage.anatomy(value);
+                break;
             case "MUSIC_OFF":
                 ambient.setEnabled(false);
                 prefs.edit().putBoolean("music", false).apply();

@@ -46,6 +46,7 @@ public class WireRendererTest {
         public void uniform2f(int loc, float a, float b) { }
         public void uniform4f(int loc, float a, float b, float c, float d) { }
         public void uniform3fv(int loc, float[] v) { assertEquals(0, v.length % 3); }
+        public void uniform1fv(int loc, float[] v) { assertTrue(v.length > 0); }
         public void uniformMatrix4(int loc, float[] m) { assertEquals(16, m.length); }
         public void uniformMatrix3(int loc, float[] m) { assertEquals(9, m.length); }
         public int buffer() { return make(); }

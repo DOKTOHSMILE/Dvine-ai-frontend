@@ -42,6 +42,10 @@ public final class HumanStage {
     private boolean showingBar;
     private float barShown = -1f;
     private int objectSlot = -1;
+    /** Mode B per persona: on, which layers, which parts (null = every part of the shown layers). */
+    private final boolean[] xray = new boolean[2];
+    private final boolean[][] xrayLayers = {new boolean[4], new boolean[4]};
+    private final boolean[][] xrayParts = new boolean[2][];
     private String pose = "stand";
     private boolean demo;
     private float time;
@@ -99,7 +103,7 @@ public final class HumanStage {
         particles[slot] = ai.dvine.anre.HumanParticles.build(a, ai.dvine.anre.HumanParticles.BUDGET);
         final int sl = slot;
         morph[slot] = new ai.dvine.anre.TransformationController(() -> bodyIntact(sl));
-        renderer.setAsset(slot, a, particles[slot]);
+        renderer.setAsset(slot, a, particles[slot], ai.dvine.anre.InnerParticles.build(a, ai.dvine.anre.InnerParticles.BUDGET));
         // Mode C: the body assembles from a cloud of its own particles, head first
         morph[slot].assemble(time);
     }
@@ -119,6 +123,76 @@ public final class HumanStage {
             renderer.setAsset(slot, h.asset, particles[slot]);
         }
         return in.inspect(h).isEmpty();
+    }
+
+    // ------------------------------------------------------------ Mode B: the anatomical view
+
+    /**
+     * Shows the inside: "skeleton", "muscles", "organs", "vessels", "all", or
+     * one structure or region ("heart", "brain", "lungs", "chest", "head",
+     * "belly", "arms", "legs"); "off" covers it again. Returns the part names
+     * shown (empty when off or unknown).
+     */
+    public synchronized java.util.List<String> anatomy(boolean ivie, String what) {
+        int slot = ivie ? 1 : 0;
+        java.util.List<String> shown = new java.util.ArrayList<String>();
+        HumanInstance h = inst[slot];
+        if (h == null || h.asset.inner == null || what == null || what.equals("off")) {
+            xray[slot] = false;
+            return shown;
+        }
+        HumanAsset a = h.asset;
+        boolean[] layers = new boolean[4];
+        boolean[] parts = null;
+        switch (what) {
+            case "skeleton": layers[0] = true; break;
+            case "muscles": layers[1] = true; break;
+            case "organs": layers[2] = true; layers[3] = true; break;
+            case "vessels": layers[3] = true; break;
+            case "all": java.util.Arrays.fill(layers, true); break;
+            default: {
+                java.util.Arrays.fill(layers, true);
+                parts = new boolean[a.innerNames.length];
+                String[] keys = focus(what);
+                for (int i = 0; i < a.innerNames.length; i++) {
+                    for (String k : keys) {
+                        if (a.innerNames[i].startsWith(k)) {
+                            parts[i] = true;
+                        }
+                    }
+                }
+            }
+        }
+        for (int i = 0; i < a.innerNames.length; i++) {
+            if (layers[a.innerLayer[i]] && (parts == null || parts[i])) {
+                shown.add(a.innerNames[i]);
+            }
+        }
+        if (shown.isEmpty()) {
+            xray[slot] = false;
+            return shown;
+        }
+        xray[slot] = true;
+        xrayLayers[slot] = layers;
+        xrayParts[slot] = parts;
+        return shown;
+    }
+
+    private static String[] focus(String what) {
+        switch (what) {
+            case "chest": return new String[]{"ribs", "sternum", "lung", "heart", "aorta", "vena cava", "clavicle", "spine"};
+            case "head": return new String[]{"skull", "jaw", "brain"};
+            case "belly": return new String[]{"liver", "stomach", "kidney", "intestines", "abdominals", "spine"};
+            case "lungs": return new String[]{"lung"};
+            case "kidneys": return new String[]{"kidney"};
+            case "arms": return new String[]{"humerus", "radius", "ulna", "hand bones", "finger bones", "biceps", "triceps", "deltoid", "forearm"};
+            case "legs": return new String[]{"femur", "patella", "tibia", "fibula", "foot bones", "quadriceps", "hamstrings", "calf", "femoral"};
+            default: return new String[]{what};
+        }
+    }
+
+    public synchronized boolean anatomyShown(boolean ivie) {
+        return xray[ivie ? 1 : 0];
     }
 
     // ------------------------------------------------------------ transformation (ANRE)
@@ -158,7 +232,7 @@ public final class HumanStage {
     private void upload(int slot, ai.dvine.create.ObjectModel m) {
         java.util.List<Integer> triPart = new java.util.ArrayList<Integer>();
         ai.dvine.human.mesh.TriMesh merged = m.merged(triPart);
-        renderer.setObject(slot, merged.pos, merged.tri, ai.dvine.create.ObjectParticles.targets(m, particles[slot]));
+        renderer.setObject(slot, merged.pos, merged.nor, merged.tri, ai.dvine.create.ObjectParticles.targets(m, particles[slot]));
     }
 
     /** "Return to your normal form": the object dissolves and the body rebuilds, head first. */
@@ -312,6 +386,11 @@ public final class HumanStage {
                         os == objects ? objects.selected() : -1f, v.bodyFill, new float[]{0f, 0.2f, 0f, 0.9f});
             }
             renderer.submit(slot, p, h.nor, r, g, b, demo ? 1f : alpha, lod, true);
+            boolean showInside = xray[slot] && !demo && (v == null || !morph[slot].objectMode());
+            if (showInside) {
+                renderer.submitInner(slot, h.innerPos, h.innerNor);
+            }
+            renderer.anatomy(slot, showInside, xrayLayers[slot], xrayParts[slot]);
         }
     }
 

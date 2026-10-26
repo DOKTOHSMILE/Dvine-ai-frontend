@@ -29,6 +29,8 @@ import ai.dvine.human.HumanAsset;
  */
 public final class WireRenderer {
     public static final int SLOTS = 2;
+    /** Inner anatomy parts the shader can filter (one float each). */
+    public static final int MAX_PARTS = 80;
     static final int TEX_W = 1024;
 
     /** What to draw for one persona this frame (filled on the UI thread). */
@@ -58,6 +60,10 @@ public final class WireRenderer {
         public float selected = -1f;
         /** Body fill on (hides particles behind the body); off while the body is particles in flight. */
         public boolean bodyFill = true;
+        /** Mode B: the anatomical view (skin as a faint shell, the chosen inner parts shown). */
+        public boolean anatomy;
+        public final float[] showLayer = new float[4];
+        public final float[] showPart = new float[MAX_PARTS];
     }
 
     /** Where particles can be: on the body, on the object, scattered in a cloud, on the object's previous version. */
@@ -74,7 +80,7 @@ public final class WireRenderer {
     public final FrameStats stats = new FrameStats();
 
     // programs and shared objects
-    private int fillProg, particleProg, gridProg;
+    private int fillProg, particleProg, innerProg, gridProg;
     private int gridVbo, gridCount;
     /** Count of live GL objects (for leak checks). */
     public int liveObjects;
@@ -83,14 +89,15 @@ public final class WireRenderer {
     private static final class Slot {
         HumanAsset asset;
         boolean dirtyStatic;
-        int vertices, triIndices, particles, texH;
+        int vertices, triIndices, particles, texH, innerVertices, innerParticles;
+        FloatBuffer innerCorner, innerBary;
         IntBuffer tri;
         FloatBuffer corner, bary, aux;
         // the object the particles can become (targets aligned one-to-one with the particles)
         FloatBuffer target, previous;
         boolean dirtyTarget;
         IntBuffer objTri;
-        FloatBuffer objPos;
+        FloatBuffer objPos, objNor;
         int objIndices, objVertices;
         // double-buffered dynamic data
         FloatBuffer pos, nor, texPos, texNor;
@@ -98,7 +105,8 @@ public final class WireRenderer {
         final Frame shown = new Frame();
         boolean hasPending;
         // GL handles
-        int vboPos, vboNor, ibo, vboCorner, vboBary, vboAux, vboTarget, vboPrev, objVbo, objIbo, tPos, tNor;
+        int vboInCorner, vboInBary;
+        int vboPos, vboNor, ibo, vboCorner, vboBary, vboAux, vboTarget, vboPrev, objVbo, objNbo, objIbo, tPos, tNor;
         boolean created;
     }
 
@@ -117,12 +125,34 @@ public final class WireRenderer {
 
     /** Sets (or replaces) the asset and its particle skin for a slot; GL objects are rebuilt on the next frame. */
     public void setAsset(int slot, HumanAsset a, ai.dvine.anre.ParticleSet p) {
+        setAsset(slot, a, p, null);
+    }
+
+    /** As above, plus the inner anatomy's particles (corner indices already offset past the skin's vertices). */
+    public void setAsset(int slot, HumanAsset a, ai.dvine.anre.ParticleSet p, ai.dvine.anre.ParticleSet inner) {
         Slot s = slots[slot];
         synchronized (lock) {
             s.asset = a;
             int n = a.mesh.vertexCount();
             s.vertices = n;
-            s.texH = (n + TEX_W - 1) / TEX_W;
+            s.innerVertices = inner == null || a.inner == null ? 0 : a.inner.vertexCount();
+            s.texH = (n + s.innerVertices + TEX_W - 1) / TEX_W;
+            s.innerParticles = s.innerVertices == 0 ? 0 : inner.count;
+            if (s.innerParticles > 0) {
+                float[] ic = new float[inner.count * 4], ib = new float[inner.count * 4];
+                for (int i = 0; i < inner.count; i++) {
+                    ic[i * 4] = inner.corners[i * 3];
+                    ic[i * 4 + 1] = inner.corners[i * 3 + 1];
+                    ic[i * 4 + 2] = inner.corners[i * 3 + 2];
+                    ic[i * 4 + 3] = inner.part[i];
+                    ib[i * 4] = inner.u[i];
+                    ib[i * 4 + 1] = inner.v[i];
+                    ib[i * 4 + 2] = inner.size[i];
+                    ib[i * 4 + 3] = inner.order[i];
+                }
+                s.innerCorner = floats(ic);
+                s.innerBary = floats(ib);
+            }
             s.tri = ints(a.mesh.tri);
             s.triIndices = a.mesh.tri.length;
             int np = p.count;
@@ -152,14 +182,15 @@ public final class WireRenderer {
             s.previous = floats(new float[np * 4]);
             s.objTri = null;
             s.objIndices = 0;
-            s.pos = FloatBuffer.allocate(n * 3);
-            s.nor = FloatBuffer.allocate(n * 3);
+            s.pos = FloatBuffer.allocate((n + s.innerVertices) * 3);
+            s.nor = FloatBuffer.allocate((n + s.innerVertices) * 3);
             s.texPos = direct(TEX_W * s.texH * 3);
             s.texNor = direct(TEX_W * s.texH * 3);
-            s.pending.pos = new float[n * 3];
-            s.pending.nor = new float[n * 3];
-            s.shown.pos = new float[n * 3];
-            s.shown.nor = new float[n * 3];
+            int all = n + s.innerVertices;
+            s.pending.pos = new float[all * 3];
+            s.pending.nor = new float[all * 3];
+            s.shown.pos = new float[all * 3];
+            s.shown.nor = new float[all * 3];
             s.dirtyStatic = true;
             s.hasPending = false;
         }
@@ -170,7 +201,7 @@ public final class WireRenderer {
      * for the dark occluding fill) and one target per particle (xyz, component
      * id, build order 0..1), as made by the object engine.
      */
-    public void setObject(int slot, float[] objPos, int[] objTri, float[] targets) {
+    public void setObject(int slot, float[] objPos, float[] objNor, int[] objTri, float[] targets) {
         Slot s = slots[slot];
         synchronized (lock) {
             if (s.asset == null || targets.length != s.particles * 5) {
@@ -191,6 +222,7 @@ public final class WireRenderer {
             s.target = floats(t);
             s.aux = floats(aux);
             s.objPos = floats(objPos);
+            s.objNor = floats(objNor);
             s.objTri = ints(objTri);
             s.objIndices = objTri.length;
             s.objVertices = objPos.length / 3;
@@ -229,8 +261,8 @@ public final class WireRenderer {
             }
             Frame f = s.pending;
             if (visible) {
-                System.arraycopy(pos, 0, f.pos, 0, f.pos.length);
-                System.arraycopy(nor, 0, f.nor, 0, f.nor.length);
+                System.arraycopy(pos, 0, f.pos, 0, s.vertices * 3);
+                System.arraycopy(nor, 0, f.nor, 0, s.vertices * 3);
             }
             f.r = r;
             f.g = g;
@@ -239,6 +271,33 @@ public final class WireRenderer {
             f.lod = lod;
             f.visible = visible;
             s.hasPending = true;
+        }
+    }
+
+    /** This frame's skinned inner anatomy (after {@link #submit}); ignored when the slot has none. */
+    public void submitInner(int slot, float[] pos, float[] nor) {
+        Slot s = slots[slot];
+        synchronized (lock) {
+            if (s.innerVertices == 0 || pos == null) {
+                return;
+            }
+            System.arraycopy(pos, 0, s.pending.pos, s.vertices * 3, s.innerVertices * 3);
+            System.arraycopy(nor, 0, s.pending.nor, s.vertices * 3, s.innerVertices * 3);
+        }
+    }
+
+    /** Mode B for a slot: which layers and parts to reveal (null parts: all of the shown layers). Off with anatomy false. */
+    public void anatomy(int slot, boolean on, boolean[] layers, boolean[] parts) {
+        Slot s = slots[slot];
+        synchronized (lock) {
+            Frame f = s.pending;
+            f.anatomy = on && s.innerParticles > 0;
+            for (int i = 0; i < 4; i++) {
+                f.showLayer[i] = layers != null && i < layers.length && layers[i] ? 1f : 0f;
+            }
+            for (int i = 0; i < MAX_PARTS; i++) {
+                f.showPart[i] = parts == null || i < parts.length && parts[i] ? 1f : 0f;
+            }
         }
     }
 
@@ -256,6 +315,7 @@ public final class WireRenderer {
         liveObjects = 0;
         fillProg = prog(FILL_VS, FILL_FS);
         particleProg = prog(PARTICLE_VS, PARTICLE_FS);
+        innerProg = prog(INNER_VS, PARTICLE_FS);
         gridProg = prog(GRID_VS, GRID_FS);
         gridVbo = buf();
         float[] g = grid();
@@ -306,6 +366,9 @@ public final class WireRenderer {
                     System.arraycopy(a.object, 0, b.object, 0, 16);
                     b.selected = a.selected;
                     b.bodyFill = a.bodyFill;
+                    b.anatomy = a.anatomy;
+                    System.arraycopy(a.showLayer, 0, b.showLayer, 0, 4);
+                    System.arraycopy(a.showPart, 0, b.showPart, 0, MAX_PARTS);
                     System.arraycopy(a.scatter, 0, b.scatter, 0, 4);
                     s.hasPending = false;
                     if (b.visible) {
@@ -340,13 +403,13 @@ public final class WireRenderer {
             }
         }
         if (fillProg != 0) {
-            for (int p : new int[]{fillProg, particleProg, gridProg}) {
+            for (int p : new int[]{fillProg, particleProg, innerProg, gridProg}) {
                 if (p != 0) {
                     gl.deleteProgram(p);
                     liveObjects--;
                 }
             }
-            fillProg = particleProg = gridProg = 0;
+            fillProg = particleProg = innerProg = gridProg = 0;
         }
         if (gridVbo != 0) {
             gl.deleteBuffer(gridVbo);
@@ -368,6 +431,7 @@ public final class WireRenderer {
         s.vboTarget = buf();
         s.vboPrev = buf();
         s.objVbo = buf();
+        s.objNbo = buf();
         s.objIbo = buf();
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
         gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 12, null, GlApi.DYNAMIC_DRAW);
@@ -382,6 +446,16 @@ public final class WireRenderer {
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboBary);
         gl.bufferData(GlApi.ARRAY_BUFFER, s.particles * 16, s.bary, GlApi.STATIC_DRAW);
         s.dirtyTarget = true;
+        if (s.innerParticles > 0) {
+            s.vboInCorner = buf();
+            s.vboInBary = buf();
+            s.innerCorner.position(0);
+            s.innerBary.position(0);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboInCorner);
+            gl.bufferData(GlApi.ARRAY_BUFFER, s.innerParticles * 16, s.innerCorner, GlApi.STATIC_DRAW);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboInBary);
+            gl.bufferData(GlApi.ARRAY_BUFFER, s.innerParticles * 16, s.innerBary, GlApi.STATIC_DRAW);
+        }
         s.tPos = gl.floatTexture(TEX_W, s.texH);
         s.tNor = gl.floatTexture(TEX_W, s.texH);
         liveObjects += 2;
@@ -390,9 +464,14 @@ public final class WireRenderer {
     }
 
     private void deleteSlot(Slot s) {
-        for (int b : new int[]{s.vboPos, s.vboNor, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objIbo}) {
+        for (int b : new int[]{s.vboPos, s.vboNor, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objNbo, s.objIbo}) {
             gl.deleteBuffer(b);
             liveObjects--;
+        }
+        if (s.innerParticles > 0) {
+            gl.deleteBuffer(s.vboInCorner);
+            gl.deleteBuffer(s.vboInBary);
+            liveObjects -= 2;
         }
         gl.deleteTexture(s.tPos);
         gl.deleteTexture(s.tNor);
@@ -416,6 +495,9 @@ public final class WireRenderer {
             s.objTri.position(0);
             gl.bindBuffer(GlApi.ARRAY_BUFFER, s.objVbo);
             gl.bufferData(GlApi.ARRAY_BUFFER, s.objVertices * 12, s.objPos, GlApi.STATIC_DRAW);
+            s.objNor.position(0);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.objNbo);
+            gl.bufferData(GlApi.ARRAY_BUFFER, s.objVertices * 12, s.objNor, GlApi.STATIC_DRAW);
             gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.objIbo);
             gl.bufferData(GlApi.ELEMENT_ARRAY_BUFFER, s.objIndices * 4, s.objTri, GlApi.STATIC_DRAW);
         }
@@ -456,27 +538,61 @@ public final class WireRenderer {
         float a = f.alpha;
         boolean intact = f.from == PLACE_BODY && f.to == PLACE_BODY;
         boolean objectShown = f.from == PLACE_OBJECT && f.to == PLACE_OBJECT;
-        // 1. dark fill writing depth, pushed back: hides the particles behind the body (or the finished object)
-        gl.useProgram(fillProg);
-        gl.uniform4f(gl.uniform(fillProg, "uColor"), 0.004f + f.r * 0.02f, 0.006f + f.g * 0.02f, 0.008f + f.b * 0.02f, 1f);
-        gl.disable(GlApi.BLEND);
-        gl.depthMask(true);
-        gl.enable(GlApi.POLYGON_OFFSET_FILL);
-        gl.polygonOffset(1.5f, 2f);
-        if (intact && f.bodyFill) {
+        // 1. the hologram skin: a dark translucent-looking surface whose edges glow (fresnel rim), written
+        //    with depth (pushed back) so it also hides the particles behind it; then a soft halo just outside it
+        boolean xray = intact && f.anatomy;
+        boolean surface = intact && f.bodyFill && !xray || objectShown && s.objIndices > 0;
+        if (surface) {
+            float[] mvp = intact ? camera.mvp : mul(camera.mvp, f.object);
+            float[] nrm = intact ? camera.rot3 : normalMatrix(camera.rot3, f.object);
+            int vbo = intact ? s.vboPos : s.objVbo, nbo = intact ? s.vboNor : s.objNbo, ibo = intact ? s.ibo : s.objIbo;
+            int count = intact ? s.triIndices : s.objIndices;
+            gl.useProgram(fillProg);
+            gl.uniformMatrix4(gl.uniform(fillProg, "uMvp"), mvp);
+            gl.uniformMatrix3(gl.uniform(fillProg, "uRot"), nrm);
+            gl.uniform4f(gl.uniform(fillProg, "uColor"), f.r, f.g, f.b, a);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, vbo);
+            gl.vertexAttrib(0, 3, 12, 0);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, nbo);
+            gl.vertexAttrib(1, 3, 12, 0);
+            gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, ibo);
+            gl.disable(GlApi.BLEND);
+            gl.depthMask(true);
+            gl.enable(GlApi.POLYGON_OFFSET_FILL);
+            gl.polygonOffset(1.5f, 2f);
+            gl.uniform1f(gl.uniform(fillProg, "uPush"), 0f);
+            gl.uniform1f(gl.uniform(fillProg, "uHalo"), 0f);
+            gl.drawElements(GlApi.TRIANGLES, count, 0);
+            gl.disable(GlApi.POLYGON_OFFSET_FILL);
+            gl.enable(GlApi.BLEND);
+            gl.blendFunc(GlApi.ONE, GlApi.ONE);
+            gl.depthMask(false);
+            gl.uniform1f(gl.uniform(fillProg, "uPush"), intact ? 0.03f : 0.03f / Math.max(1e-3f, scaleOf(f.object)));
+            gl.uniform1f(gl.uniform(fillProg, "uHalo"), 1f);
+            gl.drawElements(GlApi.TRIANGLES, count, 0);
+            gl.disableAttrib(1);
+        }
+
+        if (xray) {
+            // Mode B: the skin is only a faint glowing shell (rim only, no depth), so the inside shows through
+            gl.useProgram(fillProg);
             gl.uniformMatrix4(gl.uniform(fillProg, "uMvp"), camera.mvp);
+            gl.uniformMatrix3(gl.uniform(fillProg, "uRot"), camera.rot3);
+            gl.uniform4f(gl.uniform(fillProg, "uColor"), f.r, f.g, f.b, a * 0.8f);
+            gl.uniform1f(gl.uniform(fillProg, "uPush"), 0f);
+            gl.uniform1f(gl.uniform(fillProg, "uHalo"), 1f);
+            gl.enable(GlApi.BLEND);
+            gl.blendFunc(GlApi.ONE, GlApi.ONE);
+            gl.depthMask(false);
             gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
             gl.vertexAttrib(0, 3, 12, 0);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboNor);
+            gl.vertexAttrib(1, 3, 12, 0);
             gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.ibo);
             gl.drawElements(GlApi.TRIANGLES, s.triIndices, 0);
-        } else if (objectShown && s.objIndices > 0) {
-            gl.uniformMatrix4(gl.uniform(fillProg, "uMvp"), mul(camera.mvp, f.object));
-            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.objVbo);
-            gl.vertexAttrib(0, 3, 12, 0);
-            gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.objIbo);
-            gl.drawElements(GlApi.TRIANGLES, s.objIndices, 0);
+            gl.disableAttrib(1);
+            drawInner(s, f, a);
         }
-        gl.disable(GlApi.POLYGON_OFFSET_FILL);
 
         // 2. the particles (additive glow, depth-tested, no depth writes)
         gl.enable(GlApi.BLEND);
@@ -497,7 +613,8 @@ public final class WireRenderer {
         gl.uniform1f(gl.uniform(p, "uHeadFirst"), f.headFirst ? 1f : 0f);
         gl.uniform1f(gl.uniform(p, "uSelected"), f.selected);
         gl.uniform1f(gl.uniform(p, "uSize"), 2.4f * density * f.lod);
-        gl.uniform4f(gl.uniform(p, "uColor"), f.r, f.g, f.b, a);
+        // on the hologram skin the particles are a fine shimmer; in flight (and on their own) they carry the shape
+        gl.uniform4f(gl.uniform(p, "uColor"), f.r, f.g, f.b, a * (surface ? 0.4f : xray ? 0.18f : 1f));
         gl.uniform4f(gl.uniform(p, "uScatter"), f.scatter[0], f.scatter[1], f.scatter[2], f.scatter[3]);
         gl.uniform3fv(gl.uniform(p, "uPalette"), PALETTE);
         gl.bindTexture(0, s.tPos);
@@ -527,6 +644,53 @@ public final class WireRenderer {
         for (int i = 0; i < 16; i++) {
             System.arraycopy(ai.dvine.create.Materials.RGB[i], 0, PALETTE, i * 3, 3);
         }
+    }
+
+    /** Mode B: particles on the chosen inner structures, tinted by layer (bone, muscle, organ, vessel). */
+    private void drawInner(Slot s, Frame f, float a) {
+        if (s.innerParticles == 0) {
+            return;
+        }
+        int p = innerProg;
+        gl.useProgram(p);
+        gl.uniformMatrix4(gl.uniform(p, "uMvp"), camera.mvp);
+        gl.uniformMatrix3(gl.uniform(p, "uRot"), camera.rot3);
+        gl.uniform1i(gl.uniform(p, "uTexW"), TEX_W);
+        gl.uniform1i(gl.uniform(p, "uPos"), 0);
+        gl.uniform1i(gl.uniform(p, "uNor"), 1);
+        gl.uniform1f(gl.uniform(p, "uSize"), 2.2f * density * f.lod);
+        gl.uniform4f(gl.uniform(p, "uColor"), f.r, f.g, f.b, a);
+        gl.uniform4f(gl.uniform(p, "uLayers"), f.showLayer[0], f.showLayer[1], f.showLayer[2], f.showLayer[3]);
+        gl.uniform1fv(gl.uniform(p, "uShow"), f.showPart);
+        gl.bindTexture(0, s.tPos);
+        gl.bindTexture(1, s.tNor);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboInCorner);
+        gl.vertexAttrib(0, 4, 16, 0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboInBary);
+        gl.vertexAttrib(1, 4, 16, 0);
+        gl.drawArrays(GlApi.POINTS, 0, s.innerParticles);
+        gl.disableAttrib(1);
+    }
+
+    /** Uniform scale of an object matrix (its first column's length). */
+    static float scaleOf(float[] m) {
+        return (float) Math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
+    }
+
+    /** View rotation · the object's rotation (scale removed), as the 3x3 normal matrix. */
+    static float[] normalMatrix(float[] rot3, float[] m) {
+        float k = 1f / Math.max(1e-6f, scaleOf(m));
+        float[] o = new float[9];
+        for (int c = 0; c < 3; c++) {
+            for (int r = 0; r < 3; r++) {
+                float v = 0f;
+                for (int q = 0; q < 3; q++) {
+                    v += rot3[q * 3 + r] * m[c * 4 + q] * k;
+                }
+                o[c * 3 + r] = v;
+            }
+        }
+        return o;
     }
 
     /** a·b for column-major 4x4 matrices. */
@@ -641,14 +805,23 @@ public final class WireRenderer {
 
     // ------------------------------------------------------------ shaders
 
+    /**
+     * The hologram skin: dark where the surface faces you, glowing where it
+     * turns away (fresnel rim), with a soft key light for the form. The halo
+     * pass pushes the surface out a little along its normals and adds only
+     * the rim, a soft glow just outside the silhouette.
+     */
     static final String FILL_VS = "#version 300 es\n"
-            + "layout(location=0) in vec3 aPos;\n"
-            + "uniform mat4 uMvp;\n"
-            + "void main(){ gl_Position = uMvp * vec4(aPos, 1.0); }\n";
+            + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor;\n"
+            + "uniform mat4 uMvp; uniform mat3 uRot; uniform float uPush; out vec3 vN;\n"
+            + "void main(){ vec3 n = normalize(aNor + vec3(1e-6)); gl_Position = uMvp * vec4(aPos + n * uPush, 1.0); vN = uRot * n; }\n";
     static final String FILL_FS = "#version 300 es\n"
             + "precision mediump float;\n"
-            + "uniform vec4 uColor; out vec4 o;\n"
-            + "void main(){ o = uColor; }\n";
+            + "in vec3 vN; uniform vec4 uColor; uniform float uHalo; out vec4 o;\n"
+            + "void main(){ vec3 n = normalize(vN); float rim = 1.0 - abs(n.z);\n"
+            + "  float key = max(0.0, dot(n, normalize(vec3(-0.45, 0.55, 0.7))));\n"
+            + "  float k = uHalo > 0.5 ? 0.22 * pow(rim, 3.0) : 0.025 + 0.09 * key + 1.05 * pow(rim, 2.6);\n"
+            + "  o = vec4(uColor.rgb * k * uColor.a, 1.0); }\n";
 
     /**
      * One particle. Its body place is u·A + v·B + w·C of three skinned
@@ -699,6 +872,27 @@ public final class WireRenderer {
             + "  vSel = (uFrom == 1 && uTo == 1 && uSelected >= 0.0 && abs(comp - uSelected) < 0.5) ? 1.0 : 0.0;\n"
             + "  gl_PointSize = uSize * aBary.z * (1.0 + 0.35 * fly + 0.6 * vSel);\n"
             + "}\n";
+    /** An inner-anatomy particle: on its skinned triangle like the skin's, shown only for the chosen layers and parts. */
+    static final String INNER_VS = "#version 300 es\n"
+            + "precision highp float; precision highp sampler2D;\n"
+            + "layout(location=0) in vec4 aCorner; layout(location=1) in vec4 aBary;\n"
+            + "uniform sampler2D uPos; uniform sampler2D uNor; uniform int uTexW;\n"
+            + "uniform mat4 uMvp; uniform mat3 uRot; uniform float uSize; uniform vec4 uLayers; uniform float uShow[80];\n"
+            + "out float vLight; out float vSel; out vec3 vMat; out float vObj;\n"
+            + "vec3 fetch(sampler2D t, float i){ int k = int(i + 0.5); return texelFetch(t, ivec2(k % uTexW, k / uTexW), 0).xyz; }\n"
+            + "void main(){\n"
+            + "  int layer = int(aBary.w + 0.5); int part = int(aCorner.w + 0.5);\n"
+            + "  float show = uLayers[layer] * (part < 80 ? uShow[part] : 1.0);\n"
+            + "  float u = aBary.x, v = aBary.y, w = 1.0 - u - v;\n"
+            + "  vec3 p = u * fetch(uPos, aCorner.x) + v * fetch(uPos, aCorner.y) + w * fetch(uPos, aCorner.z);\n"
+            + "  vec3 n = uRot * normalize(u * fetch(uNor, aCorner.x) + v * fetch(uNor, aCorner.y) + w * fetch(uNor, aCorner.z) + vec3(1e-5));\n"
+            + "  gl_Position = show > 0.5 ? uMvp * vec4(p, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);\n"
+            + "  float key = max(0.0, dot(n, normalize(vec3(-0.45, 0.55, 0.7)))); float rim = 1.0 - abs(n.z);\n"
+            + "  vLight = 0.25 + 0.85 * key * key + 0.4 * rim * rim; vSel = 0.0; vObj = 0.85;\n"
+            + "  vMat = layer == 0 ? vec3(0.95, 0.96, 0.9) : layer == 1 ? vec3(1.0, 0.38, 0.34) : layer == 2 ? vec3(1.0, 0.6, 0.62) : vec3(1.0, 0.22, 0.28);\n"
+            + "  gl_PointSize = show > 0.5 ? uSize * aBary.z : 0.0;\n"
+            + "}\n";
+
     static final String PARTICLE_FS = "#version 300 es\n"
             + "precision mediump float;\n"
             + "in float vLight; in float vSel; in vec3 vMat; in float vObj; uniform vec4 uColor; out vec4 o;\n"

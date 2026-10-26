@@ -22,6 +22,9 @@ public final class HumanInstance {
     /** Current skinned positions and normals (body units), xyz per vertex. */
     public final float[] pos;
     public final float[] nor;
+    /** The inside (anatomical view): skinned positions and normals of the inner anatomy, or null when the asset has none. */
+    public final float[] innerPos;
+    public final float[] innerNor;
     /** Blend-shape weights, one per asset morph (0..1). */
     public final float[] weights;
     private final float[] morphed;
@@ -40,6 +43,8 @@ public final class HumanInstance {
         morphed = new float[n * 3];
         bindNor = asset.mesh.nor.clone();
         weights = new float[asset.morphs.length];
+        innerPos = asset.inner == null ? null : new float[asset.inner.pos.length];
+        innerNor = asset.inner == null ? null : new float[asset.inner.pos.length];
     }
 
     /** Sets a blend-shape weight by name (ignored when the asset has no such shape). */
@@ -71,6 +76,7 @@ public final class HumanInstance {
         turnEyes();
         sway(time);
         skin();
+        skinInner();
         settle();
         frame++;
     }
@@ -139,6 +145,25 @@ public final class HumanInstance {
         }
     }
 
+    /** Each inner structure rides its bone rigidly (bones, organs and muscles inside the moving body). */
+    private void skinInner() {
+        if (innerPos == null) {
+            return;
+        }
+        float[] R = rig.rot, T = rig.move, p = asset.inner.pos, n = asset.inner.nor;
+        byte[] b0 = asset.inner.bone0;
+        for (int v = 0; v < b0.length; v++) {
+            int i = v * 3, r = (b0[v] & 0xff) * 9, t = (b0[v] & 0xff) * 3;
+            float x = p[i], y = p[i + 1], z = p[i + 2];
+            innerPos[i] = R[r] * x + R[r + 1] * y + R[r + 2] * z + T[t];
+            innerPos[i + 1] = R[r + 3] * x + R[r + 4] * y + R[r + 5] * z + T[t + 1];
+            innerPos[i + 2] = R[r + 6] * x + R[r + 7] * y + R[r + 8] * z + T[t + 2];
+            innerNor[i] = R[r] * n[i] + R[r + 1] * n[i + 1] + R[r + 2] * n[i + 2];
+            innerNor[i + 1] = R[r + 3] * n[i] + R[r + 4] * n[i + 1] + R[r + 5] * n[i + 2];
+            innerNor[i + 2] = R[r + 6] * n[i] + R[r + 7] * n[i + 1] + R[r + 8] * n[i + 2];
+        }
+    }
+
     /** Keeps the lowest point on the floor (it never sinks; it settles gently), then adds travel and lift. */
     private void settle() {
         float low = Float.MAX_VALUE;
@@ -157,6 +182,12 @@ public final class HumanInstance {
         for (int i = 0; i < pos.length; i += 3) {
             pos[i] += tx;
             pos[i + 1] += ground + ly;
+        }
+        if (innerPos != null) {
+            for (int i = 0; i < innerPos.length; i += 3) {
+                innerPos[i] += tx;
+                innerPos[i + 1] += ground + ly;
+            }
         }
         for (int b = 0; b < HumanRig.N; b++) {
             rig.joint[b * 3] += tx;

@@ -268,6 +268,17 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 || st == ai.dvine.anre.TransformationController.State.OBJECT_MODIFYING;
     }
 
+    /** Mode B: show the inside ("skeleton", "heart", "chest", … or "off"); returns the structures shown. */
+    public java.util.List<String> anatomy(String what) {
+        if (human == null) {
+            return new java.util.ArrayList<String>();
+        }
+        if (!"off".equals(what)) {
+            setBodyMode(true);
+        }
+        return human.anatomy(showingIvie, what);
+    }
+
     /** A progress bar built from the body's particles (0..1); a negative value ends it. */
     public void progress(float fraction) {
         if (human != null) {

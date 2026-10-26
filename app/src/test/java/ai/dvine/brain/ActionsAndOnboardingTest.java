@@ -121,6 +121,16 @@ public class ActionsAndOnboardingTest {
         assertEquals("globe", brain.respond("draw the globe", "obi").object3d);
         assertEquals("dna", brain.respond("show me dna", "obi").object3d);
         assertEquals("galaxy", brain.respond("can you draw a galaxy?", "obi").object3d);
+        // Mode B: the anatomical view
+        String[][] inside = {{"show me your skeleton", "skeleton"}, {"show your bones", "skeleton"}, {"x-ray", "all"}, {"show me your heart", "heart"},
+                {"can you show your lungs?", "lungs"}, {"show your ribs", "chest"}, {"show me your organs", "organs"}, {"cover up", "off"},
+                {"hide your skeleton", "off"}};
+        for (String[] i : inside) {
+            BrainAnswer a = brain.respond(i[0], "obi");
+            assertEquals(i[0], "ANATOMY", a.command);
+            assertEquals(i[0], i[1], a.commandValue);
+        }
+        assertTrue(brain.respond("show me your heart", "obi").spoken().contains("doesn't beat"));
         assertEquals("black hole", brain.respond("draw a black hole", "ivie").object3d);
         assertEquals("tesseract", brain.respond("show me a 4d cube", "obi").object3d);
         assertEquals("lorenz", brain.respond("draw the butterfly effect", "obi").object3d);
