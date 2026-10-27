@@ -384,6 +384,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (text == null || text.trim().isEmpty()) {
             return;
         }
+        text = ai.dvine.turn.Names.normalize(text); // "Evie", "Ivy", "Obie": the names as recognition hears them
         askId++; // a newer question makes any desk answer still on its way stale
         if (discussion != null) {
             discussion.cancel(); // the user interrupts: queued turns are dropped
