@@ -165,6 +165,14 @@ public final class HumanInstance {
         }
     }
 
+    /**
+     * A point on the drawn body (after the floor settle, travel and lift) in the rig's own
+     * space, where gaze and reach targets are solved.
+     */
+    public float[] toRig(float x, float y, float z) {
+        return new float[]{x - rig.travel(), y - ground - rig.lift(), z};
+    }
+
     /** Keeps the lowest point on the floor (it never sinks; it settles gently), then adds travel and lift. */
     private void settle() {
         float low = Float.MAX_VALUE;

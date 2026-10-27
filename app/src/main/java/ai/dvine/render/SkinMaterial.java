@@ -6,7 +6,7 @@ import ai.dvine.human.bake.Anatomy;
 
 /**
  * Per-vertex inputs of the lifelike skin (Mode A), four floats each:
- * material (0 skin, 2 teeth), warmth (blood close to the surface: cheeks,
+ * material (0 skin, 2 teeth, 3 coily hair), warmth (blood close to the surface: cheeks,
  * nose, ears, lips, palms), and where face features may be drawn (1 head,
  * 0.5 ears, 0 body). The brows, hairline and lips themselves are drawn per
  * pixel in the shader from the rest position in head units, so they stay
@@ -32,6 +32,9 @@ public final class SkinMaterial {
                 case Regions.TEETH:
                     mat = 2f;
                     break;
+                case Regions.HAIR:
+                    mat = 3f; // coily hair (Ivie's puffs)
+                    break;
                 case Regions.CHEEK_L:
                 case Regions.CHEEK_R:
                     warm = 0.7f;
@@ -50,7 +53,7 @@ public final class SkinMaterial {
                 default:
                     break;
             }
-            boolean onHead = r >= 0 && r <= Regions.NECK && r != Regions.TEETH;
+            boolean onHead = r >= 0 && r <= Regions.NECK && r != Regions.TEETH && r != Regions.HAIR;
             boolean ear = r == Regions.EAR_L || r == Regions.EAR_R;
             if (r == Regions.LIPS) {
                 mat = 0f; // the lips are drawn from their exact shape in the shader (the region is coarser)
