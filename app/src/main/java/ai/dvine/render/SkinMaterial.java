@@ -6,7 +6,7 @@ import ai.dvine.human.bake.Anatomy;
 
 /**
  * Per-vertex inputs of the lifelike skin (Mode A), four floats each:
- * material (0 skin, 2 teeth, 3 coily hair), warmth (blood close to the surface: cheeks,
+ * material (0 skin, 2 teeth, 3 coily hair, 4 trainers), warmth (blood close to the surface: cheeks,
  * nose, ears, lips, palms), and where face features may be drawn (1 head,
  * 0.5 ears, 0 body). The brows, hairline and lips themselves are drawn per
  * pixel in the shader from the rest position in head units, so they stay
@@ -63,6 +63,15 @@ public final class SkinMaterial {
             // where the face features may be drawn: 1 on the head (brows, hairline, lips), 0.5 on the ears (no hair)
             out[v * 4 + 2] = onHead ? (ear ? 0.5f : 1f) : 0f;
             out[v * 4 + 3] = 0f;
+        }
+        // the trainers: material 4, with each vertex's place on the shoe (along, across, up) for the sole, panels and laces
+        int s0 = a.shoeRange[0], ns = a.shoeRange[1];
+        for (int i = 0; i < ns && s0 + i < n; i++) {
+            int v = s0 + i;
+            out[v * 4] = 4f;
+            out[v * 4 + 1] = a.shoeLocal[i * 3];
+            out[v * 4 + 2] = a.shoeLocal[i * 3 + 1];
+            out[v * 4 + 3] = a.shoeLocal[i * 3 + 2];
         }
         return out;
     }

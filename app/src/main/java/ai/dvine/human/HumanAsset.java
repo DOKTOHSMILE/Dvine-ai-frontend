@@ -16,12 +16,19 @@ import ai.dvine.human.mesh.TriMesh;
  * binary file with a CRC so a damaged asset is detected, never drawn.
  */
 public final class HumanAsset {
-    public static final int FORMAT = 3;
+    public static final int FORMAT = 4;
     private static final int MAGIC = 0x4456484D; // "DVHM"
 
     public boolean female;
     /** The hairstyle it was built with (not saved: a shipped asset has its persona's default). */
     public String hairStyle;
+
+    /** Whether it was built with a full beard (not saved: a shipped asset is clean shaven). */
+    public boolean beard;
+    /** The shoes' vertices (start, count), contiguous solids after the eyes, teeth and hair; {0, 0} without shoes. */
+    public int[] shoeRange = new int[2];
+    /** Per shoe vertex: along the foot (0 heel .. 1 toe), across (-1 inside .. 1 outside), up (0 sole .. 1 collar). */
+    public float[] shoeLocal = new float[0];
 
     /** The hairstyle (see {@link ai.dvine.face.Look#HAIR_STYLES}). */
     public String hairStyle() {
@@ -136,6 +143,8 @@ public final class HumanAsset {
             bytes(o, innerLayer);
         }
         floats(o, headFrame);
+        ints(o, shoeRange);
+        floats(o, shoeLocal);
         o.flush();
         byte[] payload = body.toByteArray();
         CRC32 crc = new CRC32();
@@ -237,6 +246,15 @@ public final class HumanAsset {
             a.headFrame = floats(o);
             if (a.headFrame == null || a.headFrame.length < 6 || a.headFrame.length > 7 || !(a.headFrame[3] > 0f && a.headFrame[4] > 0f && a.headFrame[5] > 0f)) {
                 throw new IOException("bad head frame");
+            }
+        }
+        if (format >= 4) {
+            a.shoeRange = ints(o);
+            a.shoeLocal = floats(o);
+            int nv = m.pos.length / 3;
+            if (a.shoeRange == null || a.shoeRange.length != 2 || a.shoeRange[0] < 0 || a.shoeRange[1] < 0
+                    || a.shoeRange[0] + a.shoeRange[1] > nv || a.shoeLocal == null || a.shoeLocal.length != a.shoeRange[1] * 3) {
+                throw new IOException("bad shoes");
             }
         }
         m.computeNormals();

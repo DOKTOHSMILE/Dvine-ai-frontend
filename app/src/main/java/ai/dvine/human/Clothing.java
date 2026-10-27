@@ -32,11 +32,6 @@ public final class Clothing {
          * sleeve end (0..1 along the upper arm), lowest y}.
          */
         public final float[] clip;
-        /**
-         * For shoes: per body vertex, how much further out along its normal the shell sits (onto a smooth last over
-         * the foot, so the toes don't show through), body units; or null.
-         */
-        public float[] shape;
 
         Garment(String name, float[] color, float push, float weave, float[] clip, int[] tri) {
             this.name = name;
@@ -57,7 +52,8 @@ public final class Clothing {
 
     /**
      * The outfit and, for shell hairstyles, the hair: the fade's short top or a short afro's round
-     * volume (see {@link ai.dvine.face.Look#hairStyle}); Obi always keeps his beard.
+     * volume (see {@link ai.dvine.face.Look#hairStyle}); a beard when the look has one. The shoes are geometry
+     * of their own (see {@link HumanAsset#shoeRange}).
      */
     public static Garment[] design(HumanAsset a, String hairStyle) {
         float[] j = a.joints;
@@ -67,7 +63,7 @@ public final class Clothing {
         List<Garment> out = new ArrayList<Garment>();
         final float m = 0.12f; // selection margin; the shader trims the exact edge
         // after the character sheets: a cream ribbed tee for both (Ivie's cropped to meet high-waisted joggers),
-        // cargo joggers with ankle cuffs (beige for Ivie, black for Obi), socks, and trainers (chunky for Ivie)
+        // cargo joggers with ankle cuffs (beige for Ivie, black for Obi) and socks (the trainers are geometry)
         final float neckFront = neck - (f ? 0.24f : 0.16f), neckBack = neck - 0.1f, scoop = f ? 0.1f : 0.03f;
         final float waist = pelvis + (f ? 0.48f : 0.36f);
         final float hem = f ? waist - 0.06f : pelvis + 0.03f, sleeveEnd = f ? 0.36f : 0.5f;
@@ -93,16 +89,10 @@ public final class Clothing {
                     return legs && y < waist + m && y > cuff - m;
                 })));
         // socks: from inside the trainer up under the cuff
-        final float top = ankle + 0.14f;
+        final float top = ankle;
         out.add(new Garment("socks", f ? cream : rgb(0.012f, 0.012f, 0.013f), 0.016f, -1f, new float[]{5f, 0f, 0f, 0f, cuff + 0.05f, 0f, top - 0.05f},
                 select(a, (r, x, y, z, along) -> (r == Regions.SHIN_L || r == Regions.SHIN_R || r == Regions.FOOT_L
                         || r == Regions.FOOT_R) && y < cuff + 0.05f + m && y > top - 0.05f - m)));
-        // trainers: a fuller shell over the foot with a thick sole (thicker for Ivie's chunky pair)
-        out.add(new Garment("trainers", f ? rgb(0.64f, 0.57f, 0.47f) : rgb(0.82f, 0.82f, 0.80f), f ? 0.03f : 0.025f, 0.1f,
-                new float[]{2f, f ? 1f : 0f, 0f, 0f, top, 0f, -99f},
-                select(a, (r, x, y, z, along) -> (r == Regions.FOOT_L || r == Regions.FOOT_R || r == Regions.SHIN_L
-                        || r == Regions.SHIN_R) && y < top + m)));
-        out.get(out.size() - 1).shape = last(a, out.get(out.size() - 1).tri, top, f);
         final ai.dvine.human.bake.HeadFrame head = ai.dvine.human.bake.HeadFrame.of(a);
         float[] hairColor = rgb(0.006f, 0.005f, 0.0045f);
         if (ai.dvine.face.Look.FADE.equals(hairStyle)) {
@@ -114,8 +104,8 @@ public final class Clothing {
             out.add(new Garment("hair", hairColor, 0.075f, 0f, new float[]{6f, 0f, 0f, 0f, 0f, 0f, 0f},
                     selectHead(a, head, h -> h[1] > afroLine(h[0], h[2]) - 0.12f && !(Math.abs(h[0]) > 0.58f && h[1] < 0.2f && Math.abs(h[2] + 0.05f) < 0.3f))));
         }
-        if (!f) {
-            // Obi's full beard, with thickness
+        if (!f && a.beard) {
+            // a full beard, with thickness
             out.add(new Garment("beard", rgb(0.006f, 0.005f, 0.0045f), 0.032f, 0f, new float[]{4f, 0f, 0f, 0f, 0f, 0f, 0f},
                     selectHead(a, head, h -> beard(h[0], h[1], h[2], 0.05f))));
         }
@@ -130,78 +120,6 @@ public final class Clothing {
         float ax = Math.abs(x);
         float front = z > 0.25f && ax < 0.52f ? 0.63f : 0.44f; // the line-up across the forehead; the fade's top elsewhere
         return y > front - margin;
-    }
-
-    /**
-     * A shoe last for each foot: a rounded box (superellipsoid) around the foot's own extent, a little roomier at
-     * the toe. Each shoe vertex gets how much further out along its normal it must sit to lie on the last, so the
-     * shoe is smooth over the toes (a distance along the normal turns with the foot). Open at the ankle.
-     */
-    static float[] last(HumanAsset a, int[] tri, float top, boolean chunky) {
-        float[] p = a.mesh.pos;
-        int n = a.mesh.vertexCount();
-        float[] nor = a.mesh.nor;
-        if (nor == null || nor.length < n * 3) {
-            nor = new float[n * 3];
-            ai.dvine.human.mesh.TriMesh.normals(p, a.mesh.tri, nor);
-        }
-        float[] out = new float[n];
-        boolean[] in = new boolean[n];
-        for (int v : tri) {
-            in[v] = true;
-        }
-        for (int side = 0; side < 2; side++) {
-            float[] lo = {1e9f, 1e9f, 1e9f}, hi = {-1e9f, -1e9f, -1e9f};
-            for (int v = 0; v < n; v++) {
-                if (in[v] && (p[v * 3] < 0f) == (side == 0) && p[v * 3 + 1] < top) {
-                    for (int k = 0; k < 3; k++) {
-                        lo[k] = Math.min(lo[k], p[v * 3 + k]);
-                        hi[k] = Math.max(hi[k], p[v * 3 + k]);
-                    }
-                }
-            }
-            if (lo[0] > hi[0]) {
-                continue;
-            }
-            float room = chunky ? 0.05f : 0.035f;
-            float[] c = {(lo[0] + hi[0]) * 0.5f, (lo[1] + top) * 0.5f, (lo[2] + hi[2]) * 0.5f + room * 0.5f};
-            float[] h = {(hi[0] - lo[0]) * 0.5f + room, (top - lo[1]) * 0.5f + 0.01f, (hi[2] - lo[2]) * 0.5f + room * 1.5f};
-            for (int v = 0; v < n; v++) {
-                if (!in[v] || (p[v * 3] < 0f) != (side == 0) || inside(p, v * 3, 0f, nor, c, h) >= 1f) {
-                    continue;
-                }
-                // bisect along the normal for where it leaves the last
-                float t0 = 0f, t1 = 0.4f;
-                if (inside(p, v * 3, t1, nor, c, h) < 1f) {
-                    continue; // the normal runs along the last (e.g. points up the leg): leave it on the skin
-                }
-                for (int it = 0; it < 18; it++) {
-                    float tm = (t0 + t1) * 0.5f;
-                    if (inside(p, v * 3, tm, nor, c, h) < 1f) {
-                        t0 = tm;
-                    } else {
-                        t1 = tm;
-                    }
-                }
-                out[v] = t1 * smooth((top - p[v * 3 + 1]) / 0.12f);
-            }
-        }
-        return out;
-    }
-
-    /** The superellipsoid's value at p + t * normal (below 1 inside the last). */
-    private static float inside(float[] p, int o, float t, float[] nor, float[] c, float[] h) {
-        float sum = 0f;
-        for (int k = 0; k < 3; k++) {
-            float u = (p[o + k] + t * nor[o + k] - c[k]) / h[k];
-            sum += u * u * u * u;
-        }
-        return sum;
-    }
-
-    private static float smooth(float t) {
-        t = Math.max(0f, Math.min(1f, t));
-        return t * t * (3f - 2f * t);
     }
 
     /** A short afro's hairline in head units: rounded across the forehead, down past the temples, low at the nape. */

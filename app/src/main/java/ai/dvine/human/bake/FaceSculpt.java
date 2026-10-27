@@ -36,12 +36,13 @@ final class FaceSculpt {
             float top = smooth((y - 0.45f) / 0.5f);
             ny = y - (y - 0.45f) * 0.2f * top;
             nx *= 1f + 0.1f * top * smooth((0.75f - Math.abs(z + 0.1f)) / 0.5f);
-            // a strong, straight jaw and a squared chin pushed forward
+            // a strong, straight jaw; the chin comes forward under the lip, then slopes gently back to its base
             float jaw = smooth((-0.4f - y) / 0.45f) * underChin(y);
             nx *= 1f + 0.16f * jaw * smooth((z + 0.3f) / 0.4f);
             float chin = smooth((-0.72f - y) / 0.15f) * underChin(y) * smooth((0.4f - ax) / 0.2f);
-            nz += 0.06f * chin * smooth(z / 0.3f);
-            ny -= 0.03f * chin;
+            float slope = smooth((-0.86f - y) / 0.24f);
+            nz += (0.05f - 0.075f * slope) * chin * smooth(z / 0.3f);
+            ny -= 0.02f * chin;
             // cheekbones and the brow ridge
             nx += side * 0.04f * gauss(ax - 0.47f, y + 0.12f, 0.12f, 0.1f) * smooth((z - 0.2f) / 0.3f) * eye;
             nz += 0.035f * gauss(ax - 0.3f, y - 0.17f, 0.18f, 0.06f) * smooth((z - 0.45f) / 0.2f) * eye;

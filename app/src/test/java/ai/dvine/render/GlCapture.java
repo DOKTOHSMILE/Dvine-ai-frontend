@@ -128,6 +128,14 @@ public class GlCapture {
             c.distance = (float) Math.exp(lerp((float) Math.log(0.75f), (float) Math.log(4.4f), e));
             c.pivot = lerp(hy, 0f, e);
             c.yawDeg = yaw;
+            String zoom = System.getenv("GLCAP_ZOOM"), lookY = System.getenv("GLCAP_LOOKY");
+            if (zoom != null && lookY != null) {
+                // a close-up centred on one height of the body (body units): GLCAP_ZOOM times the scale
+                float ly = Float.parseFloat(lookY);
+                c.unit *= Float.parseFloat(zoom);
+                c.pivot = (ly - ai.dvine.human.HumanInstance.CENTRE) * ai.dvine.human.HumanInstance.OUT;
+                c.cy = H * 0.5f + c.pivot * c.unit;
+            }
             c.pitchDeg = lerp(rig.pitch.value + 6f, 8f, e);
             c.update();
             r.setCamera(c, -4.22f);

@@ -81,9 +81,13 @@ public final class AssetBuilder {
         TriMesh teeth = teeth();
         // hairstyles with volume of their own (the scalp, shells and partings of every style are drawn by the renderer)
         TriMesh puffs = hairGeometry();
-        TriMesh solid = puffs != null ? TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth, puffs) : TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth);
+        // everyday trainers over the feet (real geometry: the toes never show through)
+        List<float[]> shoeLocal = new ArrayList<float[]>();
+        TriMesh shoes = shoes(body, shoeLocal);
+        TriMesh solid = puffs != null ? TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth, puffs, shoes) : TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth, shoes);
         int puffStart = body.vertexCount() + eyeMeshL.vertexCount() + eyeMeshR.vertexCount() + teeth.vertexCount();
         int solidCount = solid.vertexCount();
+        int shoeStart = solidCount - shoes.vertexCount();
         int eyeStart = body.vertexCount();
         int teethStart = eyeStart + eyeMeshL.vertexCount() + eyeMeshR.vertexCount();
 
@@ -97,6 +101,12 @@ public final class AssetBuilder {
         HumanAsset a = new HumanAsset();
         a.female = female;
         a.hairStyle = look.hairStyle;
+        a.beard = look.beard;
+        a.shoeRange = new int[]{shoeStart, shoes.vertexCount()};
+        a.shoeLocal = new float[shoeLocal.size() * 3];
+        for (int i = 0; i < shoeLocal.size(); i++) {
+            System.arraycopy(shoeLocal.get(i), 0, a.shoeLocal, i * 3, 3);
+        }
         a.version = RECIPE;
         a.mesh = m;
         a.lines = new int[lineSeg.size() * 2];
@@ -115,7 +125,7 @@ public final class AssetBuilder {
         boolean[] face = new boolean[m.vertexCount()];
         for (int v = 0; v < m.vertexCount(); v++) {
             boolean eyeball = v >= eyeStart && v < teethStart;
-            boolean puff = v >= puffStart && v < solidCount;
+            boolean puff = v >= puffStart && v < solidCount; // the hair geometry and the shoes
             face[v] = !eyeball && !puff && (v >= body.vertexCount() || (m.bone0[v] & 0xff) == DotBody.HEAD);
         }
         float[] jaw = new float[m.vertexCount()];
@@ -605,6 +615,81 @@ public final class AssetBuilder {
         }
         m.computeNormals();
         return m;
+    }
+
+    /**
+     * A pair of low-top trainers: for each foot a rounded box (superellipsoid) sized from the foot's own vertices,
+     * narrow at the heel, widest across the ball, lower at the toe with a little toe spring, its collar just above the
+     * ankle and a sole under the foot (thicker for Ivie's chunky pair). Rigid on the foot bone. {@code local} gets each
+     * vertex's place on the shoe (along, across, up) for the renderer's sole, panels and laces.
+     */
+    private TriMesh shoes(TriMesh body, List<float[]> local) {
+        List<TriMesh> pair = new ArrayList<TriMesh>();
+        for (int side = 0; side < 2; side++) {
+            int region = side == 0 ? Regions.FOOT_L : Regions.FOOT_R;
+            float[] lo = {1e9f, 1e9f, 1e9f}, hi = {-1e9f, -1e9f, -1e9f};
+            int[] votes = new int[Skeleton.COUNT];
+            for (int v = 0; v < body.vertexCount(); v++) {
+                if ((body.region[v] & 0xff) == region) {
+                    votes[body.bone0[v] & 0xff]++;
+                }
+            }
+            int bone = side == 0 ? DotBody.FOOT_L : DotBody.FOOT_R;
+            for (int b = 0; b < votes.length; b++) {
+                if (votes[b] > votes[bone]) {
+                    bone = b;
+                }
+            }
+            float ankle = sk.joint[bone * 3 + 1];
+            for (int v = 0; v < body.vertexCount(); v++) {
+                if ((body.region[v] & 0xff) == region && body.pos[v * 3 + 1] < ankle) {
+                    for (int k = 0; k < 3; k++) {
+                        lo[k] = Math.min(lo[k], body.pos[v * 3 + k]);
+                        hi[k] = Math.max(hi[k], body.pos[v * 3 + k]);
+                    }
+                }
+            }
+            if (lo[0] > hi[0]) {
+                throw new IllegalStateException("no foot to put a shoe on");
+            }
+            float sole = female ? 0.09f : 0.06f;
+            float cx = (lo[0] + hi[0]) * 0.5f, halfW = (hi[0] - lo[0]) * 0.5f + 0.035f;
+            float heel = lo[2] - 0.035f, length = hi[2] - lo[2] + 0.1f;
+            float bottom = lo[1] - sole;
+            float collar = ankle + 0.04f - bottom, toe = (ankle - lo[1]) * 0.6f + sole;
+            TriMesh m = Shapes.icosphere(4);
+            int n = m.vertexCount();
+            m.region = new byte[n];
+            m.bone0 = new byte[n];
+            m.bone1 = new byte[n];
+            m.weight0 = new float[n];
+            for (int i = 0; i < n; i++) {
+                float x = m.pos[i * 3], y = m.pos[i * 3 + 1], z = m.pos[i * 3 + 2];
+                // onto a rounded box: |x|^4 + |y|^4 + |z|^3 = 1 (squarer across, rounder at heel and toe)
+                float k = (float) Math.pow(x * x * x * x + y * y * y * y + Math.abs(z * z * z), -0.25);
+                x *= k;
+                y *= k;
+                z *= k;
+                float u = Math.max(0f, Math.min(1f, (z + 1f) * 0.5f)), up = Math.max(0f, Math.min(1f, (y + 1f) * 0.5f));
+                float w = halfW * (0.8f + 0.2f * (float) Math.sin(Math.PI * Math.min(1f, u * 1.1f)));
+                float h = collar + (toe - collar) * smooth((u - 0.2f) / 0.65f);
+                float px = cx + x * w;
+                float py = bottom + up * h + 0.035f * smooth((u - 0.82f) / 0.18f) * (1f - up);
+                float pz = heel + u * length;
+                m.pos[i * 3] = px;
+                m.pos[i * 3 + 1] = py;
+                m.pos[i * 3 + 2] = pz;
+                m.region[i] = (byte) region;
+                m.bone0[i] = (byte) bone;
+                m.bone1[i] = (byte) bone;
+                m.weight0[i] = 1f;
+                // across: -1 on the inner side (toward the other foot), 1 outside
+                local.add(new float[]{u, cx >= 0f ? x : -x, up});
+            }
+            m.computeNormals();
+            pair.add(m);
+        }
+        return TriMesh.merge(pair.get(0), pair.get(1));
     }
 
     /** Smooth lumps in -1..1 (a few sine products), for the puffs' clumped coils. */
