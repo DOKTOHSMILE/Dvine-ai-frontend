@@ -927,6 +927,20 @@ Shipped: `obi.dvhm` (8,114 vertices), `ivie.dvhm` (10,904 vertices, with 90 hair
 
 **Known limits:** no self-intersection check; skin stretch is tested with a 5 mm rest-length floor; Ivie's hair is sparse; the hologram is the only look (no realistic skin mode yet); visemes are text-timed; not measured on a phone (frame rate).
 
+## 32. The on-device language model (app v0.20.0, built)
+
+**Choice.** Qwen3 1.7B (Apache 2.0, Alibaba's Qwen team), 4-bit Q4_K_M GGUF, 1.1 GB, run by llama.cpp (MIT) on the phone's CPU. Chosen for the best English and reasoning at a size a phone holds in memory, a permissive licence, and a no-thinking mode fast enough for speech (2 to 5 seconds per short answer on a desktop CPU; slower on a phone).
+
+**Source.** llama.cpp is vendored at `app/src/main/cpp/llama.cpp` (commit `0c8c59ef`, 27 Oct 2026): the library, ggml and its CPU backend only (no GPU backends, tools, tests or downloads). One change: `vendor/CMakeLists.txt` is emptied, because its helpers serve llama.cpp's tools and multimodal parts, which DVINE does not build. `app/src/main/cpp/CMakeLists.txt` builds it with OpenMP and KleidiAI off, so it also compiles offline in CodeAssist's native build; arm64 only, optimised in every build type, targeting ARMv8.2 with dot-product (phones from about 2018); the app checks `/proc/cpuinfo` for `asimddp` before loading it.
+
+**Bridge.** `dvine_llm.cpp` (plain C++: load, reply with the persona's system prompt cached between turns, streaming, stop, a filter that drops Qwen3's `<think>` block) and `dvine_llm_jni.cpp` (whole UTF-8 characters only, converted to UTF-16). Java: `ai.dvine.llm` — `NativeLlm`, `LocalModel` (state, load, the last six exchanges), `ModelDownloader` (resumable, SHA-256 checked before the file is kept), `ModelSpec` (pinned Hugging Face revision and checksum), `PersonaPrompt` (spoken, brief, honest, in Obi's or Ivie's manner), `SpeechChunker` (the reply spoken sentence by sentence as it is written).
+
+**Voice.** "Download your brain" (asks first: 1.1 GB, best on Wi-Fi) · "cancel the download" (resumes later) · "remove your brain" (asks first) · "turn off / turn on your brain" · "is your brain installed". Once ready, any question the offline brain can't answer goes to the model, offline; the persona thinks, then speaks the answer as it streams; anything new the user says stops it. The offline brain's own answers (commands, maths, facts, actions) still come first.
+
+**Checks.** `LocalModelTest` (sentences, prompt, resume, checksum, stop, CPU check, memory of six exchanges); `NativeBridgeTest` runs the real model through the real JNI bridge on a desktop build (env `DVINE_NATIVE_LIB`, `DVINE_MODEL`): it answers as Obi, streams, follows up with context, keeps "café" intact, stops when told.
+
+**Limits.** A 1.7B model can be wrong on facts (in a test it reversed which colours scatter in the sky), so checked offline facts stay first; no phone timing yet; the dual-persona discussion still uses the offline brain; the model is not used for 3D drawing yet.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
@@ -940,7 +954,7 @@ The order follows the user's priorities and dependencies. Each item becomes a st
 | 5 | **Coordinated interactions** | `InteractionChoreographyController`: wave, handshake, pointing at a shared object, celebrate, comfort, hug; each with preconditions, start positions, IK contact points, collision checks, a hold and a return to idle | 1, 4 |
 | 6 | **Dual-AI controls and camera views** | compact panel (ask both, ask one, debate, joint explanation, pause, resume, interrupt, replay, camera view, end); full-body, conversation, speaker, user-facing and close-up views; portrait and landscape | 2 |
 | 7 | **Eric, the coder** (third persona) | first version: a coding workspace (avatar on top, thought bubble with a quiet inner voice and still lips, a code panel with Code / Files / Terminal / Tests / Preview tabs, text and mic input, a task panel with cancel) on the server's sandboxed workspace (Track S): inspect, edit, compile and test a small Java project, a bounded repair loop, and a report that says only what actually ran | Track S workspace runner |
-| 8 | **Language understanding** — first part built in v0.19.0 (`brain/ContextExaminer`: whole-sentence reading, addressee, negation, references, corrections, several requests, asking back) | broader intent parsing for everyday phrasing (moves, looks, questions, commands to a named persona); next: corrections into the learning journal, the silent dictionary and word senses | — |
+| 8 | **Language understanding** — first part built in v0.19.0, an on-device language model in v0.20.0 (§32) (`brain/ContextExaminer`: whole-sentence reading, addressee, negation, references, corrections, several requests, asking back) | broader intent parsing for everyday phrasing (moves, looks, questions, commands to a named persona); next: corrections into the learning journal, the silent dictionary and word senses | — |
 | 9 | **Ground and walking** | a visible floor the body walks on (root travel follows the stride, feet planted, nothing sinks) | 1 |
 | 10 | **Realistic skin mode** — built in v0.14.0 with everyday clothes (default look; "hologram mode" / "skin mode", "make your skin darker/lighter"). v0.18.0 adds the hair library (afro puffs, fade, short afro, cornrows, bantu knots, bald) and the studio look from the user's render reference (charcoal backdrop, teal ring floor, contact shadows, key/rim light, glossier skin, shoes on a smooth last). Next: draped clothes, higher-poly silhouettes, twists/locs | a lit skin look (tone from Look, wrap-light subsurface approximation) beside the hologram, with a mode switch | §30 |
 | 11 | On-phone Linux, terminal UX | proot + Alpine rootfs; terminal, runs and web fetch on the phone | — |

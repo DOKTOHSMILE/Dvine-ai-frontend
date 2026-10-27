@@ -63,6 +63,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private AmbientPad ambient;
     private OfflineBrain brain;
     private final ai.dvine.brain.ContextExaminer examiner = new ai.dvine.brain.ContextExaminer();
+    // the on-device language model (llama.cpp + Qwen3 1.7B): answers what the offline brain can't, offline
+    private ai.dvine.llm.LocalModel model;
+    private final java.util.concurrent.ExecutorService modelThread = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private boolean confirmModelDownload, confirmModelRemove, streamOpen;
+    private volatile boolean cancelDownload;
     private LearningJournal journal;
     private Connectivity connectivity;
     private SyncWorker sync;
@@ -201,6 +206,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
         loader.start();
         brain.setUserName(prefs.getString("user_name", null));
         brain.setLooks(obiLook, ivieLook);
+        model = new ai.dvine.llm.LocalModel(new File(getFilesDir(), "models"), ai.dvine.llm.ModelSpec.QWEN3_1_7B,
+                ai.dvine.llm.LocalModel.cpuSupported(android.os.Build.SUPPORTED_ABIS, cpuinfo()));
+        if (model.installed() && prefs.getBoolean("llm_on", true)) {
+            loadModel(false);
+        }
         final ai.dvine.net.SessionClient session = new ai.dvine.net.SessionClient(this::serverUrl, prefs,
                 new ai.dvine.net.DeviceVault(prefs));
         sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store,
@@ -294,6 +304,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
             discussion = null;
         }
         String said = text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        if (modelCommand(said)) {
+            return;
+        }
         if (said.matches("^(pause|hold on|wait|hang on)( please)?$") && index < lines.size()) {
             paused = new ArrayList<TurnLine>(lines.subList(Math.max(0, index - 1), lines.size()));
             stopPlay();
@@ -439,10 +452,221 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
+        if ((!reply.answered || reply.needsOnline) && plain(reply) && model != null && model.ready()
+                && prefs.getBoolean("llm_on", true) && askLocal(asked, reply)) {
+            return;
+        }
         if (reply.needsOnline && askDesk(asked, reply)) {
             return;
         }
         play(reply.lines, reply.listenAfter ? this::startListening : null);
+    }
+
+    // ------------------------------------------------------------ the on-device language model
+
+    /**
+     * The language model answers a question the offline brain couldn't: in the persona's voice, spoken sentence by
+     * sentence while the rest is still being written. Anything new the user says stops it.
+     */
+    private boolean askLocal(final String question, final BrainAnswer offline) {
+        final int id = ++askId;
+        final boolean ivie = stage.isIvie();
+        final String agent = ivie ? "ivie" : "obi";
+        stopPlay();
+        stage.setThought(ivie ? "Let me think about that…" : "Thinking it through…");
+        stage.setMode(FaceMode.THINKING);
+        stage.activity("MODEL", "answering offline with " + model.spec.name);
+        final List<TurnLine> stream = new ArrayList<TurnLine>();
+        streamOpen = true;
+        lines = stream;
+        index = 0;
+        afterPlay = null;
+        step(playId);
+        final String system = ai.dvine.llm.PersonaPrompt.system(ivie, brain.userName());
+        modelThread.execute(() -> {
+            final ai.dvine.llm.SpeechChunker chunker = new ai.dvine.llm.SpeechChunker();
+            final String all = model.reply(system, question, 220, text -> {
+                if (id != askId) {
+                    return false;
+                }
+                final List<String> ready = chunker.add(text);
+                if (!ready.isEmpty()) {
+                    handler.post(() -> {
+                        if (id == askId) {
+                            for (String sentence : ready) {
+                                stream.add(new TurnLine(agent, "SAY", sentence));
+                            }
+                        }
+                    });
+                }
+                return true;
+            });
+            final String rest = chunker.flush();
+            handler.post(() -> {
+                if (id != askId) {
+                    return;
+                }
+                if (all == null && stream.isEmpty()) {
+                    stream.addAll(offline.lines); // the model failed: the offline answer instead
+                } else if (!rest.isEmpty()) {
+                    stream.add(new TurnLine(agent, "SAY", rest));
+                }
+                streamOpen = false;
+            });
+        });
+        return true;
+    }
+
+    /** Loads the installed model in the background; {@code tell} says so aloud when it's ready. */
+    private void loadModel(final boolean tell) {
+        modelThread.execute(() -> {
+            final boolean ok = model.load(ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
+            handler.post(() -> {
+                stage.activity("MODEL", ok ? model.spec.name + " ready, offline" : model.problem());
+                if (tell) {
+                    play(LocalTurn.speakAs(stage.isIvie(), ok ? "My language model is ready. Ask me anything, even offline."
+                            : "I couldn't start my language model: " + model.problem() + "."), null);
+                }
+            });
+        });
+    }
+
+    /** Voice control of the language model: install, cancel, remove, on, off, status (and the yes or no that follows). */
+    private boolean modelCommand(String said) {
+        if (model == null) {
+            return false;
+        }
+        boolean yes = said.matches("^(yes|yeah|yep|ok|okay|sure|go ahead|start|do it|please do)( please)?$");
+        boolean no = said.matches("^(no|nope|not now|cancel|don't|do not|leave it)( please)?$");
+        if (confirmModelDownload && (yes || no)) {
+            confirmModelDownload = false;
+            if (yes) {
+                startModelDownload();
+            } else {
+                play(LocalTurn.speakAs(stage.isIvie(), "Okay, not now. Say download your brain whenever you're ready."), null);
+            }
+            return true;
+        }
+        if (confirmModelRemove && (yes || no)) {
+            confirmModelRemove = false;
+            String line = !yes ? "Okay, I'll keep it." : model.uninstall() ? "Done. My language model is removed; I'm on my offline notes again."
+                    : "I couldn't delete the model file.";
+            play(LocalTurn.speakAs(stage.isIvie(), line), null);
+            return true;
+        }
+        confirmModelDownload = false;
+        confirmModelRemove = false;
+        String thing = "(your |the |a |my )?(brain|language model|llm|ai model|offline model|model)";
+        boolean ivie = stage.isIvie();
+        if (said.matches("^(please )?(download|install|get|add|set up)( me)? " + thing + "( please)?$")
+                || said.matches("^(upgrade your brain|make yourself smarter|get smarter)$")) {
+            if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
+                play(LocalTurn.speakAs(ivie, "I can't run a language model on this phone: " + model.problem() + "."), null);
+            } else if (model.installed()) {
+                play(LocalTurn.speakAs(ivie, model.ready() ? "My language model is already installed and running."
+                        : "It's already installed. Starting it now."), null);
+                if (!model.ready()) {
+                    loadModel(true);
+                }
+            } else if (model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING) {
+                play(LocalTurn.speakAs(ivie, "It's downloading now. I'll tell you when it's ready."), null);
+            } else {
+                confirmModelDownload = true;
+                play(LocalTurn.speakAs(ivie, "My language model is " + model.spec.name + ", an open model under the "
+                        + model.spec.licence + " licence. It's a " + model.spec.sizeWords()
+                        + " download from Hugging Face, best on Wi-Fi, and then it works offline. Shall I start?"), this::startListening);
+            }
+            return true;
+        }
+        if (said.matches("^(cancel|stop) (the |that )?download$")) {
+            cancelDownload = true;
+            play(LocalTurn.speakAs(ivie, "Stopping the download. What's done is kept, so it can carry on later."), null);
+            return true;
+        }
+        if (said.matches("^(delete|remove|uninstall) " + thing + "$")) {
+            if (!model.installed()) {
+                play(LocalTurn.speakAs(ivie, "There's no language model installed."), null);
+            } else {
+                confirmModelRemove = true;
+                play(LocalTurn.speakAs(ivie, "Remove my language model and free " + model.spec.sizeWords() + "? Say yes or no."),
+                        this::startListening);
+            }
+            return true;
+        }
+        if (said.matches("^(turn off|disable|stop using|switch off) " + thing + "$")) {
+            prefs.edit().putBoolean("llm_on", false).apply();
+            play(LocalTurn.speakAs(ivie, "Okay. I'll answer from my offline notes only."), null);
+            return true;
+        }
+        if (said.matches("^(turn on|enable|use|switch on|start) " + thing + "( again)?$")) {
+            prefs.edit().putBoolean("llm_on", true).apply();
+            if (model.installed() && !model.ready()) {
+                loadModel(true);
+            } else {
+                play(LocalTurn.speakAs(ivie, model.ready() ? "My language model is on." : "It isn't installed yet. Say download your brain."), null);
+            }
+            return true;
+        }
+        if (said.matches("^(is|are) " + thing + " (installed|ready|on|working)$|^(language model|model|brain) status$")) {
+            String line;
+            switch (model.state()) {
+                case READY: line = model.spec.name + " is running on this phone, offline."; break;
+                case LOADING: line = "It's starting up now."; break;
+                case DOWNLOADING: line = "It's downloading."; break;
+                case INSTALLED: line = "It's installed but switched off. Say turn on your brain."; break;
+                case UNSUPPORTED: line = "This phone can't run it: " + model.problem() + "."; break;
+                case FAILED: line = "It's installed but didn't start: " + model.problem() + "."; break;
+                default: line = "Not installed yet. Say download your brain.";
+            }
+            play(LocalTurn.speakAs(ivie, line), null);
+            return true;
+        }
+        return false;
+    }
+
+    private void startModelDownload() {
+        if (connectivity == null || !connectivity.isOnline()) {
+            play(LocalTurn.speakAs(stage.isIvie(), "I'm offline right now. Connect to the internet, ideally Wi-Fi, and ask me again."), null);
+            return;
+        }
+        cancelDownload = false;
+        play(LocalTurn.speakAs(stage.isIvie(), "Downloading now. You can keep talking to me while it comes in."), null);
+        final int[] lastPct = {-1};
+        modelThread.execute(() -> {
+            final ai.dvine.llm.ModelDownloader.Result r = model.download(ai.dvine.llm.ModelDownloader.https(model.spec.url),
+                    (done, total) -> {
+                        final int pct = (int) (done * 100 / total);
+                        if (pct / 5 != lastPct[0] / 5) {
+                            lastPct[0] = pct;
+                            handler.post(() -> stage.activity("DOWNLOAD", pct + "% of " + model.spec.sizeWords()));
+                        }
+                        return !cancelDownload;
+                    });
+            handler.post(() -> {
+                switch (r) {
+                    case DONE:
+                        stage.activity("DOWNLOAD", "verified");
+                        loadModel(true);
+                        break;
+                    case STOPPED:
+                        stage.activity("DOWNLOAD", "paused");
+                        break;
+                    case BAD_FILE:
+                        play(LocalTurn.speakAs(stage.isIvie(), "The download was damaged, so I deleted it. Say download your brain to try again."), null);
+                        break;
+                    default:
+                        play(LocalTurn.speakAs(stage.isIvie(), "The download stopped. Say download your brain to carry on from where it was."), null);
+                }
+            });
+        });
+    }
+
+    private static String cpuinfo() {
+        try {
+            return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("/proc/cpuinfo")), "UTF-8");
+        } catch (java.io.IOException | RuntimeException e) {
+            return null;
+        }
     }
 
     /**
@@ -814,6 +1038,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         if (index >= lines.size()) {
+            if (streamOpen) {
+                handler.postDelayed(() -> step(token), 120); // the model is still writing: wait for its next sentence
+                return;
+            }
             stage.setMode(FaceMode.DONE);
             Runnable done = afterPlay;
             afterPlay = null;
@@ -854,6 +1082,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private void stopPlay() {
         playId++;
+        streamOpen = false;
         afterPlay = null;
         handler.removeCallbacksAndMessages(null);
         if (talk != null) {
@@ -915,6 +1144,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
         listen.stop();
         sync.shutdown();
         deskThread.shutdownNow();
+        if (model != null) {
+            model.cancel();
+        }
+        cancelDownload = true;
+        modelThread.shutdownNow();
         super.onDestroy();
     }
 }
