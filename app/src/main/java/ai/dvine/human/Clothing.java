@@ -47,6 +47,14 @@ public final class Clothing {
     }
 
     public static Garment[] design(HumanAsset a) {
+        return design(a, a.female ? ai.dvine.face.Look.PUFFS : ai.dvine.face.Look.FADE);
+    }
+
+    /**
+     * The outfit and, for shell hairstyles, the hair: the fade's short top or a short afro's round
+     * volume (see {@link ai.dvine.face.Look#hairStyle}); Obi always keeps his beard.
+     */
+    public static Garment[] design(HumanAsset a, String hairStyle) {
         float[] j = a.joints;
         float neck = j[DotBody.NECK * 3 + 1], pelvis = j[DotBody.PELVIS * 3 + 1];
         float ankle = (j[DotBody.FOOT_L * 3 + 1] + j[DotBody.FOOT_R * 3 + 1]) * 0.5f;
@@ -89,11 +97,19 @@ public final class Clothing {
                 new float[]{2f, f ? 1f : 0f, 0f, 0f, top, 0f, -99f},
                 select(a, (r, x, y, z, along) -> (r == Regions.FOOT_L || r == Regions.FOOT_R || r == Regions.SHIN_L
                         || r == Regions.SHIN_R) && y < top + m)));
-        if (!f) {
-            // Obi's cut: short coily hair on top with a sharp line-up, and a full beard; both have thickness
-            final ai.dvine.human.bake.HeadFrame head = ai.dvine.human.bake.HeadFrame.of(a);
-            out.add(new Garment("hair", rgb(0.006f, 0.005f, 0.0045f), 0.07f, 0f, new float[]{3f, 0f, 0f, 0f, 0f, 0f, 0f},
+        final ai.dvine.human.bake.HeadFrame head = ai.dvine.human.bake.HeadFrame.of(a);
+        float[] hairColor = rgb(0.006f, 0.005f, 0.0045f);
+        if (ai.dvine.face.Look.FADE.equals(hairStyle)) {
+            // the fade: short coily hair on top with a sharp line-up
+            out.add(new Garment("hair", hairColor, 0.07f, 0f, new float[]{3f, 0f, 0f, 0f, 0f, 0f, 0f},
                     selectHead(a, head, h -> topHair(h[0], h[1], h[2], 0.1f))));
+        } else if (ai.dvine.face.Look.SHORT_AFRO.equals(hairStyle)) {
+            // a short afro: a round volume of coils over the whole hairline (about 45 mm deep)
+            out.add(new Garment("hair", hairColor, 0.075f, 0f, new float[]{6f, 0f, 0f, 0f, 0f, 0f, 0f},
+                    selectHead(a, head, h -> h[1] > afroLine(h[0], h[2]) - 0.12f && !(Math.abs(h[0]) > 0.58f && h[1] < 0.2f && Math.abs(h[2] + 0.05f) < 0.3f))));
+        }
+        if (!f) {
+            // Obi's full beard, with thickness
             out.add(new Garment("beard", rgb(0.006f, 0.005f, 0.0045f), 0.032f, 0f, new float[]{4f, 0f, 0f, 0f, 0f, 0f, 0f},
                     selectHead(a, head, h -> beard(h[0], h[1], h[2], 0.05f))));
         }
@@ -108,6 +124,15 @@ public final class Clothing {
         float ax = Math.abs(x);
         float front = z > 0.25f && ax < 0.52f ? 0.63f : 0.44f; // the line-up across the forehead; the fade's top elsewhere
         return y > front - margin;
+    }
+
+    /** A short afro's hairline in head units: rounded across the forehead, down past the temples, low at the nape. */
+    public static float afroLine(float x, float z) {
+        float ax = Math.abs(x);
+        float back = clamp01((0.1f - z) / 0.8f);
+        back *= back; // the line stays high over the ears and drops behind them to the nape
+        float front = 0.6f - 0.18f * Math.min(1f, (ax / 0.55f) * (ax / 0.55f));
+        return front + (-0.8f - front) * back;
     }
 
     /** Obi's full beard in head units: jaw, chin and cheeks below a cheek line, the moustache, not the lips. */

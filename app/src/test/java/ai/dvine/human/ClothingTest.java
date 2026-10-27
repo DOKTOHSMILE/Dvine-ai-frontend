@@ -55,6 +55,36 @@ public class ClothingTest {
     }
 
     @Test
+    public void everyHairstyleBuildsAndTheShortAfroIsAShell() throws Exception {
+        for (String n : new String[]{"obi", "ivie"}) {
+            HumanAsset a = load(n);
+            for (String style : ai.dvine.face.Look.HAIR_STYLES) {
+                Clothing.Garment[] g = Clothing.design(a, style);
+                boolean shell = style.equals(ai.dvine.face.Look.FADE) || style.equals(ai.dvine.face.Look.SHORT_AFRO);
+                assertTrue(n + " " + style, g.length == 4 + (shell ? 1 : 0) + (a.female ? 0 : 1));
+                if (style.equals(ai.dvine.face.Look.SHORT_AFRO)) {
+                    Clothing.Garment hair = g[4];
+                    assertTrue(hair.clip[0] == 6f && hair.tri.length > 100);
+                    assertTrue(n + " afro off the nose", !covers(hair, a.landmark("nose tip")));
+                }
+            }
+        }
+        assertTrue(Clothing.afroLine(0f, 0.9f) > 0.55f && Clothing.afroLine(0f, -0.8f) < -0.7f && Clothing.afroLine(0.6f, -0.05f) > 0f);
+    }
+
+    @Test
+    public void hairstylesAreAskedForByName() {
+        String[][] cases = {{"give ivie cornrows", "cornrows"}, {"make your hair bantu knots", "bantu knots"},
+                {"i want a short afro", "short afro"}, {"afro puffs please", "afro puffs"}, {"get a low cut fade", "fade"}};
+        for (String[] c : cases) {
+            ai.dvine.face.Look l = ai.dvine.face.Look.defaults(true);
+            assertTrue(c[0], l.apply(c[0]) != null && l.hairStyle.equals(c[1]));
+            ai.dvine.face.Look back = ai.dvine.face.Look.parse(l.serialize(), true);
+            assertTrue(c[0] + " saved", back.hairStyle.equals(c[1]));
+        }
+    }
+
+    @Test
     public void browsAndHairlineSitOnTheHead() {
         // in head units: the eyes at y 0.02, the crown near y 1
         assertTrue(ai.dvine.render.SkinMaterialAccess.brow(0.3f, 0.26f, 0.8f, false) > 0.5f);

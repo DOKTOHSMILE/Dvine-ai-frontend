@@ -105,6 +105,8 @@ public final class WireRenderer {
         FloatBuffer mat, rest;
         /** The head frame (origin, scales) for drawing brows, hairline and lips in head units. */
         final float[] headFrame = new float[7];
+        /** The hairstyle's number (Look.HAIR_STYLES) for the scalp painting. */
+        int hairStyle = 1;
         /** Clothes for the lifelike look: each garment's triangles and its index buffer. */
         ai.dvine.human.Clothing.Garment[] garments = new ai.dvine.human.Clothing.Garment[0];
         int[] garmentIbo = new int[0];
@@ -181,7 +183,8 @@ public final class WireRenderer {
             s.eye = floats(eye);
             s.mat = floats(SkinMaterial.perVertex(a));
             s.rest = floats(java.util.Arrays.copyOf(a.mesh.pos, n * 3));
-            s.garments = ai.dvine.human.Clothing.design(a);
+            s.garments = ai.dvine.human.Clothing.design(a, a.hairStyle());
+            s.hairStyle = java.util.Arrays.asList(ai.dvine.face.Look.HAIR_STYLES).indexOf(a.hairStyle());
             float[] hf = a.headFrame;
             for (int k = 0; k < 7; k++) {
                 s.headFrame[k] = k < hf.length ? hf[k] : hf[4];
@@ -739,6 +742,7 @@ public final class WireRenderer {
         float[] hf = s.headFrame;
         gl.uniform4f(gl.uniform(p, "uHeadA"), hf[0], hf[1], hf[2], hf[3]);
         gl.uniform4f(gl.uniform(p, "uHeadB"), hf[4], hf[5], hf[6], s.asset.female ? 1f : 0f);
+        gl.uniform1f(gl.uniform(p, "uHairStyle"), s.hairStyle);
         gl.disable(GlApi.BLEND);
         gl.depthMask(true);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
@@ -982,7 +986,10 @@ public final class WireRenderer {
             // hair and beard thin out toward their fading edges (the line-up at the forehead keeps its full edge)
             + "  float push = uPush; float ax = abs(vH.x);\n"
             + "  if (uKind > 2.5 && uKind < 3.5 && !(vH.z > 0.25 && ax < 0.52)) push *= mix(0.25, 1.0, smoothstep(0.44, 0.72, vH.y));\n"
-            + "  if (uKind > 3.5) { float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0); float ch = -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12;\n"
+            // a short afro rounds off at its hairline instead of ending in a step
+            + "  if (uKind > 5.5) { float bk = clamp((0.1 - vH.z) / 0.8, 0.0, 1.0); bk *= bk; float fr = 0.6 - 0.18 * min(1.0, (ax / 0.55) * (ax / 0.55));\n"
+            + "    push *= mix(0.2, 1.0, smoothstep(0.0, 0.3, vH.y - mix(fr, -0.8, bk) + 0.12)); }\n"
+            + "  if (uKind > 3.5 && uKind < 4.5) { float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0); float ch = -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12;\n"
             + "    float inBeard = smoothstep(0.0, 0.14, ch - vH.y);\n"
             // the sideburns stay close to the skin and get closer as they rise into the fade
             + "    float sb = smoothstep(0.53, 0.6, ax) * smoothstep(-0.16, -0.06, vH.z) * smoothstep(0.3, 0.22, vH.z);\n"
@@ -996,7 +1003,7 @@ public final class WireRenderer {
             + "precision highp float;\n"
             + "in vec3 vN; in vec3 vR; in vec3 vH; in float vEye; in vec4 vMat; uniform vec4 uTone; uniform mat3 uRot; uniform vec4 uHeadB;\n"
             + "uniform vec4 uCloth; uniform float uWeave; uniform vec4 uClipA; uniform vec4 uClipB; uniform vec4 uShoulder; uniform vec4 uElbow;\n"
-            + "uniform vec4 uLegs;\n"
+            + "uniform vec4 uLegs; uniform float uHairStyle;\n"
             + "float lips(vec3 h, float fem); float vnoise(vec3 x);\n"
             + "float cheekLine(float ax){ float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0);\n"
             + "  return -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12; }\n"
@@ -1013,11 +1020,15 @@ public final class WireRenderer {
             + "    return r.y > neckline || r.y < uClipB.x; }\n"
             + "  if (kind < 1.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
             + "  if (kind < 2.5) return r.y > uClipB.x;\n"
-            + "  if (kind > 4.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
+            + "  if (kind > 4.5 && kind < 5.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
             // Obi's hair and beard, the same shapes as Clothing.topHair and Clothing.beard, in head units
             + "  vec3 h = vH; float ax = abs(h.x);\n"
             // edges thin out instead of stopping: coverage falls off and clumps of hair drop out (a dithered blend)
             + "  float clump = vnoise(vR * 330.0) * 0.7 + vnoise(vR * 90.0) * 0.3;\n"
+            // the short afro (Clothing.afroLine): full over the crown, its rim breaking into coils
+            + "  if (kind > 5.5 && ax > 0.58 && h.y < 0.2 && abs(h.z + 0.05) < 0.3) return true;\n"
+            + "  if (kind > 5.5) { float bk = clamp((0.1 - h.z) / 0.8, 0.0, 1.0); bk *= bk; float fr = 0.6 - 0.18 * min(1.0, (ax / 0.55) * (ax / 0.55));\n"
+            + "    return clump > smoothstep(-0.12, 0.06, h.y - mix(fr, -0.8, bk)); }\n"
             + "  if (kind < 3.5) { bool lineUp = h.z > 0.25 && ax < 0.52;\n"
             + "    if (lineUp) return h.y < 0.63;\n"
             + "    return clump > smoothstep(0.42, 0.6, h.y); }\n"
@@ -1068,8 +1079,8 @@ public final class WireRenderer {
             + "  vec3 alb = uTone.rgb; float rough = 0.5; float specK = 0.028; vec3 sss = vec3(0.45, 0.22, 0.14);\n"
             + "  float detail = 1.0; float fuzz = 0.0;\n"
             + "  if (uCloth.a > 0.5 && outside(vR)) discard;\n"
-            + "  if (uCloth.a > 0.5 && uClipA.x > 2.5 && uClipA.x < 4.5) {\n"
-            + "    vec3 g4; alb = coily(vR, uClipA.x > 3.5 ? 110.0 : 80.0, g4);\n"
+            + "  if (uCloth.a > 0.5 && ((uClipA.x > 2.5 && uClipA.x < 4.5) || uClipA.x > 5.5)) {\n"
+            + "    vec3 g4; alb = coily(vR, uClipA.x > 3.5 && uClipA.x < 4.5 ? 110.0 : uClipA.x > 5.5 ? 60.0 : 80.0, g4);\n"
             + "    n = normalize(n - uRot * g4 * 0.3); rough = 1.0; specK = 0.004; sss = vec3(0.04); detail = 0.0; fuzz = 1.0;\n"
             + "  } else if (uCloth.a > 0.5) {\n"
             // fabric: a fine weave (twill diagonals for denim), soft folds, no oily shine, a velvety sheen at grazing angles
@@ -1130,10 +1141,21 @@ public final class WireRenderer {
             + "    float b = brow(vH, fem) * onHead; float hc = hairCap(vH, fem) * smoothstep(0.0, 0.5, face) * smoothstep(-1.15, -0.95, vH.y);\n"
             // Obi: a high skin fade, stubble thinning to bare skin from the top block down to the ears,
             // the forehead and temples below the line-up are clean
-            + "    if (fem < 0.5) { bool frontZone = vH.z > 0.25 && abs(vH.x) < 0.52;\n"
-            + "      float dots = smoothstep(0.35, 0.75, vnoise(vR * 420.0));\n"
+            + "    float style = uHairStyle;\n"
+            + "    float dots = smoothstep(0.35, 0.75, vnoise(vR * 420.0));\n"
+            + "    if (style > 0.5 && style < 1.5) { bool frontZone = vH.z > 0.25 && abs(vH.x) < 0.52;\n"
             + "      float fade = frontZone ? 0.0 : smoothstep(0.0, 0.44, vH.y) * (0.35 + 0.65 * dots);\n"
-            + "      hc = fade * 0.85 * smoothstep(0.0, 0.5, face);\n"
+            + "      hc = fade * 0.85 * smoothstep(0.0, 0.5, face); }\n"
+            + "    if (style > 4.5) hc = 0.0;\n"
+            // cornrows: braids running from the forehead back over the crown, bare partings between them, each braid a zigzag of plaits
+            + "    if (style > 2.5 && style < 3.5) { float row = fract(vH.x * 8.0 + 0.5); float part = smoothstep(0.0, 0.05, row) * smoothstep(1.0, 0.95, row);\n"
+            + "      float along = vH.y * 0.6 - vH.z; float plait = 0.35 + 0.65 * abs(sin(along * 55.0 + abs(row - 0.5) * 9.0));\n"
+            + "      hc *= part * plait; }\n"
+            // bantu knots: the scalp split into sections by partings, a knot sitting on each (the geometry)
+            + "    if (style > 3.5 && style < 4.5) { vec2 cell = fract(vec2(vH.x * 3.2 + 0.5, (vH.y - vH.z) * 2.6));\n"
+            + "      hc *= smoothstep(0.0, 0.06, cell.x) * smoothstep(1.0, 0.94, cell.x) * smoothstep(0.0, 0.06, cell.y) * smoothstep(1.0, 0.94, cell.y); }\n"
+            + "    if (style > 1.5 && style < 2.5) hc = min(1.0, hc * 1.2);\n"
+            + "    if (fem < 0.5) {\n"
             // a short-stubble shadow on the skin just outside the beard and up the sideburns, so the shell's edge melts in
             + "      float ax2 = abs(vH.x); float edge = cheekLine(ax2) - vH.y;\n"
             + "      float shadow = smoothstep(-0.09, 0.02, edge) * smoothstep(0.72, 0.62, ax2) * smoothstep(-0.2, -0.05, vH.z) * smoothstep(-1.2, -1.08, vH.y);\n"
@@ -1142,10 +1164,10 @@ public final class WireRenderer {
             + "        * (1.0 - smoothstep(0.1, 0.44, vH.y)) * smoothstep(-0.2, -0.1, vH.y);\n"
             + "      float shortHair = 0.55 + 0.45 * vnoise(vR * vec3(300.0, 120.0, 300.0));\n"
             + "      hc = max(hc, shadow * (lips(vH, 0.0) > 0.1 ? 0.0 : 1.0) * (0.35 + 0.65 * dots) * 0.8 * onHead);\n"
-            + "      hc = max(hc, min(1.0, sideS * 1.3) * shortHair * smoothstep(0.0, 0.5, face)); }\n"
+            + "      if (style < 4.5) hc = max(hc, min(1.0, sideS * 1.3) * shortHair * smoothstep(0.0, 0.5, face)); }\n"
             + "    float grain = 0.55 + 0.45 * vnoise(vR * vec3(160.0, 40.0, 160.0));\n"
             // Ivie: hair pulled back sleek toward the puffs, lines running front to back, and a fine centre part
-            + "    if (fem > 0.5) { grain = 0.6 + 0.4 * vnoise(vec3(vH.x * 260.0, vH.y * 18.0, vH.z * 18.0));\n"
+            + "    if (style < 0.5) { grain = 0.6 + 0.4 * vnoise(vec3(vH.x * 260.0, vH.y * 18.0, vH.z * 18.0));\n"
             + "      float side = smoothstep(0.004, 0.016, abs(vH.x)); hc *= side + (1.0 - side) * smoothstep(-0.25, -0.45, vH.z); }\n"
             + "    float hb = clamp(max(b * 0.85, hc * (0.8 + 0.2 * grain)), 0.0, 1.0);\n"
             + "    alb = mix(alb, hairC * (0.6 + 0.8 * grain), hb);\n"

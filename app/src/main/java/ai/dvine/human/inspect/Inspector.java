@@ -62,8 +62,13 @@ public final class Inspector {
         for (byte b : a.mesh.region) {
             seen[b & 0xff] = true;
         }
+        // hair is only expected when the approved look has some (fades, short afros and bald heads have none)
+        boolean hairExpected = false;
+        for (byte b : approved.mesh.region) {
+            hairExpected |= (b & 0xff) == Regions.HAIR;
+        }
         for (int id = 0; id < Regions.COUNT; id++) {
-            if (!seen[id] && !(id == Regions.HAIR && !a.female)) {
+            if (!seen[id] && !(id == Regions.HAIR && !hairExpected)) {
                 out.add("body part " + Regions.key(id) + " has no geometry");
             }
         }

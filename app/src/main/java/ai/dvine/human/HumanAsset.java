@@ -20,6 +20,13 @@ public final class HumanAsset {
     private static final int MAGIC = 0x4456484D; // "DVHM"
 
     public boolean female;
+    /** The hairstyle it was built with (not saved: a shipped asset has its persona's default). */
+    public String hairStyle;
+
+    /** The hairstyle (see {@link ai.dvine.face.Look#HAIR_STYLES}). */
+    public String hairStyle() {
+        return hairStyle != null ? hairStyle : female ? ai.dvine.face.Look.PUFFS : ai.dvine.face.Look.FADE;
+    }
     /** Content version: bumped whenever the asset is rebuilt from a changed recipe. */
     public int version;
     public TriMesh mesh;

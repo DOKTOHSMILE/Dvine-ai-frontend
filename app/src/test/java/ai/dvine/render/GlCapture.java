@@ -81,6 +81,13 @@ public class GlCapture {
         boolean ivie = who.equals("ivie");
         HumanAsset a;
         try (FileInputStream in = new FileInputStream("src/main/assets/human/" + who + ".dvhm")) { a = HumanAsset.read(in); }
+        String hairStyle = System.getenv("GLCAP_HAIR");
+        if (hairStyle != null) {
+            ai.dvine.face.Look look = ai.dvine.face.Look.defaults("ivie".equals(who));
+            look.hairStyle = hairStyle;
+            look.hair = 1f;
+            a = new ai.dvine.human.bake.AssetBuilder("ivie".equals(who), look, new ai.dvine.human.bake.AssetBuilder.Budget()).build();
+        }
         Rec gl = new Rec();
         WireRenderer r = new WireRenderer(gl);
         int W = 1080, H = 2400;
@@ -131,6 +138,7 @@ public class GlCapture {
             stage.frame(t, ivie, rig, e > 0.5f, false, 1f);
             r.onDraw((long) (t * 1e9));
         }
+        if (r.fault != null) System.err.println("GLCAP fault: " + r.fault);
         new File(outDir).mkdirs();
         try (Writer w = new OutputStreamWriter(new FileOutputStream(outDir + "/cmds.json"), "UTF-8")) { w.write(gl.cmds.append("]").toString()); }
         try (FileOutputStream o = new FileOutputStream(outDir + "/data.bin")) { gl.data.writeTo(o); }
