@@ -11,6 +11,7 @@ import ai.dvine.human.Regions;
 import ai.dvine.human.bake.AssetBuilder;
 import ai.dvine.human.face.FaceDrive;
 import ai.dvine.human.inspect.Inspector;
+import ai.dvine.human.rig.HumanRig;
 import ai.dvine.human.rig.Skeleton;
 import ai.dvine.human.touch.BodyTouch;
 
@@ -340,6 +341,72 @@ public final class HumanStage {
                 h.rig.turnAround();
             }
         }
+    }
+
+    /**
+     * A hand gesture (by its emoji key, see {@link ai.dvine.face.Gestures}) made with the persona's
+     * own 3D hands: fingers shaped one by one, the hand brought up beside the face, moving as the
+     * gesture does. False when the key is unknown or the body isn't loaded.
+     */
+    public synchronized boolean gesture(boolean ivie, String key, float seconds) {
+        HumanInstance h = inst[ivie ? 1 : 0];
+        ai.dvine.face.Gestures.Gesture g = key == null ? null : ai.dvine.face.Gestures.get(key);
+        if (h == null || g == null) {
+            return false;
+        }
+        int move;
+        switch (g.motion) {
+            case WAVE:
+                move = HumanRig.MOVE_WAVE;
+                break;
+            case SHAKE:
+                move = HumanRig.MOVE_SHAKE;
+                break;
+            case TAP:
+                move = HumanRig.MOVE_TAP;
+                break;
+            case CLAP:
+                move = HumanRig.MOVE_CLAP;
+                break;
+            case SCRIBBLE:
+                move = HumanRig.MOVE_SCRIBBLE;
+                break;
+            default:
+                move = HumanRig.MOVE_NONE;
+                break;
+        }
+        h.rig.gesture(g.pose.curl, g.twoHands, g.x, g.y, move, aimOf(g.key), seconds);
+        if (g.key.startsWith("👍") || g.key.startsWith("👏") || g.key.startsWith("🙌")) {
+            face[ivie ? 1 : 0].setExpression("smile", seconds, time);
+        }
+        return true;
+    }
+
+    /** How each gesture holds the hand (see {@link HumanRig#AIM_UP}). */
+    static int aimOf(String key) {
+        String k = key == null ? "" : key;
+        for (String f : new String[]{"🫵", "👊", "🫳", "🤝", "🤛", "🤜", "👈", "👉", "🫱", "🫲", "🫸", "🫷"}) {
+            if (k.startsWith(f)) {
+                return HumanRig.AIM_FORWARD;
+            }
+        }
+        for (String f : new String[]{"🫴", "🤲"}) {
+            if (k.startsWith(f)) {
+                return HumanRig.AIM_PALM_UP;
+            }
+        }
+        if (k.startsWith("👍")) {
+            return HumanRig.AIM_THUMB;
+        }
+        if (k.startsWith("👎")) {
+            return HumanRig.AIM_THUMB_DOWN;
+        }
+        for (String f : new String[]{"🙏", "👏", "🫶"}) {
+            if (k.startsWith(f)) {
+                return HumanRig.AIM_TOGETHER;
+            }
+        }
+        return HumanRig.AIM_UP;
     }
 
     public synchronized void setExpression(boolean ivie, String name) {

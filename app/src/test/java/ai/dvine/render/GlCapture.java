@@ -106,6 +106,8 @@ public class GlCapture {
             Camera c = stage.camera;
             c.width = W; c.height = H; c.cx = W * 0.5f;
             if (arrangement != null && k == 2) stage.arrange(arrangement);
+            String gk = System.getenv("GLCAP_GESTURE");
+            if (gk != null && k == 30) stage.gesture(ivie, ai.dvine.face.Gestures.find(gk), 10f); // by name: "wave", "thumbs up"
             float u0 = bigUnit / FS, u1 = Math.min(W * 0.42f, usable * 0.36f);
             float midX = 0f;
             if (stage.demo()) {

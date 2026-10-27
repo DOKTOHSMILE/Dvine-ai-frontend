@@ -39,6 +39,15 @@ public final class HumanRig {
     private float[] hand = {0f, 0f}; // finger curl per hand (0 open .. 1 fist), smoothed
     private float[] handTarget = {0.25f, 0.25f};
     private boolean[] pointing = {false, false};
+    // a hand gesture made with the body's own hands: per-finger curl (thumb first), where the wrist goes, how it moves
+    private final float[] gestureCurl = new float[5];
+    private float gestureUntil = -1f, gestureStart, gestureWeight, gestureX, gestureY;
+    private boolean gestureTwo;
+    private int gestureMotion, gestureAim;
+    /** How the hand is held: fingers up with the palm forward, pointing forward, a thumbs-up fist, or palms together. */
+    public static final int AIM_UP = 0, AIM_FORWARD = 1, AIM_THUMB = 2, AIM_TOGETHER = 3, AIM_PALM_UP = 4, AIM_THUMB_DOWN = 5;
+    /** Gesture movements. */
+    public static final int MOVE_NONE = 0, MOVE_WAVE = 1, MOVE_SHAKE = 2, MOVE_TAP = 3, MOVE_CLAP = 4, MOVE_SCRIBBLE = 5;
 
     // gaze (body units) and eye angles for the renderer
     private float[] gaze = {0f, 0.66f, 10f};
@@ -116,6 +125,28 @@ public final class HumanRig {
         reachUntil = lastTime + seconds;
     }
 
+    /**
+     * Makes a hand gesture with the body's own hand(s) for {@code seconds}: the fingers take
+     * {@code curl} (thumb, index, middle, ring, little; 0 straight .. 1 curled), the wrist comes up
+     * beside the face ({@code x} across, {@code y} down from the eyes, in head heights; negative x is
+     * the right hand), and the hand moves as {@code motion} says. Two-handed gestures mirror it.
+     */
+    public void gesture(float[] curl, boolean twoHands, float x, float y, int motion, int aim, float seconds) {
+        System.arraycopy(curl, 0, gestureCurl, 0, 5);
+        gestureAim = aim;
+        gestureTwo = twoHands;
+        gestureX = x;
+        gestureY = y;
+        gestureMotion = motion;
+        gestureStart = lastTime;
+        gestureUntil = lastTime + seconds;
+    }
+
+    /** True while a gesture is being made (or easing out). */
+    public boolean gesturing() {
+        return gestureWeight > 0.01f;
+    }
+
     public void turnAround() {
         spinStart = lastTime;
     }
@@ -156,7 +187,10 @@ public final class HumanRig {
         applyGaze(angles);
         solve(angles);
         reachWeight += ((time < reachUntil ? 1f : 0f) - reachWeight) * Math.min(1f, dt * 5f);
-        if (reachWeight > 0.01f && reachSide != 0) {
+        gestureWeight += ((time < gestureUntil ? 1f : 0f) - gestureWeight) * Math.min(1f, dt * 4f);
+        if (gestureWeight > 0.01f) {
+            gestureArms(time);
+        } else if (reachWeight > 0.01f && reachSide != 0) {
             armIk(reachSide, reach, reachWeight);
         }
         if (planted()) {
@@ -325,6 +359,9 @@ public final class HumanRig {
         if (finger == 1 && pointing[right ? 1 : 0]) {
             curl = 0f; // the index finger points
         }
+        if (gestureWeight > 0.01f && (gestureTwo || (gestureX >= 0f) != right)) {
+            curl += (gestureCurl[finger] - curl) * gestureWeight; // a gesture shapes each finger on its own
+        }
         float deg = finger == 0 ? (tip ? 35f : 25f) * curl : (tip ? 95f : 80f) * curl;
         // level-arm frame: finger along +x, palm facing -y; curling turns +x toward -y (about -z)
         float[] axis = finger == 0 ? new float[]{-0.55f, 0.2f, -0.81f} : new float[]{0f, 0f, -1f};
@@ -373,6 +410,109 @@ public final class HumanRig {
         float[] s = vec(joint, arm), e = vec(joint, fore), w = vec(joint, handBone);
         float[] t = lerp(w, target, weight);
         twoBone(arm, fore, handBone, s, e, w, t, new float[]{0f, -0.6f, -0.8f});
+    }
+
+    /** Brings the gesturing hand(s) up beside the face and moves them; the fingers are shaped in fingerMatrix. */
+    private void gestureArms(float time) {
+        float t = time - gestureStart;
+        int head = DotBody.HEAD * 3, neck = DotBody.NECK * 3;
+        float headH = Math.max(0.3f, (joint[head + 1] - joint[neck + 1]) * 2.6f); // about one head height
+        // the wrist comes up to about chin height, out over the shoulder, a little forward, so the forearm stands up
+        // and the hand is beside the face (two-handed gestures meet in front of the chin)
+        float shoulderX = Math.abs(joint[DotBody.ARM_L * 3] - joint[DotBody.ARM_R * 3]) * 0.5f;
+        float cx = joint[head], cy = joint[head + 1] - 0.55f * headH, cz = joint[head + 2];
+        float ax = gestureTwo ? Math.abs(gestureX) * headH * 0.5f : shoulderX * (0.62f + 0.2f * Math.min(1f, Math.abs(gestureX)));
+        float ay = (-gestureY - 1.3f) * headH * 0.3f;
+        float az = (gestureTwo ? 0.75f : gestureAim == AIM_FORWARD || gestureAim == AIM_PALM_UP ? 0.6f : 0.4f) * headH;
+        float wave = gestureMotion == MOVE_WAVE ? 0.12f * headH * (float) Math.sin(t * 9f) : 0f;
+        float tap = gestureMotion == MOVE_TAP ? 0.06f * headH * (float) Math.max(0f, Math.sin(t * 10f)) : 0f;
+        float shake = gestureMotion == MOVE_SHAKE ? 0.035f * headH * (float) Math.sin(t * 14f) : 0f;
+        float scrib = gestureMotion == MOVE_SCRIBBLE ? 0.05f * headH * (float) Math.sin(t * 7f) : 0f;
+        for (int side = -1; side <= 1; side += 2) {
+            boolean main = gestureX >= 0f ? side > 0 : side < 0; // +x is the persona's left
+            if (!main && !gestureTwo) {
+                continue;
+            }
+            float x = side * ax;
+            if (gestureMotion == MOVE_CLAP && gestureTwo) {
+                x = side * headH * (0.05f + 0.12f * (0.5f + 0.5f * (float) Math.sin(t * 9f)));
+            } else if (gestureTwo) {
+                x = side * Math.max(0.17f * headH, ax * 0.6f); // apart enough that the hands don't pass into each other
+            }
+            float[] target = {cx + x + side * wave * 0.5f + scrib, cy - ay + shake + Math.abs(wave) * 0.2f, cz + az + tap};
+            armIk(side, target, gestureWeight);
+            aimHand(side, gestureWeight);
+        }
+    }
+
+    /**
+     * Turns the hand so its fingers and palm face the way the gesture needs (the IK only places the
+     * wrist): first the hand's length onto the wanted direction, then a twist about it for the palm.
+     */
+    private void aimHand(int side, float w) {
+        int handBone = side > 0 ? DotBody.HAND_L : DotBody.HAND_R;
+        int base = side > 0 ? Skeleton.FINGER_L : Skeleton.FINGER_R; // finger segments: thumb, index, middle, ring, little; 2 each
+        float[] wrist = vec(joint, handBone);
+        float[] along = norm(sub(vec(joint, base + 4), wrist)); // toward the middle finger
+        float[] want, palm;
+        switch (gestureAim) {
+            case AIM_FORWARD:
+                want = new float[]{-side * 0.15f, 0.1f, 1f};
+                palm = new float[]{0f, -1f, 0f};
+                break;
+            case AIM_PALM_UP:
+                want = new float[]{-side * 0.25f, 0f, 1f};
+                palm = new float[]{0f, 1f, 0f};
+                break;
+            case AIM_THUMB:
+                // a fist reaching forward and in, turned so the thumb side (and the thumb) is up
+                want = new float[]{-side * 0.7f, 0f, 0.7f};
+                palm = new float[]{0f, 1f, 0f}; // here: where the thumb points
+                break;
+            case AIM_THUMB_DOWN:
+                want = new float[]{-side * 0.7f, 0f, 0.7f};
+                palm = new float[]{0f, -1f, 0f};
+                break;
+            case AIM_TOGETHER:
+                want = new float[]{0f, 1f, 0.2f};
+                palm = new float[]{-side, 0f, 0f};
+                break;
+            default:
+                want = new float[]{side * 0.12f, 1f, 0.08f};
+                palm = new float[]{0f, 0f, 1f};
+                break;
+        }
+        float[] dir = norm(new float[]{along[0] + (want[0] - along[0]) * w, along[1] + (want[1] - along[1]) * w, along[2] + (want[2] - along[2]) * w});
+        rotateBone(handBone, along, dir);
+        solveChildren(handBone);
+        // the palm's normal: across the knuckles (index to little) crossed with the hand's length, mirrored per side
+        along = norm(sub(vec(joint, base + 4), wrist));
+        float[] across = sub(vec(joint, base + 2), vec(joint, base + 8));
+        // (the left hand's palm faces against length × across: with the palm forward and fingers up its index points outward)
+        float[] n = norm(cross(along, across));
+        if (side > 0) {
+            n = new float[]{-n[0], -n[1], -n[2]};
+        }
+        if (gestureAim == AIM_THUMB || gestureAim == AIM_THUMB_DOWN) {
+            // a thumb gesture is about where the thumb points: twist until the thumb (wrist to its tip joint) points up or down
+            n = norm(sub(vec(joint, base + 1), wrist));
+        }
+        // the wanted palm normal, made square to the hand's length
+        float d = palm[0] * along[0] + palm[1] * along[1] + palm[2] * along[2];
+        float[] pw = norm(new float[]{palm[0] - along[0] * d, palm[1] - along[1] * d, palm[2] - along[2] * d});
+        // twist about the hand's length by the signed angle from the palm's normal to the wanted one (in two halves
+        // when it is large, since a half turn has no single shortest rotation)
+        float[] c = cross(n, pw);
+        float ang = (float) Math.atan2(c[0] * along[0] + c[1] * along[1] + c[2] * along[2], n[0] * pw[0] + n[1] * pw[1] + n[2] * pw[2]) * w;
+        int steps = Math.abs(ang) > 2.5f ? 2 : 1;
+        for (int k = 0; k < steps; k++) {
+            float[] r = new float[9];
+            axisAngle(along, ang / steps, r);
+            float[] t = {r[0] * n[0] + r[1] * n[1] + r[2] * n[2], r[3] * n[0] + r[4] * n[1] + r[5] * n[2], r[6] * n[0] + r[7] * n[1] + r[8] * n[2]};
+            rotateBone(handBone, n, t);
+            solveChildren(handBone);
+            n = t;
+        }
     }
 
     /** Keeps both feet where they stand in the bind pose while the hips sway. */
