@@ -545,6 +545,10 @@ public final class StageView extends View implements Choreographer.FrameCallback
     }
 
     public void gesture(String key) {
+        // the 3D persona makes the gesture with its own hands; floating hands only stand in for the dot swarm
+        if (wireOn() && human.gesture(showingIvie, key, 2.8f)) {
+            return;
+        }
         if (bodyMode) {
             // the whole body answers instead of floating hands
             String k = key == null ? "" : key;
@@ -935,7 +939,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
             nano.drawSwarm(canvas, swarm, yaw, pitch, cx, cy, unit, color,
                     Math.max(0.35f, faceAlpha) * clamp(rig.glow.value + 0.25f, 0.5f, 1.2f), density, clock);
         }
-        if (!bodySpace) {
+        if (!bodySpace && !wire) {
             hands.draw(canvas, nano, cx, cy, unit, color, faceAlpha, density);
         }
         drawSparks(canvas, cx, hy, hu, color);

@@ -130,6 +130,11 @@ public final class Gestures {
         return key == null ? null : BY_KEY.get(strip(key));
     }
 
+    /** Every gesture's key, in library order. */
+    public static java.util.List<String> keys() {
+        return new java.util.ArrayList<String>(BY_KEY.keySet());
+    }
+
     public static int count() {
         return BY_KEY.size();
     }
