@@ -20,6 +20,8 @@ public final class TriMesh {
     public byte[] bone0;
     public byte[] bone1;
     public float[] weight0;
+    /** For a simplified mesh: the source vertex each vertex was kept from (not saved). */
+    public int[] origin;
 
     public int vertexCount() {
         return pos.length / 3;

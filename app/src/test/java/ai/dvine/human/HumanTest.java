@@ -161,29 +161,14 @@ public class HumanTest {
     }
 
     @Test
-    public void theHeadStaysConnectedToTheNeck() {
+    public void theHeadAndTheBodyAreOneSurface() {
         for (HumanAsset a : new HumanAsset[]{obi, ivie}) {
-            // the head piece ends inside the standard body's neck: its lowest ring is hidden inside the body
-            float cut = Anatomy.HEAD_CUT_Y * Anatomy.HEAD_SCALE + Anatomy.HEAD_Y;
-            ai.dvine.human.build.BodyFit fit = ai.dvine.human.build.BodyFit.of(a);
+            // the face, the neck, the chest and the toes are all on one closed skin: no seam at the neck
             MeshInside skin = new MeshInside(a.mesh.pos, a.mesh.tri);
-            int inside = 0, ring = 0;
-            for (int v = 0; v < a.mesh.vertexCount(); v++) {
-                float[] p = fit.unfit(a.mesh.bone0[v], a.mesh.bone1[v], a.mesh.weight0[v],
-                        a.mesh.pos[v * 3], a.mesh.pos[v * 3 + 1], a.mesh.pos[v * 3 + 2]);
-                if (a.mesh.region[v] == Regions.NECK && Math.abs(p[1] - cut) < 0.01f) {
-                    int own = skin.pieceOfVertex(v);
-                    if (own < 0) {
-                        continue;
-                    }
-                    ring++;
-                    if ((skin.insideMask(a.mesh.pos[v * 3], a.mesh.pos[v * 3 + 1], a.mesh.pos[v * 3 + 2]) & ~(1L << own)) != 0L) {
-                        inside++;
-                    }
-                }
+            int piece = skin.pieceOfVertex(a.landmark("chest"));
+            for (String n : new String[]{"nose tip", "chin", "neck front", "left toe", "right index tip"}) {
+                assertEquals(n, piece, skin.pieceOfVertex(a.landmark(n)));
             }
-            assertTrue("ring found", ring > 10);
-            assertTrue(inside + "/" + ring + " of the head's cut edge inside the neck", inside >= ring * 0.9f);
         }
     }
 
@@ -212,6 +197,9 @@ public class HumanTest {
         }
     }
 
+    /** Edges shorter than this (body units, about 5 mm) are measured as if this long: a 2 mm move on a 3 mm knuckle edge is not a tear. */
+    private static final float SMALLEST_EDGE = 0.015f;
+
     private static float worstStretch(HumanInstance h) {
         int[] e = h.asset.mesh.edge;
         float[] rest = h.unskinned();
@@ -219,7 +207,7 @@ public class HumanTest {
         for (int i = 0; i < e.length; i += 2) {
             float r = dist(rest, e[i], e[i + 1]);
             if (r > 1e-6f) {
-                worst = Math.max(worst, dist(h.pos, e[i], e[i + 1]) / r);
+                worst = Math.max(worst, dist(h.pos, e[i], e[i + 1]) / Math.max(r, SMALLEST_EDGE));
             }
         }
         return worst;
@@ -343,7 +331,11 @@ public class HumanTest {
         c.unit = 2400f;
         c.distance = 0.75f;
         c.pivot = (h.rig.joint[DotBody.HEAD * 3 + 1] + 0.3f - HumanInstance.CENTRE) * HumanInstance.OUT;
-        c.cy = 800f + 0f;
+        c.cy = 800f;
+        c.update();
+        // framed on the face: the point just below eye level lands at the frame's centre line
+        float eyes = (h.asset.eyeCenter[1] + h.asset.eyeCenter[4]) * 0.5f;
+        c.cy += 800f - c.project(0f, eyes - 0.12f, h.asset.eyeCenter[2])[1];
         c.update();
         return c;
     }
@@ -359,7 +351,11 @@ public class HumanTest {
     }
 
     private static int regionAt(HumanInstance h, Camera c, int v) {
-        HumanInstance.Hit hit = pickAt(h, c, v);
+        // touched straight on: a ray from in front of the point, at its own height, through the camera's screen point
+        float[] s = project(c, h, v);
+        float[] ray = c.ray(s[0], s[1]);
+        float px = h.pos[v * 3], py = h.pos[v * 3 + 1], pz = h.pos[v * 3 + 2];
+        HumanInstance.Hit hit = h.pick(px - ray[3] * 2f, py, pz + 2f, ray[3], 0f, -1f);
         assertNotNull("ray hits the body", hit);
         return hit.region;
     }
@@ -373,7 +369,7 @@ public class HumanTest {
                 continue;
             }
             float by = a.mesh.pos[v * 3 + 1], y = h.pos[v * 3 + 1];
-            float mouth = Anatomy.MOUTH_Y * Anatomy.HEAD_SCALE + Anatomy.HEAD_Y;
+            float mouth = ai.dvine.human.build.HeadFrame.of(a).toBody(0f, Anatomy.MOUTH_Y, 0f)[1];
             if (by > mouth) {
                 up = Math.max(up, -y);
             } else {

@@ -21,24 +21,25 @@ public final class FaceShapes {
     public static final String[] NAMES = {"jawOpen", "smileL", "smileR", "frownL", "frownR", "browUpL", "browUpR",
             "browDown", "blinkL", "blinkR", "wideL", "wideR", "lipsRound", "lipsWide", "lipsPress"};
 
-    static HumanAsset.Morph[] build(TriMesh m, int headCount, int solidCount, int teethStart, int teethCount,
-                                    int irisStart, int irisEnd) {
+    /**
+     * The shapes over the vertices {@code face} marks (the head, teeth and
+     * lines; not the eyeballs, which turn instead), computed in head units through {@code frame}.
+     */
+    static HumanAsset.Morph[] build(TriMesh m, boolean[] face, HeadFrame frame, int solidCount, int teethStart, int teethCount,
+                                    int irisStart, int irisEnd, float[] jaw) {
         List<HumanAsset.Morph> out = new ArrayList<HumanAsset.Morph>();
         int n = m.vertexCount();
         for (String name : NAMES) {
             List<Integer> idx = new ArrayList<Integer>();
             List<float[]> d = new ArrayList<float[]>();
             for (int v = 0; v < n; v++) {
-                boolean head = v < headCount;
                 boolean teeth = v >= teethStart && v < teethStart + teethCount;
-                boolean line = v >= solidCount;
                 int region = m.region[v];
-                if (!head && !teeth && !line || region == Regions.HAIR || v >= irisStart && v < irisEnd) {
+                if (!face[v] || region == Regions.HAIR || v >= irisStart && v < irisEnd) {
                     continue;
                 }
-                float hs = Anatomy.HEAD_SCALE;
-                float x = m.pos[v * 3] / hs, y = (m.pos[v * 3 + 1] - Anatomy.HEAD_Y) / hs, z = m.pos[v * 3 + 2] / hs;
-                float[] o = offset(name, x, y, z, teeth);
+                float[] h = frame.toHead(m.pos[v * 3], m.pos[v * 3 + 1], m.pos[v * 3 + 2]);
+                float[] o = offset(name, h[0], h[1], h[2], teeth, jaw == null ? -1f : jaw[v]);
                 if (o == null) {
                     continue;
                 }
@@ -46,7 +47,8 @@ public final class FaceShapes {
                     continue;
                 }
                 idx.add(v);
-                d.add(new float[]{o[0] * hs, o[1] * hs, o[2] * hs});
+                float ys = frame.scaleY(h[1] + o[1] * 0.5f);
+                d.add(new float[]{o[0] * frame.sx, o[1] * ys, o[2] * frame.sz});
             }
             int[] index = new int[idx.size()];
             float[] delta = new float[idx.size() * 3];
@@ -61,21 +63,30 @@ public final class FaceShapes {
 
     /** The offset (head units) of a rest point for one shape, or null when it does not move. */
     static float[] offset(String name, float x, float y, float z, boolean teeth) {
+        return offset(name, x, y, z, teeth, -1f);
+    }
+
+    /** As above; {@code jaw} (0..1, or negative when unknown) is the head's own jaw weight for this point. */
+    static float[] offset(String name, float x, float y, float z, boolean teeth, float jaw) {
         float ax = Math.abs(x);
         float my = Anatomy.MOUTH_Y;
         switch (name) {
             case "jawOpen": {
-                if (!teeth && (z < -0.3f || y > my + 0.004f || y < -1.4f)) {
-                    return null;
+                // weight: everything below the lip parting (the whole lower lip at once) and the lower teeth, fading
+                // toward the neck and the ears; where the head has its own painted jaw weight, at least that
+                float w = 0f;
+                if (teeth || !(z < -0.3f || y > my + 0.004f || y < -1.4f)) {
+                    w = teeth ? (y < my ? 1f : 0f) : smooth((my + 0.004f - y) / 0.012f);
+                    w *= smooth((y + 1.4f) / 0.3f) * smooth((0.72f - ax) / 0.2f) * smooth((z + 0.3f) / 0.4f);
                 }
-                // weight: everything below the lip parting (and the lower teeth), fading toward the neck and the ears
-                float w = teeth ? (y < my ? 1f : 0f) : smooth((my + 0.004f - y) / 0.03f);
-                w *= smooth((y + 1.4f) / 0.3f) * smooth((0.72f - ax) / 0.2f) * smooth((z + 0.3f) / 0.4f);
+                if (jaw >= 0f && !teeth && y < my) {
+                    w = Math.max(w, jaw);
+                }
                 if (w <= 0f) {
                     return null;
                 }
                 // rotate about the jaw hinge (just in front of the ears) and glide slightly forward
-                double a = Math.toRadians(17f) * w;
+                double a = Math.toRadians(21f) * w;
                 float hy = -0.05f, hz = -0.02f;
                 float ry = y - hy, rz = z - hz;
                 float ny = (float) (ry * Math.cos(a) - rz * Math.sin(a)) + hy;

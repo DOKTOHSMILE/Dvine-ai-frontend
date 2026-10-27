@@ -6,14 +6,10 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import ai.dvine.face.nano.DotBody;
-import ai.dvine.human.mesh.SurfaceNets;
 import ai.dvine.human.mesh.TriMesh;
 import ai.dvine.human.rig.Skeleton;
 
@@ -28,9 +24,8 @@ import ai.dvine.human.rig.Skeleton;
  * turned and stretched (linear-blend, by MakeHuman's weights) so the bone runs
  * from our joint to our child joint. That straightens MakeHuman's arms into
  * our A-pose and lays the hands palm-down with the thumb forward, as the rig
- * expects. MakeHuman's head is removed (the persona keeps its own head and
- * face): everything inside our head or on MakeHuman's head bones goes, the
- * neck's top edge is drawn into our head, and the opening is capped inside it.
+ * expects. The head is MakeHuman's own, carried by the trunk's warp; its eyes
+ * and mouth are reported so the face can be fitted to it ({@link HeadFrame}).
  */
 final class StandardBody {
     static final String RESOURCE = "/ai/dvine/human/standard_body.bin";
@@ -44,6 +39,8 @@ final class StandardBody {
         final Map<String, float[][]> joints = new HashMap<String, float[][]>();
         byte[] bone0, bone1;
         float[] weight0;
+        /** MakeHuman's jaw weight per vertex: how much of each point opens with the jaw. */
+        float[] jaw;
         String notice;
 
         int persona(boolean female) {
@@ -64,22 +61,26 @@ final class StandardBody {
         final int[] bone;
         final int[] bone1;
         final float[] weight0;
-        /** Neck edge points that did not reach the head. */
-        final int farSnaps;
+        /** MakeHuman's jaw weight per vertex. */
+        float[] jaw;
+        /** The eyeball centres (left, right), their radius, and the lip line's and chin's heights. */
+        final float[] eyeL, eyeR;
+        final float eyeRadius, lipY, chinY, chinZ;
 
-        Result(TriMesh mesh, int[] bone, int[] bone1, float[] weight0, int farSnaps) {
+        Result(TriMesh mesh, int[] bone, int[] bone1, float[] weight0, float[] eyeL, float[] eyeR, float eyeRadius, float lipY, float chinY, float chinZ) {
             this.mesh = mesh;
             this.bone = bone;
             this.bone1 = bone1;
             this.weight0 = weight0;
-            this.farSnaps = farSnaps;
+            this.eyeL = eyeL;
+            this.eyeR = eyeR;
+            this.eyeRadius = eyeRadius;
+            this.lipY = lipY;
+            this.chinY = chinY;
+            this.chinZ = chinZ;
         }
     }
 
-    /** Where MakeHuman's neck is cut, above our neck joint. */
-    static final float NECK_CUT = -0.02f;
-    /** The neck carried up into the head: ring spacing, and how high above the cut the neck's top aims. */
-    static final float RING_STEP = 0.03f, AIM_ABOVE = 0.3f;
     private static final float FLOOR = -4.2f;
     private static Data data;
 
@@ -115,7 +116,7 @@ final class StandardBody {
             throw new IllegalArgumentException("not a standard body file");
         }
         int version = b.getInt();
-        if (version != 2) {
+        if (version != 3) {
             throw new IllegalArgumentException("unsupported standard body version " + version);
         }
         Data d = new Data();
@@ -160,6 +161,10 @@ final class StandardBody {
                 throw new IllegalArgumentException("invalid skin weight");
             }
         }
+        d.jaw = new float[d.nv];
+        for (int i = 0; i < d.nv; i++) {
+            d.jaw[i] = Math.max(0f, Math.min(1f, b.getFloat()));
+        }
         d.notice = str(b);
         return d;
     }
@@ -196,11 +201,11 @@ final class StandardBody {
         }
         int k = (bone - (Skeleton.rightSide(bone) ? Skeleton.FINGER_R : Skeleton.FINGER_L));
         int finger = k / 2, seg = k % 2;
-        // thumb: base at the carpometacarpal joint, middle at the knuckle; fingers: knuckle and middle joint
-        return s + "-finger-" + (finger + 1) + "-" + (finger == 0 ? seg + 1 : seg + 2);
+        // MakeHuman's finger-N-1 starts the first segment (the thumb's base, a finger's knuckle), finger-N-2 the second
+        return s + "-finger-" + (finger + 1) + "-" + (seg + 1);
     }
 
-    static Result build(boolean female, Skeleton sk, SurfaceNets.Field head) {
+    static Result build(boolean female, Skeleton sk) {
         Data d = data();
         int p = d.persona(female);
         int n = d.nv;
@@ -309,189 +314,28 @@ final class StandardBody {
                 out[i * 3 + k] = w * q[k] + (1f - w) * r[k];
             }
         }
-        // 4. take MakeHuman's head off just above the base of the neck, then carry the neck up into our head
-        float cut = jn[DotBody.NECK * 3 + 1] + NECK_CUT;
-        boolean[] gone = new boolean[n];
+        // 4. the eyes and mouth ride the head, which the trunk's warp carries
+        float[] eyeL = new float[3], eyeR = new float[3], top = new float[3], mouth = new float[3], lip = new float[3];
+        torso.map(J.get("l-eyeball")[0], J.get("l-eyeball")[1], J.get("l-eyeball")[2], eyeL);
+        torso.map(J.get("r-eyeball")[0], J.get("r-eyeball")[1], J.get("r-eyeball")[2], eyeR);
+        torso.map(J.get("l-eyeball-top")[0], J.get("l-eyeball-top")[1], J.get("l-eyeball-top")[2], top);
+        torso.map(J.get("jaw")[0], J.get("jaw")[1], J.get("jaw")[2], mouth); // MakeHuman's jaw joint is the point of the chin
+        torso.map(J.get("lip-line")[0], J.get("lip-line")[1], J.get("lip-line")[2], lip);
+        int[] allBone = new int[n], allBone1 = new int[n];
         for (int i = 0; i < n; i++) {
-            gone[i] = out[i * 3 + 1] > cut;
+            allBone[i] = d.bone0[i] & 0xff;
+            allBone1[i] = d.bone1[i] & 0xff;
         }
-        List<int[]> keep = new ArrayList<int[]>();
-        for (int t = 0; t < d.tri.length; t += 3) {
-            int a = d.tri[t], b = d.tri[t + 1], c = d.tri[t + 2];
-            if (!gone[a] && !gone[b] && !gone[c]) {
-                keep.add(new int[]{a, b, c});
-            }
-        }
-        int[] map = new int[n];
-        Arrays.fill(map, -1);
-        int m = 0;
-        for (int[] t : keep) {
-            for (int v : t) {
-                if (map[v] < 0) {
-                    map[v] = m++;
-                }
-            }
-        }
-        List<Float> pos = new ArrayList<Float>();
-        List<Integer> bone = new ArrayList<Integer>(), bone1 = new ArrayList<Integer>();
-        List<Float> weight = new ArrayList<Float>();
-        float[] tmp = new float[m * 3];
-        int[] tmpBone = new int[m], tmpBone1 = new int[m];
-        float[] tmpW = new float[m];
-        for (int i = 0; i < n; i++) {
-            if (map[i] >= 0) {
-                System.arraycopy(out, i * 3, tmp, map[i] * 3, 3);
-                tmpBone[map[i]] = d.bone0[i] & 0xff;
-                tmpBone1[map[i]] = d.bone1[i] & 0xff;
-                tmpW[map[i]] = d.weight0[i];
-            }
-        }
-        for (int i = 0; i < m; i++) {
-            pos.add(tmp[i * 3]);
-            pos.add(tmp[i * 3 + 1]);
-            pos.add(tmp[i * 3 + 2]);
-            // what is left of MakeHuman's head is neck
-            bone.add(tmpBone[i] == DotBody.HEAD ? DotBody.NECK : tmpBone[i]);
-            bone1.add(tmpBone1[i] == DotBody.HEAD ? DotBody.NECK : tmpBone1[i]);
-            weight.add(tmpW[i]);
-        }
-        List<Integer> tris = new ArrayList<Integer>();
-        for (int[] t : keep) {
-            tris.add(map[t[0]]);
-            tris.add(map[t[1]]);
-            tris.add(map[t[2]]);
-        }
-        // the cut edge: directed edges with no twin, walked as loops (the new surface runs the other way round)
-        java.util.Set<Long> directed = new java.util.HashSet<Long>();
-        for (int t = 0; t < tris.size(); t += 3) {
-            for (int k = 0; k < 3; k++) {
-                directed.add(key(tris.get(t + k), tris.get(t + (k + 1) % 3)));
-            }
-        }
-        Map<Integer, Integer> succ = new HashMap<Integer, Integer>();
-        for (long e : directed) {
-            int a = (int) (e >>> 32), b = (int) e;
-            if (!directed.contains(key(b, a))) {
-                succ.put(b, a);
-            }
-        }
-        java.util.Set<Integer> seen = new java.util.HashSet<Integer>();
-        int far = 0, loops = 0;
-        for (int start : new ArrayList<Integer>(succ.keySet())) {
-            if (seen.contains(start)) {
-                continue;
-            }
-            List<Integer> loop = new ArrayList<Integer>();
-            for (int v = start; !seen.contains(v); v = succ.get(v)) {
-                seen.add(v);
-                loop.add(v);
-                if (!succ.containsKey(v)) {
-                    throw new IllegalStateException("the neck's cut edge does not close");
-                }
-            }
-            loops++;
-            // the neck's axis at the cut, and how far each edge point must rise to be inside the head
-            float ax = 0f, az = 0f;
-            for (int v : loop) {
-                ax += pos.get(v * 3);
-                az += pos.get(v * 3 + 2);
-            }
-            ax /= loop.size();
-            az /= loop.size();
-            float[][] top = new float[loop.size()][];
-            float longest = 0f;
-            float qy = cut + AIM_ABOVE;
-            for (int k = 0; k < loop.size(); k++) {
-                int v = loop.get(k);
-                float x = pos.get(v * 3), y = pos.get(v * 3 + 1), z = pos.get(v * 3 + 2);
-                // head for a point on the neck's axis inside our head's neck, until inside the head
-                float dx = ax - x, dy = qy - y, dz = az - z;
-                float l = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                dx /= l;
-                dy /= l;
-                dz /= l;
-                float go = 0f;
-                while (head.d(x + dx * go, y + dy * go, z + dz * go) > -0.006f) {
-                    go += 0.004f;
-                    if (go > l) {
-                        far++;
-                        break;
-                    }
-                }
-                top[k] = new float[]{x + dx * go, y + dy * go, z + dz * go};
-                longest = Math.max(longest, go);
-            }
-            int rings = Math.max(1, (int) Math.ceil(longest / RING_STEP));
-            int[] prev = new int[loop.size()];
-            for (int k = 0; k < loop.size(); k++) {
-                prev[k] = loop.get(k);
-            }
-            for (int j = 1; j <= rings; j++) {
-                float t = (float) j / rings;
-                int[] ring = new int[loop.size()];
-                for (int k = 0; k < loop.size(); k++) {
-                    int v = loop.get(k);
-                    ring[k] = pos.size() / 3;
-                    for (int c = 0; c < 3; c++) {
-                        float p0 = pos.get(v * 3 + c);
-                        pos.add(p0 + (top[k][c] - p0) * t);
-                    }
-                    bone.add(DotBody.NECK);
-                    bone1.add(DotBody.NECK);
-                    weight.add(1f);
-                }
-                for (int k = 0; k < loop.size(); k++) {
-                    int k1 = (k + 1) % loop.size();
-                    // loop runs b → a along the cut; keep the winding of the faces below
-                    int b0 = prev[k], a0 = prev[k1], b1 = ring[k], a1 = ring[k1];
-                    tris.add(b0); tris.add(a0); tris.add(a1);
-                    tris.add(b0); tris.add(a1); tris.add(b1);
-                }
-                prev = ring;
-            }
-            // close the top inside the head
-            float cx = 0f, cy = 0f, cz = 0f;
-            for (int v : prev) {
-                cx += pos.get(v * 3);
-                cy += pos.get(v * 3 + 1);
-                cz += pos.get(v * 3 + 2);
-            }
-            int centre = pos.size() / 3;
-            pos.add(cx / prev.length);
-            pos.add(cy / prev.length);
-            pos.add(cz / prev.length);
-            bone.add(DotBody.NECK);
-            bone1.add(DotBody.NECK);
-            weight.add(1f);
-            for (int k = 0; k < prev.length; k++) {
-                tris.add(prev[k]);
-                tris.add(prev[(k + 1) % prev.length]);
-                tris.add(centre);
-            }
-        }
-        if (loops != 1) {
-            throw new IllegalStateException("the neck cut left " + loops + " openings");
-        }
-        float[] all = new float[pos.size()];
-        for (int i = 0; i < all.length; i++) {
-            all[i] = pos.get(i);
-        }
-        int[] allBone = new int[bone.size()], allBone1 = new int[bone.size()];
-        float[] allW = new float[bone.size()];
-        for (int i = 0; i < allBone.length; i++) {
-            allBone[i] = bone.get(i);
-            allBone1[i] = bone1.get(i);
-            allW[i] = weight.get(i);
-        }
-        int[] allTri = new int[tris.size()];
-        for (int i = 0; i < allTri.length; i++) {
-            allTri[i] = tris.get(i);
-        }
+        float[] all = out;
+        int[] allTri = d.tri.clone();
+        float[] allW = d.weight0.clone();
         TriMesh mesh = new TriMesh();
         mesh.pos = all;
         mesh.tri = allTri;
         mesh.computeNormals();
-        return new Result(mesh, allBone, allBone1, allW, far);
+        Result result = new Result(mesh, allBone, allBone1, allW, eyeL, eyeR, top[1] - eyeL[1], lip[1], mouth[1], mouth[2]);
+        result.jaw = d.jaw.clone();
+        return result;
     }
 
     private static int childOf(int b) {
@@ -596,10 +440,6 @@ final class StandardBody {
     }
 
     // ------------------------------------------------------------ small linear algebra (3-vectors, row-major 3×3)
-
-    private static long key(int a, int b) {
-        return ((long) a << 32) | (b & 0xffffffffL);
-    }
 
     private static float[] sub(float[] a, float[] b) {
         return new float[]{a[0] - b[0], a[1] - b[1], a[2] - b[2]};
