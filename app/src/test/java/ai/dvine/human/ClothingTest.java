@@ -29,10 +29,10 @@ public class ClothingTest {
         for (String n : new String[]{"obi", "ivie"}) {
             HumanAsset a = load(n);
             Clothing.Garment[] g = Clothing.design(a);
-            assertTrue(n, g.length == (a.female ? 3 : 5));
+            assertTrue(n, g.length == (a.female ? 4 : 6));
             assertTrue(n + " top covers the chest", covers(g[0], a.landmark("chest")));
             assertTrue(n + " trousers cover the knee", covers(g[1], a.landmark("left knee")));
-            for (int k = 3; k < g.length; k++) {
+            for (int k = 4; k < g.length; k++) {
                 // Obi's hair and beard: on the head, never over the eyes or nose
                 assertTrue(g[k].name, g[k].tri.length > 100);
                 assertTrue(g[k].name + " off the nose", !covers(g[k], a.landmark("nose tip")));
@@ -40,7 +40,7 @@ public class ClothingTest {
                     assertTrue(g[k].name + " on the head", (a.mesh.region[v] & 0xff) <= Regions.NECK);
                 }
             }
-            for (int k = 0; k < 3; k++) {
+            for (int k = 0; k < 4; k++) {
                 Clothing.Garment gm = g[k];
                 assertTrue(n + " " + gm.name + " has triangles", gm.tri.length > 300);
                 assertTrue(gm.push > 0f && gm.push < 0.1f);

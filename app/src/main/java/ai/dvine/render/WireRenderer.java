@@ -769,6 +769,8 @@ public final class WireRenderer {
             int sh = ai.dvine.face.nano.DotBody.ARM_L * 3, el = ai.dvine.face.nano.DotBody.FORE_L * 3;
             gl.uniform4f(gl.uniform(p, "uShoulder"), jt[sh], jt[sh + 1], jt[sh + 2], 0f);
             gl.uniform4f(gl.uniform(p, "uElbow"), jt[el], jt[el + 1], jt[el + 2], 0f);
+            int th = ai.dvine.face.nano.DotBody.THIGH_L * 3;
+            gl.uniform4f(gl.uniform(p, "uLegs"), Math.abs(jt[th]), 0f, 0f, 0f);
             gl.uniform1f(gl.uniform(p, "uWeave"), gm.weave);
             gl.uniform1f(gl.uniform(p, "uPush"), gm.push);
             gl.uniform1f(gl.uniform(p, "uKind"), gm.clip[0]);
@@ -970,7 +972,7 @@ public final class WireRenderer {
     static final String SKIN_VS = "#version 300 es\n"
             + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in float aEye;\n"
             + "layout(location=3) in vec4 aMat; layout(location=4) in vec3 aRest;\n"
-            + "uniform mat4 uMvp; uniform mat3 uRot; uniform vec4 uHeadA; uniform vec4 uHeadB; uniform float uPush; uniform float uKind;\n"
+            + "uniform mat4 uMvp; uniform mat3 uRot; uniform vec4 uHeadA; uniform vec4 uHeadB; uniform float uPush; uniform float uKind; uniform vec4 uClipB;\n"
             + "out vec3 vN; out vec3 vR; out vec3 vH; out float vEye; out vec4 vMat;\n"
             + "void main(){ vec3 nn = normalize(aNor + vec3(1e-6));\n"
             // the rest position: skin detail stays on the skin as it moves; in head units it places the face features
@@ -986,12 +988,15 @@ public final class WireRenderer {
             + "    float sb = smoothstep(0.53, 0.6, ax) * smoothstep(-0.16, -0.06, vH.z) * smoothstep(0.3, 0.22, vH.z);\n"
             + "    float rise = mix(0.55, 0.15, smoothstep(-0.1, 0.4, vH.y));\n"
             + "    push *= mix(mix(0.3, 1.0, inBeard) * mix(0.3, 1.0, smoothstep(-1.13, -0.98, vH.y)), rise, sb * (1.0 - inBeard)); }\n"
+            // joggers: roomy in the leg, gathered into the waistband and pulled in at the ankle cuff
+            + "  if (uKind > 0.5 && uKind < 1.5) push *= mix(0.3, 1.0, smoothstep(uClipB.z, uClipB.z + 0.4, aRest.y)) * mix(0.55, 1.0, smoothstep(uClipB.x, uClipB.x - 0.35, aRest.y));\n"
             + "  gl_Position = uMvp * vec4(aPos + nn * push, 1.0); vN = uRot * nn;\n"
             + "  vEye = aEye; vMat = aMat; }\n";
     static final String SKIN_FS = "#version 300 es\n"
             + "precision highp float;\n"
             + "in vec3 vN; in vec3 vR; in vec3 vH; in float vEye; in vec4 vMat; uniform vec4 uTone; uniform mat3 uRot; uniform vec4 uHeadB;\n"
             + "uniform vec4 uCloth; uniform float uWeave; uniform vec4 uClipA; uniform vec4 uClipB; uniform vec4 uShoulder; uniform vec4 uElbow;\n"
+            + "uniform vec4 uLegs;\n"
             + "float lips(vec3 h, float fem); float vnoise(vec3 x);\n"
             + "float cheekLine(float ax){ float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0);\n"
             + "  return -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12; }\n"
@@ -1008,6 +1013,7 @@ public final class WireRenderer {
             + "    return r.y > neckline || r.y < uClipB.x; }\n"
             + "  if (kind < 1.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
             + "  if (kind < 2.5) return r.y > uClipB.x;\n"
+            + "  if (kind > 4.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
             // Obi's hair and beard, the same shapes as Clothing.topHair and Clothing.beard, in head units
             + "  vec3 h = vH; float ax = abs(h.x);\n"
             // edges thin out instead of stopping: coverage falls off and clumps of hair drop out (a dithered blend)
@@ -1062,17 +1068,41 @@ public final class WireRenderer {
             + "  vec3 alb = uTone.rgb; float rough = 0.5; float specK = 0.028; vec3 sss = vec3(0.45, 0.22, 0.14);\n"
             + "  float detail = 1.0; float fuzz = 0.0;\n"
             + "  if (uCloth.a > 0.5 && outside(vR)) discard;\n"
-            + "  if (uCloth.a > 0.5 && uClipA.x > 2.5) {\n"
+            + "  if (uCloth.a > 0.5 && uClipA.x > 2.5 && uClipA.x < 4.5) {\n"
             + "    vec3 g4; alb = coily(vR, uClipA.x > 3.5 ? 110.0 : 80.0, g4);\n"
             + "    n = normalize(n - uRot * g4 * 0.3); rough = 1.0; specK = 0.004; sss = vec3(0.04); detail = 0.0; fuzz = 1.0;\n"
             + "  } else if (uCloth.a > 0.5) {\n"
             // fabric: a fine weave (twill diagonals for denim), soft folds, no oily shine, a velvety sheen at grazing angles
             + "    float tw = vnoise(vec3((vR.x + vR.y) * 220.0, (vR.y - vR.z) * 40.0, vR.z * 220.0));\n"
             + "    float knit = vnoise(vR * 260.0);\n"
-            + "    float wv = mix(knit, tw, uWeave);\n"
+            // ribbed knit (tees, socks): fine vertical ribs running round the body
+            + "    float rib = 0.5 + 0.5 * sin(atan(vR.x, vR.z + 0.001) * 320.0 + vR.x * 40.0);\n"
+            + "    float wv = uWeave < -0.5 ? mix(knit, rib, 0.7) : mix(knit, tw, uWeave);\n"
             + "    float fold = vnoise(vR * vec3(5.0, 1.6, 5.0));\n"
             + "    alb = uCloth.rgb * (0.86 + 0.28 * wv) * (0.85 + 0.3 * fold);\n"
-            + "    if (uClipA.x > 1.5) { float sole = smoothstep(-4.08, -4.12, vR.y); alb = mix(alb, vec3(0.02), sole * 0.8); }\n"
+            // cargo joggers: side pockets with seams and a flap on each thigh, a drawstring, a ribbed waistband and cuffs
+            + "    if (uClipA.x > 0.5 && uClipA.x < 1.5) {\n"
+            + "      float lx = abs(vR.x) - uLegs.x; float py = vR.y - uClipA.w;\n"
+            + "      float inP = step(0.1, lx) * step(abs(vR.z - 0.01), 0.16) * step(0.22, py) * step(py, 0.8);\n"
+            + "      float edge = min(min(abs(py - 0.22), abs(py - 0.8)), abs(abs(vR.z - 0.01) - 0.16));\n"
+            + "      float flap = abs(py - 0.66);\n"
+            + "      float seam = inP * (1.0 - smoothstep(0.004, 0.012, min(edge, flap)));\n"
+            + "      alb *= mix(1.0, 0.86, inP) * (1.0 - 0.45 * seam);\n"
+            + "      alb *= 1.0 + 0.08 * inP * step(0.66, py);\n"
+            + "      float cuffB = step(vR.y, uClipB.z + uClipA.z) * step(uClipB.z, vR.y);\n"
+            + "      float waistB = step(uClipB.x - 0.1, vR.y);\n"
+            + "      float hr = 0.5 + 0.5 * sin(vR.y * 1300.0);\n"
+            + "      alb *= mix(1.0, 0.8 + 0.2 * hr, max(cuffB, waistB * 0.7));\n"
+            + "      float cord = step(0.0, vR.z) * step(abs(abs(vR.x) - 0.045 - 0.01 * sin(vR.y * 60.0)), 0.008) * step(uClipB.x - 0.32, vR.y) * step(vR.y, uClipB.x - 0.04);\n"
+            + "      alb = mix(alb, vec3(0.78, 0.74, 0.66), cord);\n"
+            + "    }\n"
+            // trainers: a thick pale sole, darker panels on the upper (chunky pairs get more of them)
+            + "    if (uClipA.x > 1.5 && uClipA.x < 2.5) {\n"
+            + "      float soleTop = uClipA.y > 0.5 ? -4.02 : -4.07;\n"
+            + "      float sole = smoothstep(soleTop + 0.01, soleTop - 0.01, vR.y);\n"
+            + "      float panel = step(0.55, vnoise(vec3(vR.x * 6.0 + vR.y * 9.0, vR.z * 5.0, 3.0))) * (1.0 - sole);\n"
+            + "      alb = mix(alb * mix(1.0, 0.8, panel * (uClipA.y > 0.5 ? 1.0 : 0.4)), vec3(0.86, 0.84, 0.8), sole);\n"
+            + "    }\n"
             + "    rough = 0.9; specK = 0.02; sss = vec3(0.12, 0.1, 0.1); detail = 0.0;\n"
             + "    float e2 = 0.004; vec3 q2 = vR * 7.0;\n"
             + "    float f0 = vnoise(q2); vec3 g2 = vec3(vnoise(q2 + vec3(e2*7.0,0,0)) - f0, vnoise(q2 + vec3(0,e2*7.0,0)) - f0, vnoise(q2 + vec3(0,0,e2*7.0)) - f0);\n"
