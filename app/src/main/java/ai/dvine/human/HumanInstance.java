@@ -270,12 +270,12 @@ public final class HumanInstance {
             float inv = 1f / det;
             float sx = ox - pos[a], sy = oy - pos[a + 1], sz = oz - pos[a + 2];
             float u = (sx * px + sy * py + sz * pz) * inv;
-            if (u < 0f || u > 1f) {
+            if (u < -1e-4f || u > 1f + 1e-4f) { // a hair of tolerance: a ray straight through a shared corner still hits
                 continue;
             }
             float qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x;
             float v = (dx * qx + dy * qy + dz * qz) * inv;
-            if (v < 0f || u + v > 1f) {
+            if (v < -1e-4f || u + v > 1f + 1e-4f) {
                 continue;
             }
             float d = (e2x * qx + e2y * qy + e2z * qz) * inv;

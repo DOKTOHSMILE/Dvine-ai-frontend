@@ -1,0 +1,60 @@
+<!doctype html><html><body style="margin:0;background:#000"><canvas id="c" width="1080" height="2400"></canvas>
+<script>
+async function run(dir) {
+  const cmds = await (await fetch(dir + '/cmds.json')).json();
+  const data = await (await fetch(dir + '/data.bin')).arrayBuffer();
+  const cv = document.getElementById('c');
+  const gl = cv.getContext('webgl2', { antialias: true, preserveDrawingBuffer: true });
+  const P = {}, B = {}, T = {}, L = {}; const errs = [];
+  const bytes = (off, n) => off < 0 ? null : new Uint8Array(data, off, n);
+  let lastClear = 0; cmds.forEach((c, i) => { if (c[0] === 'clear') lastClear = i; });
+  // replay every command but skip draws before the last frame (state and data still apply)
+  for (let i = 0; i < cmds.length; i++) {
+    const c = cmds[i]; const op = c[0];
+    const drawOk = i >= lastClear;
+    switch (op) {
+      case 'program': {
+        const mk = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) errs.push(gl.getShaderInfoLog(o)); return o; };
+        const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, c[2])); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, c[3])); gl.linkProgram(p);
+        if (!gl.getProgramParameter(p, gl.LINK_STATUS)) errs.push('link ' + gl.getProgramInfoLog(p));
+        P[c[1]] = p; break; }
+      case 'delProgram': gl.deleteProgram(P[c[1]]); break;
+      case 'use': gl.useProgram(P[c[1]] || null); break;
+      case 'loc': L[c[1]] = gl.getUniformLocation(P[c[2]], c[3]); break;
+      case 'u1f': gl.uniform1f(L[c[1]], c[2][0]); break;
+      case 'u1i': gl.uniform1i(L[c[1]], c[2]); break;
+      case 'u2f': gl.uniform2f(L[c[1]], c[2][0], c[2][1]); break;
+      case 'u4f': gl.uniform4f(L[c[1]], ...c[2]); break;
+      case 'u3fv': gl.uniform3fv(L[c[1]], c[2]); break;
+      case 'u1fv': gl.uniform1fv(L[c[1]], c[2]); break;
+      case 'um4': gl.uniformMatrix4fv(L[c[1]], false, c[2]); break;
+      case 'um3': gl.uniformMatrix3fv(L[c[1]], false, c[2]); break;
+      case 'buffer': B[c[1]] = gl.createBuffer(); break;
+      case 'delBuffer': gl.deleteBuffer(B[c[1]]); break;
+      case 'bind': gl.bindBuffer(c[1], c[2] ? B[c[2]] : null); break;
+      case 'bufData': { const d = bytes(c[3], c[2]); if (d) gl.bufferData(c[1], d, c[4]); else gl.bufferData(c[1], c[2], c[4]); break; }
+      case 'bufSub': gl.bufferSubData(c[1], c[2], bytes(c[4], c[3])); break;
+      case 'attrib': gl.enableVertexAttribArray(c[1]); gl.vertexAttribPointer(c[1], c[2], gl.FLOAT, false, c[3], c[4]); break;
+      case 'noAttrib': gl.disableVertexAttribArray(c[1]); break;
+      case 'tex': { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+        for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, c[2], c[3], 0, gl.RGB, gl.FLOAT, null); T[c[1]] = t; break; }
+      case 'texData': gl.bindTexture(gl.TEXTURE_2D, T[c[1]]); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, c[2], c[3], gl.RGB, gl.FLOAT, new Float32Array(data, c[4], c[2] * c[3] * 3)); break;
+      case 'delTex': gl.deleteTexture(T[c[1]]); break;
+      case 'bindTex': gl.activeTexture(gl.TEXTURE0 + c[1]); gl.bindTexture(gl.TEXTURE_2D, c[2] ? T[c[2]] : null); break;
+      case 'enable': gl.enable(c[1]); break;
+      case 'disable': gl.disable(c[1]); break;
+      case 'depthMask': gl.depthMask(c[1]); break;
+      case 'depthFunc': gl.depthFunc(c[1]); break;
+      case 'blend': gl.blendFunc(c[1], c[2]); break;
+      case 'polyOff': gl.polygonOffset(c[1], c[2]); break;
+      case 'viewport': gl.viewport(0, 0, c[1], c[2]); break;
+      case 'clear': gl.clearColor(c[1], c[2], c[3], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); break;
+      case 'drawArrays': if (drawOk) gl.drawArrays(c[1], c[2], c[3]); break;
+      case 'drawElements': if (drawOk) gl.drawElements(c[1], c[2], gl.UNSIGNED_INT, c[3]); break;
+    }
+    const e = gl.getError(); if (e) errs.push(op + ' #' + i + ' 0x' + e.toString(16));
+  }
+  return errs.slice(0, 20);
+}
+</script></body></html>

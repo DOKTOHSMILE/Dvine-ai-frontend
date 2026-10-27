@@ -28,7 +28,8 @@ public final class Camera {
         float n = D * 0.05f, f = D * 4f + 12f;
         float A = (f + n) / (f - n), B = 2f * f * n / (f - n);
         float a = unit * D / (width * 0.5f), b = unit * D / (height * 0.5f);
-        float ox = (cx - width * 0.5f) / (width * 0.5f), oy = (height * 0.5f - cy) / (height * 0.5f);
+        // the eye sits level with the pivot, so the pivot height draws at cy - unit·pivot
+        float ox = (cx - width * 0.5f) / (width * 0.5f), oy = (height * 0.5f - (cy - unit * pivot)) / (height * 0.5f);
         // projection P (row-major): clip = P · (X, Y, z3, 1)
         float[] P = {a, 0, -ox, ox * D,
                 0, b, -oy, oy * D,
@@ -42,13 +43,13 @@ public final class Camera {
                 -syw, cyw * sp, cyw * cp};
         // V: p' = R (p - pv) + pv ; M: body units → camera units
         float s = HumanInstance.OUT, ty = -HumanInstance.CENTRE * HumanInstance.OUT;
-        // combined affine part: p_view = R (s·p + (0, ty - pivot, 0)) + (0, pivot, 0)
+        // combined affine part: p_view = R (s·p + (0, ty - pivot, 0)), the eye at (0, 0, D) level with the pivot
         float[] VM = new float[16];
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 VM[i * 4 + j] = R[i * 3 + j] * s;
             }
-            VM[i * 4 + 3] = R[i * 3 + 1] * (ty - pivot) + (i == 1 ? pivot : 0f);
+            VM[i * 4 + 3] = R[i * 3 + 1] * (ty - pivot);
         }
         VM[15] = 1f;
         float[] out = new float[16];
@@ -88,9 +89,9 @@ public final class Camera {
         double yw = Math.toRadians(yawDeg), pt = Math.toRadians(pitchDeg);
         float cyw = (float) Math.cos(yw), syw = (float) Math.sin(yw), cp = (float) Math.cos(pt), sp = (float) Math.sin(pt);
         float D = distance;
-        // view space: the eye sits at (0, 0, D) and looks down -z; undo the turn about the pivot
-        float dx = (sx - cx) / (unit * D), dy = (cy - sy) / (unit * D), dz = -1f;
-        float[] o = {0f, -pivot, D}, d = {dx, dy, dz};
+        // view space: the eye sits at (0, 0, D) level with the pivot and looks down -z; undo the turn about the pivot
+        float dx = (sx - cx) / (unit * D), dy = (cy - unit * pivot - sy) / (unit * D), dz = -1f;
+        float[] o = {0f, 0f, D}, d = {dx, dy, dz};
         float[] ow = invRotate(o, cyw, syw, cp, sp), dw = invRotate(d, cyw, syw, cp, sp);
         ow[1] += pivot;
         // camera units → body units
