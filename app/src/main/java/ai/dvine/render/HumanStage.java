@@ -8,7 +8,7 @@ import ai.dvine.face.Look;
 import ai.dvine.human.HumanAsset;
 import ai.dvine.human.HumanInstance;
 import ai.dvine.human.Regions;
-import ai.dvine.human.build.AssetBuilder;
+import ai.dvine.human.bake.AssetBuilder;
 import ai.dvine.human.face.FaceDrive;
 import ai.dvine.human.inspect.Inspector;
 import ai.dvine.human.rig.Skeleton;
@@ -60,6 +60,9 @@ public final class HumanStage {
         this.renderer = renderer;
     }
 
+    /** Why a persona's 3D body could not be loaded (null while nothing failed). */
+    public volatile String loadFault;
+
     /** Loads both personas on a background thread; {@code done} runs (on that thread) per installed persona. */
     public void load(final AssetSource source, final Runnable done) {
         Thread t = new Thread(() -> {
@@ -73,6 +76,7 @@ public final class HumanStage {
                         a = AssetBuilder.build(slot == 1);
                     } catch (RuntimeException failed) {
                         a = null;
+                        loadFault = (slot == 0 ? "Obi's" : "Ivie's") + " 3D body failed to load (" + damaged + "; rebuilding it failed: " + failed + ")";
                     }
                 }
                 if (a != null) {
@@ -453,7 +457,10 @@ public final class HumanStage {
         HumanInstance h = inst[ivie ? 1 : 0];
         Inspector in = inspector[ivie ? 1 : 0];
         if (h == null || in == null) {
-            return "My 3D body is still loading.";
+            return loadFault != null ? loadFault + "." : "My 3D body is still loading.";
+        }
+        if (renderer.fault != null) {
+            return "My 3D body is hidden: " + renderer.fault + " (" + renderer.glErrors + " errors).";
         }
         in.renderErrors = renderer.glErrors;
         List<String> problems = in.inspect(h);

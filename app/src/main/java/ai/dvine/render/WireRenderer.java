@@ -85,6 +85,8 @@ public final class WireRenderer {
     /** Count of live GL objects (for leak checks). */
     public int liveObjects;
     public int glErrors;
+    /** What went wrong first, in words (null while nothing has). */
+    public volatile String fault;
 
     private static final class Slot {
         HumanAsset asset;
@@ -392,6 +394,9 @@ public final class WireRenderer {
         int err = gl.error();
         if (err != GlApi.NO_ERROR) {
             glErrors++;
+            if (fault == null) {
+                fault = String.format(java.util.Locale.US, "graphics error 0x%x while drawing", err);
+            }
         }
     }
 
@@ -766,6 +771,9 @@ public final class WireRenderer {
             liveObjects++;
         } else {
             glErrors++;
+            if (fault == null) {
+                fault = "a shader failed to compile on this phone";
+            }
         }
         return p;
     }
