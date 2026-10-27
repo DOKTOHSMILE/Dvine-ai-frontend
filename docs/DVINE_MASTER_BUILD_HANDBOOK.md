@@ -943,6 +943,8 @@ Shipped: `obi.dvhm` (8,114 vertices), `ivie.dvhm` (10,904 vertices, with 90 hair
 
 **Touch (0.24.1).** Touch and hold anywhere to speak; double-tap anywhere to type; a tap on the body or face still reacts (after a brief wait, so a double tap is never read as two taps). Swiping no longer starts the microphone: it fought the phone's own swipe to minimise.
 
+**Names as heard (0.24.2).** Speech recognition often writes Ivie as "Evie", "Ivy" or "Eevee", and Obi as "Obie" or "obey". `turn/Names.normalize` rewrites these before routing or the brain, so the brain never meets an unknown "Evie" ("obey" becomes Obi only where it is used as a name). `Names.switchTarget` reads "switch to / talk to / communicate with / bring / call / let me talk to X", with up to four words after the name ("… your other half"), and switches persona; "talk to Ivie about …" still goes to the conversation. With the character-sheet look the start-up particle assembly is skipped: the fitted body appears directly.
+
 **Checks.** `LocalModelTest` (sentences, prompt, resume, checksum, stop, CPU check, memory of six exchanges); `NativeBridgeTest` runs the real model through the real JNI bridge on a desktop build (env `DVINE_NATIVE_LIB`, `DVINE_MODEL`): it answers as Obi, streams, follows up with context, keeps "café" intact, stops when told.
 
 **Limits.** A 1.7B model can be wrong on facts (in a test it reversed which colours scatter in the sky), so checked offline facts stay first; no phone timing yet; the dual-persona discussion still uses the offline brain. From 0.22.0 it also plans drawings (§33).

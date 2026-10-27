@@ -186,8 +186,11 @@ public final class HumanStage {
         final int sl = slot;
         morph[slot] = new ai.dvine.anre.TransformationController(() -> bodyIntact(sl));
         renderer.setAsset(slot, a, particles[slot], ai.dvine.anre.InnerParticles.build(a, ai.dvine.anre.InnerParticles.BUDGET));
-        // Mode C: the body assembles from a cloud of its own particles, head first
-        morph[slot].assemble(time);
+        // Mode C: the body assembles from a cloud of its own particles, head first; a body painted from its
+        // character sheet appears as itself instead (the particle cloud can't show the picture)
+        if (!sheetLook || sheets[slot] == null) {
+            morph[slot].assemble(time);
+        }
     }
 
     /** Reads both personas' sheets (for a caller that installs the bodies itself). */

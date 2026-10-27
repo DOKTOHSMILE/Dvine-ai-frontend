@@ -36,8 +36,9 @@ public final class LocalTurn {
 
     public static TurnRoute route(String raw, String onScreen) {
         String text = clean(raw).toLowerCase(Locale.US);
-        boolean ivie = calls(text, "ivie", "eva", "evee", "ivee");
-        boolean obi = calls(text, "obi", "ubi", "obee");
+        String target = Names.switchTarget(Names.normalize(text));
+        boolean ivie = calls(text, "ivie", "eva", "evee", "ivee") || "ivie".equals(target);
+        boolean obi = calls(text, "obi", "ubi", "obee") || "obi".equals(target);
         if (ivie && !obi) {
             return new TurnRoute(true, true, call(true));
         }
