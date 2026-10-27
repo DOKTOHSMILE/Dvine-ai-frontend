@@ -9,13 +9,15 @@ import java.util.Locale;
  */
 public final class Look {
     public enum Style {
+        LINE,
+        TOON,
         SKIN,
         WIRE,
         DOTS
     }
 
-    /** SKIN: lifelike lit skin (default); WIRE: the particle hologram; DOTS: the nano-dot swarm. */
-    public Style style = Style.SKIN;
+    /** LINE: the glowing line-art face (default; the body shows as a cartoon); TOON: the Ghibli-style cartoon body; SKIN: the lifelike 3D body; WIRE: the particle hologram; DOTS: the nano-dot swarm. */
+    public Style style = Style.LINE;
     /** 0 light .. 1 deep brown. */
     public float tone = 0.85f;
     public float width = 1f;
@@ -28,6 +30,8 @@ public final class Look {
     public float hair;
     /** The hairstyle (from the hair library): see {@link #HAIR_STYLES}. */
     public String hairStyle = FADE;
+    /** A full beard (Obi's look can grow one; clean shaven by default). */
+    public boolean beard;
 
     public static final String PUFFS = "afro puffs", SHORT_AFRO = "short afro", CORNROWS = "cornrows",
             BANTU = "bantu knots", FADE = "fade", BALD = "bald";
@@ -64,6 +68,7 @@ public final class Look {
         l.lips = lips;
         l.hair = hair;
         l.hairStyle = hairStyle;
+        l.beard = beard;
         return l;
     }
 
@@ -79,12 +84,12 @@ public final class Look {
     /** True when geometry changed between two looks (needs a rebuild). */
     public boolean shapeDiffers(Look o) {
         return o == null || width != o.width || height != o.height || jaw != o.jaw || eyes != o.eyes
-                || nose != o.nose || lips != o.lips || hair != o.hair || !hairStyle.equals(o.hairStyle);
+                || nose != o.nose || lips != o.lips || hair != o.hair || !hairStyle.equals(o.hairStyle) || beard != o.beard;
     }
 
     public String serialize() {
-        return String.format(Locale.US, "%s;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%s",
-                style.name(), tone, width, height, jaw, eyes, nose, lips, hair, hairStyle);
+        return String.format(Locale.US, "%s;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%s;%s",
+                style.name(), tone, width, height, jaw, eyes, nose, lips, hair, hairStyle, beard ? "beard" : "shaven");
     }
 
     public static Look parse(String s, boolean ivie) {
@@ -93,7 +98,7 @@ public final class Look {
             return l;
         }
         String[] p = s.split(";");
-        if (p.length != 9 && p.length != 10) {
+        if (p.length < 9 || p.length > 11) {
             return l;
         }
         try {
@@ -106,7 +111,10 @@ public final class Look {
             l.nose = Float.parseFloat(p[6]);
             l.lips = Float.parseFloat(p[7]);
             l.hair = Float.parseFloat(p[8]);
-            if (p.length == 10) {
+            if (p.length == 11) {
+                l.beard = "beard".equals(p[10]);
+            }
+            if (p.length >= 10) {
                 for (String h : HAIR_STYLES) {
                     if (h.equals(p[9])) {
                         l.hairStyle = h;
@@ -128,14 +136,21 @@ public final class Look {
         String t = lower.toLowerCase(Locale.US);
         String styleAsked = hairStyleIn(t);
         boolean about = t.contains("your") || t.contains("you look") || t.startsWith("make ") || t.startsWith("change ")
-                || t.endsWith(" mode") || t.contains("skin") || t.contains("look") || styleAsked != null;
+                || t.endsWith(" mode") || t.contains("skin") || t.contains("look") || styleAsked != null || t.contains("beard");
         if (!about) {
             return null;
         }
         boolean more = has(t, "bigger", "larger", "wider", "longer", "fuller", "more", "darker", "deeper", "taller");
         boolean less = has(t, "smaller", "slimmer", "thinner", "narrower", "shorter", "less", "lighter", "flatter", "smaller");
         String said = null;
-        if (has(t, "dot mode", "dots mode", "nano dot", "dotted", "made of dots", "dot look")) {
+        if (has(t, "line mode", "line face", "line art", "neon face", "neon mode", "flat face", "face mode", "back to your face",
+                "back to the face", "original face", "go back to the faces", "just your face", "drawn face")) {
+            style = Style.LINE;
+            said = "Back to my face.";
+        } else if (has(t, "cartoon", "ghibli", "anime", "toon", "animated look", "drawn body", "painted look")) {
+            style = Style.TOON;
+            said = "Now I'm a cartoon, painted in watercolour.";
+        } else if (has(t, "dot mode", "dots mode", "nano dot", "dotted", "made of dots", "dot look")) {
             style = Style.DOTS;
             said = "Now I'm drawn in tiny dots.";
         } else if (has(t, "wireframe", "wire frame", "mesh mode", "hologram", "lines mode", "polygon", "triangle mode",
@@ -151,6 +166,12 @@ public final class Look {
                 "real skin", "human skin", "like a real person", "look human", "look real")) {
             style = Style.SKIN;
             said = "Real skin on. Ask me to change my skin tone, eyes, nose, lips, jaw or hair, or say hologram mode.";
+        } else if (t.contains("beard") && has(t, "remove", "shave", "no beard", "take off", "without", "off", "get rid")) {
+            beard = false;
+            said = "Beard off. Clean shaven.";
+        } else if (t.contains("beard") && has(t, "grow", "add", "give", "put", "with a beard", "bring back")) {
+            beard = true;
+            said = "A full beard.";
         } else if (styleAsked != null) {
             hairStyle = styleAsked;
             if (hair < 0.5f) {

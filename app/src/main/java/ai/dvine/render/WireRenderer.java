@@ -112,8 +112,6 @@ public final class WireRenderer {
         /** Clothes for the lifelike look: each garment's triangles and its index buffer. */
         ai.dvine.human.Clothing.Garment[] garments = new ai.dvine.human.Clothing.Garment[0];
         int[] garmentIbo = new int[0];
-        /** The shoes' last (Clothing.Garment.shape): offset and normal per vertex; 0 when no garment has one. */
-        int vboShape;
         // the object the particles can become (targets aligned one-to-one with the particles)
         FloatBuffer target, previous;
         boolean dirtyTarget;
@@ -312,6 +310,9 @@ public final class WireRenderer {
             s.hasPending = true;
         }
     }
+
+    /** The cartoon look (Ghibli style) for the lifelike bodies and a painted backdrop instead of the studio. */
+    public volatile boolean toon;
 
     /** Lifelike skin on or off for a slot, and its tone as an sRGB colour (0xRRGGBB). */
     public void setSkin(int slot, boolean on, int rgb) {
@@ -536,11 +537,6 @@ public final class WireRenderer {
             s.garmentIbo[g] = buf();
             gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.garmentIbo[g]);
             gl.bufferData(GlApi.ELEMENT_ARRAY_BUFFER, s.garments[g].tri.length * 4, ints(s.garments[g].tri), GlApi.STATIC_DRAW);
-            if (s.garments[g].shape != null && s.vboShape == 0) {
-                s.vboShape = buf();
-                gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboShape);
-                gl.bufferData(GlApi.ARRAY_BUFFER, s.garments[g].shape.length * 4, floats(s.garments[g].shape), GlApi.STATIC_DRAW);
-            }
         }
         s.corner.position(0);
         s.bary.position(0);
@@ -572,11 +568,6 @@ public final class WireRenderer {
             liveObjects--;
         }
         s.garmentIbo = new int[0];
-        if (s.vboShape != 0) {
-            gl.deleteBuffer(s.vboShape);
-            liveObjects--;
-            s.vboShape = 0;
-        }
         for (int b : new int[]{s.vboPos, s.vboNor, s.vboEye, s.vboMat, s.vboRest, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objNbo, s.objIbo}) {
             gl.deleteBuffer(b);
             liveObjects--;
@@ -788,6 +779,8 @@ public final class WireRenderer {
         gl.uniform4f(gl.uniform(p, "uHeadA"), hf[0], hf[1], hf[2], hf[3]);
         gl.uniform4f(gl.uniform(p, "uHeadB"), hf[4], hf[5], hf[6], s.asset.female ? 1f : 0f);
         gl.uniform1f(gl.uniform(p, "uHairStyle"), s.hairStyle);
+        gl.uniform1f(gl.uniform(p, "uBeard"), s.asset.beard ? 1f : 0f);
+        gl.uniform1f(gl.uniform(p, "uToon"), toon ? 1f : 0f);
         gl.disable(GlApi.BLEND);
         gl.depthMask(true);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
@@ -803,7 +796,6 @@ public final class WireRenderer {
         gl.uniform4f(gl.uniform(p, "uCloth"), 0f, 0f, 0f, 0f);
         gl.uniform1f(gl.uniform(p, "uPush"), 0f);
         gl.uniform1f(gl.uniform(p, "uKind"), -1f);
-        gl.uniform1f(gl.uniform(p, "uShaped"), 0f);
         gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.ibo);
         gl.drawElements(GlApi.TRIANGLES, s.triIndices, 0);
         // the clothes: the same skinned surface, pushed out a few millimetres, shaded as fabric
@@ -814,7 +806,7 @@ public final class WireRenderer {
             }
             gl.uniform4f(gl.uniform(p, "uCloth"), gm.color[0], gm.color[1], gm.color[2], 1f);
             gl.uniform4f(gl.uniform(p, "uClipA"), gm.clip[0], gm.clip[1], gm.clip[2], gm.clip[3]);
-            gl.uniform4f(gl.uniform(p, "uClipB"), gm.clip[4], gm.clip[5], gm.clip[6], 0f);
+            gl.uniform4f(gl.uniform(p, "uClipB"), gm.clip[4], gm.clip[5], gm.clip[6], gm.clip.length > 7 ? gm.clip[7] : 0f);
             float[] jt = s.asset.joints;
             int sh = ai.dvine.face.nano.DotBody.ARM_L * 3, el = ai.dvine.face.nano.DotBody.FORE_L * 3;
             gl.uniform4f(gl.uniform(p, "uShoulder"), jt[sh], jt[sh + 1], jt[sh + 2], 0f);
@@ -824,17 +816,8 @@ public final class WireRenderer {
             gl.uniform1f(gl.uniform(p, "uWeave"), gm.weave);
             gl.uniform1f(gl.uniform(p, "uPush"), gm.push);
             gl.uniform1f(gl.uniform(p, "uKind"), gm.clip[0]);
-            boolean shaped = gm.shape != null && s.vboShape != 0;
-            gl.uniform1f(gl.uniform(p, "uShaped"), shaped ? 1f : 0f);
-            if (shaped) {
-                gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboShape);
-                gl.vertexAttrib(5, 1, 4, 0);
-            }
             gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.garmentIbo[g]);
             gl.drawElements(GlApi.TRIANGLES, gm.tri.length, 0);
-            if (shaped) {
-                gl.disableAttrib(5);
-            }
         }
         gl.disableAttrib(1);
         gl.disableAttrib(2);
@@ -929,6 +912,7 @@ public final class WireRenderer {
         gl.useProgram(studioProg);
         gl.uniformMatrix4(gl.uniform(studioProg, "uMvp"), camera.mvp);
         gl.uniform1f(gl.uniform(studioProg, "uFloor"), floorY);
+        gl.uniform1f(gl.uniform(studioProg, "uPaint"), toon ? 1f : 0f);
         float[] fe = new float[4];
         float[] on = new float[2];
         for (int k = 0; k < 2; k++) {
@@ -1056,9 +1040,8 @@ public final class WireRenderer {
      */
     static final String SKIN_VS = "#version 300 es\n"
             + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in float aEye;\n"
-            + "layout(location=3) in vec4 aMat; layout(location=4) in vec3 aRest; layout(location=5) in float aShape;\n"
+            + "layout(location=3) in vec4 aMat; layout(location=4) in vec3 aRest;\n"
             + "uniform mat4 uMvp; uniform mat3 uRot; uniform vec4 uHeadA; uniform vec4 uHeadB; uniform float uPush; uniform float uKind; uniform vec4 uClipB;\n"
-            + "uniform float uShaped;\n"
             + "out vec3 vN; out vec3 vR; out vec3 vH; out float vEye; out vec4 vMat;\n"
             + "void main(){ vec3 nn = normalize(aNor + vec3(1e-6));\n"
             // the rest position: skin detail stays on the skin as it moves; in head units it places the face features
@@ -1079,15 +1062,13 @@ public final class WireRenderer {
             + "    push *= mix(mix(0.3, 1.0, inBeard) * mix(0.3, 1.0, smoothstep(-1.13, -0.98, vH.y)), rise, sb * (1.0 - inBeard)); }\n"
             // joggers: roomy in the leg, gathered into the waistband and pulled in at the ankle cuff
             + "  if (uKind > 0.5 && uKind < 1.5) push *= mix(0.3, 1.0, smoothstep(uClipB.z, uClipB.z + 0.4, aRest.y)) * mix(0.55, 1.0, smoothstep(uClipB.x, uClipB.x - 0.35, aRest.y));\n"
-            // shoes sit out on their smooth last instead of on the toes
-            + "  if (uShaped > 0.5) push += aShape;\n"
             + "  gl_Position = uMvp * vec4(aPos + nn * push, 1.0); vN = uRot * nn;\n"
             + "  vEye = aEye; vMat = aMat; }\n";
     static final String SKIN_FS = "#version 300 es\n"
             + "precision highp float;\n"
             + "in vec3 vN; in vec3 vR; in vec3 vH; in float vEye; in vec4 vMat; uniform vec4 uTone; uniform mat3 uRot; uniform vec4 uHeadB;\n"
             + "uniform vec4 uCloth; uniform float uWeave; uniform vec4 uClipA; uniform vec4 uClipB; uniform vec4 uShoulder; uniform vec4 uElbow;\n"
-            + "uniform vec4 uLegs; uniform float uHairStyle;\n"
+            + "uniform vec4 uLegs; uniform float uHairStyle; uniform float uBeard; uniform float uToon;\n"
             + "float lips(vec3 h, float fem); float vnoise(vec3 x);\n"
             + "float cheekLine(float ax){ float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0);\n"
             + "  return -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12; }\n"
@@ -1158,7 +1139,7 @@ public final class WireRenderer {
             + "  float r = lx * lx + ly * ly + cupid;\n"
             + "  return (1.0 - smoothstep(0.75, 1.0, r)) * smoothstep(0.45, 0.62, h.z); }\n"
             + "void main(){\n"
-            + "  vec3 n = normalize(vN); vec3 v = vec3(0.0, 0.0, 1.0); float fem = uHeadB.w;\n"
+            + "  vec3 n = normalize(vN); vec3 v = vec3(0.0, 0.0, 1.0); float fem = uHeadB.w; vec3 n0 = n;\n"
             + "  float mat = vMat.x; float warm = vMat.y; float face = vMat.z;\n"
             + "  vec3 alb = uTone.rgb; float rough = 0.36; float specK = 0.036; vec3 sss = vec3(0.45, 0.22, 0.14);\n"
             + "  float detail = 1.0; float fuzz = 0.0;\n"
@@ -1176,7 +1157,7 @@ public final class WireRenderer {
             + "    float fold = vnoise(vR * vec3(5.0, 1.6, 5.0));\n"
             + "    alb = uCloth.rgb * (0.86 + 0.28 * wv) * (0.85 + 0.3 * fold);\n"
             // cargo joggers: side pockets with seams and a flap on each thigh, a drawstring, a ribbed waistband and cuffs
-            + "    if (uClipA.x > 0.5 && uClipA.x < 1.5) {\n"
+            + "    if (uClipA.x > 0.5 && uClipA.x < 1.5 && uClipA.y > 0.5) {\n"
             + "      float lx = abs(vR.x) - uLegs.x; float py = vR.y - uClipA.w;\n"
             + "      float inP = step(0.1, lx) * step(abs(vR.z - 0.01), 0.16) * step(0.22, py) * step(py, 0.8);\n"
             + "      float edge = min(min(abs(py - 0.22), abs(py - 0.8)), abs(abs(vR.z - 0.01) - 0.16));\n"
@@ -1191,19 +1172,35 @@ public final class WireRenderer {
             + "      float cord = step(0.0, vR.z) * step(abs(abs(vR.x) - 0.045 - 0.01 * sin(vR.y * 60.0)), 0.008) * step(uClipB.x - 0.32, vR.y) * step(vR.y, uClipB.x - 0.04);\n"
             + "      alb = mix(alb, vec3(0.78, 0.74, 0.66), cord);\n"
             + "    }\n"
-            // trainers: a thick pale sole, darker panels on the upper (chunky pairs get more of them)
-            + "    if (uClipA.x > 1.5 && uClipA.x < 2.5) {\n"
-            + "      float soleTop = uClipA.y > 0.5 ? -4.02 : -4.07;\n"
-            + "      float sole = smoothstep(soleTop + 0.01, soleTop - 0.01, vR.y);\n"
-            + "      float panel = step(0.55, vnoise(vec3(vR.x * 6.0 + vR.y * 9.0, vR.z * 5.0, 3.0))) * (1.0 - sole);\n"
-            + "      alb = mix(alb * mix(1.0, 0.8, panel * (uClipA.y > 0.5 ? 1.0 : 0.4)), vec3(0.86, 0.84, 0.8), sole);\n"
+            // Obi's shirt: a light-blue tie from the knot under the collar to its point, a collar fold, small buttons
+            + "    if (uClipA.x < 0.5 && uClipB.w > 0.5 && uClipB.w < 1.5 && vR.z > 0.0) {\n"
+            + "      float top = uClipA.y, ax = abs(vR.x);\n"
+            + "      float tw = mix(0.05, 0.12, smoothstep(top - 0.12, top - 0.75, vR.y));\n"
+            + "      float tip = top - 1.3;\n"
+            + "      float inTie = step(ax, tw) * step(vR.y, top - 0.03) * step(tip + ax * 1.2, vR.y);\n"
+            + "      float knot = step(top - 0.15, vR.y) * step(ax, 0.06);\n"
+            + "      vec3 tie = vec3(0.42, 0.62, 0.88) * (0.85 + 0.2 * step(0.5, fract((vR.x + vR.y) * 60.0)) * step(0.5, fract((vR.x - vR.y) * 60.0)));\n"
+            + "      alb = mix(alb, tie * mix(1.0, 0.85, knot), inTie);\n"
+            + "      float collar = step(top - 0.09, vR.y) * step(0.06, ax) * (1.0 - inTie);\n"
+            + "      alb *= 1.0 - 0.12 * collar;\n"
+            + "    }\n"
+            // Obi's jacket: two columns of gold buttons, the lapel edges, a breast pocket
+            + "    if (uClipA.x < 0.5 && uClipB.w > 1.5 && vR.z > 0.0) {\n"
+            + "      float ax = abs(vR.x), vb = uClipA.y;\n"
+            + "      float b = 0.0;\n"
+            + "      for (int i = 0; i < 2; i++) { vec2 d = vec2(ax - 0.17, vR.y - (vb - 0.08 - float(i) * 0.36)); b = max(b, 1.0 - smoothstep(0.026, 0.034, length(d))); }\n"
+            + "      alb = mix(alb, vec3(0.62, 0.44, 0.12) * (0.8 + 0.4 * smoothstep(0.03, 0.0, length(vec2(ax - 0.165, 0.0)))), b);\n"
+            + "      rough = mix(rough, 0.3, b); specK = mix(specK, 0.3, b);\n"
+            + "      float lapel = uClipA.y + uClipA.w * min(1.0, ax / 0.35);\n"
+            + "      float edge = 1.0 - smoothstep(0.0, 0.025, abs(vR.y - lapel + 0.07));\n"
+            + "      alb *= 1.0 - 0.35 * edge * step(ax, 0.4);\n"
+            + "      float pocket = step(0.24, vR.x) * step(vR.x, 0.42) * (1.0 - smoothstep(0.0, 0.012, abs(vR.y - (vb + 0.62))));\n"
+            + "      alb *= 1.0 - 0.3 * pocket;\n"
             + "    }\n"
             + "    rough = 0.9; specK = 0.02; sss = vec3(0.12, 0.1, 0.1); detail = 0.0;\n"
             + "    float e2 = 0.004; vec3 q2 = vR * 7.0;\n"
             + "    float f0 = vnoise(q2); vec3 g2 = vec3(vnoise(q2 + vec3(e2*7.0,0,0)) - f0, vnoise(q2 + vec3(0,e2*7.0,0)) - f0, vnoise(q2 + vec3(0,0,e2*7.0)) - f0);\n"
-            // shoes: smooth leather (the toes' normals are hidden by a wide light wrap and no fold bumps)
-            + "    if (uClipA.x > 1.5 && uClipA.x < 2.5) { n = normalize(mix(n, normalize(vec3(n.x, n.y + 0.6, n.z) * 0.5 + vec3(0.0, 0.0, 0.5)), 0.55)); sss = vec3(0.55, 0.5, 0.48); rough = 0.55; specK = 0.03; }\n"
-            + "    else n = normalize(n - uRot * g2 * 6.0);\n"
+            + "    n = normalize(n - uRot * g2 * 6.0);\n"
             + "  } else if (vEye > 0.5) {\n"
             + "    float d = vEye - 2.0;\n"
             + "    float iris = smoothstep(0.85, 0.875, d); float pupil = smoothstep(0.962, 0.972, d);\n"
@@ -1211,6 +1208,35 @@ public final class WireRenderer {
             + "    vec3 sclera = vec3(0.47, 0.43, 0.39) * mix(1.0, 0.6, smoothstep(0.45, -0.5, d));\n"
             + "    vec3 irisC = mix(vec3(0.035, 0.016, 0.008), vec3(0.10, 0.05, 0.02), smoothstep(0.95, 0.88, d)) * fib;\n"
             + "    alb = mix(mix(sclera, irisC, iris), vec3(0.004), pupil); rough = 0.08; specK = 0.06; sss = vec3(0.1); detail = 0.0;\n"
+            // trainers (their own geometry, placed by along / across / up on the shoe): a leather upper with a toe cap
+            // and heel counter on stitched seams, crossed laces through eyelets, the opening round the ankle, a pale
+            // midsole with a groove and a rubber outsole (Obi: white leather, grey rubber; Ivie: chunky cream)
+            + "  } else if (mat > 3.5) {\n"
+            + "    float u = vMat.y, ac = vMat.z, up = vMat.w;\n"
+            + "    vec3 upper = fem > 0.5 ? vec3(0.6, 0.53, 0.43) : vec3(0.075, 0.04, 0.022);\n"
+            + "    float soleTop = fem > 0.5 ? 0.3 : 0.2;\n"
+            + "    float cap = u + 0.07 * ac * ac, counter = u - 0.08 * (up - 0.5);\n"
+            + "    alb = upper * mix(1.0, 0.92, max(smoothstep(0.785, 0.8, cap), smoothstep(0.26, 0.245, counter)));\n"
+            + "    float seam = max(1.0 - smoothstep(0.0, 0.005, abs(cap - 0.79)), 1.0 - smoothstep(0.0, 0.005, abs(counter - 0.252)));\n"
+            + "    float stitch = max(1.0 - smoothstep(0.0, 0.003, abs(cap - 0.802)), 1.0 - smoothstep(0.0, 0.003, abs(counter - 0.24))) * step(0.5, fract((up + ac) * 45.0));\n"
+            + "    alb *= 1.0 - 0.3 * seam - 0.18 * stitch;\n"
+            + "    float lacing = step(0.36, u) * step(u, 0.76) * smoothstep(0.8, 0.86, up);\n"
+            + "    float tongue = lacing * step(abs(ac), 0.36);\n"
+            + "    alb *= 1.0 - 0.12 * tongue;\n"
+            + "    float row = fract((u - 0.36) / 0.4 * 6.0); float bar = smoothstep(0.3, 0.16, abs(row - 0.5) + abs(ac) * 0.35);\n"
+            + "    float lace = tongue * bar * step(abs(ac), 0.3);\n"
+            + "    alb = mix(alb, fem > 0.5 ? vec3(0.7, 0.64, 0.54) : vec3(0.03, 0.02, 0.015), lace);\n"
+            + "    float eyelet = lacing * smoothstep(0.32, 0.18, length(vec2(row - 0.5, (abs(ac) - 0.36) * 7.0)));\n"
+            + "    alb = mix(alb, vec3(0.12, 0.12, 0.12), eyelet * 0.8);\n"
+            + "    float opening = smoothstep(0.93, 0.97, up) * smoothstep(0.36, 0.3, u);\n"
+            + "    alb = mix(alb, vec3(0.03, 0.03, 0.03), opening);\n"
+            + "    float mid = 1.0 - smoothstep(soleTop - 0.008, soleTop + 0.008, up);\n"
+            + "    float out_ = 1.0 - smoothstep(0.03, 0.045, up);\n"
+            + "    float groove = 1.0 - smoothstep(0.0, 0.01, abs(up - soleTop * 0.55));\n"
+            + "    vec3 soleC = (fem > 0.5 ? vec3(0.86, 0.85, 0.82) : vec3(0.05, 0.035, 0.025)) * (1.0 - 0.25 * groove);\n"
+            + "    alb = mix(alb, soleC, mid); alb = mix(alb, fem > 0.5 ? vec3(0.7, 0.66, 0.58) : vec3(0.22, 0.22, 0.23), out_);\n"
+            + "    alb *= 0.96 + 0.05 * vnoise(vR * 420.0);\n"
+            + "    rough = mix(0.42, 0.75, mid); specK = 0.035; sss = vec3(0.12, 0.11, 0.1); detail = 0.0;\n"
             + "  } else if (mat > 2.5) {\n"
             + "    vec3 g3; alb = coily(vR, 70.0, g3);\n"
             + "    n = normalize(n - uRot * g3 * 0.35); rough = 1.0; specK = 0.004; sss = vec3(0.04); detail = 0.0; fuzz = 1.0;\n"
@@ -1249,7 +1275,9 @@ public final class WireRenderer {
             + "      float sideS = smoothstep(0.53, 0.59, ax2) * smoothstep(0.8, 0.74, ax2) * smoothstep(-0.16, -0.06, vH.z) * smoothstep(0.3, 0.22, vH.z)\n"
             + "        * (1.0 - smoothstep(0.1, 0.44, vH.y)) * smoothstep(-0.2, -0.1, vH.y);\n"
             + "      float shortHair = 0.55 + 0.45 * vnoise(vR * vec3(300.0, 120.0, 300.0));\n"
-            + "      hc = max(hc, shadow * (lips(vH, 0.0) > 0.1 ? 0.0 : 1.0) * (0.35 + 0.65 * dots) * 0.8 * onHead);\n"
+            + "      if (uBeard > 0.5) hc = max(hc, shadow * (lips(vH, 0.0) > 0.1 ? 0.0 : 1.0) * (0.35 + 0.65 * dots) * 0.8 * onHead);\n"
+            // clean shaven, the sideburns are short and tidy: they stop level with the middle of the ear, as close-cut as the fade
+            + "      if (uBeard < 0.5) sideS *= smoothstep(-0.03, 0.03, vH.y) * (0.5 + 0.5 * dots) * 0.62;\n"
             + "      if (style < 4.5) hc = max(hc, min(1.0, sideS * 1.3) * shortHair * smoothstep(0.0, 0.5, face)); }\n"
             + "    float grain = 0.55 + 0.45 * vnoise(vR * vec3(160.0, 40.0, 160.0));\n"
             // Ivie: hair pulled back sleek toward the puffs, lines running front to back, and a fine centre part
@@ -1284,6 +1312,29 @@ public final class WireRenderer {
             + "  if (uCloth.a > 0.5 && uClipA.x < 2.5) col += alb * pow(1.0 - max(0.0, n.z), 2.0) * 0.35;\n"
             + "  if (fuzz > 0.5) col += vec3(0.02, 0.012, 0.008) * pow(1.0 - max(0.0, n.z), 1.5);\n"
             + "  col = col / (1.0 + col);\n"
+            // the cartoon look (Ghibli style): soft cel bands, warm light and cool violet shadow, a golden back-rim,
+            // pen hatching in the shadows, watercolour pigment and paper grain, an ink line at the silhouette
+            + "  if (uToon > 0.5) {\n"
+            + "    vec3 base = pow(clamp(alb * 1.15, 0.0, 1.0), vec3(1.0 / 2.2));\n"
+            // shaded from the smooth surface (no pores or weave bumps): clean shapes, one soft terminator
+            + "    vec3 m = n0;\n"
+            + "    float dl = dot(m, L1);\n"
+            + "    float lit = smoothstep(-0.05, 0.22, dl), top = smoothstep(0.7, 0.85, dl);\n"
+            + "    vec3 toon = base * mix(vec3(0.42, 0.44, 0.62), vec3(1.02, 0.97, 0.88), lit) * (1.0 + 0.06 * top);\n"
+            + "    vec3 back = normalize(vec3(-0.35, 0.55, -0.75));\n"
+            + "    toon += vec3(0.95, 0.66, 0.3) * 0.45 * pow(1.0 - max(0.0, m.z), 2.5) * smoothstep(-0.2, 0.4, dot(m, back));\n"
+            + "    float hl = step(0.975, max(0.0, dot(n, normalize(L1 + v)))) * (vEye > 0.5 ? 1.0 : 0.0);\n"
+            + "    toon += vec3(0.22, 0.2, 0.18) * hl;\n"
+            + "    float hq = (vR.x * 0.7 + vR.y * 1.1 + vR.z * 0.5) * 80.0;\n"
+            + "    float hatch = 1.0 - smoothstep(0.08, 0.2, abs(fract(hq) - 0.5));\n"
+            + "    toon *= 1.0 - 0.22 * hatch * (1.0 - lit) * (1.0 - 0.6 * fuzz);\n"
+            + "    float wash = vnoise(vR * 2.4) * 0.6 + vnoise(vR * 9.0) * 0.4;\n"
+            + "    float grain = vnoise(vR * 140.0);\n"
+            + "    toon *= (0.9 + 0.2 * wash) * (0.95 + 0.07 * grain);\n"
+            + "    float ink = 1.0 - smoothstep(0.2, 0.36, m.z);\n"
+            + "    toon = mix(toon, vec3(0.11, 0.07, 0.06), ink * 0.9);\n"
+            + "    o = vec4(clamp(toon, 0.0, 1.0) * uTone.a, 1.0); return;\n"
+            + "  }\n"
             + "  o = vec4(pow(col * uTone.a, vec3(1.0 / 2.2)), 1.0); }\n";
 
     static final String FILL_VS = "#version 300 es\n"
@@ -1389,8 +1440,31 @@ public final class WireRenderer {
             + "  else { gl_Position = uMvp * vec4(aP.x, uFloor, aP.y, 1.0); vS = gl_Position.xy / gl_Position.w; } }\n";
     static final String STUDIO_FS = "#version 300 es\n"
             + "precision highp float;\n"
-            + "in vec2 vP; in vec2 vS; uniform float uMode; uniform vec4 uFeet; uniform vec4 uFeetOn; out vec4 o;\n"
+            + "in vec2 vP; in vec2 vS; uniform float uMode; uniform vec4 uFeet; uniform vec4 uFeetOn; uniform float uPaint; out vec4 o;\n"
+            + "float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n"
+            + "float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);\n"
+            + "  return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y); }\n"
+            + "float fbm(vec2 p){ return 0.5 * n2(p) + 0.27 * n2(p * 2.1 + 3.0) + 0.15 * n2(p * 4.3 + 7.0) + 0.08 * n2(p * 8.7); }\n"
             + "void main(){\n"
+            // the painted look: a navy watercolour wash in swirling brush strokes, a golden glow behind the figures,
+            // the ground the same wash a little darker, soft shadows under the feet
+            + "  if (uPaint > 0.5) {\n"
+            + "    vec2 q = uMode < 0.5 ? vS * vec2(1.6, 2.4) : vP * 0.35;\n"
+            + "    float sw = fbm(q * 1.3 + vec2(fbm(q * 0.8) * 2.2, fbm(q * 0.8 + 5.0) * 2.2));\n"
+            + "    vec3 navy = mix(vec3(0.05, 0.07, 0.2), vec3(0.17, 0.22, 0.42), sw);\n"
+            + "    float strokes = n2(vec2(q.x * 2.0 + q.y * 6.0, q.y * 1.2)) * 0.12;\n"
+            + "    navy *= 0.92 + strokes;\n"
+            + "    vec2 g = vS - vec2(-0.12, 0.42); float glow = exp(-dot(g * vec2(1.4, 1.0), g * vec2(1.4, 1.0)) * 3.2) * (0.6 + 0.6 * fbm(vS * 3.0));\n"
+            + "    vec3 col = mix(navy, vec3(0.98, 0.82, 0.55), clamp(glow, 0.0, 1.0) * (uMode < 0.5 ? 0.9 : 0.35));\n"
+            + "    if (uMode > 0.5) {\n"
+            + "      col *= 0.7;\n"
+            + "      vec2 e0 = vP - uFeet.xy, e1 = vP - uFeet.zw;\n"
+            + "      float shp = max(uFeetOn.x * exp(-dot(e0, e0) / 1.6), uFeetOn.y * exp(-dot(e1, e1) / 1.6));\n"
+            + "      col *= 1.0 - 0.55 * shp;\n"
+            + "    }\n"
+            + "    col *= 0.94 + 0.08 * n2(gl_FragCoord.xy * 0.7);\n"
+            + "    o = vec4(col, 1.0); return;\n"
+            + "  }\n"
             // the backdrop: charcoal, a soft pool of light high behind the figures, darker toward the corners
             + "  vec2 c = vS - vec2(0.0, 0.35); float pool = exp(-dot(c * vec2(0.9, 1.3), c * vec2(0.9, 1.3)) * 1.6);\n"
             + "  vec3 wall = mix(vec3(0.018, 0.019, 0.021), vec3(0.105, 0.105, 0.11), pool);\n"

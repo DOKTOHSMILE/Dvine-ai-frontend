@@ -62,6 +62,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private ListenBridge listen;
     private AmbientPad ambient;
     private OfflineBrain brain;
+    private final ai.dvine.brain.ContextExaminer examiner = new ai.dvine.brain.ContextExaminer();
     private LearningJournal journal;
     private Connectivity connectivity;
     private SyncWorker sync;
@@ -163,6 +164,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
             obiLook.style = Look.Style.SKIN;
             ivieLook.style = Look.Style.SKIN;
             prefs.edit().putInt("look_version", 3).putString("look_obi", obiLook.serialize())
+                    .putString("look_ivie", ivieLook.serialize()).apply();
+        }
+        if (prefs.getInt("look_version", 1) < 4) {
+            // v0.19: back to the line-art faces of the DVINE design (the 3D body stays a mode: "skin mode")
+            obiLook.style = Look.Style.LINE;
+            ivieLook.style = Look.Style.LINE;
+            obiLook.beard = false;
+            prefs.edit().putInt("look_version", 4).putString("look_obi", obiLook.serialize())
                     .putString("look_ivie", ivieLook.serialize()).apply();
         }
         stage.setLook(false, obiLook);
@@ -313,25 +322,44 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             return;
         }
-        if (create(text)) {
+        // read the whole sentence first: who it is for, whether it is negated, what "it" means, corrections, several requests
+        ai.dvine.brain.ContextExaminer.Reading reading = examiner.examine(text);
+        stage.activity("VOICE", text.trim());
+        stage.activity("CONTEXT", reading.summary());
+        if (reading.kind == ai.dvine.brain.ContextExaminer.Kind.NEVER_MIND) {
+            play(LocalTurn.speakAs(stage.isIvie(), "Okay, never mind."), null);
             return;
         }
-        ai.dvine.turn.DualAgentCoordinator.Request both = ai.dvine.turn.DualAgentCoordinator.parse(text);
+        if (reading.negated) {
+            String not = reading.core.replaceFirst("^(please do not|do not|never) ", "").replaceAll("\\bmy\\b", "your");
+            play(LocalTurn.speakAs(stage.isIvie(), "Okay, I won't " + not + "."), null);
+            return;
+        }
+        if (reading.clarify != null) {
+            play(LocalTurn.speakAs(stage.isIvie(), reading.clarify), this::startListening);
+            return;
+        }
+        final String asked = reading.rewritten ? reading.resolved : text;
+        if (create(asked)) {
+            return;
+        }
+        ai.dvine.turn.DualAgentCoordinator.Request both = ai.dvine.turn.DualAgentCoordinator.parse(asked);
         if (both != null) {
             discuss(both);
             return;
         }
         long now = android.os.SystemClock.uptimeMillis();
-        engine.onHeard(text, now);
-        TurnRoute route = LocalTurn.route(text, stage.agent());
+        engine.onHeard(asked, now);
+        TurnRoute route = LocalTurn.route(asked, stage.agent());
         if (route.switchOnly) {
             play(route.lines, null);
             return;
         }
         final BrainAnswer reply;
         synchronized (brain) { // a cancelled discussion may still be finishing a turn on its thread
-            reply = brain.respond(text, stage.agent());
+            reply = respondInContext(asked, reading);
         }
+        stage.activity("ANSWER", reply.answered ? "from " + reply.source.toLowerCase(java.util.Locale.US) : "not in my notes yet");
         engine.setPersona(stage.agent(), now);
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
@@ -411,10 +439,45 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
-        if (reply.needsOnline && askDesk(text, reply)) {
+        if (reply.needsOnline && askDesk(asked, reply)) {
             return;
         }
         play(reply.lines, reply.listenAfter ? this::startListening : null);
+    }
+
+    /**
+     * The brain's answer for a sentence the examiner has read: each separate request answered in turn (plain answers
+     * joined, anything that acts stops there), and when the sentence as said isn't understood, its core
+     * without fillers is tried as well.
+     */
+    private BrainAnswer respondInContext(String asked, ai.dvine.brain.ContextExaminer.Reading reading) {
+        String agent = stage.agent();
+        if (reading.parts.size() > 1) {
+            BrainAnswer first = brain.respond(reading.parts.get(0), agent);
+            for (int i = 1; i < reading.parts.size() && plain(first); i++) {
+                BrainAnswer more = brain.respond(reading.parts.get(i), agent);
+                if (!plain(more)) {
+                    break;
+                }
+                first = first.followedBy(more);
+            }
+            return first;
+        }
+        BrainAnswer reply = brain.respond(asked, agent);
+        if (!reply.answered && "OFFLINE".equals(reply.source) && reading.core != null && !reading.core.isEmpty()
+                && !reading.core.equals(asked.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", ""))) {
+            BrainAnswer again = brain.respond(reading.core, agent);
+            if (again.answered) {
+                return again;
+            }
+        }
+        return reply;
+    }
+
+    /** An answer that only speaks (no action, command, look, drawing or follow-up question). */
+    private static boolean plain(BrainAnswer a) {
+        return a.action == null && a.command == null && !a.listenAfter && a.look == null && a.sketch == null
+                && a.object3d == null && a.scenePoses == null;
     }
 
     /**

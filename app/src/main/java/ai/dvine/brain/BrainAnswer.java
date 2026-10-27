@@ -43,6 +43,15 @@ public final class BrainAnswer {
         this.source = source;
     }
 
+    /** This answer followed by another one's lines (several requests in one sentence); this one's gesture stays. */
+    public BrainAnswer followedBy(BrainAnswer more) {
+        List<TurnLine> all = new java.util.ArrayList<TurnLine>(lines);
+        all.addAll(more.lines);
+        BrainAnswer a = new BrainAnswer(all, answered || more.answered, needsOnline || more.needsOnline, source);
+        a.gesture = gesture != null ? gesture : more.gesture;
+        return a;
+    }
+
     /** What is said aloud (SAY lines), joined. Inner thoughts are not included. */
     public String spoken() {
         StringBuilder sb = new StringBuilder();

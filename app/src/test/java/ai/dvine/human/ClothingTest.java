@@ -29,18 +29,21 @@ public class ClothingTest {
         for (String n : new String[]{"obi", "ivie"}) {
             HumanAsset a = load(n);
             Clothing.Garment[] g = Clothing.design(a);
-            assertTrue(n, g.length == (a.female ? 4 : 6));
+            assertTrue(n, g.length == (a.female ? 3 : 5));
             assertTrue(n + " top covers the chest", covers(g[0], a.landmark("chest")));
             assertTrue(n + " trousers cover the knee", covers(g[1], a.landmark("left knee")));
-            for (int k = 4; k < g.length; k++) {
-                // Obi's hair and beard: on the head, never over the eyes or nose
+            for (int k = 3; k < g.length; k++) {
+                if (!g[k].name.matches("hair|beard")) {
+                    continue; // Obi's shirt sits under his jacket
+                }
+                // Obi's hair (and beard, when grown): on the head, never over the eyes or nose
                 assertTrue(g[k].name, g[k].tri.length > 100);
                 assertTrue(g[k].name + " off the nose", !covers(g[k], a.landmark("nose tip")));
                 for (int v : g[k].tri) {
                     assertTrue(g[k].name + " on the head", (a.mesh.region[v] & 0xff) <= Regions.NECK);
                 }
             }
-            for (int k = 0; k < 4; k++) {
+            for (int k = 0; k < 3; k++) {
                 Clothing.Garment gm = g[k];
                 assertTrue(n + " " + gm.name + " has triangles", gm.tri.length > 300);
                 assertTrue(gm.push > 0f && gm.push < 0.1f);
@@ -61,9 +64,9 @@ public class ClothingTest {
             for (String style : ai.dvine.face.Look.HAIR_STYLES) {
                 Clothing.Garment[] g = Clothing.design(a, style);
                 boolean shell = style.equals(ai.dvine.face.Look.FADE) || style.equals(ai.dvine.face.Look.SHORT_AFRO);
-                assertTrue(n + " " + style, g.length == 4 + (shell ? 1 : 0) + (a.female ? 0 : 1));
+                assertTrue(n + " " + style, g.length == 3 + (shell ? 1 : 0) + (a.female ? 0 : 1));
                 if (style.equals(ai.dvine.face.Look.SHORT_AFRO)) {
-                    Clothing.Garment hair = g[4];
+                    Clothing.Garment hair = g[g.length - 1];
                     assertTrue(hair.clip[0] == 6f && hair.tri.length > 100);
                     assertTrue(n + " afro off the nose", !covers(hair, a.landmark("nose tip")));
                 }
@@ -76,6 +79,9 @@ public class ClothingTest {
     public void hairstylesAreAskedForByName() {
         String[][] cases = {{"give ivie cornrows", "cornrows"}, {"make your hair bantu knots", "bantu knots"},
                 {"i want a short afro", "short afro"}, {"afro puffs please", "afro puffs"}, {"get a low cut fade", "fade"}};
+        ai.dvine.face.Look obi = ai.dvine.face.Look.defaults(false);
+        assertTrue(!obi.beard && obi.apply("grow a beard") != null && obi.beard);
+        assertTrue(obi.apply("remove your beard") != null && !obi.beard);
         for (String[] c : cases) {
             ai.dvine.face.Look l = ai.dvine.face.Look.defaults(true);
             assertTrue(c[0], l.apply(c[0]) != null && l.hairStyle.equals(c[1]));

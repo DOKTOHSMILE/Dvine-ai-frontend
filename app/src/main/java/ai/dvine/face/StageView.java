@@ -109,6 +109,17 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint subPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    // the line-art face (Look.Style.LINE) and its screen: three strokes per line (glow, body, bright core)
+    private final Paint lineGlow = new Paint(Paint.ANTI_ALIAS_FLAG), lineBody = new Paint(Paint.ANTI_ALIAS_FLAG),
+            lineCore = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final TextPaint uiText = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Path linePath = new android.graphics.Path();
+    private final android.graphics.RectF uiRect = new android.graphics.RectF();
+    private final LineFace.Pose linePose = new LineFace.Pose();
+    /** The input bar (left part: microphone, the rest: typing), in screen pixels. */
+    private final android.graphics.RectF inputHit = new android.graphics.RectF();
+    /** Live activity: the latest few {tag, text, time} entries, newest last. */
+    private final java.util.ArrayList<String[]> activityLog = new java.util.ArrayList<String[]>();
     private final TextPaint labelPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final RectF headHit = new RectF();
 
@@ -184,6 +195,15 @@ public final class StageView extends View implements Choreographer.FrameCallback
         stroke.setStrokeJoin(Paint.Join.ROUND);
         subPaint.setColor(0xFFBDBDBD);
         subPaint.setTextSize(15f * density);
+        for (Paint lp : new Paint[]{lineGlow, lineBody, lineCore}) {
+            lp.setStyle(Paint.Style.STROKE);
+            lp.setStrokeCap(Paint.Cap.ROUND);
+            lp.setStrokeJoin(Paint.Join.ROUND);
+        }
+        lineGlow.setStrokeWidth(7f * density);
+        lineGlow.setMaskFilter(new android.graphics.BlurMaskFilter(6f * density, android.graphics.BlurMaskFilter.Blur.NORMAL));
+        lineBody.setStrokeWidth(3f * density);
+        lineCore.setStrokeWidth(1.5f * density);
         labelPaint.setTextAlign(Paint.Align.CENTER);
         labelPaint.setTextSize(16f * density);
         setContentDescription("DVINE. Swipe anywhere to speak. Tap the face to hear them. Long-press to type.");
@@ -300,6 +320,30 @@ public final class StageView extends View implements Choreographer.FrameCallback
         online = value;
     }
 
+    /** Adds a line to the live activity panel ("VOICE", "what was heard"); keeps the latest four. UI thread. */
+    public void activity(String tag, String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        String time = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(new java.util.Date());
+        activityLog.add(new String[]{tag, text.trim(), time});
+        while (activityLog.size() > 4) {
+            activityLog.remove(0);
+        }
+        invalidate();
+    }
+
+    /** The line-art face is showing (the default look). */
+    private boolean lineOn() {
+        return looks[showingIvie ? 1 : 0].style == Look.Style.LINE && !bodySpace;
+    }
+
+    /** The 3D bodies are drawn as cartoons: the cartoon look, or the body shown from the line-art face. */
+    private boolean cartoonOn() {
+        Look.Style st = looks[showingIvie ? 1 : 0].style;
+        return st == Look.Style.TOON || st == Look.Style.LINE;
+    }
+
     public void setListening(boolean on) {
         listening = on;
         if (on) {
@@ -379,7 +423,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     /** True while the wireframe human draws this persona (else the nano-dot swarm does). */
     private boolean wireOn() {
-        return human != null && human.ready(showingIvie) && looks[showingIvie ? 1 : 0].style != Look.Style.DOTS
+        Look.Style st = looks[showingIvie ? 1 : 0].style;
+        return human != null && human.ready(showingIvie) && st != Look.Style.DOTS && (st != Look.Style.LINE || bodySpace)
                 && human.renderer.glErrors < 5;
     }
 
@@ -853,8 +898,14 @@ public final class StageView extends View implements Choreographer.FrameCallback
         float e = 0f;
         float yaw = rig.yaw.value;
         float pitch = rig.pitch.value + 6f;
+        boolean line = lineOn();
+        if (line) {
+            // the DVINE screen: the face in the upper part, its name, voice and activity below it
+            unit = Math.min(w * 0.2f, usable * 0.105f) * lerp(1f, 0.62f, mix);
+            cy = padTop + 64f * density + unit * 1.3f;
+        }
         float faceUnit = unit, faceCy = cy;
-        if (bodySpace) {
+        if (bodySpace && !line) {
             // zoom from the face to the whole body: the head stays put while the camera pulls back
             float z = clamp(zoom.value, 0f, 1f);
             e = z * z * (3f - 2f * z);
@@ -892,8 +943,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
             c.pitchDeg = pitch;
             c.update();
             human.renderer.setCamera(c, -4.22f);
+            boolean cartoon = cartoonOn();
+            human.cartoon = cartoon;
+            human.renderer.toon = cartoon;
             for (int k = 0; k < 2; k++) {
-                human.renderer.setSkin(k, looks[k].style == Look.Style.SKIN, looks[k].skinColor());
+                Look.Style st = looks[k].style;
+                human.renderer.setSkin(k, st == Look.Style.SKIN || st == Look.Style.TOON || st == Look.Style.LINE, looks[k].skinColor());
             }
             human.frame(clock, showingIvie, rig, e > 0.5f, rig.mode() == FaceMode.SPEAKING, faceAlpha * humanFade);
             // the drawing frame: in the wire look the body's own dots draw, so the drawing gets the whole stage
@@ -917,10 +972,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
             headHit.set(cx - unit * 1.3f, cy - unit * 1.3f, cx + unit * 1.6f, cy + unit * 1.6f);
         }
 
-        // online dot: persona colour when online, grey when not
-        fill.setColor(online ? color : GREY);
-        fill.setAlpha(online ? 200 : 140);
-        canvas.drawCircle(w * 0.5f, padTop + 10f * density, 3f * density, fill);
+        // online dot: persona colour when online, grey when not (the line screen has its own status chip)
+        if (!line) {
+            fill.setColor(online ? color : GREY);
+            fill.setAlpha(online ? 200 : 140);
+            canvas.drawCircle(w * 0.5f, padTop + 10f * density, 3f * density, fill);
+        }
 
         // glow, sparkles and the listening ring stay with the head as the camera zooms out
         float hu = bodySpace ? unit * DotBody.FACE_SCALE : unit;
@@ -934,12 +991,14 @@ public final class StageView extends View implements Choreographer.FrameCallback
         canvas.restore();
 
         // a Blender-like floor, then the persona as nano dots facing the user (the GL human draws its own)
-        if (!wire) {
+        if (line) {
+            drawLineStage(canvas, w, h, cx, cy, unit, color, faceAlpha, rig, ivieOn, mix);
+        } else if (!wire) {
             nano.drawGrid(canvas, yaw * 0.3f, 14f, cx, cy, unit, floorY, 1f - mix, density);
             nano.drawSwarm(canvas, swarm, yaw, pitch, cx, cy, unit, color,
                     Math.max(0.35f, faceAlpha) * clamp(rig.glow.value + 0.25f, 0.5f, 1.2f), density, clock);
         }
-        if (!bodySpace && !wire) {
+        if (!bodySpace && !wire && !line) {
             hands.draw(canvas, nano, cx, cy, unit, color, faceAlpha, density);
         }
         drawSparks(canvas, cx, hy, hu, color);
@@ -997,11 +1056,213 @@ public final class StageView extends View implements Choreographer.FrameCallback
                         .setEllipsize(android.text.TextUtils.TruncateAt.END).build();
             }
             canvas.save();
-            canvas.translate(24f * density, h - padBottom - subLayout.getHeight() - 22f * density);
+            float subBottom = line ? inputHit.top - 12f * density : h - padBottom - 22f * density;
+            canvas.translate(24f * density, subBottom - subLayout.getHeight());
             subPaint.setAlpha(200);
             subLayout.draw(canvas);
             canvas.restore();
         }
+    }
+
+    /**
+     * The line-art face and its screen (after the DVINE design): soft rings and the glowing face, the persona's name
+     * and role, a voice waveform, a state pill, the live activity panel and the input bar.
+     */
+    private void drawLineStage(Canvas c, float w, float h, float cx, float cy, float unit, int color, float alpha,
+                               FaceRig rig, boolean ivie, float mix) {
+        float d = density;
+        FaceMode mode = rig.mode();
+        boolean speaking = mode == FaceMode.SPEAKING;
+        // rings behind the face, breathing slowly (faster while listening or speaking)
+        float beat = listening || speaking ? 3f : 1.2f;
+        stroke.setColor(color);
+        stroke.setStrokeWidth(1f * d);
+        for (int i = 0; i < 3; i++) {
+            float r = unit * (1.5f + 0.24f * i + 0.04f * (float) Math.sin(clock * beat + i * 1.3f));
+            stroke.setAlpha((int) (alpha * (46 - 12 * i)));
+            c.drawCircle(cx, cy, r, stroke);
+        }
+        // the face, posed from the rig
+        linePose.blink = rig.blink.value;
+        linePose.jaw = clamp((rig.jaw.value - 0.03f) * 4.5f, 0f, 1.1f);
+        linePose.smile = rig.smile.value;
+        linePose.browL = rig.browL.value;
+        linePose.browR = rig.browR.value;
+        linePose.lookX = rig.lookX.value;
+        linePose.lookY = rig.lookY.value;
+        linePose.yaw = rig.yaw.value;
+        linePose.pitch = rig.pitch.value;
+        linePose.roll = rig.roll.value;
+        linePath.rewind();
+        for (float[] st : LineFace.strokes(ivie, linePose)) {
+            linePath.moveTo(cx + st[0] * unit, cy - st[1] * unit);
+            for (int j = 2; j + 1 < st.length; j += 2) {
+                linePath.lineTo(cx + st[j] * unit, cy - st[j + 1] * unit);
+            }
+        }
+        float glow = clamp(rig.glow.value + 0.2f, 0.5f, 1.2f);
+        lineGlow.setColor(color);
+        lineGlow.setAlpha((int) (alpha * 120 * glow));
+        c.drawPath(linePath, lineGlow);
+        lineBody.setColor(color);
+        lineBody.setAlpha((int) (alpha * 190));
+        c.drawPath(linePath, lineBody);
+        lineCore.setColor(mixColor(color, 0xFFFFFFFF, 0.45f));
+        lineCore.setAlpha((int) (alpha * 255));
+        c.drawPath(linePath, lineCore);
+        if (mix > 0.5f) {
+            return; // an explanation drawing has the stage
+        }
+        // wordmark and status chip
+        uiText.setTextAlign(Paint.Align.LEFT);
+        uiText.setTextSize(19f * d);
+        uiText.setLetterSpacing(0.38f);
+        uiText.setColor(0xFFE6ECEF);
+        uiText.setFakeBoldText(false);
+        float barY = padTop + 34f * d;
+        c.drawText("DVINE", 22f * d, barY, uiText);
+        String chip = online ? "ONLINE" : "OFFLINE";
+        uiText.setTextSize(12f * d);
+        uiText.setLetterSpacing(0.12f);
+        float cw = uiText.measureText(chip) + 34f * d;
+        uiRect.set(w - 18f * d - cw, barY - 21f * d, w - 18f * d, barY + 7f * d);
+        stroke.setStrokeWidth(1.4f * d);
+        stroke.setColor(online ? color : GREY);
+        stroke.setAlpha(220);
+        c.drawRoundRect(uiRect, 14f * d, 14f * d, stroke);
+        fill.setColor(online ? color : GREY);
+        fill.setAlpha(255);
+        c.drawCircle(uiRect.left + 14f * d, uiRect.centerY(), 3.5f * d, fill);
+        uiText.setColor(online ? mixColor(color, 0xFFFFFFFF, 0.5f) : 0xFF9A9A9A);
+        c.drawText(chip, uiRect.left + 24f * d, uiRect.centerY() + 4.2f * d, uiText);
+        // name and role
+        float nameY = cy + unit * 1.95f + 10f * d;
+        uiText.setTextAlign(Paint.Align.CENTER);
+        uiText.setLetterSpacing(0.02f);
+        uiText.setTextSize(28f * d);
+        uiText.setColor(0xFFF2F4F5);
+        c.drawText(ivie ? "Ivie" : "Obi", cx, nameY, uiText);
+        uiText.setTextSize(14f * d);
+        uiText.setColor(0xFF9AA3A8);
+        c.drawText(ivie ? "Thoughtful Assistant" : "Analytical Assistant", cx, nameY + 22f * d, uiText);
+        // the voice: a waveform that moves with speech and listening, a quiet line otherwise
+        float waveY = nameY + 62f * d, waveW = w * 0.72f;
+        int bars = 56;
+        float level = speaking ? 0.3f + linePose.jaw * 0.9f : listening ? 0.45f : 0.06f;
+        stroke.setColor(color);
+        stroke.setStrokeWidth(2f * d);
+        for (int i = 0; i < bars; i++) {
+            float t = (float) i / (bars - 1);
+            float env = (float) Math.sin(Math.PI * t);
+            env = env * env;
+            float n = 0.5f + 0.5f * (float) Math.sin(clock * 11f + i * 1.7f) * (float) Math.sin(clock * 6.3f + i * 0.61f);
+            float a = (2f + 24f * level * env * (0.35f + 0.65f * n)) * d;
+            float x = cx - waveW * 0.5f + waveW * t;
+            stroke.setAlpha((int) (alpha * (90 + 165 * env)));
+            c.drawLine(x, waveY - a, x, waveY + a, stroke);
+        }
+        // the state pill
+        String state = mode == FaceMode.LISTENING || listening ? "LISTENING" : mode == FaceMode.THINKING ? "THINKING"
+                : speaking ? "SPEAKING" : mode == FaceMode.APPROVAL ? "AWAITING CONFIRMATION" : mode == FaceMode.ERROR ? "SOMETHING WENT WRONG" : "READY";
+        uiText.setTextSize(13f * d);
+        uiText.setLetterSpacing(0.16f);
+        float pw = uiText.measureText(state) + 56f * d;
+        float pillY = waveY + 50f * d;
+        uiRect.set(cx - pw * 0.5f, pillY - 18f * d, cx + pw * 0.5f, pillY + 18f * d);
+        stroke.setStrokeWidth(1.4f * d);
+        stroke.setAlpha(230);
+        c.drawRoundRect(uiRect, 18f * d, 18f * d, stroke);
+        drawMic(c, uiRect.left + 20f * d, pillY, 0.8f, color);
+        uiText.setColor(mixColor(color, 0xFFFFFFFF, 0.55f));
+        c.drawText(state, cx + 12f * d, pillY + 4.6f * d, uiText);
+        // the input bar at the bottom
+        float barH = 56f * d, bottom = h - padBottom - 14f * d;
+        inputHit.set(18f * d, bottom - barH, w - 18f * d, bottom);
+        stroke.setStrokeWidth(1.6f * d);
+        stroke.setAlpha(230);
+        c.drawRoundRect(inputHit, barH * 0.5f, barH * 0.5f, stroke);
+        drawMic(c, inputHit.left + 30f * d, inputHit.centerY(), 1.1f, color);
+        uiText.setTextAlign(Paint.Align.LEFT);
+        uiText.setTextSize(15f * d);
+        uiText.setLetterSpacing(0f);
+        uiText.setColor(0xFF8F979C);
+        c.drawText("Speak aloud or type a command\u2026", inputHit.left + 56f * d, inputHit.centerY() + 5f * d, uiText);
+        drawKeyboard(c, inputHit.right - 34f * d, inputHit.centerY(), color);
+        // the live activity panel between the voice and the input bar (only when there is room)
+        float top = pillY + 34f * d, panelBottom = inputHit.top - 86f * d;
+        int rows = activityLog.size();
+        float rowH = 30f * d;
+        if (rows > 0 && panelBottom - top > 44f * d + rowH) {
+            rows = Math.min(rows, (int) ((panelBottom - top - 44f * d) / rowH));
+            uiRect.set(18f * d, top, w - 18f * d, top + 44f * d + rows * rowH);
+            fill.setColor(0xFF0B1014);
+            fill.setAlpha(235);
+            c.drawRoundRect(uiRect, 16f * d, 16f * d, fill);
+            stroke.setStrokeWidth(1f * d);
+            stroke.setAlpha(70);
+            c.drawRoundRect(uiRect, 16f * d, 16f * d, stroke);
+            uiText.setTextSize(12.5f * d);
+            uiText.setLetterSpacing(0.14f);
+            uiText.setColor(0xFFD7DDE0);
+            c.drawText("LIVE ACTIVITY", uiRect.left + 18f * d, top + 27f * d, uiText);
+            uiText.setLetterSpacing(0f);
+            for (int i = 0; i < rows; i++) {
+                String[] e = activityLog.get(activityLog.size() - rows + i);
+                float ry = top + 44f * d + i * rowH + rowH * 0.62f;
+                fill.setColor(color);
+                c.drawCircle(uiRect.left + 20f * d, ry - 4f * d, 2.6f * d, fill);
+                uiText.setTextSize(12.5f * d);
+                uiText.setColor(mixColor(color, 0xFFFFFFFF, 0.4f));
+                uiText.setFakeBoldText(true);
+                c.drawText(e[0], uiRect.left + 32f * d, ry, uiText);
+                float tx = uiRect.left + 32f * d + uiText.measureText(e[0]) + 8f * d;
+                uiText.setFakeBoldText(false);
+                uiText.setColor(0xFFB5BDC1);
+                float timeW = uiText.measureText(e[2]);
+                CharSequence fitted = android.text.TextUtils.ellipsize(e[1], uiText, uiRect.right - 18f * d - timeW - 10f * d - tx,
+                        android.text.TextUtils.TruncateAt.END);
+                c.drawText(fitted, 0, fitted.length(), tx, ry, uiText);
+                uiText.setColor(0xFF6E777C);
+                c.drawText(e[2], uiRect.right - 16f * d - timeW, ry, uiText);
+            }
+        }
+    }
+
+    /** A small microphone icon centred at (x, y). */
+    private void drawMic(Canvas c, float x, float y, float s, int color) {
+        float d = density * s;
+        stroke.setColor(color);
+        stroke.setAlpha(255);
+        stroke.setStrokeWidth(1.8f * d);
+        uiRect.set(x - 4f * d, y - 10f * d, x + 4f * d, y + 3f * d);
+        android.graphics.RectF cap = new android.graphics.RectF(uiRect);
+        c.drawRoundRect(cap, 4f * d, 4f * d, stroke);
+        c.drawArc(new android.graphics.RectF(x - 7f * d, y - 6f * d, x + 7f * d, y + 6f * d), 0f, 180f, false, stroke);
+        c.drawLine(x, y + 6f * d, x, y + 10f * d, stroke);
+    }
+
+    /** A small keyboard icon centred at (x, y). */
+    private void drawKeyboard(Canvas c, float x, float y, int color) {
+        float d = density;
+        stroke.setColor(0xFF8F979C);
+        stroke.setAlpha(255);
+        stroke.setStrokeWidth(1.4f * d);
+        android.graphics.RectF k = new android.graphics.RectF(x - 12f * d, y - 8f * d, x + 12f * d, y + 8f * d);
+        c.drawRoundRect(k, 3f * d, 3f * d, stroke);
+        fill.setColor(0xFF8F979C);
+        fill.setAlpha(255);
+        for (int r = 0; r < 2; r++) {
+            for (int i = 0; i < 5; i++) {
+                c.drawCircle(x - 8f * d + i * 4f * d, y - 3f * d + r * 4f * d, 0.9f * d, fill);
+            }
+        }
+        c.drawLine(x - 5f * d, y + 5f * d, x + 5f * d, y + 5f * d, stroke);
+    }
+
+    private static int mixColor(int a, int b, float t) {
+        int ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+        int br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+        return 0xFF000000 | ((int) (ar + (br - ar) * t) << 16) | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
     }
 
     /**
@@ -1193,6 +1454,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
                     if (t != null) {
                         human.react(t, showingIvie);
                         listener.onBodyTouch(t);
+                    }
+                } else if (!dragged && travel < 14f * density && lineOn() && inputHit.contains(x, y)) {
+                    if (x < inputHit.left + 64f * density) {
+                        listener.onMic();
+                    } else {
+                        listener.onType();
                     }
                 } else if (!dragged && travel < 14f * density) {
                     String part = bodySpace && zoom.value > 0.9f ? partAt(x, y) : null;
