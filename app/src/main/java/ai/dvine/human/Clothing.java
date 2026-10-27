@@ -53,11 +53,13 @@ public final class Clothing {
         boolean f = a.female;
         List<Garment> out = new ArrayList<Garment>();
         final float m = 0.12f; // selection margin; the shader trims the exact edge
-        // the top: crew neck and sleeves to mid upper arm (Obi); scoop neck and short sleeves (Ivie)
-        final float neckFront = neck - (f ? 0.33f : 0.16f), neckBack = neck - 0.1f, scoop = f ? 0.2f : 0.03f;
-        final float hem = pelvis + (f ? 0.2f : 0.03f), sleeveEnd = f ? 0.32f : 0.5f;
-        out.add(new Garment(f ? "top" : "t-shirt", f ? rgb(0.36f, 0.2f, 0.035f) : rgb(0.02f, 0.022f, 0.026f), 0.03f, 0.25f,
-                new float[]{0f, neckFront, neckBack, scoop, hem, sleeveEnd, 0f},
+        // after the character sheets: a cream ribbed tee for both (Ivie's cropped to meet high-waisted joggers),
+        // cargo joggers with ankle cuffs (beige for Ivie, black for Obi), socks, and trainers (chunky for Ivie)
+        final float neckFront = neck - (f ? 0.24f : 0.16f), neckBack = neck - 0.1f, scoop = f ? 0.1f : 0.03f;
+        final float waist = pelvis + (f ? 0.48f : 0.36f);
+        final float hem = f ? waist - 0.06f : pelvis + 0.03f, sleeveEnd = f ? 0.36f : 0.5f;
+        float[] cream = rgb(0.66f, 0.6f, 0.5f);
+        out.add(new Garment("t-shirt", cream, 0.04f, -1f, new float[]{0f, neckFront, neckBack, scoop, hem, sleeveEnd, 0f},
                 select(a, (r, x, y, z, along) -> {
                     boolean torso = r == Regions.CHEST || r == Regions.BACK || r == Regions.BELLY || r == Regions.HIPS
                             || r == Regions.SHOULDER_L || r == Regions.SHOULDER_R || r == Regions.NECK;
@@ -66,20 +68,25 @@ public final class Clothing {
                     float neckline = Math.max(neckFront + scoop, neckBack) + 4f * Math.max(0f, Math.abs(x) - (f ? 0.26f : 0.2f));
                     return (torso || sleeve) && y < neckline + m && y > hem - m;
                 })));
-        // trousers: from the waist (lower for Obi, high for Ivie) to just above the ankle
-        final float waist = pelvis + (f ? 0.5f : 0.36f), cuff = ankle + 0.13f;
-        out.add(new Garment(f ? "trousers" : "jeans", f ? rgb(0.012f, 0.012f, 0.014f) : rgb(0.014f, 0.024f, 0.05f), 0.022f,
-                f ? 0.3f : 0.8f, new float[]{1f, 0f, 0f, 0f, waist, 0f, cuff},
+        // cargo joggers: from the waist to a ribbed cuff a little above the ankle; clip {1, cargo pockets, cuff band, knee y}
+        final float cuff = ankle + 0.27f;
+        float knee = (a.joints[DotBody.SHIN_L * 3 + 1] + a.joints[DotBody.SHIN_R * 3 + 1]) * 0.5f;
+        out.add(new Garment("cargo joggers", f ? rgb(0.33f, 0.27f, 0.21f) : rgb(0.014f, 0.014f, 0.016f), 0.07f, 0.6f,
+                new float[]{1f, 1f, 0.11f, knee, waist, 0f, cuff},
                 select(a, (r, x, y, z, along) -> {
                     boolean legs = r == Regions.HIPS || r == Regions.BELLY || r == Regions.BACK || r == Regions.THIGH_L
                             || r == Regions.THIGH_R || r == Regions.KNEE_L || r == Regions.KNEE_R || r == Regions.SHIN_L
                             || r == Regions.SHIN_R;
                     return legs && y < waist + m && y > cuff - m;
                 })));
-        // shoes: the foot and the ankle below the trouser hem, a little fuller than the foot
-        final float top = ankle + (f ? 0.02f : 0.16f);
-        out.add(new Garment(f ? "flats" : "trainers", f ? rgb(0.02f, 0.016f, 0.014f) : rgb(0.6f, 0.6f, 0.58f), 0.075f, 0.1f,
-                new float[]{2f, 0f, 0f, 0f, top, 0f, -99f},
+        // socks: from inside the trainer up under the cuff
+        final float top = ankle + 0.14f;
+        out.add(new Garment("socks", f ? cream : rgb(0.012f, 0.012f, 0.013f), 0.016f, -1f, new float[]{5f, 0f, 0f, 0f, cuff + 0.05f, 0f, top - 0.05f},
+                select(a, (r, x, y, z, along) -> (r == Regions.SHIN_L || r == Regions.SHIN_R || r == Regions.FOOT_L
+                        || r == Regions.FOOT_R) && y < cuff + 0.05f + m && y > top - 0.05f - m)));
+        // trainers: a fuller shell over the foot with a thick sole (thicker for Ivie's chunky pair)
+        out.add(new Garment("trainers", f ? rgb(0.64f, 0.57f, 0.47f) : rgb(0.82f, 0.82f, 0.80f), f ? 0.095f : 0.08f, 0.1f,
+                new float[]{2f, f ? 1f : 0f, 0f, 0f, top, 0f, -99f},
                 select(a, (r, x, y, z, along) -> (r == Regions.FOOT_L || r == Regions.FOOT_R || r == Regions.SHIN_L
                         || r == Regions.SHIN_R) && y < top + m)));
         if (!f) {
