@@ -12,12 +12,10 @@ public final class BrainAnswer {
     public final boolean needsOnline;
     /** Short label for the activity card, e.g. "CALC" or "PACK". */
     public final String source;
-    /** Gesture key for the hands (an emoji such as "👋"), or null. */
-    public String gesture;
     /** 3D object the nano swarm builds (globe, cube, pyramid, torus, dna, atom, sphere), or null. */
     public String object3d;
     /** Drawing to show while speaking, or null. */
-    public ai.dvine.face.Sketch sketch;
+    public ai.dvine.stage.Sketch sketch;
     /** Confirmed action to run before speaking, or null. */
     public PendingAction action;
     /** Open the microphone after the last line (a question was asked). */
@@ -28,13 +26,8 @@ public final class BrainAnswer {
     public String command;
     /** Extra value for a command, e.g. the server address for SERVER_SET. */
     public String commandValue;
-    /** A scene to act with the full body: one pose per SAY line, and how long each holds. */
-    public String[] scenePoses;
-    public String sceneTitle;
-    public float[] sceneSeconds;
-    /** A persona's new look to draw and remember, or null. */
-    public ai.dvine.face.Look look;
-    public boolean lookIvie;
+    /** Which persona a voice setting is for (Ivie when true). */
+    public boolean forIvie;
 
     BrainAnswer(List<TurnLine> lines, boolean answered, boolean needsOnline, String source) {
         this.lines = Collections.unmodifiableList(lines);
@@ -43,12 +36,11 @@ public final class BrainAnswer {
         this.source = source;
     }
 
-    /** This answer followed by another one's lines (several requests in one sentence); this one's gesture stays. */
+    /** This answer followed by another one's lines (several requests in one sentence). */
     public BrainAnswer followedBy(BrainAnswer more) {
         List<TurnLine> all = new java.util.ArrayList<TurnLine>(lines);
         all.addAll(more.lines);
         BrainAnswer a = new BrainAnswer(all, answered || more.answered, needsOnline || more.needsOnline, source);
-        a.gesture = gesture != null ? gesture : more.gesture;
         return a;
     }
 

@@ -1,11 +1,10 @@
 package ai.dvine.engine;
 
-import ai.dvine.face.Gestures;
-import ai.dvine.face.nano.DotBody;
-import ai.dvine.face.nano.Forms;
+import ai.dvine.motion.Motions;
+import ai.dvine.render.forms.Forms;
 
 /**
- * The skill registry: every action the body knows, its channel, whether it
+ * The skill registry: every action the stage knows (drawings, and the movement engine's moves), its channel, whether it
  * can be interrupted and how long it holds its channel. Requests for anything
  * else, or with a target the skill does not know, are rejected here.
  */
@@ -18,21 +17,12 @@ public final class Skills {
 
     static Command.Channel channel(String action) {
         switch (action) {
-            case "view.body":
-            case "view.face":
-                return Command.Channel.VIEW;
             case "body.pose":
             case "body.scene":
             case "body.turn":
             case "body.redraw":
             case "body.stop":
                 return Command.Channel.BODY;
-            case "face.gesture":
-            case "face.expression":
-                return Command.Channel.FACE;
-            case "view.demo":
-            case "view.scene":
-                return Command.Channel.VIEW;
             case "draw.sketch":
             case "draw.object":
             case "draw.clear":
@@ -49,27 +39,21 @@ public final class Skills {
         }
         switch (c.action) {
             case "body.pose":
-                return known(DotBody.POSES, c.value) ? null : "unknown pose";
+                return known(Motions.POSES, c.value) ? null : "unknown pose";
             case "body.scene":
                 if (c.poses == null || c.seconds == null || c.poses.length == 0 || c.poses.length != c.seconds.length) {
                     return "bad scene";
                 }
                 for (String p : c.poses) {
-                    if (!known(DotBody.POSES, p)) {
+                    if (!known(Motions.POSES, p)) {
                         return "unknown pose in scene";
                     }
                 }
                 return null;
-            case "face.gesture":
-                return c.value != null && Gestures.get(c.value) != null ? null : "unknown gesture";
-            case "face.expression":
-                return ai.dvine.human.face.FaceDrive.known(c.value) ? null : "unknown expression";
             case "draw.object":
                 return known(Forms.OBJECTS, c.value) ? null : "unknown object";
-            case "view.scene":
-                return known(new String[]{"single", "side", "meet", "walk"}, c.value) ? null : "unknown arrangement";
             case "draw.sketch":
-                return c.payload instanceof ai.dvine.face.Sketch ? null : "no sketch";
+                return c.payload instanceof ai.dvine.stage.Sketch ? null : "no sketch";
             default:
                 return null;
         }
@@ -93,12 +77,10 @@ public final class Skills {
                 }
                 return (long) (s * 1000f);
             }
-            case "face.gesture":
-                return 2800L;
             case "draw.object":
                 return 22000L;
             case "draw.sketch":
-                return (long) ((((ai.dvine.face.Sketch) c.payload).length + 18f) * 1000f);
+                return (long) ((((ai.dvine.stage.Sketch) c.payload).length + 18f) * 1000f);
             default:
                 return 0L;
         }

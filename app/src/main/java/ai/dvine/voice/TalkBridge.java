@@ -82,6 +82,13 @@ public final class TalkBridge extends UtteranceProgressListener {
         return tuning[ivie ? 1 : 0].apply(command, ivie, ranked, other);
     }
 
+    private volatile boolean robot;
+
+    /** Ibiko's voice: the male voice, brighter and a little quicker. */
+    public void setRobot(boolean on) {
+        robot = on;
+    }
+
     public void speak(boolean ivie, String text, TalkDone done) {
         say(ivie, text, done, false);
     }
@@ -105,8 +112,9 @@ public final class TalkBridge extends UtteranceProgressListener {
         }
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
         float pitch = t.pitchFor(ivie, g);
-        tts.setPitch(thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch);
-        tts.setSpeechRate(thought ? t.thoughtRate() : t.rate);
+        float bright = robot && !ivie ? 1.25f : 1f, quick = robot && !ivie ? 1.06f : 1f;
+        tts.setPitch((thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch) * bright);
+        tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick);
         speaking = text;
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, thought ? VoiceTuning.THOUGHT_VOLUME : 1f);

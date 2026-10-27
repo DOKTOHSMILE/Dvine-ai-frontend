@@ -27,7 +27,6 @@ public final class Supervisor {
     private final Map<Command.Channel, Long> endsAt = new EnumMap<Command.Channel, Long>(Command.Channel.class);
     private final Map<Command.Channel, ArrayDeque<Command>> queued = new EnumMap<Command.Channel, ArrayDeque<Command>>(Command.Channel.class);
     private final ArrayDeque<Command.Result> history = new ArrayDeque<Command.Result>();
-    private boolean bodyView;
 
     public Supervisor(BodyPort port, Listener listener) {
         this.port = port;
@@ -52,7 +51,7 @@ public final class Supervisor {
             return report(c, Command.Status.COMPLETED, null, now);
         }
         if (Skills.duration(c) == 0L) {
-            execute(c); // a momentary action (switch view, redraw, turn round) overlays whatever is running
+            execute(c); // a momentary action (a turn) overlays whatever is running
             return report(c, Command.Status.COMPLETED, null, now);
         }
         Command.Channel ch = Skills.channel(c.action);
@@ -120,10 +119,6 @@ public final class Supervisor {
         return active.get(ch);
     }
 
-    public boolean bodyView() {
-        return bodyView;
-    }
-
     /** The last outcomes, newest last (for the state snapshot and self-monitoring). */
     public List<Command.Result> history() {
         return new ArrayList<Command.Result>(history);
@@ -143,50 +138,17 @@ public final class Supervisor {
 
     private void execute(Command c) {
         switch (c.action) {
-            case "view.body":
-                bodyView = true;
-                port.setBodyMode(true);
-                break;
-            case "view.face":
-                bodyView = false;
-                port.setDemo(false);
-                Command body = active.remove(Command.Channel.BODY);
-                if (body != null) {
-                    report(body, Command.Status.CANCELLED, "face view", c.createdAt);
-                }
-                port.setBodyMode(false);
-                break;
             case "body.pose":
-                bodyView = true;
                 port.setPose(c.value);
                 break;
             case "body.scene":
-                bodyView = true;
                 port.playScene(c.poses, c.seconds);
                 break;
             case "body.turn":
-                bodyView = true;
                 port.turnAround();
                 break;
-            case "body.redraw":
-                port.redraw();
-                break;
-            case "face.gesture":
-                port.gesture(c.value);
-                break;
-            case "face.expression":
-                port.setExpression(c.value);
-                break;
-            case "view.demo":
-                bodyView = "on".equals(c.value);
-                port.setDemo(bodyView);
-                break;
-            case "view.scene":
-                bodyView = !"single".equals(c.value);
-                port.arrange(c.value);
-                break;
             case "draw.sketch":
-                port.showSketch((ai.dvine.face.Sketch) c.payload);
+                port.showSketch((ai.dvine.stage.Sketch) c.payload);
                 break;
             case "draw.object":
                 port.showObject(c.value);

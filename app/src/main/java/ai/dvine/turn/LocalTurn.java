@@ -6,9 +6,9 @@ import java.util.Locale;
 
 /**
  * Offline turn order. Mirrors the backend debate rules:
- * one face when the request is simple, both points of view when it is not,
- * at most one rebuttal, then one joint close. Never both faces at once;
- * the player switches as each line starts.
+ * one voice when the request is simple, both points of view when it is not,
+ * at most one rebuttal, then one joint close. Never both at once;
+ * the voice switches as each line starts.
  */
 public final class LocalTurn {
     private LocalTurn() {
@@ -21,6 +21,30 @@ public final class LocalTurn {
         } else {
             lines.add(new TurnLine("obi", "SAY", "I'm here. Give me the goal and the constraint."));
         }
+        return lines;
+    }
+
+    /** Ibiko answers a call: the cheerful coding robot. */
+    public static List<TurnLine> call(String agent) {
+        if ("ibiko".equals(agent)) {
+            List<TurnLine> lines = new ArrayList<TurnLine>();
+            lines.add(new TurnLine("ibiko", "SAY", "Ibiko online! What are we building today?"));
+            return lines;
+        }
+        return call("ivie".equals(agent));
+    }
+
+    /** The words, said by this persona ("ivie", "obi" or "ibiko"). */
+    public static List<TurnLine> speakAs(String agent, String text) {
+        if (!"ibiko".equals(agent)) {
+            return speakAs("ivie".equals(agent), text);
+        }
+        String clean = clean(text);
+        if (clean.length() == 0) {
+            return call(agent);
+        }
+        List<TurnLine> lines = new ArrayList<TurnLine>();
+        lines.add(new TurnLine("ibiko", "SAY", clean));
         return lines;
     }
 
@@ -39,6 +63,10 @@ public final class LocalTurn {
         String target = Names.switchTarget(Names.normalize(text));
         boolean ivie = calls(text, "ivie", "eva", "evee", "ivee") || "ivie".equals(target);
         boolean obi = calls(text, "obi", "ubi", "obee") || "obi".equals(target);
+        boolean ibiko = calls(text, "ibiko") || "ibiko".equals(target);
+        if (ibiko && !ivie && !obi) {
+            return new TurnRoute(true, false, call("ibiko"));
+        }
         if (ivie && !obi) {
             return new TurnRoute(true, true, call(true));
         }

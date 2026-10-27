@@ -70,80 +70,43 @@ public class ActionsAndOnboardingTest {
     }
 
     @Test
-    public void gesturesAndSketches() {
-        assertEquals("👋", brain.respond("hello", "obi").gesture);
-        assertEquals("👍", ai.dvine.face.Gestures.find("show me a thumbs up"));
-        assertEquals("🙏", ai.dvine.face.Gestures.find("🙏🏽"));
-        assertNull(ai.dvine.face.Gestures.find("🖕"));
+    public void drawingsMovesAndSettings() {
         BrainAnswer d = brain.respond("explain 3 plus 4", "ivie");
         assertNotNull(d.sketch);
         assertTrue(d.spoken().contains("7"));
         assertNotNull(brain.respond("draw a triangle", "obi").sketch);
         assertEquals("MUSIC_OFF", brain.respond("music off", "obi").command);
-        // the default look is lifelike skin; the hologram and dots are styles you can ask for
-        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("hologram mode", "obi").look.style);
-        assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("dot mode", "obi").look.style);
-        assertEquals(ai.dvine.face.Look.Style.SKIN, brain.respond("show your real skin", "obi").look.style);
-        BrainAnswer deeper = brain.respond("make your skin darker", "obi");
-        assertEquals(ai.dvine.face.Look.Style.SKIN, deeper.look.style);
-        assertTrue(deeper.look.tone > ai.dvine.face.Look.defaults(false).tone);
-        assertEquals("BODY_ON", brain.respond("show your full body", "obi").command);
-        assertEquals("FACE_ON", brain.respond("show your face", "obi").command);
-        assertEquals("REDRAW", brain.respond("redraw yourself", "obi").command);
+        // the movement engine: moves for a body DVINE designs, in everyday words
         BrainAnswer pose = brain.respond("do a t-pose", "obi");
         assertEquals("POSE", pose.command);
         assertEquals("tpose", pose.commandValue);
-        assertEquals("squat", brain.respond("can you squat", "ivie").commandValue);
-        assertEquals("TURN", brain.respond("turn around", "obi").command);
-        assertEquals("pushups", brain.respond("do 10 push ups", "obi").commandValue);
-        assertEquals("cartwheel", brain.respond("do a cartwheel", "ivie").commandValue);
-        // asked as questions, in everyday words
-        String[][] moves = {{"can you run?", "run"}, {"Can you walk?", "walk"}, {"jump", "jump"}, {"can you jump?", "jump"},
-                {"sit", "sit"}, {"sit down please", "sit"}, {"dance", "dance"}, {"can you dance for me?", "dance"},
-                {"roll over", "roll"}, {"can you roll over?", "roll"}, {"flip", "backflip"}, {"do a flip", "backflip"},
-                {"can you do a backflip?", "backflip"}, {"lie down", "lie"}, {"start running", "run"},
-                {"keep dancing", "dance"}, {"jump up and down", "jump"}, {"show me how you walk", "walk"}};
+        String[][] moves = {{"make it walk", "walk"}, {"can it dance", "dance"}, {"do 10 push ups", "pushups"},
+                {"do a cartwheel", "cartwheel"}, {"make the robot jump", "jump"}, {"can you do a backflip?", "backflip"}};
         for (String[] m : moves) {
             BrainAnswer a = brain.respond(m[0], "obi");
             assertEquals(m[0], "POSE", a.command);
             assertEquals(m[0], m[1], a.commandValue);
         }
-        assertTrue(brain.respond("can you run?", "obi").spoken().startsWith("Yes") || brain.respond("can you run?", "obi").spoken().startsWith("Of course"));
         assertTrue(!"POSE".equals(brain.respond("can you walk me through the steps", "obi").command));
         assertTrue(!"POSE".equals(brain.respond("can you run the numbers", "obi").command));
-        BrainAnswer scene = brain.respond("act out the tortoise and the hare", "ivie");
-        assertNotNull(scene.scenePoses);
-        assertEquals(scene.scenePoses.length, scene.sceneSeconds.length);
-        assertEquals("the hare and the tortoise", scene.sceneTitle);
+        assertTrue(!"POSE".equals(brain.respond("how do I run a business", "obi").command));
         assertEquals("STOP", brain.respond("stop", "obi").command);
         assertEquals("STOP", brain.respond("that's enough", "ivie").command);
         assertEquals("SELF_REPORT", brain.respond("what are you doing", "obi").command);
         assertEquals("FAVOURITES", brain.respond("what do I like", "obi").command);
-        // ordinary talk is not a pose
-        assertTrue(!"POSE".equals(brain.respond("how do I run a business", "obi").command));
+        // built-in 3D forms
         assertEquals("globe", brain.respond("draw the globe", "obi").object3d);
         assertEquals("dna", brain.respond("show me dna", "obi").object3d);
         assertEquals("galaxy", brain.respond("can you draw a galaxy?", "obi").object3d);
-        // Mode B: the anatomical view
-        String[][] inside = {{"show me your skeleton", "skeleton"}, {"show your bones", "skeleton"}, {"x-ray", "all"}, {"show me your heart", "heart"},
-                {"can you show your lungs?", "lungs"}, {"show your ribs", "chest"}, {"show me your organs", "organs"}, {"cover up", "off"},
-                {"hide your skeleton", "off"}};
-        for (String[] i : inside) {
-            BrainAnswer a = brain.respond(i[0], "obi");
-            assertEquals(i[0], "ANATOMY", a.command);
-            assertEquals(i[0], i[1], a.commandValue);
-        }
-        assertTrue(brain.respond("show me your heart", "obi").spoken().contains("doesn't beat"));
         assertEquals("black hole", brain.respond("draw a black hole", "ivie").object3d);
         assertEquals("tesseract", brain.respond("show me a 4d cube", "obi").object3d);
         assertEquals("lorenz", brain.respond("draw the butterfly effect", "obi").object3d);
         assertEquals("butterfly", brain.respond("draw a butterfly", "ivie").object3d);
         assertEquals("eiffel tower", brain.respond("please draw the eiffel tower", "obi").object3d);
-        BrainAnswer hair = brain.respond("make Ivie's hair longer", "obi");
-        assertTrue(hair.lookIvie);
-        assertTrue(hair.look.hair > 0f); // bald by default (her sheet); "longer" grows some
-        assertEquals(0f, brain.respond("Ivie remove your hair", "ivie").look.hair, 0f);
-        assertEquals(ai.dvine.face.Look.Style.TOON, brain.respond("reset your look", "obi").look.style);
-        assertEquals(ai.dvine.face.Look.Style.TOON, brain.respond("ghibli mode", "obi").look.style);
+        // no face: the old face and body commands are gone
+        for (String gone : new String[]{"show your face", "show your full body", "smile", "show me your skeleton", "make your skin darker"}) {
+            BrainAnswer a = brain.respond(gone, "obi");
+            assertTrue(gone, a.command == null || !a.command.matches("FACE_ON|BODY_ON|EXPRESSION|ANATOMY|LOOK"));
+        }
     }
 }

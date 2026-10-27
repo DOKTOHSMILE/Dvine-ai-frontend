@@ -1,20 +1,20 @@
 package ai.dvine.engine;
 
-import ai.dvine.face.Sketch;
+import ai.dvine.stage.Sketch;
 
-/** What the engine can make the on-screen body do. The stage implements it. */
+/**
+ * What the engine can make the stage do: show drawings and built-in 3D forms, and move a body the user had DVINE
+ * design (the movement engine: poses, moves, scenes, a turn). The stage implements it. There is no face.
+ */
 public interface BodyPort {
-    void setBodyMode(boolean on);
-
+    /** The designed body moves into a pose or a looping move ("walk", "dance", "pushups"…). */
     void setPose(String pose);
 
+    /** The designed body acts out a scene: one pose after another, each for its seconds. */
     void playScene(String[] poses, float[] seconds);
 
+    /** The thing on show turns all the way round. */
     void turnAround();
-
-    void redraw();
-
-    void gesture(String key);
 
     void showSketch(Sketch sketch);
 
@@ -22,15 +22,6 @@ public interface BodyPort {
 
     void clearSketch();
 
-    /** A facial expression for a few seconds: smile, frown, surprise, attention, sad, angry. */
-    void setExpression(String name);
-
-    /** Both personas side by side (the demo scene), or back to one. */
-    void setDemo(boolean on);
-
-    /** Arranges both personas in the shared scene: single, side (side by side), meet (facing each other), walk (walk together). */
-    void arrange(String arrangement);
-
-    /** Small expression bias from the affect state: smile, brow, head tilt in degrees. */
+    /** The mood from the affect state (smile, brow, tilt); the pod's light may follow it. */
     void setMood(float smile, float brow, float tiltDeg);
 }

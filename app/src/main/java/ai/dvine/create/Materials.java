@@ -3,7 +3,7 @@ package ai.dvine.create;
 import java.util.Locale;
 
 /**
- * The palette particles are tinted with on an object (a hologram keeps the
+ * The palette particles are tinted with on an object (a glowing drawing keeps the
  * persona's colour and leans toward the material's). Sixteen entries, so it
  * fits one shader uniform array.
  */

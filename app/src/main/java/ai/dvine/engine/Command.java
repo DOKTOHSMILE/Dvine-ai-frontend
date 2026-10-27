@@ -1,19 +1,15 @@
 package ai.dvine.engine;
 
 /**
- * A typed request to the body. Nothing moves the body except commands that
+ * A typed request to the stage. Nothing is drawn or moved except by commands that
  * pass the {@link Supervisor}: the brain proposes, the engine decides.
  */
 public final class Command {
     /** Each channel has one owner at a time. */
     public enum Channel {
-        /** Face close-up or full body. */
-        VIEW,
-        /** Poses, exercises, scenes, turning, redraw. */
+        /** The movement engine: a designed body's poses, exercises, scenes, a turn. */
         BODY,
-        /** Hand gestures over the face. */
-        FACE,
-        /** The drawing canvas: sketches and 3D objects. */
+        /** The drawing space above the pod: sketches and 3D objects. */
         DRAW
     }
 

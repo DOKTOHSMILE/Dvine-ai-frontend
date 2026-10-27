@@ -6,7 +6,7 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
-import ai.dvine.human.mesh.TriMesh;
+import ai.dvine.geom.TriMesh;
 
 /**
  * Reads a Wavefront OBJ model (an asset downloaded with a known licence, or

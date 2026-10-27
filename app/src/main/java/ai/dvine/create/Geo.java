@@ -1,6 +1,6 @@
 package ai.dvine.create;
 
-import ai.dvine.human.mesh.TriMesh;
+import ai.dvine.geom.TriMesh;
 
 /**
  * Closed triangle-mesh primitives for the 3D creation engine, in metres,

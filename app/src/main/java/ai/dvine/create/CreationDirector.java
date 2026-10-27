@@ -61,7 +61,7 @@ public final class CreationDirector {
         }
         ObjectRequestInterpreter.Request r = ObjectRequestInterpreter.interpret(text,
                 objectShown && session.model() != null ? session.model().spec : null);
-        if (r != null && r.kind == ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT && ai.dvine.face.nano.Forms.objectFor(lower) != null) {
+        if (r != null && r.kind == ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT && ai.dvine.render.forms.Forms.objectFor(lower) != null) {
             return null; // "build a cube", "show me an atom": the built-in figures
         }
         return r;

@@ -3,7 +3,7 @@ package ai.dvine.create;
 import java.util.ArrayList;
 import java.util.List;
 
-import ai.dvine.human.mesh.TriMesh;
+import ai.dvine.geom.TriMesh;
 
 /**
  * Builds real geometry from an {@link ObjectSpec}: every object is a set of

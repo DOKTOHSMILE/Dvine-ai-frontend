@@ -23,7 +23,16 @@ public final class ListenBridge implements RecognitionListener {
         return SpeechRecognizer.isRecognitionAvailable(context);
     }
 
+    /** Listening while the user holds a finger down: pauses don't end it (they let go to end it). */
+    private boolean hold;
+
     public void start(final ListenCallback callback) {
+        start(callback, false);
+    }
+
+    /** {@code hold}: keep listening through pauses; {@link #finish} ends it and delivers what was heard. */
+    public void start(final ListenCallback callback, boolean hold) {
+        this.hold = hold;
         stop();
         this.callback = callback;
         if (!available()) {
@@ -36,8 +45,20 @@ public final class ListenBridge implements RecognitionListener {
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        if (hold) {
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 6000L);
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 6000L);
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 20000L);
+        }
         listening = true;
         recognizer.startListening(intent);
+    }
+
+    /** Ends listening and delivers the final words (instead of {@link #stop}, which drops them). */
+    public void finish() {
+        if (recognizer != null && listening) {
+            recognizer.stopListening();
+        }
     }
 
     public void stop() {

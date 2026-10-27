@@ -63,7 +63,7 @@ public class VoiceTest {
         OfflineBrain b = TestPack.brain(TestPack.tempDir());
         BrainAnswer a = b.respond("Ivie, try a different voice", "obi");
         assertEquals("VOICE_NEXT", a.command);
-        assertTrue(a.lookIvie);
+        assertTrue(a.forIvie);
         assertEquals("VOICE_SLOWER", b.respond("speak slower", "obi").command);
         assertEquals("VOICE_LOWER", b.respond("deeper voice", "obi").command);
         assertEquals(null, b.respond("the economy is slower this year", "obi").command);

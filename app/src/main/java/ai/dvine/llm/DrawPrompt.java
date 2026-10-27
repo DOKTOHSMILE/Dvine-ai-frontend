@@ -113,6 +113,55 @@ public final class DrawPrompt {
         return "Draw " + subject + ".";
     }
 
+    /**
+     * As {@link #user(String)}, with what was found out about it online (its looks from every side, in a few
+     * sentences) so the parts are the real ones; {@code facts} may be null.
+     */
+    public static String user(String subject, String facts) {
+        if (facts == null || facts.trim().isEmpty()) {
+            return user(subject);
+        }
+        String f = facts.trim();
+        return "About " + subject + ": " + (f.length() > 700 ? f.substring(0, 700) : f) + "\nDraw " + subject + ".";
+    }
+
+    /** A second try after a plan that was too thin or about something else: stricter words. */
+    public static String retry(String subject) {
+        return "Draw " + subject + " and nothing else. List 6 to 12 parts that " + article(subject)
+                + " really has (for example its body, head, legs or wheels), each on its own line in the part format.";
+    }
+
+    /**
+     * Whether a plan is good enough to show for the subject: at least three parts, at least two different part
+     * names, and not a plan for some other thing (a "building" plan for a cat: its parts are walls, roof, windows).
+     */
+    public static boolean usable(ai.dvine.render.field.SolidSpec plan, String subject) {
+        if (plan == null || plan.parts.size() < 3) {
+            return false;
+        }
+        java.util.Set<String> names = new java.util.HashSet<String>();
+        for (ai.dvine.render.field.SolidSpec.Part p : plan.parts) {
+            names.add(p.name);
+        }
+        if (names.size() < 2) {
+            return false;
+        }
+        String s = subject.toLowerCase(Locale.US);
+        boolean building = s.matches(".*\\b(house|home|building|tower|castle|church|shop|school|hut|barn|cabin|office|hotel|temple|skyscraper)s?\\b.*");
+        if (!building) {
+            int walls = 0;
+            for (String n : names) {
+                if (n.matches(".*\\b(wall|walls|roof|storey|story|floor|chimney|balcony)\\b.*")) {
+                    walls++;
+                }
+            }
+            if (walls >= 2) {
+                return false; // the brain drew a building for something that isn't one
+            }
+        }
+        return true;
+    }
+
     /** "a lighthouse", "an owl", "the moon", "two cats" as said. */
     public static String article(String subject) {
         String s = subject.trim();

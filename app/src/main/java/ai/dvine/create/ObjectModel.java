@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import ai.dvine.human.mesh.TriMesh;
+import ai.dvine.geom.TriMesh;
 
 /**
  * A built 3D object: the spec it came from, its version, its parts, where

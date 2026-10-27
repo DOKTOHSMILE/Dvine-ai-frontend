@@ -1,18 +1,27 @@
 #!/usr/bin/env node
-// Compiles and links WireRenderer's GLSL ES 3.00 shaders with a real compiler (Chromium's WebGL2,
-// ANGLE + SwiftShader), which the JVM tests' fake GL cannot do. Usage: node tools/check_shaders.js
+// Compiles and links the stage's GLSL ES 3.00 shaders (StageRenderer's particle display, PodRenderer's pod
+// scene) with a real compiler (Chromium's WebGL2, ANGLE + SwiftShader), which the JVM tests' fake GL cannot do.
+// Usage: node tools/check_shaders.js
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-const java = fs.readFileSync(path.join(__dirname, '../app/src/main/java/ai/dvine/render/WireRenderer.java'), 'utf8');
 const src = {};
-for (const m of java.matchAll(/static final String (\w+_[VF]S) = ([\s\S]*?);\n/g)) {
-  const parts = [...m[2].replace(/\/\/[^\n]*/g, '').matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(p => JSON.parse('"' + p[1] + '"'));
-  src[m[1]] = parts.join('');
+for (const file of ['render/StageRenderer.java', 'render/pod/PodRenderer.java']) {
+  const java = fs.readFileSync(path.join(__dirname, '../app/src/main/java/ai/dvine/', file), 'utf8');
+  // each constant is string literals and earlier constants joined with +
+  for (const m of java.matchAll(/static final String (\w+) = ([\s\S]*?);\n/g)) {
+    const body = m[2].replace(/\/\/[^\n]*/g, '');
+    let out = '';
+    for (const t of body.matchAll(/"((?:[^"\\]|\\.)*)"|\b([A-Z][A-Z_]+)\b/g)) {
+      out += t[1] !== undefined ? JSON.parse('"' + t[1] + '"') : (src[t[2]] || '');
+    }
+    src[m[1]] = out;
+  }
 }
-// the programs WireRenderer links (see onCreated)
-const programs = [['FILL_VS', 'FILL_FS'], ['PARTICLE_VS', 'PARTICLE_FS'], ['INNER_VS', 'PARTICLE_FS'], ['GRID_VS', 'GRID_FS'], ['SKIN_VS', 'SKIN_FS'], ['STUDIO_VS', 'STUDIO_FS'], ['FIELD_VS', 'FIELD_FS']];
+// the programs they link (see onCreated)
+const programs = [['FIELD_VS', 'FIELD_FS'], ['SKY_VS', 'SKY_FS'], ['STAR_VS', 'STAR_FS'], ['METEOR_VS', 'METEOR_FS'],
+  ['POD_VS', 'POD_FS'], ['GLOW_VS', 'GLOW_FS'], ['BEAM_VS', 'BEAM_FS'], ['DOT_VS', 'DOT_FS']];
 
 (async () => {
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });

@@ -106,7 +106,7 @@ public final class DualAgentCoordinator {
 
     /**
      * Runs a whole discussion and returns the lines to play, in order (THINK
-     * lines with no text show the thinking face). Blocks while the agents answer.
+     * lines with no text show thinking). Blocks while the agents answer.
      */
     public List<TurnLine> discuss(String question, String first, Mode mode, Listener listener) {
         cancelled = false;
