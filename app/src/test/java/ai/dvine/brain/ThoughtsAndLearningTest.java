@@ -49,7 +49,7 @@ public class ThoughtsAndLearningTest {
     @Test
     public void definesWordsWithEndingsAndSynonyms() {
         BrainAnswer a = brain.respond("what does beautiful mean", "ivie");
-        assertTrue(a.spoken().startsWith("Beautiful, adjective, means"));
+        assertTrue(a.spoken(), a.spoken().startsWith("Beautiful means "));
         assertEquals("Let me check my dictionary.", thought(a));
         assertTrue(brain.respond("define running", "obi").spoken().startsWith("Run"));
         assertTrue(brain.respond("another word for quickly", "obi").spoken().contains("rapidly"));
