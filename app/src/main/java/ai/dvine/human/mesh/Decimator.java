@@ -99,10 +99,22 @@ public final class Decimator {
      * small triangles even where they are flat.
      */
     public static TriMesh simplify(TriMesh m, int targetTriangles, Importance imp, double lengthWeight) {
+        return simplify(m, targetTriangles, imp, lengthWeight, null);
+    }
+
+    /**
+     * As above, merging vertices only within the same {@code group} (one
+     * label per vertex): parts that must move apart, such as neighbouring
+     * fingers, never get joined by the simplification.
+     */
+    public static TriMesh simplify(TriMesh m, int targetTriangles, Importance imp, double lengthWeight, int[] group) {
         Decimator d = new Decimator(m, imp, lengthWeight);
+        d.group = group;
         d.run(targetTriangles);
         return d.result(m);
     }
+
+    private int[] group;
 
     private void run(int target) {
         PriorityQueue<Cand> heap = new PriorityQueue<Cand>();
@@ -214,6 +226,9 @@ public final class Decimator {
 
     /** Link condition plus no flipped or crushed triangles. */
     private boolean canCollapse(int a, int b, double x, double y, double z) {
+        if (group != null && group[a] != group[b]) {
+            return false;
+        }
         // vertices adjacent to both a and b must be exactly the opposite corners of the faces on edge ab
         int[] na = neighbours(a), nb = neighbours(b);
         int shared = 0;
@@ -314,12 +329,14 @@ public final class Decimator {
         }
         TriMesh m = new TriMesh();
         m.pos = new float[n * 3];
+        m.origin = new int[n];
         if (src.region != null) {
             m.region = new byte[n];
         }
         for (int v = 0; v < nv; v++) {
             if (remap[v] >= 0) {
                 int r = remap[v];
+                m.origin[r] = v;
                 m.pos[r * 3] = (float) p[v * 3];
                 m.pos[r * 3 + 1] = (float) p[v * 3 + 1];
                 m.pos[r * 3 + 2] = (float) p[v * 3 + 2];

@@ -31,9 +31,9 @@ public final class AssetBuilder {
     /** Triangle budgets per piece. */
     public static final class Budget {
         public float headCell = 0.02f;
-        public int headTris = 3200;
-        public int bodyTris = 5200;
-        public int handTris = 900;
+        public int headTris = 4000;
+        public int bodyTris = 6000;
+        public int handTris = 2800;
     }
 
     private final boolean female;
@@ -44,6 +44,8 @@ public final class AssetBuilder {
     private HeadFrame head;
     private float[] eyeL, eyeR;
     private float eyeRadius;
+    /** How far forward the chin's point is (head units). */
+    private float chinFront;
     /** The skull's half-width, crown height and depth behind the head centre (head units, from the standard head). */
     private float skullHalfWidth, skullTop, skullBack;
 
@@ -66,10 +68,12 @@ public final class AssetBuilder {
 
     public HumanAsset build() {
         StandardBody.Result std = StandardBody.build(female, sk);
-        head = HeadFrame.fit(std.eyeL, std.eyeR, std.chinY);
+        head = HeadFrame.fit(std.eyeL, std.eyeR, std.lipY, std.chinY);
         eyeL = std.eyeL;
         eyeR = std.eyeR;
         eyeRadius = std.eyeRadius;
+        chinFront = head.toHead(0f, std.chinY, std.chinZ)[2];
+        sculptFace(std);
         measureSkull(std);
         TriMesh body = bodyPiece(std);
         TriMesh eyeMeshL = eye(1);
@@ -112,7 +116,12 @@ public final class AssetBuilder {
             boolean eyeball = v >= eyeStart && v < teethStart;
             face[v] = !eyeball && (v >= body.vertexCount() || (m.bone0[v] & 0xff) == DotBody.HEAD);
         }
-        a.morphs = FaceShapes.build(m, face, head, solidCount, teethStart, teeth.vertexCount(), irisStart, irisStart + irisL + irisR);
+        float[] jaw = new float[m.vertexCount()];
+        java.util.Arrays.fill(jaw, -1f);
+        for (int v = 0; v < body.vertexCount(); v++) {
+            jaw[v] = std.jaw[body.origin[v]];
+        }
+        a.morphs = FaceShapes.build(m, face, head, solidCount, teethStart, teeth.vertexCount(), irisStart, irisStart + irisL + irisR, jaw);
         landmarks(a);
         InnerAnatomy.Result inside = InnerAnatomy.build(sk, head);
         a.inner = inside.mesh;
@@ -123,14 +132,49 @@ public final class AssetBuilder {
             a.innerLayer[part.id] = (byte) part.layer;
         }
         // everything above is on the blockout skeleton; fit it to the body-dimension profile (the face is left as it is)
-        BodyFit fit = BodyFit.fit(BodyProfile.standard(), sk, m, solidCount);
+        BodyFit fit = BodyFit.fit(BodyProfile.standard(), sk, m, solidCount, m.pos[a.landmark("chin") * 3 + 1]);
         fit.apply(m);
         fit.applyInner(a.inner);
         a.joints = fit.joints(sk);
+        // the head, its eyes, face shapes, hair and frame all scale with it
+        float k = fit.headScale;
+        float[] d = new float[3];
+        for (int e = 0; e < 2; e++) {
+            fit.offset(DotBody.HEAD, a.eyeCenter[e * 3], a.eyeCenter[e * 3 + 1], a.eyeCenter[e * 3 + 2], d);
+            for (int c = 0; c < 3; c++) {
+                a.eyeCenter[e * 3 + c] += d[c];
+            }
+        }
+        for (HumanAsset.Morph mo : a.morphs) {
+            for (int i = 0; i < mo.delta.length; i++) {
+                mo.delta[i] *= k;
+            }
+        }
+        for (int i = 0; i < a.sway.length; i++) {
+            a.sway[i] *= k;
+        }
+        a.headFrame = head.scaled(k, 0f, fit.pivotY, fit.pivotZ).toArray();
         return a;
     }
 
     // ------------------------------------------------------------ pieces
+
+    /** Shapes the standard head into the persona's own face (see {@link FaceSculpt}). */
+    private void sculptFace(StandardBody.Result std) {
+        FaceSculpt sculpt = new FaceSculpt(female, look);
+        float[] p = std.mesh.pos;
+        for (int v = 0; v < std.mesh.vertexCount(); v++) {
+            float w = (std.bone[v] == DotBody.HEAD ? std.weight0[v] : 0f) + (std.bone1[v] == DotBody.HEAD ? 1f - std.weight0[v] : 0f);
+            if (w <= 0f) {
+                continue;
+            }
+            float[] h = head.toHead(p[v * 3], p[v * 3 + 1], p[v * 3 + 2]);
+            float[] q = sculpt.apply(h[0], h[1], h[2], w);
+            float[] b = head.toBody(q[0], q[1], q[2]);
+            System.arraycopy(b, 0, p, v * 3, 3);
+        }
+        std.mesh.computeNormals();
+    }
 
     /** The skull's size in head units, from the head's own vertices above the eyes. */
     private void measureSkull(StandardBody.Result std) {
@@ -161,25 +205,88 @@ public final class AssetBuilder {
             flip(raw);
         }
         final int[] rawBone = std.bone;
-        TriMesh m = Decimator.simplify(raw, budget.headTris + budget.bodyTris + 2 * budget.handTris, this::bodyImportance, 0.0015);
+        // the hand's parts (palm, and each finger segment) are simplified each on its own, so fingers stay apart
+        int[] group = new int[raw.vertexCount()];
+        for (int v = 0; v < group.length; v++) {
+            int b = rawBone[v];
+            group[v] = b == DotBody.HAND_L || b == DotBody.HAND_R || Skeleton.isFinger(b) ? b : -1;
+        }
+        // the lips stay parted: upper and lower lip are never merged into each other
+        for (int v = 0; v < group.length; v++) {
+            if (rawBone[v] != DotBody.HEAD) {
+                continue;
+            }
+            float[] h = head.toHead(raw.pos[v * 3], raw.pos[v * 3 + 1], raw.pos[v * 3 + 2]);
+            if (Math.abs(h[0]) < 0.4f && Math.abs(h[1] - Anatomy.MOUTH_Y) < 0.15f && h[2] > 0.4f) {
+                group[v] = h[1] >= Anatomy.MOUTH_Y ? -1000 : -1001;
+            }
+        }
+        // the webs between fingers stay exactly as they are (a vertex touching another finger is never merged),
+        // and remember which finger each web point touches
+        final int[] webOther = new int[raw.vertexCount()], span = new int[raw.vertexCount()];
+        java.util.Arrays.fill(webOther, -1);
+        java.util.Arrays.fill(span, -1);
+        for (int t = 0; t < raw.tri.length; t += 3) {
+            for (int k = 0; k < 3; k++) {
+                int a = raw.tri[t + k], c = raw.tri[t + (k + 1) % 3];
+                // skin spanning two joints (the palm straight to a finger's second segment) leans on the joint between
+                for (int[] pr : new int[][]{{a, c}, {c, a}}) {
+                    int pb = rawBone[pr[0]], qb = rawBone[pr[1]];
+                    if ((pb == DotBody.HAND_L || pb == DotBody.HAND_R) && Skeleton.isFinger(qb) && (qb - Skeleton.FINGER_L) % 2 == 1) {
+                        span[pr[0]] = qb - 1;
+                        span[pr[1]] = qb - 1;
+                    }
+                }
+                if (fingerOf(rawBone[a]) >= 0 && fingerOf(rawBone[c]) >= 0 && fingerOf(rawBone[a]) != fingerOf(rawBone[c])) {
+                    group[a] = -2 - a;
+                    group[c] = -2 - c;
+                    webOther[a] = Skeleton.FINGER_L + fingerOf(rawBone[c]) * 2;
+                    webOther[c] = Skeleton.FINGER_L + fingerOf(rawBone[a]) * 2;
+                }
+            }
+        }
+        TriMesh m = Decimator.simplify(raw, budget.headTris + budget.bodyTris + 2 * budget.handTris, this::bodyImportance, 0.0015, group);
         require(m, "body");
         int n = m.vertexCount();
         m.region = new byte[n];
         m.bone0 = new byte[n];
         m.bone1 = new byte[n];
         m.weight0 = new float[n];
-        int[] nearest = nearestVertices(raw.pos, m.pos);
+        int[] nearest = m.origin; // each kept vertex keeps its own labels
         for (int i = 0; i < n; i++) {
             float x = m.pos[i * 3], y = m.pos[i * 3 + 1], z = m.pos[i * 3 + 2];
             int src = nearest[i];
             int bone = rawBone[src];
-            if (bone == DotBody.HEAD) {
-                float[] h = head.toHead(x, y, z);
-                m.region[i] = (byte) headRegion(h[0], h[1], h[2]);
+            float[] hu = head.toHead(x, y, z);
+            if (bone == DotBody.HEAD || bone == DotBody.NECK && hu[1] > -1.05f - 0.2f * Math.max(0f, hu[2])) {
+                // the face goes by where a point is on the head, whichever bone carries it
+                m.region[i] = (byte) headRegion(hu[0], hu[1], hu[2]);
             } else if (bone == DotBody.HAND_L || bone == DotBody.HAND_R || Skeleton.isFinger(bone)) {
                 m.region[i] = (byte) handRegion(bone, x);
             } else {
                 m.region[i] = (byte) bodyRegion(bone, x, y, z);
+            }
+            if (span[src] >= 0) {
+                m.bone0[i] = (byte) bone;
+                m.bone1[i] = (byte) span[src];
+                m.weight0[i] = 0.5f;
+                continue;
+            }
+            if (webOther[src] >= 0) {
+                // a web between two fingers follows both of them equally
+                m.bone0[i] = (byte) (Skeleton.FINGER_L + fingerOf(bone) * 2);
+                m.bone1[i] = (byte) webOther[src];
+                m.weight0[i] = 0.5f;
+                continue;
+            }
+            if (bone == DotBody.HAND_L || bone == DotBody.HAND_R || Skeleton.isFinger(bone)) {
+                handWeights(m, i, bone, x, y, z);
+                continue;
+            }
+            if (bone == DotBody.PELVIS || bone == DotBody.THIGH_L || bone == DotBody.THIGH_R) {
+                // hips: a wide blend around each hip joint, as our rig has one hip bone where MakeHuman has several
+                skin(m, i, bone, x, y, z, 0.2f);
+                continue;
             }
             // MakeHuman's own skin weights, made for this body
             m.bone0[i] = (byte) bone;
@@ -187,8 +294,117 @@ public final class AssetBuilder {
             m.weight0[i] = std.weight0[src];
         }
         blurWeights(m, WEIGHT_BLUR);
+        settleTorso(m);
         m.computeNormals();
         return m;
+    }
+
+    /**
+     * Two places where neighbouring skin follows different limbs: the crotch
+     * (the left and right thighs meet on the midline) and the base of the neck
+     * (the arms reach up the trapezius). The middle of the crotch stays with
+     * the pelvis, and an arm's pull fades out before the neck, so neither seam
+     * is pulled two ways when the legs spread or the arms go up.
+     */
+    private void settleTorso(TriMesh m) {
+        float[] j = sk.joint;
+        float hipY = j[DotBody.THIGH_L * 3 + 1], pelvisY = j[DotBody.PELVIS * 3 + 1];
+        for (int v = 0; v < m.vertexCount(); v++) {
+            float x = m.pos[v * 3], y = m.pos[v * 3 + 1];
+            float ax = Math.abs(x);
+            for (int pass = 0; pass < 2; pass++) {
+                int b = pass == 0 ? m.bone0[v] & 0xff : m.bone1[v] & 0xff;
+                int other = pass == 0 ? m.bone1[v] & 0xff : m.bone0[v] & 0xff;
+                float wb = pass == 0 ? m.weight0[v] : 1f - m.weight0[v];
+                float keep;
+                if ((b == DotBody.THIGH_L || b == DotBody.THIGH_R) && other == DotBody.PELVIS && y < pelvisY) {
+                    // the crotch band: the thigh's share fades toward the midline, and back in below the crotch
+                    float band = smooth((y - (hipY - 0.4f)) / 0.15f);
+                    keep = 1f - (1f - smooth(ax / (sk.hx * 0.75f))) * band * 0.6f;
+                } else if ((b == DotBody.ARM_L || b == DotBody.ARM_R) && (other == DotBody.CHEST || other == DotBody.NECK)) {
+                    keep = smooth((ax - 0.45f * sk.sh) / (0.35f * sk.sh));
+                } else {
+                    continue;
+                }
+                float moved = wb * (1f - keep);
+                if (pass == 0) {
+                    m.weight0[v] -= moved;
+                } else {
+                    m.weight0[v] += moved;
+                }
+            }
+        }
+    }
+
+    /**
+     * Hand weights: each finger segment rides its bone and blends half-way
+     * into its parent at its own joint; the palm rides the hand and blends
+     * into the forearm at the wrist. (Keeping only two of MakeHuman's
+     * weights near the knuckles can tie a palm point to the wrong finger.)
+     */
+    private void handWeights(TriMesh m, int i, int bone, float x, float y, float z) {
+        int side = x >= 0f ? 1 : -1;
+        int base = side > 0 ? Skeleton.FINGER_L : Skeleton.FINGER_R;
+        float[] j = sk.joint;
+        if (bone == DotBody.HAND_L || bone == DotBody.HAND_R) {
+            // the palm: into the forearm at the wrist, and into a finger at its knuckle (measured along that finger)
+            float lx = sk.local(side, x, y, z)[0];
+            float best = 0.5f * (1f - smooth((lx - Skeleton.WRIST) / 0.05f));
+            int other = bone == DotBody.HAND_L ? DotBody.FORE_L : DotBody.FORE_R;
+            for (int f = 0; f < 5; f++) {
+                int first = base + f * 2;
+                if (dist(j, first, x, y, z) > 0.08f) {
+                    continue;
+                }
+                float w = 0.4f * (1f - smooth(Math.abs(along(first, x, y, z)) / KNUCKLE_BLEND));
+                if (w > best) {
+                    best = w;
+                    other = first;
+                }
+            }
+            m.bone0[i] = (byte) bone;
+            m.bone1[i] = (byte) other;
+            m.weight0[i] = 1f - best;
+            return;
+        }
+        // a finger: the segment is where the point lies along it; blend evenly across both of its joints
+        int first = base + (bone - base) / 2 * 2;
+        float len = dist(j, first, j[(first + 1) * 3], j[(first + 1) * 3 + 1], j[(first + 1) * 3 + 2]);
+        float a = along(first, x, y, z);
+        int hand = side > 0 ? DotBody.HAND_L : DotBody.HAND_R;
+        float atKnuckle = 0.5f * (1f - smooth(Math.abs(a) / KNUCKLE_BLEND));
+        float atMiddle = 0.5f * (1f - smooth(Math.abs(a - len) / FINGER_BLEND));
+        // the thumb sits at an angle to the palm: its own labels say which segment a point is on
+        boolean second = first == base ? bone == first + 1 : a > len;
+        if (second) {
+            m.bone0[i] = (byte) (first + 1);
+            m.bone1[i] = (byte) first;
+            m.weight0[i] = 1f - atMiddle;
+        } else {
+            boolean knuckleSide = atKnuckle > atMiddle;
+            m.bone0[i] = (byte) first;
+            m.bone1[i] = (byte) (knuckleSide ? hand : first + 1);
+            m.weight0[i] = 1f - Math.max(atKnuckle, atMiddle);
+        }
+    }
+
+    /** How far a point lies along a finger's first segment from its first joint (along that segment's direction). */
+    private float along(int first, float x, float y, float z) {
+        float[] j = sk.joint;
+        float ux = j[(first + 1) * 3] - j[first * 3], uy = j[(first + 1) * 3 + 1] - j[first * 3 + 1], uz = j[(first + 1) * 3 + 2] - j[first * 3 + 2];
+        float len = (float) Math.sqrt(ux * ux + uy * uy + uz * uz);
+        return ((x - j[first * 3]) * ux + (y - j[first * 3 + 1]) * uy + (z - j[first * 3 + 2]) * uz) / len;
+    }
+
+    /** How far either side of a knuckle the skin blends between palm and finger: it covers the webs between fingers. */
+    private static final float KNUCKLE_BLEND = 0.07f;
+
+    /** How far either side of a finger's middle joint the skin blends between its two segments. */
+    private static final float FINGER_BLEND = 0.04f;
+
+    /** Which finger (0..9, both hands) a bone belongs to, or −1. */
+    private static int fingerOf(int bone) {
+        return Skeleton.isFinger(bone) ? (bone - Skeleton.FINGER_L) / 2 : -1;
     }
 
     /** Palm and finger labels. */
@@ -249,7 +465,7 @@ public final class AssetBuilder {
     }
 
     /** How far forward the front teeth sit (head units): behind the closed lips. */
-    private static final float TEETH_Z = 0.6f;
+    private static final float TEETH_Z = 0.42f;
 
     /** A low-poly eyeball (an icosphere) in its socket. */
     private TriMesh eye(int side) {
@@ -329,8 +545,8 @@ public final class AssetBuilder {
         float grow = 0.05f + 0.03f * look.hair;
         // the shell the strands lie on: just outside the skull's own extent (head units)
         float rx = skullHalfWidth + grow, ry = skullTop - 0.26f + grow, rz = skullBack + grow * 1.6f;
-        int strands = 46;
-        float flow = 0.6f + 0.45f * look.hair;
+        int strands = 90;
+        float flow = 1.3f + 0.7f * look.hair;
         for (int k = 0; k < strands; k++) {
             float u = -0.86f + 1.72f * (k + 0.5f) / strands + 0.02f * noise(k * 5);
             float side = (float) Math.sqrt(1f - u * u);
@@ -352,11 +568,14 @@ public final class AssetBuilder {
                 lz = z;
             }
             float len = flow * (0.75f + 0.45f * (noise(k * 5 + 4) + 1f) * 0.5f);
-            for (int i = 1; i <= 10; i++) {
-                float t = i / 10f;
-                float x = lx * (1f + 0.55f * t) + 0.05f * t * noise(k * 7);
-                float y = ly - 0.55f * len * t + 0.06f * t * noise(k * 7 + 1);
-                float z = lz - len * t * (1f - 0.25f * t);
+            // long hair streaming back and out, in waves, as if in a breeze
+            for (int i = 1; i <= 16; i++) {
+                float t = i / 16f;
+                float wave = 0.07f * t * (float) Math.sin(t * 7f + k * 0.9f);
+                float x = lx * (1f + 0.5f * t) + 0.08f * t * noise(k * 7) + wave * 0.5f;
+                float droop = 0.35f + 0.3f * noise(k * 7 + 2) + 0.25f * Math.abs(u);
+                float y = ly - droop * len * t * t + 0.12f * t * noise(k * 7 + 1) + wave;
+                float z = lz - len * t * (1f - 0.12f * t);
                 pts.add(toBody(x, y, z));
                 sw.add(t * len);
             }
@@ -426,7 +645,7 @@ public final class AssetBuilder {
         if (ax < 0.26f && y > -0.77f && y < -0.47f && z > 0.6f) {
             return Regions.LIPS;
         }
-        if (ax < 0.3f && y > -1.06f && y <= -0.77f && z > 0.3f) {
+        if (ax < 0.33f && y > -1.12f && y <= -0.77f && z > 0.2f) {
             return Regions.CHIN;
         }
         if (y > 0.12f && y < 0.78f && z > 0.25f) {
@@ -510,7 +729,7 @@ public final class AssetBuilder {
 
     /** Weight-diffusion passes over the body mesh (more passes, softer joints). */
     /** The radius over which the body's skin weights are averaged (the hands keep theirs). */
-    private static final float WEIGHT_BLUR = 0.09f;
+    private static final float WEIGHT_BLUR = 0.24f;
 
     /**
      * Averages each body vertex's skin weights with every body vertex within
@@ -698,7 +917,7 @@ public final class AssetBuilder {
         String[] names = {"crown", "nose tip", "chin", "eye left", "eye right", "mouth left", "mouth right",
                 "ear left", "ear right", "neck front", "chest", "navel", "left index tip", "right index tip",
                 "left knee", "right knee", "left toe", "right toe"};
-        float[][] at = {toBody(0f, 1.02f, 0f), toBody(0f, -0.34f, 1.08f), toBody(0f, -1.0f, 0.5f),
+        float[][] at = {toBody(0f, 1.02f, 0f), toBody(0f, -0.34f, 1.08f), toBody(0f, HeadFrame.CHIN_Y + 0.12f, chinFront),
                 toBody(Anatomy.EYE_X, Anatomy.EYE_Y, Anatomy.EYE_Z + Anatomy.EYE_R), toBody(-Anatomy.EYE_X, Anatomy.EYE_Y, Anatomy.EYE_Z + Anatomy.EYE_R),
                 toBody(0.21f, Anatomy.MOUTH_Y, 0.85f), toBody(-0.21f, Anatomy.MOUTH_Y, 0.85f),
                 toBody(0.86f, 0f, -0.08f), toBody(-0.86f, 0f, -0.08f), {0f, 0.05f, 0.15f}, {0f, -0.4f, 0.3f},
@@ -721,7 +940,7 @@ public final class AssetBuilder {
             for (int v = 0; v < solids; v++) {
                 float dx = m.pos[v * 3] - at[k][0], dy = m.pos[v * 3 + 1] - at[k][1], dz = m.pos[v * 3 + 2] - at[k][2];
                 if (at[k][0] == 0f) {
-                    dx *= 4f; // midline landmarks (nose tip, chin, crown…) stay on the centre line
+                    dx *= 12f; // midline landmarks (nose tip, chin, crown…) stay on the centre line
                 }
                 float d = dx * dx + dy * dy + dz * dz;
                 if (d < bd) {
@@ -752,7 +971,7 @@ public final class AssetBuilder {
         if (h[1] > -1.15f && Math.abs(h[0]) < 1.3f) {
             return headImportance(h[0], h[1], h[2]);
         }
-        return sk.local(x >= 0f ? 1 : -1, x, y, z)[0] > Skeleton.WRIST - 0.04f && y > -1.6f ? 4f : 1f;
+        return sk.local(x >= 0f ? 1 : -1, x, y, z)[0] > Skeleton.WRIST - 0.04f && y > -1.6f ? 30f : 1f;
     }
 
     private static float dist(float[] j, int b, float x, float y, float z) {

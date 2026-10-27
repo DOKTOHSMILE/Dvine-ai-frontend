@@ -39,6 +39,8 @@ final class StandardBody {
         final Map<String, float[][]> joints = new HashMap<String, float[][]>();
         byte[] bone0, bone1;
         float[] weight0;
+        /** MakeHuman's jaw weight per vertex: how much of each point opens with the jaw. */
+        float[] jaw;
         String notice;
 
         int persona(boolean female) {
@@ -59,11 +61,13 @@ final class StandardBody {
         final int[] bone;
         final int[] bone1;
         final float[] weight0;
-        /** The eyeball centres (left, right), their radius and the chin's height. */
+        /** MakeHuman's jaw weight per vertex. */
+        float[] jaw;
+        /** The eyeball centres (left, right), their radius, and the lip line's and chin's heights. */
         final float[] eyeL, eyeR;
-        final float eyeRadius, chinY;
+        final float eyeRadius, lipY, chinY, chinZ;
 
-        Result(TriMesh mesh, int[] bone, int[] bone1, float[] weight0, float[] eyeL, float[] eyeR, float eyeRadius, float chinY) {
+        Result(TriMesh mesh, int[] bone, int[] bone1, float[] weight0, float[] eyeL, float[] eyeR, float eyeRadius, float lipY, float chinY, float chinZ) {
             this.mesh = mesh;
             this.bone = bone;
             this.bone1 = bone1;
@@ -71,7 +75,9 @@ final class StandardBody {
             this.eyeL = eyeL;
             this.eyeR = eyeR;
             this.eyeRadius = eyeRadius;
+            this.lipY = lipY;
             this.chinY = chinY;
+            this.chinZ = chinZ;
         }
     }
 
@@ -110,7 +116,7 @@ final class StandardBody {
             throw new IllegalArgumentException("not a standard body file");
         }
         int version = b.getInt();
-        if (version != 2) {
+        if (version != 3) {
             throw new IllegalArgumentException("unsupported standard body version " + version);
         }
         Data d = new Data();
@@ -155,6 +161,10 @@ final class StandardBody {
                 throw new IllegalArgumentException("invalid skin weight");
             }
         }
+        d.jaw = new float[d.nv];
+        for (int i = 0; i < d.nv; i++) {
+            d.jaw[i] = Math.max(0f, Math.min(1f, b.getFloat()));
+        }
         d.notice = str(b);
         return d;
     }
@@ -191,8 +201,8 @@ final class StandardBody {
         }
         int k = (bone - (Skeleton.rightSide(bone) ? Skeleton.FINGER_R : Skeleton.FINGER_L));
         int finger = k / 2, seg = k % 2;
-        // thumb: base at the carpometacarpal joint, middle at the knuckle; fingers: knuckle and middle joint
-        return s + "-finger-" + (finger + 1) + "-" + (finger == 0 ? seg + 1 : seg + 2);
+        // MakeHuman's finger-N-1 starts the first segment (the thumb's base, a finger's knuckle), finger-N-2 the second
+        return s + "-finger-" + (finger + 1) + "-" + (seg + 1);
     }
 
     static Result build(boolean female, Skeleton sk) {
@@ -305,11 +315,12 @@ final class StandardBody {
             }
         }
         // 4. the eyes and mouth ride the head, which the trunk's warp carries
-        float[] eyeL = new float[3], eyeR = new float[3], top = new float[3], mouth = new float[3];
+        float[] eyeL = new float[3], eyeR = new float[3], top = new float[3], mouth = new float[3], lip = new float[3];
         torso.map(J.get("l-eyeball")[0], J.get("l-eyeball")[1], J.get("l-eyeball")[2], eyeL);
         torso.map(J.get("r-eyeball")[0], J.get("r-eyeball")[1], J.get("r-eyeball")[2], eyeR);
         torso.map(J.get("l-eyeball-top")[0], J.get("l-eyeball-top")[1], J.get("l-eyeball-top")[2], top);
         torso.map(J.get("jaw")[0], J.get("jaw")[1], J.get("jaw")[2], mouth); // MakeHuman's jaw joint is the point of the chin
+        torso.map(J.get("lip-line")[0], J.get("lip-line")[1], J.get("lip-line")[2], lip);
         int[] allBone = new int[n], allBone1 = new int[n];
         for (int i = 0; i < n; i++) {
             allBone[i] = d.bone0[i] & 0xff;
@@ -322,7 +333,9 @@ final class StandardBody {
         mesh.pos = all;
         mesh.tri = allTri;
         mesh.computeNormals();
-        return new Result(mesh, allBone, allBone1, allW, eyeL, eyeR, top[1] - eyeL[1], mouth[1]);
+        Result result = new Result(mesh, allBone, allBone1, allW, eyeL, eyeR, top[1] - eyeL[1], lip[1], mouth[1], mouth[2]);
+        result.jaw = d.jaw.clone();
+        return result;
     }
 
     private static int childOf(int b) {

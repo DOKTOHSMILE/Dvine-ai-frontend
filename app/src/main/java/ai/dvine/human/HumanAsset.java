@@ -16,7 +16,7 @@ import ai.dvine.human.mesh.TriMesh;
  * binary file with a CRC so a damaged asset is detected, never drawn.
  */
 public final class HumanAsset {
-    public static final int FORMAT = 2;
+    public static final int FORMAT = 3;
     private static final int MAGIC = 0x4456484D; // "DVHM"
 
     public boolean female;
@@ -45,6 +45,12 @@ public final class HumanAsset {
     public TriMesh inner;
     public String[] innerNames = new String[0];
     public byte[] innerLayer = new byte[0];
+    /**
+     * The head's frame (format 3): origin x, y, z and scale x, y, z mapping
+     * the standard head layout onto this head (see build.HeadFrame). Older
+     * assets used the fixed sculpted head.
+     */
+    public float[] headFrame = {0f, 0.66f, 0f, 0.34f, 0.34f, 0.34f};
     /** CRC32 of the payload, filled in by {@link #write} and checked by {@link #read}. */
     public long checksum;
 
@@ -122,6 +128,7 @@ public final class HumanAsset {
             }
             bytes(o, innerLayer);
         }
+        floats(o, headFrame);
         o.flush();
         byte[] payload = body.toByteArray();
         CRC32 crc = new CRC32();
@@ -145,7 +152,7 @@ public final class HumanAsset {
             throw new IOException("not a DVINE human asset");
         }
         int format = f.readInt();
-        if (format != FORMAT && format != 1) {
+        if (format < 1 || format > FORMAT) {
             throw new IOException("unsupported asset format");
         }
         long sum = f.readLong();
@@ -218,6 +225,12 @@ public final class HumanAsset {
             }
             a.innerLayer = bytes(o);
             a.inner = in2;
+        }
+        if (format >= 3) {
+            a.headFrame = floats(o);
+            if (a.headFrame == null || a.headFrame.length < 6 || a.headFrame.length > 7 || !(a.headFrame[3] > 0f && a.headFrame[4] > 0f && a.headFrame[5] > 0f)) {
+                throw new IOException("bad head frame");
+            }
         }
         m.computeNormals();
         return a;

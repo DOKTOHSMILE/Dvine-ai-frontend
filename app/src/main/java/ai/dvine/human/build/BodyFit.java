@@ -14,7 +14,8 @@ import ai.dvine.human.rig.Skeleton;
  * legs are re-proportioned by a piecewise-linear map of height whose knots are
  * the joints (ankle, knee, hip, shoulder), so each segment stretches or
  * shortens as a whole and the joints land on the profile's heights; the head
- * is left exactly as it is from the chin up (identity). The arms ride the shoulder, and the
+ * keeps its shape from the chin up and is only scaled, about its base, to
+ * the profile's head ratio. The arms ride the shoulder, and the
  * upper arm and forearm lengthen together until the T-pose span matches the
  * profile's arm-span ratio; hands and fingers keep their size.
  *
@@ -28,16 +29,22 @@ public final class BodyFit {
     public final float floor, height;
     /** Arm-length factor for the upper arm and forearm. */
     public final float armScale;
+    /** The head's scale (about its base) that brings it to the profile's head ratio, and that base point. */
+    public final float headScale;
+    final float pivotY, pivotZ;
     private final float sh;
     private final float[] oldKnot, newKnot;
     private final float shoulderOld, shoulderLift;
     private static final float COS = (float) Math.cos(Math.toRadians(DotBody.BIND_ARM));
     private static final float SIN = (float) Math.sin(Math.toRadians(DotBody.BIND_ARM));
 
-    private BodyFit(Skeleton from, float floor, float height, float headBase, float[] newKnot, float armScale) {
+    private BodyFit(Skeleton from, float floor, float height, float headBase, float[] newKnot, float armScale, float headScale) {
         this.floor = floor;
         this.height = height;
         this.armScale = armScale;
+        this.headScale = headScale;
+        this.pivotY = headBase;
+        this.pivotZ = from.joint[DotBody.HEAD * 3 + 2];
         this.sh = from.sh;
         float[] j = from.joint;
         shoulderOld = j[DotBody.ARM_L * 3 + 1];
@@ -53,11 +60,16 @@ public final class BodyFit {
     }
 
     /** The fit of a freshly sculpted body ({@code solid}: its first {@code solidCount} vertices) to {@code profile}. */
-    static BodyFit fit(BodyProfile profile, Skeleton from, TriMesh solid, int solidCount) {
+    static BodyFit fit(BodyProfile profile, Skeleton from, TriMesh solid, int solidCount, float chinY) {
         float[] ext = extent(solid.pos, solid.region, solidCount);
-        float lo = ext[0], h = ext[1] - ext[0];
+        float lo = ext[0];
         float[] j = from.joint;
         float base = headBase(solid.pos, solid.bone0, solidCount);
+        // the head scaled about its base until crown − chin is the profile's share of the (new) height:
+        // k(A − C) = r(F + kA), with A the head above its base, C the chin above it, F the base above the floor
+        float A = ext[1] - base, C = chinY - base, F = base - lo, r = profile.headRatio;
+        float hk = Math.max(0.85f, Math.min(1.25f, r * F / (A - C - r * A)));
+        float h = F + hk * A;
         float[] knots = {lo, lo + profile.fit("ankle_center") * h, lo + profile.fit("knee_center") * h,
                 lo + profile.fit("hip_joint_center") * h, lo + profile.fit("shoulder_joint_center") * h, base};
         // T-pose half span = shoulder joint x + k · wrist + the hand's reach past the wrist
@@ -72,7 +84,7 @@ public final class BodyFit {
         }
         float want = profile.spanRatio * h * 0.5f;
         float k = Math.max(0.85f, Math.min(1.2f, (want - from.sh - reach) / Skeleton.WRIST));
-        return new BodyFit(from, lo, h, base, knots, k);
+        return new BodyFit(from, lo, h, base, knots, k, hk);
     }
 
     /** The fit a built asset carries: its fitted joints against the blockout layout. */
@@ -88,7 +100,8 @@ public final class BodyFit {
         float[] knots = {ext[0], j[DotBody.FOOT_L * 3 + 1], j[DotBody.SHIN_L * 3 + 1], j[DotBody.THIGH_L * 3 + 1],
                 j[DotBody.ARM_L * 3 + 1], base};
         float elbowOld = dist(from.joint, DotBody.ARM_L, DotBody.FORE_L), elbowNew = dist(j, DotBody.ARM_L, DotBody.FORE_L);
-        return new BodyFit(from, ext[0], ext[1] - ext[0], base, knots, elbowNew / elbowOld);
+        float hk = (j[DotBody.HEAD * 3 + 1] - base) / (from.joint[DotBody.HEAD * 3 + 1] - base);
+        return new BodyFit(from, ext[0], ext[1] - ext[0], base, knots, elbowNew / elbowOld, hk);
     }
 
     /** The lowest point of the head (its bone's vertices): the fit leaves everything above it as it is. */
@@ -146,7 +159,9 @@ public final class BodyFit {
     /** How far a blockout point riding {@code bone} moves; written into {@code d}. */
     public void offset(int bone, float x, float y, float z, float[] d) {
         if (bone == DotBody.HEAD) {
-            d[0] = d[1] = d[2] = 0f;
+            d[0] = x * (headScale - 1f);
+            d[1] = (y - pivotY) * (headScale - 1f);
+            d[2] = (z - pivotZ) * (headScale - 1f);
         } else if (armChain(bone)) {
             int side = x >= 0f ? 1 : -1;
             float along = (side * x - sh) * COS - (y - shoulderOld) * SIN;
@@ -164,7 +179,7 @@ public final class BodyFit {
     /** The inverse of {@link #offset}: a fitted point riding {@code bone} → where it was in the sculpt's layout. */
     public float[] unfit(int bone, float x, float y, float z) {
         if (bone == DotBody.HEAD) {
-            return new float[]{x, y, z};
+            return new float[]{x / headScale, pivotY + (y - pivotY) / headScale, pivotZ + (z - pivotZ) / headScale};
         }
         if (armChain(bone)) {
             int side = x >= 0f ? 1 : -1;

@@ -16,6 +16,7 @@ ideal proportions. The output is one binary resource shared by both personas:
   u32 npersona, per persona: str name, f32 pos[nv*3]
   u32 njoint,   per joint:   str name, then f32 xyz per persona
   u8 bone0[nv], u8 bone1[nv], f32 weight0[nv]   MakeHuman's default skin, folded into DVINE's bones
+  f32 jaw[nv]                                   MakeHuman's jaw weight (for opening the mouth)
   str notice
 (little endian; str = u16 byte length + UTF-8)
 
@@ -137,10 +138,14 @@ def main():
         for k in range(1, len(f) - 1):
             tris.append((f[0], f[k], f[k + 1]))
     joints = sorted(g for g in groups if g.startswith("joint-")) + ["joint-l-eyeball", "joint-l-eyeball-top",
-                                                                    "joint-r-eyeball", "joint-r-eyeball-top"]
+                                                                    "joint-r-eyeball", "joint-r-eyeball-top", "joint-lip-line"]
     import json
     mhw = json.loads(fetch(cache, "rigs/default_weights.mhw"))["weights"]
     acc = [dict() for _ in used]
+    jaw = [0.0] * len(used)
+    for i, w in mhw.get("jaw", []):
+        if i in remap:
+            jaw[remap[i]] += w
     for mh, pairs in mhw.items():
         b = OUR_BONES.index(our_bone(mh))
         for i, w in pairs:
@@ -175,10 +180,16 @@ def main():
             centre["joint-%s-eyeball" % side] = [sum(v[i][k] for i in ids) / len(ids) for k in range(3)]
             top = max(ids, key=lambda i: v[i][1])
             centre["joint-%s-eyeball-top" % side] = list(v[top])
+        # the lip line: half-way between the upper teeth's lowest point and the lower teeth's highest, at the front
+        up = sorted({i for f in groups["helper-upper-teeth"] for i in f})
+        low = sorted({i for f in groups["helper-lower-teeth"] for i in f})
+        y = (min(v[i][1] for i in up) + max(v[i][1] for i in low)) * 0.5
+        front = max(up + low, key=lambda i: v[i][2])
+        centre["joint-lip-line"] = [0.0, y, v[front][2]]
         shapes.append((name, [v[i] for i in used], centre))
     with open(dest, "wb") as out:
         out.write(b"DVSB")
-        out.write(struct.pack("<III", 2, len(used), len(tris)))
+        out.write(struct.pack("<III", 3, len(used), len(tris)))
         for t in tris:
             out.write(struct.pack("<HHH", *t))
         out.write(struct.pack("<I", len(shapes)))
@@ -197,6 +208,8 @@ def main():
             out.write(struct.pack("<B", skin[k][1]))
         for k in range(len(used)):
             out.write(struct.pack("<f", skin[k][2]))
+        for k in range(len(used)):
+            out.write(struct.pack("<f", jaw[k]))
         put_str(out, NOTICE)
     print("%s: %d vertices, %d triangles, %d joints, %d bytes" % (dest, len(used), len(tris), len(joints), os.path.getsize(dest)))
 
