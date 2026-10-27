@@ -210,10 +210,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (prefs.getInt("look_version", 1) < 4) {
             // v0.19: back to the line-art faces of the DVINE design (the 3D body stays a mode: "skin mode")
-            obiLook.style = Look.Style.LINE;
-            ivieLook.style = Look.Style.LINE;
+            obiLook.style = Look.Style.TOON;
+            ivieLook.style = Look.Style.TOON;
             obiLook.beard = false;
             prefs.edit().putInt("look_version", 4).putString("look_obi", obiLook.serialize())
+                    .putString("look_ivie", ivieLook.serialize()).apply();
+        }
+        if (prefs.getInt("look_version", 1) < 5) {
+            // v0.22: the line-art screen is gone; the main screen is the full-body cartoon in the 3D stage
+            obiLook.style = Look.Style.TOON;
+            ivieLook.style = Look.Style.TOON;
+            prefs.edit().putInt("look_version", 5).putString("look_obi", obiLook.serialize())
                     .putString("look_ivie", ivieLook.serialize()).apply();
         }
         stage.setLook(false, obiLook);
@@ -395,6 +402,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         final String asked = reading.rewritten ? reading.resolved : text;
+        if (asked.toLowerCase(java.util.Locale.US).matches("^(clear|hide|remove|erase|delete) (the |your |that )?(drawing|picture|sketch|image)$")) {
+            stage.clearDrawing();
+            play(LocalTurn.speakAs(stage.isIvie(), "Cleared."), null);
+            return;
+        }
         if (create(asked)) {
             return;
         }
@@ -492,6 +504,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     play(LocalTurn.speakAs(stage.isIvie(), "I couldn't find an app to share with on this phone."), null);
                 }
             });
+            return;
+        }
+        // a drawing with no built-in form: the language model describes it in shapes and the particles form it
+        String drawWhat = ai.dvine.llm.DrawPrompt.subject(asked);
+        boolean canDraw = model != null && model.ready() && prefs.getBoolean("llm_on", true)
+                || connectivity != null && connectivity.isOnline();
+        if (drawWhat != null && !"DRAW".equals(reply.source) && canDraw) {
+            askDrawing(drawWhat);
             return;
         }
         // knowledge and conversation go to the language model when it's installed; commands, maths, time, memory,
@@ -601,6 +621,52 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
         });
         return true;
+    }
+
+    /**
+     * "Draw me a lighthouse" with no built-in form: online, a reference picture of it (Wikipedia's lead image) becomes
+     * the particles; offline (or when none is found), the language model plans it as parts and shapes. The particles
+     * form it beside the persona.
+     */
+    private void askDrawing(final String subject) {
+        final int id = ++askId;
+        final boolean ivie = stage.isIvie();
+        final boolean online = connectivity != null && connectivity.isOnline();
+        stopPlay();
+        stage.setThought((online ? "Finding a picture of " : "Sketching ") + subject + "\u2026");
+        stage.setMode(FaceMode.THINKING);
+        stage.activity("DRAW", subject);
+        modelThread.execute(() -> {
+            ai.dvine.render.field.Shape picture = null;
+            boolean photo = false;
+            if (online) {
+                android.graphics.Bitmap bm = ai.dvine.render.field.Raster.decode(ai.dvine.render.field.PictureFinder.find(subject));
+                if (bm != null && id == askId) {
+                    picture = ai.dvine.render.field.Raster.image(bm, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
+                    photo = picture.count > 200;
+                }
+            }
+            if (!photo && id == askId && model != null && model.ready()) {
+                String planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.user(subject), 360, text -> id == askId);
+                ai.dvine.render.field.DrawSpec d = ai.dvine.llm.DrawPrompt.read(planned);
+                picture = d.items.size() < 2 ? null : ai.dvine.render.field.Raster.drawing(d, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
+            }
+            final ai.dvine.render.field.Shape shown = photo || picture != null && picture.count > 0 ? picture : null;
+            final boolean fromPhoto = photo;
+            handler.post(() -> {
+                if (id != askId || isFinishing()) {
+                    return;
+                }
+                stage.setThought(null);
+                if (shown == null) {
+                    play(LocalTurn.speakAs(ivie, "I tried to draw " + subject + ", but it didn't come out right. Ask me again?"), null);
+                    return;
+                }
+                stage.showPicture(shown, subject);
+                play(LocalTurn.speakAs(ivie, "Here's " + ai.dvine.llm.DrawPrompt.article(subject)
+                        + (fromPhoto ? ", from a picture I found online, made of particles." : ", drawn in particles. It's a rough sketch.")), null);
+            });
+        });
     }
 
     /** Loads the installed model in the background; {@code tell} says so aloud when it's ready. */

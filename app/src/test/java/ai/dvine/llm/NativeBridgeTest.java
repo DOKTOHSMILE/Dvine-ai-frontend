@@ -46,4 +46,30 @@ public class NativeBridgeTest {
         String stopped = m.reply(PersonaPrompt.system(true, null), "Tell me a long story about a river.", 200, text -> false);
         assertTrue(stopped != null && stopped.length() < 80);
     }
+
+    @Test
+    public void drawsAPictureInShapes() throws Exception {
+        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        if (lib == null || gguf == null) {
+            return;
+        }
+        assertTrue(NativeLlm.loadFrom(lib));
+        File f = new File(gguf);
+        LocalModel m = new LocalModel(f.getParentFile(), new ModelSpec("test", f.getName(), "", f.length(), "", "Apache 2.0"), true);
+        assertTrue(m.load(4));
+        String out = System.getenv("DVINE_DRAW_OUT");
+        for (String subject : new String[]{"a helicopter", "a lighthouse", "a cat", "a house with a tree", "a snowman", "a sailing boat"}) {
+            long t0 = System.nanoTime();
+            String shapes = m.task(DrawPrompt.system(), DrawPrompt.user(subject), 360, null);
+            System.out.println("NATIVE draw took " + (System.nanoTime() - t0) / 1000000 + " ms " + m.problem());
+            ai.dvine.render.field.DrawSpec d = DrawPrompt.read(shapes);
+            System.out.println("NATIVE draw " + subject + ": " + d.items.size() + " shapes\n" + shapes);
+            assertTrue(subject, d.items.size() >= 4);
+            if (out != null) {
+                java.nio.file.Files.write(new File(out, subject.replace(' ', '_') + ".txt").toPath(), shapes.getBytes("UTF-8"));
+            }
+        }
+        // drawing doesn't enter the conversation
+        assertTrue(m.historySize() == 0);
+    }
 }

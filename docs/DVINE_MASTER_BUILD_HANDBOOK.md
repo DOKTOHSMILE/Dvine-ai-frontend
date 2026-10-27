@@ -941,7 +941,28 @@ Shipped: `obi.dvhm` (8,114 vertices), `ivie.dvhm` (10,904 vertices, with 90 hair
 
 **Checks.** `LocalModelTest` (sentences, prompt, resume, checksum, stop, CPU check, memory of six exchanges); `NativeBridgeTest` runs the real model through the real JNI bridge on a desktop build (env `DVINE_NATIVE_LIB`, `DVINE_MODEL`): it answers as Obi, streams, follows up with context, keeps "café" intact, stops when told.
 
-**Limits.** A 1.7B model can be wrong on facts (in a test it reversed which colours scatter in the sky), so checked offline facts stay first; no phone timing yet; the dual-persona discussion still uses the offline brain; the model is not used for 3D drawing yet.
+**Limits.** A 1.7B model can be wrong on facts (in a test it reversed which colours scatter in the sky), so checked offline facts stay first; no phone timing yet; the dual-persona discussion still uses the offline brain. From 0.22.0 it also plans drawings (§33).
+
+## 33. The full-body stage and the nano-particle display (app v0.22.0, built)
+
+**Main screen.** The line-mask screen is gone (`LineFace`, its rings, name, waveform, state pill, activity panel, input bar and the 2D download card). The app opens on the whole persona in the 3D stage, drawn in the Ghibli-style cartoon look (`look_version` 5 moves every saved look there; a stored `LINE` look reads as the cartoon). "Show me your face" still brings the camera to the head; long-press still types; swipe still speaks.
+
+**Everything else is particles.** `render/field`:
+- `ParticleField`: a pool of particles, each on a damped spring (stiffness 38, damping 9.5) to its place in the current picture and fading to its colour, with a faint shimmer; a new picture forms out of the old one, unused particles fade where they are.
+- `Shape.fromPixels`: any picture's lit pixels as points (thinned on a staggered grid to a budget, centred, a thin depth by brightness).
+- `Raster` (Android canvas, off screen): text, the download bar (title, percent, framed track, bright leading edge, size · speed · time left), a `DrawSpec` drawing, or any bitmap (a photo's edge fades in an oval).
+- `ParticleDisplay`: four layers placed every frame from the persona's crown and chin, so they follow the persona and the camera: the download bar at the feet (toward the viewer), the thought just above the head, a picture in the open space above that (40 s), captions in screen space along the bottom. Each is re-drawn only when its content changes (the bar on each percent, its detail line every few seconds).
+- `WireRenderer`: a `FIELD` program (soft glowing points, additive, depth-tested in the stage without writing depth, sized by distance and screen density), four dynamic buffers made and freed with the other GL objects.
+The flat 2D captions, bubble and card remain only for the dots look, which has no 3D stage.
+
+**"Draw me anything."** Built-in forms and sketches still come first. Otherwise ("draw me a lighthouse", "sketch a red bicycle", "show me a picture of an owl"):
+1. Online: `PictureFinder` searches Wikipedia for the subject and takes its article's lead image (only from `upload.wikimedia.org`; only the subject is sent; 7 s timeouts; 3 MB cap), and the particles form that picture.
+2. Otherwise, with the language model ready: `DrawPrompt` asks it to list the subject's parts in words (`part | shape | colour | where | size`, where = "above the body", "on the head"…), and `PartSpec` lays them out on a 100 × 100 canvas (a small model places parts far better in words than in coordinates; it also still reads plain shape lines). One task outside the conversation, at temperature 0.35, about 5 s on a desktop CPU.
+"Clear the drawing" removes it.
+
+**Checks.** `ParticleDisplayTest` (sampling, forming and fading, thinning into the pool, the shape language); `DrawPromptTest` (requests, part layout, the Wikipedia reply); `RasterTest` (the bar, text, a drawing and a photo on Android's real canvas, Robolectric native graphics); `NativeBridgeTest.drawsAPictureInShapes` (six subjects through the real model). Replay with `GLCAP_FIELDS`, `GLCAP_DRAWING`, `GLCAP_THOUGHT`: `docs/brand/particle_display.png`.
+
+**Limits.** The model's own drawings are rough (a 1.7B model knows a snowman's parts but not always where they go; its thinking mode drew better but took about two minutes, too slow on a phone), so online pictures come first. The Wikipedia lookup was not run from the build machine (its shared address is rate-limited); phones call it directly. A photo keeps its background inside the oval. Not yet checked on a phone.
 
 ## 31. Open work, in order
 
