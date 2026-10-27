@@ -79,8 +79,8 @@ public final class AssetBuilder {
         TriMesh eyeMeshL = eye(1);
         TriMesh eyeMeshR = eye(-1);
         TriMesh teeth = teeth();
-        // Ivie's hair: two afro puffs on top (a centre part and sleek sides are drawn on the scalp)
-        TriMesh puffs = female && look.hair > 0.05f ? puffs() : null;
+        // hairstyles with volume of their own (the scalp, shells and partings of every style are drawn by the renderer)
+        TriMesh puffs = hairGeometry();
         TriMesh solid = puffs != null ? TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth, puffs) : TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth);
         int puffStart = body.vertexCount() + eyeMeshL.vertexCount() + eyeMeshR.vertexCount() + teeth.vertexCount();
         int solidCount = solid.vertexCount();
@@ -96,6 +96,7 @@ public final class AssetBuilder {
 
         HumanAsset a = new HumanAsset();
         a.female = female;
+        a.hairStyle = look.hairStyle;
         a.version = RECIPE;
         a.mesh = m;
         a.lines = new int[lineSeg.size() * 2];
@@ -542,39 +543,68 @@ public final class AssetBuilder {
     }
 
     /**
-     * Ivie's hairstyle: two big afro puffs high on the head, either side of a centre part.
-     * Each is a closed, lumpy sphere (coily texture as large and small bumps) riding the head
-     * bone; its size follows the Look's hair amount.
+     * The hairstyle's own geometry, if it has any (see {@link Look#hairStyle}): two big afro puffs
+     * either side of a centre part; bantu knots, a twisted knot on each section of a parted grid; or
+     * the bun the cornrows are braided back into. Each piece is a closed, lumpy sphere riding the
+     * head bone; its size follows the Look's hair amount. Null for styles drawn on the scalp or as shells.
      */
-    private TriMesh puffs() {
-        List<TriMesh> parts = new ArrayList<TriMesh>();
-        float r = 0.46f + 0.06f * Math.min(2f, look.hair);
-        for (int side = -1; side <= 1; side += 2) {
-            TriMesh m = Shapes.icosphere(3);
-            int n = m.vertexCount();
-            m.region = new byte[n];
-            m.bone0 = new byte[n];
-            m.bone1 = new byte[n];
-            m.weight0 = new float[n];
-            float cx = side * (skullHalfWidth * 0.56f), cy = skullTop - 0.12f, cz = -0.1f;
-            for (int i = 0; i < n; i++) {
-                float x = m.pos[i * 3], y = m.pos[i * 3 + 1], z = m.pos[i * 3 + 2];
-                // clumps of coils: a few large lobes and many small ones
-                float bump = 0.07f * lobes(x * 3.1f + side, y * 3.1f, z * 3.1f) + 0.035f * lobes(x * 7.3f, y * 7.3f + side, z * 7.3f);
-                float rr = r * (1f + bump);
-                float[] b = toBody(cx + x * rr * 1.02f, cy + y * rr * 0.92f, cz + z * rr);
-                m.pos[i * 3] = b[0];
-                m.pos[i * 3 + 1] = b[1];
-                m.pos[i * 3 + 2] = b[2];
-                m.region[i] = (byte) Regions.HAIR;
-                m.bone0[i] = (byte) DotBody.HEAD;
-                m.bone1[i] = (byte) DotBody.HEAD;
-                m.weight0[i] = 1f;
-            }
-            m.computeNormals();
-            parts.add(m);
+    private TriMesh hairGeometry() {
+        String style = look.hairStyle;
+        if (look.hair <= 0.05f && !Look.BANTU.equals(style) && !Look.CORNROWS.equals(style)) {
+            return null;
         }
-        return TriMesh.merge(parts.toArray(new TriMesh[0]));
+        List<TriMesh> parts = new ArrayList<TriMesh>();
+        float amount = Math.min(2f, Math.max(0.5f, look.hair));
+        if (Look.PUFFS.equals(style)) {
+            float r = 0.46f + 0.06f * amount;
+            for (int side = -1; side <= 1; side += 2) {
+                parts.add(blob(side * (skullHalfWidth * 0.56f), skullTop - 0.12f, -0.1f, r, 1.02f, 0.92f, 0.07f, side, 3));
+            }
+        } else if (Look.BANTU.equals(style)) {
+            // knots on the scalp: one at the crown, a ring around it and a lower ring behind (head units, on the skull)
+            float cy = 0.26f, cz = -0.16f, ry = skullTop - cy, rx = skullHalfWidth, rz = skullBack;
+            float[][] at = {{0f, 1f}, {0.55f, 0f}, {0.55f, 60f}, {0.55f, 120f}, {0.55f, 180f}, {0.55f, 240f}, {0.55f, 300f},
+                    {0.95f, 130f}, {0.95f, 180f}, {0.95f, 230f}, {0.9f, 85f}, {0.9f, 275f}};
+            int k = 0;
+            for (float[] a : at) {
+                double pol = a[0] * 1.15, az = Math.toRadians(a[1]);
+                float dx = (float) (Math.sin(pol) * Math.sin(az)), dz = (float) (Math.sin(pol) * Math.cos(az)), dy = (float) Math.cos(pol);
+                float x = dx * rx * 1.05f, y = cy + dy * ry * 1.05f, z = cz + dz * rz * 1.05f;
+                if (z > 0.35f) {
+                    continue; // no knot over the forehead
+                }
+                parts.add(blob(x, y, z, 0.12f + 0.02f * amount, 1f, 1f, 0.12f, k++, 2));
+            }
+        } else if (Look.CORNROWS.equals(style)) {
+            parts.add(blob(0f, -0.05f, -0.16f - skullBack - 0.12f, 0.26f + 0.03f * amount, 1.1f, 0.9f, 0.05f, 7, 3));
+        }
+        return parts.isEmpty() ? null : TriMesh.merge(parts.toArray(new TriMesh[0]));
+    }
+
+    /** A lumpy sphere of coily hair at (cx, cy, cz) head units, radius r, squashed per axis, on the head bone. */
+    private TriMesh blob(float cx, float cy, float cz, float r, float sx, float sy, float lump, int seed, int level) {
+        TriMesh m = Shapes.icosphere(level);
+        int n = m.vertexCount();
+        m.region = new byte[n];
+        m.bone0 = new byte[n];
+        m.bone1 = new byte[n];
+        m.weight0 = new float[n];
+        for (int i = 0; i < n; i++) {
+            float x = m.pos[i * 3], y = m.pos[i * 3 + 1], z = m.pos[i * 3 + 2];
+            // clumps of coils: a few large lobes and many small ones
+            float bump = lump * lobes(x * 3.1f + seed, y * 3.1f, z * 3.1f) + lump * 0.5f * lobes(x * 7.3f, y * 7.3f + seed, z * 7.3f);
+            float rr = r * (1f + bump);
+            float[] b = toBody(cx + x * rr * sx, cy + y * rr * sy, cz + z * rr);
+            m.pos[i * 3] = b[0];
+            m.pos[i * 3 + 1] = b[1];
+            m.pos[i * 3 + 2] = b[2];
+            m.region[i] = (byte) Regions.HAIR;
+            m.bone0[i] = (byte) DotBody.HEAD;
+            m.bone1[i] = (byte) DotBody.HEAD;
+            m.weight0[i] = 1f;
+        }
+        m.computeNormals();
+        return m;
     }
 
     /** Smooth lumps in -1..1 (a few sine products), for the puffs' clumped coils. */

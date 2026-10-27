@@ -26,11 +26,29 @@ public final class Look {
     public float lips = 1f;
     /** 0 none, 1 default, up to 2 long. Obi starts at 0. */
     public float hair;
+    /** The hairstyle (from the hair library): see {@link #HAIR_STYLES}. */
+    public String hairStyle = FADE;
+
+    public static final String PUFFS = "afro puffs", SHORT_AFRO = "short afro", CORNROWS = "cornrows",
+            BANTU = "bantu knots", FADE = "fade", BALD = "bald";
+    /** Every style, in the shader's order (index = its number there). */
+    public static final String[] HAIR_STYLES = {PUFFS, FADE, SHORT_AFRO, CORNROWS, BANTU, BALD};
+
+    /** The style's number for the renderer (0 afro puffs .. 5 bald). */
+    public int hairStyleIndex() {
+        for (int i = 0; i < HAIR_STYLES.length; i++) {
+            if (HAIR_STYLES[i].equals(hairStyle)) {
+                return i;
+            }
+        }
+        return 1;
+    }
 
     public static Look defaults(boolean ivie) {
         Look l = new Look();
         l.hair = ivie ? 1f : 0f;
         l.tone = ivie ? 0.80f : 0.88f;
+        l.hairStyle = ivie ? PUFFS : FADE;
         return l;
     }
 
@@ -45,6 +63,7 @@ public final class Look {
         l.nose = nose;
         l.lips = lips;
         l.hair = hair;
+        l.hairStyle = hairStyle;
         return l;
     }
 
@@ -60,12 +79,12 @@ public final class Look {
     /** True when geometry changed between two looks (needs a rebuild). */
     public boolean shapeDiffers(Look o) {
         return o == null || width != o.width || height != o.height || jaw != o.jaw || eyes != o.eyes
-                || nose != o.nose || lips != o.lips || hair != o.hair;
+                || nose != o.nose || lips != o.lips || hair != o.hair || !hairStyle.equals(o.hairStyle);
     }
 
     public String serialize() {
-        return String.format(Locale.US, "%s;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f",
-                style.name(), tone, width, height, jaw, eyes, nose, lips, hair);
+        return String.format(Locale.US, "%s;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%s",
+                style.name(), tone, width, height, jaw, eyes, nose, lips, hair, hairStyle);
     }
 
     public static Look parse(String s, boolean ivie) {
@@ -74,7 +93,7 @@ public final class Look {
             return l;
         }
         String[] p = s.split(";");
-        if (p.length != 9) {
+        if (p.length != 9 && p.length != 10) {
             return l;
         }
         try {
@@ -87,6 +106,13 @@ public final class Look {
             l.nose = Float.parseFloat(p[6]);
             l.lips = Float.parseFloat(p[7]);
             l.hair = Float.parseFloat(p[8]);
+            if (p.length == 10) {
+                for (String h : HAIR_STYLES) {
+                    if (h.equals(p[9])) {
+                        l.hairStyle = h;
+                    }
+                }
+            }
         } catch (IllegalArgumentException bad) {
             return defaults(ivie);
         }
@@ -100,8 +126,9 @@ public final class Look {
      */
     public String apply(String lower) {
         String t = lower.toLowerCase(Locale.US);
+        String styleAsked = hairStyleIn(t);
         boolean about = t.contains("your") || t.contains("you look") || t.startsWith("make ") || t.startsWith("change ")
-                || t.endsWith(" mode") || t.contains("skin") || t.contains("look");
+                || t.endsWith(" mode") || t.contains("skin") || t.contains("look") || styleAsked != null;
         if (!about) {
             return null;
         }
@@ -124,8 +151,15 @@ public final class Look {
                 "real skin", "human skin", "like a real person", "look human", "look real")) {
             style = Style.SKIN;
             said = "Real skin on. Ask me to change my skin tone, eyes, nose, lips, jaw or hair, or say hologram mode.";
+        } else if (styleAsked != null) {
+            hairStyle = styleAsked;
+            if (hair < 0.5f) {
+                hair = 1f;
+            }
+            said = BALD.equals(styleAsked) ? "Clean shaven head." : "New hairstyle: " + styleAsked + ".";
         } else if (t.contains("hair") && has(t, "remove", "no hair", "bald", "take off", "without")) {
             hair = 0f;
+            hairStyle = BALD;
             said = "Hair off.";
         } else if (t.contains("hair") && (has(t, "add", "give", "grow", "with hair") || more || less)) {
             hair = less ? Math.max(0.5f, hair - 0.35f) : (hair < 0.5f ? 1f : hair + 0.35f);
@@ -172,6 +206,29 @@ public final class Look {
         nose = clamp(nose, 0.4f, 1.8f);
         lips = clamp(lips, 0.5f, 1.8f);
         hair = clamp(hair, 0f, 2f);
+    }
+
+    /** The hairstyle a request names ("give Ivie cornrows", "short afro", "bantu knots"), or null. */
+    static String hairStyleIn(String t) {
+        if (has(t, "afro puff", "puffs", "space bun", "two buns")) {
+            return PUFFS;
+        }
+        if (has(t, "cornrow", "corn row", "braids", "braided back")) {
+            return CORNROWS;
+        }
+        if (has(t, "bantu", "knots")) {
+            return BANTU;
+        }
+        if (has(t, "short afro", "afro")) {
+            return SHORT_AFRO;
+        }
+        if (has(t, "fade", "low cut", "lowcut", "line up", "line-up")) {
+            return FADE;
+        }
+        if (has(t, "shave your head", "bald head", "go bald", "clean shaven head")) {
+            return BALD;
+        }
+        return null;
     }
 
     private static boolean has(String t, String... words) {

@@ -84,8 +84,8 @@ public final class WireRenderer {
     public final FrameStats stats = new FrameStats();
 
     // programs and shared objects
-    private int fillProg, particleProg, innerProg, gridProg, skinProg;
-    private int gridVbo, gridCount;
+    private int fillProg, particleProg, innerProg, gridProg, skinProg, studioProg;
+    private int gridVbo, gridCount, studioVbo;
     /** Count of live GL objects (for leak checks). */
     public int liveObjects;
     public int glErrors;
@@ -105,9 +105,15 @@ public final class WireRenderer {
         FloatBuffer mat, rest;
         /** The head frame (origin, scales) for drawing brows, hairline and lips in head units. */
         final float[] headFrame = new float[7];
+        /** The hairstyle's number (Look.HAIR_STYLES) for the scalp painting. */
+        int hairStyle = 1;
+        /** Where the feet meet the floor this frame (x, z) and whether any are near it, for the contact shadow. */
+        final float[] feet = new float[3];
         /** Clothes for the lifelike look: each garment's triangles and its index buffer. */
         ai.dvine.human.Clothing.Garment[] garments = new ai.dvine.human.Clothing.Garment[0];
         int[] garmentIbo = new int[0];
+        /** The shoes' last (Clothing.Garment.shape): offset and normal per vertex; 0 when no garment has one. */
+        int vboShape;
         // the object the particles can become (targets aligned one-to-one with the particles)
         FloatBuffer target, previous;
         boolean dirtyTarget;
@@ -181,7 +187,8 @@ public final class WireRenderer {
             s.eye = floats(eye);
             s.mat = floats(SkinMaterial.perVertex(a));
             s.rest = floats(java.util.Arrays.copyOf(a.mesh.pos, n * 3));
-            s.garments = ai.dvine.human.Clothing.design(a);
+            s.garments = ai.dvine.human.Clothing.design(a, a.hairStyle());
+            s.hairStyle = java.util.Arrays.asList(ai.dvine.face.Look.HAIR_STYLES).indexOf(a.hairStyle());
             float[] hf = a.headFrame;
             for (int k = 0; k < 7; k++) {
                 s.headFrame[k] = k < hf.length ? hf[k] : hf[4];
@@ -366,6 +373,12 @@ public final class WireRenderer {
         innerProg = prog(INNER_VS, PARTICLE_FS);
         gridProg = prog(GRID_VS, GRID_FS);
         skinProg = prog(SKIN_VS, SKIN_FS);
+        studioProg = prog(STUDIO_VS, STUDIO_FS);
+        // the studio: a full-screen backdrop triangle (clip space), then a big floor square (body units, x and z)
+        studioVbo = buf();
+        float[] st = {-1f, -1f, 3f, -1f, -1f, 3f, -40f, -40f, 40f, -40f, 40f, 40f, -40f, -40f, 40f, 40f, -40f, 40f};
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, studioVbo);
+        gl.bufferData(GlApi.ARRAY_BUFFER, st.length * 4, floats(st), GlApi.STATIC_DRAW);
         gridVbo = buf();
         float[] g = grid();
         gridCount = g.length / 4;
@@ -434,7 +447,15 @@ public final class WireRenderer {
         gl.clear(0f, 0f, 0f);
         gl.enable(GlApi.DEPTH_TEST);
         gl.depthFunc(GlApi.LEQUAL);
-        drawGrid();
+        boolean studio = false;
+        for (Slot s : slots) {
+            studio |= s.created && s.shown.visible && s.shown.skin;
+        }
+        if (studio && studioProg != 0) {
+            drawStudio();
+        } else {
+            drawGrid();
+        }
         for (Slot s : slots) {
             if (s.created && s.shown.visible && s.shown.alpha > 0.01f) {
                 drawSlot(s);
@@ -457,13 +478,18 @@ public final class WireRenderer {
             }
         }
         if (fillProg != 0) {
-            for (int p : new int[]{fillProg, particleProg, innerProg, gridProg, skinProg}) {
+            for (int p : new int[]{fillProg, particleProg, innerProg, gridProg, skinProg, studioProg}) {
                 if (p != 0) {
                     gl.deleteProgram(p);
                     liveObjects--;
                 }
             }
-            fillProg = particleProg = innerProg = gridProg = skinProg = 0;
+            fillProg = particleProg = innerProg = gridProg = skinProg = studioProg = 0;
+        }
+        if (studioVbo != 0) {
+            gl.deleteBuffer(studioVbo);
+            liveObjects--;
+            studioVbo = 0;
         }
         if (gridVbo != 0) {
             gl.deleteBuffer(gridVbo);
@@ -510,6 +536,11 @@ public final class WireRenderer {
             s.garmentIbo[g] = buf();
             gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.garmentIbo[g]);
             gl.bufferData(GlApi.ELEMENT_ARRAY_BUFFER, s.garments[g].tri.length * 4, ints(s.garments[g].tri), GlApi.STATIC_DRAW);
+            if (s.garments[g].shape != null && s.vboShape == 0) {
+                s.vboShape = buf();
+                gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboShape);
+                gl.bufferData(GlApi.ARRAY_BUFFER, s.garments[g].shape.length * 4, floats(s.garments[g].shape), GlApi.STATIC_DRAW);
+            }
         }
         s.corner.position(0);
         s.bary.position(0);
@@ -541,6 +572,11 @@ public final class WireRenderer {
             liveObjects--;
         }
         s.garmentIbo = new int[0];
+        if (s.vboShape != 0) {
+            gl.deleteBuffer(s.vboShape);
+            liveObjects--;
+            s.vboShape = 0;
+        }
         for (int b : new int[]{s.vboPos, s.vboNor, s.vboEye, s.vboMat, s.vboRest, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objNbo, s.objIbo}) {
             gl.deleteBuffer(b);
             liveObjects--;
@@ -583,6 +619,18 @@ public final class WireRenderer {
 
     private void upload(Slot s) {
         Frame f = s.shown;
+        float fx = 0f, fz = 0f;
+        int nf = 0;
+        for (int i = 1; i < f.pos.length; i += 3) {
+            if (f.pos[i] < floorY + 0.45f) {
+                fx += f.pos[i - 1];
+                fz += f.pos[i + 1];
+                nf++;
+            }
+        }
+        s.feet[0] = nf > 0 ? fx / nf : 0f;
+        s.feet[1] = nf > 0 ? fz / nf : 0f;
+        s.feet[2] = nf > 20 ? 1f : 0f;
         s.pos.clear();
         s.pos.put(f.pos);
         s.pos.flip();
@@ -739,6 +787,7 @@ public final class WireRenderer {
         float[] hf = s.headFrame;
         gl.uniform4f(gl.uniform(p, "uHeadA"), hf[0], hf[1], hf[2], hf[3]);
         gl.uniform4f(gl.uniform(p, "uHeadB"), hf[4], hf[5], hf[6], s.asset.female ? 1f : 0f);
+        gl.uniform1f(gl.uniform(p, "uHairStyle"), s.hairStyle);
         gl.disable(GlApi.BLEND);
         gl.depthMask(true);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
@@ -754,6 +803,7 @@ public final class WireRenderer {
         gl.uniform4f(gl.uniform(p, "uCloth"), 0f, 0f, 0f, 0f);
         gl.uniform1f(gl.uniform(p, "uPush"), 0f);
         gl.uniform1f(gl.uniform(p, "uKind"), -1f);
+        gl.uniform1f(gl.uniform(p, "uShaped"), 0f);
         gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.ibo);
         gl.drawElements(GlApi.TRIANGLES, s.triIndices, 0);
         // the clothes: the same skinned surface, pushed out a few millimetres, shaded as fabric
@@ -774,8 +824,17 @@ public final class WireRenderer {
             gl.uniform1f(gl.uniform(p, "uWeave"), gm.weave);
             gl.uniform1f(gl.uniform(p, "uPush"), gm.push);
             gl.uniform1f(gl.uniform(p, "uKind"), gm.clip[0]);
+            boolean shaped = gm.shape != null && s.vboShape != 0;
+            gl.uniform1f(gl.uniform(p, "uShaped"), shaped ? 1f : 0f);
+            if (shaped) {
+                gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboShape);
+                gl.vertexAttrib(5, 1, 4, 0);
+            }
             gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.garmentIbo[g]);
             gl.drawElements(GlApi.TRIANGLES, gm.tri.length, 0);
+            if (shaped) {
+                gl.disableAttrib(5);
+            }
         }
         gl.disableAttrib(1);
         gl.disableAttrib(2);
@@ -863,6 +922,32 @@ public final class WireRenderer {
         x = (x ^ (x >>> 27)) * 0x94D049BB133111EBL;
         x ^= x >>> 31;
         return (x >>> 11) * 0x1.0p-53;
+    }
+
+    /** The lifelike look's set: a charcoal studio backdrop lit from above, and a glowing teal floor of linked rings. */
+    private void drawStudio() {
+        gl.useProgram(studioProg);
+        gl.uniformMatrix4(gl.uniform(studioProg, "uMvp"), camera.mvp);
+        gl.uniform1f(gl.uniform(studioProg, "uFloor"), floorY);
+        float[] fe = new float[4];
+        float[] on = new float[2];
+        for (int k = 0; k < 2; k++) {
+            Slot sl = slots[k];
+            boolean shown = sl.created && sl.shown.visible && sl.shown.skin && sl.feet[2] > 0.5f;
+            fe[k * 2] = sl.feet[0];
+            fe[k * 2 + 1] = sl.feet[1];
+            on[k] = shown ? sl.shown.alpha : 0f;
+        }
+        gl.uniform4f(gl.uniform(studioProg, "uFeet"), fe[0], fe[1], fe[2], fe[3]);
+        gl.uniform4f(gl.uniform(studioProg, "uFeetOn"), on[0], on[1], 0f, 0f);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, studioVbo);
+        gl.vertexAttrib(0, 2, 8, 0);
+        gl.depthMask(false);
+        gl.uniform1f(gl.uniform(studioProg, "uMode"), 0f);
+        gl.drawArrays(GlApi.TRIANGLES, 0, 3);
+        gl.uniform1f(gl.uniform(studioProg, "uMode"), 1f);
+        gl.drawArrays(GlApi.TRIANGLES, 3, 6);
+        gl.depthMask(true);
     }
 
     private void drawGrid() {
@@ -971,8 +1056,9 @@ public final class WireRenderer {
      */
     static final String SKIN_VS = "#version 300 es\n"
             + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in float aEye;\n"
-            + "layout(location=3) in vec4 aMat; layout(location=4) in vec3 aRest;\n"
+            + "layout(location=3) in vec4 aMat; layout(location=4) in vec3 aRest; layout(location=5) in float aShape;\n"
             + "uniform mat4 uMvp; uniform mat3 uRot; uniform vec4 uHeadA; uniform vec4 uHeadB; uniform float uPush; uniform float uKind; uniform vec4 uClipB;\n"
+            + "uniform float uShaped;\n"
             + "out vec3 vN; out vec3 vR; out vec3 vH; out float vEye; out vec4 vMat;\n"
             + "void main(){ vec3 nn = normalize(aNor + vec3(1e-6));\n"
             // the rest position: skin detail stays on the skin as it moves; in head units it places the face features
@@ -982,7 +1068,10 @@ public final class WireRenderer {
             // hair and beard thin out toward their fading edges (the line-up at the forehead keeps its full edge)
             + "  float push = uPush; float ax = abs(vH.x);\n"
             + "  if (uKind > 2.5 && uKind < 3.5 && !(vH.z > 0.25 && ax < 0.52)) push *= mix(0.25, 1.0, smoothstep(0.44, 0.72, vH.y));\n"
-            + "  if (uKind > 3.5) { float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0); float ch = -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12;\n"
+            // a short afro rounds off at its hairline instead of ending in a step
+            + "  if (uKind > 5.5) { float bk = clamp((0.1 - vH.z) / 0.8, 0.0, 1.0); bk *= bk; float fr = 0.6 - 0.18 * min(1.0, (ax / 0.55) * (ax / 0.55));\n"
+            + "    push *= mix(0.2, 1.0, smoothstep(0.0, 0.3, vH.y - mix(fr, -0.8, bk) + 0.12)); }\n"
+            + "  if (uKind > 3.5 && uKind < 4.5) { float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0); float ch = -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12;\n"
             + "    float inBeard = smoothstep(0.0, 0.14, ch - vH.y);\n"
             // the sideburns stay close to the skin and get closer as they rise into the fade
             + "    float sb = smoothstep(0.53, 0.6, ax) * smoothstep(-0.16, -0.06, vH.z) * smoothstep(0.3, 0.22, vH.z);\n"
@@ -990,13 +1079,15 @@ public final class WireRenderer {
             + "    push *= mix(mix(0.3, 1.0, inBeard) * mix(0.3, 1.0, smoothstep(-1.13, -0.98, vH.y)), rise, sb * (1.0 - inBeard)); }\n"
             // joggers: roomy in the leg, gathered into the waistband and pulled in at the ankle cuff
             + "  if (uKind > 0.5 && uKind < 1.5) push *= mix(0.3, 1.0, smoothstep(uClipB.z, uClipB.z + 0.4, aRest.y)) * mix(0.55, 1.0, smoothstep(uClipB.x, uClipB.x - 0.35, aRest.y));\n"
+            // shoes sit out on their smooth last instead of on the toes
+            + "  if (uShaped > 0.5) push += aShape;\n"
             + "  gl_Position = uMvp * vec4(aPos + nn * push, 1.0); vN = uRot * nn;\n"
             + "  vEye = aEye; vMat = aMat; }\n";
     static final String SKIN_FS = "#version 300 es\n"
             + "precision highp float;\n"
             + "in vec3 vN; in vec3 vR; in vec3 vH; in float vEye; in vec4 vMat; uniform vec4 uTone; uniform mat3 uRot; uniform vec4 uHeadB;\n"
             + "uniform vec4 uCloth; uniform float uWeave; uniform vec4 uClipA; uniform vec4 uClipB; uniform vec4 uShoulder; uniform vec4 uElbow;\n"
-            + "uniform vec4 uLegs;\n"
+            + "uniform vec4 uLegs; uniform float uHairStyle;\n"
             + "float lips(vec3 h, float fem); float vnoise(vec3 x);\n"
             + "float cheekLine(float ax){ float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0);\n"
             + "  return -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12; }\n"
@@ -1013,11 +1104,15 @@ public final class WireRenderer {
             + "    return r.y > neckline || r.y < uClipB.x; }\n"
             + "  if (kind < 1.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
             + "  if (kind < 2.5) return r.y > uClipB.x;\n"
-            + "  if (kind > 4.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
+            + "  if (kind > 4.5 && kind < 5.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
             // Obi's hair and beard, the same shapes as Clothing.topHair and Clothing.beard, in head units
             + "  vec3 h = vH; float ax = abs(h.x);\n"
             // edges thin out instead of stopping: coverage falls off and clumps of hair drop out (a dithered blend)
             + "  float clump = vnoise(vR * 330.0) * 0.7 + vnoise(vR * 90.0) * 0.3;\n"
+            // the short afro (Clothing.afroLine): full over the crown, its rim breaking into coils
+            + "  if (kind > 5.5 && ax > 0.58 && h.y < 0.2 && abs(h.z + 0.05) < 0.3) return true;\n"
+            + "  if (kind > 5.5) { float bk = clamp((0.1 - h.z) / 0.8, 0.0, 1.0); bk *= bk; float fr = 0.6 - 0.18 * min(1.0, (ax / 0.55) * (ax / 0.55));\n"
+            + "    return clump > smoothstep(-0.12, 0.06, h.y - mix(fr, -0.8, bk)); }\n"
             + "  if (kind < 3.5) { bool lineUp = h.z > 0.25 && ax < 0.52;\n"
             + "    if (lineUp) return h.y < 0.63;\n"
             + "    return clump > smoothstep(0.42, 0.6, h.y); }\n"
@@ -1065,11 +1160,11 @@ public final class WireRenderer {
             + "void main(){\n"
             + "  vec3 n = normalize(vN); vec3 v = vec3(0.0, 0.0, 1.0); float fem = uHeadB.w;\n"
             + "  float mat = vMat.x; float warm = vMat.y; float face = vMat.z;\n"
-            + "  vec3 alb = uTone.rgb; float rough = 0.5; float specK = 0.028; vec3 sss = vec3(0.45, 0.22, 0.14);\n"
+            + "  vec3 alb = uTone.rgb; float rough = 0.36; float specK = 0.036; vec3 sss = vec3(0.45, 0.22, 0.14);\n"
             + "  float detail = 1.0; float fuzz = 0.0;\n"
             + "  if (uCloth.a > 0.5 && outside(vR)) discard;\n"
-            + "  if (uCloth.a > 0.5 && uClipA.x > 2.5 && uClipA.x < 4.5) {\n"
-            + "    vec3 g4; alb = coily(vR, uClipA.x > 3.5 ? 110.0 : 80.0, g4);\n"
+            + "  if (uCloth.a > 0.5 && ((uClipA.x > 2.5 && uClipA.x < 4.5) || uClipA.x > 5.5)) {\n"
+            + "    vec3 g4; alb = coily(vR, uClipA.x > 3.5 && uClipA.x < 4.5 ? 110.0 : uClipA.x > 5.5 ? 60.0 : 80.0, g4);\n"
             + "    n = normalize(n - uRot * g4 * 0.3); rough = 1.0; specK = 0.004; sss = vec3(0.04); detail = 0.0; fuzz = 1.0;\n"
             + "  } else if (uCloth.a > 0.5) {\n"
             // fabric: a fine weave (twill diagonals for denim), soft folds, no oily shine, a velvety sheen at grazing angles
@@ -1106,7 +1201,9 @@ public final class WireRenderer {
             + "    rough = 0.9; specK = 0.02; sss = vec3(0.12, 0.1, 0.1); detail = 0.0;\n"
             + "    float e2 = 0.004; vec3 q2 = vR * 7.0;\n"
             + "    float f0 = vnoise(q2); vec3 g2 = vec3(vnoise(q2 + vec3(e2*7.0,0,0)) - f0, vnoise(q2 + vec3(0,e2*7.0,0)) - f0, vnoise(q2 + vec3(0,0,e2*7.0)) - f0);\n"
-            + "    n = normalize(n - uRot * g2 * 6.0);\n"
+            // shoes: smooth leather (the toes' normals are hidden by a wide light wrap and no fold bumps)
+            + "    if (uClipA.x > 1.5 && uClipA.x < 2.5) { n = normalize(mix(n, normalize(vec3(n.x, n.y + 0.6, n.z) * 0.5 + vec3(0.0, 0.0, 0.5)), 0.55)); sss = vec3(0.55, 0.5, 0.48); rough = 0.55; specK = 0.03; }\n"
+            + "    else n = normalize(n - uRot * g2 * 6.0);\n"
             + "  } else if (vEye > 0.5) {\n"
             + "    float d = vEye - 2.0;\n"
             + "    float iris = smoothstep(0.85, 0.875, d); float pupil = smoothstep(0.962, 0.972, d);\n"
@@ -1120,7 +1217,7 @@ public final class WireRenderer {
             + "  } else if (mat > 1.5) { alb = vec3(0.55, 0.52, 0.45); rough = 0.3; specK = 0.04; sss = vec3(0.2); detail = 0.0;\n"
             + "  } else {\n"
             + "    float blotch = vnoise(vR * 2.6) * 0.6 + vnoise(vR * 7.0) * 0.4;\n"
-            + "    alb *= 0.93 + 0.14 * blotch;\n"
+            + "    alb *= 0.95 + 0.08 * blotch;\n"
             + "    alb = mix(alb, alb * vec3(1.12, 0.9, 0.86), clamp(warm, 0.0, 1.0) * 0.45);\n"
             // the head mask blends smoothly (per-vertex 1 head, 0.5 ear, 0 body), so edges never follow triangles
             + "    float onHead = smoothstep(0.55, 0.95, face);\n"
@@ -1130,10 +1227,21 @@ public final class WireRenderer {
             + "    float b = brow(vH, fem) * onHead; float hc = hairCap(vH, fem) * smoothstep(0.0, 0.5, face) * smoothstep(-1.15, -0.95, vH.y);\n"
             // Obi: a high skin fade, stubble thinning to bare skin from the top block down to the ears,
             // the forehead and temples below the line-up are clean
-            + "    if (fem < 0.5) { bool frontZone = vH.z > 0.25 && abs(vH.x) < 0.52;\n"
-            + "      float dots = smoothstep(0.35, 0.75, vnoise(vR * 420.0));\n"
+            + "    float style = uHairStyle;\n"
+            + "    float dots = smoothstep(0.35, 0.75, vnoise(vR * 420.0));\n"
+            + "    if (style > 0.5 && style < 1.5) { bool frontZone = vH.z > 0.25 && abs(vH.x) < 0.52;\n"
             + "      float fade = frontZone ? 0.0 : smoothstep(0.0, 0.44, vH.y) * (0.35 + 0.65 * dots);\n"
-            + "      hc = fade * 0.85 * smoothstep(0.0, 0.5, face);\n"
+            + "      hc = fade * 0.85 * smoothstep(0.0, 0.5, face); }\n"
+            + "    if (style > 4.5) hc = 0.0;\n"
+            // cornrows: braids running from the forehead back over the crown, bare partings between them, each braid a zigzag of plaits
+            + "    if (style > 2.5 && style < 3.5) { float row = fract(vH.x * 8.0 + 0.5); float part = smoothstep(0.0, 0.05, row) * smoothstep(1.0, 0.95, row);\n"
+            + "      float along = vH.y * 0.6 - vH.z; float plait = 0.35 + 0.65 * abs(sin(along * 55.0 + abs(row - 0.5) * 9.0));\n"
+            + "      hc *= part * plait; }\n"
+            // bantu knots: the scalp split into sections by partings, a knot sitting on each (the geometry)
+            + "    if (style > 3.5 && style < 4.5) { vec2 cell = fract(vec2(vH.x * 3.2 + 0.5, (vH.y - vH.z) * 2.6));\n"
+            + "      hc *= smoothstep(0.0, 0.06, cell.x) * smoothstep(1.0, 0.94, cell.x) * smoothstep(0.0, 0.06, cell.y) * smoothstep(1.0, 0.94, cell.y); }\n"
+            + "    if (style > 1.5 && style < 2.5) hc = min(1.0, hc * 1.2);\n"
+            + "    if (fem < 0.5) {\n"
             // a short-stubble shadow on the skin just outside the beard and up the sideburns, so the shell's edge melts in
             + "      float ax2 = abs(vH.x); float edge = cheekLine(ax2) - vH.y;\n"
             + "      float shadow = smoothstep(-0.09, 0.02, edge) * smoothstep(0.72, 0.62, ax2) * smoothstep(-0.2, -0.05, vH.z) * smoothstep(-1.2, -1.08, vH.y);\n"
@@ -1142,10 +1250,10 @@ public final class WireRenderer {
             + "        * (1.0 - smoothstep(0.1, 0.44, vH.y)) * smoothstep(-0.2, -0.1, vH.y);\n"
             + "      float shortHair = 0.55 + 0.45 * vnoise(vR * vec3(300.0, 120.0, 300.0));\n"
             + "      hc = max(hc, shadow * (lips(vH, 0.0) > 0.1 ? 0.0 : 1.0) * (0.35 + 0.65 * dots) * 0.8 * onHead);\n"
-            + "      hc = max(hc, min(1.0, sideS * 1.3) * shortHair * smoothstep(0.0, 0.5, face)); }\n"
+            + "      if (style < 4.5) hc = max(hc, min(1.0, sideS * 1.3) * shortHair * smoothstep(0.0, 0.5, face)); }\n"
             + "    float grain = 0.55 + 0.45 * vnoise(vR * vec3(160.0, 40.0, 160.0));\n"
             // Ivie: hair pulled back sleek toward the puffs, lines running front to back, and a fine centre part
-            + "    if (fem > 0.5) { grain = 0.6 + 0.4 * vnoise(vec3(vH.x * 260.0, vH.y * 18.0, vH.z * 18.0));\n"
+            + "    if (style < 0.5) { grain = 0.6 + 0.4 * vnoise(vec3(vH.x * 260.0, vH.y * 18.0, vH.z * 18.0));\n"
             + "      float side = smoothstep(0.004, 0.016, abs(vH.x)); hc *= side + (1.0 - side) * smoothstep(-0.25, -0.45, vH.z); }\n"
             + "    float hb = clamp(max(b * 0.85, hc * (0.8 + 0.2 * grain)), 0.0, 1.0);\n"
             + "    alb = mix(alb, hairC * (0.6 + 0.8 * grain), hb);\n"
@@ -1154,12 +1262,15 @@ public final class WireRenderer {
             // fine pores: a small bend of the normal by a high-frequency noise on the rest surface
             + "  if (detail > 0.0) { float e = 0.003; vec3 q = vR * 170.0;\n"
             + "    float c0 = vnoise(q); vec3 g = vec3(vnoise(q + vec3(e*170.0,0,0)) - c0, vnoise(q + vec3(0,e*170.0,0)) - c0, vnoise(q + vec3(0,0,e*170.0)) - c0);\n"
-            + "    n = normalize(n - uRot * g * 0.22 * detail); }\n"
-            + "  vec3 L1 = normalize(vec3(-0.5, 0.55, 0.68)), L2 = normalize(vec3(0.75, 0.1, 0.45)), L3 = normalize(vec3(0.15, 0.45, -0.9));\n"
-            + "  vec3 c1 = vec3(2.3, 2.15, 2.0), c2 = vec3(0.38, 0.44, 0.55), c3 = vec3(0.9, 0.88, 0.85);\n"
+            + "    n = normalize(n - uRot * g * 0.12 * detail); }\n"
+            + "  vec3 L1 = normalize(vec3(-0.5, 0.55, 0.68)), L2 = normalize(vec3(0.75, 0.1, 0.45)), L3 = normalize(vec3(0.55, 0.35, -0.75));\n"
+            // studio light: a strong warm key from the front left, a dim cool fill, a cool rim from behind
+            + "  vec3 c1 = vec3(2.7, 2.45, 2.2), c2 = vec3(0.26, 0.3, 0.38), c3 = vec3(0.75, 0.95, 1.05);\n"
             + "  vec3 diff = c1 * wrapDiffuse(dot(n, L1), sss) + c2 * wrapDiffuse(dot(n, L2), sss);\n"
             + "  float term = max(0.0, 1.0 - abs(dot(n, L1) * 2.2)) * 0.25; diff += c1 * term * vec3(0.45, 0.12, 0.06) * sss.r;\n"
-            + "  vec3 amb = mix(vec3(0.05, 0.04, 0.035), vec3(0.12, 0.13, 0.16), n.y * 0.5 + 0.5);\n"
+            + "  vec3 amb = mix(vec3(0.05, 0.04, 0.035), vec3(0.1, 0.1, 0.12), n.y * 0.5 + 0.5);\n"
+            // teal light bouncing up from the glowing floor
+            + "  amb += vec3(0.0, 0.05, 0.06) * smoothstep(0.1, -0.7, n.y);\n"
             + "  float fres = pow(1.0 - max(0.0, n.z), 5.0);\n"
             + "  vec3 col = alb * (diff + amb);\n"
             + "  float spec = 0.0;\n"
@@ -1169,7 +1280,7 @@ public final class WireRenderer {
             + "    spec += c.r * (0.6 * tight + 0.4 * broad) * ndl; }\n"
             + "  float F = specK + (1.0 - specK) * fres;\n"
             + "  col += vec3(spec) * F * (vEye > 0.5 ? 3.0 : 1.0) * (1.0 - 0.85 * fuzz);\n"
-            + "  col += c3 * pow(1.0 - max(0.0, n.z), 3.0) * max(0.0, dot(n, L3) + 0.4) * 0.12 * (alb + 0.08);\n"
+            + "  col += c3 * pow(1.0 - max(0.0, n.z), 3.0) * max(0.0, dot(n, L3) + 0.4) * 0.2 * (alb + 0.08);\n"
             + "  if (uCloth.a > 0.5 && uClipA.x < 2.5) col += alb * pow(1.0 - max(0.0, n.z), 2.0) * 0.35;\n"
             + "  if (fuzz > 0.5) col += vec3(0.02, 0.012, 0.008) * pow(1.0 - max(0.0, n.z), 1.5);\n"
             + "  col = col / (1.0 + col);\n"
@@ -1271,6 +1382,35 @@ public final class WireRenderer {
             + "  vec3 base = mix(uColor.rgb, mix(uColor.rgb, vMat, 0.6), clamp(vObj, 0.0, 1.0));\n"
             + "  vec3 col = mix(base, vec3(1.0), 0.25 * core + 0.45 * vSel);\n"
             + "  o = vec4(col * k, 1.0); }\n";
+
+    static final String STUDIO_VS = "#version 300 es\n"
+            + "layout(location=0) in vec2 aP; uniform mat4 uMvp; uniform float uFloor; uniform float uMode; out vec2 vP; out vec2 vS;\n"
+            + "void main(){ vP = aP; if (uMode < 0.5) { gl_Position = vec4(aP, 0.99999, 1.0); vS = aP; }\n"
+            + "  else { gl_Position = uMvp * vec4(aP.x, uFloor, aP.y, 1.0); vS = gl_Position.xy / gl_Position.w; } }\n";
+    static final String STUDIO_FS = "#version 300 es\n"
+            + "precision highp float;\n"
+            + "in vec2 vP; in vec2 vS; uniform float uMode; uniform vec4 uFeet; uniform vec4 uFeetOn; out vec4 o;\n"
+            + "void main(){\n"
+            // the backdrop: charcoal, a soft pool of light high behind the figures, darker toward the corners
+            + "  vec2 c = vS - vec2(0.0, 0.35); float pool = exp(-dot(c * vec2(0.9, 1.3), c * vec2(0.9, 1.3)) * 1.6);\n"
+            + "  vec3 wall = mix(vec3(0.018, 0.019, 0.021), vec3(0.105, 0.105, 0.11), pool);\n"
+            + "  if (uMode < 0.5) { o = vec4(wall, 1.0); return; }\n"
+            // the floor: interlocking rings on a square lattice, each a glowing teal tube, fading into the dark with distance
+            + "  vec2 q = vP / 1.1; vec2 b = floor(q); float line = 9.0;\n"
+            + "  for (int i = 0; i < 4; i++) { vec2 cc = b + vec2(float(i & 1), float(i >> 1)); line = min(line, abs(length(q - cc) - 0.72)); }\n"
+            + "  float w = max(0.035, fwidth(line) * 1.2);\n"
+            + "  float tube = exp(-(line / w) * (line / w)); float core = exp(-(line / (w * 0.35)) * (line / (w * 0.35)));\n"
+            + "  float far = clamp(1.0 - length(vP) / 22.0, 0.0, 1.0); far *= far;\n"
+            // fine lines melt into one soft glow far away instead of aliasing
+            + "  float blur = smoothstep(0.035, 0.2, fwidth(line)); float glow = mix(tube, 0.28, blur);\n"
+            + "  vec3 teal = vec3(0.06, 0.46, 0.56) * glow + vec3(0.35, 0.8, 0.85) * core * (1.0 - blur) * 0.6;\n"
+            + "  vec3 floorC = vec3(0.004, 0.012, 0.016) + teal * far;\n"
+            // soft contact shadows where each person stands: a wide penumbra and a darker core under the feet
+            + "  vec2 d0 = vP - uFeet.xy, d1 = vP - uFeet.zw;\n"
+            + "  float r0 = dot(d0, d0), r1 = dot(d1, d1);\n"
+            + "  float sh = max(uFeetOn.x * (0.7 * exp(-r0 / 2.2) + 0.3 * exp(-r0 / 0.35)), uFeetOn.y * (0.7 * exp(-r1 / 2.2) + 0.3 * exp(-r1 / 0.35)));\n"
+            + "  floorC *= 1.0 - min(0.92, sh);\n"
+            + "  o = vec4(mix(wall * 0.5, floorC, smoothstep(0.0, 0.25, far + 0.1)), 1.0); }\n";
 
     static final String GRID_VS = "#version 300 es\n"
             + "layout(location=0) in vec4 aGrid;\n"
