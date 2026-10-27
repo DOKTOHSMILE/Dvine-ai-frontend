@@ -67,7 +67,44 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private ai.dvine.llm.LocalModel model;
     private final java.util.concurrent.ExecutorService modelThread = java.util.concurrent.Executors.newSingleThreadExecutor();
     private boolean confirmModelDownload, confirmModelRemove, streamOpen;
-    private volatile boolean cancelDownload;
+    private ai.dvine.llm.ModelHub hub;
+    private ai.dvine.llm.DownloadStatus.Phase lastPhase = ai.dvine.llm.DownloadStatus.Phase.IDLE;
+    private boolean downloadBarHidden;
+    private static final int NOTIFY = 22;
+
+    /** The background download changed: the card on screen, the activity panel, and a word when it ends. */
+    private final Runnable onDownload = () -> {
+        ai.dvine.llm.DownloadStatus st = hub.status;
+        ai.dvine.llm.DownloadStatus.Phase phase = st.phase();
+        boolean show = !downloadBarHidden && (st.active() || phase != lastPhase && phase != ai.dvine.llm.DownloadStatus.Phase.IDLE);
+        stage.setDownload(show || stage.downloadShown() && !downloadBarHidden, "Downloading " + model.spec.name, st.percent(),
+                phase == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING, st.detail());
+        if (phase == lastPhase) {
+            return;
+        }
+        boolean wasRunning = lastPhase == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING
+                || lastPhase == ai.dvine.llm.DownloadStatus.Phase.CONNECTING;
+        lastPhase = phase;
+        switch (phase) {
+            case DONE:
+                stage.activity("DOWNLOAD", "verified");
+                stage.setDownload(true, model.spec.name + " downloaded", 100, false, "verified, starting it now");
+                handler.postDelayed(() -> stage.setDownload(false, "", 100, false, ""), 6000);
+                loadModel(true);
+                break;
+            case PAUSED:
+                stage.activity("DOWNLOAD", "paused at " + st.percent() + "%");
+                break;
+            case BAD_FILE:
+            case FAILED:
+                if (wasRunning) {
+                    play(LocalTurn.speakAs(stage.isIvie(), st.spoken()), null);
+                }
+                break;
+            default:
+                break;
+        }
+    };
     private LearningJournal journal;
     private Connectivity connectivity;
     private SyncWorker sync;
@@ -206,9 +243,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         loader.start();
         brain.setUserName(prefs.getString("user_name", null));
         brain.setLooks(obiLook, ivieLook);
-        model = new ai.dvine.llm.LocalModel(new File(getFilesDir(), "models"), ai.dvine.llm.ModelSpec.QWEN3_1_7B,
-                ai.dvine.llm.LocalModel.cpuSupported(android.os.Build.SUPPORTED_ABIS, cpuinfo()));
+        hub = ai.dvine.llm.ModelHub.get(this);
+        model = hub.model;
+        hub.addListener(onDownload);
         reportModel();
+        if (hub.downloading() || hub.status.active()) {
+            onDownload.run(); // the download carried on while the app was closed: show where it is
+        }
         if (model.installed() && prefs.getBoolean("llm_on", true)) {
             loadModel(false);
         }
@@ -623,9 +664,41 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             return true;
         }
-        if (said.matches("^(cancel|stop) (the |that )?download$")) {
-            cancelDownload = true;
-            play(LocalTurn.speakAs(ivie, "Stopping the download. What's done is kept, so it can carry on later."), null);
+        if (said.matches("^(cancel|stop|pause) (the |that |my )?download$")) {
+            if (!hub.downloading()) {
+                play(LocalTurn.speakAs(ivie, "There's no download running."), null);
+            } else {
+                hub.stopDownload();
+                play(LocalTurn.speakAs(ivie, "Pausing the download. What's done is kept; say continue the download to carry on."), null);
+            }
+            return true;
+        }
+        if (said.matches("^(continue|resume|restart|carry on with) (the |my )?download$")) {
+            if (model.installed()) {
+                play(LocalTurn.speakAs(ivie, "It's already downloaded."), null);
+            } else {
+                startModelDownload();
+            }
+            return true;
+        }
+        String dl = "(the |my |your )?(download|downloading)( progress| bar| status)?";
+        if (said.matches("^(show|display|open)( me)? " + dl + "$") || said.matches("^(show|display)( me)? (the )?progress( bar)?$")) {
+            downloadBarHidden = false;
+            ai.dvine.llm.DownloadStatus st = hub.status;
+            stage.setDownload(true, "Downloading " + model.spec.name, model.installed() ? 100 : st.percent(),
+                    st.phase() == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING,
+                    model.installed() ? "installed" : st.phase() == ai.dvine.llm.DownloadStatus.Phase.IDLE ? "not started: say download your brain" : st.detail());
+            play(LocalTurn.speakAs(ivie, model.installed() ? "My language model is already downloaded." : st.spoken()), null);
+            return true;
+        }
+        if (said.matches("^(hide|close|remove)( the)? " + dl + "$")) {
+            downloadBarHidden = true;
+            stage.setDownload(false, "", 0, false, "");
+            play(LocalTurn.speakAs(ivie, "Hidden. It keeps downloading; ask me how far it is any time."), null);
+            return true;
+        }
+        if (said.matches("^(how('s| is) (the |my )?download( going)?|how far (is|along is) (the |my )?download|(what('s| is) the )?download (progress|status)|is (the |my )?download (done|finished|complete))$")) {
+            play(LocalTurn.speakAs(ivie, model.installed() ? "The download is finished. My language model is installed." : hub.status.spoken()), null);
             return true;
         }
         if (said.matches("^(delete|remove|uninstall) " + thing + "$")) {
@@ -669,49 +742,22 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return false;
     }
 
+    /** Starts (or resumes) the download in the background; it carries on when the app is minimised. */
     private void startModelDownload() {
         if (connectivity == null || !connectivity.isOnline()) {
             play(LocalTurn.speakAs(stage.isIvie(), "I'm offline right now. Connect to the internet, ideally Wi-Fi, and ask me again."), null);
             return;
         }
-        cancelDownload = false;
-        play(LocalTurn.speakAs(stage.isIvie(), "Downloading now. You can keep talking to me while it comes in."), null);
-        final int[] lastPct = {-1};
-        modelThread.execute(() -> {
-            final ai.dvine.llm.ModelDownloader.Result r = model.download(ai.dvine.llm.ModelDownloader.https(model.spec.url),
-                    (done, total) -> {
-                        final int pct = (int) (done * 100 / total);
-                        if (pct / 5 != lastPct[0] / 5) {
-                            lastPct[0] = pct;
-                            handler.post(() -> stage.activity("DOWNLOAD", pct + "% of " + model.spec.sizeWords()));
-                        }
-                        return !cancelDownload;
-                    });
-            handler.post(() -> {
-                switch (r) {
-                    case DONE:
-                        stage.activity("DOWNLOAD", "verified");
-                        loadModel(true);
-                        break;
-                    case STOPPED:
-                        stage.activity("DOWNLOAD", "paused");
-                        break;
-                    case BAD_FILE:
-                        play(LocalTurn.speakAs(stage.isIvie(), "The download was damaged, so I deleted it. Say download your brain to try again."), null);
-                        break;
-                    default:
-                        play(LocalTurn.speakAs(stage.isIvie(), "The download stopped. Say download your brain to carry on from where it was."), null);
-                }
-            });
-        });
-    }
-
-    private static String cpuinfo() {
-        try {
-            return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("/proc/cpuinfo")), "UTF-8");
-        } catch (java.io.IOException | RuntimeException e) {
-            return null;
+        if (hub.downloading()) {
+            play(LocalTurn.speakAs(stage.isIvie(), hub.status.spoken()), null);
+            return;
         }
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFY); // for the progress notification
+        }
+        downloadBarHidden = false;
+        hub.startDownload(this);
+        play(LocalTurn.speakAs(stage.isIvie(), "Downloading now, in the background. You can minimise me; the notification shows how far it is."), null);
     }
 
     /**
@@ -1192,7 +1238,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (model != null) {
             model.cancel();
         }
-        cancelDownload = true;
+        hub.removeListener(onDownload); // the download itself carries on in its service
         modelThread.shutdownNow();
         super.onDestroy();
     }
