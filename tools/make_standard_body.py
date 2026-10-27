@@ -136,7 +136,8 @@ def main():
         f = [remap[i] for i in f]
         for k in range(1, len(f) - 1):
             tris.append((f[0], f[k], f[k + 1]))
-    joints = sorted(g for g in groups if g.startswith("joint-"))
+    joints = sorted(g for g in groups if g.startswith("joint-")) + ["joint-l-eyeball", "joint-l-eyeball-top",
+                                                                    "joint-r-eyeball", "joint-r-eyeball-top"]
     import json
     mhw = json.loads(fetch(cache, "rigs/default_weights.mhw"))["weights"]
     acc = [dict() for _ in used]
@@ -164,8 +165,16 @@ def main():
                        % sex), ideal)
         centre = {}
         for j in joints:
+            if j not in groups:
+                continue
             ids = sorted({i for f in groups[j] for i in f})
             centre[j] = [sum(v[i][k] for i in ids) / len(ids) for k in range(3)]
+        # the eyeballs: centre and top of MakeHuman's eye helpers (their size)
+        for side in "lr":
+            ids = sorted({i for f in groups["helper-%s-eye" % side] for i in f})
+            centre["joint-%s-eyeball" % side] = [sum(v[i][k] for i in ids) / len(ids) for k in range(3)]
+            top = max(ids, key=lambda i: v[i][1])
+            centre["joint-%s-eyeball-top" % side] = list(v[top])
         shapes.append((name, [v[i] for i in used], centre))
     with open(dest, "wb") as out:
         out.write(b"DVSB")

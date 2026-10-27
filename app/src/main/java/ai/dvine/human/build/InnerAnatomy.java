@@ -51,15 +51,21 @@ public final class InnerAnatomy {
     private final List<TriMesh> meshes = new ArrayList<TriMesh>();
     private final List<Integer> owner = new ArrayList<Integer>();
 
-    private InnerAnatomy(Skeleton sk) {
+    private final HeadFrame head;
+    /** Head sizes were written for the standard head scale; this scales them to the real head. */
+    private final float hk;
+
+    private InnerAnatomy(Skeleton sk, HeadFrame head) {
         this.sk = sk;
+        this.head = head;
+        this.hk = head.sx / Anatomy.HEAD_SCALE;
         this.sh = sk.sh;
         this.hx = sk.hx;
         this.a = sk.female ? 0.9f : 1f;
     }
 
-    public static Result build(Skeleton sk) {
-        InnerAnatomy b = new InnerAnatomy(sk);
+    public static Result build(Skeleton sk, HeadFrame head) {
+        InnerAnatomy b = new InnerAnatomy(sk, head);
         b.skeleton();
         b.muscles();
         b.organs();
@@ -70,10 +76,10 @@ public final class InnerAnatomy {
     // ------------------------------------------------------------ skeleton
 
     private void skeleton() {
-        float[] skull = AssetBuilder.toBody(0f, 0.12f, -0.1f);
-        add("skull", SKELETON, DotBody.HEAD, Geo.sphere(skull[0], skull[1], skull[2], 0.265f, 0.285f, 10));
-        float[] jaw = AssetBuilder.toBody(0f, -0.7f, 0.28f);
-        add("jaw", SKELETON, DotBody.HEAD, Geo.frustum(jaw[0], jaw[1], jaw[2], 0.2f, 0.17f, 0.24f, 0.19f, 0.05f, 0f));
+        float[] skull = head.toBody(0f, 0.12f, -0.1f);
+        add("skull", SKELETON, DotBody.HEAD, Geo.sphere(skull[0], skull[1], skull[2], 0.265f * hk, 0.285f * hk, 10));
+        float[] jaw = head.toBody(0f, -0.7f, 0.28f);
+        add("jaw", SKELETON, DotBody.HEAD, Geo.frustum(jaw[0], jaw[1], jaw[2], 0.2f * hk, 0.17f * hk, 0.24f * hk, 0.19f * hk, 0.05f * hk, 0f));
         int part = newPart("spine", SKELETON, DotBody.CHEST);
         float[][] spine = {{0f, 0.26f, -0.07f, DotBody.NECK}, {0f, -0.02f, -0.1f, DotBody.CHEST}, {0f, -0.6f, -0.16f, DotBody.CHEST},
                 {0f, -0.98f, -0.13f, DotBody.SPINE}, {0f, -1.36f, -0.1f, DotBody.SPINE}};
@@ -166,10 +172,11 @@ public final class InnerAnatomy {
     // ------------------------------------------------------------ organs
 
     private void organs() {
-        float[] brain = AssetBuilder.toBody(0f, 0.18f, -0.08f);
-        add("brain", ORGAN, DotBody.HEAD, Geo.sphere(brain[0], brain[1], brain[2], 0.24f, 0.2f, 10));
-        float[] stemTop = AssetBuilder.toBody(0f, -0.3f, -0.22f), stemEnd = AssetBuilder.toBody(0f, -0.95f, -0.28f);
-        add("brainstem", ORGAN, DotBody.HEAD, Geo.cone(stemTop[0], stemTop[1], stemTop[2], stemEnd[0], stemEnd[1], stemEnd[2], 0.035f, 0.025f, 8));
+        float[] brain = head.toBody(0f, 0.18f, -0.08f);
+        add("brain", ORGAN, DotBody.HEAD, Geo.sphere(brain[0], brain[1], brain[2], 0.24f * hk, 0.2f * hk, 10));
+        float[] stemTop = head.toBody(0f, -0.3f, -0.22f), stemEnd = head.toBody(0f, -0.95f, -0.28f);
+        add("brainstem", ORGAN, DotBody.HEAD, Geo.cone(stemTop[0], stemTop[1], stemTop[2], stemEnd[0], stemEnd[1], stemEnd[2],
+                0.035f * hk, 0.025f * hk, 8));
         float k = sh / 0.55f;
         add("heart", ORGAN, DotBody.CHEST, Geo.sphere(0.05f, -0.46f, 0.06f, 0.085f, 0.1f, 8));
         add("lung left", ORGAN, DotBody.CHEST, Geo.sphere(0.17f * k, -0.43f, -0.01f, 0.13f * k, 0.26f, 10));

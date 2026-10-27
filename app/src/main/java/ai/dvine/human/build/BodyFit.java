@@ -14,7 +14,7 @@ import ai.dvine.human.rig.Skeleton;
  * legs are re-proportioned by a piecewise-linear map of height whose knots are
  * the joints (ankle, knee, hip, shoulder), so each segment stretches or
  * shortens as a whole and the joints land on the profile's heights; the head
- * is left exactly as sculpted (identity). The arms ride the shoulder, and the
+ * is left exactly as it is from the chin up (identity). The arms ride the shoulder, and the
  * upper arm and forearm lengthen together until the T-pose span matches the
  * profile's arm-span ratio; hands and fingers keep their size.
  *
@@ -34,7 +34,7 @@ public final class BodyFit {
     private static final float COS = (float) Math.cos(Math.toRadians(DotBody.BIND_ARM));
     private static final float SIN = (float) Math.sin(Math.toRadians(DotBody.BIND_ARM));
 
-    private BodyFit(Skeleton from, float floor, float height, float[] newKnot, float armScale) {
+    private BodyFit(Skeleton from, float floor, float height, float headBase, float[] newKnot, float armScale) {
         this.floor = floor;
         this.height = height;
         this.armScale = armScale;
@@ -42,7 +42,7 @@ public final class BodyFit {
         float[] j = from.joint;
         shoulderOld = j[DotBody.ARM_L * 3 + 1];
         oldKnot = new float[]{floor, j[DotBody.FOOT_L * 3 + 1], j[DotBody.SHIN_L * 3 + 1], j[DotBody.THIGH_L * 3 + 1],
-                shoulderOld, j[DotBody.HEAD * 3 + 1]};
+                shoulderOld, headBase};
         this.newKnot = newKnot;
         for (int k = 1; k < newKnot.length; k++) {
             if (!(newKnot[k] > newKnot[k - 1]) || !(oldKnot[k] > oldKnot[k - 1])) {
@@ -57,8 +57,9 @@ public final class BodyFit {
         float[] ext = extent(solid.pos, solid.region, solidCount);
         float lo = ext[0], h = ext[1] - ext[0];
         float[] j = from.joint;
+        float base = headBase(solid.pos, solid.bone0, solidCount);
         float[] knots = {lo, lo + profile.fit("ankle_center") * h, lo + profile.fit("knee_center") * h,
-                lo + profile.fit("hip_joint_center") * h, lo + profile.fit("shoulder_joint_center") * h, j[DotBody.HEAD * 3 + 1]};
+                lo + profile.fit("hip_joint_center") * h, lo + profile.fit("shoulder_joint_center") * h, base};
         // T-pose half span = shoulder joint x + k · wrist + the hand's reach past the wrist
         float shoulderY = j[DotBody.ARM_L * 3 + 1];
         float reach = 0f;
@@ -71,7 +72,7 @@ public final class BodyFit {
         }
         float want = profile.spanRatio * h * 0.5f;
         float k = Math.max(0.85f, Math.min(1.2f, (want - from.sh - reach) / Skeleton.WRIST));
-        return new BodyFit(from, lo, h, knots, k);
+        return new BodyFit(from, lo, h, base, knots, k);
     }
 
     /** The fit a built asset carries: its fitted joints against the blockout layout. */
@@ -83,10 +84,25 @@ public final class BodyFit {
             solids = Math.min(solids, a.lines[i]);
         }
         float[] ext = extent(a.mesh.pos, a.mesh.region, solids);
+        float base = headBase(a.mesh.pos, a.mesh.bone0, solids);
         float[] knots = {ext[0], j[DotBody.FOOT_L * 3 + 1], j[DotBody.SHIN_L * 3 + 1], j[DotBody.THIGH_L * 3 + 1],
-                j[DotBody.ARM_L * 3 + 1], j[DotBody.HEAD * 3 + 1]};
+                j[DotBody.ARM_L * 3 + 1], base};
         float elbowOld = dist(from.joint, DotBody.ARM_L, DotBody.FORE_L), elbowNew = dist(j, DotBody.ARM_L, DotBody.FORE_L);
-        return new BodyFit(from, ext[0], ext[1] - ext[0], knots, elbowNew / elbowOld);
+        return new BodyFit(from, ext[0], ext[1] - ext[0], base, knots, elbowNew / elbowOld);
+    }
+
+    /** The lowest point of the head (its bone's vertices): the fit leaves everything above it as it is. */
+    private static float headBase(float[] pos, byte[] bone0, int count) {
+        float lo = Float.MAX_VALUE;
+        for (int v = 0; v < count; v++) {
+            if ((bone0[v] & 0xff) == DotBody.HEAD) {
+                lo = Math.min(lo, pos[v * 3 + 1]);
+            }
+        }
+        if (lo == Float.MAX_VALUE) {
+            throw new IllegalStateException("no head");
+        }
+        return lo;
     }
 
     private static float[] extent(float[] pos, byte[] region, int count) {
@@ -106,7 +122,7 @@ public final class BodyFit {
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    /** The piecewise-linear height map (identity above the head joint and below the floor). */
+    /** The piecewise-linear height map (identity from the chin up and below the floor). */
     public float warp(float y) {
         return map(y, oldKnot, newKnot);
     }

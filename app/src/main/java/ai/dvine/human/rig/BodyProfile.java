@@ -35,8 +35,10 @@ public final class BodyProfile {
     public static final String RESOURCE = "/ai/dvine/human/body_dimensions.json";
     /** Where the soles stand in body units. */
     public static final float FLOOR = -4.2f;
+    /** The body's height in body units (floor to crown) the personas are built at; one unit is heightM / this. */
+    public static final float HEIGHT_UNITS = 5.23f;
     /** The smallest gap between the shoulder joint and the chin a natural neck keeps (fraction of height). */
-    public static final float MIN_NECK_GAP = 0.07f;
+    public static final float MIN_NECK_GAP = 0.045f;
 
     public final float heightM;
     public final float headRatio, shoulderRatio, hipRatio, spanRatio, legRatio;
@@ -44,6 +46,10 @@ public final class BodyProfile {
     public final Map<String, float[]> landmarks = new LinkedHashMap<String, float[]>();
     /** Blockout part centres (or limb start/end), normalised profile axes, by id. */
     public final Map<String, float[]> parts = new LinkedHashMap<String, float[]>();
+    /** Ellipsoid part radii (normalised), by id. */
+    public final Map<String, float[]> radii = new LinkedHashMap<String, float[]>();
+    /** Tapered limb part radii (normalised): id → {start, end}. */
+    public final Map<String, float[]> limbRadii = new LinkedHashMap<String, float[]>();
     /** Joint limits in degrees: id → {min, max}. */
     public final Map<String, float[]> limits = new LinkedHashMap<String, float[]>();
     /** The landmark heights the body is fitted to (normalised), after resolving contradictions. */
@@ -76,9 +82,21 @@ public final class BodyProfile {
             String id = MiniJson.str(p.get("id"), "?");
             if (p.containsKey("center")) {
                 parts.put(id, vec(p.get("center")));
+                float[] r = vec(p.get("radii"));
+                for (float v : r) {
+                    if (!(v > 0f)) {
+                        throw new IllegalArgumentException(id + " radii must be positive");
+                    }
+                }
+                radii.put(id, r);
             } else {
                 parts.put(id + ".start", vec(p.get("start")));
                 parts.put(id + ".end", vec(p.get("end")));
+                float r0 = (float) MiniJson.num(p.get("radius_start"), Double.NaN), r1 = (float) MiniJson.num(p.get("radius_end"), Double.NaN);
+                if (!(r0 > 0f) || !(r1 > 0f)) {
+                    throw new IllegalArgumentException(id + " radii must be positive");
+                }
+                limbRadii.put(id, new float[]{r0, r1});
             }
         }
         for (Object o : MiniJson.list(root.get("joint_limits_degrees"))) {
@@ -153,6 +171,58 @@ public final class BodyProfile {
         return female ? 1.05f : 1f;
     }
 
+    /** A part's radii (ellipsoid parts), normalised. */
+    public float[] radii(String part) {
+        float[] r = radii.get(part);
+        if (r == null) {
+            throw new IllegalArgumentException("no part " + part);
+        }
+        return r;
+    }
+
+    /** A limb part's start and end radius, normalised. */
+    public float[] limbRadii(String part) {
+        float[] r = limbRadii.get(part);
+        if (r == null) {
+            throw new IllegalArgumentException("no limb part " + part);
+        }
+        return r;
+    }
+
+    /** A part's centre (or a limb's ".start" / ".end"), normalised profile axes. */
+    public float[] part(String id) {
+        float[] p = parts.get(id);
+        if (p == null) {
+            throw new IllegalArgumentException("no part " + id);
+        }
+        return p;
+    }
+
+    /**
+     * The girth factor for the upper body (shoulders, chest, arms) or the
+     * lower body (pelvis, legs): the profile's parts are drawn wider than its
+     * own width ratios (the deltoids span 0.35 of the height against a 0.259
+     * shoulder ratio, the thighs 0.268 against a 0.192 hip ratio), so part
+     * radii and lateral offsets are scaled until the body's widths meet the
+     * ratios (times the character factors).
+     */
+    public float girth(boolean female, boolean upper) {
+        if (upper) {
+            float span = 2f * (Math.abs(part("left_deltoid")[0]) + radii("left_deltoid")[0]);
+            return shoulderRatio * shoulderFactor(female) / span;
+        }
+        float span = 2f * (Math.abs(part("left_thigh.start")[0]) + limbRadii("left_thigh")[0]);
+        return hipRatio * hipFactor(female) / span;
+    }
+
+    /** Metres per body unit for a body {@code heightUnits} tall shown {@code heightMetres} tall (uniform scaling). */
+    public static float metresPerUnit(float heightUnits, float heightMetres) {
+        if (!(heightUnits > 0f) || !(heightMetres > 0f)) {
+            throw new IllegalArgumentException("heights must be positive");
+        }
+        return heightMetres / heightUnits;
+    }
+
     /** A landmark's normalised height. */
     public float y(String landmark) {
         float[] p = landmarks.get(landmark);
@@ -210,6 +280,15 @@ public final class BodyProfile {
         if (y("eye_line") > y("crown") - headRatio * 0.3f) {
             out.add(String.format(Locale.US, "eye line %.3f sits %.3f below the crown; a head %.3f tall puts it near %.3f",
                     y("eye_line"), y("crown") - y("eye_line"), headRatio, y("crown") - headRatio * 0.5f));
+        }
+        if (parts.containsKey("left_deltoid") && parts.containsKey("left_thigh.start")) {
+            for (boolean upper : new boolean[]{true, false}) {
+                float g = girth(false, upper) / (upper ? shoulderFactor(false) : hipFactor(false));
+                if (Math.abs(g - 1f) > 0.02f) {
+                    out.add(String.format(Locale.US, "%s parts are %.2f× wider than the %s width ratio; their girth is scaled by %.2f",
+                            upper ? "shoulder" : "hip", 1f / g, upper ? "shoulder" : "hip", g));
+                }
+            }
         }
         for (Map.Entry<String, float[]> e : parts.entrySet()) {
             String k = e.getKey();

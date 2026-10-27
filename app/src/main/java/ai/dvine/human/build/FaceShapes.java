@@ -21,7 +21,11 @@ public final class FaceShapes {
     public static final String[] NAMES = {"jawOpen", "smileL", "smileR", "frownL", "frownR", "browUpL", "browUpR",
             "browDown", "blinkL", "blinkR", "wideL", "wideR", "lipsRound", "lipsWide", "lipsPress"};
 
-    static HumanAsset.Morph[] build(TriMesh m, int headCount, int solidCount, int teethStart, int teethCount,
+    /**
+     * The shapes over the vertices {@code face} marks (the head, teeth and
+     * lines; not the eyeballs, which turn instead), computed in head units through {@code frame}.
+     */
+    static HumanAsset.Morph[] build(TriMesh m, boolean[] face, HeadFrame frame, int solidCount, int teethStart, int teethCount,
                                     int irisStart, int irisEnd) {
         List<HumanAsset.Morph> out = new ArrayList<HumanAsset.Morph>();
         int n = m.vertexCount();
@@ -29,16 +33,13 @@ public final class FaceShapes {
             List<Integer> idx = new ArrayList<Integer>();
             List<float[]> d = new ArrayList<float[]>();
             for (int v = 0; v < n; v++) {
-                boolean head = v < headCount;
                 boolean teeth = v >= teethStart && v < teethStart + teethCount;
-                boolean line = v >= solidCount;
                 int region = m.region[v];
-                if (!head && !teeth && !line || region == Regions.HAIR || v >= irisStart && v < irisEnd) {
+                if (!face[v] || region == Regions.HAIR || v >= irisStart && v < irisEnd) {
                     continue;
                 }
-                float hs = Anatomy.HEAD_SCALE;
-                float x = m.pos[v * 3] / hs, y = (m.pos[v * 3 + 1] - Anatomy.HEAD_Y) / hs, z = m.pos[v * 3 + 2] / hs;
-                float[] o = offset(name, x, y, z, teeth);
+                float[] h = frame.toHead(m.pos[v * 3], m.pos[v * 3 + 1], m.pos[v * 3 + 2]);
+                float[] o = offset(name, h[0], h[1], h[2], teeth);
                 if (o == null) {
                     continue;
                 }
@@ -46,7 +47,7 @@ public final class FaceShapes {
                     continue;
                 }
                 idx.add(v);
-                d.add(new float[]{o[0] * hs, o[1] * hs, o[2] * hs});
+                d.add(new float[]{o[0] * frame.sx, o[1] * frame.sy, o[2] * frame.sz});
             }
             int[] index = new int[idx.size()];
             float[] delta = new float[idx.size() * 3];
