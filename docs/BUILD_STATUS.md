@@ -31,7 +31,7 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 | Lifelike skin + clothes (Mode A) | VERIFIED (WebGL2 replay) / phone pending | `WireRenderer` SKIN shader: skin tone from Look, wrap-light subsurface approximation (red wraps furthest), two-lobe specular with fresnel, pores and tone variation on the rest surface (they don't swim), warm cheeks/nose/ears, brows, hairline and lips drawn per pixel in head units, eyes with sclera, iris, pupil and glint; `human/Clothing`: T-shirt, jeans, trainers (Obi), top, trousers, flats (Ivie) as shells of the body's own triangles, trimmed per pixel along neckline, sleeves, hems; `ClothingTest` (2); `docs/brand/lifelike_skin_clothes.png`; default look ("hologram mode" switches back) | phone frame rate; clothes are skin-tight (no drape), shoes show the toe shape, hair: Ivie's two afro puffs (geometry) with a centre part, Obi's coily top, line-up, skin fade and full beard (shells), `docs/brand/hairstyles.png` |
 | Dual-AI steps 3–6, FACS face, Eric | NOT STARTED | — | handbook §31 |
 
-Commands run: `gradle testDebugUnitTest assembleDebug` → 122 tests passed (incl. Robolectric LaunchTest), APK built (v0.15.0, `releases/`); `check_shaders.js` → 5 programs. `node tools/check_shaders.js` → 4 programs compile and link. `gradle :app:generateHumanAssets` rebuilds the 3D assets.
+Commands run: `gradle testDebugUnitTest assembleDebug` → 122 tests passed (incl. Robolectric LaunchTest), APK built (v0.15.1, `releases/`); `check_shaders.js` → 5 programs. `node tools/check_shaders.js` → 4 programs compile and link. `gradle :app:generateHumanAssets` rebuilds the 3D assets.
 Not run: `lintDebug` (dependency download rate-limited in the sandbox), any on-device test.
 
 Known limits:
