@@ -65,6 +65,9 @@ public interface GlApi {
 
     void updateFloatTexture(int tex, int width, int height, Buffer data);
 
+    /** A colour picture (RGBA, 8 bits each, rows top first), smoothly filtered and mipmapped. */
+    int imageTexture(int width, int height, Buffer rgba);
+
     void deleteTexture(int t);
 
     void bindTexture(int unit, int tex);

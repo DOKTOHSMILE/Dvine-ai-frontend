@@ -59,6 +59,7 @@ public class WireRendererTest {
         public int floatTexture(int width, int height) { return make(); }
         public void updateFloatTexture(int tex, int width, int height, Buffer data) { assertEquals(width * height * 3, data.limit()); }
         public void deleteTexture(int t) { drop(t); }
+        public int imageTexture(int width, int height, Buffer rgba) { assertEquals(width * height * 4, rgba.limit()); return make(); }
         public void bindTexture(int unit, int tex) { }
         public void enable(int cap) { }
         public void disable(int cap) { }

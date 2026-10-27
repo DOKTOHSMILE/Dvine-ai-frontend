@@ -58,16 +58,23 @@ public final class ModelDownloadService extends Service {
         hub.status.begin(hub.model.spec.bytes, part.isFile() ? part.length() : 0L, System.currentTimeMillis());
         hub.changed();
         Thread t = new Thread(() -> {
-            ModelDownloader.Result r = hub.model.download(ModelDownloader.https(hub.model.spec.url), (done, total) -> {
-                hub.status.update(done, System.currentTimeMillis());
-                long now = System.currentTimeMillis();
-                if (now - lastNote >= 1000) {
-                    lastNote = now;
-                    manager().notify(PROGRESS_ID, progress(this, hub.status));
-                    hub.changed();
+            // each source in turn (the project's own copies first), until one delivers the checked file
+            ModelDownloader.Result r = ModelDownloader.Result.FAILED;
+            for (String source : hub.model.spec.sources()) {
+                r = hub.model.download(ModelDownloader.https(source), (done, total) -> {
+                    hub.status.update(done, System.currentTimeMillis());
+                    long now = System.currentTimeMillis();
+                    if (now - lastNote >= 1000) {
+                        lastNote = now;
+                        manager().notify(PROGRESS_ID, progress(this, hub.status));
+                        hub.changed();
+                    }
+                    return !hub.cancel;
+                });
+                if (r != ModelDownloader.Result.FAILED || hub.cancel) {
+                    break;
                 }
-                return !hub.cancel;
-            });
+            }
             hub.status.finish(r == ModelDownloader.Result.DONE ? DownloadStatus.Phase.DONE
                     : r == ModelDownloader.Result.STOPPED ? DownloadStatus.Phase.PAUSED
                     : r == ModelDownloader.Result.BAD_FILE ? DownloadStatus.Phase.BAD_FILE : DownloadStatus.Phase.FAILED);
@@ -94,8 +101,8 @@ public final class ModelDownloadService extends Service {
     }
 
     static void channel(Context c) {
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "Language model download", NotificationManager.IMPORTANCE_LOW);
-        ch.setDescription("Progress of DVINE's on-device language model download");
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "Brain files download", NotificationManager.IMPORTANCE_LOW);
+        ch.setDescription("Progress of DVINE's brain files download");
         ch.setShowBadge(false);
         c.getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
@@ -116,7 +123,7 @@ public final class ModelDownloadService extends Service {
         boolean waiting = s.phase() != DownloadStatus.Phase.DOWNLOADING;
         return new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_download)
-                .setContentTitle("Downloading DVINE's language model · " + s.percent() + "%")
+                .setContentTitle("Downloading DVINE's brain files · " + s.percent() + "%")
                 .setContentText(s.detail())
                 .setProgress(100, s.percent(), waiting)
                 .setOngoing(true)
@@ -134,7 +141,7 @@ public final class ModelDownloadService extends Service {
         boolean ok = s.phase() == DownloadStatus.Phase.DONE;
         return new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_download)
-                .setContentTitle(ok ? "DVINE's language model is ready" : "Language model download " + (s.phase() == DownloadStatus.Phase.PAUSED ? "paused" : "stopped"))
+                .setContentTitle(ok ? "DVINE's brain is ready" : "Brain files download " + (s.phase() == DownloadStatus.Phase.PAUSED ? "paused" : "stopped"))
                 .setContentText(ok ? "Open DVINE and ask anything, even offline." : s.detail())
                 .setAutoCancel(true)
                 .setContentIntent(openApp(c))

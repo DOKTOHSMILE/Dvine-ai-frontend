@@ -141,7 +141,7 @@ public class ActionsAndOnboardingTest {
         assertEquals("eiffel tower", brain.respond("please draw the eiffel tower", "obi").object3d);
         BrainAnswer hair = brain.respond("make Ivie's hair longer", "obi");
         assertTrue(hair.lookIvie);
-        assertTrue(hair.look.hair > 1f);
+        assertTrue(hair.look.hair > 0f); // bald by default (her sheet); "longer" grows some
         assertEquals(0f, brain.respond("Ivie remove your hair", "ivie").look.hair, 0f);
         assertEquals(ai.dvine.face.Look.Style.TOON, brain.respond("reset your look", "obi").look.style);
         assertEquals(ai.dvine.face.Look.Style.TOON, brain.respond("ghibli mode", "obi").look.style);

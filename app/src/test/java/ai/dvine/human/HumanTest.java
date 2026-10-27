@@ -59,14 +59,14 @@ public class HumanTest {
                 seen[b & 0xff] = true;
             }
             for (int id = 0; id < Regions.COUNT; id++) {
-                assertTrue(Regions.key(id), seen[id] || id == Regions.HAIR && !a.female);
+                assertTrue(Regions.key(id), seen[id] || id == Regions.HAIR); // both looks paint the hair (Ivie is bald)
             }
         }
         int puff = 0;
         for (int v = 0; v < ivie.mesh.vertexCount(); v++) {
             puff += (ivie.mesh.region[v] & 0xff) == Regions.HAIR ? 1 : 0;
         }
-        assertTrue("Ivie has her afro puffs", puff > 500);
+        assertEquals("Ivie is bald, after her character sheet", 0, puff);
     }
 
     @Test
