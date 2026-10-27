@@ -871,11 +871,11 @@ public final class WireRenderer {
             + "  float rim = 1.0 - abs(n.z);\n"
             + "  float key = max(0.0, dot(n, normalize(vec3(-0.45, 0.55, 0.7))));\n" // a soft key light shows the form
             + "  float lit = 0.07 + 0.95 * key * key + 0.45 * rim * rim;\n"
+            + "  float shade = floor(aTo.w / 4096.0) / 15.0;\n"
             + "  float onObj = ((uTo == 1 || uTo == 3) ? e : 0.0) + ((uFrom == 1 || uFrom == 3) ? 1.0 - e : 0.0);\n"
             + "  lit = mix(lit, 0.12 + 0.9 * shade, clamp(onObj, 0.0, 1.0));\n" // object particles carry their own surface shading
             + "  vLight = lit * (1.0 + 0.6 * fly);\n"
             + "  float comp = mod(aTo.w, 256.0); vMat = uPalette[int(aTo.w / 256.0) & 15];\n"
-            + "  float shade = floor(aTo.w / 4096.0) / 15.0;\n"
             + "  vObj = ((uTo == 1 || uTo == 3) ? e : 0.0) + ((uFrom == 1 || uFrom == 3) ? 1.0 - e : 0.0);\n"
             + "  vSel = (uFrom == 1 && uTo == 1 && uSelected >= 0.0 && abs(comp - uSelected) < 0.5) ? 1.0 : 0.0;\n"
             + "  gl_PointSize = uSize * aBary.z * (1.0 + 0.35 * fly + 0.6 * vSel);\n"
