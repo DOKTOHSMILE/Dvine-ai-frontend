@@ -80,10 +80,13 @@ public class ActionsAndOnboardingTest {
         assertTrue(d.spoken().contains("7"));
         assertNotNull(brain.respond("draw a triangle", "obi").sketch);
         assertEquals("MUSIC_OFF", brain.respond("music off", "obi").command);
-        // the default look is the wireframe hologram; dots are a style you can ask for
-        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("wireframe mode", "obi").look.style);
+        // the default look is lifelike skin; the hologram and dots are styles you can ask for
+        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("hologram mode", "obi").look.style);
         assertEquals(ai.dvine.face.Look.Style.DOTS, brain.respond("dot mode", "obi").look.style);
-        assertTrue(brain.respond("make your skin darker", "obi").spoken().contains("wireframe"));
+        assertEquals(ai.dvine.face.Look.Style.SKIN, brain.respond("show your real skin", "obi").look.style);
+        BrainAnswer deeper = brain.respond("make your skin darker", "obi");
+        assertEquals(ai.dvine.face.Look.Style.SKIN, deeper.look.style);
+        assertTrue(deeper.look.tone > ai.dvine.face.Look.defaults(false).tone);
         assertEquals("BODY_ON", brain.respond("show your full body", "obi").command);
         assertEquals("FACE_ON", brain.respond("show your face", "obi").command);
         assertEquals("REDRAW", brain.respond("redraw yourself", "obi").command);
@@ -140,6 +143,6 @@ public class ActionsAndOnboardingTest {
         assertTrue(hair.lookIvie);
         assertTrue(hair.look.hair > 1f);
         assertEquals(0f, brain.respond("Ivie remove your hair", "ivie").look.hair, 0f);
-        assertEquals(ai.dvine.face.Look.Style.WIRE, brain.respond("reset your look", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.SKIN, brain.respond("reset your look", "obi").look.style);
     }
 }

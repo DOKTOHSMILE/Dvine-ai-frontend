@@ -942,6 +942,6 @@ The order follows the user's priorities and dependencies. Each item becomes a st
 | 7 | **Eric, the coder** (third persona) | first version: a coding workspace (avatar on top, thought bubble with a quiet inner voice and still lips, a code panel with Code / Files / Terminal / Tests / Preview tabs, text and mic input, a task panel with cancel) on the server's sandboxed workspace (Track S): inspect, edit, compile and test a small Java project, a bounded repair loop, and a report that says only what actually ran | Track S workspace runner |
 | 8 | **Language understanding** | broader intent parsing for everyday phrasing (moves, looks, questions, commands to a named persona) | — |
 | 9 | **Ground and walking** | a visible floor the body walks on (root travel follows the stride, feet planted, nothing sinks) | 1 |
-| 10 | **Realistic skin mode** | a lit skin look (tone from Look, wrap-light subsurface approximation) beside the hologram, with a mode switch | §30 |
+| 10 | **Realistic skin mode** — built in v0.14.0 with everyday clothes (default look; "hologram mode" / "skin mode", "make your skin darker/lighter"). Next: draped clothes, shoe shapes, Ivie's long hair as geometry | a lit skin look (tone from Look, wrap-light subsurface approximation) beside the hologram, with a mode switch | §30 |
 | 11 | On-phone Linux, terminal UX | proot + Alpine rootfs; terminal, runs and web fetch on the phone | — |
 | 12 | M8 voice polish | — | — |

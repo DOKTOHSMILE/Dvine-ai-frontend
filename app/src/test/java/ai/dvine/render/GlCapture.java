@@ -122,6 +122,10 @@ public class GlCapture {
             c.pitchDeg = lerp(rig.pitch.value + 6f, 8f, e);
             c.update();
             r.setCamera(c, -4.22f);
+            boolean skin = !"wire".equals(System.getenv("GLCAP_STYLE"));
+            for (int sl = 0; sl < 2; sl++) {
+                r.setSkin(sl, skin, ai.dvine.face.Look.defaults(sl == 1).skinColor());
+            }
             stage.frame(t, ivie, rig, e > 0.5f, false, 1f);
             r.onDraw((long) (t * 1e9));
         }

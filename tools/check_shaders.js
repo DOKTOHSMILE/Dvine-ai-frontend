@@ -12,7 +12,7 @@ for (const m of java.matchAll(/static final String (\w+_[VF]S) = ([\s\S]*?);\n/g
   src[m[1]] = parts.join('');
 }
 // the programs WireRenderer links (see onCreated)
-const programs = [['FILL_VS', 'FILL_FS'], ['PARTICLE_VS', 'PARTICLE_FS'], ['INNER_VS', 'PARTICLE_FS'], ['GRID_VS', 'GRID_FS']];
+const programs = [['FILL_VS', 'FILL_FS'], ['PARTICLE_VS', 'PARTICLE_FS'], ['INNER_VS', 'PARTICLE_FS'], ['GRID_VS', 'GRID_FS'], ['SKIN_VS', 'SKIN_FS']];
 
 (async () => {
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
