@@ -26,7 +26,19 @@ import ai.dvine.human.touch.BodyTouch;
 public final class HumanStage {
     public interface AssetSource {
         InputStream open(String name) throws java.io.IOException;
+
+        /** A picture from the assets as {width, height, ARGB pixels…}, or null (no decoder here). */
+        default int[] picture(String name) {
+            return null;
+        }
     }
+
+    // each persona's character sheet and its calibration: the body is painted from it once it stands
+    private final ai.dvine.human.wrap.SheetWrap[] sheets = new ai.dvine.human.wrap.SheetWrap[2];
+    private final int[][] sheetPixels = new int[2][];
+
+    /** Whether the bodies are painted from their character sheets (the default look). */
+    public volatile boolean sheetLook = true;
 
     public final WireRenderer renderer;
     public final Camera camera = new Camera();
@@ -129,6 +141,7 @@ public final class HumanStage {
     public void load(final AssetSource source, final Runnable done) {
         Thread t = new Thread(() -> {
             for (int slot = 0; slot < 2; slot++) {
+                loadSheet(source, slot);
                 HumanAsset a = null;
                 try (InputStream in = source.open(slot == 0 ? "human/obi.dvhm" : "human/ivie.dvhm")) {
                     a = HumanAsset.read(in);
@@ -162,6 +175,7 @@ public final class HumanStage {
         h.rig.setPose(pose);
         h.update(time);
         inst[slot] = h;
+        wrap(slot, h);
         if (approve || inspector[slot] == null) {
             inspector[slot] = new Inspector(a);
         }
@@ -173,6 +187,70 @@ public final class HumanStage {
         renderer.setAsset(slot, a, particles[slot], ai.dvine.anre.InnerParticles.build(a, ai.dvine.anre.InnerParticles.BUDGET));
         // Mode C: the body assembles from a cloud of its own particles, head first
         morph[slot].assemble(time);
+    }
+
+    /** Reads both personas' sheets (for a caller that installs the bodies itself). */
+    public void loadSheets(AssetSource source) {
+        loadSheet(source, 0);
+        loadSheet(source, 1);
+    }
+
+    /** Reads a persona's sheet and its calibration (assets/looks/obi.json …); a missing one leaves the body as it was. */
+    private void loadSheet(AssetSource source, int slot) {
+        String who = slot == 0 ? "obi" : "ivie";
+        try (InputStream in = source.open("looks/" + who + ".json")) {
+            ai.dvine.human.wrap.SheetWrap w = ai.dvine.human.wrap.SheetWrap.parse(readAll(in));
+            int[] px = w.sheet == null ? null : source.picture(w.sheet);
+            synchronized (this) {
+                sheets[slot] = px == null ? null : w;
+                sheetPixels[slot] = px;
+            }
+        } catch (java.io.IOException | RuntimeException none) {
+            // no sheet: the body keeps its own painted look
+        }
+    }
+
+    private static String readAll(InputStream in) throws java.io.IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] b = new byte[8192];
+        int n;
+        while ((n = in.read(b)) > 0) {
+            out.write(b, 0, n);
+        }
+        return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /** Paints a body from its sheet, from how it stands now (just installed, in its rest stance). */
+    private void wrap(int slot, HumanInstance h) {
+        ai.dvine.human.wrap.SheetWrap w = sheets[slot];
+        int[] px = sheetPixels[slot];
+        if (w == null || px == null || !sheetLook) {
+            renderer.setWrap(slot, null, null, 0, 0, null);
+            return;
+        }
+        ai.dvine.human.wrap.SheetWrap.Result r = w.compute(h);
+        renderer.setWrap(slot, r.uv, r.weight, px[0], px[1], java.util.Arrays.copyOfRange(px, 2, px.length));
+    }
+
+    /** Paints both bodies from their sheets (true) or from their own look (false). */
+    public synchronized void setSheetLook(boolean on) {
+        if (on == sheetLook) {
+            return;
+        }
+        sheetLook = on;
+        for (int slot = 0; slot < 2; slot++) {
+            if (inst[slot] != null) {
+                if (on) {
+                    // the wrap is computed in the rest stance: a fresh instance of the same body stands in it
+                    HumanInstance rest = new HumanInstance(inst[slot].asset);
+                    rest.rig.setPose(pose);
+                    rest.update(time);
+                    wrap(slot, rest);
+                } else {
+                    renderer.setWrap(slot, null, null, 0, 0, null);
+                }
+            }
+        }
     }
 
     /** The body checks out: geometry, rig, and every particle on its surface (the gate for BODY_RESTORED). */

@@ -108,6 +108,21 @@ public final class AndroidGl implements GlApi {
     }
 
     @Override
+    public int imageTexture(int width, int height, Buffer rgba) {
+        GLES30.glGenTextures(1, one, 0);
+        int t = one[0];
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t);
+        GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 1);
+        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, width, height, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, rgba);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR_MIPMAP_LINEAR);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE);
+        GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D);
+        return t;
+    }
+
+    @Override
     public void deleteTexture(int t) {
         one[0] = t;
         GLES30.glDeleteTextures(1, one, 0);

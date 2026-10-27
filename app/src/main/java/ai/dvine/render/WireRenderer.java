@@ -127,6 +127,90 @@ public final class WireRenderer {
         int vboInCorner, vboInBary;
         int vboPos, vboNor, vboEye, vboMat, vboRest, ibo, vboCorner, vboBary, vboAux, vboTarget, vboPrev, objVbo, objNbo, objIbo, tPos, tNor;
         boolean created;
+        // the character sheet wrapped onto the body: per vertex where it lands in each view and how much of each
+        // (see SheetWrap), the sheet itself, and which garments still draw over it (the hair)
+        FloatBuffer wrapUvA, wrapUvB, wrapW;
+        java.nio.ByteBuffer wrapPixels;
+        int wrapTexW, wrapTexH, vboWrapA, vboWrapB, vboWrapW, wrapTex;
+        boolean wrapOn, wrapDirty, wrapUploaded;
+    }
+
+    /**
+     * Paints a body from its character sheet: {@code uv} (8 per vertex: front, back, side, face) and {@code weight}
+     * (4 per vertex) from {@link ai.dvine.human.wrap.SheetWrap}, and the sheet's pixels (ARGB, rows top first).
+     * Null clears it. Any thread; uploaded on the next frame.
+     */
+    public void setWrap(int slot, float[] uv, float[] weight, int texW, int texH, int[] argb) {
+        Slot s = slots[slot];
+        synchronized (lock) {
+            if (uv == null || argb == null) {
+                s.wrapOn = false;
+                s.wrapDirty = true;
+                return;
+            }
+            int n = weight.length / 4;
+            float[] a = new float[n * 4], b = new float[n * 4];
+            for (int v = 0; v < n; v++) {
+                System.arraycopy(uv, v * 8, a, v * 4, 4);
+                System.arraycopy(uv, v * 8 + 4, b, v * 4, 4);
+            }
+            s.wrapUvA = floats(a);
+            s.wrapUvB = floats(b);
+            s.wrapW = floats(weight);
+            java.nio.ByteBuffer px = java.nio.ByteBuffer.allocateDirect(texW * texH * 4);
+            for (int p : argb) {
+                px.put((byte) (p >> 16)).put((byte) (p >> 8)).put((byte) p).put((byte) 255);
+            }
+            px.position(0);
+            s.wrapPixels = px;
+            s.wrapTexW = texW;
+            s.wrapTexH = texH;
+            s.wrapOn = true;
+            s.wrapDirty = true;
+        }
+    }
+
+    /** Whether a body is painted from its sheet. */
+    public boolean wrapped(int slot) {
+        return slots[slot].wrapOn;
+    }
+
+    private void uploadWrap(Slot s) {
+        dropWrap(s);
+        s.wrapDirty = false;
+        if (!s.wrapOn || s.wrapW == null || s.wrapW.capacity() / 4 < s.vertices) {
+            return;
+        }
+        s.vboWrapA = buf();
+        s.vboWrapB = buf();
+        s.vboWrapW = buf();
+        s.wrapUvA.position(0);
+        s.wrapUvB.position(0);
+        s.wrapW.position(0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboWrapA);
+        gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 16, s.wrapUvA, GlApi.STATIC_DRAW);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboWrapB);
+        gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 16, s.wrapUvB, GlApi.STATIC_DRAW);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboWrapW);
+        gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 16, s.wrapW, GlApi.STATIC_DRAW);
+        s.wrapPixels.position(0);
+        s.wrapTex = gl.imageTexture(s.wrapTexW, s.wrapTexH, s.wrapPixels);
+        liveObjects++;
+        s.wrapUploaded = true;
+    }
+
+    private void dropWrap(Slot s) {
+        if (!s.wrapUploaded) {
+            return;
+        }
+        for (int b : new int[]{s.vboWrapA, s.vboWrapB, s.vboWrapW}) {
+            gl.deleteBuffer(b);
+            liveObjects--;
+        }
+        gl.deleteTexture(s.wrapTex);
+        liveObjects--;
+        s.vboWrapA = s.vboWrapB = s.vboWrapW = s.wrapTex = 0;
+        s.wrapUploaded = false;
     }
 
     public WireRenderer(GlApi gl) {
@@ -538,6 +622,9 @@ public final class WireRenderer {
                 if (s.dirtyStatic && s.asset != null) {
                     createSlot(s);
                 }
+                if (s.created && s.wrapDirty) {
+                    uploadWrap(s);
+                }
                 if (s.dirtyTarget && s.created) {
                     uploadTargets(s);
                 }
@@ -701,9 +788,11 @@ public final class WireRenderer {
         liveObjects += 2;
         s.created = true;
         s.dirtyStatic = false;
+        s.wrapDirty = s.wrapOn;
     }
 
     private void deleteSlot(Slot s) {
+        dropWrap(s);
         for (int b : s.garmentIbo) {
             gl.deleteBuffer(b);
             liveObjects--;
@@ -922,6 +1011,18 @@ public final class WireRenderer {
         gl.uniform1f(gl.uniform(p, "uHairStyle"), s.hairStyle);
         gl.uniform1f(gl.uniform(p, "uBeard"), s.asset.beard ? 1f : 0f);
         gl.uniform1f(gl.uniform(p, "uToon"), toon ? 1f : 0f);
+        boolean wrap = s.wrapUploaded && s.wrapOn;
+        gl.uniform1f(gl.uniform(p, "uWrap"), wrap ? 1f : 0f);
+        if (wrap) {
+            gl.bindTexture(0, s.wrapTex);
+            gl.uniform1i(gl.uniform(p, "uSheet"), 0);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboWrapA);
+            gl.vertexAttrib(5, 4, 16, 0);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboWrapB);
+            gl.vertexAttrib(6, 4, 16, 0);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboWrapW);
+            gl.vertexAttrib(7, 4, 16, 0);
+        }
         gl.disable(GlApi.BLEND);
         gl.depthMask(true);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
@@ -942,8 +1043,8 @@ public final class WireRenderer {
         // the clothes: the same skinned surface, pushed out a few millimetres, shaded as fabric
         for (int g = 0; g < s.garments.length && g < s.garmentIbo.length; g++) {
             ai.dvine.human.Clothing.Garment gm = s.garments[g];
-            if (gm.tri.length == 0) {
-                continue;
+            if (gm.tri.length == 0 || wrap && !"hair".equals(gm.name)) {
+                continue; // the sheet paints the clothes; only the hair's volume stays (painted from the sheet too)
             }
             gl.uniform4f(gl.uniform(p, "uCloth"), gm.color[0], gm.color[1], gm.color[2], 1f);
             gl.uniform4f(gl.uniform(p, "uClipA"), gm.clip[0], gm.clip[1], gm.clip[2], gm.clip[3]);
@@ -964,6 +1065,12 @@ public final class WireRenderer {
         gl.disableAttrib(2);
         gl.disableAttrib(3);
         gl.disableAttrib(4);
+        if (wrap) {
+            gl.disableAttrib(5);
+            gl.disableAttrib(6);
+            gl.disableAttrib(7);
+            gl.bindTexture(0, 0);
+        }
     }
 
     private static final float[] PALETTE = new float[48];
@@ -1186,8 +1293,9 @@ public final class WireRenderer {
     static final String SKIN_VS = "#version 300 es\n"
             + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in float aEye;\n"
             + "layout(location=3) in vec4 aMat; layout(location=4) in vec3 aRest;\n"
+            + "layout(location=5) in vec4 aWrapA; layout(location=6) in vec4 aWrapB; layout(location=7) in vec4 aWrapW;\n"
             + "uniform mat4 uMvp; uniform mat3 uRot; uniform vec4 uHeadA; uniform vec4 uHeadB; uniform float uPush; uniform float uKind; uniform vec4 uClipB;\n"
-            + "out vec3 vN; out vec3 vR; out vec3 vH; out float vEye; out vec4 vMat;\n"
+            + "out vec3 vN; out vec3 vR; out vec3 vH; out float vEye; out vec4 vMat; out vec4 vWrapA; out vec4 vWrapB; out vec4 vWrapW;\n"
             + "void main(){ vec3 nn = normalize(aNor + vec3(1e-6));\n"
             // the rest position: skin detail stays on the skin as it moves; in head units it places the face features
             + "  vR = aRest; float lip = uHeadA.y - 0.61 * uHeadB.x;\n"
@@ -1208,12 +1316,17 @@ public final class WireRenderer {
             // joggers: roomy in the leg, gathered into the waistband and pulled in at the ankle cuff
             + "  if (uKind > 0.5 && uKind < 1.5) push *= mix(0.3, 1.0, smoothstep(uClipB.z, uClipB.z + 0.4, aRest.y)) * mix(0.55, 1.0, smoothstep(uClipB.x, uClipB.x - 0.35, aRest.y));\n"
             + "  gl_Position = uMvp * vec4(aPos + nn * push, 1.0); vN = uRot * nn;\n"
-            + "  vEye = aEye; vMat = aMat; }\n";
+            + "  vEye = aEye; vMat = aMat; vWrapA = aWrapA; vWrapB = aWrapB; vWrapW = aWrapW; }\n";
     static final String SKIN_FS = "#version 300 es\n"
             + "precision highp float;\n"
             + "in vec3 vN; in vec3 vR; in vec3 vH; in float vEye; in vec4 vMat; uniform vec4 uTone; uniform mat3 uRot; uniform vec4 uHeadB;\n"
             + "uniform vec4 uCloth; uniform float uWeave; uniform vec4 uClipA; uniform vec4 uClipB; uniform vec4 uShoulder; uniform vec4 uElbow;\n"
             + "uniform vec4 uLegs; uniform float uHairStyle; uniform float uBeard; uniform float uToon;\n"
+            + "in vec4 vWrapA; in vec4 vWrapB; in vec4 vWrapW; uniform float uWrap; uniform sampler2D uSheet;\n"
+            // the character sheet: each view weighted by how the surface faces it (front, back, profile, face close-up)
+            + "vec3 sheet(){ vec4 w = max(vWrapW, vec4(0.0)); float t = w.x + w.y + w.z + w.w + 1e-4;\n"
+            + "  vec3 c = texture(uSheet, vWrapA.xy).rgb * w.x + texture(uSheet, vWrapA.zw).rgb * w.y\n"
+            + "    + texture(uSheet, vWrapB.xy).rgb * w.z + texture(uSheet, vWrapB.zw).rgb * w.w; return c / t; }\n"
             + "float lips(vec3 h, float fem); float vnoise(vec3 x);\n"
             + "float cheekLine(float ax){ float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0);\n"
             + "  return -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12; }\n"
@@ -1459,6 +1572,20 @@ public final class WireRenderer {
             + "  col = col / (1.0 + col);\n"
             // the cartoon look (Ghibli style): soft cel bands, warm light and cool violet shadow, a golden back-rim,
             // pen hatching in the shadows, watercolour pigment and paper grain, an ink line at the silhouette
+            // painted from the sheet: its own shading is in the picture, so the light here is gentle (a soft key and
+            // shadow side, the golden back-rim, a faint ink line) and nothing is hatched or washed over it
+            + "  if (uWrap > 0.5) {\n"
+            + "    vec3 base = sheet();\n"
+            + "    float dl = dot(n0, L1);\n"
+            + "    vec3 lit = base * mix(vec3(0.8, 0.82, 0.9), vec3(1.06, 1.03, 0.98), smoothstep(-0.3, 0.5, dl));\n"
+            + "    vec3 back = normalize(vec3(-0.35, 0.55, -0.75));\n"
+            + "    lit += vec3(0.06, 0.73, 0.5) * 0.12 * pow(1.0 - max(0.0, n0.z), 3.0) * smoothstep(-0.2, 0.4, dot(n0, back));\n"
+            + "    float hl = step(0.975, max(0.0, dot(n, normalize(L1 + v)))) * (vEye > 0.5 ? 1.0 : 0.0);\n"
+            + "    lit += vec3(0.25) * hl;\n"
+            + "    float ink = 1.0 - smoothstep(0.12, 0.28, n0.z);\n"
+            + "    lit = mix(lit, lit * 0.55, ink * 0.5);\n"
+            + "    o = vec4(clamp(lit, 0.0, 1.0) * uTone.a, 1.0); return;\n"
+            + "  }\n"
             + "  if (uToon > 0.5) {\n"
             + "    vec3 base = pow(clamp(alb * 1.15, 0.0, 1.0), vec3(1.0 / 2.2));\n"
             // shaded from the smooth surface (no pores or weave bumps): clean shapes, one soft terminator

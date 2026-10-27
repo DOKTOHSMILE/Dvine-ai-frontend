@@ -40,6 +40,10 @@ async function run(dir) {
         for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, c[2], c[3], 0, gl.RGB, gl.FLOAT, null); T[c[1]] = t; break; }
       case 'texData': gl.bindTexture(gl.TEXTURE_2D, T[c[1]]); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, c[2], c[3], gl.RGB, gl.FLOAT, new Float32Array(data, c[4], c[2] * c[3] * 3)); break;
+      case 'imgTex': { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, c[2], c[3], 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data, c[4], c[2] * c[3] * 4));
+        for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+        gl.generateMipmap(gl.TEXTURE_2D); T[c[1]] = t; break; }
       case 'delTex': gl.deleteTexture(T[c[1]]); break;
       case 'bindTex': gl.activeTexture(gl.TEXTURE0 + c[1]); gl.bindTexture(gl.TEXTURE_2D, c[2] ? T[c[2]] : null); break;
       case 'enable': gl.enable(c[1]); break;

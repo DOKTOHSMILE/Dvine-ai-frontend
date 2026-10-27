@@ -57,6 +57,7 @@ public class GlCapture {
         public int floatTexture(int w, int h) { int id = next++; c("[\"tex\"," + id + "," + w + "," + h + "]"); return id; }
         public void updateFloatTexture(int t, int w, int h, Buffer d) { c("[\"texData\"," + t + "," + w + "," + h + "," + blob(d, w * h * 12) + "]"); }
         public void deleteTexture(int t) { c("[\"delTex\"," + t + "]"); }
+        public int imageTexture(int w, int h, Buffer d) { int id = next++; c("[\"imgTex\"," + id + "," + w + "," + h + "," + blob(d, w * h * 4) + "]"); return id; }
         public void bindTexture(int u, int t) { c("[\"bindTex\"," + u + "," + t + "]"); }
         public void enable(int cap) { c("[\"enable\"," + cap + "]"); }
         public void disable(int cap) { c("[\"disable\"," + cap + "]"); }
@@ -94,6 +95,23 @@ public class GlCapture {
         r.onCreated();
         r.onSize(W, H);
         HumanStage stage = new HumanStage(r);
+        if (System.getenv("GLCAP_SHEET") != null) {
+            // the character sheets, decoded here as the phone's BitmapFactory would
+            stage.loadSheets(new HumanStage.AssetSource() {
+                public InputStream open(String name) throws IOException { return new FileInputStream("src/main/assets/" + name); }
+                public int[] picture(String name) {
+                    // GLCAP_SHEET is a folder of pre-decoded sheets: <name>.argb = width, height, then ARGB ints (big-endian)
+                    File f = new File(System.getenv("GLCAP_SHEET"), new File(name).getName() + ".argb");
+                    try (DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(f)))) {
+                        int w = in.readInt(), h = in.readInt();
+                        int[] out = new int[w * h + 2];
+                        out[0] = w; out[1] = h;
+                        for (int i = 0; i < w * h; i++) out[i + 2] = in.readInt();
+                        return out;
+                    } catch (IOException e) { return null; }
+                }
+            });
+        }
         stage.install(ivie ? 1 : 0, a, true);
         String arrangement = System.getenv("GLCAP_SCENE");
         if (arrangement != null) {

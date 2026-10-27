@@ -49,9 +49,10 @@ public final class Look {
 
     public static Look defaults(boolean ivie) {
         Look l = new Look();
-        l.hair = ivie ? 1f : 0f;
+        // after the character sheets: Obi's short curly afro, Ivie bald
+        l.hair = 0f;
         l.tone = ivie ? 0.80f : 0.88f;
-        l.hairStyle = ivie ? PUFFS : FADE;
+        l.hairStyle = ivie ? BALD : SHORT_AFRO;
         return l;
     }
 

@@ -173,7 +173,33 @@ public final class MainActivity extends Activity implements StageListener, Liste
         final ai.dvine.render.HumanView humanView = new ai.dvine.render.HumanView(this);
         final ai.dvine.render.HumanStage humanStage = new ai.dvine.render.HumanStage(humanView.renderer);
         stage.attachHuman(humanStage, humanView);
-        humanStage.load(name -> getAssets().open(name), null);
+        humanStage.load(new ai.dvine.render.HumanStage.AssetSource() {
+            @Override
+            public java.io.InputStream open(String name) throws java.io.IOException {
+                return getAssets().open(name);
+            }
+
+            @Override
+            public int[] picture(String name) {
+                try (java.io.InputStream in = getAssets().open(name)) {
+                    android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                    o.inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888;
+                    android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeStream(in, null, o);
+                    if (b == null) {
+                        return null;
+                    }
+                    int w = b.getWidth(), h = b.getHeight();
+                    int[] out = new int[w * h + 2];
+                    out[0] = w;
+                    out[1] = h;
+                    b.getPixels(out, 2, w, 0, 0, w, h);
+                    b.recycle();
+                    return out;
+                } catch (java.io.IOException | RuntimeException e) {
+                    return null;
+                }
+            }
+        }, null);
         android.widget.FrameLayout root = new android.widget.FrameLayout(this);
         root.setBackgroundColor(0xFF000000);
         root.addView(humanView);
@@ -214,6 +240,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
             ivieLook.style = Look.Style.TOON;
             obiLook.beard = false;
             prefs.edit().putInt("look_version", 4).putString("look_obi", obiLook.serialize())
+                    .putString("look_ivie", ivieLook.serialize()).apply();
+        }
+        if (prefs.getInt("look_version", 1) < 6) {
+            // v0.24: the looks of the character sheets (the bodies are painted from the sheets themselves)
+            obiLook.hairStyle = Look.SHORT_AFRO;
+            ivieLook.hairStyle = Look.BALD;
+            ivieLook.hair = 0f;
+            obiLook.beard = false;
+            obiLook.style = Look.Style.TOON;
+            ivieLook.style = Look.Style.TOON;
+            prefs.edit().putInt("look_version", 6).putString("look_obi", obiLook.serialize())
                     .putString("look_ivie", ivieLook.serialize()).apply();
         }
         if (prefs.getInt("look_version", 1) < 5) {
