@@ -26,10 +26,10 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 | M7 Online client | VERIFIED (JVM + local server) / device pending | `net/DeskClient`: questions the phone can't answer go to the server desk when online; thought bubble while waiting; THINK lines in the bubble, SAY lines spoken; one desk room kept, recreated on 404, re-sign-in on 401, offline answer on any failure; `DeskClientTest` (4) and a run against the real backend | real model behind the desk (Track S Phase 2: provider to be chosen) |
 | M8 Voice polish | NOT STARTED | — | — |
 | v0.11 Standard human + hologram | VERIFIED (JVM + WebGL2 replay) / phone partly | handbook §30: MakeHuman CC0 body and head, retargeted, sculpted, weighted; GL replay of both faces and the body view; `check_shaders.js`; user's phone shows the 3D body since 0.11.2 | phone check of 0.11.3 (camera, eyes) |
-| Dual-AI step 1: one shared scene | IN PROGRESS | — | handbook §31 item 1 |
+| Dual-AI step 1: one shared scene | VERIFIED (JVM + WebGL2 replay) / phone pending | `human/scene/DualScene`: own root, facing and height per persona; the second walks in from off screen, slows, stops; side by side, face to face, walk together; bodies never closer than 1.7 units; camera frames both; `DualSceneTest` (4: walk-in, meet, walk together, phrases); replay `docs/brand/dual_scene.png` | watch it on a phone; feet slide a little (stride not matched to speed) |
 | Dual-AI steps 2–6, FACS face, Eric, realistic skin | NOT STARTED | — | handbook §31 |
 
-Commands run: `gradle testDebugUnitTest assembleDebug` → 109 tests passed (incl. Robolectric LaunchTest), APK built (v0.11.3, `releases/`). `node tools/check_shaders.js` → 4 programs compile and link. `gradle :app:generateHumanAssets` rebuilds the 3D assets.
+Commands run: `gradle testDebugUnitTest assembleDebug` → 113 tests passed (incl. Robolectric LaunchTest), APK built (v0.12.0, `releases/`). `node tools/check_shaders.js` → 4 programs compile and link. `gradle :app:generateHumanAssets` rebuilds the 3D assets.
 Not run: `lintDebug` (dependency download rate-limited in the sandbox), any on-device test.
 
 Known limits:

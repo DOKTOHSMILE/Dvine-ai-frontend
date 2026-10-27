@@ -181,6 +181,10 @@ public final class Supervisor {
                 bodyView = "on".equals(c.value);
                 port.setDemo(bodyView);
                 break;
+            case "view.scene":
+                bodyView = !"single".equals(c.value);
+                port.arrange(c.value);
+                break;
             case "draw.sketch":
                 port.showSketch((ai.dvine.face.Sketch) c.payload);
                 break;

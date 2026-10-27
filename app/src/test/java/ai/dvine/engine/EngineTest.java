@@ -38,6 +38,7 @@ public class EngineTest {
         public void setMood(float s, float brow, float tilt) { smile = s; }
         public void setExpression(String name) { calls.add("expression " + name); }
         public void setDemo(boolean on) { calls.add("demo " + on); }
+        public void arrange(String a) { calls.add("arrange " + a); }
 
         String last() { return calls.get(calls.size() - 1); }
     }

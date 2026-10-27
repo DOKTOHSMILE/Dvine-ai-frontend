@@ -408,6 +408,14 @@ public final class StageView extends View implements Choreographer.FrameCallback
         }
     }
 
+    @Override
+    public void arrange(String arrangement) {
+        if (human != null) {
+            human.arrange(arrangement);
+        }
+        setBodyMode(!"single".equals(arrangement) || bodyMode);
+    }
+
     /** Self-inspection of the visible persona's 3D body (with a local repair if needed). */
     public String inspect() {
         if (human == null) {
@@ -859,11 +867,19 @@ public final class StageView extends View implements Choreographer.FrameCallback
         if (wire) {
             // the GL camera always works in body units: the face close-up is the camera near the head
             float u0 = faceUnit / DotBody.FACE_SCALE, u1 = Math.min(w * 0.42f, usable * 0.36f);
+            float midX = 0f;
+            if (human.demo()) {
+                // both on stage: centre on where they are going and keep both bodies (and their hands) in frame
+                float[] span = human.sceneSpan();
+                midX = span[0];
+                float across = (2f * span[1] + 2.4f) * ai.dvine.human.HumanInstance.OUT;
+                u1 = Math.min(u1, w * 0.92f / across);
+            }
             ai.dvine.render.Camera c = human.camera;
             c.width = w;
             c.height = h;
-            c.cx = cx;
             c.unit = (float) Math.exp(lerp((float) Math.log(u0), (float) Math.log(u1), e));
+            c.cx = cx - midX * ai.dvine.human.HumanInstance.OUT * c.unit * e;
             float headY = human.headCameraY(showingIvie); // frame the real head, not the dot head's height
             c.cy = lerp(faceCy, padTop + usable * 0.55f, e) + lerp(headY, 0f, e) * c.unit;
             c.distance = (float) Math.exp(lerp((float) Math.log(0.75f), (float) Math.log(4.4f), e));

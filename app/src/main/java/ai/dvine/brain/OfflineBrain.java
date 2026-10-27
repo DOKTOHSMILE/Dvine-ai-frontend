@@ -255,6 +255,13 @@ public final class OfflineBrain {
                 return a;
             }
         }
+        String arrangement = scenePhrase(text);
+        if (arrangement != null) {
+            BrainAnswer a = one(speaker, sceneLine(arrangement, speaker), "LOOK");
+            a.command = "SCENE";
+            a.commandValue = arrangement;
+            return a;
+        }
         if (text.matches("^(show (me )?(both( of you)?|the demo|obi and ivie|ivie and obi)|demo( scene)?|stand together|both of you together)( please)?$")) {
             BrainAnswer a = one(speaker, pick(speaker, "Here we are, both of us.", "Obi and I, side by side."), "LOOK");
             a.command = "DEMO";
@@ -1146,6 +1153,46 @@ public final class OfflineBrain {
         SimpleDateFormat f = new SimpleDateFormat(pattern, Locale.US);
         f.setTimeZone(zone);
         return f.format(d);
+    }
+
+    /**
+     * Both personas in the shared scene: "walk together", "can both of you walk and stand side by side",
+     * "walk to each other", "face each other", "stand side by side", "just one of you". Null when the
+     * text isn't about arranging the two.
+     */
+    static String scenePhrase(String t) {
+        t = t.replaceAll("[?,]", " ").replaceAll("\\s+", " ").trim();
+        boolean both = t.matches(".*\\b(both|together|each other|one another|two of you|you two|side by side|obi and ivie|ivie and obi|the pair of you)\\b.*");
+        if (t.matches(".*\\b(just|only) (one|you)\\b.*|.*\\b(back to|only) one( of you)?\\b.*|^(go|send \\w+) (away|back)$")) {
+            return "single";
+        }
+        if (!both) {
+            return null;
+        }
+        if (t.matches(".*\\b(walk|come|go|move|turn)( over)? (to|towards?|up to) each other\\b.*|.*\\bface each other\\b.*|.*\\bmeet( each other| up)?\\b.*|.*\\blook at each other\\b.*")) {
+            return "meet";
+        }
+        if (t.matches(".*\\b(walk|walking|stroll)\\b.*")) {
+            return "walk"; // walking together ends side by side
+        }
+        if (t.matches(".*\\b(stand|standing|stay|line up)\\b.*(side by side|together|next to each other).*|.*\\bside by side\\b.*")) {
+            return "side";
+        }
+        return null;
+    }
+
+    private static String sceneLine(String arrangement, String speaker) {
+        boolean ivie = "ivie".equals(speaker);
+        switch (arrangement) {
+            case "walk":
+                return ivie ? "Yes. Obi, walk with me." : "Yes, we can. Ivie, let's walk.";
+            case "meet":
+                return ivie ? "Obi, come over here." : "Ivie, let's talk face to face.";
+            case "side":
+                return ivie ? "Here we are, side by side." : "Side by side, the two of us.";
+            default:
+                return ivie ? "Just me, then." : "Just me for now.";
+        }
     }
 
     static String normalize(String raw) {
