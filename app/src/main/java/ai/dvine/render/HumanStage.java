@@ -407,7 +407,8 @@ public final class HumanStage {
             if (t < touchUntil && (slot == 1) == ivie) {
                 h.rig.lookAt(touchAt[0], touchAt[1], touchAt[2] + 0.4f, 1f);
             } else if (demo && other != null && scene.actor[1 - slot].present && !actor.walking
-                    && ai.dvine.human.scene.DualScene.MEET.equals(scene.arrangement())) {
+                    && (ai.dvine.human.scene.DualScene.MEET.equals(scene.arrangement()) || (slot == 1) != ivie)) {
+                // face to face they look at each other; side by side the listener turns to the one speaking
                 ai.dvine.human.scene.DualScene.Actor oa = scene.actor[1 - slot];
                 float oy = other.rig.joint[ai.dvine.face.nano.DotBody.HEAD * 3 + 1] + 0.3f;
                 float ok = ai.dvine.human.scene.DualScene.HEIGHT[1 - slot];
