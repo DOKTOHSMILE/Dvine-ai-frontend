@@ -14,8 +14,8 @@ public final class Look {
         DOTS
     }
 
-    /** WIRE: the triangulated 3D hologram (default); DOTS: the nano-dot swarm. SKIN is kept for old saves and draws as WIRE. */
-    public Style style = Style.WIRE;
+    /** SKIN: lifelike lit skin (default); WIRE: the particle hologram; DOTS: the nano-dot swarm. */
+    public Style style = Style.SKIN;
     /** 0 light .. 1 deep brown. */
     public float tone = 0.85f;
     public float width = 1f;
@@ -111,13 +111,19 @@ public final class Look {
         if (has(t, "dot mode", "dots mode", "nano dot", "dotted", "made of dots", "dot look")) {
             style = Style.DOTS;
             said = "Now I'm drawn in tiny dots.";
-        } else if (has(t, "wireframe", "wire frame", "mesh mode", "hologram", "lines mode", "polygon", "triangle mode")) {
+        } else if (has(t, "wireframe", "wire frame", "mesh mode", "hologram", "lines mode", "polygon", "triangle mode",
+                "particle mode")) {
             style = Style.WIRE;
-            said = "Back to my wireframe hologram.";
-        } else if (has(t, "skin mode", "solid", "with skin", "add skin", "show skin", "skin on")
-                || (t.contains("skin") && has(t, "darker", "deeper", "lighter", "brighter"))) {
-            style = Style.WIRE;
-            said = "My skin is a glowing wireframe now. Ask me to change my eyes, nose, lips, jaw or hair.";
+            said = "Back to my hologram.";
+        } else if (t.contains("skin") && has(t, "darker", "deeper", "lighter", "brighter", "fairer")) {
+            style = Style.SKIN;
+            boolean darker = has(t, "darker", "deeper");
+            tone += darker ? 0.08f : -0.08f;
+            said = darker ? "A deeper skin tone." : "A lighter skin tone.";
+        } else if (has(t, "skin mode", "solid", "with skin", "add skin", "show skin", "skin on", "lifelike", "realistic",
+                "real skin", "human skin", "like a real person", "look human", "look real")) {
+            style = Style.SKIN;
+            said = "Real skin on. Ask me to change my skin tone, eyes, nose, lips, jaw or hair, or say hologram mode.";
         } else if (t.contains("hair") && has(t, "remove", "no hair", "bald", "take off", "without")) {
             hair = 0f;
             said = "Hair off.";

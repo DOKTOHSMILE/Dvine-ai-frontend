@@ -888,6 +888,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
             c.pitchDeg = pitch;
             c.update();
             human.renderer.setCamera(c, -4.22f);
+            for (int k = 0; k < 2; k++) {
+                human.renderer.setSkin(k, looks[k].style == Look.Style.SKIN, looks[k].skinColor());
+            }
             human.frame(clock, showingIvie, rig, e > 0.5f, rig.mode() == FaceMode.SPEAKING, faceAlpha * humanFade);
             // the drawing frame: in the wire look the body's own dots draw, so the drawing gets the whole stage
             float top = padTop + 56f * density, bottom = h - padBottom - 70f * density;

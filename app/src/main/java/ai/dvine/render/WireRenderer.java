@@ -62,6 +62,10 @@ public final class WireRenderer {
         public boolean bodyFill = true;
         /** Mode B: the anatomical view (skin as a faint shell, the chosen inner parts shown). */
         public boolean anatomy;
+        /** Lifelike skin (lit, tone below) instead of the hologram, while the body is whole. */
+        public boolean skin;
+        /** Skin tone, linear RGB. */
+        public final float[] tone = {0.25f, 0.12f, 0.07f};
         public final float[] showLayer = new float[4];
         public final float[] showPart = new float[MAX_PARTS];
     }
@@ -80,7 +84,7 @@ public final class WireRenderer {
     public final FrameStats stats = new FrameStats();
 
     // programs and shared objects
-    private int fillProg, particleProg, innerProg, gridProg;
+    private int fillProg, particleProg, innerProg, gridProg, skinProg;
     private int gridVbo, gridCount;
     /** Count of live GL objects (for leak checks). */
     public int liveObjects;
@@ -97,6 +101,13 @@ public final class WireRenderer {
         FloatBuffer corner, bary, aux;
         /** Per vertex: 0 off the eyes; on an eyeball 2 + how far it faces forward at rest (pupil 3, sides 2). */
         FloatBuffer eye;
+        /** Per vertex for the lifelike skin: material, warmth, feature mask (see SkinMaterial); and the rest positions. */
+        FloatBuffer mat, rest;
+        /** The head frame (origin, scales) for drawing brows, hairline and lips in head units. */
+        final float[] headFrame = new float[7];
+        /** Clothes for the lifelike look: each garment's triangles and its index buffer. */
+        ai.dvine.human.Clothing.Garment[] garments = new ai.dvine.human.Clothing.Garment[0];
+        int[] garmentIbo = new int[0];
         // the object the particles can become (targets aligned one-to-one with the particles)
         FloatBuffer target, previous;
         boolean dirtyTarget;
@@ -110,7 +121,7 @@ public final class WireRenderer {
         boolean hasPending;
         // GL handles
         int vboInCorner, vboInBary;
-        int vboPos, vboNor, vboEye, ibo, vboCorner, vboBary, vboAux, vboTarget, vboPrev, objVbo, objNbo, objIbo, tPos, tNor;
+        int vboPos, vboNor, vboEye, vboMat, vboRest, ibo, vboCorner, vboBary, vboAux, vboTarget, vboPrev, objVbo, objNbo, objIbo, tPos, tNor;
         boolean created;
     }
 
@@ -168,6 +179,13 @@ public final class WireRenderer {
                 }
             }
             s.eye = floats(eye);
+            s.mat = floats(SkinMaterial.perVertex(a));
+            s.rest = floats(java.util.Arrays.copyOf(a.mesh.pos, n * 3));
+            s.garments = ai.dvine.human.Clothing.design(a);
+            float[] hf = a.headFrame;
+            for (int k = 0; k < 7; k++) {
+                s.headFrame[k] = k < hf.length ? hf[k] : hf[4];
+            }
             s.triIndices = a.mesh.tri.length;
             int np = p.count;
             s.particles = np;
@@ -288,6 +306,22 @@ public final class WireRenderer {
         }
     }
 
+    /** Lifelike skin on or off for a slot, and its tone as an sRGB colour (0xRRGGBB). */
+    public void setSkin(int slot, boolean on, int rgb) {
+        Slot s = slots[slot];
+        synchronized (lock) {
+            Frame f = s.pending;
+            f.skin = on;
+            f.tone[0] = linear(((rgb >> 16) & 0xff) / 255f);
+            f.tone[1] = linear(((rgb >> 8) & 0xff) / 255f);
+            f.tone[2] = linear((rgb & 0xff) / 255f);
+        }
+    }
+
+    private static float linear(float c) {
+        return (float) Math.pow(c, 2.2);
+    }
+
     /** This frame's skinned inner anatomy (after {@link #submit}); ignored when the slot has none. */
     public void submitInner(int slot, float[] pos, float[] nor) {
         Slot s = slots[slot];
@@ -331,6 +365,7 @@ public final class WireRenderer {
         particleProg = prog(PARTICLE_VS, PARTICLE_FS);
         innerProg = prog(INNER_VS, PARTICLE_FS);
         gridProg = prog(GRID_VS, GRID_FS);
+        skinProg = prog(SKIN_VS, SKIN_FS);
         gridVbo = buf();
         float[] g = grid();
         gridCount = g.length / 4;
@@ -381,6 +416,8 @@ public final class WireRenderer {
                     b.selected = a.selected;
                     b.bodyFill = a.bodyFill;
                     b.anatomy = a.anatomy;
+                    b.skin = a.skin;
+                    System.arraycopy(a.tone, 0, b.tone, 0, 3);
                     System.arraycopy(a.showLayer, 0, b.showLayer, 0, 4);
                     System.arraycopy(a.showPart, 0, b.showPart, 0, MAX_PARTS);
                     System.arraycopy(a.scatter, 0, b.scatter, 0, 4);
@@ -420,13 +457,13 @@ public final class WireRenderer {
             }
         }
         if (fillProg != 0) {
-            for (int p : new int[]{fillProg, particleProg, innerProg, gridProg}) {
+            for (int p : new int[]{fillProg, particleProg, innerProg, gridProg, skinProg}) {
                 if (p != 0) {
                     gl.deleteProgram(p);
                     liveObjects--;
                 }
             }
-            fillProg = particleProg = innerProg = gridProg = 0;
+            fillProg = particleProg = innerProg = gridProg = skinProg = 0;
         }
         if (gridVbo != 0) {
             gl.deleteBuffer(gridVbo);
@@ -442,6 +479,8 @@ public final class WireRenderer {
         s.vboPos = buf();
         s.vboNor = buf();
         s.vboEye = buf();
+        s.vboMat = buf();
+        s.vboRest = buf();
         s.ibo = buf();
         s.vboCorner = buf();
         s.vboBary = buf();
@@ -460,6 +499,18 @@ public final class WireRenderer {
         s.eye.position(0);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboEye);
         gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 4, s.eye, GlApi.STATIC_DRAW);
+        s.mat.position(0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboMat);
+        gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 16, s.mat, GlApi.STATIC_DRAW);
+        s.rest.position(0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboRest);
+        gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 12, s.rest, GlApi.STATIC_DRAW);
+        s.garmentIbo = new int[s.garments.length];
+        for (int g = 0; g < s.garments.length; g++) {
+            s.garmentIbo[g] = buf();
+            gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.garmentIbo[g]);
+            gl.bufferData(GlApi.ELEMENT_ARRAY_BUFFER, s.garments[g].tri.length * 4, ints(s.garments[g].tri), GlApi.STATIC_DRAW);
+        }
         s.corner.position(0);
         s.bary.position(0);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboCorner);
@@ -485,7 +536,12 @@ public final class WireRenderer {
     }
 
     private void deleteSlot(Slot s) {
-        for (int b : new int[]{s.vboPos, s.vboNor, s.vboEye, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objNbo, s.objIbo}) {
+        for (int b : s.garmentIbo) {
+            gl.deleteBuffer(b);
+            liveObjects--;
+        }
+        s.garmentIbo = new int[0];
+        for (int b : new int[]{s.vboPos, s.vboNor, s.vboEye, s.vboMat, s.vboRest, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objNbo, s.objIbo}) {
             gl.deleteBuffer(b);
             liveObjects--;
         }
@@ -562,6 +618,11 @@ public final class WireRenderer {
         // 1. the hologram skin: a dark translucent-looking surface whose edges glow (fresnel rim), written
         //    with depth (pushed back) so it also hides the particles behind it; then a soft halo just outside it
         boolean xray = intact && f.anatomy;
+        if (intact && f.skin && !xray && f.bodyFill && skinProg != 0) {
+            // A: lifelike skin; the particles rest (they only carry transformations)
+            drawSkin(s, f);
+            return;
+        }
         boolean surface = intact && f.bodyFill && !xray || objectShown && s.objIndices > 0;
         if (surface) {
             float[] mvp = intact ? camera.mvp : mul(camera.mvp, f.object);
@@ -666,6 +727,56 @@ public final class WireRenderer {
         gl.disableAttrib(3);
         gl.depthMask(true);
         gl.disable(GlApi.BLEND);
+    }
+
+    /** Mode A: the lit skin, opaque and depth-tested like any solid. */
+    private void drawSkin(Slot s, Frame f) {
+        int p = skinProg;
+        gl.useProgram(p);
+        gl.uniformMatrix4(gl.uniform(p, "uMvp"), camera.mvp);
+        gl.uniformMatrix3(gl.uniform(p, "uRot"), camera.rot3);
+        gl.uniform4f(gl.uniform(p, "uTone"), f.tone[0], f.tone[1], f.tone[2], f.alpha);
+        float[] hf = s.headFrame;
+        gl.uniform4f(gl.uniform(p, "uHeadA"), hf[0], hf[1], hf[2], hf[3]);
+        gl.uniform4f(gl.uniform(p, "uHeadB"), hf[4], hf[5], hf[6], s.asset.female ? 1f : 0f);
+        gl.disable(GlApi.BLEND);
+        gl.depthMask(true);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboPos);
+        gl.vertexAttrib(0, 3, 12, 0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboNor);
+        gl.vertexAttrib(1, 3, 12, 0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboEye);
+        gl.vertexAttrib(2, 1, 4, 0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboMat);
+        gl.vertexAttrib(3, 4, 16, 0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboRest);
+        gl.vertexAttrib(4, 3, 12, 0);
+        gl.uniform4f(gl.uniform(p, "uCloth"), 0f, 0f, 0f, 0f);
+        gl.uniform1f(gl.uniform(p, "uPush"), 0f);
+        gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.ibo);
+        gl.drawElements(GlApi.TRIANGLES, s.triIndices, 0);
+        // the clothes: the same skinned surface, pushed out a few millimetres, shaded as fabric
+        for (int g = 0; g < s.garments.length && g < s.garmentIbo.length; g++) {
+            ai.dvine.human.Clothing.Garment gm = s.garments[g];
+            if (gm.tri.length == 0) {
+                continue;
+            }
+            gl.uniform4f(gl.uniform(p, "uCloth"), gm.color[0], gm.color[1], gm.color[2], 1f);
+            gl.uniform4f(gl.uniform(p, "uClipA"), gm.clip[0], gm.clip[1], gm.clip[2], gm.clip[3]);
+            gl.uniform4f(gl.uniform(p, "uClipB"), gm.clip[4], gm.clip[5], gm.clip[6], 0f);
+            float[] jt = s.asset.joints;
+            int sh = ai.dvine.face.nano.DotBody.ARM_L * 3, el = ai.dvine.face.nano.DotBody.FORE_L * 3;
+            gl.uniform4f(gl.uniform(p, "uShoulder"), jt[sh], jt[sh + 1], jt[sh + 2], 0f);
+            gl.uniform4f(gl.uniform(p, "uElbow"), jt[el], jt[el + 1], jt[el + 2], 0f);
+            gl.uniform1f(gl.uniform(p, "uWeave"), gm.weave);
+            gl.uniform1f(gl.uniform(p, "uPush"), gm.push);
+            gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.garmentIbo[g]);
+            gl.drawElements(GlApi.TRIANGLES, gm.tri.length, 0);
+        }
+        gl.disableAttrib(1);
+        gl.disableAttrib(2);
+        gl.disableAttrib(3);
+        gl.disableAttrib(4);
     }
 
     private static final float[] PALETTE = new float[48];
@@ -844,6 +955,136 @@ public final class WireRenderer {
      * pass pushes the surface out a little along its normals and adds only
      * the rim, a soft glow just outside the silhouette.
      */
+    /**
+     * Mode A, lifelike skin. Lights in view space: a warm key from the upper left, a cool
+     * fill from the right, a rim from behind, and a sky/ground ambient. Subsurface
+     * scattering is approximated by wrap lighting that wraps red furthest (light bleeds
+     * through skin as red), with a warm tint in the terminator. Two specular lobes (a
+     * tight sheen and a broad one) with Schlick fresnel; fine procedural pores bend the
+     * normal and a low-frequency noise varies the tone. Per vertex: material (skin, lips,
+     * teeth, inner mouth), warmth (cheeks, nose, ears), brow and short-hair weights; the
+     * eyeballs get sclera, a brown iris, a pupil and a corneal glint. Reinhard tone map, gamma 2.2.
+     */
+    static final String SKIN_VS = "#version 300 es\n"
+            + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in float aEye;\n"
+            + "layout(location=3) in vec4 aMat; layout(location=4) in vec3 aRest;\n"
+            + "uniform mat4 uMvp; uniform mat3 uRot; uniform vec4 uHeadA; uniform vec4 uHeadB; uniform float uPush;\n"
+            + "out vec3 vN; out vec3 vR; out vec3 vH; out float vEye; out vec4 vMat;\n"
+            + "void main(){ vec3 nn = normalize(aNor + vec3(1e-6)); gl_Position = uMvp * vec4(aPos + nn * uPush, 1.0); vN = uRot * nn;\n"
+            // the rest position: skin detail stays on the skin as it moves; in head units it places the face features
+            + "  vR = aRest; float lip = uHeadA.y - 0.61 * uHeadB.x;\n"
+            + "  float hy = aRest.y >= lip ? (aRest.y - uHeadA.y) / uHeadB.x : -0.61 + (aRest.y - lip) / uHeadB.z;\n"
+            + "  vH = vec3((aRest.x - uHeadA.x) / uHeadA.w, hy, (aRest.z - uHeadA.z) / uHeadB.y);\n"
+            + "  vEye = aEye; vMat = aMat; }\n";
+    static final String SKIN_FS = "#version 300 es\n"
+            + "precision highp float;\n"
+            + "in vec3 vN; in vec3 vR; in vec3 vH; in float vEye; in vec4 vMat; uniform vec4 uTone; uniform mat3 uRot; uniform vec4 uHeadB;\n"
+            + "uniform vec4 uCloth; uniform float uWeave; uniform vec4 uClipA; uniform vec4 uClipB; uniform vec4 uShoulder; uniform vec4 uElbow;\n"
+            // a garment's exact edges on the rest surface: neckline (front, back, scoop), hem, sleeve end; waist and cuff; shoe top
+            + "bool outside(vec3 r){ float kind = uClipA.x;\n"
+            + "  if (kind < 0.5) { vec3 ra = vec3(abs(r.x), r.y, r.z); vec3 ax = uElbow.xyz - uShoulder.xyz;\n"
+            + "    float along = dot(ra - uShoulder.xyz, ax) / dot(ax, ax);\n"
+            + "    float arm = smoothstep(0.85, 1.0, ra.x / max(0.01, uShoulder.x));\n"
+            + "    if (arm > 0.5 && along > uClipB.y) return true;\n"
+            + "    float front = smoothstep(-0.12, 0.12, r.z);\n"
+            + "    float neckline = mix(uClipA.z, uClipA.y + uClipA.w * min(1.0, abs(r.x) / 0.35), front);\n"
+            // away from the neck the fabric carries on over the shoulders
+            + "    neckline += 4.0 * max(0.0, abs(r.x) - mix(0.2, 0.26, uHeadB.w));\n"
+            + "    return r.y > neckline || r.y < uClipB.x; }\n"
+            + "  if (kind < 1.5) return r.y > uClipB.x || r.y < uClipB.z;\n"
+            + "  return r.y > uClipB.x; }\n"
+            + "out vec4 o;\n"
+            + "float h3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }\n"
+            + "float vnoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);\n"
+            + "  return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),\n"
+            + "             mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }\n"
+            + "vec3 wrapDiffuse(float ndl, vec3 w){ return clamp((vec3(ndl) + w) / (1.0 + w), 0.0, 1.0); }\n"
+            // the same brow, hairline and lip shapes as SkinMaterial, per pixel in head units
+            + "float brow(vec3 h, float fem){ float ax = abs(h.x); if (h.z < 0.35 || ax < 0.07 || ax > 0.6) return 0.0;\n"
+            + "  float u = (ax - 0.07) / 0.5; float arch = mix(0.045, 0.07, fem);\n"
+            + "  float c = 0.02 + mix(0.195, 0.215, fem) + arch * sin(3.14159 * min(1.0, u * 1.25)) - 0.05 * u * u;\n"
+            + "  float half_ = mix(0.042, 0.028, fem) * (1.0 - 0.55 * u * u) + 0.012 * (1.0 - u);\n"
+            // short hairs slanting out from the inner end: streaks of noise along that direction, a soft edge
+            + "  vec2 along = vec2(abs(h.x) * 1.0 - h.y * 0.35, h.y + abs(h.x) * 0.25);\n"
+            + "  float hairs = 0.45 + 0.55 * vnoise(vec3(along.x * 30.0, along.y * 420.0, 0.0));\n"
+            + "  float edge = (half_ - abs(h.y - c)) / 0.02 + 0.5 + 0.35 * (vnoise(vec3(h.xy * 120.0, 3.0)) - 0.5);\n"
+            + "  return smoothstep(0.0, 1.0, edge) * smoothstep(0.0, 0.12, u) * smoothstep(0.0, 0.2, 1.0 - u) * hairs; }\n"
+            + "float hairCap(vec3 h, float fem){ float ax = abs(h.x); float front = mix(0.63, 0.58, fem);\n"
+            + "  float back = smoothstep(0.35, -0.25, h.z); float line = front + (-0.85 - front) * back;\n"
+            + "  float temple = smoothstep(0.45, 0.6, ax) * smoothstep(-0.1, 0.3, h.z); line -= 0.35 * temple * (1.0 - back);\n"
+            + "  float ragged = 0.04 * (vnoise(vec3(h.x * 26.0, h.z * 26.0, 7.0)) - 0.5) + 0.02 * (vnoise(vec3(h.x * 90.0, h.z * 90.0, 1.0)) - 0.5);\n"
+            + "  float ear = smoothstep(0.55, 0.67, ax) * smoothstep(0.25, 0.05, abs(h.z + 0.05)) * smoothstep(0.42, 0.27, abs(h.y + 0.05));\n"
+            + "  return smoothstep(-0.02, 0.06, h.y - line - ragged) * (1.0 - ear); }\n"
+            + "float lips(vec3 h, float fem){ float w = mix(0.205, 0.215, fem); float dy = h.y + 0.61;\n"
+            + "  float ly = dy / (dy > 0.0 ? mix(0.085, 0.095, fem) : mix(0.1, 0.11, fem));\n"
+            + "  float lx = h.x / (w * (1.0 - 0.25 * clamp(ly * ly, 0.0, 1.0)));\n"
+            + "  float cupid = dy > 0.0 ? 0.25 * exp(-h.x * h.x * 180.0) : 0.0;\n"
+            + "  float r = lx * lx + ly * ly + cupid;\n"
+            + "  return (1.0 - smoothstep(0.75, 1.0, r)) * smoothstep(0.45, 0.62, h.z); }\n"
+            + "void main(){\n"
+            + "  vec3 n = normalize(vN); vec3 v = vec3(0.0, 0.0, 1.0); float fem = uHeadB.w;\n"
+            + "  float mat = vMat.x; float warm = vMat.y; float face = vMat.z;\n"
+            + "  vec3 alb = uTone.rgb; float rough = 0.5; float specK = 0.028; vec3 sss = vec3(0.45, 0.22, 0.14);\n"
+            + "  float detail = 1.0;\n"
+            + "  if (uCloth.a > 0.5 && outside(vR)) discard;\n"
+            + "  if (uCloth.a > 0.5) {\n"
+            // fabric: a fine weave (twill diagonals for denim), soft folds, no oily shine, a velvety sheen at grazing angles
+            + "    float tw = vnoise(vec3((vR.x + vR.y) * 220.0, (vR.y - vR.z) * 40.0, vR.z * 220.0));\n"
+            + "    float knit = vnoise(vR * 260.0);\n"
+            + "    float wv = mix(knit, tw, uWeave);\n"
+            + "    float fold = vnoise(vR * vec3(5.0, 1.6, 5.0));\n"
+            + "    alb = uCloth.rgb * (0.86 + 0.28 * wv) * (0.85 + 0.3 * fold);\n"
+            + "    if (uClipA.x > 1.5) { float sole = smoothstep(-4.08, -4.12, vR.y); alb = mix(alb, vec3(0.02), sole * 0.8); }\n"
+            + "    rough = 0.9; specK = 0.02; sss = vec3(0.12, 0.1, 0.1); detail = 0.0;\n"
+            + "    float e2 = 0.004; vec3 q2 = vR * 7.0;\n"
+            + "    float f0 = vnoise(q2); vec3 g2 = vec3(vnoise(q2 + vec3(e2*7.0,0,0)) - f0, vnoise(q2 + vec3(0,e2*7.0,0)) - f0, vnoise(q2 + vec3(0,0,e2*7.0)) - f0);\n"
+            + "    n = normalize(n - uRot * g2 * 6.0);\n"
+            + "  } else if (vEye > 0.5) {\n"
+            + "    float d = vEye - 2.0;\n"
+            + "    float iris = smoothstep(0.85, 0.875, d); float pupil = smoothstep(0.962, 0.972, d);\n"
+            + "    float fib = 0.7 + 0.3 * vnoise(vec3(atan(vR.x, vR.y) * 40.0, d * 90.0, 0.0));\n"
+            + "    vec3 sclera = vec3(0.47, 0.43, 0.39) * mix(1.0, 0.6, smoothstep(0.45, -0.5, d));\n"
+            + "    vec3 irisC = mix(vec3(0.035, 0.016, 0.008), vec3(0.10, 0.05, 0.02), smoothstep(0.95, 0.88, d)) * fib;\n"
+            + "    alb = mix(mix(sclera, irisC, iris), vec3(0.004), pupil); rough = 0.08; specK = 0.06; sss = vec3(0.1); detail = 0.0;\n"
+            + "  } else if (mat > 1.5) { alb = vec3(0.55, 0.52, 0.45); rough = 0.3; specK = 0.04; sss = vec3(0.2); detail = 0.0;\n"
+            + "  } else {\n"
+            + "    float blotch = vnoise(vR * 2.6) * 0.6 + vnoise(vR * 7.0) * 0.4;\n"
+            + "    alb *= 0.93 + 0.14 * blotch;\n"
+            + "    alb = mix(alb, alb * vec3(1.12, 0.9, 0.86), clamp(warm, 0.0, 1.0) * 0.45);\n"
+            // the head mask blends smoothly (per-vertex 1 head, 0.5 ear, 0 body), so edges never follow triangles
+            + "    float onHead = smoothstep(0.55, 0.95, face);\n"
+            + "    float lp = lips(vH, fem) * onHead;\n"
+            + "    alb = mix(alb, alb * vec3(0.62, 0.40, 0.42), lp); rough = mix(rough, 0.3, lp); specK = mix(specK, 0.055, lp);\n"
+            + "    vec3 hairC = vec3(0.010, 0.008, 0.007);\n"
+            + "    float b = brow(vH, fem) * onHead; float hc = hairCap(vH, fem) * smoothstep(0.0, 0.5, face) * smoothstep(-1.15, -0.95, vH.y);\n"
+            + "    float grain = 0.55 + 0.45 * vnoise(vR * vec3(160.0, 40.0, 160.0));\n"
+            + "    float hb = clamp(max(b * 0.85, hc * (0.8 + 0.2 * grain)), 0.0, 1.0);\n"
+            + "    alb = mix(alb, hairC * (0.6 + 0.8 * grain), hb);\n"
+            + "    rough = mix(rough, 0.8, hb); detail = 1.0 - hb;\n"
+            + "  }\n"
+            // fine pores: a small bend of the normal by a high-frequency noise on the rest surface
+            + "  if (detail > 0.0) { float e = 0.003; vec3 q = vR * 170.0;\n"
+            + "    float c0 = vnoise(q); vec3 g = vec3(vnoise(q + vec3(e*170.0,0,0)) - c0, vnoise(q + vec3(0,e*170.0,0)) - c0, vnoise(q + vec3(0,0,e*170.0)) - c0);\n"
+            + "    n = normalize(n - uRot * g * 0.22 * detail); }\n"
+            + "  vec3 L1 = normalize(vec3(-0.5, 0.55, 0.68)), L2 = normalize(vec3(0.75, 0.1, 0.45)), L3 = normalize(vec3(0.15, 0.45, -0.9));\n"
+            + "  vec3 c1 = vec3(2.3, 2.15, 2.0), c2 = vec3(0.38, 0.44, 0.55), c3 = vec3(0.9, 0.88, 0.85);\n"
+            + "  vec3 diff = c1 * wrapDiffuse(dot(n, L1), sss) + c2 * wrapDiffuse(dot(n, L2), sss);\n"
+            + "  float term = max(0.0, 1.0 - abs(dot(n, L1) * 2.2)) * 0.25; diff += c1 * term * vec3(0.45, 0.12, 0.06) * sss.r;\n"
+            + "  vec3 amb = mix(vec3(0.05, 0.04, 0.035), vec3(0.12, 0.13, 0.16), n.y * 0.5 + 0.5);\n"
+            + "  float fres = pow(1.0 - max(0.0, n.z), 5.0);\n"
+            + "  vec3 col = alb * (diff + amb);\n"
+            + "  float spec = 0.0;\n"
+            + "  for (int i = 0; i < 2; i++) { vec3 L = i == 0 ? L1 : L2; vec3 c = i == 0 ? c1 : c2; vec3 hh = normalize(L + v);\n"
+            + "    float ndh = max(0.0, dot(n, hh)); float ndl = max(0.0, dot(n, L));\n"
+            + "    float tight = pow(ndh, 2.0 / max(0.02, rough * rough * 0.35)); float broad = pow(ndh, 2.0 / max(0.05, rough * rough));\n"
+            + "    spec += c.r * (0.6 * tight + 0.4 * broad) * ndl; }\n"
+            + "  float F = specK + (1.0 - specK) * fres;\n"
+            + "  col += vec3(spec) * F * (vEye > 0.5 ? 3.0 : 1.0);\n"
+            + "  col += c3 * pow(1.0 - max(0.0, n.z), 3.0) * max(0.0, dot(n, L3) + 0.4) * 0.12 * (alb + 0.08);\n"
+            + "  if (uCloth.a > 0.5) col += alb * pow(1.0 - max(0.0, n.z), 2.0) * 0.35;\n"
+            + "  col = col / (1.0 + col);\n"
+            + "  o = vec4(pow(col * uTone.a, vec3(1.0 / 2.2)), 1.0); }\n";
+
     static final String FILL_VS = "#version 300 es\n"
             + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in float aEye;\n"
             + "uniform mat4 uMvp; uniform mat3 uRot; uniform float uPush; out vec3 vN; out float vEye;\n"

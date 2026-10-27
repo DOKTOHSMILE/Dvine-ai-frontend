@@ -158,6 +158,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
             prefs.edit().putInt("look_version", 2).putString("look_obi", obiLook.serialize())
                     .putString("look_ivie", ivieLook.serialize()).apply();
         }
+        if (prefs.getInt("look_version", 1) < 3) {
+            // v0.14: lifelike skin becomes the default look (the hologram stays a mode)
+            obiLook.style = Look.Style.SKIN;
+            ivieLook.style = Look.Style.SKIN;
+            prefs.edit().putInt("look_version", 3).putString("look_obi", obiLook.serialize())
+                    .putString("look_ivie", ivieLook.serialize()).apply();
+        }
         stage.setLook(false, obiLook);
         stage.setLook(true, ivieLook);
         talk.setTuning(false, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
