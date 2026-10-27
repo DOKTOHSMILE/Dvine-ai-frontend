@@ -63,6 +63,14 @@ public class OfflineBrainTest {
     }
 
     @Test
+    public void asksWhatAStatementItDoesNotFollowMeans() {
+        BrainAnswer a = brain.respond("the blue one goes sideways", "ivie");
+        assertFalse(a.answered);
+        assertTrue(a.listenAfter);
+        assertTrue(a.spoken(), a.spoken().contains("What do you mean by"));
+    }
+
+    @Test
     public void learnsAndRecallsAcrossRestart() throws Exception {
         assertTrue(say("remember that my brother's name is Tobi").contains("Tobi"));
         OfflineBrain again = TestPack.brain(dir);

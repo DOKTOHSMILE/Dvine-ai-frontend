@@ -1206,9 +1206,28 @@ public final class OfflineBrain {
             return new BrainAnswer(lines, false, true, "OFFLINE");
         }
         List<TurnLine> lines = new ArrayList<TurnLine>();
+        String said = text == null ? "" : text.trim().replaceAll("[.!]+$", "");
+        if (!asksSomething(raw, said) && said.length() > 0 && words(said) <= 10) {
+            // a statement or request it doesn't follow: ask what was meant rather than talk past it
+            lines.add(new TurnLine(speaker, "SAY", "I'm not sure I follow. What do you mean by \"" + said
+                    + "\"? Tell me a little more."));
+            BrainAnswer ask = new BrainAnswer(lines, false, true, "OFFLINE");
+            ask.listenAfter = true;
+            return ask;
+        }
         lines.add(new TurnLine(speaker, "THINK", thoughts ? "Hmm. Let me look through what I know." : null));
         lines.add(new TurnLine(speaker, "SAY", line));
         return new BrainAnswer(lines, false, true, "OFFLINE");
+    }
+
+    /** A question (a question mark, or a question word or auxiliary first), as opposed to a statement or request. */
+    private static boolean asksSomething(String raw, String text) {
+        if (raw != null && raw.trim().endsWith("?")) {
+            return true;
+        }
+        return text.toLowerCase(java.util.Locale.US).matches("^(who|what|whats|what's|when|where|why|how|which|whose|whom|"
+                + "is|are|was|were|do|does|did|can|could|will|would|should|shall|may|might|have|has|had|am|tell me|"
+                + "explain|define|describe|name|list|give me)\\b.*");
     }
 
     // ------------------------------------------------------------ helpers

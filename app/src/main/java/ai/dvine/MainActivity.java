@@ -124,6 +124,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private List<TurnLine> paused;
     private int playId;
     private Runnable afterPlay;
+    /** A word that only sounded like a name, waiting for the user's yes or no ("Did you mean Ivie?"). */
+    private ai.dvine.turn.Names.Hearing nameCheck;
+    /** The last thing drawn or formed, while it is on show: context for the model. */
+    private String lastDrawn;
 
     private boolean awaitingName;
     private int nameTries;
@@ -213,6 +217,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        ai.dvine.turn.Names.restore(prefs.getString("name_aliases", null)); // spellings the user confirmed as a name
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
         ambient = new AmbientPad();
@@ -384,7 +389,32 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (text == null || text.trim().isEmpty()) {
             return;
         }
-        text = ai.dvine.turn.Names.normalize(text); // "Evie", "Ivy", "Obie": the names as recognition hears them
+        if (nameCheck != null) { // the answer to "Did you mean Ivie?"
+            ai.dvine.turn.Names.Hearing pending = nameCheck;
+            nameCheck = null;
+            Boolean yes = ai.dvine.turn.Names.yesNo(text);
+            if (yes != null) {
+                if (yes) {
+                    ai.dvine.turn.Names.learn(pending.word, pending.guess); // that spelling is the name from now on
+                } else {
+                    ai.dvine.turn.Names.notAName(pending.word);
+                }
+                prefs.edit().putString("name_aliases", ai.dvine.turn.Names.saved()).apply();
+                text = yes ? pending.suggested : pending.text;
+            }
+        }
+        if (!awaitingName) { // a name being given is taken as said
+            // "Evie", "Ivy", "Obie": the names as recognition hears them; a word that only sounds like one is asked about
+            ai.dvine.turn.Names.Hearing heard = ai.dvine.turn.Names.hear(text);
+            text = heard.text;
+            String own = brain.userName();
+            if (heard.word != null && (own == null || !own.equalsIgnoreCase(heard.word))) {
+                nameCheck = heard;
+                stage.activity("VOICE", text.trim());
+                play(LocalTurn.speakAs(stage.isIvie(), heard.question()), this::startListening);
+                return;
+            }
+        }
         askId++; // a newer question makes any desk answer still on its way stale
         if (discussion != null) {
             discussion.cancel(); // the user interrupts: queued turns are dropped
@@ -591,7 +621,33 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (reply.needsOnline && askDesk(asked, reply)) {
             return;
         }
-        play(reply.lines, reply.listenAfter ? this::startListening : null);
+        if (model != null && plain(reply)) {
+            model.note(asked, spoken(reply.lines)); // so the model reads what follows in the light of it
+        }
+        play(reply.lines, reply.listenAfter || endsInQuestion(reply.lines) ? this::startListening : null);
+    }
+
+    private static String spoken(List<TurnLine> said) {
+        StringBuilder b = new StringBuilder();
+        for (TurnLine l : said) {
+            if ("SAY".equals(l.cue) && l.text != null) {
+                b.append(b.length() == 0 ? "" : " ").append(l.text);
+            }
+        }
+        return b.toString();
+    }
+
+    /** A reply that ends by asking the user something: the microphone opens for the answer. */
+    private static boolean endsInQuestion(List<TurnLine> said) {
+        return spoken(said).trim().endsWith("?");
+    }
+
+    /** Who is on screen, what was just discussed and what is on show, for the model ({@link ai.dvine.llm.PersonaPrompt#situation}). */
+    private String situation(boolean ivie) {
+        int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        String part = hour < 5 ? "night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 21 ? "evening" : "night";
+        return ai.dvine.llm.PersonaPrompt.situation(ivie, examiner.lastTopic(), stage.pictureShown() ? lastDrawn : null,
+                part, connectivity != null && connectivity.isOnline());
     }
 
     // ------------------------------------------------------------ the on-device language model
@@ -665,9 +721,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (look) {
             stage.setThought(ivie ? "Let me check the latest on that…" : "Checking what's current…");
         }
+        final String around = situation(ivie);
         modelThread.execute(() -> {
             final String reference = look && id == askId ? ai.dvine.llm.FreshFacts.lookUp(question) : null;
-            final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference);
+            final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
             final ai.dvine.llm.SpeechChunker chunker = new ai.dvine.llm.SpeechChunker();
             final String all = model.reply(system, question, context, 220, text -> {
                 if (id != askId) {
@@ -695,6 +752,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 } else if (!rest.isEmpty()) {
                     stream.add(new TurnLine(agent, "SAY", rest));
                 }
+                if (all != null && all.trim().endsWith("?")) {
+                    afterPlay = this::startListening; // it asked something: listen for the answer
+                }
                 streamOpen = false;
             });
         });
@@ -715,6 +775,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.setThought((online ? "Finding a picture of " : "Building ") + subject + "\u2026");
         stage.setMode(FaceMode.THINKING);
         stage.activity("DRAW", subject);
+        lastDrawn = subject;
         modelThread.execute(() -> {
             ai.dvine.render.field.Shape picture = null;
             boolean solid = false;
