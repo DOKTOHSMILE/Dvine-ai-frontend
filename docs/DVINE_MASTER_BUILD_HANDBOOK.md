@@ -1011,9 +1011,11 @@ The looks are now the sheets': Obi with his short curly afro, Ivie bald, both in
 **The agent.** For anything the offline brain can't do exactly, the downloaded brain reads the words first. It writes five lines: INTENT (question, request, prompt or chat), MEANS, TASK, TARGET and INTERNET. DVINE checks whether it can do the task here (`Capabilities`) and says honestly why not when it can't. It then carries the task out: it acts, or looks up, or answers. It keeps the phrase and the command it led to (`LearnedIntents`, on the phone only), so next time it needs no brain. A reading whose target has nothing to do with the words is not acted on. Each step is written at the top of the screen in small text, and older lines fade and blur away like smoke. "Debate X" has Obi argue for and Ivie against, over six turns.
 
 **Drawings that are right.** "Draw a cat" once drew a building: the small brain's plan was wrong and the reply used it. Now:
-- The things people ask for most have hand-made plans (`render/field/Blueprints`, 35 of them, with synonyms). Each plan is a list of named parts with exact sizes (`w46 h20 d20` in the 100-unit canvas). Animals and vehicles are seen from the side, facing right. `near` / `far` put legs and wheels on either side, and parts hug round surfaces. They draw at once, brain or not.
-- For anything else the brain plans the parts. When online and allowed, it first reads the thing's Wikipedia description (`PictureFinder.describe`). The plan is checked (`DrawPrompt.usable`: at least three parts, two different names, no walls and roof for something that isn't a building), with one stricter retry.
+- Nothing is built in (0.26.1): no item has a stored plan. The brain writes every plan itself from what it finds online.
+- The brain plans the parts. When online and allowed, it first reads the thing's Wikipedia description (`PictureFinder.describe`). The plan is checked (`DrawPrompt.usable`: at least three parts, two different names, no walls and roof for something that isn't a building), with one stricter retry.
 - The reply names what the user asked for, never what the brain wrote.
+
+**Turning it, in any words (0.26.1).** `ShapeCommand.view` reads stop / freeze / hold it still, spin horizontally or side to side or to the left, rotate vertically, up to down, top to bottom or tumble, faster / slower, turn or tilt by degrees ("a quarter", "a bit", "upside down"), and views (top, bottom, left, right, back, front, reset the view). Words it doesn't know go to the brain with DVINE's list of commands (`agent/ViewIntent`); the one it picks is checked against the list, carried out, and remembered for next time.
 
 **Part by part.** A 3D drawing is kept as its parts. `PartEdit` understands:
 - take out / remove / hide

@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config;
 public class GltfTest {
     @Test
     public void exportsAGameReadyGlbWithJoints() throws Exception {
-        SolidSpec cat = Blueprints.forSubject("cat");
+        SolidSpec cat = TestPlans.of("cat");
         byte[] glb = Gltf.glb(cat, "cat");
         java.nio.ByteBuffer b = java.nio.ByteBuffer.wrap(glb).order(java.nio.ByteOrder.LITTLE_ENDIAN);
         assertEquals(0x46546C67, b.getInt(0)); // "glTF"
