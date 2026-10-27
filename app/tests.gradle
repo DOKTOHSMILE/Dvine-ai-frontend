@@ -37,3 +37,10 @@ tasks.register('generateHumanAssets', JavaExec) {
     args "$projectDir/src/main/assets/human"
     maxHeapSize = '2g'
 }
+
+// After changing the engine's C++ (src/main/cpp), refresh the ready-built copy that builds without the NDK ship:
+// gradle :app:assembleDebug :app:refreshNativeEngine
+tasks.register('refreshNativeEngine', Copy) {
+    from "$buildDir/intermediates/stripped_native_libs/debug/stripDebugDebugSymbols/out/lib/arm64-v8a/libdvine_llm.so"
+    into "$projectDir/src/main/jniLibs/arm64-v8a"
+}
