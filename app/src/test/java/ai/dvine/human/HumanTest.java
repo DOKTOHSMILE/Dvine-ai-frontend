@@ -62,7 +62,11 @@ public class HumanTest {
                 assertTrue(Regions.key(id), seen[id] || id == Regions.HAIR && !a.female);
             }
         }
-        assertTrue("female asset has hair", ivie.lines.length > obi.lines.length);
+        int puff = 0;
+        for (int v = 0; v < ivie.mesh.vertexCount(); v++) {
+            puff += (ivie.mesh.region[v] & 0xff) == Regions.HAIR ? 1 : 0;
+        }
+        assertTrue("Ivie has her afro puffs", puff > 500);
     }
 
     @Test

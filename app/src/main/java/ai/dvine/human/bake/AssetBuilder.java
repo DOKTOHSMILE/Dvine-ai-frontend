@@ -79,7 +79,10 @@ public final class AssetBuilder {
         TriMesh eyeMeshL = eye(1);
         TriMesh eyeMeshR = eye(-1);
         TriMesh teeth = teeth();
-        TriMesh solid = TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth);
+        // Ivie's hair: two afro puffs on top (a centre part and sleek sides are drawn on the scalp)
+        TriMesh puffs = female && look.hair > 0.05f ? puffs() : null;
+        TriMesh solid = puffs != null ? TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth, puffs) : TriMesh.merge(body, eyeMeshL, eyeMeshR, teeth);
+        int puffStart = body.vertexCount() + eyeMeshL.vertexCount() + eyeMeshR.vertexCount() + teeth.vertexCount();
         int solidCount = solid.vertexCount();
         int eyeStart = body.vertexCount();
         int teethStart = eyeStart + eyeMeshL.vertexCount() + eyeMeshR.vertexCount();
@@ -88,9 +91,6 @@ public final class AssetBuilder {
         int irisStart = solidCount + linePos.size();
         int irisL = irisRing(1);
         int irisR = irisRing(-1);
-        if (female && look.hair > 0.05f) {
-            hair();
-        }
         TriMesh m = appendLines(solid);
         m.buildEdges();
 
@@ -114,7 +114,8 @@ public final class AssetBuilder {
         boolean[] face = new boolean[m.vertexCount()];
         for (int v = 0; v < m.vertexCount(); v++) {
             boolean eyeball = v >= eyeStart && v < teethStart;
-            face[v] = !eyeball && (v >= body.vertexCount() || (m.bone0[v] & 0xff) == DotBody.HEAD);
+            boolean puff = v >= puffStart && v < solidCount;
+            face[v] = !eyeball && !puff && (v >= body.vertexCount() || (m.bone0[v] & 0xff) == DotBody.HEAD);
         }
         float[] jaw = new float[m.vertexCount()];
         java.util.Arrays.fill(jaw, -1f);
@@ -540,51 +541,46 @@ public final class AssetBuilder {
         return linePos.size() - before;
     }
 
-    /** Ivie's hair: strands sweeping back from the hairline over the head and streaming out behind it. */
-    private void hair() {
-        float grow = 0.05f + 0.03f * look.hair;
-        // the shell the strands lie on: just outside the skull's own extent (head units)
-        float rx = skullHalfWidth + grow, ry = skullTop - 0.26f + grow, rz = skullBack + grow * 1.6f;
-        int strands = 90;
-        float flow = 1.3f + 0.7f * look.hair;
-        for (int k = 0; k < strands; k++) {
-            float u = -0.86f + 1.72f * (k + 0.5f) / strands + 0.02f * noise(k * 5);
-            float side = (float) Math.sqrt(1f - u * u);
-            float start = (float) Math.toRadians(52f + 14f * Math.abs(u) + 6f * noise(k * 5 + 1));
-            float end = (float) Math.toRadians(168f + 10f * noise(k * 5 + 2));
-            float lift = 1.01f + 0.015f * noise(k * 5 + 3);
-            List<float[]> pts = new ArrayList<float[]>();
-            List<Float> sw = new ArrayList<Float>();
-            float lx = 0, ly = 0, lz = 0;
-            for (int i = 0; i <= 14; i++) {
-                float a = start + (end - start) * i / 14f;
-                float x = u * rx * lift * (1f - 0.12f * i / 14f);
-                float y = 0.26f + side * (float) Math.sin(a) * ry * lift;
-                float z = -0.16f + side * (float) Math.cos(a) * rz * lift;
-                pts.add(toBody(x, y, z));
-                sw.add(0f);
-                lx = x;
-                ly = y;
-                lz = z;
+    /**
+     * Ivie's hairstyle: two big afro puffs high on the head, either side of a centre part.
+     * Each is a closed, lumpy sphere (coily texture as large and small bumps) riding the head
+     * bone; its size follows the Look's hair amount.
+     */
+    private TriMesh puffs() {
+        List<TriMesh> parts = new ArrayList<TriMesh>();
+        float r = 0.46f + 0.06f * Math.min(2f, look.hair);
+        for (int side = -1; side <= 1; side += 2) {
+            TriMesh m = Shapes.icosphere(3);
+            int n = m.vertexCount();
+            m.region = new byte[n];
+            m.bone0 = new byte[n];
+            m.bone1 = new byte[n];
+            m.weight0 = new float[n];
+            float cx = side * (skullHalfWidth * 0.56f), cy = skullTop - 0.12f, cz = -0.1f;
+            for (int i = 0; i < n; i++) {
+                float x = m.pos[i * 3], y = m.pos[i * 3 + 1], z = m.pos[i * 3 + 2];
+                // clumps of coils: a few large lobes and many small ones
+                float bump = 0.07f * lobes(x * 3.1f + side, y * 3.1f, z * 3.1f) + 0.035f * lobes(x * 7.3f, y * 7.3f + side, z * 7.3f);
+                float rr = r * (1f + bump);
+                float[] b = toBody(cx + x * rr * 1.02f, cy + y * rr * 0.92f, cz + z * rr);
+                m.pos[i * 3] = b[0];
+                m.pos[i * 3 + 1] = b[1];
+                m.pos[i * 3 + 2] = b[2];
+                m.region[i] = (byte) Regions.HAIR;
+                m.bone0[i] = (byte) DotBody.HEAD;
+                m.bone1[i] = (byte) DotBody.HEAD;
+                m.weight0[i] = 1f;
             }
-            float len = flow * (0.75f + 0.45f * (noise(k * 5 + 4) + 1f) * 0.5f);
-            // long hair streaming back and out, in waves, as if in a breeze
-            for (int i = 1; i <= 16; i++) {
-                float t = i / 16f;
-                float wave = 0.07f * t * (float) Math.sin(t * 7f + k * 0.9f);
-                float x = lx * (1f + 0.5f * t) + 0.08f * t * noise(k * 7) + wave * 0.5f;
-                float droop = 0.35f + 0.3f * noise(k * 7 + 2) + 0.25f * Math.abs(u);
-                float y = ly - droop * len * t * t + 0.12f * t * noise(k * 7 + 1) + wave;
-                float z = lz - len * t * (1f - 0.12f * t);
-                pts.add(toBody(x, y, z));
-                sw.add(t * len);
-            }
-            int first = linePos.size();
-            addStrip(pts, Regions.HAIR, 0f, false);
-            for (int i = 0; i < sw.size(); i++) {
-                lineSway.set(first + i, sw.get(i) * head.sy);
-            }
+            m.computeNormals();
+            parts.add(m);
         }
+        return TriMesh.merge(parts.toArray(new TriMesh[0]));
+    }
+
+    /** Smooth lumps in -1..1 (a few sine products), for the puffs' clumped coils. */
+    private static float lobes(float x, float y, float z) {
+        return (float) (Math.sin(x * 1.7 + 0.3) * Math.sin(y * 1.9 + 1.1) * Math.sin(z * 1.3 + 2.0)
+                + 0.5 * Math.sin(x * 2.9 + y * 1.3 + 0.7) * Math.sin(z * 3.1 - x * 0.7));
     }
 
     private void addStrip(List<float[]> pts, int region, float sway, boolean closed) {

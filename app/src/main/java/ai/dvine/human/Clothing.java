@@ -82,7 +82,75 @@ public final class Clothing {
                 new float[]{2f, 0f, 0f, 0f, top, 0f, -99f},
                 select(a, (r, x, y, z, along) -> (r == Regions.FOOT_L || r == Regions.FOOT_R || r == Regions.SHIN_L
                         || r == Regions.SHIN_R) && y < top + m)));
+        if (!f) {
+            // Obi's cut: short coily hair on top with a sharp line-up, and a full beard; both have thickness
+            final ai.dvine.human.bake.HeadFrame head = ai.dvine.human.bake.HeadFrame.of(a);
+            out.add(new Garment("hair", rgb(0.006f, 0.005f, 0.0045f), 0.07f, 0f, new float[]{3f, 0f, 0f, 0f, 0f, 0f, 0f},
+                    selectHead(a, head, h -> topHair(h[0], h[1], h[2], 0.1f))));
+            out.add(new Garment("beard", rgb(0.006f, 0.005f, 0.0045f), 0.032f, 0f, new float[]{4f, 0f, 0f, 0f, 0f, 0f, 0f},
+                    selectHead(a, head, h -> beard(h[0], h[1], h[2], 0.05f))));
+        }
         return out.toArray(new Garment[0]);
+    }
+
+    /**
+     * Obi's top hair in head units (the shader trims with the same shape, margin 0): above a straight
+     * line-up at the forehead with square temple corners, and above a high fade on the sides and back.
+     */
+    public static boolean topHair(float x, float y, float z, float margin) {
+        float ax = Math.abs(x);
+        float front = z > 0.25f && ax < 0.52f ? 0.63f : 0.44f; // the line-up across the forehead; the fade's top elsewhere
+        return y > front - margin;
+    }
+
+    /** Obi's full beard in head units: jaw, chin and cheeks below a cheek line, the moustache, not the lips. */
+    public static boolean beard(float x, float y, float z, float margin) {
+        float ax = Math.abs(x);
+        if (z < -0.15f - margin || y < -1.13f - margin) {
+            return false;
+        }
+        if (ax > 0.68f + margin) {
+            return false;
+        }
+        return y < cheekLine(ax) + margin;
+    }
+
+    /** Where the beard meets the bare cheek (head units): over the upper lip, down across the cheek, up to the sideburn. */
+    public static float cheekLine(float ax) {
+        float t = Math.max(0f, Math.min(1f, (ax - 0.12f) / 0.5f));
+        float dip = (float) Math.sin(Math.PI * t) * 0.12f;
+        return -0.43f + 0.42f * t * t * (3f - 2f * t) - dip;
+    }
+
+    interface HeadRule {
+        boolean covers(float[] headUnits);
+    }
+
+    private static int[] selectHead(HumanAsset a, ai.dvine.human.bake.HeadFrame head, HeadRule rule) {
+        int[] tri = a.mesh.tri;
+        float[] p = a.mesh.pos;
+        byte[] reg = a.mesh.region;
+        int skin = a.eyeRange[0] > 0 ? a.eyeRange[0] : a.mesh.vertexCount();
+        int[] buf = new int[tri.length];
+        int n = 0;
+        for (int t = 0; t < tri.length; t += 3) {
+            int i0 = tri[t], i1 = tri[t + 1], i2 = tri[t + 2];
+            if (i0 >= skin || i1 >= skin || i2 >= skin) {
+                continue;
+            }
+            int r = majority(reg[i0], reg[i1], reg[i2]);
+            if (r > Regions.NECK || r == Regions.EAR_L || r == Regions.EAR_R) {
+                continue;
+            }
+            float[] h = head.toHead((p[i0 * 3] + p[i1 * 3] + p[i2 * 3]) / 3f, (p[i0 * 3 + 1] + p[i1 * 3 + 1] + p[i2 * 3 + 1]) / 3f,
+                    (p[i0 * 3 + 2] + p[i1 * 3 + 2] + p[i2 * 3 + 2]) / 3f);
+            if (rule.covers(h)) {
+                buf[n++] = i0;
+                buf[n++] = i1;
+                buf[n++] = i2;
+            }
+        }
+        return java.util.Arrays.copyOf(buf, n);
     }
 
     interface Rule {

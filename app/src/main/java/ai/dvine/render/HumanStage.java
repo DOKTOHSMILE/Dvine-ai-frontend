@@ -405,7 +405,10 @@ public final class HumanStage {
             float headY = h.rig.joint[ai.dvine.face.nano.DotBody.HEAD * 3 + 1] + 0.3f;
             HumanInstance other = inst[1 - slot];
             if (t < touchUntil && (slot == 1) == ivie) {
-                h.rig.lookAt(touchAt[0], touchAt[1], touchAt[2] + 0.4f, 1f);
+                // a glance down at the spot: mostly the eyes and a small nod, so the face stays in view
+                float[] l = h.toRig(touchAt[0], touchAt[1], touchAt[2]);
+                float hy = h.rig.joint[ai.dvine.face.nano.DotBody.HEAD * 3 + 1];
+                h.rig.lookAt(l[0], hy + (l[1] - hy) * 0.45f, l[2] + 1.2f, 0.5f);
             } else if (demo && other != null && scene.actor[1 - slot].present && !actor.walking
                     && (ai.dvine.human.scene.DualScene.MEET.equals(scene.arrangement()) || (slot == 1) != ivie)) {
                 // face to face they look at each other; side by side the listener turns to the one speaking
@@ -526,7 +529,12 @@ public final class HumanStage {
                 || r == Regions.FOREARM_L || r == Regions.FOREARM_R || r == Regions.CHEST || r == Regions.BELLY) {
             // the opposite hand comes to the spot (a hand on the chest uses the right hand)
             int side = leftSide ? -1 : 1;
-            h.rig.reachTo(side, touch.world[0], touch.world[1], touch.world[2] + 0.08f, 1.8f);
+            // the reach places the wrist: just below and in front of the spot, so the palm (not the fingertips) covers it
+            float[] at = h.toRig(touch.world[0], touch.world[1], touch.world[2]);
+            boolean front = r == Regions.CHEST || r == Regions.BELLY;
+            float sx = Math.signum(at[0]);
+            float[] n = front ? new float[]{0f, 0f, 1f} : new float[]{0.8f * sx, 0f, 0.6f}; // out of the skin
+            h.rig.reachTo(side, at[0] + n[0] * 0.12f, at[1] - 0.32f + n[1] * 0.12f, at[2] + n[2] * 0.12f + 0.06f, 1.8f);
         }
         if (touch.kind == BodyTouch.Kind.REPEAT && touch.count >= 3) {
             face[ivie ? 1 : 0].setExpression("surprise", 2f, time);
