@@ -34,6 +34,13 @@ public final class ParticleField {
         }
     }
 
+    private boolean calm;
+
+    /** Calm particles hold still and steady (for words, which must read crisply); the default shimmers. */
+    public void setCalm(boolean on) {
+        calm = on;
+    }
+
     public int capacity() {
         return capacity;
     }
@@ -63,7 +70,19 @@ public final class ParticleField {
                 targetColor[i * 4 + 1] = s.rgb[k * 3 + 1];
                 targetColor[i * 4 + 2] = s.rgb[k * 3 + 2];
                 targetColor[i * 4 + 3] = 1f;
-                if (color[i * 4 + 3] < 0.02f) {
+                if (calm) {
+                    // words switch in place (a quick fade), they don't fly: a moving letter can't be read
+                    pos[i * 3] = target[i * 3];
+                    pos[i * 3 + 1] = target[i * 3 + 1];
+                    pos[i * 3 + 2] = target[i * 3 + 2];
+                    vel[i * 3] = vel[i * 3 + 1] = vel[i * 3 + 2] = 0f;
+                    color[i * 4] = targetColor[i * 4];
+                    color[i * 4 + 1] = targetColor[i * 4 + 1];
+                    color[i * 4 + 2] = targetColor[i * 4 + 2];
+                    if (color[i * 4 + 3] < 0.02f) {
+                        color[i * 4 + 3] = 0.35f;
+                    }
+                } else if (color[i * 4 + 3] < 0.02f) {
                     // a particle joining the picture starts from a random point of it, a little out of place
                     int r = random.nextInt(Math.max(1, n));
                     int kr = s.count <= capacity ? r : (int) ((long) r * s.count / n);
@@ -87,7 +106,7 @@ public final class ParticleField {
     public void step(float dt) {
         dt = Math.max(0f, Math.min(dt, 0.05f));
         time += dt;
-        final float k = 38f, damping = 9.5f, fade = Math.min(1f, dt * 5f);
+        final float k = 38f, damping = 9.5f, fade = Math.min(1f, dt * (calm ? 14f : 5f));
         for (int i = 0; i < capacity; i++) {
             boolean live = targetColor[i * 4 + 3] > 0.01f;
             for (int a = 0; a < 3; a++) {
@@ -120,10 +139,11 @@ public final class ParticleField {
                 continue;
             }
             float ph = phase[i];
-            float tw = 0.75f + 0.25f * (float) Math.sin(time * 2.3f + ph * 3f);
+            float tw = calm ? 0.95f : 0.75f + 0.25f * (float) Math.sin(time * 2.3f + ph * 3f);
+            float jitter = calm ? 0f : 0.004f;
             int o = n * STRIDE;
-            out[o] = pos[i * 3] + 0.004f * (float) Math.sin(time * 1.7f + ph);
-            out[o + 1] = pos[i * 3 + 1] + 0.004f * (float) Math.cos(time * 1.3f + ph * 1.7f);
+            out[o] = pos[i * 3] + jitter * (float) Math.sin(time * 1.7f + ph);
+            out[o + 1] = pos[i * 3 + 1] + jitter * (float) Math.cos(time * 1.3f + ph * 1.7f);
             out[o + 2] = pos[i * 3 + 2];
             out[o + 3] = color[i * 4];
             out[o + 4] = color[i * 4 + 1];

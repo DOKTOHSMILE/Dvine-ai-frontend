@@ -95,4 +95,29 @@ public class ParticleDisplayTest {
         assertEquals(Integer.valueOf(0xFFFFFFFF), DrawSpec.Palette.colour("#fff"));
         assertNull(DrawSpec.Palette.colour("sparkly"));
     }
+
+    @Test
+    public void wordsSwitchInPlaceInsteadOfFlying() {
+        ParticleField f = new ParticleField(1000);
+        f.setCalm(true);
+        f.show(square(80, 900));
+        f.step(1f / 60f);
+        assertTrue("already in place", f.settle() < 1e-4f);
+        f.show(square(60, 900)); // the next percent, the next sentence
+        f.step(1f / 60f);
+        assertTrue("still in place: " + f.settle(), f.settle() < 1e-4f);
+        float[] out = new float[1000 * ParticleField.STRIDE];
+        int n = f.pack(out);
+        float y0 = out[1];
+        f.step(1f / 60f);
+        f.pack(out);
+        assertEquals("no shimmer on words", y0, out[1], 0f);
+        assertTrue(n > 0);
+    }
+
+    @Test
+    public void samplesAsDenselyAsTheBudgetAllows() {
+        Shape s = square(100, 1000); // 2500 lit pixels, 1000 allowed: a step of about 1.6, not 2
+        assertTrue("" + s.count, s.count > 800 && s.count <= 1100);
+    }
 }

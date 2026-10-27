@@ -342,6 +342,24 @@ public final class StageView extends View implements Choreographer.FrameCallback
         burst(14);
     }
 
+    /** A thing built in 3D, turning slowly above the persona; it stays while it's being worked on. */
+    public void showSolid(ai.dvine.render.field.Shape solid, String what) {
+        if (human == null || solid == null || solid.count == 0) {
+            return;
+        }
+        human.display.drawing(what, solid, 90f, true);
+        burst(14);
+    }
+
+    /** A change to the thing on show ("make it bigger"); false when nothing is shown. */
+    public boolean changePicture(ai.dvine.render.field.ShapeCommand c) {
+        return human != null && c != null && human.display.apply(c);
+    }
+
+    public boolean pictureShown() {
+        return human != null && human.display.drawingShown();
+    }
+
     /** Clears a drawing the particles formed. */
     public void clearDrawing() {
         if (human != null) {
@@ -364,7 +382,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         if (!java.util.Objects.equals(cap, shownCaption)) {
             shownCaption = cap;
             d.caption(cap, cap == null ? null
-                    : ai.dvine.render.field.Raster.text(cap, 0xFFE4E8EA, ai.dvine.render.field.ParticleDisplay.CAPTION_POINTS, 2f, 3));
+                    : ai.dvine.render.field.Raster.text(cap, 0xFFE4E8EA, ai.dvine.render.field.ParticleDisplay.CAPTION_POINTS, 2f, 4));
         }
         String th = wire && thoughtShown > 0.3f ? (thought == null ? "\u2022  \u2022  \u2022" : thought) : null;
         if (!java.util.Objects.equals(th, shownThought)) {
@@ -472,7 +490,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         }
         if (why != null) {
             fallbackReported = true;
-            setSubtitle(why + ", so I'm drawing myself in dots. Say \"status report\" for details.");
+            setSubtitle(why + ", so I'm showing a simpler version of me. Say \"status report\" for details.");
         }
     }
 

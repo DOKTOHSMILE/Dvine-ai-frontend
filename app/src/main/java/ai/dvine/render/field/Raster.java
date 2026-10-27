@@ -20,18 +20,19 @@ public final class Raster {
 
     /** Words as particles: wrapped to {@code maxLines}, centred, {@code width} units across. */
     public static Shape text(String words, int color, int maxPoints, float width, int maxLines) {
-        int w = 900, h = 120 * maxLines;
+        int w = 1100, h = 104 * maxLines;
         Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(b);
         TextPaint p = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         p.setColor(color);
-        p.setTextSize(86f);
+        p.setTextSize(84f);
         p.setFakeBoldText(true);
+        p.setLetterSpacing(0.01f);
         StaticLayout l = StaticLayout.Builder.obtain(words, 0, words.length(), p, w - 20).setAlignment(Layout.Alignment.ALIGN_CENTER)
                 .setMaxLines(maxLines).setEllipsize(android.text.TextUtils.TruncateAt.END).build();
         c.translate(10f, Math.max(0f, (h - l.getHeight()) / 2f));
         l.draw(c);
-        return sample(b, maxPoints, width, 0.03f);
+        return sample(b, maxPoints, width, 0f); // flat: words read crisply only on one plane
     }
 
     /**
@@ -72,7 +73,7 @@ public final class Raster {
         t.setFakeBoldText(false);
         t.setLetterSpacing(0f);
         c.drawText(ellipsize(detail, t, w - 40f), 20f, 260f, t);
-        return sample(b, maxPoints, width, 0.05f);
+        return sample(b, maxPoints, width, 0f);
     }
 
     /** A drawing the language model described, {@code width} units across. */

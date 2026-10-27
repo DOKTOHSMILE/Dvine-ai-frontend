@@ -58,18 +58,42 @@ public class NativeBridgeTest {
         LocalModel m = new LocalModel(f.getParentFile(), new ModelSpec("test", f.getName(), "", f.length(), "", "Apache 2.0"), true);
         assertTrue(m.load(4));
         String out = System.getenv("DVINE_DRAW_OUT");
-        for (String subject : new String[]{"a helicopter", "a lighthouse", "a cat", "a house with a tree", "a snowman", "a sailing boat"}) {
+        for (String subject : new String[]{"a helicopter", "a lighthouse", "a cat", "a car", "a rocket", "a sailing boat"}) {
             long t0 = System.nanoTime();
             String shapes = m.task(DrawPrompt.system(), DrawPrompt.user(subject), 360, null);
             System.out.println("NATIVE draw took " + (System.nanoTime() - t0) / 1000000 + " ms " + m.problem());
-            ai.dvine.render.field.DrawSpec d = DrawPrompt.read(shapes);
-            System.out.println("NATIVE draw " + subject + ": " + d.items.size() + " shapes\n" + shapes);
-            assertTrue(subject, d.items.size() >= 4);
+            ai.dvine.render.field.SolidSpec d = DrawPrompt.read(shapes);
+            System.out.println("NATIVE draw " + subject + ": " + d.parts.size() + " parts\n" + shapes);
+            assertTrue(subject, d.parts.size() >= 3);
             if (out != null) {
                 java.nio.file.Files.write(new File(out, subject.replace(' ', '_') + ".txt").toPath(), shapes.getBytes("UTF-8"));
             }
         }
         // drawing doesn't enter the conversation
         assertTrue(m.historySize() == 0);
+    }
+
+    @Test
+    public void trustsWhatTheUserTaughtOverItsTraining() throws Exception {
+        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        if (lib == null || gguf == null) {
+            return;
+        }
+        assertTrue(NativeLlm.loadFrom(lib));
+        File f = new File(gguf);
+        LocalModel m = new LocalModel(f.getParentFile(), new ModelSpec("test", f.getName(), "", f.length(), "", "Apache 2.0"), true);
+        assertTrue(m.load(4));
+        String sys = PersonaPrompt.system(false, "Val", "Tuesday 27 October 2026");
+        String before = m.reply(sys, "Who is the president of the United States? Just the name.", 60, null);
+        System.out.println("NATIVE before: " + before);
+        m.forget();
+        String context = PersonaPrompt.context(java.util.Arrays.asList("the president of the united states is Donald Trump, since January 2025"), null);
+        String after = m.reply(sys, "Who is the president of the United States? Just the name.", context, 60, null);
+        System.out.println("NATIVE after: " + after);
+        assertTrue(after, after.contains("Trump"));
+        String year = m.reply(sys, "What year is it?", null, 40, null);
+        System.out.println("NATIVE year: " + year);
+        assertTrue(year, year.contains("2026"));
+        assertTrue(m.historySize() == 4); // the context isn't remembered, the questions are
     }
 }

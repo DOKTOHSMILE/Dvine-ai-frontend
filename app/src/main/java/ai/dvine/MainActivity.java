@@ -402,12 +402,36 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         final String asked = reading.rewritten ? reading.resolved : text;
-        if (asked.toLowerCase(java.util.Locale.US).matches("^(clear|hide|remove|erase|delete) (the |your |that )?(drawing|picture|sketch|image)$")) {
-            stage.clearDrawing();
-            play(LocalTurn.speakAs(stage.isIvie(), "Cleared."), null);
+        final boolean modelReady = model != null && model.ready() && prefs.getBoolean("llm_on", true);
+        String lowAsked = asked.toLowerCase(java.util.Locale.US);
+        if (lowAsked.matches("^(do not|don'?t|stop|never) (look|looking|check|checking) (things |anything )?(up )?online.*")) {
+            prefs.edit().putBoolean("fresh_facts", false).apply();
+            play(LocalTurn.speakAs(stage.isIvie(), "Alright. I won't look anything up online; I'll answer from what I know and what you teach me."), null);
+            return;
+        }
+        if (lowAsked.matches("^(you can |please )?(look|check) (things |anything )?up online( again)?$|^(start|keep) (looking|checking) (things )?up online$")) {
+            prefs.edit().putBoolean("fresh_facts", true).apply();
+            play(LocalTurn.speakAs(stage.isIvie(), "Okay. When we're online, I'll check the latest before answering questions about the world."), null);
+            return;
+        }
+        // changing the thing on show: "make it bigger", "spin it", "make it red", "scatter it", "clear it"
+        ai.dvine.render.field.ShapeCommand change = stage.pictureShown() ? ai.dvine.render.field.ShapeCommand.parse(asked) : null;
+        if (change != null && stage.changePicture(change)) {
+            play(LocalTurn.speakAs(stage.isIvie(), changeLine(change.op)), null);
+            return;
+        }
+        ai.dvine.create.ObjectRequestInterpreter.Request known = creation.parse(asked, stage.objectShown());
+        if (known != null && known.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT && known.detail != null && modelReady) {
+            askDrawing(known.detail, true); // something the creation engine can't model: the language model plans it in 3D
             return;
         }
         if (create(asked)) {
+            return;
+        }
+        String formWhat = ai.dvine.llm.DrawPrompt.formSubject(asked);
+        if (formWhat != null && modelReady && ai.dvine.face.nano.Forms.objectFor(asked.toLowerCase(java.util.Locale.US)) == null
+                && ai.dvine.face.Sketch.forRequest(asked.toLowerCase(java.util.Locale.US)) == null) {
+            askDrawing(formWhat, true);
             return;
         }
         ai.dvine.turn.DualAgentCoordinator.Request both = ai.dvine.turn.DualAgentCoordinator.parse(asked);
@@ -428,6 +452,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         stage.activity("ANSWER", reply.answered ? "from " + reply.source.toLowerCase(java.util.Locale.US) : "not in my notes yet");
         engine.setPersona(stage.agent(), now);
+        if ("MODEL_RESET".equals(reply.command) && model != null) {
+            model.forget(); // a correction: the model's old answer shouldn't stay in its conversation
+        }
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
         }
@@ -511,7 +538,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         boolean canDraw = model != null && model.ready() && prefs.getBoolean("llm_on", true)
                 || connectivity != null && connectivity.isOnline();
         if (drawWhat != null && !"DRAW".equals(reply.source) && canDraw) {
-            askDrawing(drawWhat);
+            askDrawing(drawWhat, ai.dvine.llm.DrawPrompt.in3d(asked));
             return;
         }
         // knowledge and conversation go to the language model when it's installed; commands, maths, time, memory,
@@ -588,10 +615,23 @@ public final class MainActivity extends Activity implements StageListener, Liste
         index = 0;
         afterPlay = null;
         step(playId);
-        final String system = ai.dvine.llm.PersonaPrompt.system(ivie, brain.userName());
+        final String system = ai.dvine.llm.PersonaPrompt.system(ivie, brain.userName(),
+                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()));
+        final java.util.List<String> taught;
+        synchronized (brain) {
+            taught = brain.taughtFor(question, 6);
+        }
+        // a question about the world, online: a fresh reference, since the model's training is older
+        final boolean look = prefs.getBoolean("fresh_facts", true) && connectivity != null && connectivity.isOnline()
+                && ai.dvine.llm.FreshFacts.worthLooking(question);
+        if (look) {
+            stage.setThought(ivie ? "Let me check the latest on that…" : "Checking what's current…");
+        }
         modelThread.execute(() -> {
+            final String reference = look && id == askId ? ai.dvine.llm.FreshFacts.lookUp(question) : null;
+            final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference);
             final ai.dvine.llm.SpeechChunker chunker = new ai.dvine.llm.SpeechChunker();
-            final String all = model.reply(system, question, 220, text -> {
+            final String all = model.reply(system, question, context, 220, text -> {
                 if (id != askId) {
                     return false;
                 }
@@ -624,49 +664,88 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * "Draw me a lighthouse" with no built-in form: online, a reference picture of it (Wikipedia's lead image) becomes
-     * the particles; offline (or when none is found), the language model plans it as parts and shapes. The particles
-     * form it beside the persona.
+     * "Draw me a lighthouse" with no built-in form: online, a reference picture of it (Wikipedia's lead image) is
+     * formed; otherwise (or for "in 3D", "build me a dragon", "form a star") the language model plans it as 3D
+     * parts and it is built in the stage, turning slowly. Off the main thread; any new input cancels it.
      */
-    private void askDrawing(final String subject) {
+    private void askDrawing(final String subject, final boolean solidOnly) {
         final int id = ++askId;
         final boolean ivie = stage.isIvie();
-        final boolean online = connectivity != null && connectivity.isOnline();
+        final boolean online = !solidOnly && connectivity != null && connectivity.isOnline();
+        final boolean modelOk = model != null && model.ready();
         stopPlay();
-        stage.setThought((online ? "Finding a picture of " : "Sketching ") + subject + "\u2026");
+        stage.setThought((online ? "Finding a picture of " : "Building ") + subject + "\u2026");
         stage.setMode(FaceMode.THINKING);
         stage.activity("DRAW", subject);
         modelThread.execute(() -> {
             ai.dvine.render.field.Shape picture = null;
-            boolean photo = false;
+            boolean solid = false;
             if (online) {
                 android.graphics.Bitmap bm = ai.dvine.render.field.Raster.decode(ai.dvine.render.field.PictureFinder.find(subject));
                 if (bm != null && id == askId) {
                     picture = ai.dvine.render.field.Raster.image(bm, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
-                    photo = picture.count > 200;
+                    if (picture.count < 200) {
+                        picture = null;
+                    }
                 }
             }
-            if (!photo && id == askId && model != null && model.ready()) {
+            if (picture == null && id == askId && modelOk) {
                 String planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.user(subject), 360, text -> id == askId);
-                ai.dvine.render.field.DrawSpec d = ai.dvine.llm.DrawPrompt.read(planned);
-                picture = d.items.size() < 2 ? null : ai.dvine.render.field.Raster.drawing(d, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
+                ai.dvine.render.field.SolidSpec plan = ai.dvine.llm.DrawPrompt.read(planned, subject);
+                if (plan.parts.size() >= 2) {
+                    picture = plan.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
+                    solid = true;
+                } else {
+                    ai.dvine.render.field.DrawSpec flat = ai.dvine.render.field.DrawSpec.parse(planned);
+                    picture = flat.items.size() < 2 ? null
+                            : ai.dvine.render.field.Raster.drawing(flat, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
+                }
             }
-            final ai.dvine.render.field.Shape shown = photo || picture != null && picture.count > 0 ? picture : null;
-            final boolean fromPhoto = photo;
+            final ai.dvine.render.field.Shape shown = picture != null && picture.count > 0 ? picture : null;
+            final boolean built = solid;
             handler.post(() -> {
                 if (id != askId || isFinishing()) {
                     return;
                 }
                 stage.setThought(null);
                 if (shown == null) {
-                    play(LocalTurn.speakAs(ivie, "I tried to draw " + subject + ", but it didn't come out right. Ask me again?"), null);
+                    play(LocalTurn.speakAs(ivie, modelOk || online ? "I tried to make " + ai.dvine.llm.DrawPrompt.article(subject)
+                            + ", but it didn't come out right. Ask me again?"
+                            : "I need my language model for that. Say download your brain, and I'll be able to build anything you ask."), null);
                     return;
                 }
-                stage.showPicture(shown, subject);
-                play(LocalTurn.speakAs(ivie, "Here's " + ai.dvine.llm.DrawPrompt.article(subject)
-                        + (fromPhoto ? ", from a picture I found online, made of particles." : ", drawn in particles. It's a rough sketch.")), null);
+                String line = built ? "Here's a rough 3D sketch of " + ai.dvine.llm.DrawPrompt.article(subject) + "."
+                        : "Here's " + ai.dvine.llm.DrawPrompt.article(subject) + ".";
+                if (built) {
+                    stage.showSolid(shown, subject);
+                    if (!shapeHintGiven) {
+                        shapeHintGiven = true;
+                        line += " You can say spin it, make it bigger, make it red, or scatter it.";
+                    }
+                } else {
+                    stage.showPicture(shown, subject);
+                }
+                play(LocalTurn.speakAs(ivie, line), null);
             });
         });
+    }
+
+    private boolean shapeHintGiven;
+
+    private static String changeLine(ai.dvine.render.field.ShapeCommand.Op op) {
+        switch (op) {
+            case BIGGER: return "Bigger.";
+            case SMALLER: return "Smaller.";
+            case SPIN: return "Spinning.";
+            case STOP: return "Holding it still.";
+            case TURN: return "Here's the other side.";
+            case COLOUR: return "Done.";
+            case SCATTER: return "Boom.";
+            case GATHER: return "Back together.";
+            case CLEAR: return "Cleared.";
+            case RESET: return "Back to how it was.";
+            default: return "There.";
+        }
     }
 
     /** Loads the installed model in the background; {@code tell} says so aloud when it's ready. */

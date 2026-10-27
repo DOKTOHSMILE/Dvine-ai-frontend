@@ -32,13 +32,16 @@ public final class Shape {
         if (lit == 0 || maxPoints <= 0) {
             return EMPTY;
         }
-        int stride = Math.max(1, (int) Math.ceil(Math.sqrt(lit / (double) maxPoints)));
+        // as fine a grid as the budget allows (a fractional step, so the points sit as close as they can)
+        float step = (float) Math.max(1.0, Math.sqrt(lit / (double) maxPoints) * 1.02);
         float scale = width / w;
         float[] xyz = new float[Math.min(lit, maxPoints * 2) * 3 + 3], rgb = new float[xyz.length];
-        int n = 0;
-        for (int y = 0; y < h; y += stride) {
+        int n = 0, row = 0;
+        for (float fy = 0f; fy < h; fy += step, row++) {
+            int y = (int) fy;
             // stagger alternate rows so the points don't read as a grid
-            for (int x = (y / stride) % 2 == 0 ? 0 : stride / 2; x < w; x += stride) {
+            for (float fx = row % 2 == 0 ? 0f : step / 2f; fx < w; fx += step) {
+                int x = (int) fx;
                 int p = argb[y * w + x];
                 if (!litPixel(p)) {
                     continue;

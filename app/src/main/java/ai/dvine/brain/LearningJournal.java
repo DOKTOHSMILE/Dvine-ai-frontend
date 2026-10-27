@@ -219,6 +219,25 @@ public final class LearningJournal {
         return MiniJson.write(body);
     }
 
+    /**
+     * A taught fact as one sentence: "the president of nigeria is Bola Tinubu", "tinubu became president in 2023",
+     * or a note as it was said.
+     */
+    public static String sentence(String key, String answer) {
+        String k = key == null ? "" : key.trim(), a = answer == null ? "" : answer.trim();
+        String nk = normalizeKey(k), na = normalizeKey(a);
+        if (nk.isEmpty() || na.startsWith(nk) || FactCorrection.keyOf(a).equals(nk)) {
+            return a;
+        }
+        if (nk.startsWith("the answer to ")) {
+            return "the answer to \"" + k.substring("the answer to ".length()) + "\" is " + a;
+        }
+        if (nk.matches(".* (is|are|was|were|has|have|had|became|becomes|lives|died|won|means)$")) {
+            return k + " " + a;
+        }
+        return k + " is " + a;
+    }
+
     public static String normalizeKey(String key) {
         if (key == null) {
             return "";

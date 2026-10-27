@@ -322,6 +322,8 @@ public final class WireRenderer {
         float[] data = new float[0];
         final float[] place = {0f, 0f, 0f, 1f};
         float size = 3f;
+        /** Words: a crisp dot with a clean edge instead of a soft glow. */
+        boolean crisp;
     }
 
     private final Field[] fields = {new Field(), new Field(), new Field(), new Field()};
@@ -333,6 +335,7 @@ public final class WireRenderer {
      */
     public void setField(int layer, float[] packed, int count, boolean screen, float x, float y, float z, float scale, float size) {
         Field f = fields[layer];
+        f.crisp = layer != FIELD_DRAWING;
         synchronized (lock) {
             int n = count * ai.dvine.render.field.ParticleField.STRIDE;
             if (f.data.length < n) {
@@ -394,7 +397,7 @@ public final class WireRenderer {
                 gl.enable(GlApi.DEPTH_TEST);
             }
             gl.uniform4f(gl.uniform(p, "uPlace"), f.place[0], f.place[1], f.place[2], f.place[3]);
-            gl.uniform4f(gl.uniform(p, "uMode"), f.screen ? 1f : 0f, f.size, 0f, 0f);
+            gl.uniform4f(gl.uniform(p, "uMode"), f.screen ? 1f : 0f, f.size, f.crisp ? 1f : 0f, 0f);
             gl.bindBuffer(GlApi.ARRAY_BUFFER, f.vbo);
             gl.vertexAttrib(0, 3, 28, 0);
             gl.vertexAttrib(1, 4, 28, 12);
@@ -429,10 +432,10 @@ public final class WireRenderer {
             + "  vCol = aCol; }\n";
     static final String FIELD_FS = "#version 300 es\n"
             + "precision mediump float;\n"
-            + "in vec4 vCol; out vec4 o;\n"
-            // a soft glowing dot with a bright core
+            + "in vec4 vCol; uniform highp vec4 uMode; out vec4 o;\n"
+            // a soft glowing dot with a bright core; for words a crisp round dot with a clean edge
             + "void main(){ vec2 c = gl_PointCoord * 2.0 - 1.0; float d = dot(c, c); if (d > 1.0) discard;\n"
-            + "  float a = (exp(-d * 3.0) * 0.8 + exp(-d * 12.0) * 0.6) * vCol.a;\n"
+            + "  float a = (uMode.z > 0.5 ? (1.0 - smoothstep(0.45, 1.0, d)) * 0.95 : exp(-d * 3.0) * 0.8 + exp(-d * 12.0) * 0.6) * vCol.a;\n"
             + "  o = vec4(vCol.rgb * a, a); }\n";
 
     /** The cartoon look (Ghibli style) for the lifelike bodies and a painted backdrop instead of the studio. */
@@ -528,6 +531,7 @@ public final class WireRenderer {
 
     public void onDraw(long nanos) {
         stats.frame(nanos);
+        seconds = (nanos % 3_600_000_000_000L) / 1e9f;
         synchronized (lock) {
             copy(pendingCamera, camera);
             for (Slot s : slots) {
@@ -1045,8 +1049,12 @@ public final class WireRenderer {
     }
 
     /** The lifelike look's set: a charcoal studio backdrop lit from above, and a glowing teal floor of linked rings. */
+    /** Seconds, for the backdrop's slow drift. */
+    private float seconds;
+
     private void drawStudio() {
         gl.useProgram(studioProg);
+        gl.uniform1f(gl.uniform(studioProg, "uTime"), seconds);
         gl.uniformMatrix4(gl.uniform(studioProg, "uMvp"), camera.mvp);
         gl.uniform1f(gl.uniform(studioProg, "uFloor"), floorY);
         gl.uniform1f(gl.uniform(studioProg, "uPaint"), toon ? 1f : 0f);
@@ -1577,30 +1585,47 @@ public final class WireRenderer {
             + "  else { gl_Position = uMvp * vec4(aP.x, uFloor, aP.y, 1.0); vS = gl_Position.xy / gl_Position.w; } }\n";
     static final String STUDIO_FS = "#version 300 es\n"
             + "precision highp float;\n"
-            + "in vec2 vP; in vec2 vS; uniform float uMode; uniform vec4 uFeet; uniform vec4 uFeetOn; uniform float uPaint; out vec4 o;\n"
+            + "in vec2 vP; in vec2 vS; uniform float uMode; uniform vec4 uFeet; uniform vec4 uFeetOn; uniform float uPaint; uniform float uTime; out vec4 o;\n"
             + "float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n"
             + "float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);\n"
             + "  return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y); }\n"
             + "float fbm(vec2 p){ return 0.5 * n2(p) + 0.27 * n2(p * 2.1 + 3.0) + 0.15 * n2(p * 4.3 + 7.0) + 0.08 * n2(p * 8.7); }\n"
+            // the cartoon studio's wall at a screen point (shared by the floor, which melts into it at the horizon)
+            + "vec3 wallAt(vec2 s){\n"
+            + "  vec3 col = mix(vec3(0.075, 0.17, 0.19), vec3(0.03, 0.055, 0.085), smoothstep(-0.6, 1.0, s.y));\n"
+            + "  vec2 g = s - vec2(0.0, 0.05); float glow = exp(-dot(g * vec2(1.1, 0.75), g * vec2(1.1, 0.75)) * 2.2);\n"
+            + "  col += vec3(0.04, 0.3, 0.24) * glow * 0.55;\n"
+            + "  vec2 w = s - vec2(-1.05, 0.15); col += vec3(0.42, 0.2, 0.06) * exp(-dot(w * vec2(1.0, 0.7), w * vec2(1.0, 0.7)) * 2.6) * 0.45;\n"
+            + "  float haze = fbm(s * vec2(1.4, 2.2) + vec2(uTime * 0.012, uTime * 0.006));\n"
+            + "  col *= 0.86 + 0.28 * haze;\n"
+            // the hexagons: thin edges, faint, strongest high up and gone toward the floor
+            + "  vec2 h = s * vec2(9.0, 9.0 * 1.1547) + vec2(0.0, uTime * 0.01); vec2 r = vec2(1.0, 1.7320508); vec2 hh = r * 0.5;\n"
+            + "  vec2 a1 = mod(h, r) - hh, b1 = mod(h - hh, r) - hh; vec2 gv = dot(a1, a1) < dot(b1, b1) ? a1 : b1;\n"
+            + "  vec2 av = abs(gv); float edge = 0.5 - max(dot(av, normalize(vec2(1.0, 1.7320508))), av.x);\n"
+            + "  float line = 1.0 - smoothstep(0.0, 0.04 + fwidth(edge) * 1.5, edge);\n"
+            + "  col += vec3(0.1, 0.55, 0.45) * line * 0.06 * smoothstep(-0.3, 0.9, s.y) * (0.5 + haze);\n"
+            + "  col *= 1.0 - 0.35 * smoothstep(0.7, 1.5, length(s * vec2(0.9, 0.7)));\n"
+            + "  col *= 0.97 + 0.05 * n2(gl_FragCoord.xy * 0.7);\n"
+            + "  return col; }\n"
             + "void main(){\n"
-            // the painted look: a navy watercolour wash in swirling brush strokes, a golden glow behind the figures,
-            // the ground the same wash a little darker, soft shadows under the feet
+            // the cartoon studio (after the character sheets): deep slate fading to teal, an emerald glow behind the
+            // figures and a warm amber light from the left, a slow drifting haze and a faint hexagon lattice; the floor
+            // dark and glossy with a glowing ring around each figure's feet and soft contact shadows
             + "  if (uPaint > 0.5) {\n"
-            + "    vec2 q = uMode < 0.5 ? vS * vec2(1.6, 2.4) : vP * 0.35;\n"
-            + "    float sw = fbm(q * 1.3 + vec2(fbm(q * 0.8) * 2.2, fbm(q * 0.8 + 5.0) * 2.2));\n"
-            + "    vec3 navy = mix(vec3(0.05, 0.07, 0.2), vec3(0.17, 0.22, 0.42), sw);\n"
-            + "    float strokes = n2(vec2(q.x * 2.0 + q.y * 6.0, q.y * 1.2)) * 0.12;\n"
-            + "    navy *= 0.92 + strokes;\n"
-            + "    vec2 g = vS - vec2(-0.12, 0.42); float glow = exp(-dot(g * vec2(1.4, 1.0), g * vec2(1.4, 1.0)) * 3.2) * (0.6 + 0.6 * fbm(vS * 3.0));\n"
-            + "    vec3 col = mix(navy, vec3(0.98, 0.82, 0.55), clamp(glow, 0.0, 1.0) * (uMode < 0.5 ? 0.9 : 0.35));\n"
-            + "    if (uMode > 0.5) {\n"
-            + "      col *= 0.7;\n"
-            + "      vec2 e0 = vP - uFeet.xy, e1 = vP - uFeet.zw;\n"
-            + "      float shp = max(uFeetOn.x * exp(-dot(e0, e0) / 1.6), uFeetOn.y * exp(-dot(e1, e1) / 1.6));\n"
-            + "      col *= 1.0 - 0.55 * shp;\n"
-            + "    }\n"
-            + "    col *= 0.94 + 0.08 * n2(gl_FragCoord.xy * 0.7);\n"
-            + "    o = vec4(col, 1.0); return;\n"
+            + "    if (uMode < 0.5) { o = vec4(wallAt(vS), 1.0); return; }\n"
+            + "    float far = clamp(1.0 - length(vP) / 20.0, 0.0, 1.0);\n"
+            // dark and glossy close by, rising toward the wall's own colour at the horizon so there is no seam
+            + "    vec3 fl = mix(wallAt(vS) * 0.92, vec3(0.025, 0.06, 0.075), smoothstep(0.0, 0.8, far));\n"
+            + "    fl *= 0.9 + 0.2 * fbm(vP * 0.25);\n"
+            + "    vec2 e0 = vP - uFeet.xy, e1 = vP - uFeet.zw; float l0 = length(e0), l1 = length(e1);\n"
+            // the glowing stage ring and a soft emerald pool inside it
+            + "    float ring = uFeetOn.x * exp(-pow((l0 - 1.45) / 0.05, 2.0)) + uFeetOn.y * exp(-pow((l1 - 1.45) / 0.05, 2.0));\n"
+            + "    float ring2 = uFeetOn.x * exp(-pow((l0 - 1.9) / 0.03, 2.0)) + uFeetOn.y * exp(-pow((l1 - 1.9) / 0.03, 2.0));\n"
+            + "    float pool = uFeetOn.x * exp(-l0 * l0 / 2.4) + uFeetOn.y * exp(-l1 * l1 / 2.4);\n"
+            + "    fl += vec3(0.06, 0.73, 0.5) * ring * 0.75 + vec3(0.43, 0.9, 0.72) * ring2 * 0.25 + vec3(0.03, 0.22, 0.17) * pool * 0.6;\n"
+            + "    float sh = max(uFeetOn.x * (0.6 * exp(-l0 * l0 / 1.2) + 0.4 * exp(-l0 * l0 / 0.25)), uFeetOn.y * (0.6 * exp(-l1 * l1 / 1.2) + 0.4 * exp(-l1 * l1 / 0.25)));\n"
+            + "    fl *= 1.0 - min(0.85, sh);\n"
+            + "    o = vec4(fl, 1.0); return;\n"
             + "  }\n"
             // the backdrop: charcoal, a soft pool of light high behind the figures, darker toward the corners
             + "  vec2 c = vS - vec2(0.0, 0.35); float pool = exp(-dot(c * vec2(0.9, 1.3), c * vec2(0.9, 1.3)) * 1.6);\n"

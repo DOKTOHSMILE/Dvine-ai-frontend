@@ -1,9 +1,5 @@
 package ai.dvine.render.field;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,38 +39,11 @@ public final class PictureFinder {
     /** The picture's bytes, or null when offline, not found, or too large. */
     public static byte[] find(String subject) {
         try {
-            byte[] reply = get(searchUrl(subject, 480));
+            byte[] reply = ai.dvine.net.WebGet.get(searchUrl(subject, 480), TIMEOUT_MS, MAX_BYTES);
             String src = reply == null ? null : thumbnail(new String(reply, "UTF-8"));
-            return src == null ? null : get(src);
-        } catch (java.io.IOException | RuntimeException e) {
+            return src == null ? null : ai.dvine.net.WebGet.get(src, TIMEOUT_MS, MAX_BYTES);
+        } catch (java.io.UnsupportedEncodingException e) {
             return null;
-        }
-    }
-
-    private static byte[] get(String url) throws java.io.IOException {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(TIMEOUT_MS);
-        c.setReadTimeout(TIMEOUT_MS);
-        c.setRequestProperty("User-Agent", "DVINE/0.22 (https://github.com/DOKTOHSMILE/Dvine-ai-frontend; drawing references)");
-        c.setInstanceFollowRedirects(true);
-        try {
-            if (c.getResponseCode() != 200) {
-                return null;
-            }
-            try (InputStream in = c.getInputStream()) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                byte[] b = new byte[16384];
-                int n;
-                while ((n = in.read(b)) > 0) {
-                    out.write(b, 0, n);
-                    if (out.size() > MAX_BYTES) {
-                        return null;
-                    }
-                }
-                return out.toByteArray();
-            }
-        } finally {
-            c.disconnect();
         }
     }
 }
