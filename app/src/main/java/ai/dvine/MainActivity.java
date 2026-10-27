@@ -76,6 +76,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private List<TurnLine> lines = new ArrayList<TurnLine>();
     private int index;
+    /** Dual-AI: the discussion in progress (cancelled by any new input), and lines held by "pause". */
+    private ai.dvine.turn.DualAgentCoordinator discussion;
+    private List<TurnLine> paused;
     private int playId;
     private Runnable afterPlay;
 
@@ -270,6 +273,24 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         askId++; // a newer question makes any desk answer still on its way stale
+        if (discussion != null) {
+            discussion.cancel(); // the user interrupts: queued turns are dropped
+            discussion = null;
+        }
+        String said = text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        if (said.matches("^(pause|hold on|wait|hang on)( please)?$") && index < lines.size()) {
+            paused = new ArrayList<TurnLine>(lines.subList(Math.max(0, index - 1), lines.size()));
+            stopPlay();
+            stage.setMode(FaceMode.LISTENING);
+            return;
+        }
+        if (said.matches("^(resume|continue|go on|carry on)( please)?$") && paused != null) {
+            List<TurnLine> rest = paused;
+            paused = null;
+            play(rest, null);
+            return;
+        }
+        paused = null;
         if (awaitingName) {
             takeName(text);
             return;
@@ -288,6 +309,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (create(text)) {
             return;
         }
+        ai.dvine.turn.DualAgentCoordinator.Request both = ai.dvine.turn.DualAgentCoordinator.parse(text);
+        if (both != null) {
+            discuss(both);
+            return;
+        }
         long now = android.os.SystemClock.uptimeMillis();
         engine.onHeard(text, now);
         TurnRoute route = LocalTurn.route(text, stage.agent());
@@ -295,7 +321,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
             play(route.lines, null);
             return;
         }
-        final BrainAnswer reply = brain.respond(text, stage.agent());
+        final BrainAnswer reply;
+        synchronized (brain) { // a cancelled discussion may still be finishing a turn on its thread
+            reply = brain.respond(text, stage.agent());
+        }
         engine.setPersona(stage.agent(), now);
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
@@ -448,6 +477,68 @@ public final class MainActivity extends Activity implements StageListener, Liste
      * shows, then plays its lines. If the server can't be reached the
      * offline answer plays instead. Returns false when offline.
      */
+    /**
+     * Dual-AI: both personas on stage, walking to face each other, while each answers through
+     * its own session (the offline brain as that persona, or that persona's own desk question
+     * online); the second hears the first. Runs off the main thread; any new input cancels it.
+     */
+    private void discuss(final ai.dvine.turn.DualAgentCoordinator.Request r) {
+        stopPlay();
+        stage.arrange("meet");
+        final String first = r.first != null ? r.first : stage.agent();
+        stage.setThought(first.equals("ivie") ? "Let me think, then Obi can weigh in…" : "Let me think, then Ivie can weigh in…");
+        stage.setMode(FaceMode.THINKING);
+        final boolean online = desk != null && connectivity != null && connectivity.isOnline() && serverUrl() != null
+                && serverUrl().trim().startsWith("https://");
+        final ai.dvine.turn.DualAgentCoordinator c = new ai.dvine.turn.DualAgentCoordinator(
+                agentFor("obi", online), agentFor("ivie", online));
+        discussion = c;
+        final int id = ++askId;
+        deskThread.execute(() -> {
+            final List<TurnLine> out = c.discuss(r.question, first, r.mode, null);
+            handler.post(() -> {
+                if (id != askId || discussion != c || isFinishing()) {
+                    return; // interrupted
+                }
+                play(out, () -> {
+                    if (discussion == c) {
+                        discussion = null;
+                    }
+                });
+            });
+        });
+    }
+
+    /** One persona's own answering session for a discussion. */
+    private ai.dvine.turn.DualAgentCoordinator.Agent agentFor(final String persona, final boolean online) {
+        return (question, heard) -> {
+            BrainAnswer a;
+            synchronized (brain) {
+                a = brain.respond(question, persona);
+            }
+            List<String> say = new ArrayList<String>();
+            if (a.needsOnline && online) {
+                List<TurnLine> d = desk.ask(question, persona);
+                if (d != null) {
+                    for (TurnLine l : d) {
+                        if ("SAY".equals(l.cue) && l.agent.equals(persona)) {
+                            say.add(l.text);
+                        }
+                    }
+                    if (!say.isEmpty()) {
+                        return new ai.dvine.turn.DualAgentCoordinator.Reply(say, true);
+                    }
+                }
+            }
+            for (TurnLine l : a.lines) {
+                if ("SAY".equals(l.cue)) {
+                    say.add(l.text);
+                }
+            }
+            return new ai.dvine.turn.DualAgentCoordinator.Reply(say, a.answered && !a.needsOnline);
+        };
+    }
+
     private boolean askDesk(final String text, final BrainAnswer offline) {
         if (desk == null || connectivity == null || !connectivity.isOnline() || serverUrl() == null
                 || !serverUrl().trim().startsWith("https://")) {
