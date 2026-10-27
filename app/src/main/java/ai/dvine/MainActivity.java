@@ -208,6 +208,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         brain.setLooks(obiLook, ivieLook);
         model = new ai.dvine.llm.LocalModel(new File(getFilesDir(), "models"), ai.dvine.llm.ModelSpec.QWEN3_1_7B,
                 ai.dvine.llm.LocalModel.cpuSupported(android.os.Build.SUPPORTED_ABIS, cpuinfo()));
+        reportModel();
         if (model.installed() && prefs.getBoolean("llm_on", true)) {
             loadModel(false);
         }
@@ -452,8 +453,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
-        if ((!reply.answered || reply.needsOnline) && plain(reply) && model != null && model.ready()
-                && prefs.getBoolean("llm_on", true) && askLocal(asked, reply)) {
+        // knowledge and conversation go to the language model when it's installed; commands, maths, time, memory,
+        // what the user taught and anything that acts stay with the offline brain (exact, and instant)
+        boolean modelTopic = (!reply.answered || reply.needsOnline || MODEL_SOURCES.contains(reply.source)) && plain(reply);
+        if (modelTopic && model != null && model.ready() && prefs.getBoolean("llm_on", true) && askLocal(asked, reply)) {
+            return;
+        }
+        if (modelTopic && offerModel(reply)) {
             return;
         }
         if (reply.needsOnline && askDesk(asked, reply)) {
@@ -463,6 +469,45 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     // ------------------------------------------------------------ the on-device language model
+
+    /** Answer sources the language model does better: dictionary, packed facts, wisdom, comfort, unknown questions. */
+    private static final java.util.Set<String> MODEL_SOURCES = new java.util.HashSet<String>(
+            java.util.Arrays.asList("DICT", "PACK", "WISDOM", "FACT", "CARE", "OFFLINE"));
+
+    /**
+     * Once, the first time a question would have gone to the language model but it isn't installed: the offline
+     * answer, then the offer to install it.
+     */
+    private boolean offerModel(BrainAnswer reply) {
+        if (model == null || model.installed() || prefs.getBoolean("llm_offered", false)
+                || model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED || model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING
+                || !ai.dvine.llm.NativeLlm.available()) {
+            return false;
+        }
+        prefs.edit().putBoolean("llm_offered", true).apply();
+        List<TurnLine> lines2 = new ArrayList<TurnLine>(reply.lines);
+        String agent = stage.isIvie() ? "ivie" : "obi";
+        lines2.add(new TurnLine(agent, "SAY", "By the way, I can answer questions like this much better with my own language model."
+                + " It runs on your phone, even offline, after a " + model.spec.sizeWords() + " download. Shall I install it?"));
+        confirmModelDownload = true;
+        play(lines2, this::startListening);
+        return true;
+    }
+
+    /** The model's state for the activity panel at start. */
+    private void reportModel() {
+        String line;
+        if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
+            line = model.problem();
+        } else if (!ai.dvine.llm.NativeLlm.available()) {
+            line = "not in this build (the native library didn't load)";
+        } else if (model.installed()) {
+            line = "starting " + model.spec.name;
+        } else {
+            line = "not installed: say \"download your brain\"";
+        }
+        stage.activity("MODEL", line);
+    }
 
     /**
      * The language model answers a question the offline brain couldn't: in the persona's voice, spoken sentence by

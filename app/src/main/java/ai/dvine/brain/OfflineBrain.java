@@ -891,6 +891,32 @@ public final class OfflineBrain {
                 "Words close to " + w.word + ": " + join(w.synonyms, 5) + ".", "DICT");
     }
 
+    /**
+     * A definition as a person would say it: "A school is an educational institution." for a noun, "To run means to
+     * move fast on foot." for a verb, no part-of-speech label; the example only when one was asked for.
+     */
+    static String spokenDefinition(KnowledgePack.Word w, boolean withExample) {
+        String meaning = w.meaning.trim().replaceAll("[.;\\s]+$", "");
+        if (meaning.isEmpty()) {
+            return capital(w.word) + ".";
+        }
+        String first = meaning.substring(0, 1).toLowerCase(java.util.Locale.US) + meaning.substring(1);
+        String pos = w.pos.toLowerCase(java.util.Locale.US);
+        String said;
+        if (pos.startsWith("noun") && !w.word.contains(" ") && first.matches("^(a|an|the|any|one|someone|something|people|the act)\\b.*")) {
+            String article = w.word.matches("(?i)^[aeiou].*") ? "An " : "A ";
+            said = article + w.word.toLowerCase(java.util.Locale.US) + " is " + first + ".";
+        } else if (pos.startsWith("verb") && first.startsWith("to ")) {
+            said = "To " + w.word.toLowerCase(java.util.Locale.US) + " means " + first + ".";
+        } else {
+            said = capital(w.word) + " means " + first + ".";
+        }
+        if (withExample && w.example.length() > 0) {
+            said += " For example: " + w.example.replaceAll("[.\\s]+$", "") + ".";
+        }
+        return said;
+    }
+
     private BrainAnswer definitions(String text, String speaker) {
         String t = stripQuestion(text);
         Matcher m = DEFINE.matcher(t);
@@ -913,15 +939,7 @@ public final class OfflineBrain {
             return null;
         }
         lastKey = LearningJournal.normalizeKey(word);
-        StringBuilder sb = new StringBuilder(capital(w.word));
-        if (w.pos.length() > 0) {
-            sb.append(", ").append(w.pos).append(",");
-        }
-        sb.append(" means ").append(w.meaning);
-        if (w.example.length() > 0) {
-            sb.append(" For example: ").append(w.example).append('.');
-        }
-        return think(speaker, "Let me check my dictionary.", sb.toString(), "DICT");
+        return think(speaker, "Let me check my dictionary.", spokenDefinition(w, text.contains("example") || text.contains("sentence")), "DICT");
     }
 
     /** Rough word stem so largest/large and biggest/big line up. */
