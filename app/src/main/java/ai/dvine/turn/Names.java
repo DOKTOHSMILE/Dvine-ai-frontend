@@ -16,7 +16,9 @@ public final class Names {
     private Names() {
     }
 
-    private static final Pattern IVIE = Pattern.compile("\\b(evie|evey|evee|eevee|eevie|ivee|ivey|ivy|ivi|iffy|evi)\\b",
+    private static final Pattern IVIE = Pattern.compile("\\b(eva|evie|evey|evee|eevee|eevie|ivee|ivey|ivy|ivi|iffy|evi)\\b",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern IBIKO = Pattern.compile("\\b(ibiko|ibeko|ebiko|ebeko|ibico|ibeco|ibeeko|ebeeko|i\\.?\\s?b\\.?\\s?ko|eboko|ibuko|abiko)\\b",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern OBI = Pattern.compile("\\b(obie|obee|oby|obbie|obi's|o\\.b\\.)\\b", Pattern.CASE_INSENSITIVE);
     /** "obey" only where a name is: at the start, after a greeting or a switch, or alone at the end after a comma. */
@@ -34,6 +36,7 @@ public final class Names {
                 s = s.replaceAll("(?i)\\b" + Pattern.quote(e.getKey()) + "\\b", e.getValue());
             }
         }
+        s = IBIKO.matcher(s).replaceAll("Ibiko");
         s = IVIE.matcher(s).replaceAll("Ivie");
         s = OBI.matcher(s).replaceAll("Obi");
         java.util.regex.Matcher m = OBEY.matcher(s);
@@ -49,7 +52,7 @@ public final class Names {
     private static final Pattern SWITCH = Pattern.compile(
             "^(?:(?:can you |could you |please |let me |i want to |i'd like to |i would like to )?"
                     + "(?:switch(?: back| over)? to|change to|go to|talk to|speak to|speak with|chat with|communicate with|bring(?: in| out| me)?|"
-                    + "call|get|show me|i want|give me|where is|where's)\\s+)(ivie|obi)\\b(.*)$");
+                    + "call|get|show me|i want|give me|where is|where's)\\s+)(ivie|obi|ibiko)\\b(.*)$");
 
     /**
      * The persona a request asks to bring forward ("switch to Ivie", "communicate with Ivie your other half", "let me
@@ -103,7 +106,7 @@ public final class Names {
 
     /** Real words close in sound that are almost never a name; never asked about. */
     private static final Set<String> COMMON = new HashSet<String>(java.util.Arrays.asList(
-            "obey", "evil", "even", "ever", "eves", "ivy", "ape", "apex", "obese", "oboe", "ova", "avid", "ebay",
+            "obey", "evil", "even", "ever", "eves", "ivy", "ape", "eva", "apex", "obese", "oboe", "ova", "avid", "ebay",
             "ovi", "abide", "obit", "orbit", "okay", "obs", "aye", "eye", "ive", "ivan", "ibis", "obvi"));
 
     /** Words after which a name sits: a greeting, a switch, "and", "thanks". */
@@ -141,6 +144,9 @@ public final class Names {
                 }
             }
             String suggested = text.substring(0, m.start()) + guess + text.substring(m.end());
+            if (switchTarget(suggested) != null) {
+                return new Hearing(suggested, null, null, null); // "switch to Ava": clearly a name, no need to ask
+            }
             return new Hearing(text, word, guess, suggested);
         }
         return new Hearing(text, null, null, null);

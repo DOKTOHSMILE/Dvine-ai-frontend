@@ -17,7 +17,7 @@ import java.util.Random;
  * </pre>
  * Each line: a part, its solid (sphere, oval, box, cylinder, cone, pyramid, ring, disc, line), its colour, where it
  * is (a place for the first; then on / above / below / left of / right of / in front of / behind / around an
- * earlier part, optionally "left" or "right" within it) and its size (tiny … huge; wide, tall, deep, long, flat,
+ * earlier part, optionally "left" or "right", "top" or "bottom", and "near" or "far" side within it) and its size (tiny … huge; wide, tall, deep, long, flat,
  * thin; sideways or forward for a cylinder's axis). The layout places the solids in a 100-unit cube and fills their
  * surfaces with lit points: a {@link Shape} about 2 units across, centred, y up. Pure Java.
  */
@@ -31,8 +31,11 @@ public final class SolidSpec {
         /** Centre and full size (canvas units, y down, z toward the viewer); axis 0 x, 1 y, 2 z. */
         public final float x, y, z, w, h, d;
         public final int axis;
+        /** The part it is placed against ("above body": the body), which it hangs from as a joint; null at the top. */
+        public final Part parent;
 
-        Part(String name, Solid solid, int colour, float x, float y, float z, float w, float h, float d, int axis) {
+        Part(String name, Solid solid, int colour, float x, float y, float z, float w, float h, float d, int axis, Part parent) {
+            this.parent = parent;
             this.name = name;
             this.solid = solid;
             this.colour = colour;
@@ -47,6 +50,40 @@ public final class SolidSpec {
     }
 
     public final List<Part> parts = new ArrayList<Part>();
+    /**
+     * The box it is fitted to (centre x, y, z and the longest side), fixed when it is first drawn so taking parts out
+     * or adding them doesn't make the rest jump or grow; null fits it to its own parts.
+     */
+    private float[] frame;
+
+    /** Fixes the frame to the parts as they are now (or keeps one already fixed); returns this. */
+    public SolidSpec fixFrame() {
+        if (frame == null && !parts.isEmpty()) {
+            float[] b = bounds();
+            frame = new float[]{b[0], b[1], b[2], b[3]};
+        }
+        return this;
+    }
+
+    /** This thing in the same frame as {@code other}, so the two line up. */
+    public SolidSpec inFrameOf(SolidSpec other) {
+        frame = other.frame == null ? null : other.frame.clone();
+        return this;
+    }
+
+    private float[] bounds() {
+        float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f, minZ = 1e9f, maxZ = -1e9f;
+        for (Part p : parts) {
+            minX = Math.min(minX, p.x - p.w / 2);
+            maxX = Math.max(maxX, p.x + p.w / 2);
+            minY = Math.min(minY, p.y - p.h / 2);
+            maxY = Math.max(maxY, p.y + p.h / 2);
+            minZ = Math.min(minZ, p.z - p.d / 2);
+            maxZ = Math.max(maxZ, p.z + p.d / 2);
+        }
+        return new float[]{(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2,
+                Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ))};
+    }
 
     public boolean isEmpty() {
         return parts.isEmpty();
@@ -64,11 +101,39 @@ public final class SolidSpec {
      * own (the subject doesn't have one) is left out.
      */
     public static SolidSpec parse(String text, String subject) {
-        SolidSpec out = new SolidSpec();
+        return parseOnto(new SolidSpec(), text, subject);
+    }
+
+    /**
+     * This thing with more parts added: {@code text} in the same line format, its places relative to the parts
+     * already here ("spoiler | box | black | above body | small wide"). The parts already here don't move.
+     */
+    public SolidSpec extend(String text) {
+        SolidSpec out = copy();
+        return parseOnto(out, text, null);
+    }
+
+    /** A copy (the parts themselves don't change, so they are shared). */
+    public SolidSpec copy() {
+        SolidSpec c = new SolidSpec();
+        c.parts.addAll(parts);
+        c.frame = frame == null ? null : frame.clone();
+        return c;
+    }
+
+    /** This part with a new colour or a new size (a factor across, up and deep), the same place. */
+    public static Part with(Part p, Integer colour, float kw, float kh, float kd) {
+        return new Part(p.name, p.solid, colour != null ? colour : p.colour, p.x, p.y, p.z, p.w * kw, p.h * kh, p.d * kd, p.axis, p.parent);
+    }
+
+    private static SolidSpec parseOnto(SolidSpec out, String text, String subject) {
         if (text == null) {
             return out;
         }
         Map<String, Part> placed = new HashMap<String, Part>();
+        for (Part p : out.parts) {
+            placed.putIfAbsent(p.name, p);
+        }
         for (String raw : text.split("\\r?\\n")) {
             String[] f = raw.replaceAll("^[-*\\d.)\\s]+", "").split("\\s*\\|\\s*");
             if (f.length < 4) {
@@ -137,12 +202,33 @@ public final class SolidSpec {
                         x += k * ref.w * 0.3f;
                     }
                 }
+                if (where.matches(".*,\\s*(top|bottom)\\b.*") && !rel.equals("above") && !rel.equals("below") && !rel.equals("under")
+                        && !rel.equals("on top of")) {
+                    y += (where.matches(".*,\\s*top\\b.*") ? -1f : 1f) * ref.h * 0.3f;
+                }
+                if (where.matches(".*,\\s*(near|far)\\b.*")) {
+                    // the near or far side of the other part: the legs and wheels you see, and the ones behind
+                    z = ref.z + (where.matches(".*,\\s*near\\b.*") ? 1f : -1f) * Math.max(0f, ref.d / 2 - d / 2 - 1);
+                }
+                if (ref.solid == Solid.SPHERE || ref.solid == Solid.ELLIPSOID) {
+                    // on a round part, off its middle the surface curves in: an eye high on the side of a head, or an
+                    // ear toward the near side of it, sits on the surface instead of floating beside it
+                    float ry = (y - ref.y) / Math.max(1f, ref.h / 2), rz = (z - ref.z) / Math.max(1f, ref.d / 2),
+                            rx = (x - ref.x) / Math.max(1f, ref.w / 2);
+                    if (rel.equals("left of") || rel.equals("right of")) {
+                        float curve = (float) Math.sqrt(Math.max(0.15f, 1f - ry * ry - rz * rz));
+                        x = ref.x + (rel.equals("left of") ? -1f : 1f) * (ref.w / 2 * curve + w / 2 - 1);
+                    } else if (rel.equals("above") || rel.equals("on top of") || rel.equals("below") || rel.equals("under")) {
+                        float curve = (float) Math.sqrt(Math.max(0.15f, 1f - rx * rx - rz * rz));
+                        y = ref.y + (rel.equals("below") || rel.equals("under") ? 1f : -1f) * (ref.h / 2 * curve + h / 2 - 1);
+                    }
+                }
             } else {
                 y = where.contains("top") ? 20 : where.contains("upper") ? 35 : where.contains("lower") ? 65 : where.contains("bottom") ? 80 : 50;
                 x = where.contains("left") ? 30 : where.contains("right") ? 70 : 50;
                 z = where.contains("front") ? 20 : where.contains("back") ? -20 : 0;
             }
-            Part p = new Part(name, solid, c != null ? c : 0xFFFFFFFF, x, y, z, w, h, d, axis);
+            Part p = new Part(name, solid, c != null ? c : 0xFFFFFFFF, x, y, z, w, h, d, axis, ref);
             out.parts.add(p);
             if (!placed.containsKey(name)) {
                 placed.put(name, p);
@@ -150,7 +236,7 @@ public final class SolidSpec {
             if (where.contains("both sides") || size.contains("both sides") || size.contains("pair")) {
                 // "wheels … both sides": the same part mirrored across the middle of the first part
                 Part first = out.parts.get(0);
-                out.parts.add(new Part(name, solid, p.colour, 2 * first.x - x, y, z, w, h, d, axis));
+                out.parts.add(new Part(name, solid, p.colour, 2 * first.x - x, y, z, w, h, d, axis, ref));
             }
         }
         return out;
@@ -182,6 +268,8 @@ public final class SolidSpec {
         if (s.matches("^(disc|disk|plate|wheel|coin).*")) return Solid.DISC;
         return null;
     }
+
+    private static final java.util.regex.Pattern EXACT = java.util.regex.Pattern.compile("\\b([whd])(\\d+(?:\\.\\d+)?)\\b");
 
     /** Width, height and depth (canvas units) from the size words. */
     private static float[] size(String s, Solid k, int axis) {
@@ -231,6 +319,16 @@ public final class SolidSpec {
             d = w;
             w = t;
         }
+        // exact sizes when given ("w46 h20 d20", canvas units): the built-in plans use them
+        java.util.regex.Matcher m = EXACT.matcher(s);
+        while (m.find()) {
+            float v = Float.parseFloat(m.group(2));
+            switch (m.group(1)) {
+                case "w": w = v; break;
+                case "h": h = v; break;
+                default: d = v; break;
+            }
+        }
         return new float[]{Math.min(96, w), Math.min(96, h), Math.min(96, d)};
     }
 
@@ -241,24 +339,16 @@ public final class SolidSpec {
         if (parts.isEmpty()) {
             return Shape.EMPTY;
         }
-        // the bounds, so the thing is centred and fits
-        float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f, minZ = 1e9f, maxZ = -1e9f;
+        // the bounds, so the thing is centred and fits (or the frame it was first drawn in)
         double area = 0;
         double[] areas = new double[parts.size()];
         for (int i = 0; i < parts.size(); i++) {
-            Part p = parts.get(i);
-            minX = Math.min(minX, p.x - p.w / 2);
-            maxX = Math.max(maxX, p.x + p.w / 2);
-            minY = Math.min(minY, p.y - p.h / 2);
-            maxY = Math.max(maxY, p.y + p.h / 2);
-            minZ = Math.min(minZ, p.z - p.d / 2);
-            maxZ = Math.max(maxZ, p.z + p.d / 2);
-            areas[i] = Math.max(20, surface(p));
+            areas[i] = Math.max(20, surface(parts.get(i)));
             area += areas[i];
         }
-        float span = Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ));
-        float k = width / Math.max(1f, span);
-        float cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
+        float[] fr = frame != null ? frame : bounds();
+        float k = width / Math.max(1f, fr[3]);
+        float cx = fr[0], cy = fr[1], cz = fr[2];
         float[] xyz = new float[maxPoints * 3], rgb = new float[maxPoints * 3];
         Random rnd = new Random(11);
         float[] pt = new float[6];

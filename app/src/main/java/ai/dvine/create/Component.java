@@ -1,6 +1,6 @@
 package ai.dvine.create;
 
-import ai.dvine.human.mesh.TriMesh;
+import ai.dvine.geom.TriMesh;
 
 /**
  * One part of a 3D object (a wall, a wheel, a table leg): its own closed

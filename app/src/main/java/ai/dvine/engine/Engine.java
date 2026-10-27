@@ -12,7 +12,7 @@ import ai.dvine.brain.BrainAnswer;
 import ai.dvine.brain.MiniJson;
 
 /**
- * The on-device brain-and-body control engine. It turns what the brain
+ * The on-device control engine. It turns what the brain
  * decided into validated commands, owns the body through the
  * {@link Supervisor}, keeps working memory and a simple affect state, records
  * episodes, and can report what it is doing. Everything here runs on the
@@ -28,7 +28,6 @@ public final class Engine implements Supervisor.Listener {
     private final BodyPort port;
     private final Map<String, List<String>> favourites = new LinkedHashMap<String, List<String>>();
     private String persona = "obi";
-    private String lastTouch;
     private float[] shownMood = {0f, 0f, 0f};
 
     public Engine(BodyPort port, File dir, BooleanSupplier consent) {
@@ -64,15 +63,6 @@ public final class Engine implements Supervisor.Listener {
     public void perform(BrainAnswer a, long now) {
         if (a.command != null) {
             switch (a.command) {
-                case "BODY_ON":
-                    submit(new Command("view.body", null, Command.PRIORITY_USER, now));
-                    break;
-                case "FACE_ON":
-                    submit(new Command("view.face", null, Command.PRIORITY_USER, now));
-                    break;
-                case "REDRAW":
-                    submit(new Command("body.redraw", null, Command.PRIORITY_USER, now));
-                    break;
                 case "TURN":
                     submit(new Command("body.turn", null, Command.PRIORITY_USER, now));
                     break;
@@ -83,15 +73,6 @@ public final class Engine implements Supervisor.Listener {
                         episodes.record("ACTION", "pose:" + a.commandValue, "moved into " + a.commandValue, 0.4f, now);
                     }
                     break;
-                case "EXPRESSION":
-                    submit(new Command("face.expression", a.commandValue, Command.PRIORITY_USER, now));
-                    break;
-                case "DEMO":
-                    submit(new Command("view.demo", "on", Command.PRIORITY_USER, now));
-                    break;
-                case "SCENE":
-                    submit(new Command("view.scene", a.commandValue, Command.PRIORITY_USER, now));
-                    break;
                 case "STOP":
                     submit(new Command("body.stop", null, Command.PRIORITY_STOP, now));
                     affect.appraise("stop");
@@ -100,19 +81,6 @@ public final class Engine implements Supervisor.Listener {
                 default:
                     break;
             }
-        }
-        if (a.scenePoses != null) {
-            Command c = new Command("body.scene", a.sceneTitle, Command.PRIORITY_USER, now);
-            c.poses = a.scenePoses;
-            c.seconds = a.sceneSeconds;
-            if (submit(c) == Command.Status.RUNNING) {
-                memory.put("doing", "scene: " + a.sceneTitle, 6, 600_000L, now);
-                episodes.record("SCENE", "scene:" + (a.sceneTitle == null ? "scene" : a.sceneTitle),
-                        "acted " + a.sceneTitle, 0.6f, now);
-            }
-        }
-        if (a.gesture != null) {
-            submit(new Command("face.gesture", a.gesture, Command.PRIORITY_USER, now));
         }
         if (a.sketch != null) {
             Command c = new Command("draw.sketch", a.sketch.title, Command.PRIORITY_USER, now);
@@ -133,20 +101,6 @@ public final class Engine implements Supervisor.Listener {
             episodes.record("LEARN", "learn:" + source, "learned something new", 0.7f, now);
         } else if (!source.isEmpty()) {
             episodes.record("TALK", "talk:" + source, "answered from " + source, 0.15f, now);
-        }
-    }
-
-    /** A tap on a body part. The hand waves back unless the body is busy with something the user asked for. */
-    public void onTouch(String part, long now) {
-        lastTouch = part;
-        affect.appraise("touch");
-        memory.put("touched", part, 3, 30_000L, now);
-        episodes.record("TOUCH", "touch:" + part, "touched " + part, 0.2f, now);
-        if (part.endsWith("hand")) {
-            Command wave = new Command("body.scene", "wave back", Command.PRIORITY_REACTION, now, 1500L);
-            wave.poses = new String[]{"wave"};
-            wave.seconds = new float[]{2.6f};
-            submit(wave);
         }
     }
 
@@ -212,7 +166,6 @@ public final class Engine implements Supervisor.Listener {
     public Map<String, Object> state(long now) {
         Map<String, Object> s = new LinkedHashMap<String, Object>();
         s.put("persona", persona);
-        s.put("view", supervisor.bodyView() ? "body" : "face");
         Map<String, Object> channels = new LinkedHashMap<String, Object>();
         for (Command.Channel ch : Command.Channel.values()) {
             Command c = supervisor.active(ch);
@@ -220,7 +173,6 @@ public final class Engine implements Supervisor.Listener {
         }
         s.put("active", channels);
         s.put("mood", affect.label());
-        s.put("lastTouch", lastTouch);
         s.put("workingMemory", memory.snapshot(now));
         s.put("episodesOnPhone", episodes.size());
         return s;
@@ -231,15 +183,12 @@ public final class Engine implements Supervisor.Listener {
         Command body = supervisor.active(Command.Channel.BODY);
         Command draw = supervisor.active(Command.Channel.DRAW);
         StringBuilder sb = new StringBuilder();
-        if (body != null) {
-            sb.append("I'm ").append(describe(body)).append(". ");
-        } else if (supervisor.bodyView()) {
-            sb.append("I'm standing, showing my whole body. ");
-        } else {
-            sb.append("I'm here with my face close to you. ");
-        }
+        sb.append("I'm here on the pod, listening for you. ");
         if (draw != null) {
-            sb.append("On the canvas: ").append(draw.value).append(". ");
+            sb.append("Above the pod: ").append(draw.value).append(". ");
+        }
+        if (body != null) {
+            sb.append("The body I designed is ").append(describe(body)).append(". ");
         }
         Command.Result fail = null;
         for (Command.Result r : supervisor.history()) {

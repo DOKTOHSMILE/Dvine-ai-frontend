@@ -1,6 +1,6 @@
 # DVINE Android
 
-Native Java client. One face fills the screen: **O-bìì** (Obi, cyan `#00E5FF`) or **Ēèvié** (Ivie, gold `#FFB300`). They switch as each one speaks. Each is a full anatomical 3D wireframe human (OpenGL ES 3): the head first, the whole body when you ask ("show me your body"), both together with "show both of you". Touch any body part and they react. Ask "can you run?", "jump", "dance", "roll over", "do a flip". Ask them to draw ("draw a galaxy", "show me a black hole", "draw a tesseract") and their body breaks into dots that build the drawing, then reassemble. While they think, a thought bubble floats above their head.
+Native Java client. No faces: the screen is a pod floating in space, and the persona speaking (**O-bìì** / Obi, **Ēèvié** / Ivie, Ibiko) is a voice and a tint on it. Anything you ask it to draw ("draw a cat", "build me a car") appears in 3D above the pod: turn it with a finger, pinch to zoom and move it, change it part by part by voice ("take out the tyres", "make the ears pink", "add a spoiler", "undo"), and say "export it" to save it as a .glb for a game engine. While it thinks, its inner voice writes each step at the top of the screen.
 
 The build plan is [`docs/DVINE_MASTER_BUILD_HANDBOOK.md`](docs/DVINE_MASTER_BUILD_HANDBOOK.md). Progress and evidence live in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md).
 
@@ -23,10 +23,11 @@ What it learns stays on the phone. Say **"share what you learned"** to allow upl
 
 ## Controls (there is no screen UI)
 
-- Swipe anywhere: microphone on/off.
-- Tap the face: the one on screen speaks. Drag the face: turn the head.
-- Long-press (accessibility): type silently.
-- Say **Obi switch** or **Ivie switch** to change who is on screen.
+- Hold anywhere to speak; let go to send.
+- Double-tap: a text field to type in, with SEND.
+- One finger on a drawing: turn it. Two fingers: pinch to zoom, move to place it.
+- Tap the pod: the one speaking talks.
+- Say **switch to Ivie** / **Obi** / **Ibiko** to change who speaks. **Debate X** has Obi and Ivie argue it out.
 
 On first open Obi asks your name and remembers it ("call me …" changes it).
 
@@ -34,7 +35,7 @@ Actions are asked, then confirmed by voice:
 - "Post this on WhatsApp: Good morning" → "Shall I open WhatsApp with this post…?" → "yes" → WhatsApp opens on the post screen with the text; **you** press send.
 - "Copy that" → "Shall I copy…?" → "yes" → "Copied. It's on your clipboard."
 
-They gesture with wireframe hands (👍 👋 🙏 🤝 🫶 🤲 and ~40 more; "show me a thumbs up"), draw explanations on the black canvas ("explain 3 plus 4", "draw a triangle", "explain the solar system"), and speak slowly in Nigerian English voices where the phone has them, over a soft synthesised pad ("music off" / "music on", "hide subtitles").
+They speak slowly in Nigerian English voices where the phone has them, over a soft synthesised pad ("music off" / "music on", "hide subtitles").
 
 ## Build
 

@@ -17,10 +17,7 @@ import java.util.Map;
 
 import org.junit.Test;
 
-import ai.dvine.anre.HumanParticles;
-import ai.dvine.anre.ParticleSet;
-import ai.dvine.human.HumanAsset;
-import ai.dvine.human.mesh.TriMesh;
+import ai.dvine.geom.TriMesh;
 
 /** The 3D creation engine: requests, real geometry, validation, edits, history, storage, picking, particle targets. */
 public class CreationTest {
@@ -197,29 +194,13 @@ public class CreationTest {
     }
 
     @Test
-    public void everyBodyParticleGetsATargetOnTheObjectInBuildOrder() throws Exception {
-        HumanAsset obi;
-        try (FileInputStream in = new FileInputStream(new File("src/main/assets/human/obi.dvhm"))) {
-            obi = HumanAsset.read(in);
-        }
-        ParticleSet body = HumanParticles.build(obi, 6000);
+    public void aDesignBecomesPointsAboveThePod() throws Exception {
         ObjectModel car = build("build a car");
-        float[] t = ObjectParticles.targets(car, body);
-        assertEquals(body.count * 5, t.length);
-        int[] perPart = new int[car.components.size()];
-        float[] b = car.bounds();
-        for (int i = 0; i < body.count; i++) {
-            float x = t[i * 5], y = t[i * 5 + 1], z = t[i * 5 + 2];
-            assertTrue("on the object", x >= b[0] - 1e-3 && x <= b[3] + 1e-3 && y >= b[1] - 1e-3 && y <= b[4] + 1e-3 && z >= b[2] - 1e-3 && z <= b[5] + 1e-3);
-            perPart[(int) (t[i * 5 + 3] % 256)]++;
+        ai.dvine.render.field.Shape s = ai.dvine.stage.ObjectPoints.of(car, 6000);
+        assertTrue(s.count > 5000);
+        for (int i = 0; i < s.count * 3; i++) {
+            assertTrue("about two units across, centred", Math.abs(s.xyz[i]) <= 1.05f);
         }
-        for (Component c : car.components) {
-            assertTrue(c.name + " has " + perPart[c.id] + " particles", perPart[c.id] >= 10);
-        }
-        // the feet go first and the head last, while the object builds from its first step to its last
-        double sum = 0;
-        for (int i = 0; i < body.count; i++) sum += (body.order[i] - 0.5) * (t[i * 5 + 4] - 0.5);
-        assertTrue("body order and build order agree", sum / body.count > 0.05);
         // a progress bar fills with the fraction
         ObjectModel half = ProceduralModelingEngine.build(ObjectSpec.of("progress").with("progress", 0.5, true), 1, new ArrayList<Provenance>());
         ObjectModel full = ProceduralModelingEngine.build(ObjectSpec.of("progress").with("progress", 1, true), 1, new ArrayList<Provenance>());

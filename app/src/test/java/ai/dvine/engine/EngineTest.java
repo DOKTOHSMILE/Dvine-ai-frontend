@@ -18,7 +18,7 @@ import ai.dvine.brain.BrainAnswer;
 import ai.dvine.brain.MiniJson;
 import ai.dvine.brain.OfflineBrain;
 import ai.dvine.brain.TestPack;
-import ai.dvine.face.Sketch;
+import ai.dvine.stage.Sketch;
 
 public class EngineTest {
     /** Records what the body was told to do. */
@@ -26,19 +26,13 @@ public class EngineTest {
         final List<String> calls = new ArrayList<String>();
         float smile;
 
-        public void setBodyMode(boolean on) { calls.add("body " + on); }
         public void setPose(String pose) { calls.add("pose " + pose); }
         public void playScene(String[] poses, float[] seconds) { calls.add("scene " + Arrays.toString(poses)); }
         public void turnAround() { calls.add("turn"); }
-        public void redraw() { calls.add("redraw"); }
-        public void gesture(String key) { calls.add("gesture " + key); }
         public void showSketch(Sketch sketch) { calls.add("sketch " + sketch.title); }
         public void showObject(String kind) { calls.add("object " + kind); }
         public void clearSketch() { calls.add("clear"); }
         public void setMood(float s, float brow, float tilt) { smile = s; }
-        public void setExpression(String name) { calls.add("expression " + name); }
-        public void setDemo(boolean on) { calls.add("demo " + on); }
-        public void arrange(String a) { calls.add("arrange " + a); }
 
         String last() { return calls.get(calls.size() - 1); }
     }
@@ -58,34 +52,17 @@ public class EngineTest {
         OfflineBrain b = brain();
         e.perform(answer(b, "do 10 push ups"), 0);
         assertEquals("pose pushups", body.last());
-        assertTrue(e.selfReport(10).startsWith("I'm doing pushups."));
-        assertEquals("body", e.state(10).get("view"));
-
-        // a touch on the hand mid-exercise does not interrupt what the user asked for
-        e.onTouch("left hand", 100);
+        assertTrue(e.selfReport(10).contains("The body I designed is doing pushups."));
+        // a reaction of lower rank waits behind what the user asked for, and expires
+        e.supervisor.submit(new Command("body.pose", "wave", Command.PRIORITY_REACTION, 100, 1500L), 100);
         assertEquals("pose pushups", body.last());
-        e.tick(5000); // the wave waited too long and expired
+        e.tick(5000);
         assertEquals(Command.Status.EXPIRED, e.supervisor.history().get(e.supervisor.history().size() - 1).status);
 
         // "stop" cancels everything and stands up
         e.perform(answer(b, "stop"), 6000);
         assertEquals("pose stand", body.last());
         assertNull(e.supervisor.active(Command.Channel.BODY));
-    }
-
-    @Test
-    public void scenesFinishUnlessTheUserAsksForSomethingElse() {
-        FakeBody body = new FakeBody();
-        Engine e = new Engine(body, null, () -> true);
-        OfflineBrain b = brain();
-        e.perform(answer(b, "act out the tortoise and the hare"), 0);
-        assertTrue(body.last().startsWith("scene [stand, run"));
-        assertTrue(e.selfReport(10).contains("acting the hare and the tortoise"));
-        e.onTouch("right hand", 100);
-        assertTrue("a touch waits", body.last().startsWith("scene [stand"));
-        e.perform(answer(b, "do a cartwheel"), 200);
-        assertEquals("pose cartwheel", body.last());
-        assertEquals(Command.Status.PREEMPTED, find(e, "body.scene").status);
     }
 
     @Test
@@ -107,14 +84,9 @@ public class EngineTest {
         Engine e = new Engine(body, null, () -> true);
         OfflineBrain b = brain();
         e.perform(answer(b, "do a plank"), 0);
-        e.perform(answer(b, "turn around"), 10);
-        e.perform(answer(b, "redraw yourself"), 20);
-        assertEquals("redraw", body.last());
+        e.supervisor.submit(new Command("body.turn", null, Command.PRIORITY_USER, 10), 10);
+        assertEquals("turn", body.last());
         assertEquals("body.pose:plank", e.supervisor.active(Command.Channel.BODY).toString());
-        e.perform(answer(b, "show your face"), 30);
-        assertEquals("body false", body.last());
-        assertNull(e.supervisor.active(Command.Channel.BODY));
-        assertEquals("face", e.state(40).get("view"));
     }
 
     @Test
@@ -152,7 +124,7 @@ public class EngineTest {
         Episodes ep = new Episodes(null, () -> share[0]);
         Engine e = new Engine(new FakeBody(), null, () -> share[0]);
         e.onHeard("my secret plan is bananas", 0);
-        e.onTouch("chest", 0);
+        e.episodes.record("ACTION", "object:globe", "built globe", 0.3f, 0);
         assertTrue(e.episodes.pending(10).isEmpty()); // sharing off
         share[0] = true;
         List<Episodes.Episode> p = e.episodes.pending(10);
@@ -160,7 +132,7 @@ public class EngineTest {
         String body = Episodes.syncBody("phone-1", p);
         assertFalse("never the user's words", body.contains("bananas"));
         Map<String, Object> json = MiniJson.obj(MiniJson.parse(body));
-        assertEquals("touch:chest", MiniJson.str(MiniJson.obj(MiniJson.list(json.get("episodes")).get(0)).get("tag"), ""));
+        assertEquals("object:globe", MiniJson.str(MiniJson.obj(MiniJson.list(json.get("episodes")).get(0)).get("tag"), ""));
 
         for (int i = 0; i < 400; i++) {
             ep.record("TOUCH", "touch:chest", "touched chest", 0.2f, i);

@@ -60,8 +60,6 @@ public final class OfflineBrain {
     /** What the last question was about, for "no, it's …"; and a topic waiting for its right answer. */
     private String lastTopic, fixPending;
     private final ActionPlanner planner = new ActionPlanner();
-    private ai.dvine.face.Look obiLook = ai.dvine.face.Look.defaults(false);
-    private ai.dvine.face.Look ivieLook = ai.dvine.face.Look.defaults(true);
     private String userName;
     private String lastSaid;
 
@@ -86,20 +84,12 @@ public final class OfflineBrain {
         userName = name;
     }
 
-    public synchronized void setLooks(ai.dvine.face.Look obi, ai.dvine.face.Look ivie) {
-        obiLook = obi.copy();
-        ivieLook = ivie.copy();
-    }
-
     public synchronized String userName() {
         return userName;
     }
 
     public synchronized BrainAnswer respond(String raw, String onScreen) {
         BrainAnswer a = respondInner(raw, onScreen);
-        if (a.gesture == null) {
-            a.gesture = gestureFor(a);
-        }
         if (a.action == null && !a.listenAfter && planner.pending(clock.now()) == null) {
             for (int i = a.lines.size() - 1; i >= 0; i--) {
                 if ("SAY".equals(a.lines.get(i).cue) && a.lines.get(i).text != null) {
@@ -151,7 +141,7 @@ public final class OfflineBrain {
 
     // ------------------------------------------------------------ handlers
 
-    /** Confirmations, actions, settings, gestures and drawings: handled before the safety gate. */
+    /** Confirmations, actions, settings and drawings: handled before the safety gate. */
     private BrainAnswer beforeGate(String raw, String text, String speaker) {
         long now = clock.now();
         ActionPlanner.Reply reply = planner.reply(text, now);
@@ -161,12 +151,10 @@ public final class OfflineBrain {
                     ? one(speaker, "Copied. It's on your clipboard.", "ACT")
                     : one(speaker, "Opening " + act.appName() + " now. The post is ready; press send when you're happy with it.", "ACT");
             a.action = act;
-            a.gesture = "👍";
             return a;
         }
         if (reply == ActionPlanner.Reply.CANCELLED) {
             BrainAnswer a = one(speaker, "Cancelled. Nothing was shared.", "ACT");
-            a.gesture = "✋";
             return a;
         }
         BrainAnswer synced = syncCommands(raw, text, speaker);
@@ -178,7 +166,6 @@ public final class OfflineBrain {
         if (planned != null) {
             BrainAnswer a = one(speaker, ActionPlanner.question(planned), "ACT");
             a.listenAfter = true;
-            a.gesture = "🫴";
             return a;
         }
         String name = Onboarding.rename(cased);
@@ -187,7 +174,6 @@ public final class OfflineBrain {
             journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
             BrainAnswer a = one(speaker, "Alright, " + name + ". I'll call you that.", "LEARN");
             a.newName = name;
-            a.gesture = "🤝";
             return a;
         }
         if (text.matches("^(turn |switch )?(the )?music (off|stop)$|^(stop|mute) (the )?music$|^no music$")) {
@@ -203,10 +189,6 @@ public final class OfflineBrain {
         BrainAnswer voiced = revoice(raw, text, speaker);
         if (voiced != null) {
             return voiced;
-        }
-        BrainAnswer styled = restyle(raw, text, speaker);
-        if (styled != null) {
-            return styled;
         }
         if (text.matches("^(stop|don'?t) think(ing)? (aloud|out loud)$|^(no|hide) (inner )?thoughts$")) {
             thoughts = false;
@@ -233,52 +215,17 @@ public final class OfflineBrain {
         if (text.matches("^what('s| is) my name$") && userName != null) {
             return one(speaker, "Your name is " + userName + ".", "MEMORY");
         }
-        Scenes.Scene scene = Scenes.forRequest(text, sceneTurn);
-        if (scene != null) {
-            sceneTurn++;
-            List<TurnLine> lines = new ArrayList<TurnLine>();
-            lines.add(new TurnLine(speaker, "THINK", thoughts ? "A scene. I will use my whole body." : null));
-            for (String line : scene.lines) {
-                lines.add(new TurnLine(speaker, "SAY", line));
-            }
-            BrainAnswer a = new BrainAnswer(lines, true, false, "SCENE");
-            a.scenePoses = scene.poses;
-            a.sceneTitle = scene.title;
-            a.sceneSeconds = scene.seconds();
-            return a;
-        }
         if (text.matches("^(stop|stop it|stop moving|enough|that'?s enough|freeze|cancel that|be still)( now| please)?$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, I'll be still."), "LOOK");
+            BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, stopping."), "SET");
             a.command = "STOP";
             return a;
         }
-        if (text.matches("^(please )?(smile|frown|look (surprised|shocked|sad|angry|attentive|serious)|pay attention"
-                + "|make a (happy|sad|angry|surprised) face)( for me)?( please)?$")) {
-            String e = ai.dvine.human.face.FaceDrive.expressionFor(text.replace("happy", "smile"));
-            if (e != null) {
-                BrainAnswer a = one(speaker, expressionLine(e, speaker), "LOOK");
-                a.command = "EXPRESSION";
-                a.commandValue = e;
-                return a;
-            }
-        }
-        String arrangement = scenePhrase(text);
-        if (arrangement != null) {
-            BrainAnswer a = one(speaker, sceneLine(arrangement, speaker), "LOOK");
-            a.command = "SCENE";
-            a.commandValue = arrangement;
-            return a;
-        }
-        if (text.matches("^(show (me )?(both( of you)?|the demo|obi and ivie|ivie and obi)|demo( scene)?|stand together|both of you together)( please)?$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Here we are, both of us.", "Obi and I, side by side."), "LOOK");
-            a.command = "DEMO";
-            return a;
-        }
-        String inside = anatomyPhrase(text);
-        if (inside != null) {
-            BrainAnswer a = one(speaker, anatomyLine(inside, speaker), "LOOK");
-            a.command = "ANATOMY";
-            a.commandValue = inside;
+        String pose = posePhrase(text);
+        if (pose != null) {
+            // the movement engine: it moves a body DVINE designed in 3D (the app checks one is on show)
+            BrainAnswer a = one(speaker, pick(speaker, "Moving it: " + pose + ".", "Okay, " + pose + "."), "MOVE");
+            a.command = "POSE";
+            a.commandValue = pose;
             return a;
         }
         if (text.matches("^(what are you doing|status report|self[- ]?check|body status|what is your status|what's your status)\\??$")) {
@@ -291,55 +238,16 @@ public final class OfflineBrain {
             a.command = "FAVOURITES";
             return a;
         }
-        String pose = posePhrase(text);
-        if (pose != null) {
-            String line = poseLine(pose, speaker);
-            if (text.matches("^(can|could|will|would|are) you\\b.*")) {
-                line = pick(speaker, "Yes, I can. ", "Of course! ") + line;
-            }
-            BrainAnswer a = one(speaker, line, "LOOK");
-            a.command = "POSE";
-            a.commandValue = pose;
-            return a;
-        }
-        if (text.matches("^(please )?(turn around|spin( around)?|show me your back|turn (round|360))( please)?$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Have a look all round.", "All the way round, slowly."), "LOOK");
-            a.command = "TURN";
-            return a;
-        }
-        if (text.matches(".*\\b(full body|whole body|your body|show (me )?all of you)\\b.*")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Here I am, all of me.", "Here I am, head to toe."), "LOOK");
-            a.command = "BODY_ON";
-            return a;
-        }
-        if (text.matches("^(show|back to) (me )?(your|the) face$|^just (your|the) face$|^face mode$|^close up$")) {
-            BrainAnswer a = one(speaker, "Back to my face.", "LOOK");
-            a.command = "FACE_ON";
-            return a;
-        }
-        if (text.matches("^(redraw|rebuild|reassemble|refresh|reform) (yourself|your face|your body)$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Reassembling.", "Watch me come back together."), "LOOK");
-            a.command = "REDRAW";
-            return a;
-        }
-        String object = ai.dvine.face.nano.Forms.objectFor(text);
+        String object = ai.dvine.render.forms.Forms.objectFor(text);
         if (object != null) {
             BrainAnswer a = one(speaker, objectLine(object), "DRAW");
             a.object3d = object;
-            a.gesture = "👉";
             return a;
         }
-        ai.dvine.face.Sketch sketch = ai.dvine.face.Sketch.forRequest(text);
+        ai.dvine.stage.Sketch sketch = ai.dvine.stage.Sketch.forRequest(text);
         if (sketch != null) {
             BrainAnswer a = one(speaker, sketchLine(sketch), "DRAW");
             a.sketch = sketch;
-            a.gesture = "👉";
-            return a;
-        }
-        String g = ai.dvine.face.Gestures.find(raw);
-        if (g != null) {
-            BrainAnswer a = one(speaker, pick(speaker, "Here.", "Here you go."), "GESTURE");
-            a.gesture = g;
             return a;
         }
         return null;
@@ -416,146 +324,8 @@ public final class OfflineBrain {
                 : !lower.contains("obi") && "ivie".equals(speaker);
         BrainAnswer a = one(forIvie ? "ivie" : "obi", said, "SET");
         a.command = cmd;
-        a.lookIvie = forIvie;
+        a.forIvie = forIvie;
         return a;
-    }
-
-    /** "Make your skin darker", "dot mode", "make Ivie's hair longer": redraws a persona. */
-    private BrainAnswer restyle(String raw, String text, String speaker) {
-        String lower = raw == null ? "" : raw.toLowerCase(Locale.US);
-        boolean forIvie = lower.contains("ivie") ? !lower.contains("obi") || "ivie".equals(speaker)
-                : lower.contains("obi") ? false : "ivie".equals(speaker);
-        ai.dvine.face.Look target = (forIvie ? ivieLook : obiLook).copy();
-        String said;
-        if (text.matches(".*(reset|restore|original|default) (your |the )?(look|face|style).*|.*go back to (your )?normal( look)?.*")) {
-            target = ai.dvine.face.Look.defaults(forIvie);
-            said = "Back to how I first looked.";
-        } else {
-            said = target.apply(text.replaceAll("\\b(obi|ivie)'?s?\\b", "your"));
-        }
-        if (said == null) {
-            return null;
-        }
-        if (forIvie) {
-            ivieLook = target;
-        } else {
-            obiLook = target;
-        }
-        String who = forIvie ? "ivie" : "obi";
-        BrainAnswer a = one(who, said, "LOOK");
-        a.look = target;
-        a.lookIvie = forIvie;
-        a.gesture = "💅";
-        return a;
-    }
-
-    /** A pose for the full body, only when the request is clearly about the persona's body. */
-    static String posePhrase(String text) {
-        String t = stripQuestion(text.trim()).replaceAll("[,!]", "");
-        if (!t.matches("^((please|can you|could you|will you|would you|are you able to|let me see you|let'?s see you|i want to see you"
-                + "|i want you to|show me how you|show me you|go ahead and|now|start|keep|try to|try|do|show me|strike|get into"
-                + "|a|an|the|your|some|\\d+|ten|twenty) )*"
-                + "(t[- ]?pose|handstand|squat(ting)?|crouch(ing)?|bow(ing)?|danc(e|ing)|kneel(ing)?( down)?|sit(ting)?( down)?"
-                + "|sit cross[- ]legged|meditat(e|ing)|stand( up)?|standing( up)?|run(ning)?( around| fast)?|jog(ging)?|walk(ing)?( around)?"
-                + "|raise your (hands|arms)|hands up|arms up|arms out|spread your arms|relax"
-                + "|(push[- ]?ups?|press[- ]ups?|sit[- ]?ups?|crunches|squats|lunges|jumping jacks|star jumps)"
-                + "|plank|stretch(ing)?|cartwheels?|(back|front) ?flips?|flip( over)?|flips|somersaults?|spin(ning)?|pirouettes?"
-                + "|box(ing)?|punch|kick(ing)?|fight"
-                + "|jump(ing)?( up( and down)?| around| high)?|hop|leap"
-                + "|roll(ing)?( over| around| on the floor)?|(lie|lay)( down| on (your|the) back| on the floor)|lying down)"
-                + "( pose)?( for me)?( (please|now|again|a bit|for a while|for me))*$")) {
-            return null;
-        }
-        return ai.dvine.face.nano.DotBody.poseFor(t);
-    }
-
-    /** "Show me your skeleton", "x-ray", "show your heart", "cover up": the anatomical view (Mode B). */
-    static String anatomyPhrase(String text) {
-        String t = stripQuestion(text.trim()).replaceAll("[,!]", "");
-        if (t.matches("^((hide|cover|put away) (your |the )?(skeleton|bones|muscles|organs|insides?|anatomy|x-?ray)|cover up|"
-                + "(stop|end|turn off|exit)( the)? x-?ray( mode)?|back to (your )?(normal )?skin|normal skin)( please)?$")) {
-            return "off";
-        }
-        if (t.matches("^(x-?ray( mode)?|go (transparent|see[- ]through)|show (me )?(everything|what's|what is) inside( you)?|show (me )?your (insides?|anatomy|inner body))( please)?$")) {
-            return "all";
-        }
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(?:(?:can you |please |could you )*)(?:show|reveal|display|let me see|show me)(?: me)? (?:your |the )?"
-                + "(skeleton|bones|muscles|organs|blood vessels|vessels|veins|arteries|heart|brain|lungs?|liver|stomach|kidneys?|ribs|rib cage|chest|skull)"
-                + "(?: inside)?(?: please)?$").matcher(t);
-        if (!m.find()) {
-            return null;
-        }
-        String w = m.group(1);
-        switch (w) {
-            case "bones": return "skeleton";
-            case "blood vessels": case "veins": case "arteries": return "vessels";
-            case "lung": return "lungs";
-            case "kidney": return "kidneys";
-            case "ribs": case "rib cage": return "chest";
-            case "skull": return "head";
-            default: return w;
-        }
-    }
-
-    private String anatomyLine(String what, String speaker) {
-        String model = " These are digital models: they show where things are, they don't work like real ones.";
-        switch (what) {
-            case "off": return pick(speaker, "Skin back on.", "Covered up again.");
-            case "skeleton": return "My skeleton: skull, spine, ribs, pelvis and the bones of my arms, hands and legs." + model;
-            case "muscles": return "My main muscles: chest, shoulders, arms, belly, glutes, thighs and calves." + model;
-            case "organs": return "My organs: brain, heart, lungs, liver, stomach, kidneys and intestines." + model;
-            case "vessels": return "The great blood vessels: the aorta, the vena cava, the carotids and the arteries of the legs." + model;
-            case "all": return "Everything inside at once: bones, muscles, organs and vessels." + model;
-            case "heart": return "My heart sits behind the breastbone, a little to the left. It's a model: it doesn't beat.";
-            case "brain": return "My brain, inside the skull. A model of one; my thinking runs on this phone's processor.";
-            case "lungs": return "My two lungs fill most of the chest, either side of the heart." + model;
-            case "chest": return "Inside my chest: the rib cage, the lungs and the heart, with the great vessels." + model;
-            case "head": return "Inside my head: the skull, the jaw and the brain." + model;
-            default: return "Here's my " + what + "." + model;
-        }
-    }
-
-    private String poseLine(String pose, String speaker) {
-        switch (pose) {
-            case "tpose": return "Arms out. This is how a model is checked in a 3D studio.";
-            case "arms up": return pick(speaker, "Hands up.", "Arms to the sky!");
-            case "squat": return "A deep squat. Knees out, back straight.";
-            case "sit": return pick(speaker, "Sitting cross-legged. Breathe with me.", "Let us sit a while.");
-            case "kneel": return "Kneeling.";
-            case "run": return pick(speaker, "Running.", "Off I go!");
-            case "walk": return "A gentle walk.";
-            case "bow": return pick(speaker, "A respectful bow.", "I bow to you.");
-            case "dance": return pick(speaker, "Small steps. I am a careful dancer.", "Dance with me!");
-            case "handstand": return "Upside down, balanced on my hands.";
-            case "pushups": return pick(speaker, "Push-ups. Back straight, all the way down.", "Push-ups! Count with me.");
-            case "jumping jacks": return "Jumping jacks. Arms up, feet out!";
-            case "squats": return "Squats. Down, and up.";
-            case "lunges": return "Lunges, one leg then the other.";
-            case "plank": return "Holding a plank. Strong belly, steady breath.";
-            case "situps": return "Sit-ups. Slow and controlled.";
-            case "stretch": return pick(speaker, "A long stretch. Breathe out as you lean.", "Stretching. That feels good.");
-            case "cartwheel": return pick(speaker, "Cartwheels, side to side.", "Watch this cartwheel!");
-            case "backflip": return pick(speaker, "A backflip. Don't try this one at home.", "Backflip!");
-            case "spin": return "Spinning.";
-            case "jump": return pick(speaker, "Jump! Bend the knees, swing the arms, up!", "Up I go!");
-            case "roll": return pick(speaker, "Rolling over, arms past my head.", "Watch me roll!");
-            case "lie": return pick(speaker, "Lying down for a moment. Breathe in, breathe out.", "Time to lie back and rest.");
-            case "boxing": return pick(speaker, "Guard up. Jab, jab.", "Float like a butterfly.");
-            case "kick": return "A front kick.";
-            case "talk": return "Standing tall.";
-            default: return "Standing tall.";
-        }
-    }
-
-    private String expressionLine(String e, String speaker) {
-        switch (e) {
-            case "smile": return pick(speaker, "Like this?", "A big smile, just for you.");
-            case "frown": return "Hmm. Serious face.";
-            case "surprise": return pick(speaker, "Oh!", "Oh! Really?");
-            case "attention": return "I'm listening closely.";
-            case "sad": return "A sad face. I hope you're not feeling this way.";
-            default: return "Grr. Not really angry, just showing you.";
-        }
     }
 
     private static String objectLine(String kind) {
@@ -585,7 +355,7 @@ public final class OfflineBrain {
         }
     }
 
-    private static String sketchLine(ai.dvine.face.Sketch s) {
+    private static String sketchLine(ai.dvine.stage.Sketch s) {
         String t = s.title;
         if (t.contains(" plus ")) {
             String[] p = t.split(" plus ");
@@ -612,42 +382,6 @@ public final class OfflineBrain {
             case "moon": return "A crescent moon, with two little stars.";
             case "eye": return "An eye: the lids protect it, the iris gives the colour, and the pupil lets light in.";
             default: return "Let me draw a " + t + " for you.";
-        }
-    }
-
-    private String gestureFor(BrainAnswer a) {
-        if (a.source == null) {
-            return null;
-        }
-        switch (a.source) {
-            case "CARE":
-                return a.spoken().contains("sorry") ? "🤲" : (turn % 2 == 0 ? "🙏" : "🤝");
-            case "CALC":
-            case "DICT":
-                return "☝";
-            case "WISDOM":
-                return "🙌";
-            case "OFFLINE":
-                return "🫴";
-            case "GATE":
-                return "✋";
-            case "LEARN":
-                return "👌";
-            case "FACT":
-                return "☝";
-            case "PACK": {
-                String s = a.spoken().toLowerCase(Locale.US);
-                if (s.startsWith("hello") || s.startsWith("hi") || s.startsWith("good to see") || s.startsWith("goodbye")
-                        || s.startsWith("until next") || s.startsWith("sleep well")) {
-                    return "👋";
-                }
-                if (s.contains("joke") || s.contains("cache") || s.contains("checked a sunrise") || s.contains("quick plan")) {
-                    return "🤙";
-                }
-                return null;
-            }
-            default:
-                return null;
         }
     }
 
@@ -1230,6 +964,30 @@ public final class OfflineBrain {
                 + "explain|define|describe|name|list|give me)\\b.*");
     }
 
+    /**
+     * A move for the designed body ("make it walk", "can it dance", "do a backflip", "push ups"), or null: the
+     * request must be about moving, not ordinary talk ("how do I run a business").
+     */
+    static String posePhrase(String text) {
+        String t = stripQuestion(text.trim()).replaceAll("[,!]", "");
+        if (!t.matches("^((please|can you|could you|will you|would you|can it|could it|make it|make him|make her|make the body"
+                + "|make the robot|let it|have it|let me see it|let me see you|i want to see it|i want it to|i want you to"
+                + "|show me how it|show me how you|go ahead and|now|start|keep|try to|try|do|show me|strike|get into"
+                + "|a|an|the|your|its|some|\\d+|ten|twenty) )*"
+                + "(t[- ]?pose|handstand|squat(ting)?|crouch(ing)?|bow(ing)?|danc(e|ing)|kneel(ing)?( down)?|sit(ting)?( down)?"
+                + "|sit cross[- ]legged|meditat(e|ing)|stand( up)?|standing( up)?|run(ning)?( around| fast)?|jog(ging)?|walk(ing)?( around)?"
+                + "|raise (your|its) (hands|arms)|hands up|arms up|arms out|spread (your|its) arms|relax|wave"
+                + "|(push[- ]?ups?|press[- ]ups?|sit[- ]?ups?|crunches|squats|lunges|jumping jacks|star jumps)"
+                + "|plank|stretch(ing)?|cartwheels?|(back|front) ?flips?|flip( over)?|flips|somersaults?|pirouettes?"
+                + "|box(ing)?|punch|kick(ing)?|fight"
+                + "|jump(ing)?( up( and down)?| around| high)?|hop|leap"
+                + "|roll(ing)?( over| around| on the floor)?|(lie|lay)( down| on (your|its|the) back| on the floor)|lying down)"
+                + "( pose)?( for me)?( (please|now|again|a bit|for a while|for me))*$")) {
+            return null;
+        }
+        return ai.dvine.motion.Motions.poseFor(t);
+    }
+
     // ------------------------------------------------------------ helpers
 
     private KnowledgePack.Wisdom wisdomFor(String tag) {
@@ -1243,8 +1001,6 @@ public final class OfflineBrain {
     }
 
     private boolean thoughts = true;
-    /** Counts acted scenes, so "act a scene" plays a different one each time. */
-    private int sceneTurn;
 
     /** Inner thoughts spoken softly while working: on by default, "stop thinking aloud" turns them off. */
     public synchronized void setThoughts(boolean on) {
@@ -1307,46 +1063,6 @@ public final class OfflineBrain {
         SimpleDateFormat f = new SimpleDateFormat(pattern, Locale.US);
         f.setTimeZone(zone);
         return f.format(d);
-    }
-
-    /**
-     * Both personas in the shared scene: "walk together", "can both of you walk and stand side by side",
-     * "walk to each other", "face each other", "stand side by side", "just one of you". Null when the
-     * text isn't about arranging the two.
-     */
-    static String scenePhrase(String t) {
-        t = t.replaceAll("[?,]", " ").replaceAll("\\s+", " ").trim();
-        boolean both = t.matches(".*\\b(both|together|each other|one another|two of you|you two|side by side|obi and ivie|ivie and obi|the pair of you)\\b.*");
-        if (t.matches(".*\\b(just|only) (one|you)\\b.*|.*\\b(back to|only) one( of you)?\\b.*|^(go|send \\w+) (away|back)$")) {
-            return "single";
-        }
-        if (!both) {
-            return null;
-        }
-        if (t.matches(".*\\b(walk|come|go|move|turn)( over)? (to|towards?|up to) each other\\b.*|.*\\bface each other\\b.*|.*\\bmeet( each other| up)?\\b.*|.*\\blook at each other\\b.*")) {
-            return "meet";
-        }
-        if (t.matches(".*\\b(walk|walking|stroll)\\b.*")) {
-            return "walk"; // walking together ends side by side
-        }
-        if (t.matches(".*\\b(stand|standing|stay|line up)\\b.*(side by side|together|next to each other).*|.*\\bside by side\\b.*")) {
-            return "side";
-        }
-        return null;
-    }
-
-    private static String sceneLine(String arrangement, String speaker) {
-        boolean ivie = "ivie".equals(speaker);
-        switch (arrangement) {
-            case "walk":
-                return ivie ? "Yes. Obi, walk with me." : "Yes, we can. Ivie, let's walk.";
-            case "meet":
-                return ivie ? "Obi, come over here." : "Ivie, let's talk face to face.";
-            case "side":
-                return ivie ? "Here we are, side by side." : "Side by side, the two of us.";
-            default:
-                return ivie ? "Just me, then." : "Just me for now.";
-        }
     }
 
     static String normalize(String raw) {

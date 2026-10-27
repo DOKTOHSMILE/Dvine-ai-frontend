@@ -1002,6 +1002,40 @@ The looks are now the sheets': Obi with his short curly afro, Ivie bald, both in
 
 **Limits.** The eye corners and the jaw show small smears where the mesh's own eye and jaw shapes differ from the picture; the hands are painted from the front and back views only. Not yet checked on a phone (start-up adds the shaping and painting, a fraction of a second on a desktop).
 
+## 36. The pod, the agent, and drawings you can take apart (app v0.26.0, built)
+
+**No faces.** At the project lead's request every face is gone: the hologram heads, the 3D bodies, the nano-dot head and body, the wireframe human, and their assets, tools and tests. The screen is the pod floating in space (`render/pod`): stars, meteors, a glow under it, a beam of rising dots. The persona speaking is a voice and a tint on the pod (Obi cyan, Ivie violet, Ibiko green). The pod pulses with each spoken word, brightens while listening and swirls while thinking. The movement engine stays (`motion/Motions`: 17 bones, named poses, joint limits, the BODY channel), ready for a body the user has DVINE design later.
+
+**Above the pod.** Everything drawn appears above the pod in 3D. One finger turns it, two fingers pinch to zoom and move it, and a tap on the pod talks. Hold anywhere to speak and release to send. Double-tap for a text field drawn in glowing dots, with a SEND button.
+
+**The agent.** For anything the offline brain can't do exactly, the downloaded brain reads the words first. It writes five lines: INTENT (question, request, prompt or chat), MEANS, TASK, TARGET and INTERNET. DVINE checks whether it can do the task here (`Capabilities`) and says honestly why not when it can't. It then carries the task out: it acts, or looks up, or answers. It keeps the phrase and the command it led to (`LearnedIntents`, on the phone only), so next time it needs no brain. A reading whose target has nothing to do with the words is not acted on. Each step is written at the top of the screen in small text, and older lines fade and blur away like smoke. "Debate X" has Obi argue for and Ivie against, over six turns.
+
+**Drawings that are right.** "Draw a cat" once drew a building: the small brain's plan was wrong and the reply used it. Now:
+- The things people ask for most have hand-made plans (`render/field/Blueprints`, 35 of them, with synonyms). Each plan is a list of named parts with exact sizes (`w46 h20 d20` in the 100-unit canvas). Animals and vehicles are seen from the side, facing right. `near` / `far` put legs and wheels on either side, and parts hug round surfaces. They draw at once, brain or not.
+- For anything else the brain plans the parts. When online and allowed, it first reads the thing's Wikipedia description (`PictureFinder.describe`). The plan is checked (`DrawPrompt.usable`: at least three parts, two different names, no walls and roof for something that isn't a building), with one stricter retry.
+- The reply names what the user asked for, never what the brain wrote.
+
+**Part by part.** A 3D drawing is kept as its parts. `PartEdit` understands:
+- take out / remove / hide
+- show only
+- put back
+- make the X colour
+- make the X bigger / smaller / wider / taller
+- add …
+- undo
+
+Parts are found:
+1. by the whole phrase ("front legs")
+2. by the word ("ears")
+3. by everyday names for the kind (a tyre is a wheel, with its hubcap)
+4. by place: left / right, front / back, top / bottom
+
+When nothing matches, the brain is given the list of parts and asked which ones the word means. Adding asks the brain for new part lines placed against the parts already there (`SolidSpec.extend`). The drawing keeps the frame it was first drawn in, so taking parts out doesn't make the rest jump or grow. It re-forms in place, keeping the user's turn and zoom.
+
+**For games.** "Export it" saves `<name>.glb` (glTF 2.0) to Downloads (`render/field/Gltf`). Each part is a node with its own mesh and material, named as drawn. Each part is a child of the part it was placed against (an ear under the head, the head under the body), so each part is a joint about its own centre. The file uses metres, y up, 1 m across, standing on the ground. It opens in Blender, Unity, Unreal and Godot.
+
+**Limits.** Parts are simple solids (spheres, boxes, cylinders, cones, rings, discs), so organic shapes are approximate. Building a mesh from photos of every side of a thing needs a GPU server; it can't be done on a phone today. Candidate models: TripoSR, Hunyuan3D, Stable Fast 3D. Splitting a mesh into parts would also need a server: SAMPart3D and SAM 3D.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

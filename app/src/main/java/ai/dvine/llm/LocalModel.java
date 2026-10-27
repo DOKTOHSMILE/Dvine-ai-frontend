@@ -116,7 +116,7 @@ public final class LocalModel {
             }
             String answer = NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, sink);
             if (answer != null && !answer.trim().isEmpty()) {
-                remember(question, answer.trim());
+                remember(question, ActionTags.strip(answer));
                 return answer.trim();
             }
             problem = NativeLlm.nError(handle);

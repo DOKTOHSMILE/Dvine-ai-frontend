@@ -46,4 +46,61 @@ public final class PictureFinder {
             return null;
         }
     }
+
+    /** The search for the subject's article and the first sentences of it, as plain text. */
+    public static String describeUrl(String subject) {
+        try {
+            return "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&generator=search&gsrlimit=1"
+                    + "&gsrsearch=" + URLEncoder.encode(subject.trim(), "UTF-8") + "&prop=extracts&exintro=1&explaintext=1&exsentences=5";
+        } catch (java.io.UnsupportedEncodingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static final Pattern EXTRACT = Pattern.compile("\"extract\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+    /** The article's opening text in the search's reply, unescaped, or null. */
+    public static String extract(String json) {
+        if (json == null) {
+            return null;
+        }
+        Matcher m = EXTRACT.matcher(json);
+        if (!m.find()) {
+            return null;
+        }
+        String t = m.group(1);
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (c == '\\' && i + 1 < t.length()) {
+                char n = t.charAt(++i);
+                if (n == 'n') {
+                    b.append(' ');
+                } else if (n == 'u' && i + 4 < t.length()) {
+                    try {
+                        b.append((char) Integer.parseInt(t.substring(i + 1, i + 5), 16));
+                        i += 4;
+                    } catch (NumberFormatException e) {
+                        b.append(n);
+                    }
+                } else {
+                    b.append(n);
+                }
+            } else {
+                b.append(c);
+            }
+        }
+        String out = b.toString().replaceAll("\\s+", " ").trim();
+        return out.isEmpty() ? null : out;
+    }
+
+    /** What the thing looks like, in a few sentences from its Wikipedia article; null when offline or not found. */
+    public static String describe(String subject) {
+        try {
+            byte[] reply = ai.dvine.net.WebGet.get(describeUrl(subject), TIMEOUT_MS, 256 * 1024);
+            return reply == null ? null : extract(new String(reply, "UTF-8"));
+        } catch (java.io.UnsupportedEncodingException e) {
+            return null;
+        }
+    }
 }

@@ -72,10 +72,31 @@ public final class PersonaPrompt {
 
     /** {@code today} ("Tuesday 27 October 2026") tells the model the date, which its training doesn't know. */
     public static String system(boolean ivie, String userName, String today) {
+        return system(ivie ? "ivie" : "obi", userName, today, null);
+    }
+
+    /**
+     * The persona speaking ("ivie", "obi" or "ibiko"), the user's name, today's date, and what the brain knows about
+     * the app it runs in ({@link DvineSelf#sheet}, may be null).
+     */
+    public static String system(String agent, String userName, String today) {
+        return system(agent, userName, today, null);
+    }
+
+    public static String system(String agent, String userName, String today, String self) {
         StringBuilder s = new StringBuilder();
-        s.append(ivie
-                ? "You are Ivie, the thoughtful one of DVINE's two personas: gentle, caring and wise, with a warm Nigerian manner."
-                : "You are Obi, the analytical one of DVINE's two personas: calm, clear and wise, with a warm Nigerian manner.");
+        if ("ibiko".equals(agent)) {
+            s.append("You are Ibiko, the third of DVINE's personas: a cute, cheerful coding robot. You help with programming"
+                    + " in many languages, Termux and Linux on the phone, and building apps and websites. You are precise,"
+                    + " upbeat and kind; you explain code step by step and say exactly what to type.");
+        } else {
+            s.append("ivie".equals(agent)
+                    ? "You are Ivie, the thoughtful one of DVINE's personas: gentle, caring and wise, with a warm Nigerian manner."
+                    : "You are Obi, the analytical one of DVINE's personas: calm, clear and wise, with a warm Nigerian manner.");
+        }
+        if (self != null && !self.trim().isEmpty()) {
+            s.append(' ').append(self.trim());
+        }
         s.append(" You talk to the user aloud through their phone, so answer in plain spoken English:"
                 + " one to three short sentences unless they ask for more; no lists, markdown, emoji or headings.");
         s.append(" Be accurate. If you are not sure of a fact, say so briefly rather than guess.");
