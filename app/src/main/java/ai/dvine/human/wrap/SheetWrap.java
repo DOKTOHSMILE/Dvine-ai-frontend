@@ -36,7 +36,13 @@ public final class SheetWrap {
         Map<String, Object> m = MiniJson.obj(MiniJson.parse(json));
         SheetWrap w = new SheetWrap(MiniJson.str(m.get("sheet"), null), (int) MiniJson.num(m.get("width"), 1024),
                 (int) MiniJson.num(m.get("height"), 1536), MiniJson.str(m.get("hair"), "none"), MiniJson.obj(m.get("views")));
-        w.outline = MiniJson.str(m.get("outline"), null);
+        for (Map.Entry<String, Object> e : MiniJson.obj(m.get("boxes")).entrySet()) {
+            List<Object> b = MiniJson.list(e.getValue());
+            if (b.size() == 4) {
+                w.boxes.put(e.getKey(), new int[]{(int) MiniJson.num(b.get(0), 0), (int) MiniJson.num(b.get(1), 0),
+                        (int) MiniJson.num(b.get(2), 0), (int) MiniJson.num(b.get(3), 0)});
+            }
+        }
         return w;
     }
 
@@ -45,8 +51,8 @@ public final class SheetWrap {
         return MiniJson.obj(views.get(name));
     }
 
-    /** The outline file traced from the sheet (looks/*_outline.json), or null. */
-    public String outline;
+    /** Each view's box on the look picture (x0, y0, x1, y1). */
+    public final Map<String, int[]> boxes = new java.util.LinkedHashMap<String, int[]>();
 
     /** Per vertex: uv[8] (front, back, side, face; 0..1 across the sheet) and weight[4] in the same order. */
     public static final class Result {

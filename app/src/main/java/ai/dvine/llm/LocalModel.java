@@ -25,7 +25,7 @@ public final class LocalModel {
         this.file = new File(dir, spec.file);
         state = !cpuSupported ? State.UNSUPPORTED : installed() ? State.INSTALLED : State.NOT_INSTALLED;
         if (!cpuSupported) {
-            problem = "this phone's processor can't run the language model";
+            problem = "this phone's processor is too old for it";
         }
     }
 
@@ -74,7 +74,7 @@ public final class LocalModel {
         }
         if (!NativeLlm.available()) {
             state = State.UNSUPPORTED;
-            problem = "the language model library isn't in this build";
+            problem = "its engine isn't in this build";
             return false;
         }
         state = State.LOADING;

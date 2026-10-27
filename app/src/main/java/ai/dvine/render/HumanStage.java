@@ -171,6 +171,7 @@ public final class HumanStage {
      * reference for later inspections (the shipped asset, or a look the user asked for).
      */
     public synchronized void install(int slot, HumanAsset a, boolean approve) {
+        fitToSheet(slot, a);
         HumanInstance h = new HumanInstance(a);
         h.rig.setPose(pose);
         h.update(time);
@@ -218,6 +219,24 @@ public final class HumanStage {
             out.write(b, 0, n);
         }
         return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Shapes the body to its character sheet (its outline in the front view and the profile), once per asset, before
+     * anything else is built from it: the particles, the inspector's reference and the paint all follow the new shape.
+     */
+    private void fitToSheet(int slot, HumanAsset a) {
+        ai.dvine.human.wrap.SheetWrap w = sheets[slot];
+        int[] px = sheetPixels[slot];
+        if (w == null || px == null || !sheetLook || a.sheetFitted || w.boxes.isEmpty()) {
+            return;
+        }
+        try {
+            ai.dvine.human.wrap.SheetFit.fit(a, w, ai.dvine.human.wrap.SheetFit.Outline.fromAlpha(px, w.boxes), false);
+            a.sheetFitted = true;
+        } catch (RuntimeException e) {
+            loadFault = "the body couldn't be shaped to its picture (" + e + ")";
+        }
     }
 
     /** Paints a body from its sheet, from how it stands now (just installed, in its rest stance). */

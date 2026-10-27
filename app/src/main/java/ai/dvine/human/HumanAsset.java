@@ -34,6 +34,8 @@ public final class HumanAsset {
     public String hairStyle() {
         return hairStyle != null ? hairStyle : female ? ai.dvine.face.Look.PUFFS : ai.dvine.face.Look.FADE;
     }
+    /** True once the body has been shaped to its character sheet (in memory only: done again at each start). */
+    public transient boolean sheetFitted;
     /** Content version: bumped whenever the asset is rebuilt from a changed recipe. */
     public int version;
     public TriMesh mesh;

@@ -24,9 +24,13 @@ public class WireHeadTest {
     }
 
     @Test
-    public void onlyIvieHasHair() {
-        assertFalse(hasGroup(WireHead.create(false), WireHead.HAIR));
-        assertTrue(hasGroup(WireHead.create(true), WireHead.HAIR));
+    public void hairFollowsTheLook() {
+        // the sheets' looks are bald on the dot head (Ivie bald, Obi's hair is painted); a look with hair gets it
+        assertFalse(hasGroup(WireHead.create(true), WireHead.HAIR));
+        ai.dvine.face.Look longHair = ai.dvine.face.Look.defaults(true);
+        longHair.hair = 1f;
+        longHair.hairStyle = ai.dvine.face.Look.PUFFS;
+        assertTrue(hasGroup(WireHead.create(true, longHair), WireHead.HAIR));
     }
 
     @Test

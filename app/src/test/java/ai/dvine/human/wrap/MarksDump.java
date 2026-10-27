@@ -22,9 +22,25 @@ public class MarksDump {
         for (String who : new String[]{"obi", "ivie"}) {
             HumanAsset a;
             try (FileInputStream in = new FileInputStream("src/main/assets/human/" + who + ".dvhm")) { a = HumanAsset.read(in); }
+            SheetWrap w = SheetWrap.parse(new String(Files.readAllBytes(Paths.get("src/main/assets/looks/" + who + ".json")), StandardCharsets.UTF_8));
+            String sheets = System.getenv("WRAP_SHEETS");
+            if (sheets != null) {
+                // the look picture, pre-decoded (width, height, ARGB ints), so the body is shaped to it as on the phone
+                try (java.io.DataInputStream in = new java.io.DataInputStream(new java.io.BufferedInputStream(
+                        new FileInputStream(sheets + "/" + who + "_atlas.webp.argb")))) {
+                    int pw = in.readInt(), ph = in.readInt();
+                    int[] px = new int[pw * ph + 2];
+                    px[0] = pw; px[1] = ph;
+                    for (int i = 0; i < pw * ph; i++) px[i + 2] = in.readInt();
+                    SheetFit.DEBUG = new StringBuilder();
+                    SheetFit.Report rep = SheetFit.fit(a, w, SheetFit.Outline.fromAlpha(px, w.boxes), false);
+                    System.out.println("FIT " + who + " moved " + rep.moved + " width " + java.util.Arrays.toString(rep.widthScale)
+                            + " depth " + java.util.Arrays.toString(rep.depthScale));
+                    java.nio.file.Files.write(java.nio.file.Paths.get(out, who + "_fit.txt"), SheetFit.DEBUG.toString().getBytes("UTF-8"));
+                }
+            }
             HumanInstance h = new HumanInstance(a);
             h.update(0f);
-            SheetWrap w = SheetWrap.parse(new String(Files.readAllBytes(Paths.get("src/main/assets/looks/" + who + ".json")), StandardCharsets.UTF_8));
             SheetWrap.Result r = w.compute(h);
             try (DataOutputStream o = new DataOutputStream(new FileOutputStream(out + "/" + who + ".bin"))) {
                 int n = h.pos.length / 3;

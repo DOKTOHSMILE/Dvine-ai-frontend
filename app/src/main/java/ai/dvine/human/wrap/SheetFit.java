@@ -25,38 +25,67 @@ public final class SheetFit {
     private SheetFit() {
     }
 
+    /** Set to collect a row-by-row account of the fit (tests). */
+    public static StringBuilder DEBUG;
+
     static final int HEAD = 0, TORSO = 1, ARM_L = 2, ARM_R = 3, LEG_L = 4, LEG_R = 5, PARTS = 6;
 
-    /** The sheet's outlines (looks/*_outline.json): per view its runs of figure per pixel row. */
+    /**
+     * The figure's outline in each view, read from the look picture's transparency (the cut-out's background is
+     * clear): per pixel row of a view, the runs where the figure is.
+     */
     public static final class Outline {
-        final Map<String, Object> views;
+        final Map<String, int[][]> rows = new java.util.HashMap<String, int[][]>(); // view → per row y: runs x0, x1, x0, x1 …
+        final Map<String, int[]> boxes = new java.util.HashMap<String, int[]>();
 
-        Outline(Map<String, Object> views) {
-            this.views = views;
-        }
-
-        public static Outline parse(String json) {
-            return new Outline(MiniJson.obj(MiniJson.parse(json)));
-        }
-
-        /** The runs [start, end] on sheet row {@code y} of a view (the nearest traced row), or none. */
-        List<float[]> runs(String view, int y) {
-            Map<String, Object> rows = MiniJson.obj(MiniJson.obj(views.get(view)).get("rows"));
-            List<float[]> out = new ArrayList<float[]>();
-            for (int d = 0; d <= 2; d++) {
-                Object r = rows.get(String.valueOf(y - d));
-                if (r == null) {
-                    r = rows.get(String.valueOf(y + d));
-                }
-                if (r != null) {
-                    for (Object seg : MiniJson.list(r)) {
-                        List<Object> s = MiniJson.list(seg);
-                        out.add(new float[]{(float) MiniJson.num(s.get(0), 0), (float) MiniJson.num(s.get(1), 0)});
+        /** From the picture's pixels ({width, height, ARGB…} as the asset source gives them) and the views' boxes. */
+        public static Outline fromAlpha(int[] picture, Map<String, int[]> viewBoxes) {
+            Outline o = new Outline();
+            int w = picture[0], h = picture[1];
+            for (Map.Entry<String, int[]> e : viewBoxes.entrySet()) {
+                int[] b = e.getValue();
+                int[][] r = new int[h][];
+                for (int y = Math.max(0, b[1]); y < Math.min(h, b[3]); y++) {
+                    int[] runs = new int[16];
+                    int n = 0, start = -1;
+                    for (int x = Math.max(0, b[0]); x <= Math.min(w, b[2]); x++) {
+                        boolean in = x < Math.min(w, b[2]) && (picture[2 + y * w + x] >>> 24) > 128;
+                        if (in && start < 0) {
+                            start = x;
+                        } else if (!in && start >= 0) {
+                            if (x - 1 - start >= 1) {
+                                if (n + 2 > runs.length) {
+                                    runs = Arrays.copyOf(runs, runs.length * 2);
+                                }
+                                runs[n++] = start;
+                                runs[n++] = x - 1;
+                            }
+                            start = -1;
+                        }
                     }
-                    return out;
+                    r[y] = Arrays.copyOf(runs, n);
                 }
+                o.rows.put(e.getKey(), r);
+                o.boxes.put(e.getKey(), b);
+            }
+            return o;
+        }
+
+        /** The runs [start, end] on row {@code y} of a view, or none. */
+        List<float[]> runs(String view, int y) {
+            int[][] r = rows.get(view);
+            List<float[]> out = new ArrayList<float[]>();
+            if (r == null || y < 0 || y >= r.length || r[y] == null) {
+                return out;
+            }
+            for (int i = 0; i + 1 < r[y].length; i += 2) {
+                out.add(new float[]{r[y][i], r[y][i + 1]});
             }
             return out;
+        }
+
+        boolean has(String view) {
+            return rows.containsKey(view);
         }
     }
 
@@ -217,7 +246,7 @@ public final class SheetFit {
             }
             if (mono.size() >= 3) {
                 scale = (imgY[imgY.length - 1] - imgY[0]) / (bodyY[0] - bodyY[bodyY.length - 1]);
-                ok = scale > 0 && outline.views.containsKey(view);
+                ok = scale > 0 && outline.has(view);
             }
         }
 
@@ -308,10 +337,11 @@ public final class SheetFit {
         // the body's middle on the sheet for converting pixels to body units: the line through the shoulders' middle
         // (front) or the joints' line (profile), where the body has x = 0 (front) or z of the joints (profile)
         for (int part = 0; part < PARTS; part++) {
-            float[] mMin = new float[rows], mMax = new float[rows], tMin = new float[rows], tMax = new float[rows];
+            float[] bMin = new float[rows], bMax = new float[rows], tMin = new float[rows], tMax = new float[rows];
+            int[] bCount = new int[rows];
             boolean[] have = new boolean[rows], good = new boolean[rows];
-            Arrays.fill(mMin, Float.MAX_VALUE);
-            Arrays.fill(mMax, -Float.MAX_VALUE);
+            Arrays.fill(bMin, Float.MAX_VALUE);
+            Arrays.fill(bMax, -Float.MAX_VALUE);
             int count = 0;
             for (int v = 0; v < solid; v++) {
                 if (partOf[v] != part) {
@@ -322,13 +352,31 @@ public final class SheetFit {
                     continue;
                 }
                 float c = p[v * 3 + axis];
-                mMin[r] = Math.min(mMin[r], c);
-                mMax[r] = Math.max(mMax[r], c);
-                have[r] = true;
+                bMin[r] = Math.min(bMin[r], c);
+                bMax[r] = Math.max(bMax[r], c);
+                bCount[r]++;
                 count++;
             }
             if (count == 0) {
                 continue;
+            }
+            // the mesh's extent around each band: over a window of bands, so a band holding a few vertices
+            // (the mesh is coarser than the picture's rows) doesn't read as a narrow waist
+            float[] mMin = new float[rows], mMax = new float[rows];
+            final int win = 3;
+            for (int r = 0; r < rows; r++) {
+                float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+                int c = 0;
+                for (int k = Math.max(0, r - win); k <= Math.min(rows - 1, r + win); k++) {
+                    if (bCount[k] > 0) {
+                        lo = Math.min(lo, bMin[k]);
+                        hi = Math.max(hi, bMax[k]);
+                        c += bCount[k];
+                    }
+                }
+                mMin[r] = lo;
+                mMax[r] = hi;
+                have[r] = c >= 12 && bCount[r] > 0;
             }
             // the reference: on the profile the joints sit at the body's z of its skeleton (about 0); in front x = 0
             float centreBody = 0f;
@@ -351,10 +399,27 @@ public final class SheetFit {
                 if (Float.isNaN(cImg)) {
                     cImg = centreImg;
                 }
-                float[] run = runAround(view, Math.round(row), ax);
-                if (run == null) {
+                // the picture's run around the part, as the median over the same window of rows
+                List<float[]> found = new ArrayList<float[]>();
+                for (int k = -win; k <= win; k++) {
+                    float rk = row + k * band;
+                    float axk = axis(view, part, rk);
+                    float[] rr = runAround(view, Math.round(rk), Float.isNaN(axk) ? ax : axk);
+                    if (rr != null) {
+                        found.add(rr);
+                    }
+                }
+                if (found.size() < win + 1) {
                     continue;
                 }
+                float[] los = new float[found.size()], his = new float[found.size()];
+                for (int k = 0; k < found.size(); k++) {
+                    los[k] = found.get(k)[0];
+                    his[k] = found.get(k)[1];
+                }
+                Arrays.sort(los);
+                Arrays.sort(his);
+                float[] run = {los[los.length / 2], his[his.length / 2]};
                 // a run that holds another part's middle line too is two parts touching: no use for either
                 boolean shared = false;
                 for (int o = 0; o < PARTS && !shared; o++) {
@@ -376,15 +441,23 @@ public final class SheetFit {
                     good[r] = true;
                 }
             }
+            if (DEBUG != null) {
+                for (int r = 0; r < rows; r += 6) {
+                    float row = top + (r + 0.5f) * band;
+                    DEBUG.append(String.format(java.util.Locale.US, "%s p%d row %.0f mesh %s target %s%n", view.name, part, row,
+                            have[r] ? String.format(java.util.Locale.US, "[%.3f %.3f]", mMin[r], mMax[r]) : "-",
+                            good[r] ? String.format(java.util.Locale.US, "[%.3f %.3f]", tMin[r], tMax[r]) : "-"));
+                }
+            }
             float[] s = new float[rows], o = new float[rows];
             int goodRows = 0;
             double sumS = 0;
             for (int r = 0; r < rows; r++) {
                 if (good[r]) {
                     float mw = mMax[r] - mMin[r], tw = tMax[r] - tMin[r];
-                    s[r] = Math.max(0.55f, Math.min(1.9f, tw / mw));
+                    s[r] = Math.max(0.72f, Math.min(1.45f, tw / mw));
                     // the part's middle moves to the sheet's middle of the run
-                    o[r] = (tMin[r] + tMax[r]) / 2 - (mMin[r] + mMax[r]) / 2 * 1f;
+                    o[r] = Math.max(-0.2f, Math.min(0.2f, (tMin[r] + tMax[r]) / 2 - (mMin[r] + mMax[r]) / 2));
                     goodRows++;
                     sumS += s[r];
                 }
@@ -395,8 +468,8 @@ public final class SheetFit {
             scaleOut[part] = (float) (sumS / goodRows);
             fill(s, good);
             fill(o, good);
-            smooth(s, 3);
-            smooth(o, 3);
+            smooth(s, 8);
+            smooth(o, 8);
             // the mesh middle per band (to scale about), smoothed the same way
             float[] mc = new float[rows];
             boolean[] hv = have.clone();
@@ -404,7 +477,7 @@ public final class SheetFit {
                 mc[r] = have[r] ? (mMin[r] + mMax[r]) / 2 : 0f;
             }
             fill(mc, hv);
-            smooth(mc, 3);
+            smooth(mc, 8);
             for (int v = 0; v < p.length / 3; v++) {
                 if (partOf[v] != part) {
                     continue;

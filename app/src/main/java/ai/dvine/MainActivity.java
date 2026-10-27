@@ -77,7 +77,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         ai.dvine.llm.DownloadStatus st = hub.status;
         ai.dvine.llm.DownloadStatus.Phase phase = st.phase();
         boolean show = !downloadBarHidden && (st.active() || phase != lastPhase && phase != ai.dvine.llm.DownloadStatus.Phase.IDLE);
-        stage.setDownload(show || stage.downloadShown() && !downloadBarHidden, "Downloading " + model.spec.name, st.percent(),
+        stage.setDownload(show || stage.downloadShown() && !downloadBarHidden, "Downloading brain files", st.percent(),
                 phase == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING, st.detail());
         if (phase == lastPhase) {
             return;
@@ -88,7 +88,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         switch (phase) {
             case DONE:
                 stage.activity("DOWNLOAD", "verified");
-                stage.setDownload(true, model.spec.name + " downloaded", 100, false, "verified, starting it now");
+                stage.setDownload(true, "Brain files downloaded", 100, false, "verified, starting now");
                 handler.postDelayed(() -> stage.setDownload(false, "", 100, false, ""), 6000);
                 loadModel(true);
                 break;
@@ -612,7 +612,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         prefs.edit().putBoolean("llm_offered", true).apply();
         List<TurnLine> lines2 = new ArrayList<TurnLine>(reply.lines);
         String agent = stage.isIvie() ? "ivie" : "obi";
-        lines2.add(new TurnLine(agent, "SAY", "By the way, I can answer questions like this much better with my own language model."
+        lines2.add(new TurnLine(agent, "SAY", "By the way, I can answer questions like this much better once my brain files are on this phone."
                 + " It runs on your phone, even offline, after a " + model.spec.sizeWords() + " download. Shall I install it?"));
         confirmModelDownload = true;
         play(lines2, this::startListening);
@@ -627,7 +627,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         } else if (!ai.dvine.llm.NativeLlm.available()) {
             line = "not in this build (the native library didn't load)";
         } else if (model.installed()) {
-            line = "starting " + model.spec.name;
+            line = "starting up";
         } else {
             line = "not installed: say \"download your brain\"";
         }
@@ -645,7 +645,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stopPlay();
         stage.setThought(ivie ? "Let me think about that…" : "Thinking it through…");
         stage.setMode(FaceMode.THINKING);
-        stage.activity("MODEL", "answering offline with " + model.spec.name);
+        stage.activity("MODEL", "thinking offline");
         final List<TurnLine> stream = new ArrayList<TurnLine>();
         streamOpen = true;
         lines = stream;
@@ -748,7 +748,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (shown == null) {
                     play(LocalTurn.speakAs(ivie, modelOk || online ? "I tried to make " + ai.dvine.llm.DrawPrompt.article(subject)
                             + ", but it didn't come out right. Ask me again?"
-                            : "I need my language model for that. Say download your brain, and I'll be able to build anything you ask."), null);
+                            : "I need my brain files for that. Say download your brain, and I'll be able to build anything you ask."), null);
                     return;
                 }
                 String line = built ? "Here's a rough 3D sketch of " + ai.dvine.llm.DrawPrompt.article(subject) + "."
@@ -790,10 +790,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
         modelThread.execute(() -> {
             final boolean ok = model.load(ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
             handler.post(() -> {
-                stage.activity("MODEL", ok ? model.spec.name + " ready, offline" : model.problem());
+                stage.activity("MODEL", ok ? "ready, offline" : model.problem());
                 if (tell) {
-                    play(LocalTurn.speakAs(stage.isIvie(), ok ? "My language model is ready. Ask me anything, even offline."
-                            : "I couldn't start my language model: " + model.problem() + "."), null);
+                    play(LocalTurn.speakAs(stage.isIvie(), ok ? "My brain is ready. Ask me anything, even offline."
+                            : "I couldn't start my brain: " + model.problem() + "."), null);
                 }
             });
         });
@@ -817,7 +817,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (confirmModelRemove && (yes || no)) {
             confirmModelRemove = false;
-            String line = !yes ? "Okay, I'll keep it." : model.uninstall() ? "Done. My language model is removed; I'm on my offline notes again."
+            String line = !yes ? "Okay, I'll keep it." : model.uninstall() ? "Done. My brain files are removed; I'm on my offline notes again."
                     : "I couldn't delete the model file.";
             play(LocalTurn.speakAs(stage.isIvie(), line), null);
             return true;
@@ -829,9 +829,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (said.matches("^(please )?(download|install|get|add|set up)( me)? " + thing + "( please)?$")
                 || said.matches("^(upgrade your brain|make yourself smarter|get smarter)$")) {
             if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
-                play(LocalTurn.speakAs(ivie, "I can't run a language model on this phone: " + model.problem() + "."), null);
+                play(LocalTurn.speakAs(ivie, "My brain can't run on this phone: " + model.problem() + "."), null);
             } else if (model.installed()) {
-                play(LocalTurn.speakAs(ivie, model.ready() ? "My language model is already installed and running."
+                play(LocalTurn.speakAs(ivie, model.ready() ? "My brain is already installed and running."
                         : "It's already installed. Starting it now."), null);
                 if (!model.ready()) {
                     loadModel(true);
@@ -840,9 +840,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 play(LocalTurn.speakAs(ivie, "It's downloading now. I'll tell you when it's ready."), null);
             } else {
                 confirmModelDownload = true;
-                play(LocalTurn.speakAs(ivie, "My language model is " + model.spec.name + ", an open model under the "
-                        + model.spec.licence + " licence. It's a " + model.spec.sizeWords()
-                        + " download from Hugging Face, best on Wi-Fi, and then it works offline. Shall I start?"), this::startListening);
+                play(LocalTurn.speakAs(ivie, "My brain files are a " + model.spec.sizeWords()
+                        + " download, best on Wi-Fi, and then I can think offline. Shall I start?"), this::startListening);
             }
             return true;
         }
@@ -867,10 +866,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (said.matches("^(show|display|open)( me)? " + dl + "$") || said.matches("^(show|display)( me)? (the )?progress( bar)?$")) {
             downloadBarHidden = false;
             ai.dvine.llm.DownloadStatus st = hub.status;
-            stage.setDownload(true, "Downloading " + model.spec.name, model.installed() ? 100 : st.percent(),
+            stage.setDownload(true, "Downloading brain files", model.installed() ? 100 : st.percent(),
                     st.phase() == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING,
                     model.installed() ? "installed" : st.phase() == ai.dvine.llm.DownloadStatus.Phase.IDLE ? "not started: say download your brain" : st.detail());
-            play(LocalTurn.speakAs(ivie, model.installed() ? "My language model is already downloaded." : st.spoken()), null);
+            play(LocalTurn.speakAs(ivie, model.installed() ? "My brain files are already downloaded." : st.spoken()), null);
             return true;
         }
         if (said.matches("^(hide|close|remove)( the)? " + dl + "$")) {
@@ -880,15 +879,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return true;
         }
         if (said.matches("^(how('s| is) (the |my )?download( going)?|how far (is|along is) (the |my )?download|(what('s| is) the )?download (progress|status)|is (the |my )?download (done|finished|complete))$")) {
-            play(LocalTurn.speakAs(ivie, model.installed() ? "The download is finished. My language model is installed." : hub.status.spoken()), null);
+            play(LocalTurn.speakAs(ivie, model.installed() ? "The download is finished. My brain is installed." : hub.status.spoken()), null);
             return true;
         }
         if (said.matches("^(delete|remove|uninstall) " + thing + "$")) {
             if (!model.installed()) {
-                play(LocalTurn.speakAs(ivie, "There's no language model installed."), null);
+                play(LocalTurn.speakAs(ivie, "My brain files aren't installed."), null);
             } else {
                 confirmModelRemove = true;
-                play(LocalTurn.speakAs(ivie, "Remove my language model and free " + model.spec.sizeWords() + "? Say yes or no."),
+                play(LocalTurn.speakAs(ivie, "Remove my brain files and free " + model.spec.sizeWords() + "? Say yes or no."),
                         this::startListening);
             }
             return true;
@@ -903,14 +902,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
             if (model.installed() && !model.ready()) {
                 loadModel(true);
             } else {
-                play(LocalTurn.speakAs(ivie, model.ready() ? "My language model is on." : "It isn't installed yet. Say download your brain."), null);
+                play(LocalTurn.speakAs(ivie, model.ready() ? "My brain is on." : "It isn't installed yet. Say download your brain."), null);
             }
             return true;
         }
         if (said.matches("^(is|are) " + thing + " (installed|ready|on|working)$|^(language model|model|brain) status$")) {
             String line;
             switch (model.state()) {
-                case READY: line = model.spec.name + " is running on this phone, offline."; break;
+                case READY: line = "My brain is running on this phone, offline."; break;
                 case LOADING: line = "It's starting up now."; break;
                 case DOWNLOADING: line = "It's downloading."; break;
                 case INSTALLED: line = "It's installed but switched off. Say turn on your brain."; break;

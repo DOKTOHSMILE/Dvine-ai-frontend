@@ -159,7 +159,7 @@ public final class WireRenderer {
             s.wrapW = floats(weight);
             java.nio.ByteBuffer px = java.nio.ByteBuffer.allocateDirect(texW * texH * 4);
             for (int p : argb) {
-                px.put((byte) (p >> 16)).put((byte) (p >> 8)).put((byte) p).put((byte) 255);
+                px.put((byte) (p >> 16)).put((byte) (p >> 8)).put((byte) p).put((byte) (p >>> 24));
             }
             px.position(0);
             s.wrapPixels = px;
@@ -1043,8 +1043,8 @@ public final class WireRenderer {
         // the clothes: the same skinned surface, pushed out a few millimetres, shaded as fabric
         for (int g = 0; g < s.garments.length && g < s.garmentIbo.length; g++) {
             ai.dvine.human.Clothing.Garment gm = s.garments[g];
-            if (gm.tri.length == 0 || wrap && !"hair".equals(gm.name)) {
-                continue; // the sheet paints the clothes; only the hair's volume stays (painted from the sheet too)
+            if (gm.tri.length == 0 || wrap) {
+                continue; // the sheet paints the clothes and the hair (the head is shaped to the hair's outline)
             }
             gl.uniform4f(gl.uniform(p, "uCloth"), gm.color[0], gm.color[1], gm.color[2], 1f);
             gl.uniform4f(gl.uniform(p, "uClipA"), gm.clip[0], gm.clip[1], gm.clip[2], gm.clip[3]);
@@ -1324,9 +1324,12 @@ public final class WireRenderer {
             + "uniform vec4 uLegs; uniform float uHairStyle; uniform float uBeard; uniform float uToon;\n"
             + "in vec4 vWrapA; in vec4 vWrapB; in vec4 vWrapW; uniform float uWrap; uniform sampler2D uSheet;\n"
             // the character sheet: each view weighted by how the surface faces it (front, back, profile, face close-up)
-            + "vec3 sheet(){ vec4 w = max(vWrapW, vec4(0.0)); float t = w.x + w.y + w.z + w.w + 1e-4;\n"
-            + "  vec3 c = texture(uSheet, vWrapA.xy).rgb * w.x + texture(uSheet, vWrapA.zw).rgb * w.y\n"
-            + "    + texture(uSheet, vWrapB.xy).rgb * w.z + texture(uSheet, vWrapB.zw).rgb * w.w; return c / t; }\n"
+            // (a view's sample off the figure, where its picture is clear, drops out and the other views fill in)
+            + "vec3 sheet(){ vec4 w = max(vWrapW, vec4(0.0));\n"
+            + "  vec4 a = texture(uSheet, vWrapA.xy), b = texture(uSheet, vWrapA.zw), c = texture(uSheet, vWrapB.xy), d = texture(uSheet, vWrapB.zw);\n"
+            + "  vec4 k = w * vec4(a.a, b.a, c.a, d.a); k = k * k / max(w, vec4(1e-4)); float t = k.x + k.y + k.z + k.w;\n"
+            + "  if (t < 1e-3) { k = vec4(a.a, b.a, c.a, d.a) + 1e-4; t = k.x + k.y + k.z + k.w; }\n"
+            + "  return (a.rgb * k.x + b.rgb * k.y + c.rgb * k.z + d.rgb * k.w) / t; }\n"
             + "float lips(vec3 h, float fem); float vnoise(vec3 x);\n"
             + "float cheekLine(float ax){ float t = clamp((ax - 0.12) / 0.5, 0.0, 1.0);\n"
             + "  return -0.43 + 0.42 * t * t * (3.0 - 2.0 * t) - sin(3.14159 * t) * 0.12; }\n"
