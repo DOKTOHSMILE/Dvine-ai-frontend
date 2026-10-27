@@ -13,3 +13,4 @@ captures/
 .env
 !releases/*.apk
 .platform/
+app/.cxx/
