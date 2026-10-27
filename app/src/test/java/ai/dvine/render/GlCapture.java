@@ -107,6 +107,15 @@ public class GlCapture {
         float faceCy = padTop + usable * 0.40f;
         float FS = ai.dvine.face.nano.DotBody.FACE_SCALE, FY = ai.dvine.face.nano.DotBody.FACE_Y;
         int frames = Integer.parseInt(System.getenv().getOrDefault("GLCAP_FRAMES", "90"));
+        String fields = System.getenv("GLCAP_FIELDS"); // a folder of .pts pictures (from RasterTest): the particle display
+        if (fields != null) {
+            r.displayDensity = 2.75f;
+            stage.display.panel("bar", pts(new File(fields, "bar.pts")));
+            stage.display.caption("words", pts(new File(fields, "words.pts")));
+            String drawing = System.getenv("GLCAP_DRAWING");
+            if (drawing != null) stage.display.drawing("d", pts(new File(fields, drawing + ".pts")), 0f);
+            if (System.getenv("GLCAP_THOUGHT") != null) stage.display.thought("t", pts(new File(fields, "thought.pts")));
+        }
         for (int k = 0; k < frames; k++) {
             float t = k / 15f;
             rig.tick(1 / 15f);
@@ -155,4 +164,15 @@ public class GlCapture {
     }
 
     static float lerp(float a, float b, float t) { return a + (b - a) * t; }
+
+    static ai.dvine.render.field.Shape pts(File f) throws IOException {
+        List<String> lines = java.nio.file.Files.readAllLines(f.toPath());
+        float[] xyz = new float[lines.size() * 3], rgb = new float[lines.size() * 3];
+        for (int i = 0; i < lines.size(); i++) {
+            String[] v = lines.get(i).split(" ");
+            xyz[i * 3] = Float.parseFloat(v[0]); xyz[i * 3 + 1] = Float.parseFloat(v[1]); // x y r g b per line
+            for (int k = 0; k < 3; k++) rgb[i * 3 + k] = Float.parseFloat(v[k + 2]);
+        }
+        return new ai.dvine.render.field.Shape(xyz, rgb, lines.size());
+    }
 }

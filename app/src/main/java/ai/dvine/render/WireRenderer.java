@@ -84,7 +84,7 @@ public final class WireRenderer {
     public final FrameStats stats = new FrameStats();
 
     // programs and shared objects
-    private int fillProg, particleProg, innerProg, gridProg, skinProg, studioProg;
+    private int fillProg, particleProg, innerProg, gridProg, skinProg, studioProg, fieldProg;
     private int gridVbo, gridCount, studioVbo;
     /** Count of live GL objects (for leak checks). */
     public int liveObjects;
@@ -311,6 +311,130 @@ public final class WireRenderer {
         }
     }
 
+    // ------------------------------------------------------------ the particle display (everything shown that isn't a body)
+
+    /** Layers of the particle display: a panel in the stage (the download bar), captions on the screen, a thought above the head, a drawing. */
+    public static final int FIELD_PANEL = 0, FIELD_CAPTION = 1, FIELD_THOUGHT = 2, FIELD_DRAWING = 3;
+
+    private static final class Field {
+        int vbo, uploaded = -1, count, shown;
+        boolean screen, dirty;
+        float[] data = new float[0];
+        final float[] place = {0f, 0f, 0f, 1f};
+        float size = 3f;
+    }
+
+    private final Field[] fields = {new Field(), new Field(), new Field(), new Field()};
+
+    /**
+     * This frame's particles for a layer ({@link ai.dvine.render.field.ParticleField#pack} format, {@code count} of
+     * them), placed at (x, y, z) and scaled: in body units in the stage, or in screen units (-1..1, y up) when
+     * {@code screen}. {@code size} is the dot size (pixels on screen; in the stage it shrinks with distance).
+     */
+    public void setField(int layer, float[] packed, int count, boolean screen, float x, float y, float z, float scale, float size) {
+        Field f = fields[layer];
+        synchronized (lock) {
+            int n = count * ai.dvine.render.field.ParticleField.STRIDE;
+            if (f.data.length < n) {
+                f.data = new float[n];
+            }
+            System.arraycopy(packed, 0, f.data, 0, n);
+            f.count = count;
+            f.screen = screen;
+            f.place[0] = x;
+            f.place[1] = y;
+            f.place[2] = z;
+            f.place[3] = scale;
+            f.size = size;
+            f.dirty = true;
+        }
+    }
+
+    private void drawFields() {
+        if (fieldProg == 0) {
+            return;
+        }
+        int p = fieldProg;
+        boolean any = false;
+        for (Field f : fields) {
+            any |= f.count > 0;
+        }
+        if (!any) {
+            return;
+        }
+        gl.useProgram(p);
+        gl.uniformMatrix4(gl.uniform(p, "uMvp"), camera.mvp);
+        gl.uniform4f(gl.uniform(p, "uAspect"), height / (float) Math.max(1, width), 1f, density(), 0f);
+        gl.enable(GlApi.BLEND);
+        gl.blendFunc(GlApi.ONE, GlApi.ONE);
+        gl.depthMask(false);
+        for (Field f : fields) {
+            int n;
+            synchronized (lock) {
+                n = f.count;
+                if (n > 0 && f.dirty) {
+                    gl.bindBuffer(GlApi.ARRAY_BUFFER, f.vbo);
+                    int bytes = n * ai.dvine.render.field.ParticleField.STRIDE * 4;
+                    if (f.uploaded < n) {
+                        gl.bufferData(GlApi.ARRAY_BUFFER, bytes, floats(java.util.Arrays.copyOf(f.data, n * ai.dvine.render.field.ParticleField.STRIDE)), GlApi.DYNAMIC_DRAW);
+                        f.uploaded = n;
+                    } else {
+                        gl.bufferSubData(GlApi.ARRAY_BUFFER, 0, bytes, floats(java.util.Arrays.copyOf(f.data, n * ai.dvine.render.field.ParticleField.STRIDE)));
+                    }
+                    f.dirty = false;
+                    f.shown = n;
+                }
+            }
+            if (n <= 0 || f.shown <= 0) {
+                continue;
+            }
+            if (f.screen) {
+                gl.disable(GlApi.DEPTH_TEST);
+            } else {
+                gl.enable(GlApi.DEPTH_TEST);
+            }
+            gl.uniform4f(gl.uniform(p, "uPlace"), f.place[0], f.place[1], f.place[2], f.place[3]);
+            gl.uniform4f(gl.uniform(p, "uMode"), f.screen ? 1f : 0f, f.size, 0f, 0f);
+            gl.bindBuffer(GlApi.ARRAY_BUFFER, f.vbo);
+            gl.vertexAttrib(0, 3, 28, 0);
+            gl.vertexAttrib(1, 4, 28, 12);
+            gl.drawArrays(GlApi.POINTS, 0, f.shown);
+            gl.disableAttrib(1);
+        }
+        gl.enable(GlApi.DEPTH_TEST);
+        gl.depthMask(true);
+        gl.disable(GlApi.BLEND);
+    }
+
+    /** The screen's width over its height. */
+    public float aspect() {
+        return width / (float) Math.max(1, height);
+    }
+
+    /** Screen density for the particle display's dot sizes (1 when unknown). */
+    private float density() {
+        return displayDensity;
+    }
+
+    /** Set by the view: pixels per dp, so dots are the same size on every screen. */
+    public volatile float displayDensity = 1f;
+
+    static final String FIELD_VS = "#version 300 es\n"
+            + "layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol;\n"
+            + "uniform mat4 uMvp; uniform vec4 uPlace; uniform vec4 uMode; uniform vec4 uAspect; out vec4 vCol;\n"
+            + "void main(){ vec3 p = aPos * uPlace.w;\n"
+            + "  if (uMode.x > 0.5) { gl_Position = vec4((p.x + uPlace.x) * uAspect.x, p.y + uPlace.y, 0.0, 1.0); gl_PointSize = uMode.y * uAspect.z; }\n"
+            // in the stage the dots shrink with distance, like everything else there
+            + "  else { gl_Position = uMvp * vec4(p + uPlace.xyz, 1.0); gl_PointSize = clamp(uMode.y * uAspect.z * 4.4 / max(gl_Position.w, 0.1), 1.0, 18.0); }\n"
+            + "  vCol = aCol; }\n";
+    static final String FIELD_FS = "#version 300 es\n"
+            + "precision mediump float;\n"
+            + "in vec4 vCol; out vec4 o;\n"
+            // a soft glowing dot with a bright core
+            + "void main(){ vec2 c = gl_PointCoord * 2.0 - 1.0; float d = dot(c, c); if (d > 1.0) discard;\n"
+            + "  float a = (exp(-d * 3.0) * 0.8 + exp(-d * 12.0) * 0.6) * vCol.a;\n"
+            + "  o = vec4(vCol.rgb * a, a); }\n";
+
     /** The cartoon look (Ghibli style) for the lifelike bodies and a painted backdrop instead of the studio. */
     public volatile boolean toon;
 
@@ -375,6 +499,11 @@ public final class WireRenderer {
         gridProg = prog(GRID_VS, GRID_FS);
         skinProg = prog(SKIN_VS, SKIN_FS);
         studioProg = prog(STUDIO_VS, STUDIO_FS);
+        fieldProg = prog(FIELD_VS, FIELD_FS);
+        for (Field fl : fields) {
+            fl.vbo = buf();
+            fl.uploaded = -1;
+        }
         // the studio: a full-screen backdrop triangle (clip space), then a big floor square (body units, x and z)
         studioVbo = buf();
         float[] st = {-1f, -1f, 3f, -1f, -1f, 3f, -40f, -40f, 40f, -40f, 40f, 40f, -40f, -40f, 40f, 40f, -40f, 40f};
@@ -462,6 +591,7 @@ public final class WireRenderer {
                 drawSlot(s);
             }
         }
+        drawFields();
         int err = gl.error();
         if (err != GlApi.NO_ERROR) {
             glErrors++;
@@ -479,18 +609,25 @@ public final class WireRenderer {
             }
         }
         if (fillProg != 0) {
-            for (int p : new int[]{fillProg, particleProg, innerProg, gridProg, skinProg, studioProg}) {
+            for (int p : new int[]{fillProg, particleProg, innerProg, gridProg, skinProg, studioProg, fieldProg}) {
                 if (p != 0) {
                     gl.deleteProgram(p);
                     liveObjects--;
                 }
             }
-            fillProg = particleProg = innerProg = gridProg = skinProg = studioProg = 0;
+            fillProg = particleProg = innerProg = gridProg = skinProg = studioProg = fieldProg = 0;
         }
         if (studioVbo != 0) {
             gl.deleteBuffer(studioVbo);
             liveObjects--;
             studioVbo = 0;
+        }
+        for (Field fl : fields) {
+            if (fl.vbo != 0) {
+                gl.deleteBuffer(fl.vbo);
+                liveObjects--;
+                fl.vbo = 0;
+            }
         }
         if (gridVbo != 0) {
             gl.deleteBuffer(gridVbo);

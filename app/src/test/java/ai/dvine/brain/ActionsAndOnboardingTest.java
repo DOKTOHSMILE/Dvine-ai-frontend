@@ -143,7 +143,7 @@ public class ActionsAndOnboardingTest {
         assertTrue(hair.lookIvie);
         assertTrue(hair.look.hair > 1f);
         assertEquals(0f, brain.respond("Ivie remove your hair", "ivie").look.hair, 0f);
-        assertEquals(ai.dvine.face.Look.Style.LINE, brain.respond("reset your look", "obi").look.style);
-        assertEquals(ai.dvine.face.Look.Style.LINE, brain.respond("go back to your face", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.TOON, brain.respond("reset your look", "obi").look.style);
+        assertEquals(ai.dvine.face.Look.Style.TOON, brain.respond("ghibli mode", "obi").look.style);
     }
 }

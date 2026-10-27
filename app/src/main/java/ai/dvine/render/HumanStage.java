@@ -43,6 +43,9 @@ public final class HumanStage {
     private final ai.dvine.anre.TransformationController[] morph = new ai.dvine.anre.TransformationController[2];
     /** The object the particles build (shared by both personas), and the download bar. */
     public final ai.dvine.create.ObjectSession objects = new ai.dvine.create.ObjectSession();
+    /** Everything shown besides the bodies (the download bar, drawings, thoughts, captions), made of particles. */
+    public final ai.dvine.render.field.ParticleDisplay display = new ai.dvine.render.field.ParticleDisplay();
+    private final float[] headNow = {0f, 2.6f, 0f, 1.4f};
     private final ai.dvine.create.ObjectSession bar = new ai.dvine.create.ObjectSession();
     private boolean showingBar;
     private float barShown = -1f;
@@ -500,6 +503,7 @@ public final class HumanStage {
      */
     public synchronized void frame(float t, boolean ivie, FaceRig rig, boolean bodyView, boolean talking, float alpha) {
         time = t;
+        float dt = lastFrame < 0f ? 0f : Math.min(0.05f, t - lastFrame);
         scene.setFocus(ivie);
         scene.step(lastFrame < 0f ? 0f : t - lastFrame);
         lastFrame = t;
@@ -587,7 +591,23 @@ public final class HumanStage {
                 renderer.submitInner(slot, h.innerPos, h.innerNor);
             }
             renderer.anatomy(slot, showInside, xrayLayers[slot], xrayParts[slot]);
+            if ((slot == 1) == ivie) {
+                head(h, p);
+            }
         }
+        display.frame(dt, renderer, headNow, FLOOR, bodyView, renderer.aspect());
+    }
+
+    /** The shown persona's crown (x, y, z) and chin height, as drawn this frame, for placing the display. */
+    private void head(HumanInstance h, float[] p) {
+        int crown = h.asset.landmark("crown"), chin = h.asset.landmark("chin");
+        if (crown < 0 || chin < 0 || crown * 3 + 2 >= p.length) {
+            return;
+        }
+        headNow[0] = p[crown * 3];
+        headNow[1] = p[crown * 3 + 1];
+        headNow[2] = p[crown * 3 + 2];
+        headNow[3] = p[chin * 3 + 1];
     }
 
     // ------------------------------------------------------------ touch

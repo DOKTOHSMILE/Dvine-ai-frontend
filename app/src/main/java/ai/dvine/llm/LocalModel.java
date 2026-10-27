@@ -112,6 +112,22 @@ public final class LocalModel {
         return answer.trim();
     }
 
+    /**
+     * One task outside the conversation (a drawing to describe): its own instructions, no history, nothing
+     * remembered; a lower temperature so the shapes come out well formed. Null when not ready or it failed.
+     */
+    public synchronized String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink) {
+        if (state != State.READY) {
+            return null;
+        }
+        String answer = NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{prompt}, maxTokens, 0.35f, sink);
+        if (answer == null || answer.trim().isEmpty()) {
+            problem = NativeLlm.nError(handle);
+            return null;
+        }
+        return answer.trim();
+    }
+
     /** Stops a reply being written (from any thread). */
     public void cancel() {
         long h = handle;

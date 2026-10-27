@@ -9,15 +9,14 @@ import java.util.Locale;
  */
 public final class Look {
     public enum Style {
-        LINE,
         TOON,
         SKIN,
         WIRE,
         DOTS
     }
 
-    /** LINE: the glowing line-art face (default; the body shows as a cartoon); TOON: the Ghibli-style cartoon body; SKIN: the lifelike 3D body; WIRE: the particle hologram; DOTS: the nano-dot swarm. */
-    public Style style = Style.LINE;
+    /** TOON: the Ghibli-style cartoon body (default); SKIN: the lifelike 3D body; WIRE: the particle hologram; DOTS: the nano-dot swarm. */
+    public Style style = Style.TOON;
     /** 0 light .. 1 deep brown. */
     public float tone = 0.85f;
     public float width = 1f;
@@ -102,7 +101,7 @@ public final class Look {
             return l;
         }
         try {
-            l.style = Style.valueOf(p[0]);
+            l.style = "LINE".equals(p[0]) ? Style.TOON : Style.valueOf(p[0]); // the line-art face was retired in 0.22
             l.tone = Float.parseFloat(p[1]);
             l.width = Float.parseFloat(p[2]);
             l.height = Float.parseFloat(p[3]);
@@ -143,11 +142,7 @@ public final class Look {
         boolean more = has(t, "bigger", "larger", "wider", "longer", "fuller", "more", "darker", "deeper", "taller");
         boolean less = has(t, "smaller", "slimmer", "thinner", "narrower", "shorter", "less", "lighter", "flatter", "smaller");
         String said = null;
-        if (has(t, "line mode", "line face", "line art", "neon face", "neon mode", "flat face", "face mode", "back to your face",
-                "back to the face", "original face", "go back to the faces", "just your face", "drawn face")) {
-            style = Style.LINE;
-            said = "Back to my face.";
-        } else if (has(t, "cartoon", "ghibli", "anime", "toon", "animated look", "drawn body", "painted look")) {
+        if (has(t, "cartoon", "ghibli", "anime", "toon", "animated look", "drawn body", "painted look")) {
             style = Style.TOON;
             said = "Now I'm a cartoon, painted in watercolour.";
         } else if (has(t, "dot mode", "dots mode", "nano dot", "dotted", "made of dots", "dot look")) {
