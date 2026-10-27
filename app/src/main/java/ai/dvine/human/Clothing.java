@@ -106,13 +106,27 @@ public final class Clothing {
     /** Obi's full beard in head units: jaw, chin and cheeks below a cheek line, the moustache, not the lips. */
     public static boolean beard(float x, float y, float z, float margin) {
         float ax = Math.abs(x);
-        if (z < -0.15f - margin || y < -1.13f - margin) {
+        if (z < -0.42f - margin || y < -1.13f - margin) {
             return false;
         }
-        if (ax > 0.68f + margin) {
+        if (sideburn(ax, y, z) > 0f) {
+            return true;
+        }
+        if (ax > 0.78f + margin) {
             return false;
         }
-        return y < cheekLine(ax) + margin;
+        // a wider margin out on the cheeks (the shader thins the edge there), a tight one by the nose
+        return y < cheekLine(ax) + (ax > 0.3f ? margin * 2.5f : margin);
+    }
+
+    /** The sideburns: in front of each ear, from the beard up into the fade (0..1 density). */
+    public static float sideburn(float ax, float y, float z) {
+        float band = clamp01((ax - 0.53f) / 0.06f) * clamp01((0.8f - ax) / 0.06f) * clamp01((z + 0.16f) / 0.1f) * clamp01((0.3f - z) / 0.08f);
+        return band * (1f - clamp01((y - 0.1f) / 0.34f)) * clamp01((y + 0.2f) / 0.1f);
+    }
+
+    private static float clamp01(float t) {
+        return Math.max(0f, Math.min(1f, t));
     }
 
     /** Where the beard meets the bare cheek (head units): over the upper lip, down across the cheek, up to the sideburn. */
@@ -139,7 +153,7 @@ public final class Clothing {
                 continue;
             }
             int r = majority(reg[i0], reg[i1], reg[i2]);
-            if (r > Regions.NECK || r == Regions.EAR_L || r == Regions.EAR_R) {
+            if (r > Regions.NECK) { // ear-labelled triangles reach onto the cheek; the shader cuts the ear itself out
                 continue;
             }
             float[] h = head.toHead((p[i0 * 3] + p[i1 * 3] + p[i2 * 3]) / 3f, (p[i0 * 3 + 1] + p[i1 * 3 + 1] + p[i2 * 3 + 1]) / 3f,
