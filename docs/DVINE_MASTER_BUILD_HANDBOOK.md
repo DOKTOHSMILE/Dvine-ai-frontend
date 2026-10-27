@@ -1036,6 +1036,22 @@ When nothing matches, the brain is given the list of parts and asked which ones 
 
 **For games.** "Export it" saves `<name>.glb` (glTF 2.0) to Downloads (`render/field/Gltf`). Each part is a node with its own mesh and material, named as drawn. Each part is a child of the part it was placed against (an ear under the head, the head under the body), so each part is a joint about its own centre. The file uses metres, y up, 1 m across, standing on the ground. It opens in Blender, Unity, Unreal and Godot.
 
+**Saved drawings (0.26.2).** `library/DrawingLibrary` keeps each drawing on the phone under the name the user gives it. It stores what the user said about the drawing and DVINE's own note of it (the thing, its parts, its colours). The parts are stored exactly (`SolidSpec.save` / `load`), joints included.
+
+Finding a drawing: by its exact name; by the name's words; or by enough of the user's words appearing in the name, the thing, the description and the note.
+- When several match, DVINE names them and asks which.
+- A name already in use is never overwritten silently. DVINE says what the name is used for and when it was saved, then asks for another name or a description, or "replace it".
+
+**3D files (0.26.2).** `MeshExport` writes to Downloads/DVINE:
+- .glb (glTF 2.0): the default.
+- .obj + .mtl
+- binary .stl in millimetres, z up, for slicers
+- binary .ply with vertex colours
+
+The format comes from the words ("for 3D printing" means STL).
+
+**Any screen (0.26.2).** The activity follows the phone's rotation (`fullUser`, the user's rotation lock respected) and handles the change itself, so nothing restarts. `PodLayout` has an on-its-side layout. A stage unit is 38% of the height, at most 32% of the width. The drawing sits 38% down and the pod 80% down, at most half the width wide. The text field and subtitles keep a readable width on tablets.
+
 **Limits.** Parts are simple solids (spheres, boxes, cylinders, cones, rings, discs), so organic shapes are approximate. Building a mesh from photos of every side of a thing needs a GPU server; it can't be done on a phone today. Candidate models: TripoSR, Hunyuan3D, Stable Fast 3D. Splitting a mesh into parts would also need a server: SAMPart3D and SAM 3D.
 
 ## 31. Open work, in order

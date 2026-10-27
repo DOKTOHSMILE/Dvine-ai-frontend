@@ -543,7 +543,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         canvas.drawCircle(pod[0], pod[1], pr * 0.25f, fill);
         fill.setShader(null);
         if (subtitles && subtitle.length() > 0) {
-            int width = (int) (w - 48f * density);
+            int width = (int) Math.min(w - 48f * density, 640f * density); // a readable line on a tablet too
             if (subLayout == null || subWidth != width) {
                 subWidth = width;
                 subLayout = StaticLayout.Builder.obtain(subtitle, 0, subtitle.length(), subPaint, width)
@@ -551,7 +551,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
                         .setEllipsize(android.text.TextUtils.TruncateAt.END).build();
             }
             canvas.save();
-            canvas.translate(24f * density, h - padBottom - 22f * density - subLayout.getHeight());
+            canvas.translate((w - width) * 0.5f, h - padBottom - 22f * density - subLayout.getHeight());
             subLayout.draw(canvas);
             canvas.restore();
         }

@@ -113,6 +113,55 @@ public final class SolidSpec {
         return parseOnto(out, text, null);
     }
 
+    /**
+     * The parts exactly as they are (place, size, colour, joint), one per line, to keep on the phone; {@link #load}
+     * reads it back. Not the brain's format: nothing is re-placed.
+     */
+    public String save() {
+        StringBuilder b = new StringBuilder("dvine-solid 1\n");
+        if (frame != null) {
+            b.append("frame\t").append(frame[0]).append('\t').append(frame[1]).append('\t').append(frame[2]).append('\t').append(frame[3]).append('\n');
+        }
+        java.util.IdentityHashMap<Part, Integer> index = new java.util.IdentityHashMap<Part, Integer>();
+        for (int i = 0; i < parts.size(); i++) {
+            index.put(parts.get(i), i);
+        }
+        for (Part p : parts) {
+            Integer up = p.parent == null ? null : index.get(p.parent);
+            b.append(p.name.replace('\t', ' ').replace('\n', ' ')).append('\t').append(p.solid.name()).append('\t')
+                    .append(String.format(Locale.US, "%08x", p.colour)).append('\t').append(p.x).append('\t').append(p.y).append('\t')
+                    .append(p.z).append('\t').append(p.w).append('\t').append(p.h).append('\t').append(p.d).append('\t').append(p.axis)
+                    .append('\t').append(up == null ? -1 : up).append('\n');
+        }
+        return b.toString();
+    }
+
+    /** A drawing kept by {@link #save}; empty when the text isn't one. */
+    public static SolidSpec load(String text) {
+        SolidSpec out = new SolidSpec();
+        if (text == null || !text.startsWith("dvine-solid 1")) {
+            return out;
+        }
+        List<int[]> ups = new ArrayList<int[]>();
+        for (String line : text.split("\n")) {
+            String[] f = line.split("\t");
+            try {
+                if (f[0].equals("frame") && f.length == 5) {
+                    out.frame = new float[]{Float.parseFloat(f[1]), Float.parseFloat(f[2]), Float.parseFloat(f[3]), Float.parseFloat(f[4])};
+                } else if (f.length == 11) {
+                    int up = Integer.parseInt(f[10]);
+                    Part parent = up >= 0 && up < out.parts.size() ? out.parts.get(up) : null;
+                    out.parts.add(new Part(f[0], Solid.valueOf(f[1]), (int) Long.parseLong(f[2], 16), Float.parseFloat(f[3]),
+                            Float.parseFloat(f[4]), Float.parseFloat(f[5]), Float.parseFloat(f[6]), Float.parseFloat(f[7]),
+                            Float.parseFloat(f[8]), Integer.parseInt(f[9]), parent));
+                }
+            } catch (RuntimeException e) {
+                // a damaged line: skip it
+            }
+        }
+        return out;
+    }
+
     /** A copy (the parts themselves don't change, so they are shared). */
     public SolidSpec copy() {
         SolidSpec c = new SolidSpec();
