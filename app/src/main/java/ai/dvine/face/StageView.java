@@ -335,7 +335,13 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     /** The line-art face is showing (the default look). */
     private boolean lineOn() {
-        return looks[showingIvie ? 1 : 0].style == Look.Style.LINE;
+        return looks[showingIvie ? 1 : 0].style == Look.Style.LINE && !bodySpace;
+    }
+
+    /** The 3D bodies are drawn as cartoons: the cartoon look, or the body shown from the line-art face. */
+    private boolean cartoonOn() {
+        Look.Style st = looks[showingIvie ? 1 : 0].style;
+        return st == Look.Style.TOON || st == Look.Style.LINE;
     }
 
     public void setListening(boolean on) {
@@ -418,7 +424,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
     /** True while the wireframe human draws this persona (else the nano-dot swarm does). */
     private boolean wireOn() {
         Look.Style st = looks[showingIvie ? 1 : 0].style;
-        return human != null && human.ready(showingIvie) && st != Look.Style.DOTS && st != Look.Style.LINE
+        return human != null && human.ready(showingIvie) && st != Look.Style.DOTS && (st != Look.Style.LINE || bodySpace)
                 && human.renderer.glErrors < 5;
     }
 
@@ -937,8 +943,12 @@ public final class StageView extends View implements Choreographer.FrameCallback
             c.pitchDeg = pitch;
             c.update();
             human.renderer.setCamera(c, -4.22f);
+            boolean cartoon = cartoonOn();
+            human.cartoon = cartoon;
+            human.renderer.toon = cartoon;
             for (int k = 0; k < 2; k++) {
-                human.renderer.setSkin(k, looks[k].style == Look.Style.SKIN, looks[k].skinColor());
+                Look.Style st = looks[k].style;
+                human.renderer.setSkin(k, st == Look.Style.SKIN || st == Look.Style.TOON || st == Look.Style.LINE, looks[k].skinColor());
             }
             human.frame(clock, showingIvie, rig, e > 0.5f, rig.mode() == FaceMode.SPEAKING, faceAlpha * humanFade);
             // the drawing frame: in the wire look the body's own dots draw, so the drawing gets the whole stage

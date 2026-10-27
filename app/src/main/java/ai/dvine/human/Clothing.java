@@ -68,7 +68,29 @@ public final class Clothing {
         final float waist = pelvis + (f ? 0.48f : 0.36f);
         final float hem = f ? waist - 0.06f : pelvis + 0.03f, sleeveEnd = f ? 0.36f : 0.5f;
         float[] cream = rgb(0.66f, 0.6f, 0.5f);
-        out.add(new Garment("t-shirt", cream, 0.04f, -1f, new float[]{0f, neckFront, neckBack, scoop, hem, sleeveEnd, 0f},
+        Garment shirt = null;
+        if (!f) {
+            // Obi, after his portrait: a navy double-breasted jacket (deep lapels, gold buttons, long sleeves) over a
+            // white shirt and a light-blue tie; clip[7] tells the shader which (1 shirt with tie, 2 jacket with buttons)
+            final float vFront = neck - 0.95f, vBack = neck - 0.06f, vScoop = 0.85f, jHem = pelvis - 0.12f, jSleeve = 1.9f;
+            out.add(new Garment("jacket", rgb(0.008f, 0.013f, 0.05f), 0.085f, 0.35f,
+                    new float[]{0f, vFront, vBack, vScoop, jHem, jSleeve, 0f, 2f},
+                    offHands(select(a, (r, x, y, z, along) -> {
+                        boolean torso = r == Regions.CHEST || r == Regions.BACK || r == Regions.BELLY || r == Regions.HIPS
+                                || r == Regions.SHOULDER_L || r == Regions.SHOULDER_R || r == Regions.NECK;
+                        boolean sleeve = (r == Regions.UPPER_ARM_L || r == Regions.UPPER_ARM_R || r == Regions.FOREARM_L
+                                || r == Regions.FOREARM_R || r == Regions.SHOULDER_L || r == Regions.SHOULDER_R) && along < jSleeve - 0.05f;
+                        float neckline = Math.max(vFront + vScoop, vBack) + 4f * Math.max(0f, Math.abs(x) - 0.2f);
+                        return (torso || sleeve) && y < neckline + m && y > jHem - m;
+                    }), a)));
+            final float sFront = neck - 0.03f, sHem = pelvis + 0.05f;
+            shirt = new Garment("shirt", rgb(0.78f, 0.78f, 0.76f), 0.045f, 0.1f, new float[]{0f, sFront, sFront, 0f, sHem, 0.9f, 0f, 1f},
+                    select(a, (r, x, y, z, along) -> {
+                        boolean torso = r == Regions.CHEST || r == Regions.BACK || r == Regions.BELLY || r == Regions.HIPS
+                                || r == Regions.SHOULDER_L || r == Regions.SHOULDER_R || r == Regions.NECK;
+                        return torso && y < sFront + 4f * Math.max(0f, Math.abs(x) - 0.2f) + m && y > sHem - m;
+                    }));
+        } else out.add(new Garment("t-shirt", cream, 0.04f, -1f, new float[]{0f, neckFront, neckBack, scoop, hem, sleeveEnd, 0f},
                 select(a, (r, x, y, z, along) -> {
                     boolean torso = r == Regions.CHEST || r == Regions.BACK || r == Regions.BELLY || r == Regions.HIPS
                             || r == Regions.SHOULDER_L || r == Regions.SHOULDER_R || r == Regions.NECK;
@@ -77,11 +99,12 @@ public final class Clothing {
                     float neckline = Math.max(neckFront + scoop, neckBack) + 4f * Math.max(0f, Math.abs(x) - (f ? 0.26f : 0.2f));
                     return (torso || sleeve) && y < neckline + m && y > hem - m;
                 })));
-        // cargo joggers: from the waist to a ribbed cuff a little above the ankle; clip {1, cargo pockets, cuff band, knee y}
-        final float cuff = ankle + 0.27f;
+        // Ivie's cargo joggers to a ribbed cuff above the ankle; Obi's suit trousers down to the shoe
+        // clip {1, cargo pockets, cuff band, knee y, waist, 0, cuff}
+        final float cuff = f ? ankle + 0.27f : ankle + 0.06f;
         float knee = (a.joints[DotBody.SHIN_L * 3 + 1] + a.joints[DotBody.SHIN_R * 3 + 1]) * 0.5f;
-        out.add(new Garment("cargo joggers", f ? rgb(0.33f, 0.27f, 0.21f) : rgb(0.014f, 0.014f, 0.016f), 0.07f, 0.6f,
-                new float[]{1f, 1f, 0.11f, knee, waist, 0f, cuff},
+        out.add(new Garment(f ? "cargo joggers" : "suit trousers", f ? rgb(0.33f, 0.27f, 0.21f) : rgb(0.007f, 0.012f, 0.045f), 0.07f, f ? 0.6f : 0.35f,
+                new float[]{1f, f ? 1f : 0f, f ? 0.11f : 0f, knee, waist, 0f, cuff},
                 select(a, (r, x, y, z, along) -> {
                     boolean legs = r == Regions.HIPS || r == Regions.BELLY || r == Regions.BACK || r == Regions.THIGH_L
                             || r == Regions.THIGH_R || r == Regions.KNEE_L || r == Regions.KNEE_R || r == Regions.SHIN_L
@@ -93,6 +116,9 @@ public final class Clothing {
         out.add(new Garment("socks", f ? cream : rgb(0.012f, 0.012f, 0.013f), 0.016f, -1f, new float[]{5f, 0f, 0f, 0f, cuff + 0.05f, 0f, top - 0.05f},
                 select(a, (r, x, y, z, along) -> (r == Regions.SHIN_L || r == Regions.SHIN_R || r == Regions.FOOT_L
                         || r == Regions.FOOT_R) && y < cuff + 0.05f + m && y > top - 0.05f - m)));
+        if (shirt != null) {
+            out.add(shirt);
+        }
         final ai.dvine.human.bake.HeadFrame head = ai.dvine.human.bake.HeadFrame.of(a);
         float[] hairColor = rgb(0.006f, 0.005f, 0.0045f);
         if (ai.dvine.face.Look.FADE.equals(hairStyle)) {
@@ -227,6 +253,24 @@ public final class Clothing {
             }
         }
         return java.util.Arrays.copyOf(buf, n);
+    }
+
+    /** The triangles without any that touch a hand (long sleeves stop at the wrist). */
+    private static int[] offHands(int[] tri, HumanAsset a) {
+        int[] out = new int[tri.length];
+        int n = 0;
+        for (int t = 0; t < tri.length; t += 3) {
+            boolean hand = false;
+            for (int k = 0; k < 3; k++) {
+                int r = a.mesh.region[tri[t + k]] & 0xff;
+                hand |= r >= Regions.PALM_L && r <= Regions.LITTLE_R;
+            }
+            if (!hand) {
+                System.arraycopy(tri, t, out, n, 3);
+                n += 3;
+            }
+        }
+        return java.util.Arrays.copyOf(out, n);
     }
 
     private static int majority(byte a, byte b, byte c) {

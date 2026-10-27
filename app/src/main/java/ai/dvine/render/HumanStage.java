@@ -64,6 +64,61 @@ public final class HumanStage {
         this.renderer = renderer;
     }
 
+    /** Draw the bodies as cartoons (Ghibli style): a bigger head and bigger eyes on the same rig. */
+    public volatile boolean cartoon;
+    private final float[][] cartoonPos = new float[2][], headWeight = new float[2][];
+
+    /**
+     * Cartoon proportions for this frame: the head (by its skinning weight, so the neck blends) grows about the neck
+     * joint, the eyes grow about their own centres. Positions only; a uniform scale keeps the normals.
+     */
+    private float[] cartoon(int slot, HumanInstance h) {
+        ai.dvine.human.mesh.TriMesh m = h.asset.mesh;
+        int n = m.vertexCount();
+        if (headWeight[slot] == null || headWeight[slot].length != n) {
+            float[] w = new float[n];
+            int head = ai.dvine.face.nano.DotBody.HEAD;
+            for (int v = 0; v < n; v++) {
+                w[v] = ((m.bone0[v] & 0xff) == head ? m.weight0[v] : 0f) + ((m.bone1[v] & 0xff) == head ? 1f - m.weight0[v] : 0f);
+            }
+            headWeight[slot] = w;
+            cartoonPos[slot] = new float[h.pos.length];
+        }
+        float[] w = headWeight[slot], out = cartoonPos[slot], p = h.pos;
+        int neck = ai.dvine.face.nano.DotBody.NECK * 3;
+        float nx = h.rig.joint[neck], ny = h.rig.joint[neck + 1], nz = h.rig.joint[neck + 2];
+        final float headGrow = 0.2f, eyeGrow = 0.1f;
+        for (int v = 0; v < n && v * 3 + 2 < p.length; v++) {
+            float k = 1f + headGrow * w[v];
+            out[v * 3] = nx + (p[v * 3] - nx) * k;
+            out[v * 3 + 1] = ny + (p[v * 3 + 1] - ny) * k;
+            out[v * 3 + 2] = nz + (p[v * 3 + 2] - nz) * k;
+        }
+        System.arraycopy(p, n * 3, out, n * 3, p.length - n * 3);
+        int[] er = h.asset.eyeRange;
+        for (int e = 0; e < 2; e++) {
+            int from = er[e * 2], count = er[e * 2 + 1];
+            float cx = 0f, cy = 0f, cz = 0f;
+            for (int v = from; v < from + count; v++) {
+                cx += out[v * 3];
+                cy += out[v * 3 + 1];
+                cz += out[v * 3 + 2];
+            }
+            if (count == 0) {
+                continue;
+            }
+            cx /= count;
+            cy /= count;
+            cz /= count;
+            for (int v = from; v < from + count; v++) {
+                out[v * 3] = cx + (out[v * 3] - cx) * (1f + eyeGrow);
+                out[v * 3 + 1] = cy + (out[v * 3 + 1] - cy) * (1f + eyeGrow);
+                out[v * 3 + 2] = cz + (out[v * 3 + 2] - cz) * (1f + eyeGrow);
+            }
+        }
+        return out;
+    }
+
     /** Why a persona's 3D body could not be loaded (null while nothing failed). */
     public volatile String loadFault;
 
@@ -495,6 +550,9 @@ public final class HumanStage {
             face[slot].apply(h, rig, t);
             h.update(t);
             float[] p = h.pos, nor = h.nor;
+            if (cartoon) {
+                p = cartoon(slot, h);
+            }
             if (demo) {
                 // the persona's own place in the shared world: its height, turned by its facing, moved to its root
                 double yr = Math.toRadians(actor.yaw);

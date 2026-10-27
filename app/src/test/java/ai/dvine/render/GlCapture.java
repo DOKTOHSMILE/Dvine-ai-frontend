@@ -140,6 +140,8 @@ public class GlCapture {
             c.update();
             r.setCamera(c, -4.22f);
             boolean skin = !"wire".equals(System.getenv("GLCAP_STYLE"));
+            r.toon = "toon".equals(System.getenv("GLCAP_STYLE"));
+            stage.cartoon = r.toon;
             for (int sl = 0; sl < 2; sl++) {
                 r.setSkin(sl, skin, ai.dvine.face.Look.defaults(sl == 1).skinColor());
             }

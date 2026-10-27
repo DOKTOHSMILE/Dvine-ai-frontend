@@ -10,12 +10,13 @@ import java.util.Locale;
 public final class Look {
     public enum Style {
         LINE,
+        TOON,
         SKIN,
         WIRE,
         DOTS
     }
 
-    /** LINE: the glowing line-art face (default); SKIN: the lifelike 3D body; WIRE: the particle hologram; DOTS: the nano-dot swarm. */
+    /** LINE: the glowing line-art face (default; the body shows as a cartoon); TOON: the Ghibli-style cartoon body; SKIN: the lifelike 3D body; WIRE: the particle hologram; DOTS: the nano-dot swarm. */
     public Style style = Style.LINE;
     /** 0 light .. 1 deep brown. */
     public float tone = 0.85f;
@@ -146,6 +147,9 @@ public final class Look {
                 "back to the face", "original face", "go back to the faces", "just your face", "drawn face")) {
             style = Style.LINE;
             said = "Back to my face.";
+        } else if (has(t, "cartoon", "ghibli", "anime", "toon", "animated look", "drawn body", "painted look")) {
+            style = Style.TOON;
+            said = "Now I'm a cartoon, painted in watercolour.";
         } else if (has(t, "dot mode", "dots mode", "nano dot", "dotted", "made of dots", "dot look")) {
             style = Style.DOTS;
             said = "Now I'm drawn in tiny dots.";
