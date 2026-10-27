@@ -40,7 +40,7 @@ import ai.dvine.voice.ListenCallback;
 import ai.dvine.voice.TalkBridge;
 
 /**
- * No screen UI. One persona on black; swipe to speak. Anything that leaves
+ * No screen UI. One persona on black; touch and hold to speak, double-tap to type. Anything that leaves
  * the app is asked out loud first and runs only after a spoken yes.
  */
 public final class MainActivity extends Activity implements StageListener, ListenCallback {

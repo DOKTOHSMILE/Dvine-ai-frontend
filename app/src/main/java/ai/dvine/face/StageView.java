@@ -99,7 +99,6 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private ai.dvine.render.HumanView humanView;
     private final ai.dvine.human.touch.TouchClassifier touches = new ai.dvine.human.touch.TouchClassifier();
     private boolean bodyTouchDown;
-    private final Runnable holdCheck = this::checkHold;
     private float lastYaw;
     private float lastPitch;
     private final HandPainter hands = new HandPainter();
@@ -175,12 +174,19 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private boolean dragged;
     private boolean swipe;
     private boolean longFired;
+    // a long press anywhere speaks; a double tap anywhere opens typing; a single tap waits a moment to be sure
+    // it isn't the first of a double tap (no swiping: it fights the phone's own swipe to minimise)
     private final Runnable longPress = () -> {
         longFired = true;
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
         if (listener != null) {
-            listener.onType();
+            listener.onMic();
         }
     };
+    private static final long DOUBLE_TAP_MS = 280L;
+    private long lastTapAt;
+    private float lastTapX, lastTapY;
+    private Runnable pendingTap;
 
     public StageView(Context context) {
         super(context);
@@ -193,7 +199,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         subPaint.setTextSize(15f * density);
         labelPaint.setTextAlign(Paint.Align.CENTER);
         labelPaint.setTextSize(16f * density);
-        setContentDescription("DVINE. Swipe anywhere to speak. Tap the face to hear them. Long-press to type.");
+        setContentDescription("DVINE. Touch and hold anywhere to speak. Double-tap to type. Tap the face to hear them.");
         sculpt(false);
         sculpt(true);
     }
@@ -447,25 +453,6 @@ public final class StageView extends View implements Choreographer.FrameCallback
             sculpt(forIvie);
             if (human != null) {
                 human.rebuild(forIvie, look); // the 3D mesh is rebuilt in the background and swapped in when valid
-            }
-        }
-    }
-
-    /** Fires once a finger has rested on the body long enough: a HOLD touch. */
-    private void checkHold() {
-        if (!bodyTouchDown || decided || human == null) {
-            return;
-        }
-        long now = android.os.SystemClock.uptimeMillis();
-        ai.dvine.human.touch.BodyTouch.Kind k = touches.held(now);
-        if (k != null) {
-            ai.dvine.human.touch.BodyTouch t = human.pick(downX, downY, showingIvie, k, 1, now, touches.duration(now));
-            if (t != null) {
-                longFired = true;
-                human.react(t, showingIvie);
-                if (listener != null) {
-                    listener.onBodyTouch(t);
-                }
             }
         }
     }
@@ -1275,17 +1262,15 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 longFired = false;
                 bodyTouchDown = false;
                 if (wireOn()) {
-                    // a finger on the body: tap, repeat or hold; elsewhere a long press still opens typing
+                    // a finger on the body: a tap or a repeat touches it (holding still speaks, as anywhere)
                     ai.dvine.human.touch.BodyTouch t = human.pick(x, y, showingIvie, ai.dvine.human.touch.BodyTouch.Kind.TAP,
                             1, downAt, 0L);
                     if (t != null) {
                         bodyTouchDown = true;
                         touches.down(t.region, downAt);
-                        postDelayed(holdCheck, ai.dvine.human.touch.TouchClassifier.HOLD_MS + 20L);
-                        return true;
                     }
                 }
-                postDelayed(longPress, ViewConfiguration.getLongPressTimeout() + 200L);
+                postDelayed(longPress, ViewConfiguration.getLongPressTimeout());
                 return true;
             case MotionEvent.ACTION_MOVE: {
                 float dx = x - downX;
@@ -1293,9 +1278,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 if (!decided && (Math.abs(dx) > slop || Math.abs(dy) > slop)) {
                     decided = true;
                     removeCallbacks(longPress);
-                    removeCallbacks(holdCheck);
                     boolean onHead = headHit.contains(downX, downY);
-                    swipe = !onHead || Math.abs(dx) > Math.abs(dy) * 2.2f && Math.abs(dx) > 40f * density;
+                    swipe = !onHead; // a drag on the head turns it; elsewhere a drag does nothing
                 }
                 if (decided && !swipe) {
                     dragged = true;
@@ -1306,31 +1290,49 @@ public final class StageView extends View implements Choreographer.FrameCallback
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 removeCallbacks(longPress);
-                removeCallbacks(holdCheck);
                 rig().setDrag(0f, 0f, false);
                 if (event.getActionMasked() == MotionEvent.ACTION_CANCEL || longFired || listener == null) {
                     return true;
                 }
                 float travel = (float) Math.hypot(x - downX, y - downY);
-                if (swipe && travel > 56f * density) {
-                    listener.onMic();
-                } else if (!dragged && travel < 14f * density && bodyTouchDown && human != null) {
-                    long now = event.getEventTime();
+                if (dragged || swipe || travel >= 14f * density) {
+                    return true;
+                }
+                long now = event.getEventTime();
+                // the second tap of a double tap: typing, and the first tap's action is dropped
+                if (now - lastTapAt < DOUBLE_TAP_MS && Math.hypot(x - lastTapX, y - lastTapY) < 48f * density) {
+                    if (pendingTap != null) {
+                        removeCallbacks(pendingTap);
+                        pendingTap = null;
+                    }
+                    lastTapAt = 0L;
+                    listener.onType();
+                    return true;
+                }
+                lastTapAt = now;
+                lastTapX = x;
+                lastTapY = y;
+                final Runnable tap;
+                if (bodyTouchDown && human != null) {
                     long held = now - downAt;
                     ai.dvine.human.touch.BodyTouch.Kind k = touches.up(now);
-                    ai.dvine.human.touch.BodyTouch t = k == null ? null
+                    final ai.dvine.human.touch.BodyTouch t = k == null ? null
                             : human.pick(x, y, showingIvie, k, touches.count(), now, held);
-                    if (t != null) {
+                    tap = t == null ? null : () -> {
                         human.react(t, showingIvie);
                         listener.onBodyTouch(t);
-                    }
-                } else if (!dragged && travel < 14f * density) {
-                    String part = bodySpace && zoom.value > 0.9f ? partAt(x, y) : null;
-                    if (part != null) {
-                        listener.onBodyTap(part);
-                    } else if (headHit.contains(x, y)) {
-                        listener.onHeadTap();
-                    }
+                    };
+                } else {
+                    final String part = bodySpace && zoom.value > 0.9f ? partAt(x, y) : null;
+                    final boolean head = headHit.contains(x, y);
+                    tap = part != null ? () -> listener.onBodyTap(part) : head ? () -> listener.onHeadTap() : null;
+                }
+                if (tap != null) {
+                    pendingTap = () -> {
+                        pendingTap = null;
+                        tap.run();
+                    };
+                    postDelayed(pendingTap, DOUBLE_TAP_MS);
                 }
                 return true;
             default:
@@ -1343,8 +1345,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     /**
      * Inspecting an object: two fingers pinch to zoom and drag to turn or tilt
-     * it; a one-finger tap selects the part under it. (A one-finger swipe still
-     * toggles the microphone, handled by the caller.)
+     * it; a one-finger tap selects the part under it. (Holding a finger still
+     * speaks and a double tap types, handled by the caller.)
      */
     private boolean objectGesture(MotionEvent e) {
         ai.dvine.create.ObjectSession os = human.objects;
