@@ -7,7 +7,7 @@ import ai.dvine.face.Look;
 import ai.dvine.human.HumanAsset;
 import ai.dvine.human.HumanInstance;
 import ai.dvine.human.Regions;
-import ai.dvine.human.build.AssetBuilder;
+import ai.dvine.human.bake.AssetBuilder;
 import ai.dvine.human.mesh.MeshValidator;
 
 /**

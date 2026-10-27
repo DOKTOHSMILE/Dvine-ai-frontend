@@ -14,7 +14,7 @@ import org.junit.Test;
 
 import ai.dvine.brain.MiniJson;
 import ai.dvine.face.nano.DotBody;
-import ai.dvine.human.build.BodyFit;
+import ai.dvine.human.bake.BodyFit;
 import ai.dvine.human.mesh.MeshValidator;
 import ai.dvine.human.rig.BodyProfile;
 import ai.dvine.human.rig.Skeleton;

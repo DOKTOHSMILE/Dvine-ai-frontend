@@ -9,7 +9,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-import ai.dvine.human.build.InnerAnatomy;
+import ai.dvine.human.bake.InnerAnatomy;
 
 /** The inside of the body: every structure inside the skin, and riding its bone when the body moves. */
 public class InnerAnatomyTest {

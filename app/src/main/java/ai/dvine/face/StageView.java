@@ -360,6 +360,23 @@ public final class StageView extends View implements Choreographer.FrameCallback
         humanView = view;
     }
 
+    private boolean fallbackReported;
+
+    /** Says once, in the subtitles, why the 3D body gave way to the dots (instead of switching silently). */
+    private void reportFallback() {
+        if (fallbackReported || human == null) {
+            return;
+        }
+        String why = human.loadFault;
+        if (why == null && human.renderer.glErrors >= 5) {
+            why = "My 3D body hit a " + (human.renderer.fault == null ? "graphics problem" : human.renderer.fault);
+        }
+        if (why != null) {
+            fallbackReported = true;
+            setSubtitle(why + ", so I'm drawing myself in dots. Say \"status report\" for details.");
+        }
+    }
+
     /** True while the wireframe human draws this persona (else the nano-dot swarm does). */
     private boolean wireOn() {
         return human != null && human.ready(showingIvie) && looks[showingIvie ? 1 : 0].style != Look.Style.DOTS
@@ -660,6 +677,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     private void tick(float dt) {
         clock += dt;
+        reportFallback();
         if (!awake) {
             dissolve.value = 1f;
         } else if (phase == 1) {

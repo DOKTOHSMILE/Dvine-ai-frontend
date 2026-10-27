@@ -1,4 +1,4 @@
-package ai.dvine.human.build;
+package ai.dvine.human.bake;
 
 import ai.dvine.face.nano.DotBody;
 import ai.dvine.human.HumanAsset;

@@ -19,8 +19,8 @@ import org.junit.Test;
 
 import ai.dvine.face.Look;
 import ai.dvine.face.nano.DotBody;
-import ai.dvine.human.build.Anatomy;
-import ai.dvine.human.build.AssetBuilder;
+import ai.dvine.human.bake.Anatomy;
+import ai.dvine.human.bake.AssetBuilder;
 import ai.dvine.human.face.FaceDrive;
 import ai.dvine.human.inspect.Inspector;
 import ai.dvine.human.mesh.MeshValidator;
@@ -369,7 +369,7 @@ public class HumanTest {
                 continue;
             }
             float by = a.mesh.pos[v * 3 + 1], y = h.pos[v * 3 + 1];
-            float mouth = ai.dvine.human.build.HeadFrame.of(a).toBody(0f, Anatomy.MOUTH_Y, 0f)[1];
+            float mouth = ai.dvine.human.bake.HeadFrame.of(a).toBody(0f, Anatomy.MOUTH_Y, 0f)[1];
             if (by > mouth) {
                 up = Math.max(up, -y);
             } else {
