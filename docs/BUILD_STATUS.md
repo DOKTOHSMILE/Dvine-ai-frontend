@@ -25,12 +25,15 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 | M6 Connectivity + sync | VERIFIED (JVM) / device pending | `Connectivity`, `SessionClient` (device sign-in, no secret in the app), `KnowledgeStore`, `SyncWorker` (packs, learning, episodes) against Track S S-K, S-L, S-E; inert while no https server is set ("set server to https://…") | point a phone at a deployed server |
 | M7 Online client | VERIFIED (JVM + local server) / device pending | `net/DeskClient`: questions the phone can't answer go to the server desk when online; thought bubble while waiting; THINK lines in the bubble, SAY lines spoken; one desk room kept, recreated on 404, re-sign-in on 401, offline answer on any failure; `DeskClientTest` (4) and a run against the real backend | real model behind the desk (Track S Phase 2: provider to be chosen) |
 | M8 Voice polish | NOT STARTED | — | — |
+| v0.11 Standard human + hologram | VERIFIED (JVM + WebGL2 replay) / phone partly | handbook §30: MakeHuman CC0 body and head, retargeted, sculpted, weighted; GL replay of both faces and the body view; `check_shaders.js`; user's phone shows the 3D body since 0.11.2 | phone check of 0.11.3 (camera, eyes) |
+| Dual-AI step 1: one shared scene | IN PROGRESS | — | handbook §31 item 1 |
+| Dual-AI steps 2–6, FACS face, Eric, realistic skin | NOT STARTED | — | handbook §31 |
 
-Commands run: `gradle testDebugUnitTest assembleDebug` → 80 tests passed (incl. Robolectric LaunchTest), APK built (v0.10.0). `gradle :app:generateHumanAssets` rebuilds the 3D assets.
+Commands run: `gradle testDebugUnitTest assembleDebug` → 109 tests passed (incl. Robolectric LaunchTest), APK built (v0.11.3, `releases/`). `node tools/check_shaders.js` → 4 programs compile and link. `gradle :app:generateHumanAssets` rebuilds the 3D assets.
 Not run: `lintDebug` (dependency download rate-limited in the sandbox), any on-device test.
 
 Known limits:
-- No device or emulator test yet; frame rate of the GL wireframe human and of the nano-dot swarm (up to 10k dots) is unmeasured.
+- Phone: the 3D body renders on the user's phone (0.11.2 screenshot); frame rate is unmeasured. The GL path is otherwise checked by WebGL2 replay (`tools/gl_replay`).
 - Deep hip bends stretch a few crotch edges (two-bone linear skinning); visemes are text-timed, not audio-driven.
 - Offline brain is rules + retrieval over the pack, not a language model; free-form reasoning needs the server.
 
