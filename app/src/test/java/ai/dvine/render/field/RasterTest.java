@@ -23,7 +23,7 @@ public class RasterTest {
     public void drawsTheBarTextAndDrawings() throws Exception {
         Shape bar = Raster.progress("DOWNLOADING QWEN3", 0.42f, "460 MB of 1.1 GB · 2.0 MB/s · 5 min left", 0xFF2EE6FF,
                 ParticleDisplay.PANEL_POINTS, 2f);
-        Shape words = Raster.text("Here's a lighthouse, drawn in particles.", 0xFFE4E8EA, ParticleDisplay.CAPTION_POINTS, 2f, 3);
+        Shape words = Raster.text("Downloading now, in the background. You can minimise me; the download carries on.", 0xFFE4E8EA, ParticleDisplay.CAPTION_POINTS, 2f, 3);
         Shape drawing = Raster.drawing(DrawSpec.parse("circle 50 40 20 yellow fill\nrect 20 70 60 10 brown fill\nline 10 90 90 90 white 2"),
                 ParticleDisplay.DRAWING_POINTS, 2f);
         assertTrue("bar " + bar.count, bar.count > 1500 && bar.count <= ParticleDisplay.PANEL_POINTS * 2);
@@ -60,7 +60,7 @@ public class RasterTest {
         if (specs != null) {
             for (File f : specs) {
                 String text = new String(java.nio.file.Files.readAllBytes(f.toPath()), "UTF-8");
-                dump(Raster.drawing(ai.dvine.llm.DrawPrompt.read(text), ParticleDisplay.DRAWING_POINTS, 2f), new File(out, f.getName().replace(".txt", ".pts")));
+                dump(ai.dvine.llm.DrawPrompt.read(text).points(ParticleDisplay.DRAWING_POINTS, 2f), new File(out, f.getName().replace(".txt", ".pts")));
             }
         }
     }

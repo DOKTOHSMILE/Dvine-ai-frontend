@@ -93,23 +93,43 @@ public final class LocalModel {
      * {@code sink} as it is written. Returns the whole reply, or null when the model isn't ready or failed.
      */
     public synchronized String reply(String system, String question, int maxTokens, NativeLlm.Sink sink) {
+        return reply(system, question, null, maxTokens, sink);
+    }
+
+    /**
+     * As {@link #reply(String, String, int, NativeLlm.Sink)}, with {@code context} (taught facts, a fresh reference)
+     * given alongside this question only: it is not remembered as part of the conversation. If the conversation
+     * has grown too long for the model's memory, the oldest exchanges are dropped and it tries again.
+     */
+    public synchronized String reply(String system, String question, String context, int maxTokens, NativeLlm.Sink sink) {
         if (state != State.READY) {
             return null;
         }
-        List<String[]> turns = new ArrayList<String[]>(history);
-        turns.add(new String[]{"user", question});
-        String[] roles = new String[turns.size()], texts = new String[turns.size()];
-        for (int i = 0; i < turns.size(); i++) {
-            roles[i] = turns.get(i)[0];
-            texts[i] = turns.get(i)[1];
-        }
-        String answer = NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, sink);
-        if (answer == null || answer.trim().isEmpty()) {
+        String asked = context == null ? question : context + "\n\nThe user says: " + question;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            List<String[]> turns = new ArrayList<String[]>(history);
+            turns.add(new String[]{"user", asked});
+            String[] roles = new String[turns.size()], texts = new String[turns.size()];
+            for (int i = 0; i < turns.size(); i++) {
+                roles[i] = turns.get(i)[0];
+                texts[i] = turns.get(i)[1];
+            }
+            String answer = NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, sink);
+            if (answer != null && !answer.trim().isEmpty()) {
+                remember(question, answer.trim());
+                return answer.trim();
+            }
             problem = NativeLlm.nError(handle);
-            return null;
+            if (problem == null || !problem.contains("too long") || history.isEmpty()) {
+                return null;
+            }
+            // too long: forget the oldest half of the conversation and try once more
+            int drop = Math.max(2, history.size() / 2 / 2 * 2);
+            for (int i = 0; i < drop && !history.isEmpty(); i++) {
+                history.remove(0);
+            }
         }
-        remember(question, answer.trim());
-        return answer.trim();
+        return null;
     }
 
     /**

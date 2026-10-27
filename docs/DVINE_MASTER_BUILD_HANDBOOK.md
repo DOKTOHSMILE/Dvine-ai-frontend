@@ -964,6 +964,20 @@ The flat 2D captions, bubble and card remain only for the dots look, which has n
 
 **Limits.** The model's own drawings are rough (a 1.7B model knows a snowman's parts but not always where they go; its thinking mode drew better but took about two minutes, too slow on a phone), so online pictures come first. The Wikipedia lookup was not run from the build machine (its shared address is rate-limited); phones call it directly. A photo keeps its background inside the oval. Not yet checked on a phone.
 
+## 34. Learning that sticks, 3D shapes on request, clear text (app v0.23.0, built)
+
+**Corrections win.** `brain/FactCorrection` reads the ways people set a fact straight: "no, the president of Nigeria is Bola Tinubu", "that's wrong, it's 2026" (about the last question), "the capital is now Abuja", "the new … is …", "actually Tinubu became president in 2023", "remember that the meeting moved to Friday"; "that's wrong" alone gets "What's right?" and the next answer is kept. Kept in the learning journal as corrections, answered from memory ahead of the language model, and the model's conversation is cleared so its old answer doesn't linger. Personal facts ("my sister is …") keep their own memory.
+
+**The model knows it is old.** Its persona prompt carries today's date, says its training ended in 2024, and tells it to trust the user's facts and any reference over its memory and never to argue with a correction. With each question it is handed (outside the cached persona) up to six taught facts that bear on it plus the newest corrections. Online, a question about the world also gets the opening of the best Wikipedia article (`FreshFacts`; only the question is sent, never questions about the user; "don't look things up online" turns it off). Checked with the real model: "Who is the president of the United States?" → "Joe Biden." before; "Donald Trump" once taught; "What year is it?" → 2026. If the conversation grows too long for its memory, the oldest exchanges are dropped and it tries again.
+
+**3D shapes.** For "build me a lion", "form a star", "turn into a dragon", "draw a car in 3D" and anything the creation engine can't model, the language model lists the subject's parts as solids in words (`part | solid | colour | where | size`: sphere, oval, box, cylinder, cone, pyramid, ring, disc; above, below, left of, in front of, behind, around, on; both sides). `SolidSpec` places them in a 100-unit cube and fills their surfaces with lit points; the stage turns it slowly above the persona. `ShapeCommand`: "make it bigger / smaller", "spin it", "stop spinning", "turn it around", "move it left / right / up / down", "make it red", "scatter it", "put it back together", "reset it", "clear it". "Draw me X" online still prefers a real picture.
+
+**Clear text.** Words are held still with a steady brightness and switch in place when they change (the download bar no longer re-forms on each percent), drawn with crisp round dots, sampled on a fractional grid as densely as the budget allows (captions 12,000 points, four lines), with no depth offset. The spoken lines no longer talk about particles or dots.
+
+**The studio.** The cartoon backdrop follows the character sheets: deep slate to teal, an emerald glow behind the figure and a warm amber light from the left, a slowly drifting haze and a faint hexagon lattice; the floor dark and glossy, melting into the wall at the horizon, with a glowing ring around the persona's feet and soft contact shadows. `docs/brand/studio_0_23.png`.
+
+**Limits.** The model's own 3D plans are rough (it may add a stand, or misplace parts); offline it says so. The Wikipedia lookups are untested from the build machine (rate-limited address). Not yet checked on a phone.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

@@ -57,6 +57,8 @@ public final class OfflineBrain {
     private int turn;
     private String lastKey;
     private String lastUnanswered;
+    /** What the last question was about, for "no, it's …"; and a topic waiting for its right answer. */
+    private String lastTopic, fixPending;
     private final ActionPlanner planner = new ActionPlanner();
     private ai.dvine.face.Look obiLook = ai.dvine.face.Look.defaults(false);
     private ai.dvine.face.Look ivieLook = ai.dvine.face.Look.defaults(true);
@@ -125,7 +127,12 @@ public final class OfflineBrain {
             return new BrainAnswer(LocalTurn.script(raw, speaker), true, false, "GATE");
         }
 
-        BrainAnswer a = memoryCommands(text, cased(raw), speaker);
+        BrainAnswer a = correction(raw, text, speaker);
+        if (a == null) a = memoryCommands(text, cased(raw), speaker);
+        if (a == null && looksLikeQuestion(text)) {
+            lastTopic = correctionTopic(stripQuestion(text));
+            lastKey = null; // a new question: an old taught fact is no longer what "no, it's …" corrects
+        }
         if (a == null) a = feelings(text);
         if (a == null) a = timeAndDate(text, speaker);
         if (a == null) a = units(text, speaker);
@@ -301,7 +308,7 @@ public final class OfflineBrain {
             return a;
         }
         if (text.matches(".*\\b(full body|whole body|your body|show (me )?all of you)\\b.*")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Here I am, all of me.", "Here I am. Head to toe, all nano dots."), "LOOK");
+            BrainAnswer a = one(speaker, pick(speaker, "Here I am, all of me.", "Here I am, head to toe."), "LOOK");
             a.command = "BODY_ON";
             return a;
         }
@@ -311,7 +318,7 @@ public final class OfflineBrain {
             return a;
         }
         if (text.matches("^(redraw|rebuild|reassemble|refresh|reform) (yourself|your face|your body)$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Reassembling.", "Watch the dots find their way back."), "LOOK");
+            BrainAnswer a = one(speaker, pick(speaker, "Reassembling.", "Watch me come back together."), "LOOK");
             a.command = "REDRAW";
             return a;
         }
@@ -528,7 +535,7 @@ public final class OfflineBrain {
             case "situps": return "Sit-ups. Slow and controlled.";
             case "stretch": return pick(speaker, "A long stretch. Breathe out as you lean.", "Stretching. That feels good.");
             case "cartwheel": return pick(speaker, "Cartwheels, side to side.", "Watch this cartwheel!");
-            case "backflip": return pick(speaker, "A backflip. Please leave this one to the nano dots.", "Backflip!");
+            case "backflip": return pick(speaker, "A backflip. Don't try this one at home.", "Backflip!");
             case "spin": return "Spinning.";
             case "jump": return pick(speaker, "Jump! Bend the knees, swing the arms, up!", "Up I go!");
             case "roll": return pick(speaker, "Rolling over, arms past my head.", "Watch me roll!");
@@ -561,7 +568,7 @@ public final class OfflineBrain {
             case "atom": return "An atom: a tiny nucleus in the middle, with electrons moving around it.";
             case "cone": return "A cone: a round base narrowing smoothly to a single point.";
             case "cylinder": return "A cylinder: two equal circles joined by one curved side, like a tin.";
-            case "heart": return "A heart, solid and round, built from dots.";
+            case "heart": return "A heart, solid and round.";
             case "galaxy": return "A spiral galaxy: a bright bulge of old stars, and two arms where new stars are born. Our Sun sits in an arm like this.";
             case "black hole": return "A black hole: gravity so strong that not even light escapes. Hot gas swirls around it in a disk, and its light bends over the top.";
             case "tesseract": return "A tesseract, a cube in four dimensions. What you see is its shadow in our three, turning through the fourth.";
@@ -644,6 +651,114 @@ public final class OfflineBrain {
         }
     }
 
+    /**
+     * What a question is about, for a correction of its answer: "who is the president of nigeria" → "the president
+     * of nigeria"; a question that doesn't reduce to a thing → the answer to it ("the answer to what year is …").
+     */
+    static String correctionTopic(String q) {
+        String t = q.replaceAll("^(what|who|where|which)( is| are| was| were|'s)\\s+", "").trim();
+        if (t.equals(q) || t.matches(".*\\b(is|are|was|were|do|does|did|will|can|has|have)\\b.*") || t.split(" ").length > 8) {
+            return "the answer to " + q;
+        }
+        return t;
+    }
+
+    private static boolean looksLikeQuestion(String text) {
+        return text.endsWith("?") || text.matches("^(what|who|whom|whose|where|when|why|how|which|is|are|was|were|do|does|did|can|could|tell me|explain)\\b.*");
+    }
+
+    /**
+     * The user correcting a fact ("no, the president of Nigeria is Bola Tinubu", "that's wrong, it's 2026",
+     * "the capital is now Abuja", "remember that …"): kept, trusted over the language model's training (which is
+     * older), and never argued with. Personal facts ("my …") keep their own memory.
+     */
+    private BrainAnswer correction(String raw, String text, String speaker) {
+        String said = cased(raw);
+        if (fixPending != null) {
+            String topic = fixPending;
+            fixPending = null;
+            if (!looksLikeQuestion(text) && !text.matches("^(never ?mind|forget it|no|nothing|cancel)$")) {
+                FactCorrection f = FactCorrection.read("no, " + said, topic);
+                String value = f != null && f.value != null ? f.value : said.replaceAll("[.!]+$", "").trim();
+                String subject = f != null && f.value != null ? f.subject : topic;
+                return keepCorrection(subject, value, speaker);
+            }
+        }
+        if (lastKey != null && CORRECT.matcher(said).matches()) {
+            return null; // "no, it's …" right after a personal fact: memoryCommands corrects that fact
+        }
+        if (TEACH.matcher(said).matches() || TEACH_ANY.matcher(said).matches()) {
+            return null; // "remember that X is Y": taught the usual way
+        }
+        FactCorrection f = FactCorrection.read(said, lastTopic);
+        if (f == null) {
+            return null;
+        }
+        if (f.needsValue) {
+            fixPending = f.subject;
+            BrainAnswer a = one(speaker, pick(speaker, "Sorry about that. What's right? Tell me and I'll remember it.",
+                    "Oh, sorry. What is it, then? I'll keep the right answer."), "LEARN");
+            a.listenAfter = true;
+            return a;
+        }
+        return keepCorrection(f.subject, f.value, speaker);
+    }
+
+    private BrainAnswer keepCorrection(String subject, String value, String speaker) {
+        if (journal.add(LearningJournal.CORRECTION, subject, value) == null) {
+            return one(speaker, "I won't keep that. It looks like private information.", "LEARN");
+        }
+        lastKey = subject;
+        lastTopic = subject;
+        String fact = LearningJournal.sentence(subject, value);
+        BrainAnswer a = one(speaker, pick(speaker, "Thank you, I've got it: " + fact + ". I'll go by that from now on.",
+                "Got it. " + fact + ". Thank you for keeping me up to date."), "LEARN");
+        a.command = "MODEL_RESET"; // the model's earlier answer shouldn't linger in its conversation
+        return a;
+    }
+
+    /**
+     * What the user taught that bears on {@code question}, as sentences for the language model: the best matches
+     * first, then the newest corrections, at most {@code max}.
+     */
+    public synchronized List<String> taughtFor(String question, int max) {
+        Set<String> q = tokens(stripQuestion(normalize(question)));
+        List<LearningJournal.Entry> all = journal.all();
+        List<String> matched = new ArrayList<String>(), recent = new ArrayList<String>();
+        List<int[]> order = new ArrayList<int[]>(); // {overlap, index}, newest first
+        for (int i = all.size() - 1; i >= 0; i--) {
+            LearningJournal.Entry e = all.get(i);
+            if (!LearningJournal.TAUGHT_FACT.equals(e.kind) && !LearningJournal.CORRECTION.equals(e.kind)) {
+                continue;
+            }
+            Set<String> k = tokens(e.text.toLowerCase(Locale.US));
+            k.addAll(tokens(e.answer.toLowerCase(Locale.US)));
+            int overlap = 0;
+            for (String w : k) {
+                if (q.contains(w)) {
+                    overlap++;
+                }
+            }
+            order.add(new int[]{overlap, i});
+            if (LearningJournal.CORRECTION.equals(e.kind) && recent.size() < 3) {
+                recent.add(LearningJournal.sentence(e.text, e.answer));
+            }
+        }
+        order.sort((x, y) -> y[0] - x[0]); // a stable sort: newest first among equal matches
+        for (int[] o : order) {
+            String fact = LearningJournal.sentence(all.get(o[1]).text, all.get(o[1]).answer);
+            if (o[0] > 0 && matched.size() < max && !matched.contains(fact)) {
+                matched.add(fact);
+            }
+        }
+        for (String fact : recent) {
+            if (matched.size() < max && !matched.contains(fact)) {
+                matched.add(fact);
+            }
+        }
+        return matched;
+    }
+
     private BrainAnswer memoryCommands(String text, String cased, String speaker) {
         if (text.matches("^(share|upload|send) (what you('ve)? learn(ed|t)?|your learning)$")
                 || text.equals("you can share what you learn")) {
@@ -674,7 +789,7 @@ public final class OfflineBrain {
             for (int i = all.size() - 1; i >= 0 && latest.size() < 3; i--) {
                 LearningJournal.Entry e = all.get(i);
                 if (LearningJournal.TAUGHT_FACT.equals(e.kind) || LearningJournal.CORRECTION.equals(e.kind)) {
-                    latest.add(e.text.replaceFirst("^my ", "your ") + " is " + e.answer);
+                    latest.add(LearningJournal.sentence(e.text.replaceFirst("^my ", "your "), e.answer));
                 }
             }
             return think(speaker, "Let me look back at what you taught me.",
@@ -869,10 +984,12 @@ public final class OfflineBrain {
             if (e.text.startsWith("my ") || e.text.startsWith("our ")) {
                 continue; // personal facts answer through "what is my …"
             }
-            Set<String> k = tokens(e.text);
-            if (!k.isEmpty() && q.containsAll(k) && k.size() * 2 >= q.size()) {
+            boolean whole = e.text.startsWith("the answer to "); // a correction of the answer to a whole question
+            Set<String> k = tokens(e.text.toLowerCase(Locale.US).replaceFirst("^the answer to ", ""));
+            if (!k.isEmpty() && q.containsAll(k) && (whole ? k.size() >= q.size() : k.size() * 2 >= q.size())) {
                 lastKey = e.text;
-                return think(speaker, "I remember you taught me this.", e.answer.endsWith(".") ? e.answer : e.answer + ".", "MEMORY");
+                String said = LearningJournal.CORRECTION.equals(e.kind) && !whole ? capital(LearningJournal.sentence(e.text, e.answer)) : e.answer;
+                return think(speaker, "I remember you taught me this.", said.endsWith(".") ? said : said + ".", "MEMORY");
             }
         }
         return null;
