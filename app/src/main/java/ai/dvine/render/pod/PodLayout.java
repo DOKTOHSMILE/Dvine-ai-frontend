@@ -1,10 +1,12 @@
 package ai.dvine.render.pod;
 
 /**
- * Where things sit on a screen (portrait, the scene being the screen less the system bars): the space where
- * drawings appear centred at 50% across and 40% down, one stage unit 42% of the height (at most 67% of the width),
- * the pod's centre 76% down and 76% of the width across. {@link #unit} is pixels per stage unit at the stage's
- * depth. Pure Java.
+ * Where things sit on a screen of any size and either way up (the scene being the screen less the system bars).
+ * Upright (phones, and tablets held upright): drawings centred at 50% across and 40% down, one stage unit 42% of
+ * the height (at most 67% of the width), the pod's centre 76% down and 76% of the width across. On its side
+ * (phones turned, tablets, foldables open): the drawing space is the screen's height, so a stage unit is 38% of it,
+ * the drawing sits 38% down and the pod 80% down, no wider than half the screen, so the drawing never shrinks to a
+ * strip. {@link #unit} is pixels per stage unit at the stage's depth. Pure Java.
  */
 public final class PodLayout {
     /** How wide a stage unit may be, relative to its height, on narrow screens. */
@@ -28,14 +30,27 @@ public final class PodLayout {
         l.width = Math.max(1f, w);
         l.height = Math.max(1f, h);
         float usable = Math.max(1f, l.height - top - bottom);
-        l.unit = Math.min(0.42f * usable, 0.55f * l.width / STAGE_ASPECT);
         l.cx = l.width * 0.5f;
-        l.cy = top + 0.40f * usable;
-        float podPx = top + 0.76f * usable;
+        float podPx;
+        if (l.landscape()) {
+            l.unit = Math.min(0.38f * usable, 0.32f * l.width);
+            l.cy = top + 0.38f * usable;
+            podPx = top + 0.80f * usable;
+            l.podDiameter = Math.min(0.5f * l.width, 2.1f * l.unit) / l.unit;
+        } else {
+            l.unit = Math.min(0.42f * usable, 0.55f * l.width / STAGE_ASPECT);
+            l.cy = top + 0.40f * usable;
+            podPx = top + 0.76f * usable;
+            l.podDiameter = Math.min(0.76f * l.width, 2.3f * l.unit) / l.unit;
+        }
         l.podY = -(podPx - l.cy) / l.unit;
-        l.podDiameter = Math.min(0.76f * l.width, 2.3f * l.unit) / l.unit;
         l.projection();
         return l;
+    }
+
+    /** Whether the screen is on its side (clearly wider than tall). */
+    public boolean landscape() {
+        return width > height * 1.1f;
     }
 
     private void projection() {

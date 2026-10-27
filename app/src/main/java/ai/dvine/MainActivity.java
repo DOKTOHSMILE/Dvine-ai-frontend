@@ -162,6 +162,36 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
+    /** The text field: full width on a phone, at most 560 dp and centred on a tablet or a phone on its side. */
+    private void fitTypeBar() {
+        if (typeBar == null) {
+            return;
+        }
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        int m = (int) (14 * dm.density);
+        android.widget.FrameLayout.LayoutParams tb = (android.widget.FrameLayout.LayoutParams) typeBar.getLayoutParams();
+        int screen = getResources().getConfiguration().screenWidthDp;
+        tb.width = screen > 600 ? (int) (560 * dm.density) : android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+        tb.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL;
+        boolean side = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        tb.setMargins(m, m, m, side ? m : m * 4);
+        typeBar.setLayoutParams(tb);
+    }
+
+    /**
+     * Turned, folded or resized: nothing restarts (the conversation, a drawing and the brain carry on); the stage
+     * lays itself out again for the new size and the text field fits the new width.
+     */
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        fitTypeBar();
+        if (stage != null) {
+            stage.requestLayout();
+            stage.invalidate();
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -185,9 +215,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         android.widget.FrameLayout.LayoutParams tb = new android.widget.FrameLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                 android.view.Gravity.BOTTOM);
-        int m = (int) (14 * getResources().getDisplayMetrics().density);
-        tb.setMargins(m, m, m, m * 4);
         root.addView(typeBar, tb);
+        fitTypeBar();
         setContentView(root);
         // only after setContentView: before it the window has no decor and this throws
         WindowInsetsController bars = window.getInsetsController();
@@ -216,6 +245,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         KnowledgeStore store = new KnowledgeStore(this);
         journal = new LearningJournal(new File(getFilesDir(), "learning"));
         learned = new ai.dvine.agent.LearnedIntents(new File(getFilesDir(), "learned_intents.txt"));
+        library = new ai.dvine.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
         // core pack now (small); the dictionary and other shards load in the background
         brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis, TimeZone.getDefault());
         brain.setThoughts(prefs.getBoolean("thoughts", true));
@@ -395,6 +425,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         paused = null;
         if (awaitingName) {
             takeName(text);
+            return;
+        }
+        if (libraryTurn(text)) {
             return;
         }
         if (text.toLowerCase(java.util.Locale.US).matches(".*copy (the |my )?crash( report| log)?.*")) {
@@ -952,6 +985,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 String line = "Here's " + ai.dvine.llm.DrawPrompt.article(subject) + " in 3D.";
                 if (built != null) {
                     currentSolid = built;
+                    currentName = null;
                     solidHistory.clear();
                     takenOut.clear();
                     stage.showSolid(shown, subject);
@@ -985,12 +1019,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return false;
         }
         String low = asked.toLowerCase(java.util.Locale.US).trim().replaceAll("[.!?]+$", "");
-        if (low.matches("^(?:please )?(?:export|save|download|send) (?:it|this|that|the (?:drawing|model|3d model)|the " + java.util.regex.Pattern.quote(String.valueOf(lastDrawn).toLowerCase(java.util.Locale.US)) + ")"
-                + "(?: (?:for|to|into) (?:my |a )?(?:game|games|blender|unity|unreal|godot|downloads))?(?: as (?:a )?(?:glb|gltf|3d model|3d file|game file))?$")
-                || low.matches("^(?:please )?(?:export|save) (?:it |this )?(?:as |to )(?:a )?(?:glb|gltf|game file|3d file)$")) {
-            exportSolid();
-            return true;
-        }
         if (low.matches("^(undo|undo that|go back|take that back|put it back how it was|change it back)$")) {
             if (solidHistory.isEmpty()) {
                 return false;
@@ -1081,39 +1109,263 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * The 3D drawing on show saved to Downloads as a .glb, for Blender, Unity, Unreal or Godot: each part its own
-     * mesh and a joint under the part it hangs from.
+     * The 3D drawing on show saved to the phone, in Downloads/DVINE, as a 3D file other software opens: .glb (glTF,
+     * the default: Blender, Unity, Unreal, Godot, each part a joint), .obj with its .mtl, .stl (3D printing) or .ply.
      */
-    private void exportSolid() {
+    private void exportSolid(final ai.dvine.render.field.MeshExport.Format format, final String called) {
         final ai.dvine.render.field.SolidSpec spec = currentSolid;
-        final String what = lastDrawn == null ? "drawing" : lastDrawn;
-        final String file = ai.dvine.render.field.Gltf.fileName(what);
-        stage.innerVoice("Saving " + file + " to Downloads\u2026");
+        final String what = called != null ? called : lastDrawn == null ? "drawing" : lastDrawn;
+        final String base = ai.dvine.render.field.Gltf.fileName(what).replaceAll("\\.glb$", "");
+        final String file = base + "." + format.extension;
+        stage.innerVoice("Saving " + file + " to Downloads/DVINE\u2026");
         modelThread.execute(() -> {
             boolean ok;
             try {
-                byte[] glb = ai.dvine.render.field.Gltf.glb(spec, what);
-                android.content.ContentValues v = new android.content.ContentValues();
-                v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, file);
-                v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "model/gltf-binary");
-                v.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
-                android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
-                if (uri == null) {
-                    ok = false;
-                } else {
-                    try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
-                        o.write(glb);
-                    }
-                    ok = true;
+                switch (format) {
+                    case OBJ:
+                        ok = writeDownload(base + ".mtl", "text/plain", ai.dvine.render.field.MeshExport.mtl(spec).getBytes("UTF-8"))
+                                && writeDownload(file, format.mime, ai.dvine.render.field.MeshExport.obj(spec, what, base + ".mtl").getBytes("UTF-8"));
+                        break;
+                    case STL:
+                        ok = writeDownload(file, format.mime, ai.dvine.render.field.MeshExport.stl(spec, what));
+                        break;
+                    case PLY:
+                        ok = writeDownload(file, format.mime, ai.dvine.render.field.MeshExport.ply(spec));
+                        break;
+                    default:
+                        ok = writeDownload(file, format.mime, ai.dvine.render.field.Gltf.glb(spec, what));
+                        break;
                 }
             } catch (Exception e) {
                 ok = false;
             }
             final boolean saved = ok;
             handler.post(() -> play(LocalTurn.speakAs(stage.agent(), saved
-                    ? "Saved " + file + " in your Downloads. Every part is its own piece with a joint, ready for Blender, Unity, Unreal or Godot."
+                    ? "Saved " + file + (format == ai.dvine.render.field.MeshExport.Format.OBJ ? " and its colours file" : "")
+                    + " in Downloads, in the DVINE folder. It opens in " + format.opensIn + "."
+                    + (format == ai.dvine.render.field.MeshExport.Format.GLB ? " Every part is its own piece with a joint." : "")
                     : "I couldn't save it to Downloads."), null));
         });
+    }
+
+    /** A file in Downloads/DVINE through the media store (no storage permission needed). */
+    private boolean writeDownload(String file, String mime, byte[] data) throws java.io.IOException {
+        android.content.ContentValues v = new android.content.ContentValues();
+        v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, file);
+        v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime);
+        v.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+        if (uri == null) {
+            return false;
+        }
+        try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
+            if (o == null) {
+                return false;
+            }
+            o.write(data);
+        }
+        return true;
+    }
+
+    // ------------------------------------------------------------ saved drawings, found by name or description
+
+    private ai.dvine.library.DrawingLibrary library;
+    /** A question about the library is waiting for its answer ("What should I call it?"); it takes the next words. */
+    private interface Awaiting {
+        void take(String said);
+    }
+
+    private Awaiting awaiting;
+
+    /** Saving, finding, listing, deleting and exporting drawings by voice; true when the words were about that. */
+    private boolean libraryTurn(String text) {
+        if (awaiting != null) {
+            Awaiting a = awaiting;
+            awaiting = null;
+            String low = text.toLowerCase(java.util.Locale.US).trim().replaceAll("[.!?]+$", "");
+            if (low.matches("^(cancel|never ?mind|forget it|stop|no thanks|leave it)$")) {
+                play(LocalTurn.speakAs(stage.agent(), "Okay, left it."), null);
+                return true;
+            }
+            a.take(text);
+            return true;
+        }
+        ai.dvine.library.LibraryWords w = ai.dvine.library.LibraryWords.parse(text);
+        if (w == null) {
+            return false;
+        }
+        boolean drawingOn = currentSolid != null && stage.pictureShown();
+        if (!drawingOn && (w.kind == ai.dvine.library.LibraryWords.Kind.SAVE || w.kind == ai.dvine.library.LibraryWords.Kind.EXPORT)
+                && !text.toLowerCase(java.util.Locale.US).matches("^(please )?(save|export).*")) {
+            return false; // "remember this", "keep that": about something else when no drawing is on show
+        }
+        switch (w.kind) {
+            case EXPORT:
+                if (currentSolid == null || !stage.pictureShown()) {
+                    play(LocalTurn.speakAs(stage.agent(), "There's no 3D drawing on show to save. Ask me to draw something, or open one you saved."), null);
+                    return true;
+                }
+                exportSolid(ai.dvine.render.field.MeshExport.formatIn(text), currentName);
+                return true;
+            case SAVE:
+                if (currentSolid == null || !stage.pictureShown()) {
+                    play(LocalTurn.speakAs(stage.agent(), "There's no 3D drawing on show to save. Ask me to draw something first."), null);
+                    return true;
+                }
+                if (w.name == null) {
+                    askForName("What should I call it? You can add a description after a colon, like Robo, colon, my red robot.", w.description);
+                } else {
+                    saveDrawing(w.name, w.description, false);
+                }
+                return true;
+            case LIST: {
+                java.util.List<ai.dvine.library.DrawingLibrary.Entry> all = library.all();
+                if (all.isEmpty()) {
+                    play(LocalTurn.speakAs(stage.agent(), "You haven't saved any drawings yet. When one is on show, say save it as, and a name."), null);
+                    return true;
+                }
+                StringBuilder b = new StringBuilder(all.size() == 1 ? "You have one saved drawing: " : "You have " + all.size() + " saved drawings: ");
+                for (int i = 0; i < all.size() && i < 8; i++) {
+                    b.append(i == 0 ? "" : i == Math.min(all.size(), 8) - 1 ? ", and " : ", ").append(all.get(i).name);
+                }
+                play(LocalTurn.speakAs(stage.agent(), b.append(all.size() > 8 ? ", and more." : ". Say show me, and a name.").toString()), null);
+                return true;
+            }
+            case DELETE: {
+                ai.dvine.library.DrawingLibrary.Found f = library.find(w.name);
+                if (f.entries.size() != 1 || f.score < 60) {
+                    play(LocalTurn.speakAs(stage.agent(), f.entries.isEmpty() ? "I don't have a saved drawing called " + w.name + "."
+                            : "Which one? " + names(f.entries) + "."), null);
+                    return true;
+                }
+                final ai.dvine.library.DrawingLibrary.Entry e = f.entries.get(0);
+                awaiting = said -> {
+                    Boolean yes = ai.dvine.turn.Names.yesNo(said);
+                    if (Boolean.TRUE.equals(yes) && library.delete(e)) {
+                        play(LocalTurn.speakAs(stage.agent(), "Deleted " + e.name + "."), null);
+                    } else {
+                        play(LocalTurn.speakAs(stage.agent(), "Kept " + e.name + "."), null);
+                    }
+                };
+                play(LocalTurn.speakAs(stage.agent(), "Delete " + e.name + ", " + e.about() + "? Yes or no?"), this::startListening);
+                return true;
+            }
+            default: { // OPEN
+                ai.dvine.library.DrawingLibrary.Found f = library.find(w.name);
+                if (f.score < (w.plainlySaved ? 35 : 80)) {
+                    if (w.plainlySaved) {
+                        play(LocalTurn.speakAs(stage.agent(), library.size() == 0 ? "You haven't saved any drawings yet."
+                                : "I can't find a saved drawing like " + w.name + ". You have " + names(library.all()) + "."), null);
+                        return true;
+                    }
+                    return false; // perhaps a new thing to draw: "show me a lion"
+                }
+                if (f.entries.size() > 1) {
+                    final java.util.List<ai.dvine.library.DrawingLibrary.Entry> choices = f.entries;
+                    awaiting = said -> {
+                        ai.dvine.library.DrawingLibrary.Found again = library.find(said);
+                        for (ai.dvine.library.DrawingLibrary.Entry e : again.entries) {
+                            if (choices.contains(e)) {
+                                openDrawing(e);
+                                return;
+                            }
+                        }
+                        play(LocalTurn.speakAs(stage.agent(), "I didn't catch which. Say show me, and its name."), null);
+                    };
+                    play(LocalTurn.speakAs(stage.agent(), "I found " + choices.size() + ": " + describe(choices) + ". Which one?"), this::startListening);
+                    return true;
+                }
+                openDrawing(f.entries.get(0));
+                return true;
+            }
+        }
+    }
+
+    /** The name of the drawing on show when it was saved or opened, for its export file name. */
+    private String currentName;
+
+    private void askForName(String question, final String description) {
+        awaiting = said -> {
+            String reply = said.trim();
+            String name = reply, about = description;
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(.+?)\\s*(?::| colon | - |, described as |, it'?s |, which is )\\s*(.+)$",
+                    java.util.regex.Pattern.CASE_INSENSITIVE).matcher(reply);
+            if (m.matches()) {
+                name = m.group(1);
+                about = m.group(2);
+            }
+            name = ai.dvine.library.LibraryWords.nameFrom(name);
+            if (name == null || name.length() > 60) {
+                askForName("I didn't catch a name. What should I call it?", description);
+                return;
+            }
+            saveDrawing(name, about, false);
+        };
+        play(LocalTurn.speakAs(stage.agent(), question), this::startListening);
+    }
+
+    /** Saves the drawing on show; a name already used is explained, and another asked for (or "replace it"). */
+    private void saveDrawing(final String name, final String description, boolean replace) {
+        final ai.dvine.library.DrawingLibrary.Entry clash = library.named(name);
+        if (clash != null && !replace) {
+            awaiting = said -> {
+                String low = said.toLowerCase(java.util.Locale.US).trim().replaceAll("[.!?]+$", "");
+                if (low.matches("^(replace it|replace|overwrite( it)?|yes,? replace( it)?|save over it|use it anyway)$")) {
+                    saveDrawing(name, description, true);
+                } else {
+                    String other = ai.dvine.library.LibraryWords.nameFrom(said);
+                    if (other == null) {
+                        askForName("What should I call it instead?", description);
+                    } else {
+                        saveDrawing(other, description, false);
+                    }
+                }
+            };
+            String when = new java.text.SimpleDateFormat("d MMMM", java.util.Locale.UK).format(new java.util.Date(clash.saved));
+            play(LocalTurn.speakAs(stage.agent(), "The name " + clash.name + " is already used for another drawing: " + clash.about()
+                    + ", saved on " + when + ". Give me another name or a short description to tell them apart, or say replace it."), this::startListening);
+            return;
+        }
+        try {
+            ai.dvine.library.DrawingLibrary.Entry e = library.save(name, lastDrawn, description, currentSolid, System.currentTimeMillis());
+            currentName = e.name;
+            stage.innerVoice("Saved \u201c" + e.name + "\u201d: " + clip(e.summary));
+            play(LocalTurn.speakAs(stage.agent(), "Saved as " + e.name + ". Later, say show me " + e.name
+                    + ", or describe it, and I'll find it."), null);
+        } catch (java.io.IOException ex) {
+            play(LocalTurn.speakAs(stage.agent(), "I couldn't save it on the phone."), null);
+        }
+    }
+
+    private void openDrawing(ai.dvine.library.DrawingLibrary.Entry e) {
+        ai.dvine.render.field.SolidSpec spec = library.open(e);
+        if (spec.parts.isEmpty()) {
+            play(LocalTurn.speakAs(stage.agent(), "The drawing " + e.name + " is damaged; I can't open it."), null);
+            return;
+        }
+        currentSolid = spec.fixFrame();
+        currentName = e.name;
+        lastDrawn = e.subject.isEmpty() ? e.name : e.subject;
+        solidHistory.clear();
+        takenOut.clear();
+        stage.showSolid(spec.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f), e.name);
+        play(LocalTurn.speakAs(stage.agent(), "Here's " + e.name + "."), null);
+    }
+
+    private static String names(java.util.List<ai.dvine.library.DrawingLibrary.Entry> list) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < list.size() && i < 8; i++) {
+            b.append(i == 0 ? "" : i == Math.min(list.size(), 8) - 1 ? " and " : ", ").append(list.get(i).name);
+        }
+        return b.toString();
+    }
+
+    private static String describe(java.util.List<ai.dvine.library.DrawingLibrary.Entry> list) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < list.size() && i < 5; i++) {
+            b.append(i == 0 ? "" : "; ").append(list.get(i).name).append(", ").append(list.get(i).about());
+        }
+        return b.toString();
     }
 
     private void applyEdit(ai.dvine.render.field.PartEdit edit, List<Integer> which) {

@@ -139,4 +139,26 @@ public class PodTest {
             }
         }
     }
+
+    @Test
+    public void laysOutOnEveryScreenEitherWayUp() {
+        // phones, small and big, a 10" tablet, an open foldable: upright and on their side
+        float[][] screens = {{720, 1600}, {1080, 2400}, {1440, 3200}, {1600, 2560}, {1812, 2176}};
+        for (float[] sc : screens) {
+            for (int turn = 0; turn < 2; turn++) {
+                float w = turn == 0 ? sc[0] : sc[1], h = turn == 0 ? sc[1] : sc[0];
+                PodLayout l = PodLayout.compute(w, h, 40, 40);
+                String what = (int) w + "x" + (int) h;
+                assertTrue(what, l.unit > 0.2f * Math.min(w, h));
+                float[] pod = l.project(0f, l.podY, 0f);
+                assertTrue(what + " pod on screen", pod[1] > l.cy && pod[1] < h);
+                assertTrue(what + " pod fits across", l.podDiameter * l.unit <= w * 0.8f);
+                // the drawing space (±0.62 stage units) stays on screen above the pod
+                float[] top = l.project(0f, 0.7f, 0f), right = l.project(0.62f, 0f, 0f); // a drawing is 1.24 units across
+                assertTrue(what + " drawing top on screen", top[1] > 0f);
+                assertTrue(what + " drawing inside the width", right[0] < w);
+                assertEquals(what, w > h * 1.1f, l.landscape());
+            }
+        }
+    }
 }
