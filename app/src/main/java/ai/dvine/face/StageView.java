@@ -364,7 +364,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     /** Says once, in the subtitles, why the 3D body gave way to the dots (instead of switching silently). */
     private void reportFallback() {
-        if (fallbackReported || human == null) {
+        if (fallbackReported || human == null || clock < 6f) { // after the greeting, so it isn't overwritten
             return;
         }
         String why = human.loadFault;
