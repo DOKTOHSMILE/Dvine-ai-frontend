@@ -301,6 +301,20 @@ public final class HumanStage {
         }
     }
 
+    /**
+     * Height of the persona's head centre (half-way from chin to crown, as posed now) in
+     * camera units, for framing the face close-up; the dot head's height until loaded.
+     */
+    public synchronized float headCameraY(boolean ivie) {
+        HumanInstance h = inst[ivie ? 1 : 0];
+        int crown = h == null ? -1 : h.asset.landmark("crown"), chin = h == null ? -1 : h.asset.landmark("chin");
+        if (crown < 0 || chin < 0) {
+            return ai.dvine.face.nano.DotBody.FACE_Y;
+        }
+        float y = (h.pos[crown * 3 + 1] + h.pos[chin * 3 + 1]) * 0.5f;
+        return (y - HumanInstance.CENTRE) * HumanInstance.OUT;
+    }
+
     public synchronized boolean ready(boolean ivie) {
         return inst[ivie ? 1 : 0] != null;
     }

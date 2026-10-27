@@ -28,6 +28,8 @@ final class FaceSculpt {
             return new float[]{x, y, z};
         }
         float ax = Math.abs(x), side = Math.signum(x);
+        // the eyelids keep their shape: cheek and brow sculpting fades out around each eye opening
+        float eye = smooth(((float) Math.hypot(ax - Anatomy.EYE_X, (y - Anatomy.EYE_Y) * 1.6f) - 0.16f) / 0.12f);
         float nx = x, ny = y, nz = z;
         if (!female) {
             // a squared, flat-topped crown: the top flattened, the upper sides filled out
@@ -41,8 +43,8 @@ final class FaceSculpt {
             nz += 0.06f * chin * smooth(z / 0.3f);
             ny -= 0.03f * chin;
             // cheekbones and the brow ridge
-            nx += side * 0.04f * gauss(ax - 0.47f, y + 0.12f, 0.12f, 0.1f) * smooth((z - 0.2f) / 0.3f);
-            nz += 0.035f * gauss(ax - 0.3f, y - 0.17f, 0.18f, 0.06f) * smooth((z - 0.45f) / 0.2f);
+            nx += side * 0.04f * gauss(ax - 0.47f, y + 0.12f, 0.12f, 0.1f) * smooth((z - 0.2f) / 0.3f) * eye;
+            nz += 0.035f * gauss(ax - 0.3f, y - 0.17f, 0.18f, 0.06f) * smooth((z - 0.45f) / 0.2f) * eye;
             // prominent ears
             if (ax > 0.62f && Math.abs(y) < 0.38f && z < 0.25f) {
                 nx += side * 0.04f * smooth((ax - 0.62f) / 0.12f);
@@ -56,7 +58,7 @@ final class FaceSculpt {
             nx -= x * 0.1f * nose;
             ny += 0.025f * nose * smooth((-0.15f - y) / 0.2f);
             // soft cheekbones
-            nx += side * 0.025f * gauss(ax - 0.45f, y + 0.12f, 0.12f, 0.1f) * smooth((z - 0.2f) / 0.3f);
+            nx += side * 0.025f * gauss(ax - 0.45f, y + 0.12f, 0.12f, 0.1f) * smooth((z - 0.2f) / 0.3f) * eye;
         }
         // full lips for both
         float lips = gauss(x, y - Anatomy.MOUTH_Y, 0.2f, 0.09f) * smooth((z - 0.55f) / 0.15f);

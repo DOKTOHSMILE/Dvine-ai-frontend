@@ -95,6 +95,8 @@ public final class WireRenderer {
         FloatBuffer innerCorner, innerBary;
         IntBuffer tri;
         FloatBuffer corner, bary, aux;
+        /** Per vertex: 0 off the eyes; on an eyeball 2 + how far it faces forward at rest (pupil 3, sides 2). */
+        FloatBuffer eye;
         // the object the particles can become (targets aligned one-to-one with the particles)
         FloatBuffer target, previous;
         boolean dirtyTarget;
@@ -108,7 +110,7 @@ public final class WireRenderer {
         boolean hasPending;
         // GL handles
         int vboInCorner, vboInBary;
-        int vboPos, vboNor, ibo, vboCorner, vboBary, vboAux, vboTarget, vboPrev, objVbo, objNbo, objIbo, tPos, tNor;
+        int vboPos, vboNor, vboEye, ibo, vboCorner, vboBary, vboAux, vboTarget, vboPrev, objVbo, objNbo, objIbo, tPos, tNor;
         boolean created;
     }
 
@@ -156,6 +158,16 @@ public final class WireRenderer {
                 s.innerBary = floats(ib);
             }
             s.tri = ints(a.mesh.tri);
+            float[] eye = new float[n];
+            for (int e = 0; e < 2; e++) {
+                float ex = a.eyeCenter[e * 3], ey = a.eyeCenter[e * 3 + 1], ez = a.eyeCenter[e * 3 + 2];
+                for (int v = a.eyeRange[e * 2]; v < a.eyeRange[e * 2] + a.eyeRange[e * 2 + 1] && v < n; v++) {
+                    float x = a.mesh.pos[v * 3] - ex, y = a.mesh.pos[v * 3 + 1] - ey, z = a.mesh.pos[v * 3 + 2] - ez;
+                    float l = (float) Math.sqrt(x * x + y * y + z * z);
+                    eye[v] = 2f + (l > 0f ? z / l : 0f);
+                }
+            }
+            s.eye = floats(eye);
             s.triIndices = a.mesh.tri.length;
             int np = p.count;
             s.particles = np;
@@ -429,6 +441,7 @@ public final class WireRenderer {
         }
         s.vboPos = buf();
         s.vboNor = buf();
+        s.vboEye = buf();
         s.ibo = buf();
         s.vboCorner = buf();
         s.vboBary = buf();
@@ -444,6 +457,9 @@ public final class WireRenderer {
         gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 12, null, GlApi.DYNAMIC_DRAW);
         gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, s.ibo);
         gl.bufferData(GlApi.ELEMENT_ARRAY_BUFFER, s.triIndices * 4, s.tri, GlApi.STATIC_DRAW);
+        s.eye.position(0);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboEye);
+        gl.bufferData(GlApi.ARRAY_BUFFER, s.vertices * 4, s.eye, GlApi.STATIC_DRAW);
         s.corner.position(0);
         s.bary.position(0);
         gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboCorner);
@@ -469,7 +485,7 @@ public final class WireRenderer {
     }
 
     private void deleteSlot(Slot s) {
-        for (int b : new int[]{s.vboPos, s.vboNor, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objNbo, s.objIbo}) {
+        for (int b : new int[]{s.vboPos, s.vboNor, s.vboEye, s.ibo, s.vboCorner, s.vboBary, s.vboAux, s.vboTarget, s.vboPrev, s.objVbo, s.objNbo, s.objIbo}) {
             gl.deleteBuffer(b);
             liveObjects--;
         }
@@ -560,6 +576,10 @@ public final class WireRenderer {
             gl.vertexAttrib(0, 3, 12, 0);
             gl.bindBuffer(GlApi.ARRAY_BUFFER, nbo);
             gl.vertexAttrib(1, 3, 12, 0);
+            if (intact) {
+                gl.bindBuffer(GlApi.ARRAY_BUFFER, s.vboEye);
+                gl.vertexAttrib(2, 1, 4, 0);
+            }
             gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, ibo);
             gl.disable(GlApi.BLEND);
             gl.depthMask(true);
@@ -572,10 +592,15 @@ public final class WireRenderer {
             gl.enable(GlApi.BLEND);
             gl.blendFunc(GlApi.ONE, GlApi.ONE);
             gl.depthMask(false);
-            gl.uniform1f(gl.uniform(fillProg, "uPush"), intact ? 0.03f : 0.03f / Math.max(1e-3f, scaleOf(f.object)));
+            // the halo hugs the outline: thinner as the camera comes in for the face
+            float push = 0.03f * Math.min(1f, Math.max(0.2f, camera.distance / 4.4f));
+            gl.uniform1f(gl.uniform(fillProg, "uPush"), intact ? push : push / Math.max(1e-3f, scaleOf(f.object)));
             gl.uniform1f(gl.uniform(fillProg, "uHalo"), 1f);
             gl.drawElements(GlApi.TRIANGLES, count, 0);
             gl.disableAttrib(1);
+            if (intact) {
+                gl.disableAttrib(2);
+            }
         }
 
         if (xray) {
@@ -820,15 +845,21 @@ public final class WireRenderer {
      * the rim, a soft glow just outside the silhouette.
      */
     static final String FILL_VS = "#version 300 es\n"
-            + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor;\n"
-            + "uniform mat4 uMvp; uniform mat3 uRot; uniform float uPush; out vec3 vN;\n"
-            + "void main(){ vec3 n = normalize(aNor + vec3(1e-6)); gl_Position = uMvp * vec4(aPos + n * uPush, 1.0); vN = uRot * n; }\n";
+            + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in float aEye;\n"
+            + "uniform mat4 uMvp; uniform mat3 uRot; uniform float uPush; out vec3 vN; out float vEye;\n"
+            + "void main(){ vec3 n = normalize(aNor + vec3(1e-6)); vEye = aEye;\n"
+            + "  gl_Position = uMvp * vec4(aPos + n * (aEye > 0.5 ? 0.0 : uPush), 1.0); vN = uRot * n; }\n";
     static final String FILL_FS = "#version 300 es\n"
             + "precision mediump float;\n"
-            + "in vec3 vN; uniform vec4 uColor; uniform float uHalo; out vec4 o;\n"
+            + "in vec3 vN; in float vEye; uniform vec4 uColor; uniform float uHalo; out vec4 o;\n"
             + "void main(){ vec3 n = normalize(vN); float rim = 1.0 - abs(n.z);\n"
             + "  float key = max(0.0, dot(n, normalize(vec3(-0.45, 0.55, 0.7))));\n"
             + "  float k = uHalo > 0.5 ? 0.22 * pow(rim, 3.0) : 0.025 + 0.09 * key + 1.05 * pow(rim, 2.6);\n"
+            // the eyes glow so the gaze reads: soft whites, a bright iris ring, a dark pupil (all turn with the eyeball)
+            + "  if (vEye > 0.5) { float d = vEye - 2.0;\n"
+            + "    float iris = smoothstep(0.84, 0.88, d) * (1.0 - smoothstep(0.965, 0.975, d));\n"
+            + "    float limbus = smoothstep(0.84, 0.87, d) * (1.0 - smoothstep(0.87, 0.9, d));\n"
+            + "    k = uHalo > 0.5 ? 0.0 : (d < 0.86 ? 0.16 + 0.1 * key : 0.03) + 0.75 * iris + 0.6 * limbus; }\n"
             + "  o = vec4(uColor.rgb * k * uColor.a, 1.0); }\n";
 
     /**

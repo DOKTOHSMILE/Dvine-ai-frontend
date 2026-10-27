@@ -864,9 +864,10 @@ public final class StageView extends View implements Choreographer.FrameCallback
             c.height = h;
             c.cx = cx;
             c.unit = (float) Math.exp(lerp((float) Math.log(u0), (float) Math.log(u1), e));
-            c.cy = lerp(faceCy, padTop + usable * 0.55f, e) + lerp(DotBody.FACE_Y, 0f, e) * c.unit;
+            float headY = human.headCameraY(showingIvie); // frame the real head, not the dot head's height
+            c.cy = lerp(faceCy, padTop + usable * 0.55f, e) + lerp(headY, 0f, e) * c.unit;
             c.distance = (float) Math.exp(lerp((float) Math.log(0.75f), (float) Math.log(4.4f), e));
-            c.pivot = lerp(DotBody.FACE_Y, 0f, e);
+            c.pivot = lerp(headY, 0f, e);
             c.yawDeg = yaw;
             c.pitchDeg = pitch;
             c.update();
