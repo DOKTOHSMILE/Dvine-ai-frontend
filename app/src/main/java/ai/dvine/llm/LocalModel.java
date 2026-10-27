@@ -161,6 +161,16 @@ public final class LocalModel {
         history.clear();
     }
 
+    /**
+     * An exchange the model didn't write (the offline brain answered, or a persona asked something), kept in the
+     * conversation so later questions are read in its light.
+     */
+    public synchronized void note(String question, String answer) {
+        if (question != null && answer != null && !question.trim().isEmpty() && !answer.trim().isEmpty()) {
+            remember(question.trim(), answer.trim());
+        }
+    }
+
     synchronized void remember(String question, String answer) {
         history.add(new String[]{"user", question});
         history.add(new String[]{"assistant", answer});

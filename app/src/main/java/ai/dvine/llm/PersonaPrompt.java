@@ -17,8 +17,22 @@ public final class PersonaPrompt {
      * fresh reference when one was found; null when there is neither.
      */
     public static String context(java.util.List<String> taught, String reference) {
+        return context(taught, reference, null);
+    }
+
+    /**
+     * As {@link #context(java.util.List, String)}, led by {@code situation}: what is going on around the question
+     * (who is on screen, what was just being talked about, what is on show), from {@link #situation}.
+     */
+    public static String context(java.util.List<String> taught, String reference, String situation) {
         StringBuilder c = new StringBuilder();
+        if (situation != null && !situation.trim().isEmpty()) {
+            c.append("Situation: ").append(situation.trim());
+        }
         if (taught != null && !taught.isEmpty()) {
+            if (c.length() > 0) {
+                c.append("\n");
+            }
             c.append("Facts the user taught you (true and up to date; use them):");
             for (String t : taught) {
                 c.append("\n- ").append(t);
@@ -32,6 +46,28 @@ public final class PersonaPrompt {
                     .append(reference.trim());
         }
         return c.length() == 0 ? null : c.toString();
+    }
+
+    /**
+     * What surrounds a question, in one line for the model: the persona on screen (and that the other one is there
+     * too), what the conversation was just about, what is on show, the time of day and whether the phone is online.
+     * Any part may be null; null when there is nothing to say.
+     */
+    public static String situation(boolean ivie, String topic, String onShow, String partOfDay, boolean online) {
+        StringBuilder s = new StringBuilder();
+        s.append(ivie ? "You (Ivie) are on screen; Obi, your other half, is with you."
+                : "You (Obi) are on screen; Ivie, your other half, is with you.");
+        if (topic != null && !topic.trim().isEmpty()) {
+            s.append(" You were just talking about ").append(topic.trim()).append('.');
+        }
+        if (onShow != null && !onShow.trim().isEmpty()) {
+            s.append(" On show now: ").append(onShow.trim()).append('.');
+        }
+        if (partOfDay != null) {
+            s.append(" It is ").append(partOfDay).append(" for the user.");
+        }
+        s.append(online ? " The phone is online." : " The phone is offline.");
+        return s.toString();
     }
 
     /** {@code today} ("Tuesday 27 October 2026") tells the model the date, which its training doesn't know. */
@@ -50,6 +86,14 @@ public final class PersonaPrompt {
                 + " reference you are given with a question, are newer than your training: trust them over your own memory."
                 + " When the user corrects you or tells you something new, accept it, thank them briefly and use it;"
                 + " never argue with it or insist on your old answer.");
+        s.append(" Follow the conversation: read each message in the light of what was said before and of the"
+                + " situation you are given, so that words like it, that, he, she, there and the other one mean what they"
+                + " referred to, and apply what the user told you earlier.");
+        s.append(" Be curious and ask rather than guess. When a request could mean more than one thing, when a word or"
+                + " name looks misheard, or when you don't fully understand what the user wants, ask one short, specific"
+                + " question (offer the likely meaning: \"Do you mean …?\") instead of answering, then use their answer."
+                + " When the user tells you something about themselves, you may ask one natural follow-up question."
+                + " Don't ask when the meaning is clear.");
         s.append(" Never claim to have done something on the phone, such as sending, opening, buying or saving;"
                 + " say what you can do instead.");
         if (userName != null && !userName.trim().isEmpty()) {

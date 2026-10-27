@@ -32,4 +32,45 @@ public class NamesTest {
         TurnRoute o = LocalTurn.route("switch to obey", "ivie");
         assertTrue(o.switchOnly && !o.ivie);
     }
+
+    @Test
+    public void asksAboutWordsThatOnlySoundLikeAName() {
+        Names.restore(null);
+        Names.Hearing h = Names.hear("Eva, what time is it");
+        assertEquals("Eva", h.word);
+        assertEquals("Ivie", h.guess);
+        assertEquals("Ivie, what time is it", h.suggested);
+        assertEquals("Did you mean Ivie? I heard \"Eva\".", h.question());
+        assertEquals("Obi", Names.hear("talk to Abi").guess);
+        assertEquals("Ivie", Names.hear("hey Ava").guess);
+        // clear spellings are just fixed; ordinary words, and sound-alikes away from a name's place, are left alone
+        assertNull(Names.hear("switch to Evie").word);
+        assertEquals("switch to Ivie", Names.hear("switch to Evie").text);
+        assertNull(Names.hear("happy birthday to you").word);
+        assertNull(Names.hear("that was evil").word);
+        assertNull(Names.hear("my sister Eva is coming").word);
+        assertNull(Names.hear("what is the weather").word);
+    }
+
+    @Test
+    public void remembersTheAnswer() {
+        Names.restore(null);
+        Names.learn("Eva", "Ivie");
+        assertEquals("Ivie, what time is it", Names.hear("Eva, what time is it").text);
+        assertNull(Names.hear("Eva, what time is it").word);
+        Names.notAName("Ava");
+        assertNull(Names.hear("Ava, hello").word);
+        String saved = Names.saved();
+        Names.restore(null);
+        assertEquals("Ivie", Names.hear("Ava there").guess);
+        Names.restore(saved);
+        assertNull(Names.hear("Ava there").word);
+        assertEquals("Ivie there", Names.hear("Eva there").text);
+        Names.restore(null);
+        assertEquals(Boolean.TRUE, Names.yesNo("Yes, Ivie"));
+        assertEquals(Boolean.TRUE, Names.yesNo("that's right"));
+        assertEquals(Boolean.FALSE, Names.yesNo("no, I meant Eva my sister"));
+        assertNull(Names.yesNo("okay tell me a joke"));
+        assertNull(Names.yesNo("what is the time"));
+    }
 }
