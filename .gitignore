@@ -12,3 +12,5 @@ captures/
 *.keystore
 .env
 !releases/*.apk
+build/
+.platform/
