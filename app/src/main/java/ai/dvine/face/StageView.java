@@ -118,6 +118,11 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private final LineFace.Pose linePose = new LineFace.Pose();
     /** The input bar (left part: microphone, the rest: typing), in screen pixels. */
     private final android.graphics.RectF inputHit = new android.graphics.RectF();
+    // the download card: shown while the model downloads (or when asked), hidden on request
+    private boolean dlShown, dlBusy;
+    private int dlPercent;
+    private String dlTitle = "", dlDetail = "";
+
     /** Live activity: the latest few {tag, text, time} entries, newest last. */
     private final java.util.ArrayList<String[]> activityLog = new java.util.ArrayList<String[]>();
     private final TextPaint labelPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
@@ -331,6 +336,79 @@ public final class StageView extends View implements Choreographer.FrameCallback
             activityLog.remove(0);
         }
         invalidate();
+    }
+
+    /**
+     * The download card: {@code visible} shows or hides it, {@code busy} animates the bar while bytes arrive
+     * (indeterminate while connecting is shown as the same shimmer at the current percent).
+     */
+    public void setDownload(boolean visible, String title, int percent, boolean busy, String detail) {
+        dlShown = visible;
+        dlTitle = title == null ? "" : title;
+        dlPercent = Math.max(0, Math.min(100, percent));
+        dlBusy = busy;
+        dlDetail = detail == null ? "" : detail;
+        invalidate();
+    }
+
+    public boolean downloadShown() {
+        return dlShown;
+    }
+
+    /** The card at (left, top), {@code width} wide; returns its height. */
+    private float drawDownload(Canvas c, float left, float top, float width, int color) {
+        float d = density, h = 74f * d;
+        uiRect.set(left, top, left + width, top + h);
+        fill.setColor(0xFF0B1014);
+        fill.setAlpha(240);
+        c.drawRoundRect(uiRect, 16f * d, 16f * d, fill);
+        stroke.setColor(color);
+        stroke.setStrokeWidth(1.2f * d);
+        stroke.setAlpha(150);
+        c.drawRoundRect(uiRect, 16f * d, 16f * d, stroke);
+        uiText.setTextAlign(Paint.Align.LEFT);
+        uiText.setLetterSpacing(0.12f);
+        uiText.setTextSize(12.5f * d);
+        uiText.setFakeBoldText(false);
+        uiText.setColor(0xFFD7DDE0);
+        c.drawText(dlTitle.toUpperCase(java.util.Locale.US), left + 18f * d, top + 24f * d, uiText);
+        uiText.setTextAlign(Paint.Align.RIGHT);
+        uiText.setLetterSpacing(0.04f);
+        uiText.setTextSize(15f * d);
+        uiText.setColor(mixColor(color, 0xFFFFFFFF, 0.4f));
+        c.drawText(dlPercent + "%", left + width - 18f * d, top + 25f * d, uiText);
+        // the bar: a dim track, the glowing fill, a shimmer running along it while bytes arrive
+        float bx = left + 18f * d, bw = width - 36f * d, by = top + 38f * d, bh = 7f * d;
+        uiRect.set(bx, by, bx + bw, by + bh);
+        fill.setColor(color);
+        fill.setAlpha(40);
+        c.drawRoundRect(uiRect, bh / 2, bh / 2, fill);
+        float fw = Math.max(bh, bw * dlPercent / 100f);
+        uiRect.set(bx, by, bx + fw, by + bh);
+        lineGlow.setColor(color);
+        lineGlow.setAlpha(110);
+        lineGlow.setStrokeWidth(bh);
+        c.drawLine(bx + bh / 2, by + bh / 2, bx + fw - bh / 2, by + bh / 2, lineGlow);
+        fill.setAlpha(255);
+        c.drawRoundRect(uiRect, bh / 2, bh / 2, fill);
+        if (dlBusy) {
+            float sx = bx + ((clock * 0.45f) % 1f) * (fw + 40f * d) - 40f * d;
+            fill.setColor(0xFFFFFFFF);
+            for (int i = 0; i < 8; i++) {
+                float x = sx + i * 5f * d;
+                if (x > bx && x < bx + fw - 2f * d) {
+                    fill.setAlpha(18 + 12 * (4 - Math.abs(i - 4)));
+                    c.drawRect(x, by + 1f * d, x + 5f * d, by + bh - 1f * d, fill);
+                }
+            }
+        }
+        uiText.setTextAlign(Paint.Align.LEFT);
+        uiText.setLetterSpacing(0f);
+        uiText.setTextSize(12.5f * d);
+        uiText.setColor(0xFF9AA3A8);
+        CharSequence fitted = android.text.TextUtils.ellipsize(dlDetail, uiText, width - 36f * d, android.text.TextUtils.TruncateAt.END);
+        c.drawText(fitted, 0, fitted.length(), left + 18f * d, top + 64f * d, uiText);
+        return h;
     }
 
     /** The line-art face is showing (the default look). */
@@ -1047,6 +1125,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
             }
         }
 
+        if (dlShown && !line) {
+            drawDownload(canvas, 18f * density, padTop + 44f * density, w - 36f * density, color);
+        }
         if (subtitles && subtitle.length() > 0) {
             int width = (int) (w - 48f * density);
             if (subLayout == null || subWidth != width) {
@@ -1190,6 +1271,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
         drawKeyboard(c, inputHit.right - 34f * d, inputHit.centerY(), color);
         // the live activity panel between the voice and the input bar (only when there is room)
         float top = pillY + 34f * d, panelBottom = inputHit.top - 86f * d;
+        if (dlShown) {
+            top += drawDownload(c, 18f * d, top, w - 36f * d, color) + 12f * d;
+        }
         int rows = activityLog.size();
         float rowH = 30f * d;
         if (rows > 0 && panelBottom - top > 44f * d + rowH) {
