@@ -89,6 +89,9 @@ public final class Engine implements Supervisor.Listener {
                 case "DEMO":
                     submit(new Command("view.demo", "on", Command.PRIORITY_USER, now));
                     break;
+                case "SCENE":
+                    submit(new Command("view.scene", a.commandValue, Command.PRIORITY_USER, now));
+                    break;
                 case "STOP":
                     submit(new Command("body.stop", null, Command.PRIORITY_STOP, now));
                     affect.appraise("stop");

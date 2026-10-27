@@ -838,6 +838,8 @@ One action manager scores candidates as `S(a) = w_g·G + w_c·C + w_r·R − w_k
 
 ## 28. The anatomical 3D wireframe human (v1.7, built)
 
+> Superseded in part by §30 (v0.11): the body and head now come from the MakeHuman base mesh, and the renderer draws a particle hologram, not lines. The rig, touch, inspection and command rules below still apply.
+
 Obi and Ivie are now real 3D meshes: closed, skinned, rigged triangle surfaces drawn as a glowing wireframe with vertex dots on black. Obi is cyan, Ivie amber-gold. It replaces the nano-dot swarm as the default look ("dot mode" still brings the swarm back; "wireframe" returns).
 
 **Architecture**
@@ -896,3 +898,50 @@ When the offline brain can't answer and the phone has validated internet and an 
 Safety stays on the phone: consequential requests are still gated locally (GATE) and never sent as actions. Only https servers are used.
 
 Server side: each user may send 20 new questions a minute (`dvine.commands-per-minute`), replays are free. The desk's words still come from the mock gateway until a model provider is chosen (Track S Phase 2).
+
+## 30. The standard human body and the hologram renderer (app v0.11, built)
+
+**Body.** Obi and Ivie are built from the MakeHuman base mesh hm08 and its macro targets (CC0 1.0). `tools/make_standard_body.py` fetches the source files with pinned SHA-256 sums and bakes `app/src/main/resources/ai/dvine/human/standard_body.bin`: one closed surface (body and head together), per-persona shapes (male muscle 0.45 and ideal proportions 1.0; female 0.8), MakeHuman's joints, its default skin weights folded into DVINE's 37 bones, and its jaw weights. `human/bake/` (formerly `human/build/`; a folder named `build` was hidden by build-output rules) turns that into each asset:
+
+| Step | Class | What it does |
+|---|---|---|
+| Retarget | `StandardBody` | aligns the floor and neck, warps the torso at hip, shoulder and neck heights, and moves each limb, hand and finger segment onto the DVINE skeleton |
+| Head frame | `HeadFrame` | fitted from the eyeballs, lip line and chin; face code works in head units, mapped in two pieces that meet at the lip line |
+| Likeness | `FaceSculpt` | Obi: squared flat crown, strong jaw and chin, cheekbones, brow ridge; Ivie: oval face, refined slightly upturned nose; fuller lips for both; the user's Look on top. Faded under the chin and around the eyes |
+| Simplify | `Decimator` | 16,000 triangles (head 4,000, body 6,000, hands 2,800 each); fingers and lips simplify only within their own groups, finger webs are locked |
+| Weights | `AssetBuilder` | MakeHuman's weights with a geodesic blur, hips from DVINE's own blend, a crotch and neck settle, hand weights by distance along each finger |
+| Proportions | `BodyFit` | the ANRE profile (§ BUILD_STATUS); the head is scaled to the 0.135 head ratio |
+| Face shapes | `FaceShapes` | the 15 blend shapes in head units; jawOpen uses MakeHuman's jaw weights |
+
+Shipped: `obi.dvhm` (8,114 vertices), `ivie.dvhm` (10,904 vertices, with 90 hair strands), 16,000 triangles each. `gradle :app:generateHumanAssets` rebuilds them in about a second each.
+
+**Renderer** (`render/WireRenderer`, OpenGL ES 3): a dark fill with a fresnel rim (depth-written, so it hides what is behind), a thin halo pushed out along the normals (thinner in the face close-up), and surface particles (ANRE, §ANRE in BUILD_STATUS) on top. Eyeballs carry their rest facing per vertex, so the fill draws soft whites, a bright iris ring and a dark pupil that turn with the gaze.
+
+**Camera** (`render/Camera`): the eye sits level with the pivot. The face close-up frames the real head (chin to crown, `HumanStage.headCameraY`); the body view shows head to feet.
+
+**Checking the GPU path without a phone.** The JVM tests use a fake GL that compiles nothing, which once let a shader with an undeclared variable ship (0.11.0–0.11.1 showed only the dot head on phones).
+- `node tools/check_shaders.js` compiles and links every program with Chromium's WebGL2 (GLSL ES 3.00).
+- `GlCapture` (a test that runs only when `GLCAP_OUT` is set) records the real renderer's GL calls; `tools/gl_replay` replays them in WebGL2 and screenshots what a phone would draw (see its README). The first replay matched a phone screenshot pixel for pixel.
+
+**Fixes found this way (0.11.2–0.11.3):** the particle shader compiles; the face camera no longer looks up from the hips; eyes are visible; `Spring1D` sub-steps (blinks diverged on 50 ms frames and held the eyes shut); Obi's lower lids no longer crease; touch picking tolerates a ray through a shared triangle corner. When the 3D body can't load or the GPU keeps failing, the subtitle says so once and "status report" names the error.
+
+**Known limits:** no self-intersection check; skin stretch is tested with a 5 mm rest-length floor; Ivie's hair is sparse; the hologram is the only look (no realistic skin mode yet); visemes are text-timed; not measured on a phone (frame rate).
+
+## 31. Open work, in order
+
+The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
+
+| # | Work | Scope of the first version | Depends on |
+|---|---|---|---|
+| 1 | **Both personas in one scene** (Dual-AI step 1) — built in v0.12.0 (`human/scene/DualScene`; say "stand side by side", "walk to each other", "walk together", "just one of you") | `DualHumanSceneController`: each persona has its own root position and facing in the same world; the second walks in from an entrance point (no teleport), slows, stops at a talking distance and both turn to face each other; side by side on request; a camera that keeps both bodies head to feet in frame; feet on the floor; bodies never overlap | §30 |
+| 2 | **Turn-taking between the two** (Dual-AI step 2) | `DualAgentCoordinator` with the states IDLE, QUESTION_RECEIVED, AGENT_A_THINKING, AGENT_A_SPEAKING, AGENT_B_ANALYZING, AGENT_B_SPEAKING, DEBATE_CONTINUING, CONSENSUS, FINAL_SUMMARY, CANCELLED, ERROR; each persona answers through its own brain session (offline brain, or its own desk room online); a turn limit and repeat detection; interrupt, pause, resume; the listener looks at the speaker, the speaker's lips follow only its own voice | 1 |
+| 3 | **FACS face** | blend shapes from the reference sheet: brow raise and lower, blink, inner squint, cheek raiser, nose wrinkle, corner puller, mouth stretch, pucker, funnel, lips forward, chin raiser, jaw open, neck stretch; driven by speech and emotion; each checked in a GL replay | §30 |
+| 4 | **Dialogue body language** | `DialogueAnimationController`: gestures chosen by dialogue intent (explain, ask, agree, disagree, think, laugh, conclude), with variation; listening nods and blinks | 2, 3 |
+| 5 | **Coordinated interactions** | `InteractionChoreographyController`: wave, handshake, pointing at a shared object, celebrate, comfort, hug; each with preconditions, start positions, IK contact points, collision checks, a hold and a return to idle | 1, 4 |
+| 6 | **Dual-AI controls and camera views** | compact panel (ask both, ask one, debate, joint explanation, pause, resume, interrupt, replay, camera view, end); full-body, conversation, speaker, user-facing and close-up views; portrait and landscape | 2 |
+| 7 | **Eric, the coder** (third persona) | first version: a coding workspace (avatar on top, thought bubble with a quiet inner voice and still lips, a code panel with Code / Files / Terminal / Tests / Preview tabs, text and mic input, a task panel with cancel) on the server's sandboxed workspace (Track S): inspect, edit, compile and test a small Java project, a bounded repair loop, and a report that says only what actually ran | Track S workspace runner |
+| 8 | **Language understanding** | broader intent parsing for everyday phrasing (moves, looks, questions, commands to a named persona) | — |
+| 9 | **Ground and walking** | a visible floor the body walks on (root travel follows the stride, feet planted, nothing sinks) | 1 |
+| 10 | **Realistic skin mode** | a lit skin look (tone from Look, wrap-light subsurface approximation) beside the hologram, with a mode switch | §30 |
+| 11 | On-phone Linux, terminal UX | proot + Alpine rootfs; terminal, runs and web fetch on the phone | — |
+| 12 | M8 voice polish | — | — |

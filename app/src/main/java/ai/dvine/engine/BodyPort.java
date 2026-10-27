@@ -28,6 +28,9 @@ public interface BodyPort {
     /** Both personas side by side (the demo scene), or back to one. */
     void setDemo(boolean on);
 
+    /** Arranges both personas in the shared scene: single, side (side by side), meet (facing each other), walk (walk together). */
+    void arrange(String arrangement);
+
     /** Small expression bias from the affect state: smile, brow, head tilt in degrees. */
     void setMood(float smile, float brow, float tiltDeg);
 }

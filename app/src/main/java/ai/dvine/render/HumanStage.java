@@ -32,7 +32,11 @@ public final class HumanStage {
     private final HumanInstance[] inst = new HumanInstance[2];
     private final FaceDrive[] face = {new FaceDrive(), new FaceDrive()};
     private final Inspector[] inspector = new Inspector[2];
-    private final float[][] shifted = new float[2][];
+    private final float[][] shifted = new float[2][], shiftedNor = new float[2][];
+    /** Where each persona stands in the shared world (one on stage, or both). */
+    public final ai.dvine.human.scene.DualScene scene = new ai.dvine.human.scene.DualScene();
+    private final boolean[] walkShown = new boolean[2];
+    private float lastFrame = -1f;
     /** ANRE: each persona's particle skin, and the state machine that moves those particles. */
     private final ai.dvine.anre.ParticleSet[] particles = new ai.dvine.anre.ParticleSet[2];
     private final ai.dvine.anre.TransformationController[] morph = new ai.dvine.anre.TransformationController[2];
@@ -47,7 +51,6 @@ public final class HumanStage {
     private final boolean[][] xrayLayers = {new boolean[4], new boolean[4]};
     private final boolean[][] xrayParts = new boolean[2][];
     private String pose = "stand";
-    private boolean demo;
     private float time;
     // gaze toward a touched part for a moment
     private final float[] touchAt = new float[3];
@@ -104,6 +107,7 @@ public final class HumanStage {
             inspector[slot] = new Inspector(a);
         }
         shifted[slot] = new float[h.pos.length];
+        shiftedNor[slot] = new float[h.nor.length];
         particles[slot] = ai.dvine.anre.HumanParticles.build(a, ai.dvine.anre.HumanParticles.BUDGET);
         final int sl = slot;
         morph[slot] = new ai.dvine.anre.TransformationController(() -> bodyIntact(sl));
@@ -346,12 +350,24 @@ public final class HumanStage {
         face[ivie ? 1 : 0].speech.word(word, time);
     }
 
+    /** Both personas side by side (the old demo), or back to the one on screen. */
     public synchronized void setDemo(boolean on) {
-        demo = on;
+        scene.arrange(on ? ai.dvine.human.scene.DualScene.SIDE : ai.dvine.human.scene.DualScene.SINGLE);
     }
 
+    /** Arranges the shared scene: single, side, meet or walk (see {@link ai.dvine.human.scene.DualScene}). */
+    public synchronized boolean arrange(String name) {
+        return scene.arrange(name);
+    }
+
+    /** True while both personas share the stage. */
     public synchronized boolean demo() {
-        return demo;
+        return scene.both();
+    }
+
+    /** Middle and half width (body units) of where the personas on stage are going, for framing. */
+    public synchronized float[] sceneSpan() {
+        return scene.span();
     }
 
     // ------------------------------------------------------------ frame
@@ -362,37 +378,70 @@ public final class HumanStage {
      */
     public synchronized void frame(float t, boolean ivie, FaceRig rig, boolean bodyView, boolean talking, float alpha) {
         time = t;
+        scene.setFocus(ivie);
+        scene.step(lastFrame < 0f ? 0f : t - lastFrame);
+        lastFrame = t;
+        boolean demo = scene.both();
         for (int slot = 0; slot < 2; slot++) {
             HumanInstance h = inst[slot];
             if (h == null) {
                 continue;
             }
-            boolean visible = demo || (slot == 1) == ivie;
+            ai.dvine.human.scene.DualScene.Actor actor = scene.actor[slot];
+            boolean visible = demo ? actor.present : (slot == 1) == ivie;
             if (!visible) {
                 renderer.submit(slot, h.pos, h.nor, 0f, 0f, 0f, 0f, 1f, false);
                 continue;
             }
-            h.rig.setTurntable(bodyView);
-            h.rig.setTalking(talking && (slot == 1) == ivie);
-            // look at the user (and follow the face rig's glances), or at a part that was just touched
+            h.rig.setTurntable(bodyView && !demo);
+            h.rig.setTalking(talking && (slot == 1) == ivie && !actor.walking);
+            // walking in the shared scene plays the walk cycle, then returns to the asked-for pose
+            if (actor.walking != walkShown[slot]) {
+                walkShown[slot] = actor.walking;
+                h.rig.setPose(actor.walking ? "walk" : pose);
+            }
+            // look at the user (and follow the face rig's glances), at a part that was just touched,
+            // or, facing each other, at the other persona's face
             float headY = h.rig.joint[ai.dvine.face.nano.DotBody.HEAD * 3 + 1] + 0.3f;
+            HumanInstance other = inst[1 - slot];
             if (t < touchUntil && (slot == 1) == ivie) {
                 h.rig.lookAt(touchAt[0], touchAt[1], touchAt[2] + 0.4f, 1f);
+            } else if (demo && other != null && scene.actor[1 - slot].present && !actor.walking
+                    && ai.dvine.human.scene.DualScene.MEET.equals(scene.arrangement())) {
+                ai.dvine.human.scene.DualScene.Actor oa = scene.actor[1 - slot];
+                float oy = other.rig.joint[ai.dvine.face.nano.DotBody.HEAD * 3 + 1] + 0.3f;
+                float ok = ai.dvine.human.scene.DualScene.HEIGHT[1 - slot];
+                float[] l = toLocal(actor, slot, oa.x, FLOOR + (oy - FLOOR) * ok, oa.z + 0.4f);
+                h.rig.lookAt(l[0], l[1], l[2], 1f);
+            } else if (actor.walking) {
+                float[] l = toLocal(actor, slot, actor.tx, headY, actor.tz + 3f);
+                h.rig.lookAt(l[0], headY, Math.max(2f, l[2]), 0.6f);
             } else {
-                h.rig.lookAt(rig.lookX.value * 2.5f, headY + rig.lookY.value * 1.5f, 12f, 1f);
+                float[] l = demo ? toLocal(actor, slot, rig.lookX.value * 2.5f, headY + rig.lookY.value * 1.5f, 12f)
+                        : new float[]{rig.lookX.value * 2.5f, headY + rig.lookY.value * 1.5f, 12f};
+                h.rig.lookAt(l[0], l[1], l[2], 1f);
             }
             face[slot].apply(h, rig, t);
             h.update(t);
-            float[] p = h.pos;
+            float[] p = h.pos, nor = h.nor;
             if (demo) {
-                float dx = slot == 0 ? -1.5f : 1.5f;
-                float[] s = shifted[slot];
+                // the persona's own place in the shared world: its height, turned by its facing, moved to its root
+                double yr = Math.toRadians(actor.yaw);
+                float k = ai.dvine.human.scene.DualScene.HEIGHT[slot];
+                float c = (float) Math.cos(yr), sn = (float) Math.sin(yr);
+                float[] s = shifted[slot], sn3 = shiftedNor[slot], nr = h.nor;
                 for (int i = 0; i < p.length; i += 3) {
-                    s[i] = p[i] + dx;
-                    s[i + 1] = p[i + 1];
-                    s[i + 2] = p[i + 2];
+                    float x = p[i] * k, z = p[i + 2] * k;
+                    s[i] = c * x + sn * z + actor.x;
+                    s[i + 1] = FLOOR + (p[i + 1] - FLOOR) * k;
+                    s[i + 2] = -sn * x + c * z + actor.z;
+                    float nx = nr[i], nz = nr[i + 2];
+                    sn3[i] = c * nx + sn * nz;
+                    sn3[i + 1] = nr[i + 1];
+                    sn3[i + 2] = -sn * nx + c * nz;
                 }
                 p = s;
+                nor = sn3;
             }
             float r = slot == 0 ? 0f : 0.996f, g = slot == 0 ? 0.9f : 0.70f, b = slot == 0 ? 1f : 0f;
             float lod = bodyView ? 0.7f : 1.35f; // particle size: bigger in the close-up
@@ -403,7 +452,7 @@ public final class HumanStage {
                 renderer.transition(slot, v.from, v.to, v.progress, v.byObject, v.reverse, om,
                         os == objects ? objects.selected() : -1f, v.bodyFill, new float[]{0f, 0.2f, 0f, 0.9f});
             }
-            renderer.submit(slot, p, h.nor, r, g, b, demo ? 1f : alpha, lod, true);
+            renderer.submit(slot, p, nor, r, g, b, demo ? 1f : alpha, lod, true);
             boolean showInside = xray[slot] && !demo && (v == null || !morph[slot].objectMode());
             if (showInside) {
                 renderer.submitInner(slot, h.innerPos, h.innerNor);
@@ -418,16 +467,37 @@ public final class HumanStage {
     public synchronized BodyTouch pick(float sx, float sy, boolean ivie, BodyTouch.Kind kind, int count, long now,
                                        long duration) {
         HumanInstance h = inst[ivie ? 1 : 0];
-        if (h == null || demo || objectMode(ivie)) {
+        if (h == null || objectMode(ivie)) {
             return null;
         }
         float[] ray = camera.ray(sx, sy);
+        if (scene.both()) {
+            // into the persona's own frame (its place and facing in the shared world)
+            int sl = ivie ? 1 : 0;
+            ai.dvine.human.scene.DualScene.Actor a = scene.actor[sl];
+            float[] o = toLocal(a, sl, ray[0], ray[1], ray[2]), d = turnLocal(a, ray[3], ray[5]);
+            ray = new float[]{o[0], o[1], o[2], d[0], ray[4], d[1]}; // a uniform scale keeps directions
+        }
         HumanInstance.Hit hit = h.pick(ray[0], ray[1], ray[2], ray[3], ray[4], ray[5]);
         if (hit == null) {
             return null;
         }
         int bone = h.asset.mesh.bone0[h.asset.mesh.tri[hit.triangle * 3]] & 0xff;
         return new BodyTouch(hit.region, kind, count, now, duration, hit.point, bone, h.toBoneLocal(bone, hit.point));
+    }
+
+    /** A world point in a persona's own frame (undoes its root position, facing and height). */
+    private static float[] toLocal(ai.dvine.human.scene.DualScene.Actor a, int slot, float x, float y, float z) {
+        float k = ai.dvine.human.scene.DualScene.HEIGHT[slot];
+        float[] d = turnLocal(a, x - a.x, z - a.z);
+        return new float[]{d[0] / k, FLOOR + (y - FLOOR) / k, d[1] / k};
+    }
+
+    /** A world direction (x, z) in a persona's own frame. */
+    private static float[] turnLocal(ai.dvine.human.scene.DualScene.Actor a, float x, float z) {
+        double yr = Math.toRadians(a.yaw);
+        float c = (float) Math.cos(yr), s = (float) Math.sin(yr);
+        return new float[]{c * x - s * z, s * x + c * z};
     }
 
     /** The part of the object under a screen point (selected and returned), or null. */

@@ -88,6 +88,12 @@ public class GlCapture {
         r.onSize(W, H);
         HumanStage stage = new HumanStage(r);
         stage.install(ivie ? 1 : 0, a, true);
+        String arrangement = System.getenv("GLCAP_SCENE");
+        if (arrangement != null) {
+            HumanAsset other;
+            try (FileInputStream in = new FileInputStream("src/main/assets/human/" + (ivie ? "obi" : "ivie") + ".dvhm")) { other = HumanAsset.read(in); }
+            stage.install(ivie ? 0 : 1, other, true);
+        }
         FaceRig rig = new FaceRig(ivie);
         float padTop = 110, padBottom = 140, usable = H - padTop - padBottom;
         float bigUnit = Math.min(W * 0.30f, usable * 0.17f);
@@ -99,8 +105,16 @@ public class GlCapture {
             rig.tick(1 / 15f);
             Camera c = stage.camera;
             c.width = W; c.height = H; c.cx = W * 0.5f;
+            if (arrangement != null && k == 2) stage.arrange(arrangement);
             float u0 = bigUnit / FS, u1 = Math.min(W * 0.42f, usable * 0.36f);
+            float midX = 0f;
+            if (stage.demo()) {
+                float[] span = stage.sceneSpan();
+                midX = span[0];
+                u1 = Math.min(u1, W * 0.92f / ((2f * span[1] + 2.4f) * ai.dvine.human.HumanInstance.OUT));
+            }
             c.unit = (float) Math.exp(lerp((float) Math.log(u0), (float) Math.log(u1), e));
+            c.cx = W * 0.5f - midX * ai.dvine.human.HumanInstance.OUT * c.unit * e;
             float hy = stage.headCameraY(ivie); c.cy = lerp(faceCy, padTop + usable * 0.55f, e) + lerp(hy, 0f, e) * c.unit;
             c.distance = (float) Math.exp(lerp((float) Math.log(0.75f), (float) Math.log(4.4f), e));
             c.pivot = lerp(hy, 0f, e);

@@ -31,6 +31,7 @@ public final class Skills {
             case "face.expression":
                 return Command.Channel.FACE;
             case "view.demo":
+            case "view.scene":
                 return Command.Channel.VIEW;
             case "draw.sketch":
             case "draw.object":
@@ -65,6 +66,8 @@ public final class Skills {
                 return ai.dvine.human.face.FaceDrive.known(c.value) ? null : "unknown expression";
             case "draw.object":
                 return known(Forms.OBJECTS, c.value) ? null : "unknown object";
+            case "view.scene":
+                return known(new String[]{"single", "side", "meet", "walk"}, c.value) ? null : "unknown arrangement";
             case "draw.sketch":
                 return c.payload instanceof ai.dvine.face.Sketch ? null : "no sketch";
             default:
