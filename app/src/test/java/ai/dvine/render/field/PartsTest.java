@@ -14,36 +14,20 @@ import org.junit.Test;
 /** The built-in 3D plans, and changing a drawing part by part: "take out the tyres". */
 public class PartsTest {
     @Test
-    public void everyBlueprintBuildsWithRealColoursAndParts() {
-        assertTrue(Blueprints.count() >= 30);
-        for (String k : Blueprints.keys()) {
-            SolidSpec s = Blueprints.forSubject(k);
-            assertNotNull(k, s);
-            assertTrue(k + " has its parts", s.parts.size() >= 3);
-            Shape pts = s.points(4000, 2f);
-            assertTrue(k + " has points", pts.count > 3000);
-        }
-    }
-
-    @Test
-    public void aCatIsACat() {
-        assertEquals("cat", Blueprints.keyFor("a cute kitten"));
-        assertEquals("car", Blueprints.keyFor("red sports car"));
-        assertEquals("airplane", Blueprints.keyFor("plane"));
-        assertNull(Blueprints.keyFor("lighthouse"));
-        SolidSpec cat = Blueprints.forSubject("cat");
-        List<String> names = new ArrayList<String>();
+    public void aPlanBuildsWithItsNamedParts() {
+        SolidSpec cat = TestPlans.of("cat");
+        java.util.List<String> names = new ArrayList<String>();
         for (SolidSpec.Part p : cat.parts) {
             names.add(p.name);
         }
         assertTrue(names.contains("tail"));
         assertTrue(names.contains("left ear"));
-        assertFalse(names.contains("roof"));
+        assertTrue(cat.points(4000, 2f).count > 3000);
     }
 
     @Test
     public void nearAndFarLegsStandApart() {
-        SolidSpec dog = Blueprints.forSubject("dog");
+        SolidSpec dog = TestPlans.of("dog");
         float near = 0, far = 0;
         for (SolidSpec.Part p : dog.parts) {
             if (p.name.equals("front leg")) near = p.z;
@@ -54,7 +38,7 @@ public class PartsTest {
 
     @Test
     public void takeOutTheTyres() {
-        SolidSpec car = Blueprints.forSubject("car").fixFrame();
+        SolidSpec car = TestPlans.of("car").fixFrame();
         PartEdit e = PartEdit.parse("Take out the tyres");
         assertEquals(PartEdit.Op.REMOVE, e.op);
         List<Integer> which = PartEdit.find(car, e.target);
@@ -72,10 +56,10 @@ public class PartsTest {
 
     @Test
     public void partsByNameAndPlace() {
-        SolidSpec car = Blueprints.forSubject("car");
+        SolidSpec car = TestPlans.of("car");
         assertEquals(2, PartEdit.find(car, "hubcaps").size()); // only the hubcaps, not the wheels
         assertEquals(2, PartEdit.find(car, "front wheels").size());
-        SolidSpec cat = Blueprints.forSubject("cat");
+        SolidSpec cat = TestPlans.of("cat");
         assertEquals(2, PartEdit.find(cat, "ears").size());
         assertEquals(1, PartEdit.find(cat, "left ear").size());
         assertEquals(4, PartEdit.find(cat, "paws").size()); // a paw is a leg's end: the legs
@@ -91,7 +75,7 @@ public class PartsTest {
 
     @Test
     public void addingKeepsWhatIsThere() {
-        SolidSpec car = Blueprints.forSubject("car").fixFrame();
+        SolidSpec car = TestPlans.of("car").fixFrame();
         SolidSpec more = car.extend("spoiler | box | navy | above body, left | small wide flat");
         assertEquals(car.parts.size() + 1, more.parts.size());
         assertEquals(car.parts.get(0).x, more.parts.get(0).x, 0f);
@@ -100,7 +84,7 @@ public class PartsTest {
 
     @Test
     public void readsTheBrainsAnswerAboutParts() {
-        SolidSpec cat = Blueprints.forSubject("cat");
+        SolidSpec cat = TestPlans.of("cat");
         assertEquals(1, PartEdit.fromBrain(cat, "tail").size());
         assertEquals(0, PartEdit.fromBrain(cat, "none").size());
     }
@@ -130,7 +114,7 @@ public class PartsTest {
     @Test
     public void meshesFaceOutward() {
         for (String k : new String[]{"car", "cat", "bicycle", "rocket", "cup"}) {
-            for (SolidSpec.Part p : Blueprints.forSubject(k).parts) {
+            for (SolidSpec.Part p : TestPlans.of(k).parts) {
                 if (p.solid == SolidSpec.Solid.RING) {
                     continue; // a ring's inner side rightly faces its middle
                 }

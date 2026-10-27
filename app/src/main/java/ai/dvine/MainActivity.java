@@ -453,6 +453,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
             play(LocalTurn.speakAs(stage.agent(), changeLine(change.op)), null);
             return;
         }
+        // said some other way ("make it do cartwheels", "can I see it from above"): the brain rewrites it into one of
+        // the commands DVINE knows, DVINE does it and remembers the words
+        if (change == null && !interpreted && stage.pictureShown() && modelReady && ai.dvine.agent.ViewIntent.looksLikeOne(asked)) {
+            askViewIntent(asked);
+            return;
+        }
         ai.dvine.create.ObjectRequestInterpreter.Request known = creation.parse(asked, stage.objectShown());
         if (known != null && known.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT && known.detail != null && modelReady) {
             askDrawing(known.detail, true); // something the creation engine can't model: the language model plans it in 3D
@@ -867,8 +873,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * "Draw me a lighthouse": always in 3D. The things people ask for most (a cat, a car, a house…) have a
-     * hand-made plan ({@link ai.dvine.render.field.Blueprints}) and draw at once, brain or not. Anything else the
+     * "Draw me a lighthouse": always in 3D, and nothing is built in: the
      * brain plans as named 3D parts, first reading what the thing looks like online when it may, and the plan is
      * checked (enough parts, and about the right thing) with one stricter retry. Without the brain, online, a
      * reference picture is formed instead. Every 3D drawing is kept part by part so "take out the tyres" works.
@@ -881,14 +886,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
         final boolean online = !solidOnly && connected;
         final boolean research = connected && prefs.getBoolean("fresh_facts", true);
         final boolean modelOk = model != null && model.ready();
-        final ai.dvine.render.field.SolidSpec blueprint = ai.dvine.render.field.Blueprints.forSubject(subject);
         stopPlay();
         stage.setMode(StageMode.THINKING);
         stage.activity("DRAW", subject);
         lastDrawn = subject;
-        if (blueprint != null) {
-            stage.innerVoice("I know how " + ai.dvine.llm.DrawPrompt.article(subject) + " is built.");
-        } else if (modelOk) {
+        if (modelOk) {
             stage.innerVoice(research ? "Looking up what " + ai.dvine.llm.DrawPrompt.article(subject) + " looks like\u2026"
                     : "Planning the parts of " + ai.dvine.llm.DrawPrompt.article(subject) + "\u2026");
         } else {
@@ -896,7 +898,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         modelThread.execute(() -> {
             ai.dvine.render.field.Shape picture = null;
-            ai.dvine.render.field.SolidSpec plan = blueprint;
+            ai.dvine.render.field.SolidSpec plan = null;
             if (plan == null && modelOk && id == askId) {
                 String facts = research ? ai.dvine.render.field.PictureFinder.describe(subject) : null;
                 if (facts != null) {
@@ -1151,11 +1153,41 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private boolean shapeHintGiven;
 
+    /** The brain reads a way of moving the drawing DVINE doesn't know, as one it does; DVINE does it and learns it. */
+    private void askViewIntent(final String asked) {
+        final int id = ++askId;
+        stage.setMode(StageMode.THINKING);
+        stage.innerVoice("Heard: \u201c" + clip(asked) + "\u201d. Asking my brain how to move it\u2026");
+        modelThread.execute(() -> {
+            String written = model.task(ai.dvine.agent.ViewIntent.system(), asked, 30, text -> id == askId);
+            final String command = ai.dvine.agent.ViewIntent.read(written);
+            handler.post(() -> {
+                if (id != askId) {
+                    return;
+                }
+                if (command == null) {
+                    stage.setMode(StageMode.CONTENT);
+                    play(LocalTurn.speakAs(stage.agent(), "I'm not sure how to move it like that. Try spin it, rotate it vertically, or show me the top."), null);
+                    return;
+                }
+                learned.learn(asked, command);
+                stage.innerVoice("You mean: " + command + ". I'll remember that.");
+                answer(command, true);
+            });
+        });
+    }
+
     private static String changeLine(ai.dvine.render.field.ShapeCommand.Op op) {
         switch (op) {
             case BIGGER: return "Bigger.";
             case SMALLER: return "Smaller.";
             case SPIN: return "Spinning.";
+            case SPIN_VERTICAL: return "Rolling it over.";
+            case FASTER: return "Faster.";
+            case SLOWER: return "Slower.";
+            case TURN_BY: return "Turned.";
+            case TILT_BY: return "Tilted.";
+            case VIEW: return "There's the view.";
             case STOP: return "Holding it still.";
             case TURN: return "Here's the other side.";
             case COLOUR: return "Done.";

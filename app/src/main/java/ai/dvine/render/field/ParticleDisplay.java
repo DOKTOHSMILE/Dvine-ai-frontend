@@ -63,6 +63,8 @@ public final class ParticleDisplay {
         yaw = 0f;
         pitch = 0f;
         turnTo = Float.NaN;
+        tiltTo = Float.NaN;
+        spinPitch = 0f;
         spin = solid ? 0.45f : 0f;
         dx = dy = 0f;
         scattered = false;
@@ -70,7 +72,7 @@ public final class ParticleDisplay {
 
     // what the user did to the thing on show: its size, turn, spin, place, colour, scattered or not
     private Shape original, shown;
-    private float stay, size = 1f, yaw, pitch, turnTo = Float.NaN, spin, dx, dy;
+    private float stay, size = 1f, yaw, pitch, turnTo = Float.NaN, tiltTo = Float.NaN, spin, spinPitch, dx, dy;
     private boolean scattered;
 
     /** Carries out a change to the thing on show; returns false when nothing is shown. */
@@ -81,9 +83,46 @@ public final class ParticleDisplay {
         switch (c.op) {
             case BIGGER: size = Math.min(2.4f, size * 1.35f); break;
             case SMALLER: size = Math.max(0.35f, size / 1.35f); break;
-            case SPIN: spin = spin > 0f ? Math.min(2.5f, spin * 1.8f) : 0.8f; turnTo = Float.NaN; break;
-            case STOP: spin = 0f; turnTo = Float.NaN; break;
+            case SPIN: {
+                float dir = c.a == 0f ? 1f : Math.signum(c.a);
+                spin = dir * (spin != 0f && Math.signum(spin) == dir ? Math.min(2.5f, Math.abs(spin) * 1.5f) : 0.8f);
+                spinPitch = 0f;
+                turnTo = tiltTo = Float.NaN;
+                break;
+            }
+            case SPIN_VERTICAL: {
+                float dir = c.a == 0f ? 1f : Math.signum(c.a);
+                spinPitch = dir * (spinPitch != 0f && Math.signum(spinPitch) == dir ? Math.min(2.5f, Math.abs(spinPitch) * 1.5f) : 0.8f);
+                spin = 0f;
+                turnTo = tiltTo = Float.NaN;
+                break;
+            }
+            case FASTER:
+                if (spin == 0f && spinPitch == 0f) {
+                    spin = 0.8f;
+                }
+                spin = Math.signum(spin) * Math.min(3f, Math.abs(spin) * 1.6f);
+                spinPitch = Math.signum(spinPitch) * Math.min(3f, Math.abs(spinPitch) * 1.6f);
+                break;
+            case SLOWER:
+                spin /= 1.6f;
+                spinPitch /= 1.6f;
+                break;
+            case STOP: spin = 0f; spinPitch = 0f; turnTo = Float.NaN; tiltTo = Float.NaN; break;
             case TURN: spin = 0f; turnTo = yaw + (float) Math.PI; break;
+            case TURN_BY: spin = 0f; turnTo = (Float.isNaN(turnTo) ? yaw : turnTo) + (float) Math.toRadians(c.a); break;
+            case TILT_BY: spinPitch = 0f; tiltTo = (Float.isNaN(tiltTo) ? pitch : tiltTo) + (float) Math.toRadians(c.a); break;
+            case VIEW:
+                spin = 0f;
+                spinPitch = 0f;
+                // the nearest way round to the asked-for angle
+                float want = (float) Math.toRadians(c.a), full = (float) (Math.PI * 2);
+                turnTo = want + full * Math.round((yaw - want) / full);
+                tiltTo = (float) Math.toRadians(c.b);
+                if (c.a == 0f && c.b == 0f) {
+                    dx = dy = 0f;
+                }
+                break;
             case LEFT: dx -= 0.25f; break;
             case RIGHT: dx += 0.25f; break;
             case UP: dy += 0.2f; break;
@@ -141,7 +180,12 @@ public final class ParticleDisplay {
     /** A drag: turns it round (radians across) and tips it toward or away (radians down); its own spin stops. */
     public synchronized void rotateBy(float yawRad, float pitchRad) {
         spin = 0f;
+        spinPitch = 0f;
         turnTo = Float.NaN;
+        tiltTo = Float.NaN;
+        // after "upside down" or a vertical spin the tilt can be anywhere: bring it back into range before the drag
+        float full = (float) (Math.PI * 2);
+        pitch -= full * Math.round(pitch / full);
         yaw += yawRad;
         pitch = Math.max(-1.45f, Math.min(1.45f, pitch + pitchRad));
     }
@@ -197,6 +241,15 @@ public final class ParticleDisplay {
             }
         } else {
             yaw += spin * dt;
+        }
+        if (!Float.isNaN(tiltTo)) {
+            pitch += (tiltTo - pitch) * Math.min(1f, dt * 3f);
+            if (Math.abs(tiltTo - pitch) < 0.01f) {
+                pitch = tiltTo;
+                tiltTo = Float.NaN;
+            }
+        } else {
+            pitch += spinPitch * dt;
         }
         submit(r, StageRenderer.FIELD_PANEL, panel, false, 0f, 0.62f, 0.1f, 0.6f, 1.9f);
         submit(r, StageRenderer.FIELD_THOUGHT, thought, false, 0f, 0.8f, 0.1f, 0.6f, 1.6f);
