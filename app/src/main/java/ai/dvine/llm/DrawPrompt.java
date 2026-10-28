@@ -7,6 +7,8 @@ import java.util.regex.Pattern;
 /**
  * Asking the language model for a picture: it can't make images, but it can describe one as simple shapes
  * ({@link ai.dvine.render.field.DrawSpec}) that the particles then form. Pure Java.
+ *
+ * Improved for correct object identification from search facts and accurate structural part lists.
  */
 public final class DrawPrompt {
     private DrawPrompt() {
@@ -65,38 +67,24 @@ public final class DrawPrompt {
      * The instructions: the subject as its 3D parts in words (solid, colour, where, size), one per line; the app
      * builds them ({@link ai.dvine.render.field.SolidSpec}). Words, because a small model places parts far better
      * by "above the body" than by coordinates.
+     *
+     * Strengthened to force correct identification from provided facts and realistic anatomy/structure.
      */
     public static String system() {
-        return "You plan 3D models built from simple solids. List the subject's real visible parts, biggest first, one per line, as:\n"
+        return "You are an expert 3D model planner. First correctly identify the real-world object from the description and facts given. "
+                + "Then list ONLY its actual visible structural parts, biggest and most characteristic first. One part per line:\n"
                 + "part | solid | colour | where | size\n"
-                + "solid: sphere, oval, box, cylinder, cone, pyramid, ring or disc.\n"
+                + "solid: sphere, oval, box, cylinder, cone, pyramid, ring or disc. Choose the solid that matches the real geometry (wheel=disc, leg=cylinder, head=sphere, body=oval or box).\n"
                 + "colour: white, grey, silver, red, orange, yellow, gold, green, darkgreen, teal, cyan, blue, navy, sky,"
-                + " purple, pink, brown, tan, beige or skin.\n"
-                + "where: for the first part 'middle centre'; for the others 'on X', 'above X', 'below X', 'left of X',"
-                + " 'right of X', 'in front of X', 'behind X' or 'around X', where X is a part already listed;"
-                + " add ', left' or ', right' to shift it within X; add ', both sides' for a matching pair.\n"
-                + "size: tiny, small, medium, large or huge, and optionally wide, tall, deep, flat or thin;"
-                + " a cylinder or disc can be sideways (lying along left-right) or forward.\n\n"
-                + "Example, a snowman:\n"
-                + "base | sphere | white | middle centre | large\n"
-                + "middle | sphere | white | above base | medium\n"
-                + "head | sphere | white | above middle | small\n"
-                + "nose | cone | orange | in front of head | tiny forward\n"
-                + "eyes | sphere | navy | on head, left | tiny, both sides\n"
-                + "hat | cylinder | navy | above head | small\n"
-                + "brim | disc | navy | below hat | small flat\n"
-                + "arms | cylinder | brown | left of middle | small thin sideways, both sides\n\n"
-                + "Example, a fish:\n"
-                + "body | oval | orange | middle centre | large wide\n"
-                + "tail | cone | orange | left of body | medium sideways\n"
-                + "fin | cone | gold | above body | small\n"
-                + "eye | sphere | white | on body, right | tiny\n"
-                + "pupil | sphere | navy | in front of eye | tiny\n\n"
-                + "Start with the subject's own biggest part, not a stand or base unless it has one."
-                + " Choose each part's solid by its real shape: a wheel is a disc, a mast is a cylinder, a sail is a box"
-                + " (flat), a head is a sphere.\n"
-                + "Use 4 to 14 parts. Never copy an example: list the parts the asked-for subject really has."
-                + " Write only the part lines. /no_think";
+                + " purple, pink, brown, tan, beige or skin. Use realistic colours for the object.\n"
+                + "where: first part 'middle centre'. Others: 'on X', 'above X', 'below X', 'left of X', 'right of X', 'in front of X', 'behind X' or 'around X' where X is a previously listed part. "
+                + "Add ', both sides' for pairs (eyes, wheels, legs). Add ', left' or ', right' for offsets.\n"
+                + "size: tiny, small, medium, large or huge; optionally wide, tall, deep, flat or thin. Cylinders/discs can be sideways or forward.\n\n"
+                + "CRITICAL RULES:\n"
+                + "- Identify the object correctly. A cat has body, head, ears, legs, tail — NEVER walls, roof or windows.\n"
+                + "- Use the facts provided to get the right parts and proportions. Do not invent unrelated objects.\n"
+                + "- 5 to 12 parts. Start with the largest real part (body, hull, chassis).\n"
+                + "- Write ONLY the part lines. No explanations. /no_think";
     }
 
     /** The model from what the planner wrote; empty when it wrote nothing usable. */
@@ -110,7 +98,7 @@ public final class DrawPrompt {
     }
 
     public static String user(String subject) {
-        return "Draw " + subject + ".";
+        return "Identify and accurately plan the 3D parts for: " + subject + ".";
     }
 
     /**
@@ -122,13 +110,15 @@ public final class DrawPrompt {
             return user(subject);
         }
         String f = facts.trim();
-        return "About " + subject + ": " + (f.length() > 700 ? f.substring(0, 700) : f) + "\nDraw " + subject + ".";
+        return "Object: " + subject + ". Facts from search: " + (f.length() > 600 ? f.substring(0, 600) : f)
+                + "\nFirst correctly identify this object, then list only its real structural parts in the exact format.";
     }
 
     /** A second try after a plan that was too thin or about something else: stricter words. */
     public static String retry(String subject) {
-        return "Draw " + subject + " and nothing else. List 6 to 12 parts that " + article(subject)
-                + " really has (for example its body, head, legs or wheels), each on its own line in the part format.";
+        return "The previous plan was wrong or incomplete. Correctly identify " + article(subject)
+                + " and list 6 to 12 of its ACTUAL real-world parts only (body, head, limbs, wheels, etc. as appropriate). "
+                + "One per line in the part | solid | colour | where | size format. Nothing else.";
     }
 
     /**
@@ -151,13 +141,24 @@ public final class DrawPrompt {
         if (!building) {
             int walls = 0;
             for (String n : names) {
-                if (n.matches(".*\\b(wall|walls|roof|storey|story|floor|chimney|balcony)\\b.*")) {
+                if (n.matches(".*\\b(wall|walls|roof|storey|story|floor|chimney|balcony|window|door)\\b.*")) {
                     walls++;
                 }
             }
-            if (walls >= 2) {
-                return false; // the brain drew a building for something that isn't one
+            if (walls >= 1) {  // stricter: even one building part rejects for non-buildings
+                return false;
             }
+        }
+        // Additional check: if subject is animal, require body or head or leg or similar
+        if (s.matches(".*\\b(cat|dog|lion|tiger|bird|fish|horse|elephant|animal|creature)s?\\b.*")) {
+            boolean hasBody = false;
+            for (String n : names) {
+                if (n.matches(".*\\b(body|head|torso|chest|leg|paw|tail|wing|fin)\\b.*")) {
+                    hasBody = true;
+                    break;
+                }
+            }
+            if (!hasBody) return false;
         }
         return true;
     }
