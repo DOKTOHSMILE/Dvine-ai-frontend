@@ -46,10 +46,22 @@ public final class BrainInterpretationEngine {
             i.intent = "clarify";
             return i;
         }
-        if (d.question || "explain".equals(d.action)) {
+        if ("clock".equals(d.action) || "picker".equals(d.action) || "learn".equals(d.action) || "news".equals(d.action)) {
+            i.intent = d.action;
+            i.operation = d.action;
+            i.status = "understood";
+            return i;
+        }
+        if ("explain".equals(d.action)) {
             i.intent = "explain";
             i.operation = "explain";
             i.status = "understood";
+            return i;
+        }
+        if (d.question && ("chat".equals(d.action) || d.action == null || d.action.isEmpty())) {
+            i.intent = "answer";
+            i.operation = "answer";
+            i.status = "pass";
             return i;
         }
         i.intent = d.action;

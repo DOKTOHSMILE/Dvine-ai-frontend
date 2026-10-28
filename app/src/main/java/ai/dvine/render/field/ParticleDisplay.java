@@ -268,8 +268,8 @@ public final class ParticleDisplay {
         }
         float unit = Math.min(0.62f, 0.62f * aspect / 0.5f);
         r.setField(StageRenderer.FIELD_DRAWING, buffer, n, false, dx, 0.05f + dy, 0f, unit * size, 2.6f);
-        // captions: screen units, y up from -1 (bottom) to 1; the picture fits 92% of the width
-        submit(r, StageRenderer.FIELD_CAPTION, caption, true, 0f, -0.8f, 0f, 0.92f * aspect, 1.45f);
+        // captions: compact, so the pod and any object keep the screen. Screen units, y up from -1.
+        submit(r, StageRenderer.FIELD_CAPTION, caption, true, 0f, -0.86f, 0f, 0.46f * aspect, 0.9f);
     }
 
     private void step(ParticleField f) {

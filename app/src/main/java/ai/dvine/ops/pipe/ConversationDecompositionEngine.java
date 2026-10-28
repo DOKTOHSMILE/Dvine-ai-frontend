@@ -32,8 +32,20 @@ public final class ConversationDecompositionEngine {
     }
 
     private static String action(String n) {
-        if (n.matches(".*(what would happen if i deleted|explain what would happen).*")) {
+        if (DirectQuestions.clock(n)) {
+            return "clock";
+        }
+        if (DirectQuestions.hypothetical(n)) {
             return "explain";
+        }
+        if (DirectQuestions.wantsLearn(n)) {
+            return "learn";
+        }
+        if (DirectQuestions.wantsPicker(n)) {
+            return "picker";
+        }
+        if (DirectQuestions.news(n)) {
+            return "news";
         }
         if (n.startsWith("delete") || n.contains(" delete ")) {
             return "delete";

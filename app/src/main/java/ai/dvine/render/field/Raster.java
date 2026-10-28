@@ -25,8 +25,8 @@ public final class Raster {
         Canvas c = new Canvas(b);
         TextPaint p = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         p.setColor(color);
-        p.setTextSize(84f);
-        p.setFakeBoldText(true);
+        p.setTextSize(52f);
+        p.setFakeBoldText(false);
         p.setLetterSpacing(0.01f);
         StaticLayout l = StaticLayout.Builder.obtain(words, 0, words.length(), p, w - 20).setAlignment(Layout.Alignment.ALIGN_CENTER)
                 .setMaxLines(maxLines).setEllipsize(android.text.TextUtils.TruncateAt.END).build();

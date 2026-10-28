@@ -106,7 +106,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         stroke.setStyle(Paint.Style.STROKE);
         stroke.setStrokeCap(Paint.Cap.ROUND);
         subPaint.setColor(0xFFBDBDBD);
-        subPaint.setTextSize(15f * density);
+        subPaint.setTextSize(13f * density);
         voicePaint.setColor(0xFFBFE6FF);
         voicePaint.setTextSize(12.5f * density);
         voicePaint.setTypeface(android.graphics.Typeface.MONOSPACE);
@@ -435,7 +435,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         if (!java.util.Objects.equals(cap, shownCaption)) {
             shownCaption = cap;
             d.caption(cap, cap == null ? null
-                    : ai.dvine.render.field.Raster.text(cap, 0xFFE4E8EA, ai.dvine.render.field.ParticleDisplay.CAPTION_POINTS, 2f, 4));
+                    : ai.dvine.render.field.Raster.text(cap, 0xFFE4E8EA, ai.dvine.render.field.ParticleDisplay.CAPTION_POINTS, 2f, 2));
         }
         // the bar's picture changes with each percent (the detail line only every few seconds, so it doesn't churn)
         String bar = dlShown ? dlTitle + "|" + dlPercent + "|" + (dlBusy ? dlDetail : "") : null;

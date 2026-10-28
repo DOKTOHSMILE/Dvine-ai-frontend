@@ -8,6 +8,20 @@ public final class ActionPlanningEngine {
                 plan.tool = "speech";
                 plan.steps.add("explain");
                 break;
+            case "clock":
+                plan.tool = "clock";
+                plan.steps.add("read-clock");
+                break;
+            case "picker":
+            case "learn":
+                plan.tool = "picker";
+                plan.steps.add("open-picker");
+                break;
+            case "news":
+            case "answer":
+                plan.tool = "brain";
+                plan.steps.add("answer");
+                break;
             case "delete":
                 plan.tool = "files";
                 plan.destructive = true;

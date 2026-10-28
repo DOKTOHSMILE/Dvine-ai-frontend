@@ -1,4 +1,16 @@
-# Tool operations (0.27.0)
+## Personas
+
+The three voices are Obi, Ivie, and Ibiko. "EV" is treated as Ivie, because that is how speech recognition shortens her name. Aka is not a persona in this codebase; the app asks which of the three you mean.
+
+## Date and ordinary questions
+
+"What is today's date?" is read from the phone clock. It is not an edit, and it is not the line "I have not changed anything." Other questions, including news, go on to the existing brain. This build does not add a separate news provider and will not invent headlines.
+
+## Files
+
+"Open a document", "select an image", or "examine a video" opens the system picker. The app reads the file the phone returns. An image is shown. A PDF shows the first page and says the words were not extracted. A video shows one frame if the phone can decode it. "Learn from this" stores a note in the learning journal. That is not model retraining.
+
+## Tool path (0.27.0)
 
 This build adds one task lifecycle and a checked tool path. It does not replace the pod, the offline brain, or the existing 3D board.
 

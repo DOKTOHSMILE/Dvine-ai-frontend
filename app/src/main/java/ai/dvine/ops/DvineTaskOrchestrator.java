@@ -3,15 +3,19 @@ package ai.dvine.ops;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import ai.dvine.ops.mind.DvinePerformanceMonitor;
 import ai.dvine.ops.mind.InternetResearchEngine;
 import ai.dvine.ops.mind.LanguageInferenceOptimizer;
 import ai.dvine.ops.pipe.ActionResultVerifier;
 import ai.dvine.ops.pipe.BrainInterpretationEngine;
+import ai.dvine.ops.pipe.DirectQuestions;
 import ai.dvine.ops.pipe.NaturalLanguageActionEngine;
+import ai.dvine.ops.pipe.PersonaAddress;
 import ai.dvine.ops.pipe.NaturalLanguageResponseGenerator;
 import ai.dvine.ops.pipe.SemanticKnowledgeRepository;
 import ai.dvine.ops.pipe.SemanticTypes;
@@ -67,6 +71,17 @@ public final class DvineTaskOrchestrator {
     private boolean confirmPending;
     private String pendingSpeech = "";
     private BrainInterpretationEngine.ModelReading model;
+    private String addressed = "";
+    private Now clock = new Now() {
+        public long millis() {
+            return System.currentTimeMillis();
+        }
+    };
+    private TimeZone zone = TimeZone.getDefault();
+
+    public interface Now {
+        long millis();
+    }
 
     public DvineTaskOrchestrator(DvineTaskManager tasks, TermuxCommandEngine termux, SshConnectionManager ssh,
                                  VisualPerceptionEngine vision, InternetResearchEngine research,
@@ -110,6 +125,15 @@ public final class DvineTaskOrchestrator {
         this.model = model;
     }
 
+    public void setClock(Now clock, TimeZone zone) {
+        if (clock != null) {
+            this.clock = clock;
+        }
+        if (zone != null) {
+            this.zone = zone;
+        }
+    }
+
     public void setScene(EditableScene scene) {
         this.scene = scene;
     }
@@ -128,56 +152,113 @@ public final class DvineTaskOrchestrator {
 
     public Outcome handle(String text, double confidence, long now) {
         long t0 = System.nanoTime();
-        LanguageInferenceOptimizer.Path path = optimizer.route(text);
+        optimizer.route(text);
         performance.add("route", System.nanoTime() - t0);
-        if (path == LanguageInferenceOptimizer.Path.RESEARCH) {
-            performance.research();
-        }
-        if (confirmPending) {
-            return confirmation(text, now);
-        }
-        NaturalLanguageActionEngine.Read read = language.read(text, confidence, memory, model);
-        performance.add("interpret", System.nanoTime() - t0);
-        if ("reject".equals(read.intent)) {
-            return Outcome.say(read.interpretation.clarify, false);
-        }
-        if ("clarify".equals(read.intent) && read.decomposition.ambiguous) {
-            Outcome o = Outcome.say(read.interpretation.clarify.isEmpty() ? "Which one do you mean?" : read.interpretation.clarify, false);
+        PersonaAddress.Address who = new PersonaAddress().read(text);
+        if (who.unknown != null) {
+            Outcome o = Outcome.reply(who.clarify());
             o.listen = true;
+            o.activity = "Which persona?";
             return o;
         }
+        addressed = who.persona == null ? "" : who.persona;
+        String said = who.persona != null && !who.request.isEmpty() ? who.request : text;
+        if (who.persona != null && who.request.isEmpty()) {
+            Outcome o = Outcome.reply("I'm here. What would you like me to do?");
+            o.listen = true;
+            return finish(o);
+        }
+        if (confirmPending) {
+            return finish(confirmation(said, now));
+        }
+        if (DirectQuestions.clock(said)) {
+            return finish(clockAnswer(said));
+        }
+        NaturalLanguageActionEngine.Read read = language.read(said, confidence, memory, model);
+        performance.add("interpret", System.nanoTime() - t0);
+        if ("reject".equals(read.intent)) {
+            return finish(Outcome.reply(read.interpretation.clarify));
+        }
+        if ("clarify".equals(read.intent) && read.decomposition.ambiguous) {
+            Outcome o = Outcome.reply(read.interpretation.clarify.isEmpty() ? "Which one do you mean?" : read.interpretation.clarify);
+            o.listen = true;
+            return finish(o);
+        }
+        if ("picker".equals(read.intent) || "learn".equals(read.intent) || DirectQuestions.wantsPicker(said) || DirectQuestions.wantsLearn(said)) {
+            return finish(picker(said, "learn".equals(read.intent) || DirectQuestions.wantsLearn(said)));
+        }
         if ("explain".equals(read.intent)) {
-            return Outcome.say(explain(read), false);
+            return finish(Outcome.reply(explain(read)));
         }
-        if (looksRemoteFetch(text)) {
-            return remoteFetch(text, now);
+        if ("answer".equals(read.intent) || "news".equals(read.intent)) {
+            return finish(Outcome.pass());
         }
-        if (looksSsh(text)) {
-            return sshJob(text, now);
+        if (looksRemoteFetch(said)) {
+            return finish(remoteFetch(text, now));
         }
-        if ("storage".equals(read.intent) || looksStorage(text)) {
-            return storage(text, now);
+        if (looksSsh(said)) {
+            return finish(sshJob(text, now));
         }
-        if (looksFindImage(text)) {
-            return findImage(text, now);
+        if ("storage".equals(read.intent) || looksStorage(said)) {
+            return finish(storage(text, now));
         }
-        if (looksReconstruct(text)) {
-            return buildFromImage(text, now);
+        if (looksFindImage(said)) {
+            return finish(findImage(text, now));
+        }
+        if (looksReconstruct(said)) {
+            return finish(buildFromImage(text, now));
         }
         if ("remove".equals(read.intent) && scene != null) {
-            return editScene(read, now);
+            return finish(editScene(read, now));
         }
-        if ("research".equals(read.intent) || text.toLowerCase(Locale.US).contains("xyzzy") || text.toLowerCase(Locale.US).contains("unfamiliar")) {
-            return research(text, now);
+        if ("research".equals(read.intent) || said.toLowerCase(Locale.US).contains("xyzzy") || said.toLowerCase(Locale.US).contains("unfamiliar")) {
+            return finish(research(said, now));
         }
         if ("delete".equals(read.intent)) {
             confirmPending = true;
             pendingSpeech = "Delete is permanent. I have not deleted anything. Say yes to confirm or no to leave it.";
-            Outcome o = Outcome.say(pendingSpeech, false);
+            Outcome o = Outcome.reply(pendingSpeech);
             o.listen = true;
-            return o;
+            return finish(o);
         }
-        return Outcome.pass();
+        return finish(Outcome.pass());
+    }
+
+    private Outcome finish(Outcome o) {
+        if (o != null && !addressed.isEmpty() && (o.persona == null || o.persona.isEmpty())) {
+            o.persona = addressed;
+        }
+        return o;
+    }
+
+    private Outcome clockAnswer(String said) {
+        Date date = new Date(clock.millis());
+        java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat(
+                DirectQuestions.timeOnly(said) ? "h:mm a" : DirectQuestions.yearOnly(said) ? "yyyy" : "EEEE, d MMMM yyyy",
+                Locale.US);
+        fmt.setTimeZone(zone);
+        String when = fmt.format(date);
+        String speech = DirectQuestions.timeOnly(said) ? "It's " + when + "."
+                : DirectQuestions.yearOnly(said) ? "It's " + when + "."
+                : "Today is " + when + ".";
+        Outcome o = Outcome.reply(speech);
+        o.activity = "Reading the clock";
+        return o;
+    }
+
+    private Outcome picker(String said, boolean learn) {
+        String kind = DirectQuestions.pickerKind(said);
+        if (kind == null) {
+            kind = "file";
+        }
+        String speech = learn
+                ? "Choose the file. I'll read it and, if there is text worth keeping, save a note. That is not retraining."
+                : "Choose the " + ("file".equals(kind) ? "file" : kind) + ". I'll read what the phone actually gives me.";
+        Outcome o = Outcome.reply(speech);
+        o.picker = kind;
+        o.learn = learn;
+        o.activity = "Waiting for file selection";
+        return o;
     }
 
     private Outcome confirmation(String text, long now) {
@@ -405,6 +486,17 @@ public final class DvineTaskOrchestrator {
         String original = read.decomposition.original.toLowerCase(Locale.US);
         String head = original.split("\\bbut\\b|\\bwithout\\b|\\bexcept\\b")[0];
         String target = read.decomposition.target;
+        if (head.matches(".*\\b(tyres|tires)\\b.*")) {
+            java.util.List<String> tyres = new ArrayList<String>();
+            for (EditableScene.Node n : scene.nodes()) {
+                if (!n.removed && (n.id.contains("tyre") || n.id.contains("tire"))) {
+                    tyres.add(n.id);
+                }
+            }
+            if (!tyres.isEmpty()) {
+                return applyRemoval(read, tyres);
+            }
+        }
         if (head.contains("tyre") || head.contains("tire")) {
             if (scene.byId("front_left_tyre") != null && head.contains("left")) {
                 target = "front_left_tyre";
@@ -416,9 +508,13 @@ public final class DvineTaskOrchestrator {
         } else if (head.contains("rim")) {
             target = head.contains("left") && scene.byId("front_left_rim") != null ? "front_left_rim" : "front_rim";
         }
+        return applyRemoval(read, List.of(target));
+    }
+
+    private Outcome applyRemoval(NaturalLanguageActionEngine.Read read, List<String> targets) {
         List<String> protect = new ArrayList<String>(read.decomposition.preserve);
         protect.remove("unrelated_geometry");
-        EditableScene.EditReport report = scene.removeKeeping(List.of(target), protect, null);
+        EditableScene.EditReport report = scene.removeKeeping(targets, protect, null);
         List<String> present = new ArrayList<String>();
         for (EditableScene.Node n : scene.nodes()) {
             if (!n.removed) {
@@ -485,7 +581,7 @@ public final class DvineTaskOrchestrator {
 
     private static boolean looksReconstruct(String text) {
         String n = text.toLowerCase(Locale.US);
-        return n.contains("3d") || n.contains("editable") && n.contains("model") || n.contains("build an editable");
+        return n.contains("image") && (n.contains("3d") || n.contains("editable") || n.contains("reconstruct") || n.contains("model"));
     }
 
     private static String names(List<PhoneFileAccessManager.ImageFile> files) {

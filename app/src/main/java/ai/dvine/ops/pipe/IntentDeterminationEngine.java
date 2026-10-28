@@ -12,6 +12,9 @@ public final class IntentDeterminationEngine {
         if (interpretation.clarification || "ambiguous".equals(interpretation.status)) {
             return "clarify";
         }
+        if ("pass".equals(interpretation.status) || "answer".equals(interpretation.operation)) {
+            return "answer";
+        }
         if ("explain".equals(interpretation.intent) || "explain".equals(interpretation.operation)) {
             return "explain";
         }

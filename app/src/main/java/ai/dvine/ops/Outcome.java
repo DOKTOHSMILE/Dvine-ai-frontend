@@ -11,6 +11,14 @@ public final class Outcome {
     public String solidText = "";
     public String subject = "";
     public String taskId = "";
+    /** Speak this as the reply, without cancelling other work. */
+    public boolean speak;
+    /** "obi", "ivie", or "ibiko" when the user named one. */
+    public String persona = "";
+    /** document, image, video, audio, or file. Empty when no picker is needed. */
+    public String picker = "";
+    /** Save a note from the chosen file. Not model training. */
+    public boolean learn;
 
     public static Outcome pass() {
         Outcome o = new Outcome();
@@ -23,6 +31,12 @@ public final class Outcome {
         o.handled = true;
         o.speech = speech == null ? "" : speech;
         o.stopGeneration = stopGeneration;
+        return o;
+    }
+
+    public static Outcome reply(String speech) {
+        Outcome o = say(speech, false);
+        o.speak = true;
         return o;
     }
 }

@@ -377,6 +377,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private boolean fromBrain;
 
     private ai.dvine.ops.AssistantCore assistant;
+    private static final int PICK_CONTENT = 47;
+    private boolean pickerLearn;
 
     private void answer(String text) {
         answer(text, false);
@@ -390,6 +392,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (!interpreted && assistant != null) {
             ai.dvine.ops.Outcome outcome = assistant.hear(text, 1);
+            if (outcome.persona != null && !outcome.persona.isEmpty()) {
+                prefs.edit().putString("face", outcome.persona).apply();
+                stage.ensureFace(outcome.persona, null);
+            }
             if (outcome.handled) {
                 presentOutcome(outcome);
                 return;
@@ -1915,6 +1921,19 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (outcome.activity != null && !outcome.activity.isEmpty()) {
             stage.activity("TASK", outcome.activity);
+            if (outcome.speak) {
+                stage.innerVoice(outcome.activity);
+            }
+        }
+        if (outcome.picker != null && !outcome.picker.isEmpty()) {
+            openContentPicker(outcome.picker, outcome.learn);
+        }
+        if (outcome.speech != null && !outcome.speech.isEmpty()) {
+            if (outcome.speak || outcome.stopGeneration) {
+                play(LocalTurn.speakAs(stage.agent(), outcome.speech), outcome.listen ? this::startListening : null);
+            } else {
+                stage.innerVoice(outcome.speech);
+            }
         }
         if (outcome.solidText != null && !outcome.solidText.isEmpty()) {
             ai.dvine.render.field.SolidSpec spec = ai.dvine.render.field.SolidSpec.parse(outcome.solidText, outcome.subject);
@@ -1925,13 +1944,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 takenOut.clear();
                 stage.showSolid(currentSolid.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f),
                         outcome.subject == null || outcome.subject.isEmpty() ? "object" : outcome.subject);
-            }
-        }
-        if (outcome.speech != null && !outcome.speech.isEmpty()) {
-            if (outcome.stopGeneration) {
-                play(LocalTurn.speakAs(stage.agent(), outcome.speech), outcome.listen ? this::startListening : null);
-            } else {
-                stage.innerVoice(outcome.speech);
             }
         }
         if (outcome.resumeSpeech) {
@@ -2175,6 +2187,172 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     // ------------------------------------------------------------ lifecycle
+
+    /** System picker. The app does not ask for all-files access. */
+    private void openContentPicker(String kind, boolean learn) {
+        pickerLearn = learn;
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        if ("image".equals(kind)) {
+            intent.setType("image/*");
+        } else if ("video".equals(kind)) {
+            intent.setType("video/*");
+        } else if ("audio".equals(kind)) {
+            intent.setType("audio/*");
+        } else if ("document".equals(kind)) {
+            intent.setType("*/*");
+            intent.putExtra(android.content.Intent.EXTRA_MIME_TYPES, new String[]{"text/plain", "text/*", "application/pdf"});
+        } else {
+            intent.setType("*/*");
+        }
+        try {
+            startActivityForResult(intent, PICK_CONTENT);
+        } catch (android.content.ActivityNotFoundException e) {
+            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."), null);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_CONTENT) {
+            return;
+        }
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            pickerLearn = false;
+            play(LocalTurn.speakAs(stage.agent(), "You closed the picker. I didn't open a file."), null);
+            return;
+        }
+        final android.net.Uri uri = data.getData();
+        final boolean learn = pickerLearn;
+        pickerLearn = false;
+        try {
+            getContentResolver().takePersistableUriPermission(uri, data.getFlags()
+                    & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException ignored) {
+            // a one-shot grant is enough to read it now
+        }
+        stage.innerVoice("Reading the file");
+        stage.activity("FILE", "Reading the file");
+        final int token = ++askId;
+        new Thread(() -> deliverFile(uri, learn, token), "dvine-file").start();
+    }
+
+    private void deliverFile(android.net.Uri uri, boolean learn, int token) {
+        ai.dvine.ops.vision.FileIntake.Report report;
+        String name = "file";
+        try {
+            String mime = getContentResolver().getType(uri);
+            android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null) {
+                try {
+                    if (cursor.moveToFirst()) {
+                        int i = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                        if (i >= 0 && cursor.getString(i) != null) {
+                            name = cursor.getString(i);
+                        }
+                    }
+                } finally {
+                    cursor.close();
+                }
+            }
+            byte[] head = new byte[ai.dvine.ops.vision.FileIntake.HEAD];
+            int n = 0;
+            long size = 0;
+            try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in == null) {
+                    throw new java.io.IOException("no stream");
+                }
+                int r;
+                while (n < head.length && (r = in.read(head, n, head.length - n)) > 0) {
+                    n += r;
+                    size += r;
+                }
+                byte[] skip = new byte[8192];
+                while ((r = in.read(skip)) > 0) {
+                    size += r;
+                }
+            }
+            report = new ai.dvine.ops.vision.FileIntake().inspect(name, mime, java.util.Arrays.copyOf(head, n), size, learn);
+        } catch (SecurityException e) {
+            report = new ai.dvine.ops.vision.FileIntake.Report("unknown",
+                    "I no longer have permission to read that file.", null, false, 0, 0);
+        } catch (Exception e) {
+            report = new ai.dvine.ops.vision.FileIntake.Report("unknown",
+                    "I couldn't read that file.", null, false, 0, 0);
+        }
+        final ai.dvine.ops.vision.FileIntake.Report done = report;
+        final String shown = name;
+        handler.post(() -> {
+            if (token != askId) {
+                return;
+            }
+            if (learn && done.note != null && journal != null) {
+                journal.add(LearningJournal.TAUGHT_FACT, shown, done.note);
+            }
+            if (done.showImage) {
+                showSelected(uri, done.kind, shown);
+            }
+            play(LocalTurn.speakAs(stage.agent(), done.speech), null);
+        });
+    }
+
+    /** Shows the selected picture, the first PDF page, or one video frame. */
+    private void showSelected(android.net.Uri uri, String kind, String name) {
+        try {
+            android.graphics.Bitmap bitmap = null;
+            if ("image".equals(kind)) {
+                android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+                bounds.inJustDecodeBounds = true;
+                try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                    android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+                }
+                android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+                opts.inSampleSize = 1;
+                int max = Math.max(bounds.outWidth, bounds.outHeight);
+                while (max / opts.inSampleSize > 1024) {
+                    opts.inSampleSize *= 2;
+                }
+                try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                    bitmap = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+                }
+            } else if ("pdf".equals(kind)) {
+                android.os.ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
+                if (pfd != null) {
+                    try (android.graphics.pdf.PdfRenderer renderer = new android.graphics.pdf.PdfRenderer(pfd)) {
+                        if (renderer.getPageCount() > 0) {
+                            android.graphics.pdf.PdfRenderer.Page page = renderer.openPage(0);
+                            int w = Math.max(1, page.getWidth());
+                            int h = Math.max(1, page.getHeight());
+                            float scale = 800f / Math.max(w, h);
+                            bitmap = android.graphics.Bitmap.createBitmap(Math.max(1, (int) (w * scale)),
+                                    Math.max(1, (int) (h * scale)), android.graphics.Bitmap.Config.ARGB_8888);
+                            page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                            page.close();
+                        }
+                    } finally {
+                        pfd.close();
+                    }
+                }
+            } else if ("video".equals(kind)) {
+                android.media.MediaMetadataRetriever retriever = new android.media.MediaMetadataRetriever();
+                try {
+                    retriever.setDataSource(this, uri);
+                    bitmap = retriever.getFrameAtTime(0);
+                } finally {
+                    retriever.release();
+                }
+            }
+            if (bitmap != null) {
+                stage.showPicture(ai.dvine.render.field.Raster.image(bitmap,
+                        ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 1.4f), name);
+                bitmap.recycle();
+            }
+        } catch (Exception ignored) {
+            stage.innerVoice("I couldn't put that file on the board.");
+        }
+    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {

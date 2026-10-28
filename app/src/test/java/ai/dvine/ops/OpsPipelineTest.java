@@ -32,6 +32,7 @@ import ai.dvine.ops.task.TaskRecord;
 import ai.dvine.ops.task.TaskState;
 import ai.dvine.ops.termux.TermuxCapabilityDetector;
 import ai.dvine.ops.termux.TermuxExecutionService;
+import ai.dvine.ops.vision.FileIntake;
 import ai.dvine.ops.vision.ImageMetadataReader;
 
 public class OpsPipelineTest {
@@ -277,6 +278,82 @@ public class OpsPipelineTest {
         Outcome no = core.hear("no", 1);
         assertTrue(victim.exists());
         assertTrue(no.speech.toLowerCase(Locale.US).contains("left"));
+    }
+
+    @Test
+    public void dateQuestionUsesTheClock() throws Exception {
+        AssistantCore core = AssistantCore.offline(dir());
+        long ms = java.time.LocalDate.of(2026, 10, 28).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli();
+        core.orchestrator().setClock(() -> ms, java.util.TimeZone.getTimeZone("UTC"));
+        Outcome o = core.hear("what is today's date", 1);
+        assertTrue(o.handled);
+        assertTrue(o.speak);
+        assertTrue(o.speech.contains("Wednesday"));
+        assertTrue(o.speech.contains("28 October 2026"));
+        assertFalse(o.speech.toLowerCase(Locale.US).contains("have not changed"));
+        Outcome named = core.hear("Obi, what is today's date?", 1);
+        assertEquals("obi", named.persona);
+        assertTrue(named.speech.contains("28 October 2026"));
+    }
+
+    @Test
+    public void ordinaryQuestionsAreNotRefusals() throws Exception {
+        AssistantCore core = AssistantCore.offline(dir());
+        Outcome explained = core.hear("explain photosynthesis", 1);
+        assertFalse(explained.handled);
+        assertFalse(explained.speech.toLowerCase(Locale.US).contains("have not changed"));
+        Outcome news = core.hear("Obi, tell me today's news.", 1);
+        assertFalse(news.handled);
+        assertEquals("obi", news.persona);
+        Outcome car = core.hear("create a 3D model of a car", 1);
+        assertFalse(car.handled);
+        assertNull(core.orchestrator().scene());
+    }
+
+    @Test
+    public void unknownPersonaIsNotRouted() throws Exception {
+        AssistantCore core = AssistantCore.offline(dir());
+        Outcome o = core.hear("Aka, create a 3D model of a car.", 1);
+        assertTrue(o.speech.contains("Ibiko"));
+        assertTrue(o.speech.contains("Aka"));
+        assertNull(core.orchestrator().scene());
+    }
+
+    @Test
+    public void namedPersonaOpensTheDocumentPicker() throws Exception {
+        AssistantCore core = AssistantCore.offline(dir());
+        Outcome o = core.hear("EV, open a document.", 1);
+        assertEquals("ivie", o.persona);
+        assertEquals("document", o.picker);
+        assertTrue(o.handled);
+        Outcome image = core.hear("Ibiko, let me select an image.", 1);
+        assertEquals("ibiko", image.persona);
+        assertEquals("image", image.picker);
+    }
+
+    @Test
+    public void selectedTextIsReadAndLearningIsNotTraining() {
+        FileIntake.Report read = new FileIntake().inspect("notes.txt", "text/plain",
+                "A tyre is the rubber ring.".getBytes(StandardCharsets.UTF_8), 26, true);
+        assertEquals("text", read.kind);
+        assertTrue(read.speech.contains("rubber"));
+        assertTrue(read.speech.toLowerCase(Locale.US).contains("weights"));
+        FileIntake.Report empty = new FileIntake().inspect("x.txt", "text/plain", new byte[0], 0, false);
+        assertEquals("empty", empty.kind);
+        FileIntake.Report png = new FileIntake().inspect("wheel.png", "image/png", png(8, 8), 24, false);
+        assertEquals("image", png.kind);
+        assertTrue(png.speech.toLowerCase(Locale.US).contains("detector"));
+    }
+
+    @Test
+    public void pluralTyresLeaveTheRestOfTheCar() throws Exception {
+        AssistantCore core = AssistantCore.offline(dir());
+        core.demoCar();
+        core.hear("Remove its tyres.", 1);
+        assertTrue(core.orchestrator().scene().byId("front_left_tyre").removed);
+        assertFalse(core.orchestrator().scene().byId("body").removed);
+        assertFalse(core.orchestrator().scene().byId("windows").removed);
+        assertFalse(core.orchestrator().scene().byId("roof").removed);
     }
 
     @Test
