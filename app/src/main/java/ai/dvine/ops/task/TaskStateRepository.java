@@ -52,7 +52,7 @@ public final class TaskStateRepository {
             return null;
         }
         try {
-            return decode(Files.readString(f.toPath()));
+            return decode(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
         } catch (IOException e) {
             return null;
         }
@@ -66,7 +66,8 @@ public final class TaskStateRepository {
         }
         for (File f : files) {
             try {
-                TaskRecord r = decode(Files.readString(f.toPath()));
+                TaskRecord r = decode(
+                        new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
                 if (r != null && r.id != null) {
                     out.add(r);
                 }
@@ -117,9 +118,15 @@ public final class TaskStateRepository {
             String k = raw.substring(0, c);
             String v = unescape(raw.substring(c + 1));
             switch (k) {
-                case "id": t.id = v; break;
-                case "instruction": t.instruction = v; break;
-                case "description": t.description = v; break;
+                case "id":
+                    t.id = v;
+                    break;
+                case "instruction":
+                    t.instruction = v;
+                    break;
+                case "description":
+                    t.description = v;
+                    break;
                 case "state":
                     try {
                         t.state = TaskState.valueOf(v);
@@ -128,20 +135,48 @@ public final class TaskStateRepository {
                         t.lastError = "unknown state";
                     }
                     break;
-                case "completed": splitInto(v, t.completed); break;
-                case "remaining": splitInto(v, t.remaining); break;
-                case "checkpoint": t.checkpoint = v; break;
-                case "assets": splitInto(v, t.assets); break;
-                case "permission": t.permissionNote = v; break;
-                case "retries": t.retries = parseInt(v); break;
-                case "error": t.lastError = v; break;
-                case "cancel": t.cancelStatus = v; break;
-                case "created": t.createdAt = parseLong(v); break;
-                case "updated": t.updatedAt = parseLong(v); break;
-                case "destructive": t.destructive = Boolean.parseBoolean(v); break;
-                case "authorized": t.destructiveAuthorized = Boolean.parseBoolean(v); break;
-                case "idem": t.idempotencyKey = v; break;
-                case "kind": t.kind = v; break;
+                case "completed":
+                    splitInto(v, t.completed);
+                    break;
+                case "remaining":
+                    splitInto(v, t.remaining);
+                    break;
+                case "checkpoint":
+                    t.checkpoint = v;
+                    break;
+                case "assets":
+                    splitInto(v, t.assets);
+                    break;
+                case "permission":
+                    t.permissionNote = v;
+                    break;
+                case "retries":
+                    t.retries = parseInt(v);
+                    break;
+                case "error":
+                    t.lastError = v;
+                    break;
+                case "cancel":
+                    t.cancelStatus = v;
+                    break;
+                case "created":
+                    t.createdAt = parseLong(v);
+                    break;
+                case "updated":
+                    t.updatedAt = parseLong(v);
+                    break;
+                case "destructive":
+                    t.destructive = Boolean.parseBoolean(v);
+                    break;
+                case "authorized":
+                    t.destructiveAuthorized = Boolean.parseBoolean(v);
+                    break;
+                case "idem":
+                    t.idempotencyKey = v;
+                    break;
+                case "kind":
+                    t.kind = v;
+                    break;
                 default:
                     if (k.startsWith("fact.")) {
                         t.facts.put(k.substring(5), v);
