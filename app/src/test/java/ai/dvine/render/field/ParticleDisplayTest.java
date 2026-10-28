@@ -120,4 +120,50 @@ public class ParticleDisplayTest {
         Shape s = square(100, 1000); // 2500 lit pixels, 1000 allowed: a step of about 1.6, not 2
         assertTrue("" + s.count, s.count > 800 && s.count <= 1100);
     }
+
+    @Test
+    public void skinKeepsDarkHairAndDropsTheBlackBackdrop() {
+        int[] px = new int[] {0xFF1C120C, 0xFF000000, 0xFFC47A4A, 0x00000000};
+        Shape s = Shape.skin(px, 2, 2, 8, 2f);
+        assertEquals(2, s.count);
+        boolean hair = false, tone = false;
+        for (int i = 0; i < s.count; i++) {
+            float r = s.rgb[i * 3], g = s.rgb[i * 3 + 1], b = s.rgb[i * 3 + 2];
+            if (r < 0.2f && g < 0.15f && b < 0.1f) {
+                hair = true;
+            }
+            if (r > 0.5f) {
+                tone = true;
+            }
+        }
+        assertTrue(hair);
+        assertTrue(tone);
+        assertTrue(s.grid > 0f);
+        assertEquals(0, Shape.skin(new int[] {0xFF000000, 0xFF010101}, 1, 2, 10, 1f).count);
+    }
+
+    @Test
+    public void aFullyLitPictureIsOnePointPerPixel() {
+        int[] px = new int[8 * 8];
+        for (int i = 0; i < px.length; i++) {
+            px[i] = 0xFF808080;
+        }
+        Shape s = Shape.skin(px, 8, 8, 1000, 2f);
+        assertEquals(64, s.count);
+        assertEquals(2f / 8f, s.grid, 0.001f);
+    }
+
+    @Test
+    public void aPhotographIsMarkedUntilItIsCleared() {
+        ParticleDisplay d = new ParticleDisplay();
+        int[] px = new int[16];
+        for (int i = 0; i < px.length; i++) {
+            px[i] = i < 12 ? 0xFFC47A4A : 0xFF000000;
+        }
+        d.showPhotograph("face", Shape.skin(px, 4, 4, 64, 1.6f));
+        assertTrue(d.photographShown());
+        assertEquals("face", d.drawingName());
+        d.drawing(null, null, 0f);
+        assertTrue(!d.photographShown());
+    }
 }

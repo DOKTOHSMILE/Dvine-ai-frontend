@@ -45,6 +45,8 @@ public final class StageRenderer {
         float size = 3f;
         /** Words: a crisp dot with a clean edge instead of a soft glow. */
         boolean crisp;
+        /** A photograph: small opaque discs that tile into a surface, not glowing sparks. */
+        boolean skin;
     }
 
     private final Field[] fields = {new Field(), new Field(), new Field(), new Field()};
@@ -55,8 +57,16 @@ public final class StageRenderer {
      * {@code screen}. {@code size} is the dot size (pixels on screen; in the scene it shrinks with distance).
      */
     public void setField(int layer, float[] packed, int count, boolean screen, float x, float y, float z, float scale, float size) {
+        setField(layer, packed, count, screen, x, y, z, scale, size, false);
+    }
+
+    /**
+     * As {@link #setField(int, float[], int, boolean, float, float, float, float, float)}. {@code skin} draws the
+     * layer as a continuous surface: point size is already in pixels, and the discs composite instead of adding.
+     */
+    public void setField(int layer, float[] packed, int count, boolean screen, float x, float y, float z, float scale, float size, boolean skin) {
         Field f = fields[layer];
-        f.crisp = layer != FIELD_DRAWING;
+        f.crisp = !skin && layer != FIELD_DRAWING;
         synchronized (lock) {
             int n = count * ai.dvine.render.field.ParticleField.STRIDE;
             if (f.data.length < n) {
@@ -70,6 +80,7 @@ public final class StageRenderer {
             f.place[2] = z;
             f.place[3] = scale;
             f.size = size;
+            f.skin = skin;
             f.dirty = true;
         }
     }
@@ -151,6 +162,7 @@ public final class StageRenderer {
         gl.enable(GlApi.BLEND);
         gl.blendFunc(GlApi.ONE, GlApi.ONE);
         gl.depthMask(false);
+        int blend = 0;
         for (Field f : fields) {
             int n;
             synchronized (lock) {
@@ -172,8 +184,13 @@ public final class StageRenderer {
             if (n <= 0 || f.shown <= 0) {
                 continue;
             }
+            int mode = f.skin ? 1 : 0;
+            if (mode != blend) {
+                gl.blendFunc(GlApi.ONE, mode == 1 ? GlApi.ONE_MINUS_SRC_ALPHA : GlApi.ONE);
+                blend = mode;
+            }
             gl.uniform4f(gl.uniform(p, "uPlace"), f.place[0], f.place[1], f.place[2], f.place[3]);
-            gl.uniform4f(gl.uniform(p, "uMode"), f.screen ? 1f : 0f, f.size, f.crisp ? 1f : 0f, 0f);
+            gl.uniform4f(gl.uniform(p, "uMode"), f.screen ? 1f : 0f, f.size, f.crisp ? 1f : 0f, f.skin ? 1f : 0f);
             gl.bindBuffer(GlApi.ARRAY_BUFFER, f.vbo);
             gl.vertexAttrib(0, 3, 28, 0);
             gl.vertexAttrib(1, 4, 28, 12);
@@ -212,15 +229,17 @@ public final class StageRenderer {
             + "layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol;\n"
             + "uniform mat4 uMvp; uniform vec4 uPlace; uniform vec4 uMode; uniform vec4 uAspect; out vec4 vCol;\n"
             + "void main(){ vec3 p = aPos * uPlace.w;\n"
-            + "  if (uMode.x > 0.5) { gl_Position = vec4((p.x + uPlace.x) * uAspect.x, p.y + uPlace.y, 0.0, 1.0); gl_PointSize = uMode.y * uAspect.z; }\n"
+            + "  if (uMode.w > 0.5) { gl_Position = uMvp * vec4(p + uPlace.xyz, 1.0); gl_PointSize = clamp(uMode.y, 1.05, 8.0); }\n"
+            + "  else if (uMode.x > 0.5) { gl_Position = vec4((p.x + uPlace.x) * uAspect.x, p.y + uPlace.y, 0.0, 1.0); gl_PointSize = uMode.y * uAspect.z; }\n"
             // in the scene the dots shrink with distance, like everything else there
             + "  else { gl_Position = uMvp * vec4(p + uPlace.xyz, 1.0); gl_PointSize = clamp(uMode.y * uAspect.z * uAspect.w / max(gl_Position.w, 0.1), 1.0, 18.0); }\n"
             + "  vCol = aCol; }\n";
     static final String FIELD_FS = "#version 300 es\n"
             + "precision mediump float;\n"
             + "in vec4 vCol; uniform highp vec4 uMode; out vec4 o;\n"
-            // a soft glowing dot with a bright core; for words a crisp round dot with a clean edge
+            // skin: a filled disc with a short antialiased edge, so dense points become one surface.
+            // otherwise a soft glowing dot; for words a crisp round dot with a clean edge
             + "void main(){ vec2 c = gl_PointCoord * 2.0 - 1.0; float d = dot(c, c); if (d > 1.0) discard;\n"
-            + "  float a = (uMode.z > 0.5 ? (1.0 - smoothstep(0.45, 1.0, d)) * 0.95 : exp(-d * 3.0) * 0.8 + exp(-d * 12.0) * 0.6) * vCol.a;\n"
+            + "  float a = (uMode.w > 0.5 ? (1.0 - smoothstep(0.42, 1.0, d)) : (uMode.z > 0.5 ? (1.0 - smoothstep(0.45, 1.0, d)) * 0.95 : exp(-d * 3.0) * 0.8 + exp(-d * 12.0) * 0.6)) * vCol.a;\n"
             + "  o = vec4(vCol.rgb * a, a); }\n";
 }

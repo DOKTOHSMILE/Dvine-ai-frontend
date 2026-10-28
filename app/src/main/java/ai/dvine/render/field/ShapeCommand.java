@@ -190,7 +190,7 @@ public final class ShapeCommand {
             rgb[i * 3 + 1] = Math.min(1f, g * k);
             rgb[i * 3 + 2] = Math.min(1f, b * k);
         }
-        return new Shape(s.xyz, rgb, s.count);
+        return new Shape(s.xyz, rgb, s.count, s.grid);
     }
 
     /** The same points blown out into a cloud around where they were. */
@@ -204,6 +204,6 @@ public final class ShapeCommand {
             xyz[i * 3 + 1] = y * k + (rnd.nextFloat() - 0.5f) * 1.2f;
             xyz[i * 3 + 2] = z * k + (rnd.nextFloat() - 0.5f) * 1.2f;
         }
-        return new Shape(xyz, s.rgb, s.count);
+        return new Shape(xyz, s.rgb, s.count, s.grid);
     }
 }

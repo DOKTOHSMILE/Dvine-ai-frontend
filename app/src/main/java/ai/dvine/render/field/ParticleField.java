@@ -13,6 +13,8 @@ public final class ParticleField {
     private final int capacity;
     private final float[] pos, vel, target, color, targetColor, phase;
     private int used; // particles that belong to the current picture
+    /** Highest index still worth moving. The pool can be large; idle slots are not stepped. */
+    private int active;
     private boolean dirty = true;
     private float time;
     private final java.util.Random random = new java.util.Random(7);
@@ -35,10 +37,16 @@ public final class ParticleField {
     }
 
     private boolean calm;
+    /** A photograph: full colour, no shimmer, so neighbouring discs read as one surface. */
+    private boolean opaque;
 
     /** Calm particles hold still and steady (for words, which must read crisply); the default shimmers. */
     public void setCalm(boolean on) {
         calm = on;
+    }
+
+    public void setOpaque(boolean on) {
+        opaque = on;
     }
 
     public int capacity() {
@@ -59,7 +67,8 @@ public final class ParticleField {
     /** Forms this picture (null or empty: the particles fade away). Points beyond the capacity are thinned evenly. */
     public void show(Shape s) {
         int n = s == null ? 0 : Math.min(capacity, s.count);
-        for (int i = 0; i < capacity; i++) {
+        int end = Math.max(active, n);
+        for (int i = 0; i < end; i++) {
             if (i < n) {
                 // spread the picture's points evenly over its whole list when it has more than the pool holds
                 int k = s.count <= capacity ? i : (int) ((long) i * s.count / n);
@@ -95,6 +104,7 @@ public final class ParticleField {
             }
         }
         used = n;
+        active = end;
         dirty = true;
     }
 
@@ -106,8 +116,12 @@ public final class ParticleField {
     public void step(float dt) {
         dt = Math.max(0f, Math.min(dt, 0.05f));
         time += dt;
+        int end = active;
+        if (end == 0) {
+            return;
+        }
         final float k = 38f, damping = 9.5f, fade = Math.min(1f, dt * (calm ? 14f : 5f));
-        for (int i = 0; i < capacity; i++) {
+        for (int i = 0; i < end; i++) {
             boolean live = targetColor[i * 4 + 3] > 0.01f;
             for (int a = 0; a < 3; a++) {
                 int j = i * 3 + a;
@@ -124,6 +138,9 @@ public final class ParticleField {
                 color[j] += (targetColor[j] - color[j]) * fade;
             }
         }
+        while (active > used && color[(active - 1) * 4 + 3] <= 0.012f && targetColor[(active - 1) * 4 + 3] <= 0.01f) {
+            active--;
+        }
         dirty = true;
     }
 
@@ -133,14 +150,15 @@ public final class ParticleField {
      */
     public int pack(float[] out) {
         int n = 0;
-        for (int i = 0; i < capacity; i++) {
+        int end = active;
+        for (int i = 0; i < end; i++) {
             float a = color[i * 4 + 3];
             if (a < 0.01f) {
                 continue;
             }
             float ph = phase[i];
-            float tw = calm ? 0.95f : 0.75f + 0.25f * (float) Math.sin(time * 2.3f + ph * 3f);
-            float jitter = calm ? 0f : 0.004f;
+            float tw = opaque ? 1f : calm ? 0.95f : 0.75f + 0.25f * (float) Math.sin(time * 2.3f + ph * 3f);
+            float jitter = calm || opaque ? 0f : 0.004f;
             int o = n * STRIDE;
             out[o] = pos[i * 3] + jitter * (float) Math.sin(time * 1.7f + ph);
             out[o + 1] = pos[i * 3 + 1] + jitter * (float) Math.cos(time * 1.3f + ph * 1.7f);

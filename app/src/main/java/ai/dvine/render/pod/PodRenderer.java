@@ -23,6 +23,8 @@ public final class PodRenderer {
     private final float[] motion = new float[16];
     private final float[] shown = new float[16];
     private boolean drawingShown;
+    /** False hides the disc, its glow and the beam. The galaxy and stars stay. */
+    private boolean platform = true;
     /** 2 high, 1 medium, 0 low; lowered when frames run long, raised again when there is room. */
     public volatile int quality = 2;
     private float px = 2.5f;
@@ -39,8 +41,12 @@ public final class PodRenderer {
         this.gl = gl;
     }
 
-    /** This frame's layout and pod state (copied). {@code drawing}: something is on show above the pod. */
+    /** This frame's layout and pod state (copied). {@code drawing}: something is on show. {@code platform}: draw the disc. */
     public void submit(PodLayout l, PodMotion m, boolean drawing, float density) {
+        submit(l, m, drawing, density, true);
+    }
+
+    public void submit(PodLayout l, PodMotion m, boolean drawing, float density, boolean platform) {
         synchronized (lock) {
             layout = l;
             float[] a = motion;
@@ -56,6 +62,7 @@ public final class PodRenderer {
             a[9] = m.tint[1];
             a[10] = m.tint[2];
             drawingShown = drawing;
+            this.platform = platform;
             px = Math.max(1f, density);
         }
     }
@@ -100,11 +107,13 @@ public final class PodRenderer {
         adapt(dt);
         PodLayout l;
         boolean drawing;
+        boolean platformOn;
         float density;
         synchronized (lock) {
             System.arraycopy(motion, 0, shown, 0, shown.length);
             l = layout;
             drawing = drawingShown;
+            platformOn = platform;
             density = px;
         }
         sky.step(time);
@@ -145,6 +154,10 @@ public final class PodRenderer {
         off(2);
         if (sky.meteorLife >= 0f) {
             drawMeteor(width, height);
+        }
+        if (!platformOn) {
+            gl.depthMask(true);
+            return;
         }
         // 3. the glow under the pod
         float[] podModel = podModel(l, m);

@@ -997,7 +997,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             } else if (online && id == askId) {
                 android.graphics.Bitmap bm = ai.dvine.render.field.Raster.decode(ai.dvine.render.field.PictureFinder.find(subject));
                 if (bm != null && id == askId) {
-                    picture = ai.dvine.render.field.Raster.image(bm, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
+                    picture = ai.dvine.render.field.Raster.image(bm, ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
                     if (picture.count < 200) {
                         picture = null;
                     }
@@ -1031,7 +1031,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     }
                 } else {
                     currentSolid = null;
-                    stage.showPicture(shown, subject);
+                    stage.showPhotograph(shown, subject);
+                    line = "Here's a particle picture of " + ai.dvine.llm.DrawPrompt.article(subject)
+                            + ". It follows the photo. It is not a measured 3D model.";
                 }
                 play(LocalTurn.speakAs(ivie, line), null);
             });
@@ -2345,8 +2347,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 }
             }
             if (bitmap != null) {
-                stage.showPicture(ai.dvine.render.field.Raster.image(bitmap,
-                        ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 1.4f), name);
+                stage.showPhotograph(ai.dvine.render.field.Raster.image(bitmap,
+                        ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 1.6f), name);
                 bitmap.recycle();
             }
         } catch (Exception ignored) {

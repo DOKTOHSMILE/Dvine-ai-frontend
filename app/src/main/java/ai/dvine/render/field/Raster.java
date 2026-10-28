@@ -130,19 +130,19 @@ public final class Raster {
     }
 
     /**
-     * Any picture as particles (its own colours), {@code width} units across. A photo's edges fade out in an oval
-     * and its darkest parts drop away, so the subject floats in the stage instead of a hard rectangle.
+     * A photograph as a dense skin. The long side is kept high enough that the face does not turn into a handful
+     * of dots. The black backdrop stays empty; the subject keeps its own colours.
      */
     public static Shape image(Bitmap source, int maxPoints, float width) {
-        int max = 360;
+        int max = 640;
         float scale = Math.min(1f, max / (float) Math.max(source.getWidth(), source.getHeight()));
         Bitmap b = scale < 1f ? Bitmap.createScaledBitmap(source, Math.max(1, Math.round(source.getWidth() * scale)),
                 Math.max(1, Math.round(source.getHeight() * scale)), true) : source;
         int w = b.getWidth(), h = b.getHeight();
         int[] px = new int[w * h];
         b.getPixels(px, 0, w, 0, 0, w, h);
-        vignette(px, w, h);
-        return Shape.fromPixels(px, w, h, maxPoints, width * Math.min(1f, w / (float) h), 0.35f);
+        float across = width * Math.min(1f, w / (float) Math.max(1, h));
+        return Shape.skin(px, w, h, maxPoints, across);
     }
 
     /** Fades the picture's alpha out toward an oval edge (pure: on the pixel array). */

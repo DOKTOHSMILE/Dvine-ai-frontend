@@ -253,7 +253,17 @@ public final class StageView extends View implements Choreographer.FrameCallback
         return dlShown;
     }
 
-    /** A picture (a drawing the language model planned, or a photo found online) above the pod for a while. */
+    /** A selected photograph, held as a dense skin until something else replaces it. The platform stays hidden. */
+    public void showPhotograph(ai.dvine.render.field.Shape picture, String what) {
+        if (picture == null || picture.count == 0) {
+            return;
+        }
+        objectOnShow = false;
+        display.showPhotograph(what, picture);
+        motion.flash();
+    }
+
+    /** A picture (a drawing the language model planned) above the workspace for a while. */
     public void showPicture(ai.dvine.render.field.Shape picture, String what) {
         if (picture == null || picture.count == 0) {
             return;
@@ -326,8 +336,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
             return "The 3D scene isn't attached, so I'm drawing a simple pod.";
         }
         String[] q = {"low", "medium", "high"};
-        return "The pod is on, the scene is at " + q[renderer.pod.quality] + " quality, frames " + renderer.stats.summary()
-                + (display.drawingShown() ? ", and " + display.drawingName() + " is above it" : "")
+        return "The galaxy is on, the scene is at " + q[renderer.pod.quality] + " quality, frames " + renderer.stats.summary()
+                + (display.photographShown() ? ", and " + display.drawingName() + " is on the skin"
+                        : display.drawingShown() ? ", and " + display.drawingName() + " is in the workspace" : "")
                 + (renderer.glErrors > 0 ? ", " + renderer.glErrors + " graphics errors" : "") + ".";
     }
 
@@ -421,7 +432,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
             feedDisplay();
             display.frame(dt, renderer, layout, renderer.aspect());
             renderer.setProjection(layout.proj);
-            renderer.pod.submit(layout, motion, display.drawingShown(), density);
+            renderer.pod.submit(layout, motion, display.drawingShown(), density, false);
             if (glView != null) {
                 glView.requestRender();
             }

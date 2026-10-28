@@ -10,10 +10,12 @@ import ai.dvine.render.StageRenderer;
  */
 public final class ParticleDisplay {
     public static final int PANEL_POINTS = 9000, CAPTION_POINTS = 12000, THOUGHT_POINTS = 6000, DRAWING_POINTS = 12000;
+    /** A photograph needs enough points to read as a surface, not a spray of dots. */
+    public static final int SKIN_POINTS = 100000;
 
     private final ParticleField panel = new ParticleField(PANEL_POINTS), caption = new ParticleField(CAPTION_POINTS),
-            thought = new ParticleField(THOUGHT_POINTS), drawing = new ParticleField(DRAWING_POINTS);
-    private final float[] buffer = new float[Math.max(CAPTION_POINTS, Math.max(PANEL_POINTS, DRAWING_POINTS)) * ParticleField.STRIDE];
+            thought = new ParticleField(THOUGHT_POINTS), drawing = new ParticleField(SKIN_POINTS);
+    private final float[] buffer = new float[SKIN_POINTS * ParticleField.STRIDE];
 
     public ParticleDisplay() {
         // words hold still and steady so they read crisply
@@ -53,6 +55,13 @@ public final class ParticleDisplay {
 
     /** As {@link #drawing(String, Shape, float)}; {@code solid} things turn slowly so they read as 3D. */
     public synchronized void drawing(String key, Shape s, float seconds, boolean solid) {
+        photograph = false;
+        drawing.setCalm(false);
+        drawing.setOpaque(false);
+        place(key, s, seconds, solid);
+    }
+
+    private void place(String key, Shape s, float seconds, boolean solid) {
         drawingKey = key;
         original = s;
         shown = s;
@@ -68,12 +77,29 @@ public final class ParticleDisplay {
         spin = solid ? 0.45f : 0f;
         dx = dy = 0f;
         scattered = false;
+        contentSpan = spanOf(s);
+        grid = s == null ? 0f : s.grid;
     }
 
     // what the user did to the thing on show: its size, turn, spin, place, colour, scattered or not
     private Shape original, shown;
     private float stay, size = 1f, yaw, pitch, turnTo = Float.NaN, tiltTo = Float.NaN, spin, spinPitch, dx, dy;
+    private float contentSpan = 1f, grid;
     private boolean scattered;
+    /** A photograph: still, dense, and drawn as a surface rather than glowing dots. */
+    private boolean photograph;
+
+    public boolean photographShown() {
+        return photograph && drawingShown();
+    }
+
+    /** The selected picture, held until it is replaced. It does not spin and it does not shimmer. */
+    public synchronized void showPhotograph(String key, Shape s) {
+        photograph = s != null && s.count > 0;
+        drawing.setCalm(true);
+        drawing.setOpaque(true);
+        place(key, s, 0f, false);
+    }
 
     /** Carries out a change to the thing on show; returns false when nothing is shown. */
     public synchronized boolean apply(ShapeCommand c) {
@@ -267,9 +293,41 @@ public final class ParticleDisplay {
             }
         }
         float unit = Math.min(0.62f, 0.62f * aspect / 0.5f);
-        r.setField(StageRenderer.FIELD_DRAWING, buffer, n, false, dx, 0.05f + dy, 0f, unit * size, 2.6f);
+        boolean skin = photograph && n > 0;
+        float placeScale;
+        float dot;
+        float yDraw;
+        if (skin) {
+            float span = Math.max(0.05f, contentSpan);
+            placeScale = (1.72f / span) * size;
+            float spacingWorld = grid > 0f ? grid : span / (float) Math.sqrt(Math.max(1, n));
+            float spacingPx = spacingWorld * placeScale * Math.max(1f, l.unit);
+            dot = Math.max(1.2f, Math.min(7.5f, spacingPx * 1.5f));
+            yDraw = -0.12f + dy;
+        } else {
+            placeScale = unit * size;
+            dot = 2.6f;
+            yDraw = 0.05f + dy;
+        }
+        r.setField(StageRenderer.FIELD_DRAWING, buffer, n, false, dx, yDraw, 0f, placeScale, dot, skin);
         // captions: compact, so the pod and any object keep the screen. Screen units, y up from -1.
         submit(r, StageRenderer.FIELD_CAPTION, caption, true, 0f, -0.86f, 0f, 0.46f * aspect, 0.9f);
+    }
+
+    private static float spanOf(Shape s) {
+        if (s == null || s.count == 0) {
+            return 1f;
+        }
+        float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+        int jump = Math.max(1, s.count / 800);
+        for (int i = 0; i < s.count; i += jump) {
+            float x = s.xyz[i * 3], y = s.xyz[i * 3 + 1];
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+        }
+        return Math.max(0.05f, Math.max(maxX - minX, maxY - minY));
     }
 
     private void step(ParticleField f) {
