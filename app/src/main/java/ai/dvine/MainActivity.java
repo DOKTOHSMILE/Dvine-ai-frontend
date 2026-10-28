@@ -246,6 +246,26 @@ public final class MainActivity extends Activity implements StageListener, Liste
         journal = new LearningJournal(new File(getFilesDir(), "learning"));
         learned = new ai.dvine.agent.LearnedIntents(new File(getFilesDir(), "learned_intents.txt"));
         library = new ai.dvine.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
+        assistant = new ai.dvine.ops.AssistantCore(new File(getFilesDir(), "ops"), new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
+            @Override
+            public boolean installed() {
+                return ai.dvine.ops.TermuxAndroid.installed(MainActivity.this);
+            }
+
+            @Override
+            public boolean permissionGranted() {
+                return checkSelfPermission("com.termux.permission.RUN_COMMAND") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            }
+
+            @Override
+            public boolean resultBridgeConnected() {
+                return false;
+            }
+        }, null, null, null);
+        String restored = assistant.restoredSummary();
+        if (restored != null) {
+            stage.activity("TASK", restored);
+        }
         // core pack now (small); the dictionary and other shards load in the background
         brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis, TimeZone.getDefault());
         brain.setThoughts(prefs.getBoolean("thoughts", true));
@@ -356,6 +376,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     /** True while a command the brain interpreted is being done, so it isn't sent back to the brain. */
     private boolean fromBrain;
 
+    private ai.dvine.ops.AssistantCore assistant;
+
     private void answer(String text) {
         answer(text, false);
     }
@@ -365,6 +387,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;
+        }
+        if (!interpreted && assistant != null) {
+            ai.dvine.ops.Outcome outcome = assistant.hear(text, 1);
+            if (outcome.handled) {
+                presentOutcome(outcome);
+                return;
+            }
         }
         if (!interpreted && learned != null) {
             String known = learned.commandFor(text);
@@ -1875,8 +1904,46 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private String lastPartial = "";
     private int holdToken;
 
+    /** Tool outcome. Generation is stopped only when the user paused, cancelled, or switched task. */
+    private void presentOutcome(ai.dvine.ops.Outcome outcome) {
+        if (outcome.stopGeneration) {
+            askId++;
+            if (discussion != null) {
+                discussion.cancel();
+                discussion = null;
+            }
+        }
+        if (outcome.activity != null && !outcome.activity.isEmpty()) {
+            stage.activity("TASK", outcome.activity);
+        }
+        if (outcome.solidText != null && !outcome.solidText.isEmpty()) {
+            ai.dvine.render.field.SolidSpec spec = ai.dvine.render.field.SolidSpec.parse(outcome.solidText, outcome.subject);
+            if (spec != null && !spec.parts.isEmpty()) {
+                currentSolid = spec.fixFrame();
+                currentName = null;
+                solidHistory.clear();
+                takenOut.clear();
+                stage.showSolid(currentSolid.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f),
+                        outcome.subject == null || outcome.subject.isEmpty() ? "object" : outcome.subject);
+            }
+        }
+        if (outcome.speech != null && !outcome.speech.isEmpty()) {
+            if (outcome.stopGeneration) {
+                play(LocalTurn.speakAs(stage.agent(), outcome.speech), outcome.listen ? this::startListening : null);
+            } else {
+                stage.innerVoice(outcome.speech);
+            }
+        }
+        if (outcome.resumeSpeech) {
+            step(playId);
+        }
+    }
+
     @Override
     public void onMic() {
+        if (assistant != null) {
+            assistant.onMicrophone(ai.dvine.ops.task.MicState.MICROPHONE_STARTING);
+        }
         holdingMic = true;
         releasedMic = false;
         heldWords.setLength(0);
@@ -1929,7 +1996,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
             requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, MIC);
             return;
         }
-        stopPlay();
+        // Do not call stopPlay() here. That dropped every pending callback and made holding the
+        // microphone look like the running task had been cancelled.
+        if (talk != null) {
+            talk.stop();
+        }
+        if (assistant != null) {
+            assistant.onMicrophone(ai.dvine.ops.task.MicState.MICROPHONE_LISTENING);
+            String line = assistant.activityLine();
+            if (line != null) {
+                stage.activity("TASK", line);
+            }
+        }
         stage.setListening(true);
         stage.setSubtitle("");
         stage.setMode(StageMode.LISTENING);
@@ -1980,6 +2058,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         stage.setListening(false);
+        if (assistant != null && assistant.hasActiveWork()) {
+            assistant.onMicrophone(ai.dvine.ops.task.MicState.MICROPHONE_OFF);
+            String line = assistant.activityLine();
+            if (line != null) {
+                stage.activity("TASK", line);
+            }
+            stage.innerVoice("I didn't catch that. I'll keep working.");
+            stage.setMode(StageMode.CONTENT);
+            return;
+        }
         stage.setSubtitle(message);
         stage.setMode(StageMode.ERROR);
     }

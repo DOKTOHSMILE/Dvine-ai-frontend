@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Optional. Termux must be installed and the user must grant this in Termux's own settings. -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
     <uses-feature
         android:glEsVersion="0x00020000"
@@ -18,6 +20,7 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <package android:name="com.termux" />
     </queries>
 
     <application
