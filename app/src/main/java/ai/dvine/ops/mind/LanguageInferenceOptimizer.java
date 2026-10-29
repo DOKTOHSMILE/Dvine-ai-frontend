@@ -51,18 +51,65 @@ public final class LanguageInferenceOptimizer {
         return hardware;
     }
 
-    public static final class InferenceScheduler {
-        private int queued;
+    public static final class InferenceScheduler implements AutoCloseable {
+        private final int maxQueued;
+        private int waiting;
+        private int rejected;
+        private int ran;
+        private final java.util.concurrent.ExecutorService pool;
 
-        public void submit(Runnable job) {
-            queued++;
-            if (job != null) {
-                job.run();
+        public InferenceScheduler() {
+            this(2);
+        }
+
+        public InferenceScheduler(int maxQueued) {
+            this.maxQueued = Math.max(1, maxQueued);
+            pool = java.util.concurrent.Executors.newFixedThreadPool(1, runnable -> {
+                Thread t = new Thread(runnable, "dvine-work");
+                t.setDaemon(true);
+                return t;
+            });
+        }
+
+        /** False when the queue is full. The job does not run on the caller. */
+        public synchronized boolean submit(Runnable job) {
+            if (job == null || waiting >= maxQueued) {
+                rejected++;
+                return false;
+            }
+            waiting++;
+            pool.execute(() -> {
+                try {
+                    job.run();
+                } finally {
+                    synchronized (InferenceScheduler.this) {
+                        waiting--;
+                        ran++;
+                        InferenceScheduler.this.notifyAll();
+                    }
+                }
+            });
+            return true;
+        }
+
+        public synchronized int rejected() {
+            return rejected;
+        }
+
+        public synchronized int ran() {
+            return ran;
+        }
+
+        public synchronized void awaitIdle(long ms) throws InterruptedException {
+            long end = System.currentTimeMillis() + ms;
+            while (waiting > 0 && System.currentTimeMillis() < end) {
+                wait(Math.max(1, end - System.currentTimeMillis()));
             }
         }
 
-        public int queued() {
-            return queued;
+        @Override
+        public void close() {
+            pool.shutdownNow();
         }
     }
 

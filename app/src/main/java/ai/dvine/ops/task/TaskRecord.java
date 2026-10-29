@@ -24,6 +24,7 @@ public final class TaskRecord {
     public boolean destructive;
     public boolean destructiveAuthorized;
     public String idempotencyKey = "";
+    public String requestId = "";
     public String kind = "general";
     public final Map<String, String> facts = new LinkedHashMap<String, String>();
 

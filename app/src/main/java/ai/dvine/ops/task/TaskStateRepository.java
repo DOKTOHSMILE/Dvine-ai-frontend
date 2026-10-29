@@ -79,6 +79,18 @@ public final class TaskStateRepository {
         return out;
     }
 
+    public synchronized TaskRecord byIdempotency(String key) {
+        if (key == null || key.isEmpty()) {
+            return null;
+        }
+        for (TaskRecord r : all()) {
+            if (key.equals(r.idempotencyKey)) {
+                return r;
+            }
+        }
+        return null;
+    }
+
     public static String encode(TaskRecord t) {
         StringBuilder b = new StringBuilder();
         line(b, "id", t.id);
@@ -98,6 +110,7 @@ public final class TaskStateRepository {
         line(b, "destructive", Boolean.toString(t.destructive));
         line(b, "authorized", Boolean.toString(t.destructiveAuthorized));
         line(b, "idem", t.idempotencyKey);
+        line(b, "request", t.requestId);
         line(b, "kind", t.kind);
         for (var e : t.facts.entrySet()) {
             line(b, "fact." + e.getKey(), e.getValue());
@@ -173,6 +186,9 @@ public final class TaskStateRepository {
                     break;
                 case "idem":
                     t.idempotencyKey = v;
+                    break;
+                case "request":
+                    t.requestId = v;
                     break;
                 case "kind":
                     t.kind = v;

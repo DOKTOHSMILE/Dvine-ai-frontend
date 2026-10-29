@@ -114,7 +114,14 @@ public final class AssistantCore {
         return orchestrator.memory();
     }
 
+    private ai.dvine.ops.pipe.StructuredActionPlan lastPlan;
+
+    public ai.dvine.ops.pipe.StructuredActionPlan lastPlan() {
+        return lastPlan;
+    }
+
     public Outcome hear(String text, double confidence) {
+        lastPlan = new ai.dvine.ops.pipe.RequestGateway().accept(text, orchestrator.scene());
         long at = System.currentTimeMillis();
         VoiceInterruptionManager.Decision d = voice.decide(text, confidence, tasks.hasActiveWork(), tasks.paused().size(), at);
         if (d.action != VoiceInterruptionManager.Action.NONE) {

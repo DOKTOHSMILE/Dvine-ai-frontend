@@ -82,4 +82,25 @@ public final class DirectQuestions {
         return n.matches(".*(learn from|add (this|the|it|that) to (your )?memory|study this|remember the components|"
                 + "remember this (document|file|image|text)).*");
     }
+
+    /**
+     * "What model are you" — not "a 3D model of a car" and not a lesson about models in general.
+     */
+    public static boolean modelIdentity(String text) {
+        String n = bare(text);
+        if (n.contains("3d") || n.contains("model of") || n.contains("a model")) {
+            return false;
+        }
+        return n.matches("what(?:'s| is) your (model|brain)( files)?")
+                || n.matches("(what|which) (language |ai |on-device |offline )?(model|brain|llm) (are you|do you (use|have|run)|is (this|running))( using| running| on this phone)?")
+                || n.matches("identify (your|the) (model|brain)");
+    }
+
+    /** What this phone can do, asked as a question rather than a task. */
+    public static boolean abilities(String text) {
+        String n = bare(text);
+        return n.matches("what can you do( offline| right now| on this phone)?")
+                || n.matches("what are your (basic )?capabilities")
+                || n.matches("what are you able to do( offline| right now)?");
+    }
 }

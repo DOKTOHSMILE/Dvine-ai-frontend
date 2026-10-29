@@ -297,6 +297,34 @@ public class OpsPipelineTest {
     }
 
     @Test
+    public void modelQuestionNamesTheWeightsInThisBuild() throws Exception {
+        AssistantCore core = AssistantCore.offline(dir());
+        Outcome o = core.hear("what model are you using", 1);
+        assertTrue(o.handled);
+        assertTrue(o.speech.contains("Qwen3 1.7B"));
+        assertTrue(o.speech.contains("Q4_K_M"));
+        assertTrue(o.speech.contains("llama.cpp"));
+        assertTrue(o.speech.contains("qwen3-1.7b-q4km.gguf"));
+        assertFalse(o.speech.toLowerCase(Locale.US).contains("have not changed"));
+        Outcome car = core.hear("create a 3D model of a car", 1);
+        assertFalse(car.handled);
+        Outcome lesson = core.hear("what is a model", 1);
+        assertFalse(lesson.handled);
+    }
+
+    @Test
+    public void abilitiesStayInsideTheOfflinePhone() throws Exception {
+        AssistantCore core = AssistantCore.offline(dir());
+        Outcome o = core.hear("Ivie, what can you do offline?", 1);
+        assertEquals("ivie", o.persona);
+        assertTrue(o.handled);
+        String s = o.speech.toLowerCase(Locale.US);
+        assertTrue(s.contains("photograph"));
+        assertTrue(s.contains("cannot read words out of a picture"));
+        assertTrue(s.contains("do not make up the news"));
+    }
+
+    @Test
     public void ordinaryQuestionsAreNotRefusals() throws Exception {
         AssistantCore core = AssistantCore.offline(dir());
         Outcome explained = core.hear("explain photosynthesis", 1);
@@ -449,7 +477,7 @@ public class OpsPipelineTest {
         assertNull(browser.download("../etc/passwd", true));
     }
 
-    private static TaskRecord reloaded(AssistantCore core, String id) {
+    static TaskRecord reloaded(AssistantCore core, String id) {
         for (TaskRecord t : core.tasks().all()) {
             if (id.equals(t.id)) {
                 return t;
@@ -458,7 +486,7 @@ public class OpsPipelineTest {
         throw new AssertionError(id);
     }
 
-    private static File dir() {
+    static File dir() {
         try {
             File d = Files.createTempDirectory("dvine-ops").toFile();
             d.deleteOnExit();

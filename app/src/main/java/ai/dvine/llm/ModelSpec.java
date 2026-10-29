@@ -22,6 +22,17 @@ public final class ModelSpec {
             "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/d7f544eead698dbd1f15126ef60b45a1e1933222/Qwen3-1.7B-Q4_K_M.gguf",
             1107409472L, "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897", "Apache 2.0");
 
+    /** The weights this build actually runs. The spoken name "DVINE brain" is not a different model. */
+    public static final String WEIGHTS = "Qwen3 1.7B";
+    public static final String QUANT = "Q4_K_M";
+    public static final String ENGINE = "llama.cpp";
+
+    /** One sentence a person can check against the file on the phone. */
+    public String runningModel() {
+        return WEIGHTS + ", " + QUANT + " GGUF, through " + ENGINE + ". The file is " + file + ", " + sizeWords()
+                + ", licence " + licence + ".";
+    }
+
     /**
      * Where to fetch the file, in order: the project's own copies first (add a URL here once a copy is hosted, for
      * example as a GitHub release asset on DVINE's own repository), the original last. Every copy is checked

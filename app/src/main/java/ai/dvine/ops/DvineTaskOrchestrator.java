@@ -174,6 +174,12 @@ public final class DvineTaskOrchestrator {
         if (DirectQuestions.clock(said)) {
             return finish(clockAnswer(said));
         }
+        if (DirectQuestions.modelIdentity(said)) {
+            return finish(modelAnswer());
+        }
+        if (DirectQuestions.abilities(said)) {
+            return finish(abilitiesAnswer());
+        }
         NaturalLanguageActionEngine.Read read = language.read(said, confidence, memory, model);
         performance.add("interpret", System.nanoTime() - t0);
         if ("reject".equals(read.intent)) {
@@ -243,6 +249,22 @@ public final class DvineTaskOrchestrator {
                 : "Today is " + when + ".";
         Outcome o = Outcome.reply(speech);
         o.activity = "Reading the clock";
+        return o;
+    }
+
+    /** The weights this build ships. Not a guess, and not a claim the file is already downloaded. */
+    private Outcome modelAnswer() {
+        ai.dvine.llm.ModelSpec spec = ai.dvine.llm.ModelSpec.QWEN3_1_7B;
+        Outcome o = Outcome.reply("The model in this build is " + spec.runningModel()
+                + " The name on screen is " + spec.name + ". It is not a larger model. Saving a note does not retrain it."
+                + " I only use the file after it has been downloaded onto this phone.");
+        o.activity = "Naming the on-device model";
+        return o;
+    }
+
+    private Outcome abilitiesAnswer() {
+        Outcome o = Outcome.reply(new ai.dvine.ops.pipe.CapabilityRegistry().speak());
+        o.activity = "Basic capabilities";
         return o;
     }
 
