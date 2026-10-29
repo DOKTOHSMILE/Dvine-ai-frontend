@@ -1744,6 +1744,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
             default:
                 break;
         }
+        if (o.picture != null) {
+            stage.showGenerated(o.picture);
+        }
         List<TurnLine> lines = new ArrayList<TurnLine>();
         for (String l : o.lines) {
             lines.add(new TurnLine(stage.agent(), "SAY", l));

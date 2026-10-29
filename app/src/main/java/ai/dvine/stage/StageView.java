@@ -42,6 +42,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
     public final ai.dvine.create.ObjectSession objects = new ai.dvine.create.ObjectSession();
     private boolean objectOnShow;
     private SolidSurface solidMesh;
+    private ai.dvine.create.PartTree partTree;
+    private final java.util.HashSet<String> treeCollapsed = new java.util.HashSet<String>();
+    private boolean treeDown;
     /** Finger and spin pose for a triangle mesh. Particles keep their own pose. */
     private float meshYaw, meshPitch, meshSize = 1f, meshDx, meshDy, meshSpin, meshSizeAtPinch;
     private final ai.dvine.render.pod.Space fallbackSky = new ai.dvine.render.pod.Space();
@@ -194,6 +197,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
             display.drawing(null, null, 0f);
             objectOnShow = true;
             motion.flash();
+            layoutTree();
             return true;
         }
         ai.dvine.render.field.Shape s = ObjectPoints.of(m, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS);
@@ -221,6 +225,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         solidMesh = null;
         meshSpin = 0f;
         display.drawing(null, null, 0f);
+        partTree = null;
         return was;
     }
 
@@ -232,9 +237,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
         return objectOnShow;
     }
 
-    /** Whether a body DVINE designed (with joints the movement engine can drive) is on show. None yet. */
+    /** A rigged body is on show only when the model actually has a skeleton and it is visible. */
     public boolean bodyShown() {
-        return false;
+        return objectShown() && ai.dvine.create.BodyRig.shown(objects.model());
     }
 
     public void setOnline(boolean value) {
@@ -285,6 +290,27 @@ public final class StageView extends View implements Choreographer.FrameCallback
         motion.flash();
     }
 
+    /** A picture painted by the local drawing model. Not a photograph. */
+    public void showGenerated(ai.dvine.create.DrawingModel.Picture picture) {
+        if (picture == null || picture.argb == null) {
+            return;
+        }
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(
+                picture.argb, picture.width, picture.height, android.graphics.Bitmap.Config.ARGB_8888);
+        showPicture(ai.dvine.render.field.Raster.image(bitmap, 6000, 1.6f), picture.subject);
+    }
+
+    private void layoutTree() {
+        if (!objectOnShow || objects.model() == null) {
+            partTree = null;
+            return;
+        }
+        float row = 18f * Math.max(1f, density);
+        float width = Math.min(176f * Math.max(1f, density), Math.max(80f, getWidth()) * 0.42f);
+        partTree = ai.dvine.create.PartTree.layout(objects.model(), objects.selected(), treeCollapsed,
+                12f * Math.max(1f, density), padTop + 36f * Math.max(1f, density), width, row);
+    }
+
     /** A picture (a drawing the language model planned) above the workspace for a while. */
     public void showPicture(ai.dvine.render.field.Shape picture, String what) {
         if (picture == null || picture.count == 0) {
@@ -295,6 +321,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         meshSpin = 0f;
         display.drawing(what, picture, 60f);
         motion.flash();
+        layoutTree();
     }
 
     /** A thing built in 3D, turning slowly above the pod; it stays while it's being worked on. */
@@ -522,6 +549,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
             drawFallback(canvas, w, h);
         }
         drawInnerVoice(canvas, w);
+        drawPartTree(canvas);
         // online: a quiet dot at the top; grey when offline
         fill.setColor(online ? 0xFF7FE3FF : 0xFF5A5A5A);
         fill.setAlpha(online ? 170 : 120);
@@ -565,6 +593,28 @@ public final class StageView extends View implements Choreographer.FrameCallback
             }
             canvas.drawText(shown, x, baseY - rise, p);
         }
+    }
+
+    private void drawPartTree(Canvas canvas) {
+        layoutTree();
+        if (partTree == null || partTree.rows.isEmpty()) {
+            return;
+        }
+        float pad = 6f * density;
+        fill.setColor(0xCC10141A);
+        canvas.drawRoundRect(partTree.x - pad, partTree.y - pad, partTree.x + partTree.width + pad,
+                partTree.y + partTree.height + pad, 8f * density, 8f * density, fill);
+        for (ai.dvine.create.PartTree.Row row : partTree.rows) {
+            voicePaint.setAlpha(row.selected ? 255 : 190);
+            voicePaint.setColor(row.selected ? 0xFF7FE3FF : (row.visible ? 0xFFE4E8EA : 0xFF8A9098));
+            String mark = row.group ? (row.expanded ? "v " : "> ") : (row.selected ? "* " : "- ");
+            String text = mark + row.label;
+            float max = row.width - row.depth * 10f * density;
+            String shown = android.text.TextUtils.ellipsize(text, voicePaint, Math.max(20f, max), android.text.TextUtils.TruncateAt.END).toString();
+            canvas.drawText(shown, row.x + row.depth * 10f * density, row.y + row.height * 0.78f, voicePaint);
+        }
+        voicePaint.setAlpha(255);
+        voicePaint.setColor(0xFFBFE6FF);
     }
 
     /** The pod without OpenGL: a dark sky with the same stars and the pod as glowing rings. */
@@ -616,6 +666,15 @@ public final class StageView extends View implements Choreographer.FrameCallback
         float slop = 10f * density;
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                layoutTree();
+                if (partTree != null && partTree.hit(x, y) != ai.dvine.create.PartTree.MISS) {
+                    treeDown = true;
+                    downX = lastX = x;
+                    downY = lastY = y;
+                    removeCallbacks(longPress);
+                    return true;
+                }
+                treeDown = false;
                 downX = lastX = x;
                 downY = lastY = y;
                 decided = false;
@@ -690,6 +749,31 @@ public final class StageView extends View implements Choreographer.FrameCallback
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 removeCallbacks(longPress);
+                if (treeDown) {
+                    treeDown = false;
+                    if (event.getActionMasked() == MotionEvent.ACTION_UP && partTree != null
+                            && Math.hypot(x - downX, y - downY) < 14f * density) {
+                        String group = partTree.toggle(x, y);
+                        if (group != null) {
+                            if (!treeCollapsed.add(group)) {
+                                treeCollapsed.remove(group);
+                            }
+                        } else {
+                            int id = partTree.hit(x, y);
+                            if (id >= 0) {
+                                objects.select(id);
+                            }
+                        }
+                        layoutTree();
+                        if (objects.model() != null) {
+                            SolidSurface packed = SolidSurface.pack(objects.model(), objects.selected());
+                            if (packed != null) {
+                                solidMesh = packed;
+                            }
+                        }
+                    }
+                    return true;
+                }
                 if (holding) {
                     holding = false;
                     if (listener != null) {

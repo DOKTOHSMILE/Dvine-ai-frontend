@@ -203,10 +203,12 @@ public class SceneEditTest {
         CreationRouter router = new CreationRouter();
         CreationRouter.Route image = router.classify("picture of a 3D motorcycle");
         assertEquals(CreationRouter.Capability.IMAGE_GENERATION, image.capability);
-        assertFalse(image.available);
+        assertTrue(image.available);
+        assertTrue(image.note.toLowerCase().contains("not a diffusion"));
         CreationRouter.Route views = router.classify("reconstruct this from these photos");
         assertEquals(CreationRouter.Capability.MULTI_VIEW_RECONSTRUCTION, views.capability);
-        assertFalse(views.available);
+        assertTrue(views.available);
+        assertTrue(views.note.toLowerCase().contains("not a dense"));
         CreationRouter.Route model = router.classify("build an editable motorcycle");
         assertEquals(CreationRouter.Capability.THREE_D_GENERATION, model.capability);
         assertTrue(model.available);

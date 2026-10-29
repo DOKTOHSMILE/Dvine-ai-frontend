@@ -19,6 +19,8 @@ public final class ObjectModel {
     public final List<Provenance> provenance;
     /** Problems found by validation (empty when valid). */
     public final List<String> problems = new ArrayList<String>();
+    /** Set only when this model was built with a skeleton. Null for everything else. */
+    public BodyRig rig;
 
     public ObjectModel(ObjectSpec spec, int version, String title, List<Component> components, List<Provenance> provenance) {
         this.spec = spec;

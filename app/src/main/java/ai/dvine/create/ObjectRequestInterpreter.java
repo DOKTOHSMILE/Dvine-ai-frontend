@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * explicit; the rest are defaults the engine assumes and reports.
  */
 public final class ObjectRequestInterpreter {
-    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, PART, INSPECT, IMAGE, RECON, UNKNOWN_OBJECT }
+    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, PART, INSPECT, IMAGE, RECON, POSE, UNKNOWN_OBJECT }
 
     public static final class Request {
         public final Kind kind;
@@ -47,6 +47,7 @@ public final class ObjectRequestInterpreter {
             {"tree", "tree"},
             {"bicycle", "bicycle|bike"},
             {"motorcycle", "motorcycle|motorbike"},
+            {"person", "person|human|humanoid"},
             {"progress", "progress bar"}};
     private static final String COLORS = "black|white|red|blue|green|yellow|grey|gray|silver|orange|purple|gold|oak|walnut|pine|wood|metal|glass";
     private static final String NUM = "(\\d+(?:\\.\\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)";
@@ -59,6 +60,9 @@ public final class ObjectRequestInterpreter {
         String t = clean(said);
         if (t.isEmpty()) {
             return null;
+        }
+        if (t.matches("^(raise|lift|lower|put down) (your |the |my )?(left|right) (arm|forearm).*")) {
+            return new Request(Kind.POSE, current, t);
         }
         if (t.matches("^(return|go back|change back|turn back|come back)( to)?( your)?( normal| human| original)?( form| self| shape| body)?( please)?$")
                 || t.matches("^(be|become) (human|yourself|normal) again$|^restore yourself$|^back to normal$")) {

@@ -30,11 +30,11 @@ public final class CapabilityRegistry {
         all.add(new Item("task", true, "I can keep a task going while the microphone is open."));
         all.add(new Item("approximation", true, "A 3D shape I build from one picture is an approximation, not a measurement."));
         all.add(new Item("ocr", false, "I cannot read words out of a picture."));
-        all.add(new Item("photogrammetry", false, "I cannot build a measured 3D model from one photo, and several photos still are not a reconstruction."));
+        all.add(new Item("photogrammetry", true, "I can triangulate two overlapping views into a sparse point cloud and a mesh of those points. It is not a dense scan and not COLMAP. One photo is not enough. Intrinsics are assumed unless supplied."));
         all.add(new Item("news", false, "I do not make up the news."));
-        all.add(new Item("image-generation", false, "I do not have an image-generation model in this build."));
+        all.add(new Item("image-generation", true, "I can paint a picture with the local drawing model. It is not a diffusion model and not a photograph."));
         all.add(new Item("procedural-mesh", true, "I can build a motorcycle as separate parts and detach one without deleting it. It is a concept model, not a measurement."));
-        all.add(new Item("rig", false, "I do not have a rigged body."));
+        all.add(new Item("rig", true, "I can build a person and raise an arm on a procedural skeleton. It is not a scanned person and not a face rig."));
         return Collections.unmodifiableList(all);
     }
 

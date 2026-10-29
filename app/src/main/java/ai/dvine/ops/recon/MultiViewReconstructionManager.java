@@ -2,7 +2,7 @@ package ai.dvine.ops.recon;
 
 import java.util.List;
 
-/** Several pictures do not become a measurement. This build has no photogrammetry backend. */
+/** A count of files is not a reconstruction. Pixels go through {@link SparsePhotogrammetry}. */
 public final class MultiViewReconstructionManager {
     public enum Quality {
         NONE, SINGLE_IMAGE_APPROXIMATION, MULTI_VIEW_UNSUPPORTED

@@ -15,7 +15,7 @@ import ai.dvine.geom.TriMesh;
 public final class ProceduralModelingEngine {
     /** Categories with a dedicated generator. */
     public static final String[] CATEGORIES = {"house", "car", "table", "chair", "sofa", "bed", "bookshelf", "lamp", "mug",
-            "bottle", "laptop", "phone", "tree", "bicycle", "motorcycle", "shapes", "progress"};
+            "bottle", "laptop", "phone", "tree", "bicycle", "motorcycle", "person", "shapes", "progress"};
 
     private ProceduralModelingEngine() {
     }
@@ -48,6 +48,7 @@ public final class ProceduralModelingEngine {
             case "tree": title = tree(s, p); break;
             case "bicycle": title = bicycle(s, p); break;
             case "motorcycle": title = motorcycle(s, p); break;
+            case "person": title = BodyRig.assemble(s, p); break;
             case "progress": title = progress(s, p); break;
             default: title = shapes(s, p);
         }
@@ -57,6 +58,9 @@ public final class ProceduralModelingEngine {
                     "dimensions are typical defaults unless you gave them"));
         }
         ObjectModel m = new ObjectModel(s, version, title, p.list, prov);
+        if ("person".equals(s.category)) {
+            BodyRig.attach(m);
+        }
         m.problems.addAll(GeometryValidator.validate(m));
         return m;
     }

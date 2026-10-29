@@ -36,12 +36,12 @@ public final class CreationRouter {
         boolean photos = n.contains("photograph") || n.contains("photos") || n.contains("several photo") || n.contains("these photo");
         boolean rebuild = n.contains("reconstruct") || n.contains("photogrammetry");
         if (photos && (rebuild || n.contains("3d") || n.contains("model"))) {
-            return new Route(Capability.MULTI_VIEW_RECONSTRUCTION, false, "RECONSTRUCT", "",
+            return new Route(Capability.MULTI_VIEW_RECONSTRUCTION, registry.get("photogrammetry").available, "RECONSTRUCT", "",
                     registry.get("photogrammetry").honest);
         }
         boolean picture = n.matches(".*\\b(picture|photo|photograph|image) of\\b.*");
         if (picture && !n.contains("editable")) {
-            return new Route(Capability.IMAGE_GENERATION, false, "IMAGE", subject(n),
+            return new Route(Capability.IMAGE_GENERATION, registry.get("image-generation").available, "IMAGE", subject(n),
                     registry.get("image-generation").honest);
         }
         if (n.matches(".*(remove|detach|take off|take out|put the .+ back|restore the ).*")) {

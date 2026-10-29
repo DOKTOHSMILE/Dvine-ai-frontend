@@ -7,8 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * A request to turn photographs into a mesh. This build has no photogrammetry
- * backend, so the job never reports cameras, a point cloud, or a measured mesh.
+ * Bytes alone are not views. Sparse triangulation runs only on {@link RasterImage} pixels.
  */
 public final class ReconstructionJob {
     public enum State { EMPTY, UNSUPPORTED }

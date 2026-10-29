@@ -21,6 +21,8 @@ public final class CreationDirector {
         public final Action action;
         public final ObjectModel model;
         public final List<String> lines = new ArrayList<String>();
+        /** A picture painted by the drawing model, when this turn asked for one. */
+        public DrawingModel.Picture picture;
         /** A thought to show while working (research), or null. */
         public String thinking;
 
@@ -80,6 +82,13 @@ public final class CreationDirector {
             }
             case UNDO:
             case REDO: {
+                if (r.kind == ObjectRequestInterpreter.Kind.UNDO && session.model() != null && session.model().rig != null
+                        && session.model().rig.undo()) {
+                    session.model().rig.skin(session.model());
+                    Outcome posed = new Outcome(Action.CHANGED, session.model());
+                    posed.lines.add("Undone. The pose is as it was. The skeleton is still a procedural rig, not a scan.");
+                    return posed;
+                }
                 boolean parts = r.kind == ObjectRequestInterpreter.Kind.UNDO ? session.undoParts() : session.redoParts();
                 ObjectModel m = parts ? session.model() : r.kind == ObjectRequestInterpreter.Kind.UNDO ? session.undo() : session.redo();
                 Outcome o = new Outcome(m == null ? Action.NONE : Action.CHANGED, m);
@@ -95,15 +104,19 @@ public final class CreationDirector {
                 return o;
             }
             case IMAGE: {
+                DrawingModel.Picture picture = new DrawingModel().draw(r.detail);
                 Outcome o = new Outcome(Action.NONE, session.model());
-                o.lines.add("I don't have an image-generation model in this build, so I did not make a picture. Say build a motorcycle if you want an editable concept model.");
+                o.picture = picture;
+                o.lines.add("I drew a picture of " + picture.subject + " with the local drawing model. It is not a photograph and not a diffusion model.");
                 return o;
             }
             case RECON: {
                 Outcome o = new Outcome(Action.NONE, session.model());
-                o.lines.add("Several photographs are not a reconstruction in this build. There is no photogrammetry backend on this phone, so I did not invent a measured mesh.");
+                o.lines.add("Sparse photogrammetry is on this phone, but these words did not include the image pixels. I did not invent a mesh. One photo is not enough, and this is not a dense scan.");
                 return o;
             }
+            case POSE:
+                return pose(r.detail);
             case SAVE: {
                 Outcome o = new Outcome(Action.NONE, session.model());
                 try {
@@ -146,7 +159,7 @@ public final class CreationDirector {
                 Outcome o = new Outcome(Action.NONE, null);
                 String what = r.detail == null ? "that" : r.detail;
                 o.lines.add("I can't model " + what + " properly yet. I can build houses, cars, motorcycles, tables, chairs, sofas, beds, shelves, lamps, mugs, "
-                        + "bottles, laptops, phones, trees and bicycles, or something made of shapes: say build a " + firstWord(what)
+                        + "bottles, laptops, phones, trees, bicycles and a person, or something made of shapes: say build a " + firstWord(what)
                         + " from a box and a sphere.");
                 return o;
             }
@@ -187,7 +200,26 @@ public final class CreationDirector {
             o.lines.add("It's a visual model, not an engineering design.");
         } else if (spec.category.equals("motorcycle")) {
             o.lines.add("It's a procedural concept model with separate parts, not a measurement and not a rig.");
+        } else if (spec.category.equals("person")) {
+            o.lines.add("It's a procedural skeleton with linear blend skinning. Not a scanned person and not a face rig.");
         }
+        return o;
+    }
+
+    private Outcome pose(String phrase) {
+        ObjectModel m = session.model();
+        if (m == null || m.rig == null) {
+            Outcome o = new Outcome(Action.NONE, m);
+            o.lines.add("There's no rigged body on show. Say build a person. I did not invent a pose.");
+            return o;
+        }
+        m.rig.remember();
+        boolean moved = m.rig.pose(m, phrase);
+        if (!moved) {
+            m.rig.dropLast();
+        }
+        Outcome o = new Outcome(moved ? Action.CHANGED : Action.NONE, m);
+        o.lines.add(BodyRig.describe(phrase, moved));
         return o;
     }
 

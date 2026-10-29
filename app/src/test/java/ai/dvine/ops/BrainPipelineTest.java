@@ -119,9 +119,12 @@ public class BrainPipelineTest {
         assertFalse(one.measured);
         assertFalse(many.measured);
         assertTrue(many.note.contains("not measured"));
-        assertFalse(new CapabilityRegistry().get("photogrammetry").available);
+        assertTrue(new CapabilityRegistry().get("photogrammetry").available);
+        assertTrue(new CapabilityRegistry().get("photogrammetry").honest.toLowerCase().contains("not a dense"));
         assertFalse(new CapabilityRegistry().get("ocr").available);
-        assertFalse(new CapabilityRegistry().get("rig").available);
+        assertTrue(new CapabilityRegistry().get("rig").available);
+        assertTrue(new CapabilityRegistry().get("rig").honest.toLowerCase().contains("not a scanned"));
+        assertTrue(new CapabilityRegistry().get("image-generation").available);
     }
 
     @Test
