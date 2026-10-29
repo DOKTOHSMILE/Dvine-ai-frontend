@@ -41,6 +41,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
     /** The thing being designed in 3D ("design me a house"), shown above the pod while it's worked on. */
     public final ai.dvine.create.ObjectSession objects = new ai.dvine.create.ObjectSession();
     private boolean objectOnShow;
+    private SolidSurface solidMesh;
+    /** Finger and spin pose for a triangle mesh. Particles keep their own pose. */
+    private float meshYaw, meshPitch, meshSize = 1f, meshDx, meshDy, meshSpin, meshSizeAtPinch;
     private final ai.dvine.render.pod.Space fallbackSky = new ai.dvine.render.pod.Space();
     private final Choreographer choreographer = Choreographer.getInstance();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -178,12 +181,27 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     // ------------------------------------------------------------ things shown above the pod
 
-    /** A thing designed in 3D: its surface as points, turning slowly above the pod. */
+    /** A thing designed in 3D: its triangles, when they validate, otherwise points. */
     public boolean becomeObject(ai.dvine.create.ObjectModel m) {
+        SolidSurface packed = SolidSurface.pack(m);
+        if (packed != null) {
+            solidMesh = packed;
+            meshYaw = 0f;
+            meshPitch = 0f;
+            meshSize = 1f;
+            meshDx = meshDy = 0f;
+            meshSpin = 0.45f;
+            display.drawing(null, null, 0f);
+            objectOnShow = true;
+            motion.flash();
+            return true;
+        }
         ai.dvine.render.field.Shape s = ObjectPoints.of(m, ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS);
         if (s.count == 0) {
             return false;
         }
+        solidMesh = null;
+        meshSpin = 0f;
         display.drawing(m.title, s, 3600f, true);
         objectOnShow = true;
         motion.flash();
@@ -200,13 +218,15 @@ public final class StageView extends View implements Choreographer.FrameCallback
     public boolean restoreBody() {
         boolean was = objectOnShow;
         objectOnShow = false;
+        solidMesh = null;
+        meshSpin = 0f;
         display.drawing(null, null, 0f);
         return was;
     }
 
     /** Whether a design is on show right now. */
     public boolean objectShown() {
-        if (objectOnShow && !display.drawingShown()) {
+        if (objectOnShow && solidMesh == null && !display.drawingShown()) {
             objectOnShow = false;
         }
         return objectOnShow;
@@ -259,6 +279,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
             return;
         }
         objectOnShow = false;
+        solidMesh = null;
+        meshSpin = 0f;
         display.showPhotograph(what, picture);
         motion.flash();
     }
@@ -269,6 +291,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
             return;
         }
         objectOnShow = false;
+        solidMesh = null;
+        meshSpin = 0f;
         display.drawing(what, picture, 60f);
         motion.flash();
     }
@@ -279,6 +303,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
             return;
         }
         objectOnShow = false;
+        solidMesh = null;
+        meshSpin = 0f;
         display.drawing(what, solid, 600f, true);
         motion.flash();
     }
@@ -304,6 +330,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
     /** Clears whatever is shown above the pod. */
     public void clearDrawing() {
         objectOnShow = false;
+        solidMesh = null;
+        meshSpin = 0f;
         display.drawing(null, null, 0f);
     }
 
@@ -337,7 +365,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
         }
         String[] q = {"low", "medium", "high"};
         return "The galaxy is on, the scene is at " + q[renderer.pod.quality] + " quality, frames " + renderer.stats.summary()
-                + (display.photographShown() ? ", and " + display.drawingName() + " is on the skin"
+                + (solidMesh != null ? ", and a designed mesh is on the board"
+                        : display.photographShown() ? ", and " + display.drawingName() + " is on the skin"
                         : display.drawingShown() ? ", and " + display.drawingName() + " is in the workspace" : "")
                 + (renderer.glErrors > 0 ? ", " + renderer.glErrors + " graphics errors" : "") + ".";
     }
@@ -358,6 +387,11 @@ public final class StageView extends View implements Choreographer.FrameCallback
     /** The thing on show turns all the way round. */
     @Override
     public void turnAround() {
+        if (solidMesh != null) {
+            meshSpin = 0f;
+            meshYaw += (float) Math.PI;
+            return;
+        }
         display.apply(ai.dvine.render.field.ShapeCommand.parse("turn it around"));
     }
 
@@ -432,6 +466,11 @@ public final class StageView extends View implements Choreographer.FrameCallback
             feedDisplay();
             display.frame(dt, renderer, layout, renderer.aspect());
             renderer.setProjection(layout.proj);
+            renderer.setSolid(solidMesh);
+            if (solidMesh != null) {
+                meshYaw += meshSpin * dt;
+                renderer.setSolidPose(meshYaw, meshPitch, meshSize, meshDx, meshDy);
+            }
             renderer.pod.submit(layout, motion, display.drawingShown(), density, false);
             if (glView != null) {
                 glView.requestRender();
@@ -593,6 +632,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
                     dragged = true;
                     pinchStart = spread(event);
                     sizeAtPinch = display.drawingSize();
+                    meshSizeAtPinch = meshSize;
                     midX = (event.getX(0) + event.getX(1)) / 2f;
                     midY = (event.getY(0) + event.getY(1)) / 2f;
                 }
@@ -601,12 +641,22 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 if (twoFingers && event.getPointerCount() >= 2) {
                     // pinch to zoom, two fingers together to move the thing on show
                     float s = spread(event);
-                    if (pinchStart > 1f && display.drawingShown()) {
-                        float want = sizeAtPinch * s / pinchStart;
-                        display.zoomBy(want / Math.max(0.01f, display.drawingSize()));
+                    if (pinchStart > 1f && (display.drawingShown() || solidMesh != null)) {
+                        if (solidMesh != null) {
+                            meshSpin = 0f;
+                            meshSize = Math.max(0.25f, Math.min(6f, meshSizeAtPinch * s / pinchStart));
+                        } else {
+                            float want = sizeAtPinch * s / pinchStart;
+                            display.zoomBy(want / Math.max(0.01f, display.drawingSize()));
+                        }
                     }
                     float mx = (event.getX(0) + event.getX(1)) / 2f, my = (event.getY(0) + event.getY(1)) / 2f;
-                    display.panBy((mx - midX) / layout.unit, -(my - midY) / layout.unit);
+                    if (solidMesh != null) {
+                        meshDx = Math.max(-1.5f, Math.min(1.5f, meshDx + (mx - midX) / layout.unit));
+                        meshDy = Math.max(-1.5f, Math.min(1.5f, meshDy - (my - midY) / layout.unit));
+                    } else {
+                        display.panBy((mx - midX) / layout.unit, -(my - midY) / layout.unit);
+                    }
                     midX = mx;
                     midY = my;
                     return true;
@@ -620,10 +670,16 @@ public final class StageView extends View implements Choreographer.FrameCallback
                     decided = true;
                     removeCallbacks(longPress);
                 }
-                if (decided && display.drawingShown()) {
+                if (decided && (display.drawingShown() || solidMesh != null)) {
                     // one finger turns the thing drawn round and tips it
                     dragged = true;
-                    display.rotateBy((x - lastX) / (layout.unit * 0.6f), (y - lastY) / (layout.unit * 0.6f));
+                    if (solidMesh != null) {
+                        meshSpin = 0f;
+                        meshYaw += (x - lastX) / (layout.unit * 0.6f);
+                        meshPitch = Math.max(-1.45f, Math.min(1.45f, meshPitch + (y - lastY) / (layout.unit * 0.6f)));
+                    } else {
+                        display.rotateBy((x - lastX) / (layout.unit * 0.6f), (y - lastY) / (layout.unit * 0.6f));
+                    }
                 }
                 lastX = x;
                 lastY = y;

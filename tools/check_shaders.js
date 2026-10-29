@@ -20,7 +20,7 @@ for (const file of ['render/StageRenderer.java', 'render/pod/PodRenderer.java'])
   }
 }
 // the programs they link (see onCreated)
-const programs = [['FIELD_VS', 'FIELD_FS'], ['SKY_VS', 'SKY_FS'], ['STAR_VS', 'STAR_FS'], ['METEOR_VS', 'METEOR_FS'],
+const programs = [['FIELD_VS', 'FIELD_FS'], ['SOLID_VS', 'SOLID_FS'], ['SKY_VS', 'SKY_FS'], ['STAR_VS', 'STAR_FS'], ['METEOR_VS', 'METEOR_FS'],
   ['POD_VS', 'POD_FS'], ['GLOW_VS', 'GLOW_FS'], ['BEAM_VS', 'BEAM_FS'], ['DOT_VS', 'DOT_FS']];
 
 (async () => {

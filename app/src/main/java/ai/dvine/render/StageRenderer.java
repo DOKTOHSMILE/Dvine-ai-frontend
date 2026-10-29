@@ -15,7 +15,15 @@ public final class StageRenderer {
     public final ai.dvine.render.pod.PodRenderer pod;
     public final FrameStats stats = new FrameStats();
     private int width = 1, height = 1;
-    private int fieldProg;
+    private int fieldProg, solidProg, solidVbo, solidIbo;
+    private int solidTriangles, solidUploadedVerts = -1, solidUploadedIndices = -1;
+    private boolean solidDirty;
+    private float[] solidVerts = new float[0];
+    private int[] solidIndices = new int[0];
+    /** User pose: yaw, pitch, size, pan. The board fit (about 0.62 stage units) is applied at draw time. */
+    private float poseYaw, posePitch, poseSize = 1f, poseX, poseY;
+    private final float[] solidModel = new float[16];
+    private final float[] solidMvp = new float[16];
     /** Count of live GL objects of the particle display (for leak checks). */
     public int liveObjects;
     public int glErrors;
@@ -85,6 +93,62 @@ public final class StageRenderer {
         }
     }
 
+    /**
+     * The validated design as triangles ({@link ai.dvine.stage.SolidSurface}). Null clears it.
+     * Particles still draw photographs and sketches.
+     */
+    public void setSolid(ai.dvine.stage.SolidSurface surface) {
+        synchronized (lock) {
+            if (surface == null || surface.triangles <= 0) {
+                solidTriangles = 0;
+                solidDirty = true;
+                return;
+            }
+            solidVerts = java.util.Arrays.copyOf(surface.verts, surface.verts.length);
+            solidIndices = java.util.Arrays.copyOf(surface.indices, surface.indices.length);
+            solidTriangles = surface.triangles;
+            solidDirty = true;
+        }
+    }
+
+    /**
+     * Turn, tip, size and place of the triangle mesh. Size 1 is the board's usual drawing size.
+     * Photographs and sketches do not use this.
+     */
+    public void setSolidPose(float yaw, float pitch, float size, float x, float y) {
+        synchronized (lock) {
+            poseYaw = yaw;
+            posePitch = pitch;
+            poseSize = size > 0f ? size : 1f;
+            poseX = x;
+            poseY = y;
+        }
+    }
+
+    /**
+     * Column-major model: yaw about Y, then pitch about X, uniform scale, then (x, 0.05 + y, 0).
+     * The 0.05 lift matches a particle solid sitting above the pod.
+     */
+    static float[] solidModel(float yaw, float pitch, float size, float x, float y) {
+        float cy = (float) Math.cos(yaw), sy = (float) Math.sin(yaw);
+        float cp = (float) Math.cos(pitch), sp = (float) Math.sin(pitch);
+        float s = size;
+        float[] out = new float[16];
+        out[0] = s * cy;
+        out[1] = s * sp * sy;
+        out[2] = -s * cp * sy;
+        out[4] = 0f;
+        out[5] = s * cp;
+        out[6] = s * sp;
+        out[8] = s * sy;
+        out[9] = -s * sp * cy;
+        out[10] = s * cp * cy;
+        out[12] = x;
+        out[13] = 0.05f + y;
+        out[15] = 1f;
+        return out;
+    }
+
     /** The scene's projection for the particle layers placed in it (stage units, from the pod's layout). */
     public void setProjection(float[] mvp) {
         synchronized (lock) {
@@ -111,6 +175,21 @@ public final class StageRenderer {
                 fault = "a shader that wouldn't compile";
             }
         }
+        solidProg = gl.program(SOLID_VS, SOLID_FS);
+        if (solidProg != 0) {
+            liveObjects++;
+        } else {
+            glErrors++;
+            if (fault == null) {
+                fault = "the mesh shader wouldn't compile";
+            }
+        }
+        solidVbo = gl.buffer();
+        solidIbo = gl.buffer();
+        liveObjects += 2;
+        solidUploadedVerts = -1;
+        solidUploadedIndices = -1;
+        solidDirty = solidTriangles > 0;
         for (Field fl : fields) {
             fl.vbo = gl.buffer();
             liveObjects++;
@@ -132,6 +211,7 @@ public final class StageRenderer {
             System.arraycopy(pendingMvp, 0, fieldMvp, 0, 16);
         }
         pod.onDraw(nanos, width, height);
+        drawSolid();
         drawFields();
         int err = gl.error();
         if (err != GlApi.NO_ERROR) {
@@ -202,6 +282,79 @@ public final class StageRenderer {
         gl.disable(GlApi.BLEND);
     }
 
+    private void drawSolid() {
+        int triangles;
+        float yaw, pitch, size, x, y;
+        synchronized (lock) {
+            triangles = solidTriangles;
+            yaw = poseYaw;
+            pitch = posePitch;
+            size = poseSize;
+            x = poseX;
+            y = poseY;
+            if (solidProg == 0 || solidVbo == 0 || triangles <= 0) {
+                return;
+            }
+            if (solidDirty) {
+                gl.bindBuffer(GlApi.ARRAY_BUFFER, solidVbo);
+                FloatBuffer data = floats(java.util.Arrays.copyOf(solidVerts, solidVerts.length));
+                int bytes = solidVerts.length * 4;
+                if (solidUploadedVerts < solidVerts.length) {
+                    gl.bufferData(GlApi.ARRAY_BUFFER, bytes, data, GlApi.STATIC_DRAW);
+                    solidUploadedVerts = solidVerts.length;
+                } else {
+                    gl.bufferSubData(GlApi.ARRAY_BUFFER, 0, bytes, data);
+                }
+                gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, solidIbo);
+                java.nio.IntBuffer index = ByteBuffer.allocateDirect(solidIndices.length * 4).order(ByteOrder.nativeOrder()).asIntBuffer();
+                index.put(solidIndices).flip();
+                int ibytes = solidIndices.length * 4;
+                if (solidUploadedIndices < solidIndices.length) {
+                    gl.bufferData(GlApi.ELEMENT_ARRAY_BUFFER, ibytes, index, GlApi.STATIC_DRAW);
+                    solidUploadedIndices = solidIndices.length;
+                } else {
+                    gl.bufferSubData(GlApi.ELEMENT_ARRAY_BUFFER, 0, ibytes, index);
+                }
+                solidDirty = false;
+            }
+        }
+        if (triangles <= 0) {
+            return;
+        }
+        float aspect = width / (float) Math.max(1, height);
+        float unit = Math.min(0.62f, 0.62f * aspect / 0.5f);
+        float[] model = solidModel(yaw, pitch, unit * size, x, y);
+        System.arraycopy(model, 0, solidModel, 0, 16);
+        multiply(solidMvp, fieldMvp, solidModel);
+        gl.useProgram(solidProg);
+        gl.uniformMatrix4(gl.uniform(solidProg, "uMvp"), solidMvp);
+        gl.uniformMatrix4(gl.uniform(solidProg, "uModel"), solidModel);
+        gl.enable(GlApi.DEPTH_TEST);
+        gl.enable(GlApi.CULL_FACE);
+        gl.depthMask(true);
+        gl.disable(GlApi.BLEND);
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, solidVbo);
+        gl.bindBuffer(GlApi.ELEMENT_ARRAY_BUFFER, solidIbo);
+        gl.vertexAttrib(0, 3, 36, 0);
+        gl.vertexAttrib(1, 3, 36, 12);
+        gl.vertexAttrib(2, 3, 36, 24);
+        gl.drawElements(GlApi.TRIANGLES, triangles * 3, 0);
+        gl.disableAttrib(0);
+        gl.disableAttrib(1);
+        gl.disableAttrib(2);
+        gl.disable(GlApi.CULL_FACE);
+    }
+
+    /** Column-major {@code out = a * b}. */
+    private static void multiply(float[] out, float[] a, float[] b) {
+        for (int col = 0; col < 4; col++) {
+            for (int row = 0; row < 4; row++) {
+                out[col * 4 + row] = a[row] * b[col * 4] + a[4 + row] * b[col * 4 + 1]
+                        + a[8 + row] * b[col * 4 + 2] + a[12 + row] * b[col * 4 + 3];
+            }
+        }
+    }
+
     /** Frees every GL object (view detached). Safe to call twice. */
     public void dispose() {
         pod.dispose();
@@ -209,6 +362,21 @@ public final class StageRenderer {
             gl.deleteProgram(fieldProg);
             liveObjects--;
             fieldProg = 0;
+        }
+        if (solidProg != 0) {
+            gl.deleteProgram(solidProg);
+            liveObjects--;
+            solidProg = 0;
+        }
+        if (solidVbo != 0) {
+            gl.deleteBuffer(solidVbo);
+            liveObjects--;
+            solidVbo = 0;
+        }
+        if (solidIbo != 0) {
+            gl.deleteBuffer(solidIbo);
+            liveObjects--;
+            solidIbo = 0;
         }
         for (Field fl : fields) {
             if (fl.vbo != 0) {
@@ -242,4 +410,12 @@ public final class StageRenderer {
             + "void main(){ vec2 c = gl_PointCoord * 2.0 - 1.0; float d = dot(c, c); if (d > 1.0) discard;\n"
             + "  float a = (uMode.w > 0.5 ? (1.0 - smoothstep(0.42, 1.0, d)) : (uMode.z > 0.5 ? (1.0 - smoothstep(0.45, 1.0, d)) * 0.95 : exp(-d * 3.0) * 0.8 + exp(-d * 12.0) * 0.6)) * vCol.a;\n"
             + "  o = vec4(vCol.rgb * a, a); }\n";
+    static final String SOLID_VS = "#version 300 es\n"
+            + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec3 aCol;\n"
+            + "uniform mat4 uMvp; uniform mat4 uModel; out vec3 vN; out vec3 vC;\n"
+            + "void main(){ gl_Position = uMvp * vec4(aPos, 1.0); vN = mat3(uModel) * aNrm; vC = aCol; }\n";
+    static final String SOLID_FS = "#version 300 es\n"
+            + "precision mediump float; in vec3 vN; in vec3 vC; out vec4 o;\n"
+            + "void main(){ vec3 n = normalize(vN); float lambert = clamp(dot(n, normalize(vec3(0.25, 0.85, 0.45))), 0.0, 1.0);\n"
+            + "  o = vec4(vC * (0.28 + 0.72 * lambert), 1.0); }\n";
 }
