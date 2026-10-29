@@ -47,6 +47,17 @@ public final class ObjectStore {
         }
         j.put("provenance", prov);
         j.put("problems", new ArrayList<Object>(m.problems));
+        List<Object> hidden = new ArrayList<Object>();
+        List<Object> deleted = new ArrayList<Object>();
+        for (Component c : m.components) {
+            if (!c.retained) {
+                deleted.add(c.name);
+            } else if (!c.visible) {
+                hidden.add(c.name);
+            }
+        }
+        j.put("hidden", hidden);
+        j.put("deleted", deleted);
         File f = new File(dir, name(m.spec.category) + ".json");
         Files.write(f.toPath(), MiniJson.write(j).getBytes(StandardCharsets.UTF_8));
         return f;
@@ -79,7 +90,34 @@ public final class ObjectStore {
             prov.add(new Provenance(MiniJson.str(e.get("kind"), "default"), MiniJson.str(e.get("source"), ""),
                     (long) MiniJson.num(e.get("retrievedAt"), 0), MiniJson.str(e.get("license"), "unknown"), MiniJson.str(e.get("note"), "")));
         }
-        return ProceduralModelingEngine.build(spec, version, prov);
+        ObjectModel built = ProceduralModelingEngine.build(spec, version, prov);
+        for (String name : MiniJson.strings(j.get("hidden"))) {
+            Component c = named(built, name);
+            if (c != null) {
+                c.visible = false;
+                c.retained = true;
+            }
+        }
+        for (String name : MiniJson.strings(j.get("deleted"))) {
+            Component c = named(built, name);
+            if (c != null) {
+                c.visible = false;
+                c.retained = false;
+            }
+        }
+        return built;
+    }
+
+    private static Component named(ObjectModel m, String name) {
+        if (m == null) {
+            return null;
+        }
+        for (Component c : m.components) {
+            if (c.name.equals(name)) {
+                return c;
+            }
+        }
+        return null;
     }
 
     /** Writes the visible geometry as Wavefront OBJ, one group per part. */

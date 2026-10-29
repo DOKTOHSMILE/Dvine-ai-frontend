@@ -33,6 +33,7 @@ public final class CapabilityRegistry {
         all.add(new Item("photogrammetry", false, "I cannot build a measured 3D model from one photo, and several photos still are not a reconstruction."));
         all.add(new Item("news", false, "I do not make up the news."));
         all.add(new Item("image-generation", false, "I do not have an image-generation model in this build."));
+        all.add(new Item("procedural-mesh", true, "I can build a motorcycle as separate parts and detach one without deleting it. It is a concept model, not a measurement."));
         all.add(new Item("rig", false, "I do not have a rigged body."));
         return Collections.unmodifiableList(all);
     }

@@ -15,7 +15,7 @@ import ai.dvine.geom.TriMesh;
 public final class ProceduralModelingEngine {
     /** Categories with a dedicated generator. */
     public static final String[] CATEGORIES = {"house", "car", "table", "chair", "sofa", "bed", "bookshelf", "lamp", "mug",
-            "bottle", "laptop", "phone", "tree", "bicycle", "shapes", "progress"};
+            "bottle", "laptop", "phone", "tree", "bicycle", "motorcycle", "shapes", "progress"};
 
     private ProceduralModelingEngine() {
     }
@@ -47,6 +47,7 @@ public final class ProceduralModelingEngine {
             case "phone": title = phone(s, p); break;
             case "tree": title = tree(s, p); break;
             case "bicycle": title = bicycle(s, p); break;
+            case "motorcycle": title = motorcycle(s, p); break;
             case "progress": title = progress(s, p); break;
             default: title = shapes(s, p);
         }
@@ -360,6 +361,31 @@ public final class ProceduralModelingEngine {
         p.add("handlebar", "handlebar", "metal", 2, Geo.cylinder(hx + 0.02f, hy + 0.12f, -0.25f, hx + 0.02f, hy + 0.12f, 0.25f, 0.014f, 8));
         p.add("stem", "frame", "metal", 2, Geo.cylinder(hx, hy, 0f, hx + 0.02f, hy + 0.12f, 0f, 0.014f, 8));
         return "bicycle";
+    }
+
+    /**
+     * A concept motorcycle: each tyre and rim is its own closed mesh.
+     * This is not a measurement and it has no skeleton.
+     */
+    private static String motorcycle(ObjectSpec s, Parts p) {
+        float radius = 0.335f, half = 0.72f;
+        String paint = s.str("color", "black");
+        p.add("rear tyre", "wheel", "rubber", 0, Geo.torus(-half, radius, 0f, radius - 0.035f, 0.035f, "z", 28, 8));
+        p.add("front tyre", "wheel", "rubber", 0, Geo.torus(half, radius, 0f, radius - 0.035f, 0.035f, "z", 28, 8));
+        p.add("rear rim", "rim", "metal", 0, Geo.torus(-half, radius, 0f, radius * 0.55f, 0.014f, "z", 24, 8));
+        p.add("front rim", "rim", "metal", 0, Geo.torus(half, radius, 0f, radius * 0.55f, 0.014f, "z", 24, 8));
+        float bx = -0.05f, by = radius + 0.08f, sx = -0.22f, sy = radius + 0.52f, hx = half - 0.08f, hy = radius + 0.62f;
+        p.add("down tube", "frame", paint, 1, Geo.cylinder(bx, by, 0f, hx, hy - 0.08f, 0f, 0.02f, 8));
+        p.add("seat tube", "frame", paint, 1, Geo.cylinder(bx, by, 0f, sx, sy, 0f, 0.02f, 8));
+        p.add("top tube", "frame", paint, 1, Geo.cylinder(sx, sy, 0f, hx, hy, 0f, 0.018f, 8));
+        p.add("chain stay", "frame", paint, 1, Geo.cylinder(bx, by, 0f, -half, radius, 0f, 0.014f, 8));
+        p.add("seat stay", "frame", paint, 1, Geo.cylinder(sx, sy, 0f, -half, radius, 0f, 0.014f, 8));
+        p.add("fork", "frame", paint, 1, Geo.cylinder(hx, hy, 0f, half, radius, 0f, 0.018f, 8));
+        p.add("engine", "engine", "metal", 1, Geo.box(0.02f, radius + 0.02f, 0f, 0.36f, 0.28f, 0.22f));
+        p.add("seat", "seat", "leather", 2, Geo.box(sx, sy + 0.06f, 0f, 0.42f, 0.06f, 0.16f));
+        p.add("handlebar", "handlebar", "metal", 2, Geo.cylinder(hx, hy + 0.14f, -0.28f, hx, hy + 0.14f, 0.28f, 0.014f, 8));
+        p.add("stem", "frame", "metal", 2, Geo.cylinder(hx, hy, 0f, hx, hy + 0.14f, 0f, 0.014f, 8));
+        return "motorcycle";
     }
 
     /** A download bar: a frame and a fill that grows with "progress" (0..1). */

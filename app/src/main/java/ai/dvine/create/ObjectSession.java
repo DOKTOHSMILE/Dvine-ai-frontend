@@ -26,6 +26,10 @@ public final class ObjectSession {
     private String view = "exterior";
     private int selected = -1;
     private List<String> lastProblems = new ArrayList<String>();
+    private final Deque<boolean[]> partShown = new ArrayDeque<boolean[]>();
+    private final Deque<boolean[]> partKept = new ArrayDeque<boolean[]>();
+    private final Deque<boolean[]> partShownRedo = new ArrayDeque<boolean[]>();
+    private final Deque<boolean[]> partKeptRedo = new ArrayDeque<boolean[]>();
 
     public ObjectModel model() {
         return model;
@@ -44,6 +48,7 @@ public final class ObjectSession {
         }
         undo.clear();
         redo.clear();
+        clearParts();
         provenance = new ArrayList<Provenance>(m.provenance);
         version = 1;
         model = m;
@@ -63,6 +68,7 @@ public final class ObjectSession {
         }
         undo.clear();
         redo.clear();
+        clearParts();
         provenance = new ArrayList<Provenance>(m.provenance);
         version = m.version;
         model = m;
@@ -83,6 +89,7 @@ public final class ObjectSession {
         }
         undo.push(model.spec);
         redo.clear();
+        clearParts();
         version++;
         model = m;
         applyView();
@@ -95,6 +102,7 @@ public final class ObjectSession {
             return null;
         }
         redo.push(model.spec);
+        clearParts();
         version++;
         model = ProceduralModelingEngine.build(undo.pop(), version, provenance);
         applyView();
@@ -106,6 +114,7 @@ public final class ObjectSession {
             return null;
         }
         undo.push(model.spec);
+        clearParts();
         version++;
         model = ProceduralModelingEngine.build(redo.pop(), version, provenance);
         applyView();
@@ -116,7 +125,67 @@ public final class ObjectSession {
         model = null;
         undo.clear();
         redo.clear();
+        clearParts();
         selected = -1;
+    }
+
+    /** Remembers which parts are showing, so a detach can be undone without rebuilding the spec. */
+    public void rememberParts() {
+        if (model == null) {
+            return;
+        }
+        partShown.push(flags(true));
+        partKept.push(flags(false));
+        partShownRedo.clear();
+        partKeptRedo.clear();
+    }
+
+    public void dropLastPartMemory() {
+        if (!partShown.isEmpty()) {
+            partShown.pop();
+            partKept.pop();
+        }
+    }
+
+    public boolean undoParts() {
+        return swapParts(partShown, partKept, partShownRedo, partKeptRedo);
+    }
+
+    public boolean redoParts() {
+        return swapParts(partShownRedo, partKeptRedo, partShown, partKept);
+    }
+
+    private boolean swapParts(Deque<boolean[]> fromShown, Deque<boolean[]> fromKept, Deque<boolean[]> toShown, Deque<boolean[]> toKept) {
+        if (model == null || fromShown.isEmpty()) {
+            return false;
+        }
+        boolean[] shown = fromShown.pop();
+        boolean[] kept = fromKept.pop();
+        if (shown.length != model.components.size()) {
+            return false;
+        }
+        toShown.push(flags(true));
+        toKept.push(flags(false));
+        for (int i = 0; i < shown.length; i++) {
+            model.components.get(i).visible = shown[i];
+            model.components.get(i).retained = kept[i];
+        }
+        return true;
+    }
+
+    private boolean[] flags(boolean shown) {
+        boolean[] out = new boolean[model.components.size()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = shown ? model.components.get(i).visible : model.components.get(i).retained;
+        }
+        return out;
+    }
+
+    private void clearParts() {
+        partShown.clear();
+        partKept.clear();
+        partShownRedo.clear();
+        partKeptRedo.clear();
     }
 
     /**

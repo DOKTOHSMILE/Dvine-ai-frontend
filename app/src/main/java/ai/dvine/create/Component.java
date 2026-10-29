@@ -18,6 +18,10 @@ public final class Component {
     public final int step;
     public final TriMesh mesh;
     public boolean visible = true;
+    /** False only after a confirmed delete. The triangles stay in this session until the model is rebuilt. */
+    public boolean retained = true;
+    /** A locked part is not detached or deleted. */
+    public boolean locked;
 
     public Component(int id, String name, String kind, String material, int step, TriMesh mesh) {
         this.id = id;

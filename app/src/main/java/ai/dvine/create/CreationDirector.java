@@ -80,10 +80,23 @@ public final class CreationDirector {
             }
             case UNDO:
             case REDO: {
-                ObjectModel m = r.kind == ObjectRequestInterpreter.Kind.UNDO ? session.undo() : session.redo();
+                boolean parts = r.kind == ObjectRequestInterpreter.Kind.UNDO ? session.undoParts() : session.redoParts();
+                ObjectModel m = parts ? session.model() : r.kind == ObjectRequestInterpreter.Kind.UNDO ? session.undo() : session.redo();
                 Outcome o = new Outcome(m == null ? Action.NONE : Action.CHANGED, m);
                 o.lines.add(m == null ? "There's nothing to " + (r.kind == ObjectRequestInterpreter.Kind.UNDO ? "undo." : "redo.")
-                        : (r.kind == ObjectRequestInterpreter.Kind.UNDO ? "Undone. " : "Redone. ") + "Version " + m.version + ".");
+                        : (r.kind == ObjectRequestInterpreter.Kind.UNDO ? "Undone. " : "Redone. ") + (parts ? "The parts are as they were." : "Version " + m.version + "."));
+                return o;
+            }
+            case PART:
+                return part(r.detail);
+            case IMAGE: {
+                Outcome o = new Outcome(Action.NONE, session.model());
+                o.lines.add("I don't have an image-generation model in this build, so I did not make a picture. Say build a motorcycle if you want an editable concept model.");
+                return o;
+            }
+            case RECON: {
+                Outcome o = new Outcome(Action.NONE, session.model());
+                o.lines.add("Several photographs are not a reconstruction in this build. There is no photogrammetry backend on this phone, so I did not invent a measured mesh.");
                 return o;
             }
             case SAVE: {
@@ -127,7 +140,7 @@ public final class CreationDirector {
             default: {
                 Outcome o = new Outcome(Action.NONE, null);
                 String what = r.detail == null ? "that" : r.detail;
-                o.lines.add("I can't model " + what + " properly yet. I can build houses, cars, tables, chairs, sofas, beds, shelves, lamps, mugs, "
+                o.lines.add("I can't model " + what + " properly yet. I can build houses, cars, motorcycles, tables, chairs, sofas, beds, shelves, lamps, mugs, "
                         + "bottles, laptops, phones, trees and bicycles, or something made of shapes: say build a " + firstWord(what)
                         + " from a box and a sphere.");
                 return o;
@@ -160,14 +173,34 @@ public final class CreationDirector {
         }
         if (summary != null) {
             o.lines.add("From my reading: " + summary);
-        } else if (spec.category.matches("house|car|bicycle")) {
+        } else if (spec.category.matches("house|car|bicycle|motorcycle")) {
             o.lines.add("I couldn't look up references just now, so this uses typical proportions.");
         }
         if (spec.category.equals("house")) {
             o.lines.add("It's a visual concept, not a structural design.");
         } else if (spec.category.equals("car")) {
             o.lines.add("It's a visual model, not an engineering design.");
+        } else if (spec.category.equals("motorcycle")) {
+            o.lines.add("It's a procedural concept model with separate parts, not a measurement and not a rig.");
         }
+        return o;
+    }
+
+    private Outcome part(String detail) {
+        ObjectModel m = session.model();
+        if (m == null || detail == null || !detail.contains("|")) {
+            Outcome o = new Outcome(Action.NONE, m);
+            o.lines.add("There's no model on show to edit.");
+            return o;
+        }
+        String[] bits = detail.split("\\|", 2);
+        session.rememberParts();
+        SceneCommands.Report report = SceneCommands.apply(m, bits[0], bits[1]);
+        if (!report.applied) {
+            session.dropLastPartMemory();
+        }
+        Outcome o = new Outcome(report.applied ? Action.CHANGED : Action.NONE, m);
+        o.lines.add(report.speech);
         return o;
     }
 

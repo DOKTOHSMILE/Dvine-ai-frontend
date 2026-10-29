@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * explicit; the rest are defaults the engine assumes and reports.
  */
 public final class ObjectRequestInterpreter {
-    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, UNKNOWN_OBJECT }
+    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, PART, IMAGE, RECON, UNKNOWN_OBJECT }
 
     public static final class Request {
         public final Kind kind;
@@ -46,6 +46,7 @@ public final class ObjectRequestInterpreter {
             {"phone", "smartphone|phone|mobile"},
             {"tree", "tree"},
             {"bicycle", "bicycle|bike"},
+            {"motorcycle", "motorcycle|motorbike"},
             {"progress", "progress bar"}};
     private static final String COLORS = "black|white|red|blue|green|yellow|grey|gray|silver|orange|purple|gold|oak|walnut|pine|wood|metal|glass";
     private static final String NUM = "(\\d+(?:\\.\\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)";
@@ -72,9 +73,16 @@ public final class ObjectRequestInterpreter {
             if (m != null && !m.equals(current)) {
                 return new Request(Kind.MODIFY, m, t);
             }
+            Request part = partRequest(t, current);
+            if (part != null) {
+                return part;
+            }
+        }
+        if (reconstructionAsk(t)) {
+            return new Request(Kind.RECON, null, null);
         }
         Matcher open = Pattern.compile("^(?:open|load|reopen|show me) (?:my |the )?(?:saved )?(.+?)(?: design| model)?( again)?$").matcher(t);
-        if (open.matches() && open.group(1).matches("(saved |last )?(house|car|table|chair|sofa|bed|bookshelf|lamp|mug|bottle|laptop|phone|tree|bicycle|design|model|object)")
+        if (open.matches() && open.group(1).matches("(saved |last )?(house|car|table|chair|sofa|bed|bookshelf|lamp|mug|bottle|laptop|phone|tree|bicycle|motorcycle|design|model|object)")
                 && t.matches(".*\\b(open|load|reopen|saved|again)\\b.*")) {
             return new Request(Kind.OPEN, null, open.group(1).replaceAll("^(saved |last )", ""));
         }
@@ -84,6 +92,12 @@ public final class ObjectRequestInterpreter {
         }
         String verb = c.group(1);
         String rest = c.group(2);
+        if (imageAsk(rest)) {
+            return new Request(Kind.IMAGE, null, rest);
+        }
+        if (reconstructionAsk(t)) {
+            return new Request(Kind.RECON, null, null);
+        }
         String category = categoryOf(rest);
         if (category == null) {
             List<String> shapes = shapes(rest);
@@ -101,6 +115,63 @@ public final class ObjectRequestInterpreter {
             return new Request(Kind.UNKNOWN_OBJECT, null, rest.replaceAll("^(a|an|the) ", ""));
         }
         return new Request(Kind.CREATE, details(rest, defaults(category)), null);
+    }
+
+    /** A picture request is not a mesh. The word "editable" is what asks for geometry. */
+    static boolean imageAsk(String text) {
+        return text != null && text.matches(".*\\b(picture|photo|photograph|image) of\\b.*") && !text.contains("editable");
+    }
+
+    /** Several photographs are not sent to the procedural builder. */
+    static boolean reconstructionAsk(String text) {
+        if (text == null) {
+            return false;
+        }
+        boolean photos = text.contains("photograph") || text.contains("photos") || text.contains("these photo");
+        return photos && (text.contains("reconstruct") || text.contains("photogrammetry") || text.contains("3d"));
+    }
+
+    static Request partRequest(String t, ObjectSpec s) {
+        String n = t.replace("tire", "tyre");
+        if (n.matches("^(restore|return) the deleted .+$")) {
+            return new Request(Kind.PART, s, "restore-deleted|" + n.replaceFirst("^(restore|return) the deleted ", ""));
+        }
+        if (n.matches("^(put|bring|place) (the )?.+ back$") || n.matches("^(restore|return) (the )?.+$")) {
+            String phrase = n.replaceFirst("^(put|bring|place|restore|return) (the )?", "").replaceFirst(" back$", "");
+            return new Request(Kind.PART, s, "restore|" + phrase);
+        }
+        if (n.matches("^yes,? delete (the )?.+$")) {
+            return new Request(Kind.PART, s, "delete-yes|" + n.replaceFirst("^yes,? delete (the )?", ""));
+        }
+        if (n.matches("^delete (the )?.+$")) {
+            return new Request(Kind.PART, s, "delete|" + n.replaceFirst("^delete (the )?", ""));
+        }
+        if (n.matches(".*(remove|detach|take off|take out).*")) {
+            return new Request(Kind.PART, s, "detach|" + partName(n));
+        }
+        return null;
+    }
+
+    static String partName(String n) {
+        if (n.contains("front tyre")) {
+            return "front tyre";
+        }
+        if (n.contains("rear tyre")) {
+            return "rear tyre";
+        }
+        if (n.contains("front rim")) {
+            return "front rim";
+        }
+        if (n.contains("rear rim")) {
+            return "rear rim";
+        }
+        if (n.contains("tyre")) {
+            return "tyre";
+        }
+        if (n.contains("rim")) {
+            return "rim";
+        }
+        return "";
     }
 
     static String clean(String said) {
