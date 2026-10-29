@@ -25,6 +25,11 @@ public final class SolidSurface {
 
     /** Null when the model has no drawable, finite, in-range triangles. */
     public static SolidSurface pack(ObjectModel model) {
+        return pack(model, -1);
+    }
+
+    /** {@code selectedId} tints that part. -1 leaves every part in its own material colour. */
+    public static SolidSurface pack(ObjectModel model, int selectedId) {
         if (model == null || model.components.isEmpty()) {
             return null;
         }
@@ -49,7 +54,7 @@ public final class SolidSurface {
             if (mesh.nor == null || mesh.nor.length != mesh.pos.length) {
                 mesh.computeNormals();
             }
-            float[] tint = tint(part.material);
+            float[] tint = part.id == selectedId ? SELECTED : tint(part.material);
             int base = verts.size() / STRIDE;
             int count = mesh.vertexCount();
             for (int i = 0; i < count; i++) {
@@ -105,6 +110,9 @@ public final class SolidSurface {
         }
         return null;
     }
+
+    /** A selected part, so it can be told apart from the same material elsewhere. */
+    public static final float[] SELECTED = {0.15f, 0.95f, 0.75f};
 
     private static float[] tint(String material) {
         String m = material == null ? "" : material.toLowerCase(java.util.Locale.US);

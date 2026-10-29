@@ -6,12 +6,16 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 
 import org.junit.Test;
 
+import ai.dvine.brain.MiniJson;
 import ai.dvine.geom.TriMesh;
 import ai.dvine.ops.pipe.CreationRouter;
+import ai.dvine.ops.recon.ReconstructionJob;
 import ai.dvine.stage.SolidSurface;
 
 /** Detach and restore a real part. The motorcycle is procedural, not a measurement. */
@@ -120,6 +124,47 @@ public class SceneEditTest {
     }
 
     @Test
+    public void selectingTheFrontTyreTintsItAndLeavesTheMeshWhereItIs() {
+        ObjectSession session = new ObjectSession();
+        CreationDirector director = new CreationDirector(session, new File(System.getProperty("java.io.tmpdir")));
+        session.create(ObjectRequestInterpreter.interpret("build a motorcycle", null).spec, null);
+        ObjectModel m = session.model();
+        Component tyre = part(m, "front tyre");
+        float[] pose = SceneCommands.centroid(tyre);
+        SolidSurface plain = SolidSurface.pack(m, -1);
+        CreationDirector.Outcome selected = director.perform(ObjectRequestInterpreter.interpret("select the front tyre", m.spec));
+        assertEquals(CreationDirector.Action.CHANGED, selected.action);
+        assertEquals(tyre.id, session.selected());
+        assertTrue(selected.lines.get(0).contains("tyre-front-1"));
+        SolidSurface marked = SolidSurface.pack(m, session.selected());
+        assertEquals(plain.verts.length, marked.verts.length);
+        int highlighted = 0;
+        for (int i = 0; i < plain.verts.length; i += SolidSurface.STRIDE) {
+            assertEquals(plain.verts[i], marked.verts[i], 0f);
+            assertEquals(plain.verts[i + 1], marked.verts[i + 1], 0f);
+            assertEquals(plain.verts[i + 2], marked.verts[i + 2], 0f);
+            boolean hit = marked.verts[i + 6] == SolidSurface.SELECTED[0]
+                    && marked.verts[i + 7] == SolidSurface.SELECTED[1]
+                    && marked.verts[i + 8] == SolidSurface.SELECTED[2];
+            if (hit) {
+                highlighted++;
+            } else {
+                assertEquals(plain.verts[i + 6], marked.verts[i + 6], 0f);
+            }
+        }
+        assertTrue(highlighted > 0);
+        assertTrue(highlighted < plain.verts.length / SolidSurface.STRIDE);
+        assertEquals(pose[0], SceneCommands.centroid(tyre)[0], 1e-4);
+        String list = SceneInventory.text(m, session.selected());
+        assertTrue(list.contains("front tyre (tyre-front-1, part of wheel-front), selected"));
+        assertTrue(list.contains("not a measurement"));
+        CreationDirector.Outcome detach = director.perform(ObjectRequestInterpreter.interpret("remove the front tyre but keep it", m.spec));
+        assertTrue(detach.lines.get(0).contains("not deleted"));
+        assertTrue(part(m, "rear tyre").visible);
+        assertFalse(tyre.visible);
+    }
+
+    @Test
     public void aDetachedTyreIsStillDetachedAfterSaveAndReopen() throws Exception {
         File dir = new File(System.getProperty("java.io.tmpdir"), "dvine-moto-" + System.nanoTime());
         assertTrue(dir.mkdirs());
@@ -129,6 +174,10 @@ public class SceneEditTest {
         float[] pose = SceneCommands.centroid(part(session.model(), "front tyre"));
         director.perform(ObjectRequestInterpreter.interpret("take off the front tyre but keep it", session.model().spec));
         director.perform(ObjectRequestInterpreter.interpret("save it", session.model().spec));
+        String firstId = assetId(new File(dir, "motorcycle.json"));
+        director.perform(ObjectRequestInterpreter.interpret("save it", session.model().spec));
+        assertEquals(firstId, assetId(new File(dir, "motorcycle.json")));
+        assertFalse(measured(new File(dir, "motorcycle.json")));
 
         ObjectSession again = new ObjectSession();
         ObjectModel opened = new ObjectStore(dir).open("motorcycle");
@@ -162,5 +211,26 @@ public class SceneEditTest {
         assertEquals(CreationRouter.Capability.THREE_D_GENERATION, model.capability);
         assertTrue(model.available);
         assertTrue(model.note.toLowerCase().contains("not a measurement"));
+        ReconstructionJob none = ReconstructionJob.fromImages(null);
+        assertEquals(ReconstructionJob.State.EMPTY, none.state);
+        assertFalse(none.measured);
+        ReconstructionJob job = ReconstructionJob.fromImages(java.util.List.of(new byte[]{1, 2, 3}, new byte[]{1, 2, 3}, new byte[]{4}));
+        assertEquals(ReconstructionJob.State.UNSUPPORTED, job.state);
+        assertFalse(job.measured);
+        assertEquals(3, job.imageCount);
+        assertTrue(job.note.contains("not measured"));
+        assertTrue(job.note.contains("Some files are the same"));
+        assertTrue(job.note.contains("No camera poses"));
+        assertFalse(job.checksums.get(0).isEmpty());
+        assertEquals(job.checksums.get(0), job.checksums.get(1));
+    }
+
+    private static String assetId(File file) throws Exception {
+        return MiniJson.str(MiniJson.obj(MiniJson.parse(Files.readString(file.toPath()))).get("assetId"), "");
+    }
+
+    private static boolean measured(File file) throws Exception {
+        Object value = MiniJson.obj(MiniJson.parse(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8))).get("measured");
+        return Boolean.TRUE.equals(value);
     }
 }

@@ -89,6 +89,11 @@ public final class CreationDirector {
             }
             case PART:
                 return part(r.detail);
+            case INSPECT: {
+                Outcome o = new Outcome(Action.NONE, session.model());
+                o.lines.add(session.model() == null ? "There's no model on show." : SceneInventory.text(session.model(), session.selected()));
+                return o;
+            }
             case IMAGE: {
                 Outcome o = new Outcome(Action.NONE, session.model());
                 o.lines.add("I don't have an image-generation model in this build, so I did not make a picture. Say build a motorcycle if you want an editable concept model.");
@@ -194,10 +199,16 @@ public final class CreationDirector {
             return o;
         }
         String[] bits = detail.split("\\|", 2);
-        session.rememberParts();
+        boolean structure = !"select".equals(bits[0]);
+        if (structure) {
+            session.rememberParts();
+        }
         SceneCommands.Report report = SceneCommands.apply(m, bits[0], bits[1]);
-        if (!report.applied) {
+        if (structure && !report.applied) {
             session.dropLastPartMemory();
+        }
+        if ("select".equals(bits[0]) && report.applied) {
+            session.select(report.componentId);
         }
         Outcome o = new Outcome(report.applied ? Action.CHANGED : Action.NONE, m);
         o.lines.add(report.speech);

@@ -30,8 +30,8 @@ public final class MultiViewReconstructionManager {
         if (imageCount == 1) {
             return new Report(Quality.SINGLE_IMAGE_APPROXIMATION, "procedural-approximation", "Only one view was available.");
         }
-        return new Report(Quality.MULTI_VIEW_UNSUPPORTED, "multi-view-approximation",
-                imageCount + " views were available. Hidden surfaces are still not measured.");
+        return new Report(Quality.MULTI_VIEW_UNSUPPORTED, "unsupported",
+                imageCount + " views were supplied. No photogrammetry backend ran. This is not measured.");
     }
 
     public String method(int imageCount) {

@@ -183,7 +183,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     /** A thing designed in 3D: its triangles, when they validate, otherwise points. */
     public boolean becomeObject(ai.dvine.create.ObjectModel m) {
-        SolidSurface packed = SolidSurface.pack(m);
+        SolidSurface packed = SolidSurface.pack(m, objects.selected());
         if (packed != null) {
             solidMesh = packed;
             meshYaw = 0f;

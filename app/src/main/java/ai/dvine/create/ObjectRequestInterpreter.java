@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * explicit; the rest are defaults the engine assumes and reports.
  */
 public final class ObjectRequestInterpreter {
-    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, PART, IMAGE, RECON, UNKNOWN_OBJECT }
+    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, PART, INSPECT, IMAGE, RECON, UNKNOWN_OBJECT }
 
     public static final class Request {
         public final Kind kind;
@@ -77,6 +77,9 @@ public final class ObjectRequestInterpreter {
             if (part != null) {
                 return part;
             }
+            if (t.matches("^(what parts( are there)?|list( the)? parts|show( me)? the parts)$")) {
+                return new Request(Kind.INSPECT, current, null);
+            }
         }
         if (reconstructionAsk(t)) {
             return new Request(Kind.RECON, null, null);
@@ -133,6 +136,9 @@ public final class ObjectRequestInterpreter {
 
     static Request partRequest(String t, ObjectSpec s) {
         String n = t.replace("tire", "tyre");
+        if (n.matches("^(select|choose|highlight) (the )?.+$")) {
+            return new Request(Kind.PART, s, "select|" + n.replaceFirst("^(select|choose|highlight) (the )?", ""));
+        }
         if (n.matches("^(restore|return) the deleted .+$")) {
             return new Request(Kind.PART, s, "restore-deleted|" + n.replaceFirst("^(restore|return) the deleted ", ""));
         }

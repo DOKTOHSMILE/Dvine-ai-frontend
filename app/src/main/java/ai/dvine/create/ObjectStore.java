@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import ai.dvine.brain.MiniJson;
 
@@ -58,6 +59,9 @@ public final class ObjectStore {
         }
         j.put("hidden", hidden);
         j.put("deleted", deleted);
+        j.put("backend", "procedural");
+        j.put("measured", Boolean.FALSE);
+        j.put("assetId", existingAssetId(new File(dir, name(m.spec.category) + ".json")));
         File f = new File(dir, name(m.spec.category) + ".json");
         Files.write(f.toPath(), MiniJson.write(j).getBytes(StandardCharsets.UTF_8));
         return f;
@@ -145,6 +149,21 @@ public final class ObjectStore {
         File f = new File(dir, name(m.spec.category) + ".obj");
         Files.write(f.toPath(), sb.toString().getBytes(StandardCharsets.UTF_8));
         return f;
+    }
+
+    private String existingAssetId(File f) {
+        if (f.isFile()) {
+            try {
+                Map<String, Object> old = MiniJson.obj(MiniJson.parse(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
+                String id = MiniJson.str(old.get("assetId"), "");
+                if (!id.isEmpty()) {
+                    return id;
+                }
+            } catch (IOException | RuntimeException ignored) {
+                // a new id is written below
+            }
+        }
+        return UUID.randomUUID().toString();
     }
 
     private static String name(String category) {
