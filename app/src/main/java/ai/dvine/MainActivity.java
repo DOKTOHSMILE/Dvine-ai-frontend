@@ -379,6 +379,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private ai.dvine.ops.AssistantCore assistant;
     private static final int PICK_CONTENT = 47;
     private boolean pickerLearn;
+    private boolean pickerReconstruct;
 
     private void answer(String text) {
         answer(text, false);
@@ -1706,6 +1707,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (r == null) {
             return false;
         }
+        if (r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.RECON) {
+            openReconstructionPicker();
+            return true;
+        }
         boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN;
         if (!slow) {
@@ -2048,6 +2053,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     @Override
+    public void onHistory(String action) {
+        if ("undo".equals(action) || "redo".equals(action)) {
+            create(action);
+        }
+    }
+
+    @Override
     public void onPartial(String text) {
         lastPartial = text;
         stage.setSubtitle((heldWords + " " + text).trim());
@@ -2226,10 +2238,67 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
+    /** Several photographs. The pixels, not the sentence, go to the sparse solver. */
+    private void openReconstructionPicker() {
+        pickerReconstruct = true;
+        pickerLearn = false;
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, true);
+        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, PICK_CONTENT);
+            play(LocalTurn.speakAs(stage.agent(),
+                    "Choose two or more overlapping photographs of one object. I'll triangulate those views. One photo is not a reconstruction, and this is not a dense scan."), null);
+        } catch (android.content.ActivityNotFoundException e) {
+            pickerReconstruct = false;
+            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."), null);
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != PICK_CONTENT) {
+            return;
+        }
+        if (pickerReconstruct) {
+            pickerReconstruct = false;
+            pickerLearn = false;
+            if (resultCode != RESULT_OK || data == null) {
+                play(LocalTurn.speakAs(stage.agent(), "You closed the picker. I didn't reconstruct anything."), null);
+                return;
+            }
+            java.util.ArrayList<android.net.Uri> uris = new java.util.ArrayList<android.net.Uri>();
+            android.content.ClipData clip = data.getClipData();
+            if (clip != null) {
+                for (int i = 0; i < clip.getItemCount(); i++) {
+                    android.net.Uri uri = clip.getItemAt(i).getUri();
+                    if (uri != null) {
+                        uris.add(uri);
+                    }
+                }
+            }
+            if (uris.isEmpty() && data.getData() != null) {
+                uris.add(data.getData());
+            }
+            if (uris.isEmpty()) {
+                play(LocalTurn.speakAs(stage.agent(), "The picker didn't give me any photographs."), null);
+                return;
+            }
+            for (android.net.Uri uri : uris) {
+                try {
+                    getContentResolver().takePersistableUriPermission(uri, data.getFlags()
+                            & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (SecurityException ignored) {
+                    // a one-shot grant is enough to read it now
+                }
+            }
+            stage.innerVoice("Reading the photographs");
+            final int token = ++askId;
+            final java.util.List<android.net.Uri> chosen = uris;
+            new Thread(() -> deliverReconstruction(chosen, token), "dvine-recon").start();
             return;
         }
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
@@ -2250,6 +2319,56 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.activity("FILE", "Reading the file");
         final int token = ++askId;
         new Thread(() -> deliverFile(uri, learn, token), "dvine-file").start();
+    }
+
+    private void deliverReconstruction(java.util.List<android.net.Uri> uris, int token) {
+        java.util.ArrayList<ai.dvine.ops.recon.RasterImage> images = new java.util.ArrayList<ai.dvine.ops.recon.RasterImage>();
+        for (android.net.Uri uri : uris) {
+            try {
+                images.add(readRaster(uri));
+            } catch (Exception ignored) {
+                // one unreadable file is reported by the count, not invented
+            }
+        }
+        final ai.dvine.ops.recon.PhotoReconstruction.Built built = ai.dvine.ops.recon.PhotoReconstruction.from(images);
+        handler.post(() -> {
+            if (token != askId) {
+                return;
+            }
+            if (built.model != null && stage.objects.showReconstruction(built.model) != null) {
+                stage.becomeObject(built.model);
+            }
+            play(LocalTurn.speakAs(stage.agent(), built.speech), null);
+        });
+    }
+
+    private ai.dvine.ops.recon.RasterImage readRaster(android.net.Uri uri) throws java.io.IOException {
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                throw new java.io.IOException("no stream");
+            }
+            android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+        }
+        android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+        opts.inSampleSize = 1;
+        int max = Math.max(bounds.outWidth, bounds.outHeight);
+        while (max / opts.inSampleSize > 960) {
+            opts.inSampleSize *= 2;
+        }
+        android.graphics.Bitmap bitmap;
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+            bitmap = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+        }
+        if (bitmap == null) {
+            throw new java.io.IOException("undecoded");
+        }
+        int w = bitmap.getWidth(), h = bitmap.getHeight();
+        int[] px = new int[w * h];
+        bitmap.getPixels(px, 0, w, 0, 0, w, h);
+        bitmap.recycle();
+        return new ai.dvine.ops.recon.RasterImage(w, h, px);
     }
 
     private void deliverFile(android.net.Uri uri, boolean learn, int token) {

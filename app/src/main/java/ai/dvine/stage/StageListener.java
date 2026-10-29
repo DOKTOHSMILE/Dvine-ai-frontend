@@ -14,4 +14,8 @@ public interface StageListener {
 
     /** Double-tap anywhere: the text field, to type instead. */
     void onType();
+
+    /** A row in the part tree: "undo" or "redo". */
+    default void onHistory(String action) {
+    }
 }

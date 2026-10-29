@@ -94,6 +94,9 @@ public final class PartTree {
                 }
             }
         }
+        rows.add(row("history-undo", "undo", -1, 0, false, false, true, false, false, x, top, width, rowH));
+        top += rowH;
+        rows.add(row("history-redo", "redo", -1, 0, false, false, true, false, false, x, top, width, rowH));
         return new PartTree(rows, x, y, width, top - y);
     }
 
@@ -130,6 +133,15 @@ public final class PartTree {
             }
         }
         return null;
+    }
+
+    /** "undo" or "redo" when the point is on that row. */
+    public String command(float px, float py) {
+        Row row = rowAt(px, py);
+        if (row == null || !row.id.startsWith("history-")) {
+            return null;
+        }
+        return row.id.substring("history-".length());
     }
 
     public String text() {

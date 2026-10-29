@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -133,6 +134,65 @@ public class StudioTest {
             assertFalse(row.componentId == tyre.id);
         }
         assertTrue(closed.text().contains("> wheel-front"));
+        PartTree.Row undo = null;
+        for (PartTree.Row row : open.rows) {
+            if ("undo".equals(row.label)) {
+                undo = row;
+            }
+        }
+        assertNotNull(undo);
+        assertEquals("undo", open.command(undo.x + 4, undo.y + 4));
+    }
+
+    @Test
+    public void pickedPhotographsReachTheSolverAndUndoRestoresTheModel() {
+        double f = 520, cx = 239.5, cy = 179.5;
+        double[][] world = new double[12][3];
+        int n = 0;
+        for (int ix = 0; ix < 4; ix++) {
+            for (int iy = 0; iy < 3; iy++) {
+                world[n][0] = -0.9 + ix * 0.6;
+                world[n][1] = -0.45 + iy * 0.45;
+                world[n][2] = 4.4 + ((ix * 3 + iy) % 4) * 0.35;
+                n++;
+            }
+        }
+        RasterImage left = project(world, f, cx, cy, 0, 0, 0);
+        RasterImage right = project(world, f, cx, cy, Math.toRadians(14), -0.32, 0.02);
+        ai.dvine.ops.recon.PhotoReconstruction.Built built = ai.dvine.ops.recon.PhotoReconstruction.from(List.of(left, right));
+        assertNotNull(built.model);
+        assertTrue(built.result.measured);
+        assertEquals(0, built.result.densePointCount);
+        assertTrue(built.model.triangleCount() >= 1);
+        assertTrue(built.model.problems.toString().contains("not a closed"));
+        assertTrue(built.speech.toLowerCase().contains("not colmap"));
+        assertFalse(built.model.valid());
+
+        ai.dvine.ops.recon.PhotoReconstruction.Built none = ai.dvine.ops.recon.PhotoReconstruction.from(List.of());
+        assertEquals(null, none.model);
+        assertTrue(none.speech.toLowerCase().contains("didn't get any"));
+        ai.dvine.ops.recon.PhotoReconstruction.Built single = ai.dvine.ops.recon.PhotoReconstruction.from(List.of(left));
+        assertEquals(null, single.model);
+        assertFalse(single.result.measured);
+
+        File dir = new File(System.getProperty("java.io.tmpdir"), "dvine-lib-" + System.nanoTime());
+        assertTrue(dir.mkdirs());
+        ObjectSession session = new ObjectSession();
+        CreationDirector director = new CreationDirector(session, dir);
+        session.create(ObjectRequestInterpreter.interpret("build a motorcycle", null).spec, null);
+        assertNotNull(session.showReconstruction(built.model));
+        assertEquals("reconstruction", session.model().spec.category);
+        CreationDirector.Outcome saved = director.perform(ObjectRequestInterpreter.interpret("save it", session.model().spec));
+        assertTrue(saved.lines.get(0).toLowerCase().contains("didn't save"));
+        director.perform(ObjectRequestInterpreter.interpret("undo", session.model().spec));
+        assertEquals("motorcycle", session.model().spec.category);
+        assertNotNull(part(session.model(), "front tyre"));
+
+        session.create(ObjectRequestInterpreter.interpret("build a motorcycle", null).spec, null);
+        director.perform(ObjectRequestInterpreter.interpret("save it", session.model().spec));
+        CreationDirector.Outcome list = director.perform(ObjectRequestInterpreter.interpret("what have I saved", null));
+        assertTrue(list.lines.get(0).toLowerCase().contains("motorcycle"));
+        assertTrue(list.lines.get(0).toLowerCase().contains("not measured"));
     }
 
     /** Median nearest-neighbour error after scaling both clouds to the same size. */

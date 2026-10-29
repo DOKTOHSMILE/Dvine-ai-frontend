@@ -112,6 +112,35 @@ public final class ObjectStore {
         return built;
     }
 
+    /** What is actually in the save folder. Measured stays false unless a file says otherwise. */
+    public String catalogue() {
+        File[] files = dir.isDirectory() ? dir.listFiles((d, n) -> n.endsWith(".json")) : null;
+        if (files == null || files.length == 0) {
+            return "You haven't saved a model yet.";
+        }
+        StringBuilder b = new StringBuilder();
+        for (File f : files) {
+            try {
+                Map<String, Object> j = MiniJson.obj(MiniJson.parse(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
+                String title = MiniJson.str(j.get("title"), f.getName());
+                String asset = MiniJson.str(j.get("assetId"), "");
+                String backend = MiniJson.str(j.get("backend"), "");
+                b.append("- ").append(title).append(" (").append(f.getName()).append(")");
+                if (!asset.isEmpty()) {
+                    b.append(", id ").append(asset);
+                }
+                b.append(Boolean.TRUE.equals(j.get("measured")) ? ", measured" : ", not measured");
+                if (!backend.isEmpty()) {
+                    b.append(", ").append(backend);
+                }
+                b.append('\n');
+            } catch (IOException | RuntimeException e) {
+                b.append("- ").append(f.getName()).append(", unreadable\n");
+            }
+        }
+        return b.toString().trim();
+    }
+
     private static Component named(ObjectModel m, String name) {
         if (m == null) {
             return null;

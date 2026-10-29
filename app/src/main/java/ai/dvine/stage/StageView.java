@@ -753,15 +753,20 @@ public final class StageView extends View implements Choreographer.FrameCallback
                     treeDown = false;
                     if (event.getActionMasked() == MotionEvent.ACTION_UP && partTree != null
                             && Math.hypot(x - downX, y - downY) < 14f * density) {
-                        String group = partTree.toggle(x, y);
-                        if (group != null) {
-                            if (!treeCollapsed.add(group)) {
-                                treeCollapsed.remove(group);
-                            }
+                        String command = partTree.command(x, y);
+                        if (command != null && listener != null) {
+                            listener.onHistory(command);
                         } else {
-                            int id = partTree.hit(x, y);
-                            if (id >= 0) {
-                                objects.select(id);
+                            String group = partTree.toggle(x, y);
+                            if (group != null) {
+                                if (!treeCollapsed.add(group)) {
+                                    treeCollapsed.remove(group);
+                                }
+                            } else {
+                                int id = partTree.hit(x, y);
+                                if (id >= 0) {
+                                    objects.select(id);
+                                }
                             }
                         }
                         layoutTree();

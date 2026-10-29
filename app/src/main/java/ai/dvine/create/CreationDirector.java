@@ -82,6 +82,11 @@ public final class CreationDirector {
             }
             case UNDO:
             case REDO: {
+                if (r.kind == ObjectRequestInterpreter.Kind.UNDO && session.undoReconstruction()) {
+                    Outcome back = new Outcome(Action.CHANGED, session.model());
+                    back.lines.add("The sparse reconstruction is off the board. What was showing before is back.");
+                    return back;
+                }
                 if (r.kind == ObjectRequestInterpreter.Kind.UNDO && session.model() != null && session.model().rig != null
                         && session.model().rig.undo()) {
                     session.model().rig.skin(session.model());
@@ -112,13 +117,22 @@ public final class CreationDirector {
             }
             case RECON: {
                 Outcome o = new Outcome(Action.NONE, session.model());
-                o.lines.add("Sparse photogrammetry is on this phone, but these words did not include the image pixels. I did not invent a mesh. One photo is not enough, and this is not a dense scan.");
+                o.lines.add("Choose two or more overlapping photographs. I will triangulate the pixels you pick. I will not invent a mesh from this sentence. One photo is not a reconstruction, and this is not a dense scan.");
                 return o;
             }
             case POSE:
                 return pose(r.detail);
+            case LIBRARY: {
+                Outcome o = new Outcome(Action.NONE, session.model());
+                o.lines.add(store.catalogue());
+                return o;
+            }
             case SAVE: {
                 Outcome o = new Outcome(Action.NONE, session.model());
+                if (session.model() != null && "reconstruction".equals(session.model().spec.category)) {
+                    o.lines.add("I didn't save it. A sparse reconstruction is not a procedural model, and reopening the file would rebuild the wrong shape.");
+                    return o;
+                }
                 try {
                     store.save(session.model());
                     o.lines.add("Saved the " + session.model().title + ", version " + session.model().version

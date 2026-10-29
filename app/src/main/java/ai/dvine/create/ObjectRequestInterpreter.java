@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * explicit; the rest are defaults the engine assumes and reports.
  */
 public final class ObjectRequestInterpreter {
-    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, PART, INSPECT, IMAGE, RECON, POSE, UNKNOWN_OBJECT }
+    public enum Kind { CREATE, MODIFY, VIEW, UNDO, REDO, SAVE, OPEN, EXPORT, RESTORE, PART, INSPECT, IMAGE, RECON, POSE, LIBRARY, UNKNOWN_OBJECT }
 
     public static final class Request {
         public final Kind kind;
@@ -63,6 +63,9 @@ public final class ObjectRequestInterpreter {
         }
         if (t.matches("^(raise|lift|lower|put down) (your |the |my )?(left|right) (arm|forearm).*")) {
             return new Request(Kind.POSE, current, t);
+        }
+        if (t.matches("^(what have i saved|list my (saved )?(models|designs)|show my saved models)$")) {
+            return new Request(Kind.LIBRARY, current, null);
         }
         if (t.matches("^(return|go back|change back|turn back|come back)( to)?( your)?( normal| human| original)?( form| self| shape| body)?( please)?$")
                 || t.matches("^(be|become) (human|yourself|normal) again$|^restore yourself$|^back to normal$")) {

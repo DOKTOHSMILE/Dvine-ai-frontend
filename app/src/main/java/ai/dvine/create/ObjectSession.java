@@ -30,6 +30,7 @@ public final class ObjectSession {
     private final Deque<boolean[]> partKept = new ArrayDeque<boolean[]>();
     private final Deque<boolean[]> partShownRedo = new ArrayDeque<boolean[]>();
     private final Deque<boolean[]> partKeptRedo = new ArrayDeque<boolean[]>();
+    private final Deque<ObjectModel> held = new ArrayDeque<ObjectModel>();
 
     public ObjectModel model() {
         return model;
@@ -48,6 +49,7 @@ public final class ObjectSession {
         }
         undo.clear();
         redo.clear();
+        held.clear();
         clearParts();
         provenance = new ArrayList<Provenance>(m.provenance);
         version = 1;
@@ -68,6 +70,7 @@ public final class ObjectSession {
         }
         undo.clear();
         redo.clear();
+        held.clear();
         clearParts();
         provenance = new ArrayList<Provenance>(m.provenance);
         version = m.version;
@@ -75,6 +78,34 @@ public final class ObjectSession {
         view = "exterior";
         selected = -1;
         return m;
+    }
+
+    /**
+     * Puts a sparse reconstruction on the board and keeps the previous model
+     * so undo can restore it. The reconstruction is not a procedural spec.
+     */
+    public ObjectModel showReconstruction(ObjectModel incoming) {
+        if (incoming == null || incoming.triangleCount() < 1) {
+            return null;
+        }
+        if (model != null) {
+            held.push(model);
+        }
+        clearParts();
+        model = incoming;
+        selected = -1;
+        return model;
+    }
+
+    /** Restores the model that was showing before the last reconstruction. */
+    public boolean undoReconstruction() {
+        if (held.isEmpty()) {
+            return false;
+        }
+        clearParts();
+        model = held.pop();
+        selected = -1;
+        return true;
     }
 
     /** Applies a changed spec as a new version, if it validates. */
@@ -89,6 +120,7 @@ public final class ObjectSession {
         }
         undo.push(model.spec);
         redo.clear();
+        held.clear();
         clearParts();
         version++;
         model = m;
@@ -125,6 +157,7 @@ public final class ObjectSession {
         model = null;
         undo.clear();
         redo.clear();
+        held.clear();
         clearParts();
         selected = -1;
     }

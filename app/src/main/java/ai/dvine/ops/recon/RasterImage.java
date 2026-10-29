@@ -36,4 +36,29 @@ public final class RasterImage {
             }
         }
     }
+
+    /** Longest side at most {@code maxEdge}. Same object when it already fits. */
+    public RasterImage limit(int maxEdge) {
+        int edge = Math.max(width, height);
+        if (edge <= maxEdge) {
+            return this;
+        }
+        double s = maxEdge / (double) edge;
+        return scaled(Math.max(1, (int) Math.round(width * s)), Math.max(1, (int) Math.round(height * s)));
+    }
+
+    public RasterImage scaled(int w, int h) {
+        if (w == width && h == height) {
+            return this;
+        }
+        int[] px = new int[w * h];
+        for (int y = 0; y < h; y++) {
+            int sy = Math.min(height - 1, y * height / h);
+            for (int x = 0; x < w; x++) {
+                int sx = Math.min(width - 1, x * width / w);
+                px[y * w + x] = argb[sy * width + sx];
+            }
+        }
+        return new RasterImage(w, h, px);
+    }
 }
