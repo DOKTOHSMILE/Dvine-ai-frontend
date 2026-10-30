@@ -114,7 +114,7 @@ public final class LocalModel {
                 roles[i] = turns.get(i)[0];
                 texts[i] = turns.get(i)[1];
             }
-            String answer = withTimeout(() -> NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, sink));
+            String answer = withTimeout(sink, wrapped -> NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, wrapped));
             if (answer != null && !answer.trim().isEmpty()) {
                 remember(question, ActionTags.strip(answer));
                 return answer.trim();
@@ -140,7 +140,7 @@ public final class LocalModel {
         if (state != State.READY) {
             return null;
         }
-        String answer = withTimeout(() -> NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{prompt}, maxTokens, 0.35f, sink));
+        String answer = withTimeout(sink, wrapped -> NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{prompt}, maxTokens, 0.35f, wrapped));
         if (answer == null || answer.trim().isEmpty()) {
             problem = NativeLlm.nError(handle);
             return null;
@@ -148,27 +148,37 @@ public final class LocalModel {
         return answer.trim();
     }
 
-    /** Cancels a reply that has produced nothing for too long, so the offline answer can play. */
-    private String withTimeout(java.util.concurrent.Callable<String> call) {
-        final java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+    /**
+     * Cancels a reply that has gone quiet for 12 seconds, or that is still running after 90.
+     * A token resets the quiet timer, so a slow but live answer is not cut off at 25 seconds.
+     */
+    private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
+        final ReplyWatch watch = new ReplyWatch(12_000, 90_000, System.currentTimeMillis());
+        NativeLlm.Sink wrapped = text -> {
+            watch.touch(System.currentTimeMillis());
+            return sink == null || sink.onText(text);
+        };
         Thread watchdog = new Thread(() -> {
-            try {
-                Thread.sleep(25_000);
-            } catch (InterruptedException e) {
-                return;
-            }
-            if (!done.get()) {
-                cancel();
+            while (!watch.finished()) {
+                try {
+                    Thread.sleep(400);
+                } catch (InterruptedException e) {
+                    return;
+                }
+                if (watch.expired(System.currentTimeMillis())) {
+                    cancel();
+                    return;
+                }
             }
         }, "dvine-model-timeout");
         watchdog.setDaemon(true);
         watchdog.start();
         try {
-            return call.call();
-        } catch (Exception e) {
+            return call.apply(wrapped);
+        } catch (RuntimeException e) {
             return null;
         } finally {
-            done.set(true);
+            watch.finish();
             watchdog.interrupt();
         }
     }

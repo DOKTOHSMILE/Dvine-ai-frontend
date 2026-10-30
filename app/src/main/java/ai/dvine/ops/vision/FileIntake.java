@@ -46,11 +46,11 @@ public final class FileIntake {
             return new Report("image", withLearn(speech, learn, note), note, true, image.width, image.height);
         }
         if (type.equals("application/pdf") || lower.endsWith(".pdf") || starts(data, "%PDF")) {
-            String speech = "I opened " + label + ", a PDF. I can show the first page as a picture. This build has no text extractor, so I have not read the words.";
+            String speech = "I opened " + label + ", a PDF. This build has no text extractor, so I have not read the words. I'll try the first page as a picture.";
             return new Report("pdf", withLearn(speech, learn, null), null, true, 0, 0);
         }
         if (type.startsWith("video/") || lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mkv")) {
-            String speech = "I opened " + label + ", a video of about " + kb(size) + ". I can show one frame if the phone can decode it. I have not watched every frame.";
+            String speech = "I opened " + label + ", a video of about " + kb(size) + ". I'll try one frame if the phone can decode it. I have not watched every frame.";
             return new Report("video", withLearn(speech, learn, null), null, true, 0, 0);
         }
         if (type.startsWith("audio/") || lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav")) {
@@ -61,7 +61,10 @@ public final class FileIntake {
             if (text.isBlank()) {
                 return new Report("empty", label + " has no readable text.", null, false, 0, 0);
             }
-            String excerpt = text.length() > 280 ? text.substring(0, 277).trim() + "..." : text.trim();
+            String excerpt = safeExcerpt(text);
+            if (excerpt.isEmpty()) {
+                return new Report("text", "I read " + label + ", but the text looked like instructions to me, so I didn't repeat it or save it.", null, false, 0, 0);
+            }
             String speech = "I read " + label + ". It starts: " + excerpt;
             String note = learn ? excerpt : null;
             return new Report("text", withLearn(speech, learn, note), note, false, 0, 0);
@@ -77,6 +80,24 @@ public final class FileIntake {
             return speech + " I didn't save it. There was no text I could store, and saving a file is not retraining.";
         }
         return speech + " I saved that note in the learning journal. That is a stored note, not a change to the model's weights.";
+    }
+
+    /** Drops wording that tells the model to ignore its rules or run a command. That text is not read aloud. */
+    static String safeExcerpt(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String cleaned = text.replaceAll("(?i)ignore (all |the )?(previous |prior )?(instructions|rules|prompts)", " ")
+                .replaceAll("(?i)you are now", " ")
+                .replaceAll("(?i)disregard (all |the )?(previous |prior )?[^.\\n]*", " ")
+                .replaceAll("(?i)rm\\s+-rf\\S*", " ")
+                .replaceAll("(?i)\\bsudo\\s+\\S+", " ")
+                .replaceAll("(?i)\\bsystem\\s*:", " ");
+        String excerpt = cleaned.replaceAll("\\s+", " ").trim();
+        if (excerpt.length() > 280) {
+            return excerpt.substring(0, 277).trim() + "...";
+        }
+        return excerpt;
     }
 
     private static boolean looksText(String mime, String name, byte[] data) {

@@ -797,6 +797,10 @@ public final class StageView extends View implements Choreographer.FrameCallback
                                 int id = partTree.hit(x, y);
                                 if (id >= 0) {
                                     objects.select(id);
+                                    ai.dvine.create.PartTree.Row row = partTree.rowAt(x, y);
+                                    if (row != null && listener != null) {
+                                        listener.onPart(row.label);
+                                    }
                                 }
                             }
                         }

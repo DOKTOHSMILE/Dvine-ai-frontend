@@ -114,8 +114,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private ai.dvine.net.DeskClient desk;
     private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors
             .newSingleThreadExecutor();
-    private int askId;
-    private int readToken;
+    private final java.util.concurrent.ExecutorService buildThread = java.util.concurrent.Executors
+            .newSingleThreadExecutor();
+    private volatile int askId;
+    private volatile int readToken;
     private volatile ai.dvine.llm.ThinkPace thinkPace;
     private int thinkToken;
     private String thinkWrite = "Writing the answer";
@@ -127,7 +129,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (line != null && !line.isEmpty() && !line.equals(lastTaskLine)) {
                     lastTaskLine = line;
                     stage.activity("TASK", line);
-                    stage.progress(line);
+                    if (thinkPace == null) {
+                        stage.progress(line);
+                    }
                 }
             }
             if (!isFinishing()) {
@@ -847,10 +851,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 && (fromBrain ? askLocal(asked, reply, false) : agentTurn(asked, reply))) {
             return;
         }
-        if (modelTopic && offerModel(reply)) {
+        if (modelTopic && offerModel(reply, ai.dvine.llm.AnswerGate.refuseUngrounded(
+                model != null && model.ready(), reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked)))) {
             return;
         }
-        if (modelTopic && (model == null || !model.ready()) && ai.dvine.llm.FreshFacts.worthLooking(asked)) {
+        if (modelTopic && ai.dvine.llm.AnswerGate.refuseUngrounded(
+                model != null && model.ready(), reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked))) {
             play(LocalTurn.speakAs(stage.agent(), "I don't have a current source for that, so I won't guess."), null);
             return;
         }
@@ -898,7 +904,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     /**
      * Once, the first time a question would have gone to the language model but it isn't installed: the offline answer, then the offer to install it.
      */
-    private boolean offerModel(BrainAnswer reply) {
+    private boolean offerModel(BrainAnswer reply, boolean refuseGuess) {
         if (model == null || model.installed() || prefs.getBoolean("llm_offered", false)
                 || model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED
                 || model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING
@@ -906,7 +912,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return false;
         }
         prefs.edit().putBoolean("llm_offered", true).apply();
-        List<TurnLine> lines2 = new ArrayList<TurnLine>(reply.lines);
+        List<TurnLine> lines2 = new ArrayList<TurnLine>();
+        if (!refuseGuess) {
+            lines2.addAll(reply.lines);
+        } else {
+            lines2.add(new TurnLine(stage.agent(), "SAY", "I don't have a current source for that, so I won't guess."));
+        }
         String agent = stage.agent();
         lines2.add(new TurnLine(agent, "SAY",
                 "By the way, I can answer questions like this much better once my brain files are on this phone."
@@ -2088,7 +2099,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         String phase = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE ? "Drawing the picture"
                 : creation.researchAvailable() ? "Researching it" : "Designing the geometry";
         armThink(phase, phase);
-        deskThread.execute(() -> {
+        buildThread.execute(() -> {
             final ai.dvine.create.CreationDirector.Outcome o = creation.perform(r);
             handler.post(() -> {
                 if (id == askId && !isFinishing()) {
@@ -2421,6 +2432,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     @Override
+    public void onPart(String label) {
+        if (label == null || label.isBlank()) {
+            return;
+        }
+        stage.innerVoice("Selected " + label + ". Not moved.");
+    }
+
+    @Override
     public void onPartial(String text) {
         lastPartial = text;
         stage.setSubtitle((heldWords + " " + text).trim());
@@ -2686,6 +2705,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private void deliverReconstruction(java.util.List<android.net.Uri> uris, int token) {
         java.util.ArrayList<ai.dvine.ops.recon.RasterImage> images = new java.util.ArrayList<ai.dvine.ops.recon.RasterImage>();
         for (android.net.Uri uri : uris) {
+            if (token != askId) {
+                handler.post(this::endThink);
+                return;
+            }
             try {
                 images.add(readRaster(uri));
             } catch (Exception ignored) {
@@ -2790,14 +2813,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             if (learn && done.note != null && journal != null) {
                 journal.add(LearningJournal.TAUGHT_FACT, shown, done.note);
             }
-            if (done.showImage) {
-                showSelected(uri, done.kind, shown);
+            if (done.showImage && !showSelected(uri, done.kind, shown)) {
+                play(LocalTurn.speakAs(stage.agent(), done.speech + " The picture didn't open."), null);
+                return;
             }
             play(LocalTurn.speakAs(stage.agent(), done.speech), null);
         });
     }
 
-    private void showSelected(android.net.Uri uri, String kind, String name) {
+    private boolean showSelected(android.net.Uri uri, String kind, String name) {
         try {
             android.graphics.Bitmap bitmap = null;
             if ("image".equals(kind)) {
@@ -2850,10 +2874,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 stage.showPhotograph(ai.dvine.render.field.Raster.image(bitmap,
                         ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 1.6f), name);
                 bitmap.recycle();
+                return true;
             }
         } catch (Exception ignored) {
-            stage.innerVoice("I couldn't put that file on the board.");
+            return false;
         }
+        return false;
     }
 
     @Override

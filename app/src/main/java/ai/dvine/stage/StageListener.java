@@ -18,4 +18,8 @@ public interface StageListener {
     /** A row in the part tree: "undo" or "redo". */
     default void onHistory(String action) {
     }
+
+    /** A part row was tapped. The part is selected, not moved. */
+    default void onPart(String label) {
+    }
 }
