@@ -93,13 +93,32 @@ public class ClaimCheckTest {
     @Test
     public void aModelCannotOverrideARefusalAndRolesStaySpecialists() {
         AssistantCore core = AssistantCore.offline(OpsPipelineTest.dir());
-        core.orchestrator().setModel(new ai.dvine.ops.pipe.CheckedReading(prompt -> "operation=delete target=file"));
-        Outcome refused = core.hear("do not delete the file", 1);
+        int[] calls = {0};
+        core.orchestrator().setModel(new ai.dvine.ops.pipe.CheckedReading(prompt -> {
+            calls[0]++;
+            return "operation=delete target=file";
+        }));
+        Outcome ruled = core.hear("do not delete the file", 1);
+        assertEquals(0, calls[0]);
+        assertFalse(ruled.speech.toLowerCase(Locale.US).contains("contradict"));
+        AssistantCore worker = AssistantCore.offline(OpsPipelineTest.dir());
+        worker.orchestrator().setModel(new ai.dvine.ops.pipe.CheckedReading(prompt -> {
+            calls[0]++;
+            return "operation=delete target=file";
+        }));
+        Outcome refused = worker.consider("do not delete the file", 1);
+        assertEquals(1, calls[0]);
         assertTrue(refused.speech.toLowerCase(Locale.US).contains("contradict"));
-        core.orchestrator().setModel(new ai.dvine.ops.pipe.CheckedReading(prompt -> "rm -rf /"));
-        Outcome junk = core.hear("hello there", 1);
+        AssistantCore junkCore = AssistantCore.offline(OpsPipelineTest.dir());
+        junkCore.orchestrator().setModel(new ai.dvine.ops.pipe.CheckedReading(prompt -> {
+            calls[0]++;
+            return "rm -rf /";
+        }));
+        Outcome junk = junkCore.consider("hello there", 1);
         assertFalse(junk.speech.contains("rm -rf"));
-        assertEquals(0, core.termux().history().all().size());
+        assertEquals(0, junkCore.termux().history().all().size());
+        AssistantCore bare = AssistantCore.offline(OpsPipelineTest.dir());
+        assertFalse(bare.consider("what is a triangle", 1).handled);
 
         AssistantCore roles = AssistantCore.offline(OpsPipelineTest.dir());
         assertEquals("obi", roles.hear("what could go wrong with this design", 1).persona);

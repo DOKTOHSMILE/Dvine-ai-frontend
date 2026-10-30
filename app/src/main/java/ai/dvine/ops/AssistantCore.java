@@ -142,6 +142,24 @@ public final class AssistantCore {
         return outcome;
     }
 
+    /** Model reading. Does not run on the screen thread. No model means the rules already had their say. */
+    public Outcome consider(String text, double confidence) {
+        Outcome outcome = orchestrator.consider(text, confidence, now++);
+        if (outcome == null) {
+            return Outcome.pass();
+        }
+        lastDecision = new ai.dvine.ops.pipe.BrainCoordinator().decide(text, orchestrator.scene());
+        lastPlan = lastDecision.plan;
+        if ((outcome.persona == null || outcome.persona.isEmpty()) && !lastDecision.persona.isEmpty()) {
+            outcome.persona = lastDecision.persona;
+        }
+        return outcome;
+    }
+
+    public boolean hasModel() {
+        return orchestrator.hasModel();
+    }
+
     private Outcome control(VoiceInterruptionManager.Decision d, long at) {
         switch (d.action) {
             case CONTINUE:

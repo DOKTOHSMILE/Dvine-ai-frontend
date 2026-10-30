@@ -125,6 +125,23 @@ public final class DvineTaskOrchestrator {
         this.model = model;
     }
 
+    public boolean hasModel() {
+        return model != null;
+    }
+
+    /** Rules only. Safe on the screen thread: the language model is not called. */
+    public Outcome handle(String text, double confidence, long now) {
+        return dispatch(text, confidence, now, false);
+    }
+
+    /** The installed model may name one allowed operation. Call this off the screen thread. */
+    public Outcome consider(String text, double confidence, long now) {
+        if (model == null) {
+            return Outcome.pass();
+        }
+        return dispatch(text, confidence, now, true);
+    }
+
     public void setClock(Now clock, TimeZone zone) {
         if (clock != null) {
             this.clock = clock;
@@ -150,7 +167,7 @@ public final class DvineTaskOrchestrator {
         return sshFiles;
     }
 
-    public Outcome handle(String text, double confidence, long now) {
+    private Outcome dispatch(String text, double confidence, long now, boolean useModel) {
         long t0 = System.nanoTime();
         optimizer.route(text);
         performance.add("route", System.nanoTime() - t0);
@@ -180,7 +197,7 @@ public final class DvineTaskOrchestrator {
         if (DirectQuestions.abilities(said)) {
             return finish(abilitiesAnswer());
         }
-        NaturalLanguageActionEngine.Read read = language.read(said, confidence, memory, model);
+        NaturalLanguageActionEngine.Read read = language.read(said, confidence, memory, useModel ? model : null);
         performance.add("interpret", System.nanoTime() - t0);
         if ("reject".equals(read.intent)) {
             return finish(Outcome.reply(read.interpretation.clarify));

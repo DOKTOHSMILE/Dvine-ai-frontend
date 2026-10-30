@@ -111,6 +111,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private ai.dvine.net.DeskClient desk;
     private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors.newSingleThreadExecutor();
     private int askId;
+    private int readToken;
     /** ANRE: the particles build researched, editable 3D objects. */
     private ai.dvine.create.CreationDirector creation;
     private ai.dvine.net.WebClient web;
@@ -387,6 +388,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     /** {@code interpreted}: the words are a command the brain already read; they go straight to DVINE's own brain. */
     private void answer(String text, boolean interpreted) {
+        readToken++;
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;
@@ -399,6 +401,31 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             if (outcome.handled) {
                 presentOutcome(outcome);
+                return;
+            }
+            ai.dvine.ops.pipe.BrainCoordinator.Decision decision = assistant.lastDecision();
+            boolean open = decision != null && (decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.ANSWER
+                    || decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.UNSUPPORTED);
+            if (open && model != null && model.ready() && assistant.hasModel()) {
+                final String pending = text;
+                final int mine = ++readToken;
+                modelThread.execute(() -> {
+                    final ai.dvine.ops.Outcome later = assistant.consider(pending, 1);
+                    handler.post(() -> {
+                        if (mine != readToken) {
+                            return;
+                        }
+                        if (later.persona != null && !later.persona.isEmpty()) {
+                            prefs.edit().putString("face", later.persona).apply();
+                            stage.ensureFace(later.persona, null);
+                        }
+                        if (later.handled) {
+                            presentOutcome(later);
+                        } else {
+                            answer(pending, true);
+                        }
+                    });
+                });
                 return;
             }
         }
@@ -1505,6 +1532,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             final boolean ok = model.load(ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
             if (assistant != null && model.spec != null) {
                 new ai.dvine.ops.mind.ModelAdapter(assistant.models()).report(model.spec.file, ok);
+                assistant.orchestrator().setModel(ok ? ai.dvine.ops.pipe.CheckedReading.of(model) : null);
             }
             handler.post(() -> {
                 stage.activity("MODEL", ok ? "ready, offline" : model.problem());
