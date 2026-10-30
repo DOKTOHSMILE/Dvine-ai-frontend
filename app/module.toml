@@ -43,6 +43,9 @@ scope = "TEST_IMPLEMENTATION"
 java = ["src/test/java", "src/test/kotlin"]
 resources = ["src/test/resources"]
 
+[dependencies]
+implementation = ["androidx.appcompat:appcompat:1.6.1", "androidx.core:core:1.12.0"]
+
 [android]
 namespace = "ai.dvine"
 compileSdk = 35

@@ -52,3 +52,8 @@ android {
 
 // Test-only setup (JUnit, Robolectric) lives in tests.gradle so CodeAssist sees a plain build file.
 apply from: "tests.gradle"
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.core:core:1.12.0'
+}

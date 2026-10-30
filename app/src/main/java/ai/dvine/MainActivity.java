@@ -39,8 +39,7 @@ import ai.dvine.voice.ListenCallback;
 import ai.dvine.voice.TalkBridge;
 
 /**
- * No screen UI. One persona on black; touch and hold to speak, double-tap to type. Anything that leaves
- * the app is asked out loud first and runs only after a spoken yes.
+ * No screen UI. One persona on black; touch and hold to speak, double-tap to type. Anything that leaves the app is asked out loud first and runs only after a spoken yes.
  */
 public final class MainActivity extends Activity implements StageListener, ListenCallback {
     private static final int MIC = 21;
@@ -64,7 +63,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private final ai.dvine.brain.ContextExaminer examiner = new ai.dvine.brain.ContextExaminer();
     // the on-device language model (llama.cpp + Qwen3 1.7B): answers what the offline brain can't, offline
     private ai.dvine.llm.LocalModel model;
-    private final java.util.concurrent.ExecutorService modelThread = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.ExecutorService modelThread = java.util.concurrent.Executors
+            .newSingleThreadExecutor();
     private boolean confirmModelDownload, confirmModelRemove, streamOpen;
     private ai.dvine.llm.ModelHub hub;
     private ai.dvine.llm.DownloadStatus.Phase lastPhase = ai.dvine.llm.DownloadStatus.Phase.IDLE;
@@ -75,8 +75,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private final Runnable onDownload = () -> {
         ai.dvine.llm.DownloadStatus st = hub.status;
         ai.dvine.llm.DownloadStatus.Phase phase = st.phase();
-        boolean show = !downloadBarHidden && (st.active() || phase != lastPhase && phase != ai.dvine.llm.DownloadStatus.Phase.IDLE);
-        stage.setDownload(show || stage.downloadShown() && !downloadBarHidden, "Downloading brain files", st.percent(),
+        boolean show = !downloadBarHidden && (st.active()
+                || phase != lastPhase && phase != ai.dvine.llm.DownloadStatus.Phase.IDLE);
+        stage.setDownload(show || stage.downloadShown() && !downloadBarHidden,
+                "Downloading brain files", st.percent(),
                 phase == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING, st.detail());
         if (phase == lastPhase) {
             return;
@@ -87,7 +89,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         switch (phase) {
             case DONE:
                 stage.activity("DOWNLOAD", "verified");
-                stage.setDownload(true, "Brain files downloaded", 100, false, "verified, starting now");
+                stage.setDownload(true, "Brain files downloaded", 100, false,
+                        "verified, starting now");
                 handler.postDelayed(() -> stage.setDownload(false, "", 100, false, ""), 6000);
                 loadModel(true);
                 break;
@@ -109,7 +112,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private SyncWorker sync;
     /** M7: questions the phone can't answer go to the server's Obi/Ivie desk when online. */
     private ai.dvine.net.DeskClient desk;
-    private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors
+            .newSingleThreadExecutor();
     private int askId;
     private int readToken;
     private volatile ai.dvine.llm.ThinkPace thinkPace;
@@ -149,12 +153,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     /** Saves any crash to files/crash.txt, then lets Android close the app as usual. */
     private void installCrashReporter() {
-        final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+        final Thread.UncaughtExceptionHandler previous = Thread
+                .getDefaultUncaughtExceptionHandler();
         final File out = new File(getFilesDir(), "crash.txt");
         Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
             try (java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(out))) {
-                w.println("DVINE " + BuildConfigInfo.version(this) + " on Android " + android.os.Build.VERSION.RELEASE
-                        + " (" + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL + ")");
+                w.println("DVINE " + BuildConfigInfo.version(this) + " on Android "
+                        + android.os.Build.VERSION.RELEASE + " (" + android.os.Build.MANUFACTURER
+                        + " " + android.os.Build.MODEL + ")");
                 error.printStackTrace(w);
             } catch (java.io.IOException ignored) {
                 // nothing more we can do
@@ -171,7 +177,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return null;
         }
         try {
-            return new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            return new String(java.nio.file.Files.readAllBytes(f.toPath()),
+                    java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException e) {
             return null;
         }
@@ -184,18 +191,20 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
         int m = (int) (14 * dm.density);
-        android.widget.FrameLayout.LayoutParams tb = (android.widget.FrameLayout.LayoutParams) typeBar.getLayoutParams();
+        android.widget.FrameLayout.LayoutParams tb = (android.widget.FrameLayout.LayoutParams) typeBar
+                .getLayoutParams();
         int screen = getResources().getConfiguration().screenWidthDp;
-        tb.width = screen > 600 ? (int) (560 * dm.density) : android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+        tb.width = screen > 600 ? (int) (560 * dm.density)
+                : android.view.ViewGroup.LayoutParams.MATCH_PARENT;
         tb.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL;
-        boolean side = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        boolean side = getResources()
+                .getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
         tb.setMargins(m, m, m, side ? m : m * 4);
         typeBar.setLayoutParams(tb);
     }
 
     /**
-     * Turned, folded or resized: nothing restarts (the conversation, a drawing and the brain carry on); the stage
-     * lays itself out again for the new size and the text field fits the new width.
+     * Turned, folded or resized: nothing restarts (the conversation, a drawing and the brain carry on); the stage lays itself out again for the new size and the text field fits the new width.
      */
     @Override
     public void onConfigurationChanged(android.content.res.Configuration config) {
@@ -215,29 +224,54 @@ public final class MainActivity extends Activity implements StageListener, Liste
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         window.setStatusBarColor(0xFF000000);
         window.setNavigationBarColor(0xFF000000);
-        window.setDecorFitsSystemWindows(false);
+
+        // 1. Use WindowCompat instead of calling directly on window
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
+
         stage = new StageView(this);
         stage.setListener(this);
-        // the pod in space and whatever is drawn above it render with OpenGL under the transparent stage overlay
+
         final ai.dvine.render.PodView podView = new ai.dvine.render.PodView(this);
         stage.attach(podView);
+
         android.widget.FrameLayout root = new android.widget.FrameLayout(this);
         root.setBackgroundColor(0xFF000000);
         root.addView(podView);
         root.addView(stage);
-        // the text field for typing (double-tap), drawn in particles along the bottom; hidden until asked for
+
         typeBar = new ai.dvine.stage.TypeBar(this, text -> answer(text));
         android.widget.FrameLayout.LayoutParams tb = new android.widget.FrameLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-                android.view.Gravity.BOTTOM);
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM);
         root.addView(typeBar, tb);
         fitTypeBar();
         setContentView(root);
+
+        // 2. Add the OnApplyWindowInsetsListener to satisfy Android 15 requirements
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
+            androidx.core.graphics.Insets insets = windowInsets
+                    .getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+
+            // Adjust the typeBar bottom margin dynamically based on system navigation bar insets
+            android.view.ViewGroup.LayoutParams lp = typeBar.getLayoutParams();
+            if (lp instanceof android.widget.FrameLayout.LayoutParams) {
+                android.widget.FrameLayout.LayoutParams flp = (android.widget.FrameLayout.LayoutParams) lp;
+                boolean side = getResources()
+                        .getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+                int m = (int) (14 * getResources().getDisplayMetrics().density);
+                flp.setMargins(m, m, m, (side ? m : m * 4) + insets.bottom);
+                typeBar.setLayoutParams(flp);
+            }
+
+            return windowInsets;
+        });
+
         // only after setContentView: before it the window has no decor and this throws
         WindowInsetsController bars = window.getInsetsController();
         if (bars != null) {
             bars.hide(WindowInsets.Type.systemBars());
-            bars.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            bars.setSystemBarsBehavior(
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
         }
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
@@ -249,8 +283,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.setSubtitles(prefs.getBoolean("subtitles", true));
         // the voice chosen last time (Ivie the first time)
         stage.ensureFace(prefs.getString("face", StageView.IVIE), null);
-        talk.setTuning(false, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
-        talk.setTuning(true, ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_ivie", null), true));
+        talk.setTuning(false,
+                ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
+        talk.setTuning(true,
+                ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_ivie", null), true));
         talk.setWordListener(stage::speechWord);
         talk.setListener((ivie, speaking) -> {
             ambient.setPersona(ivie);
@@ -261,28 +297,31 @@ public final class MainActivity extends Activity implements StageListener, Liste
         journal = new LearningJournal(new File(getFilesDir(), "learning"));
         learned = new ai.dvine.agent.LearnedIntents(new File(getFilesDir(), "learned_intents.txt"));
         library = new ai.dvine.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
-        assistant = new ai.dvine.ops.AssistantCore(new File(getFilesDir(), "ops"), new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
-            @Override
-            public boolean installed() {
-                return ai.dvine.ops.TermuxAndroid.installed(MainActivity.this);
-            }
+        assistant = new ai.dvine.ops.AssistantCore(new File(getFilesDir(), "ops"),
+                new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
+                    @Override
+                    public boolean installed() {
+                        return ai.dvine.ops.TermuxAndroid.installed(MainActivity.this);
+                    }
 
-            @Override
-            public boolean permissionGranted() {
-                return checkSelfPermission("com.termux.permission.RUN_COMMAND") == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            }
+                    @Override
+                    public boolean permissionGranted() {
+                        return checkSelfPermission(
+                                "com.termux.permission.RUN_COMMAND") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                    }
 
-            @Override
-            public boolean resultBridgeConnected() {
-                return false;
-            }
-        }, null, null, null);
+                    @Override
+                    public boolean resultBridgeConnected() {
+                        return false;
+                    }
+                }, null, null, null);
         String restored = assistant.restoredSummary();
         if (restored != null) {
             stage.activity("TASK", restored);
         }
         // core pack now (small); the dictionary and other shards load in the background
-        brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis, TimeZone.getDefault());
+        brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis,
+                TimeZone.getDefault());
         brain.setThoughts(prefs.getBoolean("thoughts", true));
         Thread loader = new Thread(() -> {
             try {
@@ -305,10 +344,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (model.installed() && prefs.getBoolean("llm_on", true)) {
             loadModel(false);
         }
-        final ai.dvine.net.SessionClient session = new ai.dvine.net.SessionClient(this::serverUrl, prefs,
-                new ai.dvine.net.DeviceVault(prefs));
-        sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store,
-                session::token, pack -> {
+        final ai.dvine.net.SessionClient session = new ai.dvine.net.SessionClient(this::serverUrl,
+                prefs, new ai.dvine.net.DeviceVault(prefs));
+        sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store, session::token,
+                pack -> {
                     // a newer core pack arrived: re-merge it with the dictionary and shards
                     final ai.dvine.brain.KnowledgePack full = store.load();
                     handler.post(() -> brain.replacePack(full));
@@ -325,14 +364,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         prefs.edit().putString("desk_room", roomId).apply();
                     }
                 }, null);
-        web = new ai.dvine.net.WebClient(session::serverRoot, session::token, session::invalidate, null);
-        creation = new ai.dvine.create.CreationDirector(stage.objects, new File(getFilesDir(), "designs"));
+        web = new ai.dvine.net.WebClient(session::serverRoot, session::token, session::invalidate,
+                null);
+        creation = new ai.dvine.create.CreationDirector(stage.objects,
+                new File(getFilesDir(), "designs"));
         engine = new ai.dvine.engine.Engine(stage, getFilesDir(), journal::consent);
-        sync.setEpisodes(engine.episodes, profile -> handler.post(
-                () -> engine.applyProfile(profile, android.os.SystemClock.uptimeMillis())));
+        sync.setEpisodes(engine.episodes, profile -> handler
+                .post(() -> engine.applyProfile(profile, android.os.SystemClock.uptimeMillis())));
         sync.setUploadListener(count -> handler.post(() -> {
             stage.burst(12);
-            stage.setSubtitle("Backed up " + count + (count == 1 ? " thing" : " things") + " I learned.");
+            stage.setSubtitle(
+                    "Backed up " + count + (count == 1 ? " thing" : " things") + " I learned.");
         }));
         connectivity = new Connectivity(this, online -> {
             stage.setOnline(online);
@@ -340,7 +382,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 sync.kick(brain.pack().version);
             }
             // research for 3D objects goes through the server while online
-            creation.setFetcher(online && serverUrl() != null && serverUrl().trim().startsWith("https://") ? web::fetch : null);
+            creation.setFetcher(
+                    online && serverUrl() != null && serverUrl().trim().startsWith("https://")
+                            ? web::fetch
+                            : null);
         });
 
         stage.wake();
@@ -349,7 +394,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private void greetOnOpen() {
         if (takeCrashReport() != null) {
-            play(LocalTurn.speakAs(true, "I closed unexpectedly last time. Say copy the crash report, and I'll put the details on your clipboard so you can send them to the developer."),
+            play(LocalTurn.speakAs(true,
+                    "I closed unexpectedly last time. Say copy the crash report, and I'll put the details on your clipboard so you can send them to the developer."),
                     this::greetAfterCrashNotice);
             return;
         }
@@ -465,9 +511,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 return;
             }
             ai.dvine.ops.pipe.BrainCoordinator.Decision decision = assistant.lastDecision();
+<<<<<<< HEAD
+            boolean open = decision != null
+                    && (decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.ANSWER
+                            || decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.UNSUPPORTED);
+            if (open && model != null && model.ready() && assistant.hasModel()) {
+=======
             boolean unsupported = decision != null
                     && decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.UNSUPPORTED;
             if (unsupported && model != null && model.ready() && assistant.hasModel()) {
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
                 final String pending = text;
                 final int mine = readToken;
                 armThink("Reading your words", "Writing the answer");
@@ -556,14 +609,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (libraryTurn(text)) {
             return;
         }
-        if (text.toLowerCase(java.util.Locale.US).matches(".*copy (the |my )?crash( report| log)?.*")) {
+        if (text.toLowerCase(java.util.Locale.US)
+                .matches(".*copy (the |my )?crash( report| log)?.*")) {
             String report = takeCrashReport();
             if (report == null) {
-                play(LocalTurn.speakAs(stage.agent(), "There's no crash report. Everything has been running fine."), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        "There's no crash report. Everything has been running fine."), null);
             } else if (Actions.copy(this, report)) {
                 new File(getFilesDir(), "crash.txt").delete();
                 stage.burst(18);
-                play(LocalTurn.speakAs(stage.agent(), "Copied. The crash report is on your clipboard; paste it to the developer."), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        "Copied. The crash report is on your clipboard; paste it to the developer."),
+                        null);
             }
             return;
         }
@@ -581,7 +638,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         if (reading.negated) {
-            String not = reading.core.replaceFirst("^(please do not|do not|never) ", "").replaceAll("\\bmy\\b", "your");
+            String not = reading.core.replaceFirst("^(please do not|do not|never) ", "")
+                    .replaceAll("\\bmy\\b", "your");
             play(LocalTurn.speakAs(stage.agent(), "Okay, I won't " + not + "."), null);
             return;
         }
@@ -590,16 +648,23 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         final String asked = reading.rewritten ? reading.resolved : text;
-        final boolean modelReady = model != null && model.ready() && prefs.getBoolean("llm_on", true);
+        final boolean modelReady = model != null && model.ready()
+                && prefs.getBoolean("llm_on", true);
         String lowAsked = asked.toLowerCase(java.util.Locale.US);
-        if (lowAsked.matches("^(do not|don'?t|stop|never) (look|looking|check|checking) (things |anything )?(up )?online.*")) {
+        if (lowAsked.matches(
+                "^(do not|don'?t|stop|never) (look|looking|check|checking) (things |anything )?(up )?online.*")) {
             prefs.edit().putBoolean("fresh_facts", false).apply();
-            play(LocalTurn.speakAs(stage.agent(), "Alright. I won't look anything up online; I'll answer from what I know and what you teach me."), null);
+            play(LocalTurn.speakAs(stage.agent(),
+                    "Alright. I won't look anything up online; I'll answer from what I know and what you teach me."),
+                    null);
             return;
         }
-        if (lowAsked.matches("^(you can |please )?(look|check) (things |anything )?up online( again)?$|^(start|keep) (looking|checking) (things )?up online$")) {
+        if (lowAsked.matches(
+                "^(you can |please )?(look|check) (things |anything )?up online( again)?$|^(start|keep) (looking|checking) (things )?up online$")) {
             prefs.edit().putBoolean("fresh_facts", true).apply();
-            play(LocalTurn.speakAs(stage.agent(), "Okay. When we're online, I'll check the latest before answering questions about the world."), null);
+            play(LocalTurn.speakAs(stage.agent(),
+                    "Okay. When we're online, I'll check the latest before answering questions about the world."),
+                    null);
             return;
         }
         // changing one part of the 3D drawing on show: "take out the tyres", "make the roof blue", "add a spoiler"
@@ -607,19 +672,25 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         // changing the thing on show: "make it bigger", "spin it", "make it red", "scatter it", "clear it"
-        ai.dvine.render.field.ShapeCommand change = stage.pictureShown() ? ai.dvine.render.field.ShapeCommand.parse(asked) : null;
+        ai.dvine.render.field.ShapeCommand change = stage.pictureShown()
+                ? ai.dvine.render.field.ShapeCommand.parse(asked)
+                : null;
         if (change != null && stage.changePicture(change)) {
             play(LocalTurn.speakAs(stage.agent(), changeLine(change.op)), null);
             return;
         }
         // said some other way ("make it do cartwheels", "can I see it from above"): the brain rewrites it into one of
         // the commands DVINE knows, DVINE does it and remembers the words
-        if (change == null && !interpreted && stage.pictureShown() && modelReady && ai.dvine.agent.ViewIntent.looksLikeOne(asked)) {
+        if (change == null && !interpreted && stage.pictureShown() && modelReady
+                && ai.dvine.agent.ViewIntent.looksLikeOne(asked)) {
             askViewIntent(asked);
             return;
         }
-        ai.dvine.create.ObjectRequestInterpreter.Request known = creation.parse(asked, stage.objectShown());
-        if (known != null && known.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT && known.detail != null && modelReady) {
+        ai.dvine.create.ObjectRequestInterpreter.Request known = creation.parse(asked,
+                stage.objectShown());
+        if (known != null
+                && known.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT
+                && known.detail != null && modelReady) {
             askDrawing(known.detail, true); // something the creation engine can't model: the language model plans it in 3D
             return;
         }
@@ -627,12 +698,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         String formWhat = ai.dvine.llm.DrawPrompt.formSubject(asked);
-        if (formWhat != null && modelReady && ai.dvine.render.forms.Forms.objectFor(asked.toLowerCase(java.util.Locale.US)) == null
-                && ai.dvine.stage.Sketch.forRequest(asked.toLowerCase(java.util.Locale.US)) == null) {
+        if (formWhat != null && modelReady
+                && ai.dvine.render.forms.Forms
+                        .objectFor(asked.toLowerCase(java.util.Locale.US)) == null
+                && ai.dvine.stage.Sketch
+                        .forRequest(asked.toLowerCase(java.util.Locale.US)) == null) {
             askDrawing(formWhat, true);
             return;
         }
-        ai.dvine.turn.DualAgentCoordinator.Request both = ai.dvine.turn.DualAgentCoordinator.parse(asked);
+        ai.dvine.turn.DualAgentCoordinator.Request both = ai.dvine.turn.DualAgentCoordinator
+                .parse(asked);
         if (both != null) {
             discuss(both);
             return;
@@ -651,7 +726,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         synchronized (brain) { // a cancelled discussion may still be finishing a turn on its thread
             reply = respondInContext(asked, reading);
         }
-        stage.activity("ANSWER", reply.answered ? "from " + reply.source.toLowerCase(java.util.Locale.US) : "not in my notes yet");
+        stage.activity("ANSWER",
+                reply.answered ? "from " + reply.source.toLowerCase(java.util.Locale.US)
+                        : "not in my notes yet");
         engine.setPersona(stage.agent(), now);
         if ("MODEL_RESET".equals(reply.command) && model != null) {
             model.forget(); // a correction: the model's old answer shouldn't stay in its conversation
@@ -666,7 +743,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             String missing = talk.missingGender();
             if (missing != null) {
                 boolean ivieBorrows = "female".equals(missing);
-                test.add(new TurnLine(ivieBorrows ? "ivie" : "obi", "SAY", "This phone has no " + missing
+                test.add(new TurnLine(ivieBorrows ? "ivie" : "obi", "SAY", "This phone has no "
+                        + missing
                         + " voice, so I'm borrowing one and tuning it. Say install voices to add one."));
             }
             play(test, null);
@@ -675,12 +753,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if ("VOICE_INSTALL".equals(reply.command)) {
             play(reply.lines, () -> {
                 try {
-                    startActivity(new android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA));
+                    startActivity(new android.content.Intent(
+                            android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA));
                 } catch (RuntimeException noInstaller) {
                     try {
-                        startActivity(new android.content.Intent("com.android.settings.TTS_SETTINGS"));
+                        startActivity(
+                                new android.content.Intent("com.android.settings.TTS_SETTINGS"));
                     } catch (RuntimeException none) {
-                        play(LocalTurn.speakAs(stage.agent(), "I couldn't open the voice settings on this phone."), null);
+                        play(LocalTurn.speakAs(stage.agent(),
+                                "I couldn't open the voice settings on this phone."), null);
                     }
                 }
             });
@@ -698,17 +779,20 @@ public final class MainActivity extends Activity implements StageListener, Liste
             prefs.edit().putString("server", reply.commandValue).apply();
             syncSoon();
         }
-        if ("LEARN".equals(reply.source) || "MEMORY".equals(reply.source) || "OFFLINE".equals(reply.source)) {
+        if ("LEARN".equals(reply.source) || "MEMORY".equals(reply.source)
+                || "OFFLINE".equals(reply.source)) {
             syncSoon(); // new learning (or a saved unanswered question) goes up as soon as we can
         }
         if ("POSE".equals(reply.command) && !stage.bodyShown()) {
-            play(LocalTurn.speakAs(stage.agent(), capabilities().missing(ai.dvine.agent.Interpretation.Task.MOVE)), null);
+            play(LocalTurn.speakAs(stage.agent(),
+                    capabilities().missing(ai.dvine.agent.Interpretation.Task.MOVE)), null);
             return;
         }
         // the brain proposes; the engine validates, arbitrates and moves the body
         engine.perform(reply, now);
         if ("SELF_REPORT".equals(reply.command)) {
-            play(LocalTurn.speakAs(stage.agent(), engine.selfReport(now) + " " + stage.inspect()), null);
+            play(LocalTurn.speakAs(stage.agent(), engine.selfReport(now) + " " + stage.inspect()),
+                    null);
             return;
         }
         if ("FAVOURITES".equals(reply.command)) {
@@ -721,7 +805,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 stage.burst(18);
                 play(reply.lines, null);
             } else {
-                play(LocalTurn.speakAs(stage.agent(), "The clipboard refused that. Nothing was copied."), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        "The clipboard refused that. Nothing was copied."), null);
             }
             return;
         }
@@ -729,7 +814,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             play(reply.lines, () -> {
                 stage.burst(18);
                 if (!Actions.share(this, act)) {
-                    play(LocalTurn.speakAs(stage.agent(), "I couldn't find an app to share with on this phone."), null);
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "I couldn't find an app to share with on this phone."), null);
                 }
             });
             return;
@@ -740,12 +826,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 || connectivity != null && connectivity.isOnline();
         if (drawWhat != null && !"DRAW".equals(reply.source) && canDraw) {
             // every drawing is built in 3D when the brain is here; without it, a picture from the internet
-            askDrawing(drawWhat, model != null && model.ready() || ai.dvine.llm.DrawPrompt.in3d(asked));
+            askDrawing(drawWhat,
+                    model != null && model.ready() || ai.dvine.llm.DrawPrompt.in3d(asked));
             return;
         }
         // knowledge and conversation go to the language model when it's installed; commands, maths, time, memory,
         // what the user taught and anything that acts stay with the offline brain (exact, and instant)
-        boolean modelTopic = (!reply.answered || reply.needsOnline || MODEL_SOURCES.contains(reply.source)) && plain(reply);
+        boolean modelTopic = (!reply.answered || reply.needsOnline
+                || MODEL_SOURCES.contains(reply.source)) && plain(reply);
         if (modelTopic && model != null && model.ready() && prefs.getBoolean("llm_on", true)
                 && (fromBrain ? askLocal(asked, reply, false) : agentTurn(asked, reply))) {
             return;
@@ -759,7 +847,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (model != null && plain(reply)) {
             model.note(asked, spoken(reply.lines)); // so the model reads what follows in the light of it
         }
-        play(reply.lines, reply.listenAfter || endsInQuestion(reply.lines) ? this::startListening : null);
+        play(reply.lines,
+                reply.listenAfter || endsInQuestion(reply.lines) ? this::startListening : null);
     }
 
     private static String spoken(List<TurnLine> said) {
@@ -780,9 +869,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
     /** Who is on screen, what was just discussed and what is on show, for the model ({@link ai.dvine.llm.PersonaPrompt#situation}). */
     private String situation(boolean ivie) {
         int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
-        String part = hour < 5 ? "night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 21 ? "evening" : "night";
-        return ai.dvine.llm.PersonaPrompt.situation(ivie, examiner.lastTopic(), stage.pictureShown() ? lastDrawn : null,
-                part, connectivity != null && connectivity.isOnline());
+        String part = hour < 5 ? "night"
+                : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 21 ? "evening" : "night";
+        return ai.dvine.llm.PersonaPrompt.situation(ivie, examiner.lastTopic(),
+                stage.pictureShown() ? lastDrawn : null, part,
+                connectivity != null && connectivity.isOnline());
     }
 
     // ------------------------------------------------------------ the on-device language model
@@ -792,20 +883,22 @@ public final class MainActivity extends Activity implements StageListener, Liste
             java.util.Arrays.asList("DICT", "PACK", "WISDOM", "FACT", "CARE", "OFFLINE"));
 
     /**
-     * Once, the first time a question would have gone to the language model but it isn't installed: the offline
-     * answer, then the offer to install it.
+     * Once, the first time a question would have gone to the language model but it isn't installed: the offline answer, then the offer to install it.
      */
     private boolean offerModel(BrainAnswer reply) {
         if (model == null || model.installed() || prefs.getBoolean("llm_offered", false)
-                || model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED || model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING
+                || model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED
+                || model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING
                 || !ai.dvine.llm.NativeLlm.available()) {
             return false;
         }
         prefs.edit().putBoolean("llm_offered", true).apply();
         List<TurnLine> lines2 = new ArrayList<TurnLine>(reply.lines);
         String agent = stage.agent();
-        lines2.add(new TurnLine(agent, "SAY", "By the way, I can answer questions like this much better once my brain files are on this phone."
-                + " It runs on your phone, even offline, after a " + model.spec.sizeWords() + " download. Shall I install it?"));
+        lines2.add(new TurnLine(agent, "SAY",
+                "By the way, I can answer questions like this much better once my brain files are on this phone."
+                        + " It runs on your phone, even offline, after a " + model.spec.sizeWords()
+                        + " download. Shall I install it?"));
         confirmModelDownload = true;
         play(lines2, this::startListening);
         return true;
@@ -827,8 +920,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * The language model answers a question the offline brain couldn't: in the persona's voice, spoken sentence by
-     * sentence while the rest is still being written. Anything new the user says stops it.
+     * The language model answers a question the offline brain couldn't: in the persona's voice, spoken sentence by sentence while the rest is still being written. Anything new the user says stops it.
      */
     // ------------------------------------------------------------ the agent: the brain reads, DVINE checks and does
 
@@ -848,11 +940,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * One turn the way DVINE works: the brain (the language model) reads what the user said and returns its
-     * interpretation (a question, a request, a prompt or chat; what it means; the task; whether it needs the
-     * internet). DVINE checks it can do that here; a task it knows is done through its own checked commands (and
-     * learned, so next time it needs no brain), a question about the world is researched online first, everything
-     * else is answered. Each step is written by the inner voice at the top of the screen.
+     * One turn the way DVINE works: the brain (the language model) reads what the user said and returns its interpretation (a question, a request, a prompt or chat; what it means; the task; whether it needs the internet). DVINE checks it can do that here; a task it knows is done through its own checked commands (and learned, so next time it needs no brain), a question about the world is researched online first, everything else is answered. Each step is written by the inner voice at the top of the screen.
      */
     private boolean agentTurn(final String question, final BrainAnswer offline) {
         final int id = ++askId;
@@ -861,7 +949,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.innerVoice("Heard: \u201c" + clip(question) + "\u201d");
         stage.innerVoice("Asking my brain what you mean\u2026");
         modelThread.execute(() -> {
-            final String written = id == askId ? model.task(ai.dvine.agent.Interpretation.PROMPT, question, 90, null) : null;
+            final String written = id == askId
+                    ? model.task(ai.dvine.agent.Interpretation.PROMPT, question, 90, null)
+                    : null;
             final ai.dvine.agent.Interpretation it = ai.dvine.agent.Interpretation.parse(written);
             handler.post(() -> {
                 if (id != askId) {
@@ -876,10 +966,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (!it.means.isEmpty()) {
                     stage.innerVoice("You want: " + clip(it.means));
                 }
-                ai.dvine.agent.Interpretation.Task task = it.internet && it.task == ai.dvine.agent.Interpretation.Task.ANSWER
-                        ? ai.dvine.agent.Interpretation.Task.SEARCH : it.task;
+                ai.dvine.agent.Interpretation.Task task = it.internet
+                        && it.task == ai.dvine.agent.Interpretation.Task.ANSWER
+                                ? ai.dvine.agent.Interpretation.Task.SEARCH
+                                : it.task;
                 String missing = capabilities().missing(task);
-                stage.innerVoice("Can I do it here? " + (missing == null ? "Yes." : "No: " + clip(missing)));
+                stage.innerVoice(
+                        "Can I do it here? " + (missing == null ? "Yes." : "No: " + clip(missing)));
                 if (missing != null && task != ai.dvine.agent.Interpretation.Task.SEARCH) {
                     play(LocalTurn.speakAs(stage.agent(), missing), null);
                     return;
@@ -890,7 +983,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 }
                 String command = it.command();
                 if (command != null && !it.groundedIn(question)) {
-                    stage.innerVoice("That reading isn't about what you said, so I won't act on it.");
+                    stage.innerVoice(
+                            "That reading isn't about what you said, so I won't act on it.");
                     command = null;
                 }
                 if (command != null) {
@@ -924,13 +1018,19 @@ public final class MainActivity extends Activity implements StageListener, Liste
         index = 0;
         afterPlay = null;
         step(playId);
-        final String today = new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date());
+        final String today = new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK)
+                .format(new java.util.Date());
         final String name = brain.userName();
         modelThread.execute(() -> {
             ai.dvine.agent.Debate d = new ai.dvine.agent.Debate(topic);
             while (id == askId && !d.done()) {
                 final String who = d.speaker(), role = d.role();
+<<<<<<< HEAD
+                handler.post(() -> stage.innerVoice(
+                        (who.equals("obi") ? "Obi" : "Ivie") + " prepares the " + role + "\u2026"));
+=======
                 armThink((who.equals("obi") ? "Obi" : "Ivie") + " is preparing the " + role, "Writing the line");
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
                 String sys = ai.dvine.llm.PersonaPrompt.system(who, name, today) + " " + d.rules();
                 String said = model.task(sys, d.prompt(), 96, text -> modelPiece(id, text));
                 final String line = d.take(said);
@@ -957,11 +1057,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return askLocal(question, offline, false);
     }
 
-    private boolean askLocal(final String question, final BrainAnswer offline, final boolean research) {
+    private boolean askLocal(final String question, final BrainAnswer offline,
+            final boolean research) {
         final int id = ++askId;
         final boolean ivie = stage.isIvie();
         final String agent = stage.agent();
         stopPlay();
+<<<<<<< HEAD
+        stage.innerVoice(ivie ? "Let me think about that\u2026"
+                : "ibiko".equals(agent) ? "Compiling a thought\u2026"
+                        : "Thinking it through\u2026");
+=======
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
         stage.setMode(StageMode.THINKING);
         stage.activity("MODEL", "thinking offline");
         final List<TurnLine> stream = new ArrayList<TurnLine>();
@@ -971,34 +1078,44 @@ public final class MainActivity extends Activity implements StageListener, Liste
         afterPlay = null;
         step(playId);
         final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
-                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet());
+                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK)
+                        .format(new java.util.Date()),
+                selfSheet());
         final java.util.List<String> taught;
         synchronized (brain) {
             taught = brain.taughtFor(question, 6);
         }
         // a question about the world, online: a fresh reference, since the model's training is older
-        final boolean look = prefs.getBoolean("fresh_facts", true) && connectivity != null && connectivity.isOnline()
+        final boolean look = prefs.getBoolean("fresh_facts", true) && connectivity != null
+                && connectivity.isOnline()
                 && (research || ai.dvine.llm.FreshFacts.worthLooking(question));
         armThink(look ? "Checking sources" : "Reading your words", "Writing the answer");
         final String around = situation(ivie);
         modelThread.execute(() -> {
-            final String reference = look && id == askId ? ai.dvine.ops.mind.CitedReference.collect(question, url -> {
-                byte[] body = ai.dvine.net.WebGet.get(url, 6000, 400_000);
-                if (body == null) {
-                    return null;
-                }
-                try {
-                    return new String(body, "UTF-8");
-                } catch (java.io.UnsupportedEncodingException e) {
-                    return null;
-                }
-            }, System.currentTimeMillis()) : null;
+            final String reference = look && id == askId
+                    ? ai.dvine.ops.mind.CitedReference.collect(question, url -> {
+                        byte[] body = ai.dvine.net.WebGet.get(url, 6000, 400_000);
+                        if (body == null) {
+                            return null;
+                        }
+                        try {
+                            return new String(body, "UTF-8");
+                        } catch (java.io.UnsupportedEncodingException e) {
+                            return null;
+                        }
+                    }, System.currentTimeMillis())
+                    : null;
             if (look) {
+<<<<<<< HEAD
+                handler.post(() -> stage.innerVoice(reference != null ? "Found: " + clip(reference)
+                        : "Nothing current found; I'll use what I know."));
+=======
                 handler.post(() -> {
                     if (id == askId) {
                         stage.innerVoice(reference != null ? "Found: " + clip(reference) : "Nothing current found. I'll use what I know.");
                     }
                 });
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
             }
             armThink("Writing the answer", "Writing the answer");
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
@@ -1039,7 +1156,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     afterPlay = () -> switchFace(switchTo, true); // the brain brought another persona forward
-                } else if (all != null && ai.dvine.turn.Followup.wantsReply(ai.dvine.llm.ActionTags.strip(all))) {
+                } else if (all != null
+                        && ai.dvine.turn.Followup.wantsReply(ai.dvine.llm.ActionTags.strip(all))) {
                     afterPlay = this::startListening; // it asked something: listen for the answer
                 }
                 streamOpen = false;
@@ -1049,11 +1167,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * "Draw me a lighthouse": always in 3D, and nothing is built in: the
-     * brain plans as named 3D parts, first reading what the thing looks like online when it may, and the plan is
-     * checked (enough parts, and about the right thing) with one stricter retry. Without the brain, online, a
-     * reference picture is formed instead. Every 3D drawing is kept part by part so "take out the tyres" works.
-     * Off the main thread; any new input cancels it.
+     * "Draw me a lighthouse": always in 3D, and nothing is built in: the brain plans as named 3D parts, first reading what the thing looks like online when it may, and the plan is checked (enough parts, and about the right thing) with one stricter retry. Without the brain, online, a reference picture is formed instead. Every 3D drawing is kept part by part so "take out the tyres" works. Off the main thread; any new input cancels it.
      */
     private void askDrawing(final String subject, final boolean solidOnly) {
         final int id = ++askId;
@@ -1067,7 +1181,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.activity("DRAW", subject);
         lastDrawn = subject;
         if (modelOk) {
+<<<<<<< HEAD
+            stage.innerVoice(research
+                    ? "Looking up what " + ai.dvine.llm.DrawPrompt.article(subject)
+                            + " looks like\u2026"
+                    : "Planning the parts of " + ai.dvine.llm.DrawPrompt.article(subject)
+                            + "\u2026");
+=======
             armThink(research ? "Checking sources" : "Planning the parts", "Planning the parts");
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
         } else {
             stage.setThought((online ? "Finding a picture of " : "Building ") + subject + "\u2026");
         }
@@ -1075,7 +1197,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             ai.dvine.render.field.Shape picture = null;
             ai.dvine.render.field.SolidSpec plan = null;
             if (plan == null && modelOk && id == askId) {
-                String facts = research ? ai.dvine.render.field.PictureFinder.describe(subject) : null;
+                String facts = research ? ai.dvine.render.field.PictureFinder.describe(subject)
+                        : null;
                 if (facts != null) {
                     handler.post(() -> {
                         if (id == askId) {
@@ -1083,7 +1206,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         }
                     });
                 }
+<<<<<<< HEAD
+                String planned = model.task(ai.dvine.llm.DrawPrompt.system(),
+                        ai.dvine.llm.DrawPrompt.user(subject, facts), 360, text -> id == askId);
+=======
                 String planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.user(subject, facts), 280, text -> modelPiece(id, text));
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
                 plan = ai.dvine.llm.DrawPrompt.read(planned, subject);
                 if (!ai.dvine.llm.DrawPrompt.usable(plan, subject) && id == askId) {
                     handler.post(() -> {
@@ -1091,7 +1219,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
                             stage.innerVoice("That plan wasn't right. Trying again\u2026");
                         }
                     });
+<<<<<<< HEAD
+                    planned = model.task(ai.dvine.llm.DrawPrompt.system(),
+                            ai.dvine.llm.DrawPrompt.retry(subject), 360, text -> id == askId);
+=======
                     planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.retry(subject), 280, text -> modelPiece(id, text));
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
                     plan = ai.dvine.llm.DrawPrompt.read(planned, subject);
                 }
                 if (!ai.dvine.llm.DrawPrompt.usable(plan, subject)) {
@@ -1102,15 +1235,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 plan.fixFrame();
                 picture = plan.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
             } else if (online && id == askId) {
-                android.graphics.Bitmap bm = ai.dvine.render.field.Raster.decode(ai.dvine.render.field.PictureFinder.find(subject));
+                android.graphics.Bitmap bm = ai.dvine.render.field.Raster
+                        .decode(ai.dvine.render.field.PictureFinder.find(subject));
                 if (bm != null && id == askId) {
-                    picture = ai.dvine.render.field.Raster.image(bm, ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
+                    picture = ai.dvine.render.field.Raster.image(bm,
+                            ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
                     if (picture.count < 200) {
                         picture = null;
                     }
                 }
             }
-            final ai.dvine.render.field.Shape shown = picture != null && picture.count > 0 ? picture : null;
+            final ai.dvine.render.field.Shape shown = picture != null && picture.count > 0 ? picture
+                    : null;
             final ai.dvine.render.field.SolidSpec built = shown == null ? null : plan;
             handler.post(() -> {
                 if (id != askId || isFinishing()) {
@@ -1119,9 +1255,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 endThink();
                 stage.setThought(null);
                 if (shown == null) {
-                    play(LocalTurn.speakAs(ivie, modelOk || online ? "I tried to make " + ai.dvine.llm.DrawPrompt.article(subject)
-                            + ", but it didn't come out right. Ask me again?"
-                            : "I need my brain files for that. Say download your brain, and I'll be able to build anything you ask."), null);
+                    play(LocalTurn.speakAs(ivie, modelOk || online
+                            ? "I tried to make " + ai.dvine.llm.DrawPrompt.article(subject)
+                                    + ", but it didn't come out right. Ask me again?"
+                            : "I need my brain files for that. Say download your brain, and I'll be able to build anything you ask."),
+                            null);
                     return;
                 }
                 // the words are always about what the user asked for, never what the brain wrote
@@ -1140,7 +1278,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 } else {
                     currentSolid = null;
                     stage.showPhotograph(shown, subject);
-                    line = "Here's a particle picture of " + ai.dvine.llm.DrawPrompt.article(subject)
+                    line = "Here's a particle picture of "
+                            + ai.dvine.llm.DrawPrompt.article(subject)
                             + ". It follows the photo. It is not a measured 3D model.";
                 }
                 play(LocalTurn.speakAs(ivie, line), null);
@@ -1154,22 +1293,21 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private final java.util.ArrayDeque<ai.dvine.render.field.SolidSpec> solidHistory = new java.util.ArrayDeque<ai.dvine.render.field.SolidSpec>();
 
     /**
-     * A change to one part of the 3D drawing on show: "take out the tyres", "make the roof blue", "make the ears
-     * bigger", "put the wheels back", "add a spoiler", "undo". The parts are found by their names and everyday
-     * words for them (a tyre is a wheel) and by where they are (the left wing, the front wheels); when that finds
-     * nothing, the brain is asked which of the parts are meant. True when the words were about the parts.
+     * A change to one part of the 3D drawing on show: "take out the tyres", "make the roof blue", "make the ears bigger", "put the wheels back", "add a spoiler", "undo". The parts are found by their names and everyday words for them (a tyre is a wheel) and by where they are (the left wing, the front wheels); when that finds nothing, the brain is asked which of the parts are meant. True when the words were about the parts.
      */
     private boolean editParts(final String asked) {
         if (currentSolid == null || !stage.pictureShown()) {
             return false;
         }
         String low = asked.toLowerCase(java.util.Locale.US).trim().replaceAll("[.!?]+$", "");
-        if (low.matches("^(undo|undo that|go back|take that back|put it back how it was|change it back)$")) {
+        if (low.matches(
+                "^(undo|undo that|go back|take that back|put it back how it was|change it back)$")) {
             if (solidHistory.isEmpty()) {
                 return false;
             }
             currentSolid = solidHistory.pop();
-            stage.reshapeSolid(currentSolid.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f));
+            stage.reshapeSolid(
+                    currentSolid.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f));
             play(LocalTurn.speakAs(stage.agent(), "Undone."), null);
             return true;
         }
@@ -1178,10 +1316,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return false;
         }
         if (edit.op == ai.dvine.render.field.PartEdit.Op.RESTORE) {
-            List<ai.dvine.render.field.SolidSpec.Part> back = ai.dvine.render.field.PartEdit.pick(takenOut, edit.target);
+            List<ai.dvine.render.field.SolidSpec.Part> back = ai.dvine.render.field.PartEdit
+                    .pick(takenOut, edit.target);
             if (back.isEmpty()) {
-                play(LocalTurn.speakAs(stage.agent(), takenOut.isEmpty() ? "Nothing has been taken out." : "I didn't take out any "
-                        + edit.target + ". I took out: " + ai.dvine.render.field.PartEdit.inventory(takenOut) + "."), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        takenOut.isEmpty() ? "Nothing has been taken out."
+                                : "I didn't take out any " + edit.target + ". I took out: "
+                                        + ai.dvine.render.field.PartEdit.inventory(takenOut) + "."),
+                        null);
                 return true;
             }
             solidHistory.push(currentSolid);
@@ -1193,7 +1335,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (edit.op == ai.dvine.render.field.PartEdit.Op.ADD) {
             if (model == null || !model.ready()) {
-                play(LocalTurn.speakAs(stage.agent(), "To add new parts I need my brain. Say download your brain."), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        "To add new parts I need my brain. Say download your brain."), null);
                 return true;
             }
             final int id = ++askId;
@@ -1202,14 +1345,19 @@ public final class MainActivity extends Activity implements StageListener, Liste
             stage.innerVoice("Adding " + clip(edit.target) + " to the " + lastDrawn + "\u2026");
             modelThread.execute(() -> {
                 String written = model.task(ai.dvine.llm.DrawPrompt.system(),
-                        ai.dvine.render.field.PartEdit.addPrompt(before, lastDrawn, edit.target), 200, text -> id == askId);
+                        ai.dvine.render.field.PartEdit.addPrompt(before, lastDrawn, edit.target),
+                        200, text -> id == askId);
                 final ai.dvine.render.field.SolidSpec next = before.extend(written);
                 handler.post(() -> {
                     if (id != askId) {
                         return;
                     }
                     if (next.parts.size() <= before.parts.size()) {
-                        play(LocalTurn.speakAs(stage.agent(), "I couldn't work out where " + edit.target + " would go. Try saying where, like on top."), null);
+                        play(LocalTurn
+                                .speakAs(stage.agent(),
+                                        "I couldn't work out where " + edit.target
+                                                + " would go. Try saying where, like on top."),
+                                null);
                         return;
                     }
                     solidHistory.push(before);
@@ -1224,29 +1372,38 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return true;
         }
         if (model == null || !model.ready()) {
-            play(LocalTurn.speakAs(stage.agent(), "I can't find " + edit.target + " on it. It has: "
-                    + ai.dvine.render.field.PartEdit.inventory(currentSolid) + "."), null);
+            play(LocalTurn
+                    .speakAs(stage.agent(),
+                            "I can't find " + edit.target + " on it. It has: "
+                                    + ai.dvine.render.field.PartEdit.inventory(currentSolid) + "."),
+                    null);
             return true;
         }
         // the brain knows what a word means when the part names don't say it ("the paws" are the feet)
         final int id = ++askId;
         final ai.dvine.render.field.SolidSpec on = currentSolid;
         stage.setMode(StageMode.THINKING);
-        stage.innerVoice("Which part is \u201c" + clip(edit.target) + "\u201d? Asking my brain\u2026");
+        stage.innerVoice(
+                "Which part is \u201c" + clip(edit.target) + "\u201d? Asking my brain\u2026");
         modelThread.execute(() -> {
             String written = model.task(ai.dvine.render.field.PartEdit.whichSystem(),
-                    ai.dvine.render.field.PartEdit.whichPrompt(on, lastDrawn, edit.target), 60, text -> id == askId);
+                    ai.dvine.render.field.PartEdit.whichPrompt(on, lastDrawn, edit.target), 60,
+                    text -> id == askId);
             final List<Integer> found = ai.dvine.render.field.PartEdit.fromBrain(on, written);
             handler.post(() -> {
                 if (id != askId || on != currentSolid) {
                     return;
                 }
                 if (found.isEmpty()) {
-                    play(LocalTurn.speakAs(stage.agent(), "I can't find " + edit.target + " on it. It has: "
-                            + ai.dvine.render.field.PartEdit.inventory(on) + "."), null);
+                    play(LocalTurn
+                            .speakAs(stage.agent(),
+                                    "I can't find " + edit.target + " on it. It has: "
+                                            + ai.dvine.render.field.PartEdit.inventory(on) + "."),
+                            null);
                     return;
                 }
-                stage.innerVoice("Those are the " + ai.dvine.render.field.PartEdit.names(on, found) + ".");
+                stage.innerVoice(
+                        "Those are the " + ai.dvine.render.field.PartEdit.names(on, found) + ".");
                 applyEdit(edit, found);
             });
         });
@@ -1254,10 +1411,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * The 3D drawing on show saved to the phone, in Downloads/DVINE, as a 3D file other software opens: .glb (glTF,
-     * the default: Blender, Unity, Unreal, Godot, each part a joint), .obj with its .mtl, .stl (3D printing) or .ply.
+     * The 3D drawing on show saved to the phone, in Downloads/DVINE, as a 3D file other software opens: .glb (glTF, the default: Blender, Unity, Unreal, Godot, each part a joint), .obj with its .mtl, .stl (3D printing) or .ply.
      */
-    private void exportSolid(final ai.dvine.render.field.MeshExport.Format format, final String called) {
+    private void exportSolid(final ai.dvine.render.field.MeshExport.Format format,
+            final String called) {
         final ai.dvine.render.field.SolidSpec spec = currentSolid;
         final String what = called != null ? called : lastDrawn == null ? "drawing" : lastDrawn;
         final String base = ai.dvine.render.field.Gltf.fileName(what).replaceAll("\\.glb$", "");
@@ -1268,38 +1425,55 @@ public final class MainActivity extends Activity implements StageListener, Liste
             try {
                 switch (format) {
                     case OBJ:
-                        ok = writeDownload(base + ".mtl", "text/plain", ai.dvine.render.field.MeshExport.mtl(spec).getBytes("UTF-8"))
-                                && writeDownload(file, format.mime, ai.dvine.render.field.MeshExport.obj(spec, what, base + ".mtl").getBytes("UTF-8"));
+                        ok = writeDownload(base + ".mtl", "text/plain",
+                                ai.dvine.render.field.MeshExport.mtl(spec).getBytes("UTF-8"))
+                                && writeDownload(file, format.mime, ai.dvine.render.field.MeshExport
+                                        .obj(spec, what, base + ".mtl").getBytes("UTF-8"));
                         break;
                     case STL:
-                        ok = writeDownload(file, format.mime, ai.dvine.render.field.MeshExport.stl(spec, what));
+                        ok = writeDownload(file, format.mime,
+                                ai.dvine.render.field.MeshExport.stl(spec, what));
                         break;
                     case PLY:
-                        ok = writeDownload(file, format.mime, ai.dvine.render.field.MeshExport.ply(spec));
+                        ok = writeDownload(file, format.mime,
+                                ai.dvine.render.field.MeshExport.ply(spec));
                         break;
                     default:
-                        ok = writeDownload(file, format.mime, ai.dvine.render.field.Gltf.glb(spec, what));
+                        ok = writeDownload(file, format.mime,
+                                ai.dvine.render.field.Gltf.glb(spec, what));
                         break;
                 }
             } catch (Exception e) {
                 ok = false;
             }
             final boolean saved = ok;
-            handler.post(() -> play(LocalTurn.speakAs(stage.agent(), saved
-                    ? "Saved " + file + (format == ai.dvine.render.field.MeshExport.Format.OBJ ? " and its colours file" : "")
-                    + " in Downloads, in the DVINE folder. It opens in " + format.opensIn + "."
-                    + (format == ai.dvine.render.field.MeshExport.Format.GLB ? " Every part is its own piece with a joint." : "")
-                    : "I couldn't save it to Downloads."), null));
+            handler.post(
+                    () -> play(
+                            LocalTurn.speakAs(stage.agent(),
+                                    saved ? "Saved " + file
+                                            + (format == ai.dvine.render.field.MeshExport.Format.OBJ
+                                                    ? " and its colours file"
+                                                    : "")
+                                            + " in Downloads, in the DVINE folder. It opens in "
+                                            + format.opensIn + "."
+                                            + (format == ai.dvine.render.field.MeshExport.Format.GLB
+                                                    ? " Every part is its own piece with a joint."
+                                                    : "")
+                                            : "I couldn't save it to Downloads."),
+                            null));
         });
     }
 
     /** A file in Downloads/DVINE through the media store (no storage permission needed). */
-    private boolean writeDownload(String file, String mime, byte[] data) throws java.io.IOException {
+    private boolean writeDownload(String file, String mime, byte[] data)
+            throws java.io.IOException {
         android.content.ContentValues v = new android.content.ContentValues();
         v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, file);
         v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime);
-        v.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
-        android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+        v.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        android.net.Uri uri = getContentResolver()
+                .insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
         if (uri == null) {
             return false;
         }
@@ -1315,6 +1489,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     // ------------------------------------------------------------ saved drawings, found by name or description
 
     private ai.dvine.library.DrawingLibrary library;
+
     /** A question about the library is waiting for its answer ("What should I call it?"); it takes the next words. */
     private interface Awaiting {
         void take(String said);
@@ -1340,25 +1515,33 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return false;
         }
         boolean drawingOn = currentSolid != null && stage.pictureShown();
-        if (!drawingOn && (w.kind == ai.dvine.library.LibraryWords.Kind.SAVE || w.kind == ai.dvine.library.LibraryWords.Kind.EXPORT)
+        if (!drawingOn
+                && (w.kind == ai.dvine.library.LibraryWords.Kind.SAVE
+                        || w.kind == ai.dvine.library.LibraryWords.Kind.EXPORT)
                 && !text.toLowerCase(java.util.Locale.US).matches("^(please )?(save|export).*")) {
             return false; // "remember this", "keep that": about something else when no drawing is on show
         }
         switch (w.kind) {
             case EXPORT:
                 if (currentSolid == null || !stage.pictureShown()) {
-                    play(LocalTurn.speakAs(stage.agent(), "There's no 3D drawing on show to save. Ask me to draw something, or open one you saved."), null);
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "There's no 3D drawing on show to save. Ask me to draw something, or open one you saved."),
+                            null);
                     return true;
                 }
                 exportSolid(ai.dvine.render.field.MeshExport.formatIn(text), currentName);
                 return true;
             case SAVE:
                 if (currentSolid == null || !stage.pictureShown()) {
-                    play(LocalTurn.speakAs(stage.agent(), "There's no 3D drawing on show to save. Ask me to draw something first."), null);
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "There's no 3D drawing on show to save. Ask me to draw something first."),
+                            null);
                     return true;
                 }
                 if (w.name == null) {
-                    askForName("What should I call it? You can add a description after a colon, like Robo, colon, my red robot.", w.description);
+                    askForName(
+                            "What should I call it? You can add a description after a colon, like Robo, colon, my red robot.",
+                            w.description);
                 } else {
                     saveDrawing(w.name, w.description, false);
                 }
@@ -1366,21 +1549,31 @@ public final class MainActivity extends Activity implements StageListener, Liste
             case LIST: {
                 java.util.List<ai.dvine.library.DrawingLibrary.Entry> all = library.all();
                 if (all.isEmpty()) {
-                    play(LocalTurn.speakAs(stage.agent(), "You haven't saved any drawings yet. When one is on show, say save it as, and a name."), null);
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "You haven't saved any drawings yet. When one is on show, say save it as, and a name."),
+                            null);
                     return true;
                 }
-                StringBuilder b = new StringBuilder(all.size() == 1 ? "You have one saved drawing: " : "You have " + all.size() + " saved drawings: ");
+                StringBuilder b = new StringBuilder(all.size() == 1 ? "You have one saved drawing: "
+                        : "You have " + all.size() + " saved drawings: ");
                 for (int i = 0; i < all.size() && i < 8; i++) {
-                    b.append(i == 0 ? "" : i == Math.min(all.size(), 8) - 1 ? ", and " : ", ").append(all.get(i).name);
+                    b.append(i == 0 ? "" : i == Math.min(all.size(), 8) - 1 ? ", and " : ", ")
+                            .append(all.get(i).name);
                 }
-                play(LocalTurn.speakAs(stage.agent(), b.append(all.size() > 8 ? ", and more." : ". Say show me, and a name.").toString()), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        b.append(all.size() > 8 ? ", and more." : ". Say show me, and a name.")
+                                .toString()),
+                        null);
                 return true;
             }
             case DELETE: {
                 ai.dvine.library.DrawingLibrary.Found f = library.find(w.name);
                 if (f.entries.size() != 1 || f.score < 60) {
-                    play(LocalTurn.speakAs(stage.agent(), f.entries.isEmpty() ? "I don't have a saved drawing called " + w.name + "."
-                            : "Which one? " + names(f.entries) + "."), null);
+                    play(LocalTurn.speakAs(stage.agent(),
+                            f.entries.isEmpty()
+                                    ? "I don't have a saved drawing called " + w.name + "."
+                                    : "Which one? " + names(f.entries) + "."),
+                            null);
                     return true;
                 }
                 final ai.dvine.library.DrawingLibrary.Entry e = f.entries.get(0);
@@ -1392,15 +1585,20 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         play(LocalTurn.speakAs(stage.agent(), "Kept " + e.name + "."), null);
                     }
                 };
-                play(LocalTurn.speakAs(stage.agent(), "Delete " + e.name + ", " + e.about() + "? Yes or no?"), this::startListening);
+                play(LocalTurn.speakAs(stage.agent(),
+                        "Delete " + e.name + ", " + e.about() + "? Yes or no?"),
+                        this::startListening);
                 return true;
             }
             default: { // OPEN
                 ai.dvine.library.DrawingLibrary.Found f = library.find(w.name);
                 if (f.score < (w.plainlySaved ? 35 : 80)) {
                     if (w.plainlySaved) {
-                        play(LocalTurn.speakAs(stage.agent(), library.size() == 0 ? "You haven't saved any drawings yet."
-                                : "I can't find a saved drawing like " + w.name + ". You have " + names(library.all()) + "."), null);
+                        play(LocalTurn.speakAs(stage.agent(),
+                                library.size() == 0 ? "You haven't saved any drawings yet."
+                                        : "I can't find a saved drawing like " + w.name
+                                                + ". You have " + names(library.all()) + "."),
+                                null);
                         return true;
                     }
                     return false; // perhaps a new thing to draw: "show me a lion"
@@ -1415,9 +1613,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
                                 return;
                             }
                         }
-                        play(LocalTurn.speakAs(stage.agent(), "I didn't catch which. Say show me, and its name."), null);
+                        play(LocalTurn.speakAs(stage.agent(),
+                                "I didn't catch which. Say show me, and its name."), null);
                     };
-                    play(LocalTurn.speakAs(stage.agent(), "I found " + choices.size() + ": " + describe(choices) + ". Which one?"), this::startListening);
+                    play(LocalTurn.speakAs(stage.agent(), "I found " + choices.size() + ": "
+                            + describe(choices) + ". Which one?"), this::startListening);
                     return true;
                 }
                 openDrawing(f.entries.get(0));
@@ -1433,7 +1633,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         awaiting = said -> {
             String reply = said.trim();
             String name = reply, about = description;
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(.+?)\\s*(?::| colon | - |, described as |, it'?s |, which is )\\s*(.+)$",
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "^(.+?)\\s*(?::| colon | - |, described as |, it'?s |, which is )\\s*(.+)$",
                     java.util.regex.Pattern.CASE_INSENSITIVE).matcher(reply);
             if (m.matches()) {
                 name = m.group(1);
@@ -1455,7 +1656,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (clash != null && !replace) {
             awaiting = said -> {
                 String low = said.toLowerCase(java.util.Locale.US).trim().replaceAll("[.!?]+$", "");
-                if (low.matches("^(replace it|replace|overwrite( it)?|yes,? replace( it)?|save over it|use it anyway)$")) {
+                if (low.matches(
+                        "^(replace it|replace|overwrite( it)?|yes,? replace( it)?|save over it|use it anyway)$")) {
                     saveDrawing(name, description, true);
                 } else {
                     String other = ai.dvine.library.LibraryWords.nameFrom(said);
@@ -1466,17 +1668,22 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     }
                 }
             };
-            String when = new java.text.SimpleDateFormat("d MMMM", java.util.Locale.UK).format(new java.util.Date(clash.saved));
-            play(LocalTurn.speakAs(stage.agent(), "The name " + clash.name + " is already used for another drawing: " + clash.about()
-                    + ", saved on " + when + ". Give me another name or a short description to tell them apart, or say replace it."), this::startListening);
+            String when = new java.text.SimpleDateFormat("d MMMM", java.util.Locale.UK)
+                    .format(new java.util.Date(clash.saved));
+            play(LocalTurn.speakAs(stage.agent(), "The name " + clash.name
+                    + " is already used for another drawing: " + clash.about() + ", saved on "
+                    + when
+                    + ". Give me another name or a short description to tell them apart, or say replace it."),
+                    this::startListening);
             return;
         }
         try {
-            ai.dvine.library.DrawingLibrary.Entry e = library.save(name, lastDrawn, description, currentSolid, System.currentTimeMillis());
+            ai.dvine.library.DrawingLibrary.Entry e = library.save(name, lastDrawn, description,
+                    currentSolid, System.currentTimeMillis());
             currentName = e.name;
             stage.innerVoice("Saved \u201c" + e.name + "\u201d: " + clip(e.summary));
-            play(LocalTurn.speakAs(stage.agent(), "Saved as " + e.name + ". Later, say show me " + e.name
-                    + ", or describe it, and I'll find it."), null);
+            play(LocalTurn.speakAs(stage.agent(), "Saved as " + e.name + ". Later, say show me "
+                    + e.name + ", or describe it, and I'll find it."), null);
         } catch (java.io.IOException ex) {
             play(LocalTurn.speakAs(stage.agent(), "I couldn't save it on the phone."), null);
         }
@@ -1485,7 +1692,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private void openDrawing(ai.dvine.library.DrawingLibrary.Entry e) {
         ai.dvine.render.field.SolidSpec spec = library.open(e);
         if (spec.parts.isEmpty()) {
-            play(LocalTurn.speakAs(stage.agent(), "The drawing " + e.name + " is damaged; I can't open it."), null);
+            play(LocalTurn.speakAs(stage.agent(),
+                    "The drawing " + e.name + " is damaged; I can't open it."), null);
             return;
         }
         currentSolid = spec.fixFrame();
@@ -1493,14 +1701,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
         lastDrawn = e.subject.isEmpty() ? e.name : e.subject;
         solidHistory.clear();
         takenOut.clear();
-        stage.showSolid(spec.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f), e.name);
+        stage.showSolid(spec.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f),
+                e.name);
         play(LocalTurn.speakAs(stage.agent(), "Here's " + e.name + "."), null);
     }
 
     private static String names(java.util.List<ai.dvine.library.DrawingLibrary.Entry> list) {
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < list.size() && i < 8; i++) {
-            b.append(i == 0 ? "" : i == Math.min(list.size(), 8) - 1 ? " and " : ", ").append(list.get(i).name);
+            b.append(i == 0 ? "" : i == Math.min(list.size(), 8) - 1 ? " and " : ", ")
+                    .append(list.get(i).name);
         }
         return b.toString();
     }
@@ -1508,7 +1718,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private static String describe(java.util.List<ai.dvine.library.DrawingLibrary.Entry> list) {
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < list.size() && i < 5; i++) {
-            b.append(i == 0 ? "" : "; ").append(list.get(i).name).append(", ").append(list.get(i).about());
+            b.append(i == 0 ? "" : "; ").append(list.get(i).name).append(", ")
+                    .append(list.get(i).about());
         }
         return b.toString();
     }
@@ -1517,7 +1728,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         List<ai.dvine.render.field.SolidSpec.Part> removed = new ArrayList<ai.dvine.render.field.SolidSpec.Part>();
         ai.dvine.render.field.SolidSpec next = edit.apply(currentSolid, which, removed);
         if (next.parts.isEmpty()) {
-            play(LocalTurn.speakAs(stage.agent(), "That would leave nothing. Say clear it if you want it gone."), null);
+            play(LocalTurn.speakAs(stage.agent(),
+                    "That would leave nothing. Say clear it if you want it gone."), null);
             return;
         }
         solidHistory.push(currentSolid);
@@ -1525,14 +1737,30 @@ public final class MainActivity extends Activity implements StageListener, Liste
         String names = ai.dvine.render.field.PartEdit.names(currentSolid, which);
         String line;
         switch (edit.op) {
-            case REMOVE: line = "Took out the " + names + "."; break;
-            case ONLY: line = "Just the " + names + " now."; break;
-            case COLOUR: line = "The " + names + ", recoloured."; break;
-            case BIGGER: line = "Bigger " + names + "."; break;
-            case SMALLER: line = "Smaller " + names + "."; break;
-            case WIDER: line = "Wider " + names + "."; break;
-            case TALLER: line = "Taller " + names + "."; break;
-            default: line = "Done."; break;
+            case REMOVE:
+                line = "Took out the " + names + ".";
+                break;
+            case ONLY:
+                line = "Just the " + names + " now.";
+                break;
+            case COLOUR:
+                line = "The " + names + ", recoloured.";
+                break;
+            case BIGGER:
+                line = "Bigger " + names + ".";
+                break;
+            case SMALLER:
+                line = "Smaller " + names + ".";
+                break;
+            case WIDER:
+                line = "Wider " + names + ".";
+                break;
+            case TALLER:
+                line = "Taller " + names + ".";
+                break;
+            default:
+                line = "Done.";
+                break;
         }
         showEdit(next, line);
     }
@@ -1554,9 +1782,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private void askViewIntent(final String asked) {
         final int id = ++askId;
         stage.setMode(StageMode.THINKING);
-        stage.innerVoice("Heard: \u201c" + clip(asked) + "\u201d. Asking my brain how to move it\u2026");
+        stage.innerVoice(
+                "Heard: \u201c" + clip(asked) + "\u201d. Asking my brain how to move it\u2026");
         modelThread.execute(() -> {
-            String written = model.task(ai.dvine.agent.ViewIntent.system(), asked, 30, text -> id == askId);
+            String written = model.task(ai.dvine.agent.ViewIntent.system(), asked, 30,
+                    text -> id == askId);
             final String command = ai.dvine.agent.ViewIntent.read(written);
             handler.post(() -> {
                 if (id != askId) {
@@ -1564,7 +1794,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 }
                 if (command == null) {
                     stage.setMode(StageMode.CONTENT);
-                    play(LocalTurn.speakAs(stage.agent(), "I'm not sure how to move it like that. Try spin it, rotate it vertically, or show me the top."), null);
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "I'm not sure how to move it like that. Try spin it, rotate it vertically, or show me the top."),
+                            null);
                     return;
                 }
                 learned.learn(asked, command);
@@ -1576,46 +1808,71 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     private static String changeLine(ai.dvine.render.field.ShapeCommand.Op op) {
         switch (op) {
-            case BIGGER: return "Bigger.";
-            case SMALLER: return "Smaller.";
-            case SPIN: return "Spinning.";
-            case SPIN_VERTICAL: return "Rolling it over.";
-            case FASTER: return "Faster.";
-            case SLOWER: return "Slower.";
-            case TURN_BY: return "Turned.";
-            case TILT_BY: return "Tilted.";
-            case VIEW: return "There's the view.";
-            case STOP: return "Holding it still.";
-            case TURN: return "Here's the other side.";
-            case COLOUR: return "Done.";
-            case SCATTER: return "Boom.";
-            case GATHER: return "Back together.";
-            case CLEAR: return "Cleared.";
-            case RESET: return "Back to how it was.";
-            default: return "There.";
+            case BIGGER:
+                return "Bigger.";
+            case SMALLER:
+                return "Smaller.";
+            case SPIN:
+                return "Spinning.";
+            case SPIN_VERTICAL:
+                return "Rolling it over.";
+            case FASTER:
+                return "Faster.";
+            case SLOWER:
+                return "Slower.";
+            case TURN_BY:
+                return "Turned.";
+            case TILT_BY:
+                return "Tilted.";
+            case VIEW:
+                return "There's the view.";
+            case STOP:
+                return "Holding it still.";
+            case TURN:
+                return "Here's the other side.";
+            case COLOUR:
+                return "Done.";
+            case SCATTER:
+                return "Boom.";
+            case GATHER:
+                return "Back together.";
+            case CLEAR:
+                return "Cleared.";
+            case RESET:
+                return "Back to how it was.";
+            default:
+                return "There.";
         }
     }
 
     /** Loads the installed model in the background; {@code tell} says so aloud when it's ready. */
     private void loadModel(final boolean tell) {
         modelThread.execute(() -> {
-            final boolean ok = model.load(ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
+            final boolean ok = model.load(
+                    ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
             if (assistant != null && model.spec != null) {
                 new ai.dvine.ops.mind.ModelAdapter(assistant.models()).report(model.spec.file, ok);
-                assistant.orchestrator().setModel(ok ? ai.dvine.ops.pipe.CheckedReading.of(model) : null);
+                assistant.orchestrator()
+                        .setModel(ok ? ai.dvine.ops.pipe.CheckedReading.of(model) : null);
             }
             handler.post(() -> {
                 stage.activity("MODEL", ok ? "ready, offline" : model.problem());
                 int taught = journal == null ? 0 : journal.taughtCount();
                 if (ok) {
                     // in step with this build: the brain is told about DVINE, the three of us and what the user taught
-                    stage.activity("BRAIN", "synced with DVINE " + BuildConfigInfo.version(this) + ": 3 personas, "
-                            + taught + (taught == 1 ? " taught fact" : " taught facts"));
+                    stage.activity("BRAIN",
+                            "synced with DVINE " + BuildConfigInfo.version(this) + ": 3 personas, "
+                                    + taught + (taught == 1 ? " taught fact" : " taught facts"));
                 }
                 if (tell) {
-                    play(LocalTurn.speakAs(stage.agent(), ok ? "My brain is ready and in sync with DVINE. It knows Ivie, Obi and Ibiko, what this app can do"
-                            + (taught > 0 ? ", and the " + (taught == 1 ? "thing" : taught + " things") + " you've taught me" : "")
-                            + ". Ask me anything, even offline."
+                    play(LocalTurn.speakAs(stage.agent(), ok
+                            ? "My brain is ready and in sync with DVINE. It knows Ivie, Obi and Ibiko, what this app can do"
+                                    + (taught > 0
+                                            ? ", and the "
+                                                    + (taught == 1 ? "thing" : taught + " things")
+                                                    + " you've taught me"
+                                            : "")
+                                    + ". Ask me anything, even offline."
                             : "I couldn't start my brain: " + model.problem() + "."), null);
                 }
             });
@@ -1627,21 +1884,25 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (model == null) {
             return false;
         }
-        boolean yes = said.matches("^(yes|yeah|yep|ok|okay|sure|go ahead|start|do it|please do)( please)?$");
+        boolean yes = said
+                .matches("^(yes|yeah|yep|ok|okay|sure|go ahead|start|do it|please do)( please)?$");
         boolean no = said.matches("^(no|nope|not now|cancel|don't|do not|leave it)( please)?$");
         if (confirmModelDownload && (yes || no)) {
             confirmModelDownload = false;
             if (yes) {
                 startModelDownload();
             } else {
-                play(LocalTurn.speakAs(stage.agent(), "Okay, not now. Say download your brain whenever you're ready."), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        "Okay, not now. Say download your brain whenever you're ready."), null);
             }
             return true;
         }
         if (confirmModelRemove && (yes || no)) {
             confirmModelRemove = false;
-            String line = !yes ? "Okay, I'll keep it." : model.uninstall() ? "Done. My brain files are removed; I'm on my offline notes again."
-                    : "I couldn't delete the model file.";
+            String line = !yes ? "Okay, I'll keep it."
+                    : model.uninstall()
+                            ? "Done. My brain files are removed; I'm on my offline notes again."
+                            : "I couldn't delete the model file.";
             play(LocalTurn.speakAs(stage.agent(), line), null);
             return true;
         }
@@ -1649,22 +1910,28 @@ public final class MainActivity extends Activity implements StageListener, Liste
         confirmModelRemove = false;
         String thing = "(your |the |a |my )?(brain|language model|llm|ai model|offline model|model)";
         boolean ivie = stage.isIvie();
-        if (said.matches("^(please )?(download|install|get|add|set up)( me)? " + thing + "( please)?$")
+        if (said.matches(
+                "^(please )?(download|install|get|add|set up)( me)? " + thing + "( please)?$")
                 || said.matches("^(upgrade your brain|make yourself smarter|get smarter)$")) {
             if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
-                play(LocalTurn.speakAs(ivie, "My brain can't run on this phone: " + model.problem() + "."), null);
+                play(LocalTurn.speakAs(ivie,
+                        "My brain can't run on this phone: " + model.problem() + "."), null);
             } else if (model.installed()) {
-                play(LocalTurn.speakAs(ivie, model.ready() ? "My brain is already installed and running."
-                        : "It's already installed. Starting it now."), null);
+                play(LocalTurn.speakAs(ivie,
+                        model.ready() ? "My brain is already installed and running."
+                                : "It's already installed. Starting it now."),
+                        null);
                 if (!model.ready()) {
                     loadModel(true);
                 }
             } else if (model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING) {
-                play(LocalTurn.speakAs(ivie, "It's downloading now. I'll tell you when it's ready."), null);
+                play(LocalTurn.speakAs(ivie,
+                        "It's downloading now. I'll tell you when it's ready."), null);
             } else {
                 confirmModelDownload = true;
                 play(LocalTurn.speakAs(ivie, "My brain files are a " + model.spec.sizeWords()
-                        + " download, best on Wi-Fi, and then I can think offline. Shall I start?"), this::startListening);
+                        + " download, best on Wi-Fi, and then I can think offline. Shall I start?"),
+                        this::startListening);
             }
             return true;
         }
@@ -1673,7 +1940,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 play(LocalTurn.speakAs(ivie, "There's no download running."), null);
             } else {
                 hub.stopDownload();
-                play(LocalTurn.speakAs(ivie, "Pausing the download. What's done is kept; say continue the download to carry on."), null);
+                play(LocalTurn.speakAs(ivie,
+                        "Pausing the download. What's done is kept; say continue the download to carry on."),
+                        null);
             }
             return true;
         }
@@ -1686,23 +1955,35 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return true;
         }
         String dl = "(the |my |your )?(download|downloading)( progress| bar| status)?";
-        if (said.matches("^(show|display|open)( me)? " + dl + "$") || said.matches("^(show|display)( me)? (the )?progress( bar)?$")) {
+        if (said.matches("^(show|display|open)( me)? " + dl + "$")
+                || said.matches("^(show|display)( me)? (the )?progress( bar)?$")) {
             downloadBarHidden = false;
             ai.dvine.llm.DownloadStatus st = hub.status;
-            stage.setDownload(true, "Downloading brain files", model.installed() ? 100 : st.percent(),
+            stage.setDownload(true, "Downloading brain files",
+                    model.installed() ? 100 : st.percent(),
                     st.phase() == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING,
-                    model.installed() ? "installed" : st.phase() == ai.dvine.llm.DownloadStatus.Phase.IDLE ? "not started: say download your brain" : st.detail());
-            play(LocalTurn.speakAs(ivie, model.installed() ? "My brain files are already downloaded." : st.spoken()), null);
+                    model.installed() ? "installed"
+                            : st.phase() == ai.dvine.llm.DownloadStatus.Phase.IDLE
+                                    ? "not started: say download your brain"
+                                    : st.detail());
+            play(LocalTurn.speakAs(ivie,
+                    model.installed() ? "My brain files are already downloaded." : st.spoken()),
+                    null);
             return true;
         }
         if (said.matches("^(hide|close|remove)( the)? " + dl + "$")) {
             downloadBarHidden = true;
             stage.setDownload(false, "", 0, false, "");
-            play(LocalTurn.speakAs(ivie, "Hidden. It keeps downloading; ask me how far it is any time."), null);
+            play(LocalTurn.speakAs(ivie,
+                    "Hidden. It keeps downloading; ask me how far it is any time."), null);
             return true;
         }
-        if (said.matches("^(how('s| is) (the |my )?download( going)?|how far (is|along is) (the |my )?download|(what('s| is) the )?download (progress|status)|is (the |my )?download (done|finished|complete))$")) {
-            play(LocalTurn.speakAs(ivie, model.installed() ? "The download is finished. My brain is installed." : hub.status.spoken()), null);
+        if (said.matches(
+                "^(how('s| is) (the |my )?download( going)?|how far (is|along is) (the |my )?download|(what('s| is) the )?download (progress|status)|is (the |my )?download (done|finished|complete))$")) {
+            play(LocalTurn.speakAs(ivie,
+                    model.installed() ? "The download is finished. My brain is installed."
+                            : hub.status.spoken()),
+                    null);
             return true;
         }
         if (said.matches("^(delete|remove|uninstall) " + thing + "$")) {
@@ -1710,8 +1991,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 play(LocalTurn.speakAs(ivie, "My brain files aren't installed."), null);
             } else {
                 confirmModelRemove = true;
-                play(LocalTurn.speakAs(ivie, "Remove my brain files and free " + model.spec.sizeWords() + "? Say yes or no."),
-                        this::startListening);
+                play(LocalTurn.speakAs(ivie, "Remove my brain files and free "
+                        + model.spec.sizeWords() + "? Say yes or no."), this::startListening);
             }
             return true;
         }
@@ -1725,20 +2006,38 @@ public final class MainActivity extends Activity implements StageListener, Liste
             if (model.installed() && !model.ready()) {
                 loadModel(true);
             } else {
-                play(LocalTurn.speakAs(ivie, model.ready() ? "My brain is on." : "It isn't installed yet. Say download your brain."), null);
+                play(LocalTurn
+                        .speakAs(ivie,
+                                model.ready() ? "My brain is on."
+                                        : "It isn't installed yet. Say download your brain."),
+                        null);
             }
             return true;
         }
-        if (said.matches("^(is|are) " + thing + " (installed|ready|on|working)$|^(language model|model|brain) status$")) {
+        if (said.matches("^(is|are) " + thing
+                + " (installed|ready|on|working)$|^(language model|model|brain) status$")) {
             String line;
             switch (model.state()) {
-                case READY: line = "My brain is running on this phone, offline."; break;
-                case LOADING: line = "It's starting up now."; break;
-                case DOWNLOADING: line = "It's downloading."; break;
-                case INSTALLED: line = "It's installed but switched off. Say turn on your brain."; break;
-                case UNSUPPORTED: line = "This phone can't run it: " + model.problem() + "."; break;
-                case FAILED: line = "It's installed but didn't start: " + model.problem() + "."; break;
-                default: line = "Not installed yet. Say download your brain.";
+                case READY:
+                    line = "My brain is running on this phone, offline.";
+                    break;
+                case LOADING:
+                    line = "It's starting up now.";
+                    break;
+                case DOWNLOADING:
+                    line = "It's downloading.";
+                    break;
+                case INSTALLED:
+                    line = "It's installed but switched off. Say turn on your brain.";
+                    break;
+                case UNSUPPORTED:
+                    line = "This phone can't run it: " + model.problem() + ".";
+                    break;
+                case FAILED:
+                    line = "It's installed but didn't start: " + model.problem() + ".";
+                    break;
+                default:
+                    line = "Not installed yet. Say download your brain.";
             }
             play(LocalTurn.speakAs(ivie, line), null);
             return true;
@@ -1749,27 +2048,32 @@ public final class MainActivity extends Activity implements StageListener, Liste
     /** Starts (or resumes) the download in the background; it carries on when the app is minimised. */
     private void startModelDownload() {
         if (connectivity == null || !connectivity.isOnline()) {
-            play(LocalTurn.speakAs(stage.agent(), "I'm offline right now. Connect to the internet, ideally Wi-Fi, and ask me again."), null);
+            play(LocalTurn.speakAs(stage.agent(),
+                    "I'm offline right now. Connect to the internet, ideally Wi-Fi, and ask me again."),
+                    null);
             return;
         }
         if (hub.downloading()) {
             play(LocalTurn.speakAs(stage.agent(), hub.status.spoken()), null);
             return;
         }
-        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFY); // for the progress notification
+        if (checkSelfPermission(
+                android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { android.Manifest.permission.POST_NOTIFICATIONS },
+                    NOTIFY); // for the progress notification
         }
         downloadBarHidden = false;
         hub.startDownload(this);
-        play(LocalTurn.speakAs(stage.agent(), "Downloading now, in the background. You can minimise me; the notification shows how far it is."), null);
+        play(LocalTurn.speakAs(stage.agent(),
+                "Downloading now, in the background. You can minimise me; the notification shows how far it is."),
+                null);
     }
 
     /**
-     * The brain's answer for a sentence the examiner has read: each separate request answered in turn (plain answers
-     * joined, anything that acts stops there), and when the sentence as said isn't understood, its core
-     * without fillers is tried as well.
+     * The brain's answer for a sentence the examiner has read: each separate request answered in turn (plain answers joined, anything that acts stops there), and when the sentence as said isn't understood, its core without fillers is tried as well.
      */
-    private BrainAnswer respondInContext(String asked, ai.dvine.brain.ContextExaminer.Reading reading) {
+    private BrainAnswer respondInContext(String asked,
+            ai.dvine.brain.ContextExaminer.Reading reading) {
         String agent = stage.agent();
         if (reading.parts.size() > 1) {
             BrainAnswer first = brain.respond(reading.parts.get(0), agent);
@@ -1783,8 +2087,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return first;
         }
         BrainAnswer reply = brain.respond(asked, agent);
-        if (!reply.answered && "OFFLINE".equals(reply.source) && reading.core != null && !reading.core.isEmpty()
-                && !reading.core.equals(asked.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", ""))) {
+        if (!reply.answered && "OFFLINE".equals(reply.source) && reading.core != null
+                && !reading.core.isEmpty() && !reading.core.equals(
+                        asked.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", ""))) {
             BrainAnswer again = brain.respond(reading.core, agent);
             if (again.answered) {
                 return again;
@@ -1800,13 +2105,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * 3D creation: "design me a modern two-storey house with a pool", "make it
-     * three storeys", "show the floor plan", "return to your normal form".
-     * Building (and reading references) runs off the main thread while a
-     * thought bubble shows; the particles then leave the body and build it.
+     * 3D creation: "design me a modern two-storey house with a pool", "make it three storeys", "show the floor plan", "return to your normal form". Building (and reading references) runs off the main thread while a thought bubble shows; the particles then leave the body and build it.
      */
     private boolean create(final String text) {
-        final ai.dvine.create.ObjectRequestInterpreter.Request r = creation.parse(text, stage.objectShown());
+        final ai.dvine.create.ObjectRequestInterpreter.Request r = creation.parse(text,
+                stage.objectShown());
         if (r == null) {
             return false;
         }
@@ -1822,7 +2125,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         final int id = ++askId;
         stopPlay();
-        stage.setThought(creation.researchAvailable() ? "Researching it, then building the geometry…" : "Designing the geometry…");
+        stage.setThought(
+                creation.researchAvailable() ? "Researching it, then building the geometry…"
+                        : "Designing the geometry…");
         stage.setMode(StageMode.THINKING);
         deskThread.execute(() -> {
             final ai.dvine.create.CreationDirector.Outcome o = creation.perform(r);
@@ -1840,7 +2145,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             case BECOME:
                 if (!stage.becomeObject(o.model)) {
                     o.lines.clear();
-                    o.lines.add("I couldn't start the transformation just now. Try again in a moment.");
+                    o.lines.add(
+                            "I couldn't start the transformation just now. Try again in a moment.");
                 }
                 break;
             case CHANGED:
@@ -1863,22 +2169,19 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * Online: hands the question to the server's desk while a thought bubble
-     * shows, then plays its lines. If the server can't be reached the
-     * offline answer plays instead. Returns false when offline.
+     * Online: hands the question to the server's desk while a thought bubble shows, then plays its lines. If the server can't be reached the offline answer plays instead. Returns false when offline.
      */
     /**
-     * Dual-AI: both personas in turn, while each answers through
-     * its own session (the offline brain as that persona, or that persona's own desk question
-     * online); the second hears the first. Runs off the main thread; any new input cancels it.
+     * Dual-AI: both personas in turn, while each answers through its own session (the offline brain as that persona, or that persona's own desk question online); the second hears the first. Runs off the main thread; any new input cancels it.
      */
     private void discuss(final ai.dvine.turn.DualAgentCoordinator.Request r) {
         stopPlay();
         final String first = r.first != null ? r.first : stage.agent();
-        stage.setThought(first.equals("ivie") ? "Let me think, then Obi can weigh in…" : "Let me think, then Ivie can weigh in…");
+        stage.setThought(first.equals("ivie") ? "Let me think, then Obi can weigh in…"
+                : "Let me think, then Ivie can weigh in…");
         stage.setMode(StageMode.THINKING);
-        final boolean online = desk != null && connectivity != null && connectivity.isOnline() && serverUrl() != null
-                && serverUrl().trim().startsWith("https://");
+        final boolean online = desk != null && connectivity != null && connectivity.isOnline()
+                && serverUrl() != null && serverUrl().trim().startsWith("https://");
         final ai.dvine.turn.DualAgentCoordinator c = new ai.dvine.turn.DualAgentCoordinator(
                 agentFor("obi", online), agentFor("ivie", online));
         discussion = c;
@@ -1899,7 +2202,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /** One persona's own answering session for a discussion. */
-    private ai.dvine.turn.DualAgentCoordinator.Agent agentFor(final String persona, final boolean online) {
+    private ai.dvine.turn.DualAgentCoordinator.Agent agentFor(final String persona,
+            final boolean online) {
         return (question, heard) -> {
             BrainAnswer a;
             synchronized (brain) {
@@ -1955,10 +2259,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (name == null) {
             nameTries++;
             if (nameTries < 2) {
-                play(LocalTurn.speakAs(true, "Sorry, I didn't catch your name. What should we call you?"), this::startListening);
+                play(LocalTurn.speakAs(true,
+                        "Sorry, I didn't catch your name. What should we call you?"),
+                        this::startListening);
             } else {
                 awaitingName = false;
-                play(LocalTurn.speakAs(true, "No problem. Whenever you like, just say call me, and your name."), null);
+                play(LocalTurn.speakAs(true,
+                        "No problem. Whenever you like, just say call me, and your name."), null);
             }
             return;
         }
@@ -2051,20 +2358,25 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (outcome.speech != null && !outcome.speech.isEmpty()) {
             if (outcome.speak || outcome.stopGeneration) {
-                play(LocalTurn.speakAs(stage.agent(), outcome.speech), outcome.listen ? this::startListening : null);
+                play(LocalTurn.speakAs(stage.agent(), outcome.speech),
+                        outcome.listen ? this::startListening : null);
             } else {
                 stage.innerVoice(outcome.speech);
             }
         }
         if (outcome.solidText != null && !outcome.solidText.isEmpty()) {
-            ai.dvine.render.field.SolidSpec spec = ai.dvine.render.field.SolidSpec.parse(outcome.solidText, outcome.subject);
+            ai.dvine.render.field.SolidSpec spec = ai.dvine.render.field.SolidSpec
+                    .parse(outcome.solidText, outcome.subject);
             if (spec != null && !spec.parts.isEmpty()) {
                 currentSolid = spec.fixFrame();
                 currentName = null;
                 solidHistory.clear();
                 takenOut.clear();
-                stage.showSolid(currentSolid.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f),
-                        outcome.subject == null || outcome.subject.isEmpty() ? "object" : outcome.subject);
+                stage.showSolid(
+                        currentSolid.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS,
+                                2f),
+                        outcome.subject == null || outcome.subject.isEmpty() ? "object"
+                                : outcome.subject);
             }
         }
         if (outcome.resumeSpeech) {
@@ -2124,9 +2436,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     private void startListening(boolean hold) {
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, MIC);
+        if (checkSelfPermission(
+                android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { android.Manifest.permission.RECORD_AUDIO }, MIC);
             return;
         }
         // Do not call stopPlay() here. That dropped every pending callback and made holding the
@@ -2234,7 +2546,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             stage.setMode(StageMode.DONE);
             Runnable after = afterPlay;
             afterPlay = null;
-            if (after == null && lastSaid(lines) != null && ai.dvine.turn.Followup.wantsReply(lastSaid(lines))) {
+            if (after == null && lastSaid(lines) != null
+                    && ai.dvine.turn.Followup.wantsReply(lastSaid(lines))) {
                 after = this::startListening; // it asked something: the microphone opens for the answer
             }
             final Runnable done = after;
@@ -2276,8 +2589,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /**
-     * What the brain knows about DVINE, built from this build and this phone each time it answers: the app and its
-     * version, the three personas and how to switch, what the app can do, the user's name and how much they taught.
+     * What the brain knows about DVINE, built from this build and this phone each time it answers: the app and its version, the three personas and how to switch, what the app can do, the user's name and how much they taught.
      */
     private String selfSheet() {
         ai.dvine.llm.DvineSelf.Facts f = new ai.dvine.llm.DvineSelf.Facts();
@@ -2319,9 +2631,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
     /** System picker. The app does not ask for all-files access. */
     private void openContentPicker(String kind, boolean learn) {
         pickerLearn = learn;
-        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        android.content.Intent intent = new android.content.Intent(
+                android.content.Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
-        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         if ("image".equals(kind)) {
             intent.setType("image/*");
         } else if ("video".equals(kind)) {
@@ -2330,14 +2644,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
             intent.setType("audio/*");
         } else if ("document".equals(kind)) {
             intent.setType("*/*");
-            intent.putExtra(android.content.Intent.EXTRA_MIME_TYPES, new String[]{"text/plain", "text/*", "application/pdf"});
+            intent.putExtra(android.content.Intent.EXTRA_MIME_TYPES,
+                    new String[] { "text/plain", "text/*", "application/pdf" });
         } else {
             intent.setType("*/*");
         }
         try {
             startActivityForResult(intent, PICK_CONTENT);
         } catch (android.content.ActivityNotFoundException e) {
-            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."), null);
+            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."),
+                    null);
         }
     }
 
@@ -2345,18 +2661,22 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private void openReconstructionPicker() {
         pickerReconstruct = true;
         pickerLearn = false;
-        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        android.content.Intent intent = new android.content.Intent(
+                android.content.Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
         intent.setType("image/*");
         intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, true);
-        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         try {
             startActivityForResult(intent, PICK_CONTENT);
             play(LocalTurn.speakAs(stage.agent(),
-                    "Choose two or more overlapping photographs of one object. I'll triangulate those views. One photo is not a reconstruction, and this is not a dense scan."), null);
+                    "Choose two or more overlapping photographs of one object. I'll triangulate those views. One photo is not a reconstruction, and this is not a dense scan."),
+                    null);
         } catch (android.content.ActivityNotFoundException e) {
             pickerReconstruct = false;
-            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."), null);
+            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."),
+                    null);
         }
     }
 
@@ -2370,7 +2690,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
             pickerReconstruct = false;
             pickerLearn = false;
             if (resultCode != RESULT_OK || data == null) {
-                play(LocalTurn.speakAs(stage.agent(), "You closed the picker. I didn't reconstruct anything."), null);
+                play(LocalTurn.speakAs(stage.agent(),
+                        "You closed the picker. I didn't reconstruct anything."), null);
                 return;
             }
             java.util.ArrayList<android.net.Uri> uris = new java.util.ArrayList<android.net.Uri>();
@@ -2387,7 +2708,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 uris.add(data.getData());
             }
             if (uris.isEmpty()) {
-                play(LocalTurn.speakAs(stage.agent(), "The picker didn't give me any photographs."), null);
+                play(LocalTurn.speakAs(stage.agent(), "The picker didn't give me any photographs."),
+                        null);
                 return;
             }
             for (android.net.Uri uri : uris) {
@@ -2406,15 +2728,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             pickerLearn = false;
-            play(LocalTurn.speakAs(stage.agent(), "You closed the picker. I didn't open a file."), null);
+            play(LocalTurn.speakAs(stage.agent(), "You closed the picker. I didn't open a file."),
+                    null);
             return;
         }
         final android.net.Uri uri = data.getData();
         final boolean learn = pickerLearn;
         pickerLearn = false;
         try {
-            getContentResolver().takePersistableUriPermission(uri, data.getFlags()
-                    & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContentResolver().takePersistableUriPermission(uri,
+                    data.getFlags() & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (SecurityException ignored) {
             // a one-shot grant is enough to read it now
         }
@@ -2433,7 +2756,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 // one unreadable file is reported by the count, not invented
             }
         }
-        final ai.dvine.ops.recon.PhotoReconstruction.Built built = ai.dvine.ops.recon.PhotoReconstruction.from(images);
+        final ai.dvine.ops.recon.PhotoReconstruction.Built built = ai.dvine.ops.recon.PhotoReconstruction
+                .from(images);
         handler.post(() -> {
             if (token != askId) {
                 return;
@@ -2445,7 +2769,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         });
     }
 
-    private ai.dvine.ops.recon.RasterImage readRaster(android.net.Uri uri) throws java.io.IOException {
+    private ai.dvine.ops.recon.RasterImage readRaster(android.net.Uri uri)
+            throws java.io.IOException {
         android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
@@ -2479,11 +2804,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         String name = "file";
         try {
             String mime = getContentResolver().getType(uri);
-            android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            android.database.Cursor cursor = getContentResolver().query(uri, null, null, null,
+                    null);
             if (cursor != null) {
                 try {
                     if (cursor.moveToFirst()) {
-                        int i = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                        int i = cursor
+                                .getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
                         if (i >= 0 && cursor.getString(i) != null) {
                             name = cursor.getString(i);
                         }
@@ -2509,7 +2836,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     size += r;
                 }
             }
-            report = new ai.dvine.ops.vision.FileIntake().inspect(name, mime, java.util.Arrays.copyOf(head, n), size, learn);
+            report = new ai.dvine.ops.vision.FileIntake().inspect(name, mime,
+                    java.util.Arrays.copyOf(head, n), size, learn);
         } catch (SecurityException e) {
             report = new ai.dvine.ops.vision.FileIntake.Report("unknown",
                     "I no longer have permission to read that file.", null, false, 0, 0);
@@ -2553,17 +2881,21 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     bitmap = android.graphics.BitmapFactory.decodeStream(in, null, opts);
                 }
             } else if ("pdf".equals(kind)) {
-                android.os.ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
+                android.os.ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri,
+                        "r");
                 if (pfd != null) {
-                    try (android.graphics.pdf.PdfRenderer renderer = new android.graphics.pdf.PdfRenderer(pfd)) {
+                    try (android.graphics.pdf.PdfRenderer renderer = new android.graphics.pdf.PdfRenderer(
+                            pfd)) {
                         if (renderer.getPageCount() > 0) {
                             android.graphics.pdf.PdfRenderer.Page page = renderer.openPage(0);
                             int w = Math.max(1, page.getWidth());
                             int h = Math.max(1, page.getHeight());
                             float scale = 800f / Math.max(w, h);
-                            bitmap = android.graphics.Bitmap.createBitmap(Math.max(1, (int) (w * scale)),
-                                    Math.max(1, (int) (h * scale)), android.graphics.Bitmap.Config.ARGB_8888);
-                            page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                            bitmap = android.graphics.Bitmap.createBitmap(
+                                    Math.max(1, (int) (w * scale)), Math.max(1, (int) (h * scale)),
+                                    android.graphics.Bitmap.Config.ARGB_8888);
+                            page.render(bitmap, null, null,
+                                    android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
                             page.close();
                         }
                     } finally {
@@ -2595,11 +2927,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (requestCode != MIC) {
             return;
         }
-        if (results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        if (results.length > 0
+                && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             startListening();
         } else {
             play(LocalTurn.speakAs(stage.agent(),
-                    "I need the microphone to hear you. You can still type by pressing and holding the screen."), null);
+                    "I need the microphone to hear you. You can still type by pressing and holding the screen."),
+                    null);
         }
     }
 
