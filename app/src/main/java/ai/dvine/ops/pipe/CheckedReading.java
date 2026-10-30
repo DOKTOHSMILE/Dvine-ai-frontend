@@ -29,11 +29,21 @@ public final class CheckedReading implements BrainInterpretationEngine.ModelRead
 
     /** Uses the loaded model. Returns nothing when it is not ready, so the rules stand. */
     public static CheckedReading of(LocalModel model) {
+        return of(model, null);
+    }
+
+    /** As {@link #of(LocalModel)}, and calls {@code progress} as tokens arrive so the screen is not blank. */
+    public static CheckedReading of(LocalModel model, java.util.function.Consumer<String> progress) {
         return new CheckedReading(prompt -> {
             if (model == null || !model.ready()) {
                 return null;
             }
-            return model.task(SYSTEM, prompt, 24, null);
+            return model.task(SYSTEM, prompt, 24, progress == null ? null : text -> {
+                if (text != null && !"\u0001".equals(text)) {
+                    progress.accept(text);
+                }
+                return true;
+            });
         });
     }
 

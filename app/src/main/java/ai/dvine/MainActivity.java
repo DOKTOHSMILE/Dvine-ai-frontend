@@ -119,6 +119,22 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private volatile ai.dvine.llm.ThinkPace thinkPace;
     private int thinkToken;
     private String thinkWrite = "Writing the answer";
+    private String lastTaskLine = "";
+    private final Runnable taskBeat = new Runnable() {
+        public void run() {
+            if (assistant != null && !isFinishing()) {
+                String line = assistant.activityLine();
+                if (line != null && !line.isEmpty() && !line.equals(lastTaskLine)) {
+                    lastTaskLine = line;
+                    stage.activity("TASK", line);
+                    stage.progress(line);
+                }
+            }
+            if (!isFinishing()) {
+                handler.postDelayed(this, 1000);
+            }
+        }
+    };
     private final Runnable thinkBeat = new Runnable() {
         public void run() {
             ai.dvine.llm.ThinkPace pace = thinkPace;
@@ -319,6 +335,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (restored != null) {
             stage.activity("TASK", restored);
         }
+        handler.postDelayed(taskBeat, 1000);
         // core pack now (small); the dictionary and other shards load in the background
         brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis,
                 TimeZone.getDefault());
@@ -831,6 +848,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         if (modelTopic && offerModel(reply)) {
+            return;
+        }
+        if (modelTopic && (model == null || !model.ready()) && ai.dvine.llm.FreshFacts.worthLooking(asked)) {
+            play(LocalTurn.speakAs(stage.agent(), "I don't have a current source for that, so I won't guess."), null);
             return;
         }
         if (reply.needsOnline && askDesk(asked, reply)) {
@@ -1792,8 +1813,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
             if (assistant != null && model.spec != null) {
                 new ai.dvine.ops.mind.ModelAdapter(assistant.models()).report(model.spec.file, ok);
-                assistant.orchestrator()
-                        .setModel(ok ? ai.dvine.ops.pipe.CheckedReading.of(model) : null);
+                assistant.orchestrator().setModel(ok ? ai.dvine.ops.pipe.CheckedReading.of(model, piece -> {
+                    ai.dvine.llm.ThinkPace pace = thinkPace;
+                    if (pace != null && piece != null) {
+                        pace.addText(piece);
+                        handler.post(() -> { if (thinkPace != null) stage.progress(thinkPace.line()); });
+                    }
+                }) : null);
             }
             handler.post(() -> {
                 stage.activity("MODEL", ok ? "ready, offline" : model.problem());
@@ -2049,21 +2075,24 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return true;
         }
         boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
-                || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN;
+                || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN
+                || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE;
         if (!slow) {
+            armThink(r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.POSE ? "Posing the body" : "Updating the model", "Updating the model");
             applyCreation(creation.perform(r));
+            endThink();
             return true;
         }
         final int id = ++askId;
         stopPlay();
-        stage.setThought(
-                creation.researchAvailable() ? "Researching it, then building the geometry…"
-                        : "Designing the geometry…");
-        stage.setMode(StageMode.THINKING);
+        String phase = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE ? "Drawing the picture"
+                : creation.researchAvailable() ? "Researching it" : "Designing the geometry";
+        armThink(phase, phase);
         deskThread.execute(() -> {
             final ai.dvine.create.CreationDirector.Outcome o = creation.perform(r);
             handler.post(() -> {
                 if (id == askId && !isFinishing()) {
+                    endThink();
                     applyCreation(o);
                 }
             });
@@ -2102,11 +2131,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private void discuss(final ai.dvine.turn.DualAgentCoordinator.Request r) {
         stopPlay();
         final String first = r.first != null ? r.first : stage.agent();
-        stage.setThought(first.equals("ivie") ? "Let me think, then Obi can weigh in…"
-                : "Let me think, then Ivie can weigh in…");
-        stage.setMode(StageMode.THINKING);
-        final boolean online = desk != null && connectivity != null && connectivity.isOnline()
-                && serverUrl() != null && serverUrl().trim().startsWith("https://");
+        armThink(first.equals("ivie") ? "Ivie is preparing, then Obi" : "Obi is preparing, then Ivie", "Writing the line");
+        final boolean online = desk != null && connectivity != null && connectivity.isOnline() && serverUrl() != null
+                && serverUrl().trim().startsWith("https://");
         final ai.dvine.turn.DualAgentCoordinator c = new ai.dvine.turn.DualAgentCoordinator(
                 agentFor("obi", online), agentFor("ivie", online));
         discussion = c;
@@ -2117,6 +2144,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (id != askId || discussion != c || isFinishing()) {
                     return;
                 }
+                endThink();
                 play(out, () -> {
                     if (discussion == c) {
                         discussion = null;
@@ -2386,7 +2414,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
     @Override
     public void onHistory(String action) {
         if ("undo".equals(action) || "redo".equals(action)) {
+            armThink(action.equals("undo") ? "Undoing the last change" : "Redoing the last change", "Updating the model");
             create(action);
+            endThink();
         }
     }
 
@@ -2627,7 +2657,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 } catch (SecurityException ignored) {
                 }
             }
-            stage.innerVoice("Reading the photographs");
+            armThink("Reading the photographs", "Triangulating views");
             final int token = ++askId;
             final java.util.List<android.net.Uri> chosen = uris;
             new Thread(() -> deliverReconstruction(chosen, token), "dvine-recon").start();
@@ -2667,6 +2697,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             if (token != askId) {
                 return;
             }
+            endThink();
             if (built.model != null && stage.objects.showReconstruction(built.model) != null) {
                 stage.becomeObject(built.model);
             }

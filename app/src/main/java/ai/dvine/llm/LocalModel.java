@@ -114,7 +114,7 @@ public final class LocalModel {
                 roles[i] = turns.get(i)[0];
                 texts[i] = turns.get(i)[1];
             }
-            String answer = NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, sink);
+            String answer = withTimeout(() -> NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, sink));
             if (answer != null && !answer.trim().isEmpty()) {
                 remember(question, ActionTags.strip(answer));
                 return answer.trim();
@@ -140,12 +140,37 @@ public final class LocalModel {
         if (state != State.READY) {
             return null;
         }
-        String answer = NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{prompt}, maxTokens, 0.35f, sink);
+        String answer = withTimeout(() -> NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{prompt}, maxTokens, 0.35f, sink));
         if (answer == null || answer.trim().isEmpty()) {
             problem = NativeLlm.nError(handle);
             return null;
         }
         return answer.trim();
+    }
+
+    /** Cancels a reply that has produced nothing for too long, so the offline answer can play. */
+    private String withTimeout(java.util.concurrent.Callable<String> call) {
+        final java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+        Thread watchdog = new Thread(() -> {
+            try {
+                Thread.sleep(25_000);
+            } catch (InterruptedException e) {
+                return;
+            }
+            if (!done.get()) {
+                cancel();
+            }
+        }, "dvine-model-timeout");
+        watchdog.setDaemon(true);
+        watchdog.start();
+        try {
+            return call.call();
+        } catch (Exception e) {
+            return null;
+        } finally {
+            done.set(true);
+            watchdog.interrupt();
+        }
     }
 
     /** Stops a reply being written (from any thread). */
