@@ -91,12 +91,16 @@ public final class InternetResearchEngine {
     }
 
     public ClaimCheck.Report checkClaim(String question, long now) {
+        return checkClaim(question, now, null);
+    }
+
+    public ClaimCheck.Report checkClaim(String question, long now, ai.dvine.ops.task.TaskControl control) {
         java.util.List<ClaimCheck.SearchProvider> providers = new java.util.ArrayList<ClaimCheck.SearchProvider>();
         if (fetcher != null) {
             providers.add(ClaimCheck.wikipedia(fetcher));
             providers.add(ClaimCheck.wikidata(fetcher));
         }
-        return claims.check(question, fetcher != null, providers, now);
+        return claims.inspect(question, fetcher != null, providers, now, control);
     }
 
     private static void collectCommands(String text, List<String> into) {

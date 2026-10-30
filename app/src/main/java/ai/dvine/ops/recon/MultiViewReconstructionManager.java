@@ -31,7 +31,7 @@ public final class MultiViewReconstructionManager {
             return new Report(Quality.SINGLE_IMAGE_APPROXIMATION, "procedural-approximation", "Only one view was available.");
         }
         return new Report(Quality.MULTI_VIEW_UNSUPPORTED, "unsupported",
-                imageCount + " views were supplied. No photogrammetry backend ran. This is not measured.");
+                imageCount + " views were named, not supplied as pixels, so the solver did not run. This is not measured.");
     }
 
     public String method(int imageCount) {

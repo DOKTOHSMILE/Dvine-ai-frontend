@@ -70,6 +70,8 @@ public final class DvineTaskOrchestrator {
     private boolean trustFirstKey;
     private boolean confirmPending;
     private String pendingSpeech = "";
+    private SshCommandExecutor.Command pendingRemote;
+    private TaskRecord pendingTask;
     private BrainInterpretationEngine.ModelReading model;
     private String addressed = "";
     private Now clock = new Now() {
@@ -216,7 +218,12 @@ public final class DvineTaskOrchestrator {
         if (ai.dvine.ops.mind.ClaimCheck.wanted(said)) {
             return finish(factCheck(said, now));
         }
-        if ("answer".equals(read.intent) || "news".equals(read.intent)) {
+        if ("news".equals(read.intent) || DirectQuestions.news(said)) {
+            Outcome o = Outcome.reply("I don't have a news source, so I won't invent headlines.");
+            o.activity = "No news source";
+            return finish(o);
+        }
+        if ("answer".equals(read.intent)) {
             return finish(Outcome.pass());
         }
         if (looksRemoteFetch(said)) {
@@ -306,7 +313,18 @@ public final class DvineTaskOrchestrator {
     private Outcome confirmation(String text, long now) {
         String n = text == null ? "" : text.toLowerCase(Locale.US).trim();
         confirmPending = false;
-        if (n.matches("^(yes|yes please|confirm|do it)$")) {
+        SshCommandExecutor.Command remote = pendingRemote;
+        pendingRemote = null;
+        boolean yes = n.matches("^(yes|yes please|confirm|do it)$");
+        if (remote != null) {
+            TaskRecord waiting = pendingTask;
+            pendingTask = null;
+            if (!yes) {
+                return Outcome.say("Alright. I did not run it on the server.", false);
+            }
+            return runRemote(remote, waiting, now);
+        }
+        if (yes) {
             return Outcome.say("I still don't have an approved delete command for that target, so nothing was deleted.", false);
         }
         return Outcome.say("Alright. I left it as it is.", false);
@@ -382,9 +400,28 @@ public final class DvineTaskOrchestrator {
             return Outcome.say(cmd.refusal == null ? "I didn't run a remote command." : cmd.refusal, false);
         }
         if (cmd.destructive) {
+            pendingRemote = cmd;
+            pendingTask = task;
+            confirmPending = true;
+            task.state = TaskState.PAUSED;
+            task.checkpoint = "awaiting confirmation";
+            tasks.checkpoints().save(task, "awaiting confirmation", now);
             return Outcome.say("I can do that on the server, and it may interrupt anyone using it. I have not done it. Say yes if you want me to.", false);
         }
+        return runRemote(cmd, task, now);
+    }
+
+    /** Runs one command that was already allow-listed. Nothing else. */
+    private Outcome runRemote(SshCommandExecutor.Command cmd, TaskRecord task, long now) {
+        if (cmd == null || cmd.argv == null) {
+            return Outcome.say("I didn't run a remote command.", false);
+        }
+        if (task == null) {
+            task = tasks.create("remote", "Server command", "ssh", List.of("read"), cmd.destructive, now);
+            tasks.markRunning(task, now);
+        }
         SshTransport.Exec exec = ssh.exec(cmd.argv, false);
+        String joined = String.join(" ", cmd.argv).toLowerCase(Locale.US);
         task.completed.add("connect");
         if (exec.interrupted) {
             task.state = TaskState.PAUSED;
@@ -393,7 +430,7 @@ public final class DvineTaskOrchestrator {
             tasks.checkpoints().save(task, "connect", now);
             return Outcome.say("The connection dropped. I kept what I had already confirmed and I have not guessed the rest.", true);
         }
-        SshResultInterpreter.Finding finding = text.toLowerCase(Locale.US).contains("storage")
+        SshResultInterpreter.Finding finding = joined.contains("df")
                 ? sshReading.storage(exec.stdout) : sshReading.logs(exec.stdout);
         task.facts.put("finding.logs", finding.code);
         task.completed.add("read");
@@ -502,13 +539,25 @@ public final class DvineTaskOrchestrator {
         task.checkpoint = "build";
         task.assets.add(path);
         task.facts.put("method", built.method);
+        task.facts.put("measured", "false");
         SemanticTypes.ToolResult result = new SemanticTypes.ToolResult();
         result.ok = true;
-        result.verified = !built.scene.nodes().isEmpty();
+        result.verified = built.scene.approximation ? false : !built.scene.nodes().isEmpty();
         result.evidence = built.scene.manifest();
         result.speech = built.speech;
         NaturalLanguageActionEngine.Read read = language.read(text, 1, memory, null);
-        if (!verifier.accept(read.decomposition, result, ids(scene))) {
+        if (built.scene.approximation || !verifier.accept(read.decomposition, result, ids(scene))) {
+            if (built.scene.approximation) {
+                task.completed.add("verify");
+                task.state = TaskState.COMPLETED;
+                tasks.checkpoints().save(task, "verify", now);
+                Outcome shown = Outcome.say(built.speech, false);
+                shown.solidText = scene.solidText();
+                shown.subject = scene.label;
+                shown.activity = "Approximation on the board";
+                shown.taskId = task.id;
+                return shown;
+            }
             task.state = TaskState.FAILED;
             tasks.checkpoints().save(task, "build", now);
             return Outcome.say("I built geometry, but it didn't match the request closely enough, so I'm not calling it done.", false);
@@ -590,10 +639,24 @@ public final class DvineTaskOrchestrator {
 
     private Outcome factCheck(String text, long now) {
         performance.research();
-        ai.dvine.ops.mind.ClaimCheck.Report report = research.checkClaim(text, now);
+        TaskRecord task = tasks.create(text, "Fact check", "research", List.of("search"), false, now);
+        tasks.markRunning(task, now);
+        ai.dvine.ops.task.TaskControl control = tasks.attach(task);
+        control.working();
+        tasks.events().emit(ai.dvine.ops.task.TaskEventDispatcher.Channel.PROGRESS, task.id, "Checking sources", now);
+        ai.dvine.ops.mind.ClaimCheck.Report report = research.checkClaim(text, now, control);
+        control.stopped();
+        if (control.isCancelled()) {
+            tasks.noteStopped(task, now);
+        } else {
+            task.state = TaskState.COMPLETED;
+            tasks.checkpoints().save(task, "search", now);
+            tasks.events().emit(ai.dvine.ops.task.TaskEventDispatcher.Channel.RESULT, task.id, report.verdict.name(), now);
+        }
         Outcome o = Outcome.say(report.speech, false);
         o.speak = true;
-        o.activity = report.searched ? "Checking two sources" : "No search";
+        o.activity = control.isCancelled() ? "Search stopped" : (report.searched ? "Checking two sources" : "No search");
+        o.taskId = task.id;
         return o;
     }
 

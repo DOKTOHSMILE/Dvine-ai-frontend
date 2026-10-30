@@ -245,6 +245,24 @@ public class OpsPipelineTest {
     }
 
     @Test
+    public void aDestructiveServerCommandWaitsForYes() throws Exception {
+        MemorySsh ssh = new MemorySsh();
+        AssistantCore core = withSsh(ssh);
+        core.orchestrator().setSshAccount("dev.example", 22, "ada", "pw".toCharArray(), true);
+        Outcome asked = core.hear("restart the server", 1);
+        assertEquals(0, ssh.execs);
+        assertTrue(asked.speech.toLowerCase(Locale.US).contains("have not done it"));
+        Outcome no = core.hear("no", 1);
+        assertEquals(0, ssh.execs);
+        assertTrue(no.speech.toLowerCase(Locale.US).contains("did not run"));
+        Outcome again = core.hear("restart the server", 1);
+        assertEquals(0, ssh.execs);
+        Outcome yes = core.hear("yes", 1);
+        assertEquals(1, ssh.execs);
+        assertFalse(yes.speech.toLowerCase(Locale.US).contains("have not done it"));
+    }
+
+    @Test
     public void negationKeepsTheWindows() throws Exception {
         AssistantCore core = AssistantCore.offline(dir());
         core.demoCar();
@@ -331,8 +349,10 @@ public class OpsPipelineTest {
         assertFalse(explained.handled);
         assertFalse(explained.speech.toLowerCase(Locale.US).contains("have not changed"));
         Outcome news = core.hear("Obi, tell me today's news.", 1);
-        assertFalse(news.handled);
+        assertTrue(news.handled);
         assertEquals("obi", news.persona);
+        assertTrue(news.speech.toLowerCase(Locale.US).contains("won't invent"));
+        assertFalse(news.speech.toLowerCase(Locale.US).contains("have not changed"));
         Outcome car = core.hear("create a 3D model of a car", 1);
         assertFalse(car.handled);
         assertNull(core.orchestrator().scene());
@@ -547,6 +567,7 @@ public class OpsPipelineTest {
         boolean networkDown;
         String fingerprint = "SHA256:abc";
         String stdout = "18G free";
+        int execs;
         final List<RemoteFile> files = new ArrayList<RemoteFile>();
         final java.util.Map<String, byte[]> downloads = new java.util.HashMap<String, byte[]>();
 
@@ -561,6 +582,7 @@ public class OpsPipelineTest {
         }
 
         public Exec exec(List<String> argv, long timeoutMs) {
+            execs++;
             return new Exec(0, stdout, "", false);
         }
 

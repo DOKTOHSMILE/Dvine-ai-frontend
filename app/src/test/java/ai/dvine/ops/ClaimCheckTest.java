@@ -134,6 +134,35 @@ public class ClaimCheckTest {
         assertEquals(null, ai.dvine.ops.mind.CitedReference.collect("what is the capital of France", url -> "", 6_000));
     }
 
+    @Test
+    public void aCancelStopsTheSearchBeforeItIsCalledVerified() {
+        ai.dvine.ops.task.TaskControl control = new ai.dvine.ops.task.TaskControl();
+        int[] hits = {0};
+        ClaimCheck.SearchProvider first = new ClaimCheck.SearchProvider() {
+            public String name() { return "Wikipedia"; }
+            public ClaimCheck.Source find(String question) {
+                hits[0]++;
+                control.cancel();
+                return new ClaimCheck.Source("Wikipedia", "https://en.wikipedia.org/wiki/Paris",
+                        "Paris is the capital city of France and a major European city with a long history.", 5_000);
+            }
+        };
+        ClaimCheck.SearchProvider second = new ClaimCheck.SearchProvider() {
+            public String name() { return "Wikidata"; }
+            public ClaimCheck.Source find(String question) {
+                hits[0]++;
+                return new ClaimCheck.Source("Wikidata", "https://www.wikidata.org/wiki/Q90", "capital city of France", 5_000);
+            }
+        };
+        ClaimCheck.Report report = new ClaimCheck().inspect("fact check the capital of France", true,
+                java.util.List.of(first, second), 5_000, control);
+        assertEquals(1, hits[0]);
+        assertEquals(ClaimCheck.Verdict.UNVERIFIED, report.verdict);
+        assertTrue(report.speech.toLowerCase(Locale.US).contains("stopped"));
+        assertTrue(report.speech.toLowerCase(Locale.US).contains("not verified"));
+        assertFalse(report.speech.toLowerCase(Locale.US).contains("two sources agree"));
+    }
+
     private static AssistantCore core(ai.dvine.ops.mind.InternetResearchEngine.Fetcher fetcher) {
         return new AssistantCore(OpsPipelineTest.dir(), new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
             public boolean installed() { return false; }

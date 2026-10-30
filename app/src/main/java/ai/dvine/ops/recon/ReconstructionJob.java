@@ -56,7 +56,7 @@ public final class ReconstructionJob {
             }
         }
         String note = images.size() + (images.size() == 1 ? " image" : " images")
-                + ". No photogrammetry backend ran. No camera poses, no point cloud, and no mesh were produced. This is not measured.";
+                + ". These are file bytes, not decoded views, so the solver did not run. No camera poses, no point cloud, and no mesh were produced. This is not measured.";
         if (empty > 0) {
             note += " " + empty + " of them had no bytes.";
         }

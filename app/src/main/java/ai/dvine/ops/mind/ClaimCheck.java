@@ -89,11 +89,15 @@ public final class ClaimCheck {
         if (!wanted(question)) {
             return new Report(Verdict.NOT_A_CLAIM, "", List.of(), false);
         }
-        return inspect(question, online, providers, now);
+        return inspect(question, online, providers, now, null);
     }
 
     /** The caller already decided this question should be looked up. */
     public Report inspect(String question, boolean online, List<SearchProvider> providers, long now) {
+        return inspect(question, online, providers, now, null);
+    }
+
+    public Report inspect(String question, boolean online, List<SearchProvider> providers, long now, ai.dvine.ops.task.TaskControl control) {
         String key = question.toLowerCase(Locale.US).replaceAll("\\s+", " ").trim();
         boolean fresh = timeSensitive(key);
         Cached prior = cache.get(key);
@@ -111,6 +115,9 @@ public final class ClaimCheck {
         List<Source> found = new ArrayList<Source>();
         boolean hostile = false;
         for (SearchProvider provider : providers) {
+            if (control != null && control.isCancelled()) {
+                return stopped(found);
+            }
             Source raw;
             try {
                 raw = provider.find(question);
@@ -129,9 +136,16 @@ public final class ClaimCheck {
             }
             found.add(new Source(raw.name.isEmpty() ? provider.name() : raw.name, raw.url, clean, raw.retrievedAt == 0 ? now : raw.retrievedAt));
         }
+        if (control != null && control.isCancelled()) {
+            return stopped(found);
+        }
         Report report = judge(found, hostile, now);
         cache.put(key, new Cached(report, now, fresh));
         return report;
+    }
+
+    private static Report stopped(List<Source> found) {
+        return new Report(Verdict.UNVERIFIED, "I stopped the search before it finished. This is not verified.", found, true);
     }
 
     private static Report judge(List<Source> found, boolean hostile, long now) {
