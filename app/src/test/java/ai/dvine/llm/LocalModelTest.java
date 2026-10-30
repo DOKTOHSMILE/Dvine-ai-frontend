@@ -34,6 +34,8 @@ public class LocalModelTest {
         // a long first clause lets the voice start at a comma
         List<String> early = new SpeechChunker().add("When the sunlight passes through the air of the whole atmosphere, the blue light scatters most");
         assertEquals(1, early.size());
+        List<String> sooner = new SpeechChunker().add("Please tell me the short version of this, and then stop");
+        assertEquals(1, sooner.size());
     }
 
     @Test

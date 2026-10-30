@@ -33,7 +33,7 @@ public final class CheckedReading implements BrainInterpretationEngine.ModelRead
             if (model == null || !model.ready()) {
                 return null;
             }
-            return model.task(SYSTEM, prompt, 48, null);
+            return model.task(SYSTEM, prompt, 24, null);
         });
     }
 

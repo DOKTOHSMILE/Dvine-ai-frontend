@@ -121,6 +121,14 @@ std::string Engine::reply(const std::string & system, const std::vector<Turn> & 
         error_ = "the chat template could not be applied";
         return std::string();
     }
+    // Qwen3 reasons in a hidden block unless the assistant turn already closed it.
+    // An empty block makes the answer start immediately. /no_think is the request for that.
+    if (system.find("/no_think") != std::string::npos) {
+        const std::string head = "<|im_start|>assistant\n";
+        if (full.size() >= head.size() && full.compare(full.size() - head.size(), head.size(), head) == 0) {
+            full += "<think>\n\n</think>\n\n";
+        }
+    }
     if (cached_system_ != sys_text) {
         llama_memory_clear(mem, true);
         std::vector<int> sys_tokens = tokenize(sys_text, true);
@@ -159,6 +167,11 @@ std::string Engine::reply(const std::string & system, const std::vector<Turn> & 
             if (!visible.empty()) {
                 out += visible;
                 if (on_text && !on_text(visible)) {
+                    break;
+                }
+            } else if (filter.thinking() && on_text && (i % 8) == 0) {
+                // still inside a hidden block: tell the screen, but do not speak it
+                if (!on_text("\x01")) {
                     break;
                 }
             }

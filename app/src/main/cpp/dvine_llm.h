@@ -59,6 +59,7 @@ private:
 class ThinkFilter {
 public:
     std::string feed(const std::string & piece);
+    bool thinking() const { return inside_; }
 
 private:
     std::string pending_;

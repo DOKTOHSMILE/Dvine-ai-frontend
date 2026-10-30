@@ -50,7 +50,7 @@ public final class SpeechChunker {
                     return i + 1;
                 }
             }
-            if (first && c == ',' && i >= 60 && i + 1 < n && held.charAt(i + 1) == ' ') {
+            if (first && c == ',' && i >= 36 && i + 1 < n && held.charAt(i + 1) == ' ') {
                 return i + 1;
             }
         }

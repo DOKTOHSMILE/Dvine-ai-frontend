@@ -68,6 +68,8 @@ public final class StageView extends View implements Choreographer.FrameCallback
     private final java.util.ArrayList<String> voiceText = new java.util.ArrayList<String>();
     private final java.util.ArrayList<Float> voiceBorn = new java.util.ArrayList<Float>();
     private float voiceQuietSince = -100f;
+    /** The last inner-voice line is a live progress line and may be replaced. */
+    private boolean voiceProgress;
 
     private StageListener listener;
     private String speaker = IVIE;
@@ -169,11 +171,40 @@ public final class StageView extends View implements Choreographer.FrameCallback
         }
         voiceText.add(t);
         voiceBorn.add(clock);
+        voiceProgress = false;
         while (voiceText.size() > VOICE_LINES + 2) {
             voiceText.remove(0);
             voiceBorn.remove(0);
         }
         voiceQuietSince = mode == StageMode.THINKING ? Float.MAX_VALUE : clock;
+        invalidate();
+    }
+
+    /**
+     * Replaces the live progress line ("Reading your words · 2s") so a long
+     * thought does not fill the screen with the same step.
+     */
+    public void progress(String line) {
+        if (line == null || line.trim().isEmpty()) {
+            return;
+        }
+        String t = line.trim();
+        if (!voiceText.isEmpty() && voiceProgress) {
+            if (t.equals(voiceText.get(voiceText.size() - 1))) {
+                return;
+            }
+            voiceText.set(voiceText.size() - 1, t);
+            voiceBorn.set(voiceBorn.size() - 1, clock);
+        } else {
+            voiceText.add(t);
+            voiceBorn.add(clock);
+            voiceProgress = true;
+            while (voiceText.size() > VOICE_LINES + 2) {
+                voiceText.remove(0);
+                voiceBorn.remove(0);
+            }
+        }
+        voiceQuietSince = Float.MAX_VALUE;
         invalidate();
     }
 

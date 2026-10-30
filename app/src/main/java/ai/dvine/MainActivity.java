@@ -112,6 +112,20 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private final java.util.concurrent.ExecutorService deskThread = java.util.concurrent.Executors.newSingleThreadExecutor();
     private int askId;
     private int readToken;
+    private volatile ai.dvine.llm.ThinkPace thinkPace;
+    private int thinkToken;
+    private String thinkWrite = "Writing the answer";
+    private final Runnable thinkBeat = new Runnable() {
+        public void run() {
+            ai.dvine.llm.ThinkPace pace = thinkPace;
+            if (pace == null || thinkToken != readToken) {
+                return;
+            }
+            pace.tick(System.currentTimeMillis());
+            stage.progress(pace.line());
+            handler.postDelayed(this, 800);
+        }
+    };
     /** ANRE: the particles build researched, editable 3D objects. */
     private ai.dvine.create.CreationDirector creation;
     private ai.dvine.net.WebClient web;
@@ -386,9 +400,56 @@ public final class MainActivity extends Activity implements StageListener, Liste
         answer(text, false);
     }
 
+    /** Starts a live progress line. Safe from the worker thread. */
+    private void armThink(String phase, String writing) {
+        thinkToken = readToken;
+        thinkWrite = writing == null ? "Writing the answer" : writing;
+        thinkPace = new ai.dvine.llm.ThinkPace(phase, System.currentTimeMillis());
+        handler.post(() -> {
+            if (thinkPace == null || thinkToken != readToken) {
+                return;
+            }
+            stage.setMode(StageMode.THINKING);
+            stage.progress(thinkPace.line());
+            handler.removeCallbacks(thinkBeat);
+            handler.postDelayed(thinkBeat, 800);
+        });
+    }
+
+    private void endThink() {
+        thinkPace = null;
+        handler.removeCallbacks(thinkBeat);
+    }
+
+    /** Counts words as they arrive. A lone progress ping means hidden reasoning, which is not spoken. */
+    private boolean modelPiece(int id, String text) {
+        if (id != askId) {
+            return false;
+        }
+        ai.dvine.llm.ThinkPace pace = thinkPace;
+        if (pace != null && text != null) {
+            if ("\u0001".equals(text)) {
+                pace.phase("Thinking");
+            } else {
+                pace.phase(thinkWrite);
+                pace.addText(text);
+            }
+            handler.post(() -> {
+                if (id == askId && thinkPace != null) {
+                    stage.progress(thinkPace.line());
+                }
+            });
+        }
+        return true;
+    }
+
     /** {@code interpreted}: the words are a command the brain already read; they go straight to DVINE's own brain. */
     private void answer(String text, boolean interpreted) {
         readToken++;
+        if (model != null) {
+            model.cancel(); // a new question stops the reply already being written
+        }
+        endThink();
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;
@@ -404,11 +465,12 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 return;
             }
             ai.dvine.ops.pipe.BrainCoordinator.Decision decision = assistant.lastDecision();
-            boolean open = decision != null && (decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.ANSWER
-                    || decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.UNSUPPORTED);
-            if (open && model != null && model.ready() && assistant.hasModel()) {
+            boolean unsupported = decision != null
+                    && decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.UNSUPPORTED;
+            if (unsupported && model != null && model.ready() && assistant.hasModel()) {
                 final String pending = text;
-                final int mine = ++readToken;
+                final int mine = readToken;
+                armThink("Reading your words", "Writing the answer");
                 modelThread.execute(() -> {
                     final ai.dvine.ops.Outcome later = assistant.consider(pending, 1);
                     handler.post(() -> {
@@ -420,6 +482,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                             stage.ensureFace(later.persona, null);
                         }
                         if (later.handled) {
+                            endThink();
                             presentOutcome(later);
                         } else {
                             answer(pending, true);
@@ -867,9 +930,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
             ai.dvine.agent.Debate d = new ai.dvine.agent.Debate(topic);
             while (id == askId && !d.done()) {
                 final String who = d.speaker(), role = d.role();
-                handler.post(() -> stage.innerVoice((who.equals("obi") ? "Obi" : "Ivie") + " prepares the " + role + "\u2026"));
+                armThink((who.equals("obi") ? "Obi" : "Ivie") + " is preparing the " + role, "Writing the line");
                 String sys = ai.dvine.llm.PersonaPrompt.system(who, name, today) + " " + d.rules();
-                String said = model.task(sys, d.prompt(), 160, null);
+                String said = model.task(sys, d.prompt(), 96, text -> modelPiece(id, text));
                 final String line = d.take(said);
                 if (line == null) {
                     break;
@@ -882,6 +945,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             handler.post(() -> {
                 if (id == askId) {
+                    endThink();
                     stream.add(new TurnLine("ivie", "SAY", ai.dvine.agent.Debate.closing()));
                     streamOpen = false;
                 }
@@ -898,7 +962,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         final boolean ivie = stage.isIvie();
         final String agent = stage.agent();
         stopPlay();
-        stage.innerVoice(ivie ? "Let me think about that\u2026" : "ibiko".equals(agent) ? "Compiling a thought\u2026" : "Thinking it through\u2026");
         stage.setMode(StageMode.THINKING);
         stage.activity("MODEL", "thinking offline");
         final List<TurnLine> stream = new ArrayList<TurnLine>();
@@ -916,9 +979,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         // a question about the world, online: a fresh reference, since the model's training is older
         final boolean look = prefs.getBoolean("fresh_facts", true) && connectivity != null && connectivity.isOnline()
                 && (research || ai.dvine.llm.FreshFacts.worthLooking(question));
-        if (look) {
-            stage.innerVoice("Searching the internet for the latest on it\u2026");
-        }
+        armThink(look ? "Checking sources" : "Reading your words", "Writing the answer");
         final String around = situation(ivie);
         modelThread.execute(() -> {
             final String reference = look && id == askId ? ai.dvine.ops.mind.CitedReference.collect(question, url -> {
@@ -933,27 +994,35 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 }
             }, System.currentTimeMillis()) : null;
             if (look) {
-                handler.post(() -> stage.innerVoice(reference != null ? "Found: " + clip(reference) : "Nothing current found; I'll use what I know."));
+                handler.post(() -> {
+                    if (id == askId) {
+                        stage.innerVoice(reference != null ? "Found: " + clip(reference) : "Nothing current found. I'll use what I know.");
+                    }
+                });
             }
-            handler.post(() -> stage.innerVoice("Writing the answer\u2026"));
+            armThink("Writing the answer", "Writing the answer");
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
             final ai.dvine.llm.SpeechChunker chunker = new ai.dvine.llm.SpeechChunker();
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags(); // "[[switch:obi]]" is acted on, not said
-            final String all = model.reply(system, question, context, 220, text -> {
-                if (id != askId) {
+            final String all = model.reply(system, question, context, 160, text -> {
+                if (!modelPiece(id, text)) {
                     return false;
                 }
-                final List<String> ready = chunker.add(tags.add(text));
+                if ("\u0001".equals(text)) {
+                    return true;
+                }
+                final java.util.List<String> ready = chunker.add(tags.add(text));
                 if (!ready.isEmpty()) {
                     handler.post(() -> {
                         if (id == askId) {
+                            endThink();
                             for (String sentence : ready) {
                                 stream.add(new TurnLine(agent, "SAY", sentence));
                             }
                         }
                     });
                 }
-                return true;
+                return id == askId;
             });
             chunker.add(tags.flush());
             final String rest = chunker.flush();
@@ -962,6 +1031,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (id != askId) {
                     return;
                 }
+                endThink();
                 if (all == null && stream.isEmpty()) {
                     stream.addAll(offline.lines); // the model failed: the offline answer instead
                 } else if (!rest.isEmpty()) {
@@ -997,8 +1067,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.activity("DRAW", subject);
         lastDrawn = subject;
         if (modelOk) {
-            stage.innerVoice(research ? "Looking up what " + ai.dvine.llm.DrawPrompt.article(subject) + " looks like\u2026"
-                    : "Planning the parts of " + ai.dvine.llm.DrawPrompt.article(subject) + "\u2026");
+            armThink(research ? "Checking sources" : "Planning the parts", "Planning the parts");
         } else {
             stage.setThought((online ? "Finding a picture of " : "Building ") + subject + "\u2026");
         }
@@ -1014,7 +1083,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         }
                     });
                 }
-                String planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.user(subject, facts), 360, text -> id == askId);
+                String planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.user(subject, facts), 280, text -> modelPiece(id, text));
                 plan = ai.dvine.llm.DrawPrompt.read(planned, subject);
                 if (!ai.dvine.llm.DrawPrompt.usable(plan, subject) && id == askId) {
                     handler.post(() -> {
@@ -1022,7 +1091,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                             stage.innerVoice("That plan wasn't right. Trying again\u2026");
                         }
                     });
-                    planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.retry(subject), 360, text -> id == askId);
+                    planned = model.task(ai.dvine.llm.DrawPrompt.system(), ai.dvine.llm.DrawPrompt.retry(subject), 280, text -> modelPiece(id, text));
                     plan = ai.dvine.llm.DrawPrompt.read(planned, subject);
                 }
                 if (!ai.dvine.llm.DrawPrompt.usable(plan, subject)) {
@@ -1047,6 +1116,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (id != askId || isFinishing()) {
                     return;
                 }
+                endThink();
                 stage.setThought(null);
                 if (shown == null) {
                     play(LocalTurn.speakAs(ivie, modelOk || online ? "I tried to make " + ai.dvine.llm.DrawPrompt.article(subject)
