@@ -89,6 +89,11 @@ public final class ClaimCheck {
         if (!wanted(question)) {
             return new Report(Verdict.NOT_A_CLAIM, "", List.of(), false);
         }
+        return inspect(question, online, providers, now);
+    }
+
+    /** The caller already decided this question should be looked up. */
+    public Report inspect(String question, boolean online, List<SearchProvider> providers, long now) {
         String key = question.toLowerCase(Locale.US).replaceAll("\\s+", " ").trim();
         boolean fresh = timeSensitive(key);
         Cached prior = cache.get(key);

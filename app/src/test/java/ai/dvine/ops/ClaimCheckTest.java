@@ -90,6 +90,31 @@ public class ClaimCheckTest {
         assertTrue(runtime.ready());
     }
 
+    @Test
+    public void aModelCannotOverrideARefusalAndRolesStaySpecialists() {
+        AssistantCore core = AssistantCore.offline(OpsPipelineTest.dir());
+        core.orchestrator().setModel(new ai.dvine.ops.pipe.CheckedReading(prompt -> "operation=delete target=file"));
+        Outcome refused = core.hear("do not delete the file", 1);
+        assertTrue(refused.speech.toLowerCase(Locale.US).contains("contradict"));
+        core.orchestrator().setModel(new ai.dvine.ops.pipe.CheckedReading(prompt -> "rm -rf /"));
+        Outcome junk = core.hear("hello there", 1);
+        assertFalse(junk.speech.contains("rm -rf"));
+        assertEquals(0, core.termux().history().all().size());
+
+        AssistantCore roles = AssistantCore.offline(OpsPipelineTest.dir());
+        assertEquals("obi", roles.hear("what could go wrong with this design", 1).persona);
+        assertEquals("ivie", roles.hear("I'm worried about the launch", 1).persona);
+        assertEquals("ivie", roles.hear("Ivie, what could go wrong with this design", 1).persona);
+        Outcome plain = roles.hear("what is a triangle", 1);
+        assertEquals("", plain.persona == null ? "" : plain.persona);
+
+        String cited = ai.dvine.ops.mind.CitedReference.collect("what is the capital of France",
+                url -> url.contains("wikidata") ? DATA : WIKI, 5_000);
+        assertTrue(cited.toLowerCase(Locale.US).contains("two sources agree"));
+        assertTrue(cited.contains("not a proof"));
+        assertEquals(null, ai.dvine.ops.mind.CitedReference.collect("what is the capital of France", url -> "", 6_000));
+    }
+
     private static AssistantCore core(ai.dvine.ops.mind.InternetResearchEngine.Fetcher fetcher) {
         return new AssistantCore(OpsPipelineTest.dir(), new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
             public boolean installed() { return false; }

@@ -37,8 +37,8 @@ public final class BrainCoordinator {
         }
         String persona = who.persona == null ? "" : who.persona;
         String n = raw.toLowerCase(Locale.US);
-        if (persona.isEmpty() && coding(n)) {
-            persona = "ibiko";
+        if (persona.isEmpty()) {
+            persona = role(n);
         }
         if (n.contains("debate")) {
             return new Decision(Kind.DEBATE, persona, plan);
@@ -70,5 +70,19 @@ public final class BrainCoordinator {
     static boolean coding(String n) {
         return n.matches(".*(fix (this|the|a) bug|stack trace|compile|gradle|termux|write a (function|class|script)|debug this|source code|git commit|git status).*")
                 || n.matches(".*\\bssh\\b.*");
+    }
+
+    /** Empty when the words do not pick a role. Naming someone still wins. */
+    static String role(String n) {
+        if (coding(n)) {
+            return "ibiko";
+        }
+        if (n.matches(".*(what could go wrong|is this safe|is it safe|the risks?|should i trust|what are the dangers|what if this fails).*")) {
+            return "obi";
+        }
+        if (n.matches(".*(how will (people|they|he|she) feel|talk me through|comfort me|encourage me|i'm worried|i am worried).*")) {
+            return "ivie";
+        }
+        return "";
     }
 }

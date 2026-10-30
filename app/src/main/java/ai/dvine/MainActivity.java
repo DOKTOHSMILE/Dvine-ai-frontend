@@ -894,7 +894,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         final String around = situation(ivie);
         modelThread.execute(() -> {
-            final String reference = look && id == askId ? ai.dvine.llm.FreshFacts.lookUp(question) : null;
+            final String reference = look && id == askId ? ai.dvine.ops.mind.CitedReference.collect(question, url -> {
+                byte[] body = ai.dvine.net.WebGet.get(url, 6000, 400_000);
+                if (body == null) {
+                    return null;
+                }
+                try {
+                    return new String(body, "UTF-8");
+                } catch (java.io.UnsupportedEncodingException e) {
+                    return null;
+                }
+            }, System.currentTimeMillis()) : null;
             if (look) {
                 handler.post(() -> stage.innerVoice(reference != null ? "Found: " + clip(reference) : "Nothing current found; I'll use what I know."));
             }
