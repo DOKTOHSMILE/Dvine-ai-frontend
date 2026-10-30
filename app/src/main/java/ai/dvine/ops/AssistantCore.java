@@ -115,19 +115,31 @@ public final class AssistantCore {
     }
 
     private ai.dvine.ops.pipe.StructuredActionPlan lastPlan;
+    private ai.dvine.ops.pipe.BrainCoordinator.Decision lastDecision;
 
     public ai.dvine.ops.pipe.StructuredActionPlan lastPlan() {
         return lastPlan;
     }
 
+    public ai.dvine.ops.pipe.BrainCoordinator.Decision lastDecision() {
+        return lastDecision;
+    }
+
     public Outcome hear(String text, double confidence) {
-        lastPlan = new ai.dvine.ops.pipe.RequestGateway().accept(text, orchestrator.scene());
+        lastDecision = new ai.dvine.ops.pipe.BrainCoordinator().decide(text, orchestrator.scene());
+        lastPlan = lastDecision.plan;
         long at = System.currentTimeMillis();
         VoiceInterruptionManager.Decision d = voice.decide(text, confidence, tasks.hasActiveWork(), tasks.paused().size(), at);
+        Outcome outcome;
         if (d.action != VoiceInterruptionManager.Action.NONE) {
-            return control(d, now++);
+            outcome = control(d, now++);
+        } else {
+            outcome = orchestrator.handle(text, confidence, now++);
         }
-        return orchestrator.handle(text, confidence, now++);
+        if (outcome != null && (outcome.persona == null || outcome.persona.isEmpty()) && !lastDecision.persona.isEmpty()) {
+            outcome.persona = lastDecision.persona;
+        }
+        return outcome;
     }
 
     private Outcome control(VoiceInterruptionManager.Decision d, long at) {

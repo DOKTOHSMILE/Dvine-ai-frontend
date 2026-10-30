@@ -1494,12 +1494,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         modelThread.execute(() -> {
             final boolean ok = model.load(ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
             if (assistant != null && model.spec != null) {
-                assistant.models().load(model.spec.file);
-                if (ok) {
-                    assistant.models().confirmReady(model.spec.file);
-                } else {
-                    assistant.models().fail(model.spec.file);
-                }
+                new ai.dvine.ops.mind.ModelAdapter(assistant.models()).report(model.spec.file, ok);
             }
             handler.post(() -> {
                 stage.activity("MODEL", ok ? "ready, offline" : model.problem());

@@ -84,6 +84,21 @@ public final class InternetResearchEngine {
         return finding;
     }
 
+    private final ClaimCheck claims = new ClaimCheck();
+
+    public boolean online() {
+        return fetcher != null;
+    }
+
+    public ClaimCheck.Report checkClaim(String question, long now) {
+        java.util.List<ClaimCheck.SearchProvider> providers = new java.util.ArrayList<ClaimCheck.SearchProvider>();
+        if (fetcher != null) {
+            providers.add(ClaimCheck.wikipedia(fetcher));
+            providers.add(ClaimCheck.wikidata(fetcher));
+        }
+        return claims.check(question, fetcher != null, providers, now);
+    }
+
     private static void collectCommands(String text, List<String> into) {
         String low = text.toLowerCase(Locale.US);
         if (low.contains("rm -rf") || low.contains("sudo ") || low.contains("curl | sh")) {

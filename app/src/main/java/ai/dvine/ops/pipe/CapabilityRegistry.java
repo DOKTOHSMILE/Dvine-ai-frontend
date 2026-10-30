@@ -35,6 +35,7 @@ public final class CapabilityRegistry {
         all.add(new Item("image-generation", true, "I can paint a picture with the local drawing model. It is not a diffusion model and not a photograph."));
         all.add(new Item("procedural-mesh", true, "I can build a motorcycle as separate parts and detach one without deleting it. It is a concept model, not a measurement."));
         all.add(new Item("rig", true, "I can build a person and raise an arm on a procedural skeleton. It is not a scanned person and not a face rig."));
+        all.add(new Item("fact-check", true, "When online I can compare a Wikipedia page with Wikidata. One source is not called verified. I have no dense scan, no COLMAP, and no diffusion model."));
         return Collections.unmodifiableList(all);
     }
 
@@ -51,6 +52,7 @@ public final class CapabilityRegistry {
         return "Offline, I can tell you the date and the time, answer from my notes, and use "
                 + ai.dvine.llm.ModelSpec.WEIGHTS + " when that file is on this phone. I can open a file you choose,"
                 + " and show a photograph as particles in its own colours. I can keep a task going while the microphone is open."
-                + " I cannot read words out of a picture, I cannot build a measured 3D model from one photo, and I do not make up the news.";
+                + " I cannot read words out of a picture, I cannot build a measured 3D model from one photo, and I do not make up the news."
+                + " When online I can compare Wikipedia with Wikidata. One source is not called verified. I have no dense scan, no COLMAP, and no diffusion model.";
     }
 }

@@ -196,6 +196,9 @@ public final class DvineTaskOrchestrator {
         if ("explain".equals(read.intent)) {
             return finish(Outcome.reply(explain(read)));
         }
+        if (ai.dvine.ops.mind.ClaimCheck.wanted(said)) {
+            return finish(factCheck(said, now));
+        }
         if ("answer".equals(read.intent) || "news".equals(read.intent)) {
             return finish(Outcome.pass());
         }
@@ -566,6 +569,15 @@ public final class DvineTaskOrchestrator {
             // proof the page could not run a tool: the termux history must not gain a matching entry here
         }
         return Outcome.say(finding.speech, false);
+    }
+
+    private Outcome factCheck(String text, long now) {
+        performance.research();
+        ai.dvine.ops.mind.ClaimCheck.Report report = research.checkClaim(text, now);
+        Outcome o = Outcome.say(report.speech, false);
+        o.speak = true;
+        o.activity = report.searched ? "Checking two sources" : "No search";
+        return o;
     }
 
     public void learnTyreRim() {
