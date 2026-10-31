@@ -36,6 +36,8 @@ public class LocalModelTest {
         assertEquals(1, early.size());
         List<String> sooner = new SpeechChunker().add("Please tell me the short version of this, and then stop");
         assertEquals(1, sooner.size());
+        List<String> semi = new SpeechChunker().add("Please tell me the short version of this; and then stop");
+        assertEquals(1, semi.size());
     }
 
     @Test

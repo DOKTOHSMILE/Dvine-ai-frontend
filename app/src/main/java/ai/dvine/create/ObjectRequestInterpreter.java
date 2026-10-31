@@ -61,7 +61,9 @@ public final class ObjectRequestInterpreter {
         if (t.isEmpty()) {
             return null;
         }
-        if (t.matches("^(raise|lift|lower|put down) (your |the |my )?(left|right) (arm|forearm).*")) {
+        if (t.matches("^(raise|lift|lower|put down) (your |the |my )?(left|right) (arm|forearm).*")
+                || t.matches("^(raise|lift|lower) (both arms|your arms).*")
+                || t.matches("^(arms up|hands up|put your arms down|arms down|wave|look up|tilt your head|chin up)$")) {
             return new Request(Kind.POSE, current, t);
         }
         if (t.matches("^(what have i saved|list my (saved )?(models|designs)|show my saved models)$")) {

@@ -47,10 +47,17 @@ public final class ObjectSession {
             lastProblems = m.problems;
             return null;
         }
+        ObjectModel previous = model;
         undo.clear();
         redo.clear();
-        held.clear();
         clearParts();
+        if (previous != null && previous.spec != null) {
+            undo.push(previous.spec);
+        } else if (previous != null) {
+            held.push(previous);
+        } else {
+            held.clear();
+        }
         provenance = new ArrayList<Provenance>(m.provenance);
         version = 1;
         model = m;

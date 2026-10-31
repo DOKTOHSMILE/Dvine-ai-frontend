@@ -851,6 +851,36 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 && (fromBrain ? askLocal(asked, reply, false) : agentTurn(asked, reply))) {
             return;
         }
+        if (modelTopic && ai.dvine.llm.WorldLookup.shouldSearch(
+                connectivity != null && connectivity.isOnline() && prefs.getBoolean("fresh_facts", true),
+                model != null && model.ready(), reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked))) {
+            final int id = ++askId;
+            final String question = asked;
+            armThink("Checking sources", "Checking sources");
+            modelThread.execute(() -> {
+                final String found = ai.dvine.ops.mind.CitedReference.collect(question, url -> {
+                    byte[] body = ai.dvine.net.WebGet.get(url, 6000, 400_000);
+                    if (body == null) {
+                        return null;
+                    }
+                    try {
+                        return new String(body, "UTF-8");
+                    } catch (java.io.UnsupportedEncodingException e) {
+                        return null;
+                    }
+                }, System.currentTimeMillis());
+                handler.post(() -> {
+                    if (id != askId || isFinishing()) {
+                        return;
+                    }
+                    endThink();
+                    String speech = found != null ? found
+                            : "I looked, and I don't have a source I can stand behind, so I won't guess.";
+                    play(LocalTurn.speakAs(stage.agent(), speech), null);
+                });
+            });
+            return;
+        }
         if (modelTopic && offerModel(reply, ai.dvine.llm.AnswerGate.refuseUngrounded(
                 model != null && model.ready(), reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked)))) {
             return;
@@ -1152,6 +1182,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 }
                 endThink();
                 if (all == null && stream.isEmpty()) {
+                    String why = model.problem();
+                    if (why != null && (why.contains("quiet") || why.contains("too long"))) {
+                        stream.add(new TurnLine(agent, "SAY", "That reply stopped, " + why + ". This is from my notes."));
+                    }
                     stream.addAll(offline.lines);
                 } else if (!rest.isEmpty()) {
                     stream.add(new TurnLine(agent, "SAY", rest));
@@ -2928,10 +2962,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
     @Override
     protected void onDestroy() {
+        handler.removeCallbacks(thinkBeat);
+        handler.removeCallbacks(taskBeat);
+        handler.removeCallbacks(engineTick);
         talk.shutdown();
         listen.stop();
         sync.shutdown();
         deskThread.shutdownNow();
+        buildThread.shutdownNow();
         if (model != null) {
             model.cancel();
         }

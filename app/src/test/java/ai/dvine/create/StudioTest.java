@@ -114,6 +114,40 @@ public class StudioTest {
     }
 
     @Test
+    public void aNewBuildKeepsThePreviousObjectOneStepBack() {
+        ObjectSession session = new ObjectSession();
+        CreationDirector director = new CreationDirector(session, new java.io.File(System.getProperty("java.io.tmpdir")));
+        director.perform(ObjectRequestInterpreter.interpret("build a motorcycle", null));
+        assertEquals("motorcycle", session.model().spec.category);
+        director.perform(ObjectRequestInterpreter.interpret("build a person", null));
+        assertEquals("person", session.model().spec.category);
+        CreationDirector.Outcome back = director.perform(ObjectRequestInterpreter.interpret("undo", session.model().spec));
+        assertEquals(CreationDirector.Action.CHANGED, back.action);
+        assertEquals("motorcycle", session.model().spec.category);
+    }
+
+    @Test
+    public void bothArmsWaveAndLookUpAreRealPoses() {
+        ObjectSession session = new ObjectSession();
+        CreationDirector director = new CreationDirector(session, new java.io.File(System.getProperty("java.io.tmpdir")));
+        director.perform(ObjectRequestInterpreter.interpret("build a person", null));
+        ObjectModel m = session.model();
+        float left = SceneCommands.centroid(part(m, "left forearm"))[1];
+        float right = SceneCommands.centroid(part(m, "right forearm"))[1];
+        CreationDirector.Outcome up = director.perform(ObjectRequestInterpreter.interpret("raise both arms", m.spec));
+        assertTrue(up.lines.get(0).toLowerCase().contains("both arms"));
+        assertTrue(SceneCommands.centroid(part(m, "left forearm"))[1] > left + 0.05f);
+        assertTrue(SceneCommands.centroid(part(m, "right forearm"))[1] > right + 0.05f);
+        CreationDirector.Outcome down = director.perform(ObjectRequestInterpreter.interpret("put your arms down", m.spec));
+        assertTrue(down.lines.get(0).toLowerCase().contains("arms down"));
+        CreationDirector.Outcome wave = director.perform(ObjectRequestInterpreter.interpret("wave", m.spec));
+        assertTrue(wave.lines.get(0).toLowerCase().contains("wave"));
+        assertTrue(wave.lines.get(0).toLowerCase().contains("not a scanned"));
+        CreationDirector.Outcome look = director.perform(ObjectRequestInterpreter.interpret("look up", m.spec));
+        assertTrue(look.lines.get(0).toLowerCase().contains("head"));
+    }
+
+    @Test
     public void thePartTreeCollapsesAndATapNamesTheFrontTyre() {
         ObjectModel m = ProceduralModelingEngine.build(ObjectRequestInterpreter.defaults("motorcycle"), 1, new ArrayList<Provenance>());
         Component tyre = part(m, "front tyre");

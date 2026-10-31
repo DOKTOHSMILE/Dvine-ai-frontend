@@ -311,11 +311,15 @@ public final class DvineTaskOrchestrator {
     }
 
     private Outcome confirmation(String text, long now) {
-        String n = text == null ? "" : text.toLowerCase(Locale.US).trim();
+        ai.dvine.ops.pipe.ConfirmGate.Choice choice = ai.dvine.ops.pipe.ConfirmGate.read(text);
         confirmPending = false;
         SshCommandExecutor.Command remote = pendingRemote;
         pendingRemote = null;
-        boolean yes = n.matches("^(yes|yes please|confirm|do it)$");
+        if (choice == ai.dvine.ops.pipe.ConfirmGate.Choice.OTHER) {
+            pendingTask = null;
+            return Outcome.pass();
+        }
+        boolean yes = choice == ai.dvine.ops.pipe.ConfirmGate.Choice.YES;
         if (remote != null) {
             TaskRecord waiting = pendingTask;
             pendingTask = null;

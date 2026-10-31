@@ -142,32 +142,76 @@ public final class BodyRig {
     /** True when a bone angle changed. */
     public boolean pose(ObjectModel model, String phrase) {
         String n = phrase == null ? "" : phrase.toLowerCase(Locale.US);
-        boolean raise = n.contains("raise") || n.contains("lift");
+        if (n.contains("wave")) {
+            setAngle("right upper arm", 0f, 0f, 0.9f);
+            setAngle("right forearm", 0f, 0f, 0.8f);
+            skin(model);
+            return true;
+        }
+        if (n.contains("look up") || n.contains("tilt your head") || n.contains("chin up")) {
+            setAngle("head", -0.4f, 0f, 0f);
+            skin(model);
+            return true;
+        }
+        if (n.contains("arms down") || n.contains("put your arms down") || n.contains("arms at your sides")) {
+            setAngle("left upper arm", 0f, 0f, 0f);
+            setAngle("right upper arm", 0f, 0f, 0f);
+            setAngle("left forearm", 0f, 0f, 0f);
+            setAngle("right forearm", 0f, 0f, 0f);
+            skin(model);
+            return true;
+        }
+        boolean both = n.contains("both arms") || n.contains("arms up") || n.contains("hands up");
+        boolean raise = n.contains("raise") || n.contains("lift") || n.contains("up");
         boolean lower = n.contains("lower") || n.contains("put down");
+        if (both && (raise || lower)) {
+            float z = lower ? 0f : 1.15f;
+            setAngle("left upper arm", 0f, 0f, -z);
+            setAngle("right upper arm", 0f, 0f, z);
+            skin(model);
+            return true;
+        }
         boolean left = n.contains("left");
         boolean right = n.contains("right");
-        if (!n.contains("arm") || (!left && !right) || (!raise && !lower)) {
+        if (!n.contains("arm") || (!left && !right) || (!n.contains("raise") && !n.contains("lift") && !lower)) {
             return false;
         }
         String bone = (left ? "left" : "right") + " upper arm";
-        for (Bone b : bones) {
-            if (b.name.equals(bone)) {
-                b.rz = lower ? 0f : (left ? -1.15f : 1.15f);
-            }
-        }
+        setAngle(bone, 0f, 0f, lower ? 0f : (left ? -1.15f : 1.15f));
         skin(model);
         return true;
     }
 
+    private void setAngle(String name, float rx, float ry, float rz) {
+        for (Bone b : bones) {
+            if (b.name.equals(name)) {
+                b.rx = rx;
+                b.ry = ry;
+                b.rz = rz;
+            }
+        }
+    }
+
     public static String describe(String phrase, boolean applied) {
         if (!applied) {
-            return "I can raise or lower the left or right arm. I left the pose unchanged. This is a procedural skeleton, not a scanned person.";
+            return "I can raise or lower one arm or both, put the arms down, wave, or look up. I left the pose unchanged. This is a procedural skeleton, not a scanned person.";
         }
         String n = phrase.toLowerCase(Locale.US);
-        String side = n.contains("left") ? "left" : "right";
-        String verb = n.contains("lower") || n.contains("put down") ? "lowered" : "raised";
-        return "I " + verb + " the " + side + " arm from the shoulder. The forearm follows that bone. "
-                + "This is linear blend skinning on a procedural skeleton, not a scanned person and not a face rig.";
+        String done;
+        if (n.contains("wave")) {
+            done = "I bent the right arm into a wave";
+        } else if (n.contains("look up") || n.contains("tilt your head") || n.contains("chin up")) {
+            done = "I tilted the head up";
+        } else if (n.contains("arms down") || n.contains("put your arms down") || n.contains("arms at your sides")) {
+            done = "I put both arms down";
+        } else if (n.contains("both") || n.contains("arms up") || n.contains("hands up")) {
+            done = n.contains("lower") || n.contains("put down") ? "I lowered both arms" : "I raised both arms";
+        } else {
+            String side = n.contains("left") ? "left" : "right";
+            String verb = n.contains("lower") || n.contains("put down") ? "lowered" : "raised";
+            done = "I " + verb + " the " + side + " arm from the shoulder. The forearm follows that bone";
+        }
+        return done + ". This is linear blend skinning on a procedural skeleton, not a scanned person and not a face rig.";
     }
 
     public void skin(ObjectModel model) {

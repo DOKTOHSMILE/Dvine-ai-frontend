@@ -40,6 +40,22 @@ public class BrainPipelineTest {
     }
 
     @Test
+    public void safetyBeatsCodingAndAQuestionIsNotAYes() {
+        ai.dvine.ops.pipe.BrainCoordinator.Decision safe = new ai.dvine.ops.pipe.BrainCoordinator().decide("is ssh safe", null);
+        assertEquals("obi", safe.persona);
+        ai.dvine.ops.pipe.BrainCoordinator.Decision code = new ai.dvine.ops.pipe.BrainCoordinator().decide("fix this bug in the login", null);
+        assertEquals("ibiko", code.persona);
+        ai.dvine.ops.pipe.BrainCoordinator.Decision stopped = new ai.dvine.ops.pipe.BrainCoordinator().decide("don't compile this", null);
+        assertEquals("", stopped.persona);
+        AssistantCore core = AssistantCore.offline(OpsPipelineTest.dir());
+        Outcome asked = core.hear("delete the file", 1);
+        assertTrue(asked.handled);
+        assertTrue(asked.speech.toLowerCase().contains("not deleted") || asked.speech.toLowerCase().contains("confirm"));
+        Outcome next = core.hear("what is a triangle", 1);
+        assertFalse(next.speech.toLowerCase().contains("left it"));
+    }
+
+    @Test
     public void aBusyStepIsNotReportedCancelledUntilItStops() throws Exception {
         AssistantCore core = AssistantCore.offline(OpsPipelineTest.dir());
         TaskRecord task = core.tasks().create("build", "Motorcycle reconstruction", "reconstruct", List.of("build"), false, 1);

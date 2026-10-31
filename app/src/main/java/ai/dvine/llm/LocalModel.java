@@ -19,6 +19,19 @@ public final class LocalModel {
     private long handle;
     private final List<String[]> history = new ArrayList<String[]>();
     private static final int HISTORY_TURNS = 6;
+    private final ReplyLease replies = new ReplyLease();
+
+    /** Keeps a remembered answer short so the next reply is not rereading a long one. */
+    static String clipMemory(String answer) {
+        if (answer == null) {
+            return "";
+        }
+        String t = answer.trim();
+        if (t.length() <= 420) {
+            return t;
+        }
+        return t.substring(0, 417).trim() + "...";
+    }
 
     public LocalModel(File dir, ModelSpec spec, boolean cpuSupported) {
         this.spec = spec;
@@ -153,6 +166,7 @@ public final class LocalModel {
      * A token resets the quiet timer, so a slow but live answer is not cut off at 25 seconds.
      */
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
+        final int mine = replies.open();
         final ReplyWatch watch = new ReplyWatch(12_000, 90_000, System.currentTimeMillis());
         NativeLlm.Sink wrapped = text -> {
             watch.touch(System.currentTimeMillis());
@@ -165,7 +179,9 @@ public final class LocalModel {
                 } catch (InterruptedException e) {
                     return;
                 }
-                if (watch.expired(System.currentTimeMillis())) {
+                if (watch.expired(System.currentTimeMillis()) && replies.mine(mine)) {
+                    String why = watch.reason(System.currentTimeMillis());
+                    problem = "cap".equals(why) ? "the reply took too long" : "the reply went quiet";
                     cancel();
                     return;
                 }
@@ -208,7 +224,7 @@ public final class LocalModel {
 
     synchronized void remember(String question, String answer) {
         history.add(new String[]{"user", question});
-        history.add(new String[]{"assistant", answer});
+        history.add(new String[]{"assistant", clipMemory(answer)});
         while (history.size() > HISTORY_TURNS * 2) {
             history.remove(0);
         }

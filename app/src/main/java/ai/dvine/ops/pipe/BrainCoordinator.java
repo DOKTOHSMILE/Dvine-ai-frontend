@@ -74,14 +74,17 @@ public final class BrainCoordinator {
 
     /** Empty when the words do not pick a role. Naming someone still wins. */
     static String role(String n) {
-        if (coding(n)) {
-            return "ibiko";
-        }
-        if (n.matches(".*(what could go wrong|is this safe|is it safe|the risks?|should i trust|what are the dangers|what if this fails).*")) {
+        if (n.matches(".*(what could go wrong|is this safe|is it safe|is ssh safe|the risks?|should i trust|what are the dangers|what if this fails).*")) {
             return "obi";
         }
         if (n.matches(".*(how will (people|they|he|she) feel|talk me through|comfort me|encourage me|i'm worried|i am worried).*")) {
             return "ivie";
+        }
+        if (n.matches("^(do not|don't|dont|never|stop)\\b.*") || n.matches(".*(do not|don't|dont|never) (ssh|compile|debug|commit).*")) {
+            return "";
+        }
+        if (coding(n)) {
+            return "ibiko";
         }
         return "";
     }
