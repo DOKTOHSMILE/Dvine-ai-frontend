@@ -104,7 +104,8 @@ public class PartsTest {
         assertFalse(ai.dvine.llm.DrawPrompt.usable(building, "cat"));
         assertTrue(ai.dvine.llm.DrawPrompt.usable(building, "two-story house"));
         assertFalse(ai.dvine.llm.DrawPrompt.usable(SolidSpec.parse("body | oval | grey | middle centre | large", "cat"), "cat"));
-        assertTrue(ai.dvine.llm.DrawPrompt.user("cat", "Cats have fur.").startsWith("About cat: Cats have fur."));
+        String withFacts = ai.dvine.llm.DrawPrompt.user("cat", "Cats have fur.");
+        assertTrue(withFacts.contains("cat") && withFacts.contains("Cats have fur.")); // what was found online reaches the brain
         ai.dvine.agent.Interpretation wrong = ai.dvine.agent.Interpretation.parse(
                 "INTENT: request\nMEANS: draw\nTASK: draw\nTARGET: two-story building\nINTERNET: no");
         assertFalse(wrong.groundedIn("draw a cat"));

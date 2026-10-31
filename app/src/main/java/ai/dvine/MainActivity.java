@@ -245,8 +245,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         window.setStatusBarColor(0xFF000000);
         window.setNavigationBarColor(0xFF000000);
 
-        // 1. Use WindowCompat instead of calling directly on window
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
+        // draw edge to edge (the platform call: minSdk 34 has it, so no androidx library is needed)
+        window.setDecorFitsSystemWindows(false);
 
         stage = new StageView(this);
         stage.setListener(this);
@@ -267,10 +267,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         fitTypeBar();
         setContentView(root);
 
-        // 2. Add the OnApplyWindowInsetsListener to satisfy Android 15 requirements
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
-            androidx.core.graphics.Insets insets = windowInsets
-                    .getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+        // Android 15 draws apps edge to edge: keep the text field above the navigation bar
+        root.setOnApplyWindowInsetsListener((v, windowInsets) -> {
+            android.graphics.Insets insets = windowInsets.getInsets(WindowInsets.Type.systemBars());
 
             // Adjust the typeBar bottom margin dynamically based on system navigation bar insets
             android.view.ViewGroup.LayoutParams lp = typeBar.getLayoutParams();
