@@ -201,6 +201,36 @@ public final class ChatBook {
         return "Shared across chats:\n" + b.toString().trim();
     }
 
+    /** The current section only, newest tail, so the brain can follow this chat and not another one. */
+    public synchronized String transcript(int maxChars) {
+        Section s = current();
+        StringBuilder b = new StringBuilder();
+        for (Message m : s.messages) {
+            String who = "user".equals(m.role) ? "User" : (m.persona == null || m.persona.isEmpty() ? "Assistant" : m.persona);
+            String line;
+            if ("image".equals(m.kind)) {
+                line = who + ": [a photograph file is in this chat]";
+            } else if ("video".equals(m.kind)) {
+                line = who + ": [a video file is in this chat]";
+            } else if ("code".equals(m.kind)) {
+                String code = m.body.replace('\n', ' ').trim();
+                line = who + " code: " + (code.length() > 180 ? code.substring(0, 180) : code);
+            } else {
+                String t = m.body.replace('\n', ' ').trim();
+                line = who + ": " + (t.length() > 220 ? t.substring(0, 220) : t);
+            }
+            b.append(line).append('\n');
+        }
+        String all = b.toString().trim();
+        if (all.isEmpty()) {
+            return "";
+        }
+        if (maxChars > 0 && all.length() > maxChars) {
+            all = all.substring(all.length() - maxChars);
+        }
+        return "This chat (" + s.persona + "):\n" + all;
+    }
+
     private static String lastUser(Section s) {
         for (int i = s.messages.size() - 1; i >= 0; i--) {
             Message m = s.messages.get(i);

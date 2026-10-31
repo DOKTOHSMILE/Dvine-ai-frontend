@@ -54,9 +54,19 @@ public final class PersonaPrompt {
      * Any part may be null; null when there is nothing to say.
      */
     public static String situation(boolean ivie, String topic, String onShow, String partOfDay, boolean online) {
+        return situation(ivie ? "ivie" : "obi", topic, onShow, partOfDay, online);
+    }
+
+    /** As {@link #situation(boolean, String, String, String, boolean)} for Ivie, Obi or Ibiko. */
+    public static String situation(String persona, String topic, String onShow, String partOfDay, boolean online) {
         StringBuilder s = new StringBuilder();
-        s.append(ivie ? "You (Ivie) are on screen; Obi, your other half, is with you."
-                : "You (Obi) are on screen; Ivie, your other half, is with you.");
+        if ("ibiko".equals(persona)) {
+            s.append("You (Ibiko) are on screen. You handle code and commands. Obi and Ivie are with you.");
+        } else if ("ivie".equals(persona)) {
+            s.append("You (Ivie) are on screen; Obi, your other half, is with you.");
+        } else {
+            s.append("You (Obi) are on screen; Ivie, your other half, is with you.");
+        }
         if (topic != null && !topic.trim().isEmpty()) {
             s.append(" You were just talking about ").append(topic.trim()).append('.');
         }
@@ -110,11 +120,8 @@ public final class PersonaPrompt {
         s.append(" Follow the conversation: read each message in the light of what was said before and of the"
                 + " situation you are given, so that words like it, that, he, she, there and the other one mean what they"
                 + " referred to, and apply what the user told you earlier.");
-        s.append(" Be curious and ask rather than guess. When a request could mean more than one thing, when a word or"
-                + " name looks misheard, or when you don't fully understand what the user wants, ask one short, specific"
-                + " question (offer the likely meaning: \"Do you mean …?\") instead of answering, then use their answer."
-                + " When the user tells you something about themselves, you may ask one natural follow-up question."
-                + " Don't ask when the meaning is clear.");
+        s.append(" Interpret the words and answer or act. Do not ask the user to repeat themselves, and do not say you"
+                + " are not sure what they mean. If a word looks misheard, use the likely meaning and continue.");
         s.append(" Never claim to have done something on the phone, such as sending, opening, buying or saving;"
                 + " say what you can do instead.");
         if (userName != null && !userName.trim().isEmpty()) {

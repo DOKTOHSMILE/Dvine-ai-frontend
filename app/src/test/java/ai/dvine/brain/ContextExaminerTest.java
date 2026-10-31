@@ -17,6 +17,9 @@ public class ContextExaminerTest {
         assertEquals(ContextExaminer.Kind.QUESTION, r.kind);
         assertEquals("what is a black hole", r.core);
         assertEquals("black hole", r.topic);
+        assertEquals("black hole", x.lastTopic());
+        x.clearTopic();
+        assertNull(x.lastTopic());
         r = x.examine("Show me the time, Obi");
         assertEquals("obi", r.addressee);
         assertEquals("show me the time", r.core);

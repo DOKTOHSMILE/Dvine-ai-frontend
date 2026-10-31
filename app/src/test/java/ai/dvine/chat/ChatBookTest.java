@@ -44,4 +44,21 @@ public class ChatBookTest {
         assertTrue(parts.get(1).body.contains("return a + b"));
         assertEquals("text", parts.get(2).kind);
     }
+
+    @Test
+    public void theTranscriptIsOnlyTheOpenChat() throws Exception {
+        File dir = java.nio.file.Files.createTempDirectory("chats").toFile();
+        ChatBook book = new ChatBook(new File(dir, "chats.json"));
+        book.add("user", "text", "keep this in chat one", "ivie");
+        book.reply("ivie", "Noted in the first chat.");
+        book.open("Second", "obi");
+        book.add("user", "text", "only the second chat", "obi");
+        String here = book.transcript(700);
+        assertTrue(here, here.contains("only the second chat"));
+        assertTrue(here.contains("This chat (obi)"));
+        assertFalse(here.contains("keep this in chat one"));
+        book.add("assistant", "image", "/tmp/not-a-real-photo.png", "obi");
+        assertTrue(book.transcript(700).contains("[a photograph file is in this chat]"));
+        assertFalse(book.transcript(700).contains("not-a-real-photo"));
+    }
 }

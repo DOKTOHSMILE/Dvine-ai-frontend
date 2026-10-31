@@ -406,6 +406,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (section == null || section.persona == null)
                     return;
                 selectPersona(section.persona);
+                examiner.clearTopic();
             }
         });
 
@@ -1057,10 +1058,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
         int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
         String part = hour < 5 ? "night"
                 : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 21 ? "evening" : "night";
-        return ai.dvine.llm.PersonaPrompt.situation(ivie, examiner.lastTopic(),
+        String face = stage == null ? "ivie" : stage.agent();
+        return ai.dvine.llm.PersonaPrompt.situation(face, examiner.lastTopic(),
                 stage.pictureShown() ? lastDrawn : null, part,
                 connectivity != null && connectivity.isOnline())
-                + (chats == null ? "" : blank(chats.memoryForPrompt(6)));
+                + (chats == null ? "" : blank(chats.transcript(700)) + blank(chats.memoryForPrompt(6)));
     }
 
     private static final java.util.Set<String> MODEL_SOURCES = new java.util.HashSet<String>(

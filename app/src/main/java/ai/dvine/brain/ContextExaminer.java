@@ -151,6 +151,12 @@ public final class ContextExaminer {
         return lastTopic;
     }
 
+    /** A different chat section. "it" must not keep pointing at the previous section. */
+    public void clearTopic() {
+        lastTopic = null;
+        lastCore = null;
+    }
+
     // ------------------------------------------------------------ steps
 
     private static final String[][] CONTRACTIONS = {
