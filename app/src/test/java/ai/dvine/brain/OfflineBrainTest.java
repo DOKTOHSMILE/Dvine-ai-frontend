@@ -63,11 +63,11 @@ public class OfflineBrainTest {
     }
 
     @Test
-    public void asksWhatAStatementItDoesNotFollowMeans() {
+    public void aShortRequestIsNotBouncedBack() {
         BrainAnswer a = brain.respond("the blue one goes sideways", "ivie");
-        assertFalse(a.answered);
-        assertTrue(a.listenAfter);
-        assertTrue(a.spoken(), a.spoken().contains("What do you mean by"));
+        assertFalse(a.listenAfter);
+        assertFalse(a.spoken().toLowerCase().contains("what do you mean"));
+        assertFalse(a.spoken().toLowerCase().contains("not sure i follow"));
     }
 
     @Test

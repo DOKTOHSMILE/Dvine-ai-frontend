@@ -187,6 +187,13 @@ public final class DvineTaskOrchestrator {
             o.listen = true;
             return finish(o);
         }
+        ai.dvine.brain.SpeechOrder.Order order = ai.dvine.brain.SpeechOrder.read(said);
+        if (order != null) {
+            Outcome o = Outcome.reply(order.speech);
+            o.command = order.operation;
+            o.activity = order.operation;
+            return finish(o);
+        }
         if (confirmPending) {
             return finish(confirmation(said, now));
         }

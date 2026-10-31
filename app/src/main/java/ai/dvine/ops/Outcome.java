@@ -19,6 +19,8 @@ public final class Outcome {
     public String picker = "";
     /** Save a note from the chosen file. Not model training. */
     public boolean learn;
+    /** A machine operation, such as INSTALL_TERMUX. Empty when there is none. */
+    public String command = "";
 
     public static Outcome pass() {
         Outcome o = new Outcome();

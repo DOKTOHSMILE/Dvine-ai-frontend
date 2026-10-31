@@ -530,33 +530,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 presentOutcome(outcome);
                 return;
             }
-            ai.dvine.ops.pipe.BrainCoordinator.Decision decision = assistant.lastDecision();
-            boolean unsupported = decision != null
-                    && decision.kind == ai.dvine.ops.pipe.BrainCoordinator.Kind.UNSUPPORTED;
-            if (unsupported && model != null && model.ready() && assistant.hasModel()) {
-                final String pending = text;
-                final int mine = readToken;
-                armThink("Reading your words", "Writing the answer");
-                modelThread.execute(() -> {
-                    final ai.dvine.ops.Outcome later = assistant.consider(pending, 1);
-                    handler.post(() -> {
-                        if (mine != readToken) {
-                            return;
-                        }
-                        if (later.persona != null && !later.persona.isEmpty()) {
-                            prefs.edit().putString("face", later.persona).apply();
-                            stage.ensureFace(later.persona, null);
-                        }
-                        if (later.handled) {
-                            endThink();
-                            presentOutcome(later);
-                        } else {
-                            answer(pending, true);
-                        }
-                    });
-                });
-                return;
-            }
         }
         if (!interpreted && learned != null) {
             String known = learned.commandFor(text);
@@ -656,7 +629,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             play(LocalTurn.speakAs(stage.agent(), "Okay, I won't " + not + "."), null);
             return;
         }
-        if (reading.clarify != null) {
+        if (reading.clarify != null && (reading.core == null || reading.core.length() < 3)) {
             play(LocalTurn.speakAs(stage.agent(), reading.clarify), this::startListening);
             return;
         }
@@ -2283,8 +2256,38 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 stage.setSubtitles(true);
                 prefs.edit().putBoolean("subtitles", true).apply();
                 break;
+            case "INSTALL_TERMUX":
+            case "OPEN_TERMUX":
+                openTermux(true);
+                break;
             default:
                 break;
+        }
+    }
+
+    /** Opens Termux when it is installed, otherwise the install page. It does not ask the user to repeat the request. */
+    private void openTermux(boolean preferLaunch) {
+        if (preferLaunch && ai.dvine.ops.TermuxAndroid.installed(this)) {
+            android.content.Intent launch = getPackageManager().getLaunchIntentForPackage(ai.dvine.ops.TermuxAndroid.PACKAGE);
+            if (launch != null) {
+                try {
+                    startActivity(launch);
+                    return;
+                } catch (RuntimeException ignored) {
+                    // fall through to the install page
+                }
+            }
+        }
+        try {
+            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("market://details?id=com.termux")));
+        } catch (RuntimeException noStore) {
+            try {
+                startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://f-droid.org/packages/com.termux/")));
+            } catch (RuntimeException ignored) {
+                stage.innerVoice("I couldn't open the Termux install page on this phone.");
+            }
         }
     }
 
@@ -2350,6 +2353,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         outcome.subject == null || outcome.subject.isEmpty() ? "object"
                                 : outcome.subject);
             }
+        }
+        if (outcome.command != null && !outcome.command.isEmpty()) {
+            applyCommand(outcome.command, null);
         }
         if (outcome.resumeSpeech) {
             step(playId);

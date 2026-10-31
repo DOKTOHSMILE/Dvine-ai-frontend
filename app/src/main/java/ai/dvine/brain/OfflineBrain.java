@@ -136,6 +136,12 @@ public final class OfflineBrain {
         if (a != null) {
             return a;
         }
+        ai.dvine.brain.SpeechOrder.Order order = ai.dvine.brain.SpeechOrder.read(text);
+        if (order != null) {
+            BrainAnswer done = one(speaker, order.speech, "ORDER");
+            done.command = order.operation;
+            return done;
+        }
         return unknown(raw, text, speaker);
     }
 
@@ -948,19 +954,10 @@ public final class OfflineBrain {
             List<TurnLine> lines = new ArrayList<TurnLine>();
             lines.add(new TurnLine("obi", "THINK", thoughts ? "Let me think this through. I don't have enough in my notes for this one." : null));
             lines.add(new TurnLine("obi", "SAY", line));
-            lines.add(new TurnLine("ivie", "SAY", "I've saved your question, so we can look at it properly together once you're connected. If you know the answer, tell me and I'll learn it."));
+            lines.add(new TurnLine("ivie", "SAY", "I've saved your question. If you know the answer, tell me and I'll learn it."));
             return new BrainAnswer(lines, false, true, "OFFLINE");
         }
         List<TurnLine> lines = new ArrayList<TurnLine>();
-        String said = text == null ? "" : text.trim().replaceAll("[.!]+$", "");
-        if (!asksSomething(raw, said) && said.length() > 0 && words(said) <= 10) {
-            // a statement or request it doesn't follow: ask what was meant rather than talk past it
-            lines.add(new TurnLine(speaker, "SAY", "I'm not sure I follow. What do you mean by \"" + said
-                    + "\"? Tell me a little more."));
-            BrainAnswer ask = new BrainAnswer(lines, false, true, "OFFLINE");
-            ask.listenAfter = true;
-            return ask;
-        }
         lines.add(new TurnLine(speaker, "THINK", thoughts ? "Hmm. Let me look through what I know." : null));
         lines.add(new TurnLine(speaker, "SAY", line));
         return new BrainAnswer(lines, false, true, "OFFLINE");
