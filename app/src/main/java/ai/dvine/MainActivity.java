@@ -822,7 +822,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         boolean modelTopic = (!reply.answered || reply.needsOnline
                 || MODEL_SOURCES.contains(reply.source)) && plain(reply);
         if (modelTopic && model != null && model.ready() && prefs.getBoolean("llm_on", true)
-                && (fromBrain ? askLocal(asked, reply, false) : agentTurn(asked, reply))) {
+                && askLocal(asked, reply, false)) {
             return;
         }
         if (modelTopic && ai.dvine.llm.WorldLookup.shouldSearch(

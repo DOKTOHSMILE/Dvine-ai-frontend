@@ -10,6 +10,7 @@ public class DrawPromptTest {
     @Test
     public void findsWhatToDraw() {
         assertEquals("helicopter", DrawPrompt.subject("Draw me a helicopter"));
+        assertEquals("bicycle", DrawPrompt.subject("drove me a bicycle"));
         assertEquals("red bicycle", DrawPrompt.subject("can you sketch a red bicycle please"));
         assertEquals("lighthouse at night", DrawPrompt.subject("show me a picture of a lighthouse at night."));
         assertEquals("owl", DrawPrompt.subject("paint an owl for me"));

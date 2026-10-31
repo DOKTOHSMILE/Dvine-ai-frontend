@@ -539,11 +539,9 @@ public final class StageView extends View implements Choreographer.FrameCallback
     /** Gives the particle display what it should show now: the captions and the download bar. */
     private void feedDisplay() {
         ai.dvine.render.field.ParticleDisplay d = display;
-        String cap = subtitles && subtitle.length() > 0 ? subtitle : null;
-        if (!java.util.Objects.equals(cap, shownCaption)) {
-            shownCaption = cap;
-            d.caption(cap, cap == null ? null
-                    : ai.dvine.render.field.Raster.text(cap, 0xFFE4E8EA, ai.dvine.render.field.ParticleDisplay.CAPTION_POINTS, 2f, 2));
+        if (shownCaption != null) {
+            shownCaption = null;
+            d.caption(null, null);
         }
         // the bar's picture changes with each percent (the detail line only every few seconds, so it doesn't churn)
         String bar = dlShown ? dlTitle + "|" + dlPercent + "|" + (dlBusy ? dlDetail : "") : null;
@@ -576,6 +574,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         float h = getHeight();
         if (glOn()) {
             canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR); // the GL scene shows through
+            drawSpoken(canvas, w, h);
         } else {
             drawFallback(canvas, w, h);
         }
@@ -673,19 +672,25 @@ public final class StageView extends View implements Choreographer.FrameCallback
                 0x00000000, Shader.TileMode.CLAMP));
         canvas.drawCircle(pod[0], pod[1], pr * 0.25f, fill);
         fill.setShader(null);
-        if (subtitles && subtitle.length() > 0) {
-            int width = (int) Math.min(w - 48f * density, 640f * density); // a readable line on a tablet too
-            if (subLayout == null || subWidth != width) {
-                subWidth = width;
-                subLayout = StaticLayout.Builder.obtain(subtitle, 0, subtitle.length(), subPaint, width)
-                        .setAlignment(Layout.Alignment.ALIGN_CENTER).setMaxLines(3)
-                        .setEllipsize(android.text.TextUtils.TruncateAt.END).build();
-            }
-            canvas.save();
-            canvas.translate((w - width) * 0.5f, h - padBottom - 22f * density - subLayout.getHeight());
-            subLayout.draw(canvas);
-            canvas.restore();
+        drawSpoken(canvas, w, h);
+    }
+
+    /** The spoken line, in real type, up to six lines. It is not cut off after one. */
+    private void drawSpoken(Canvas canvas, float w, float h) {
+        if (!subtitles || subtitle.length() == 0) {
+            return;
         }
+        int width = (int) Math.min(w - 48f * density, 640f * density);
+        if (subLayout == null || subWidth != width) {
+            subWidth = width;
+            subLayout = StaticLayout.Builder.obtain(subtitle, 0, subtitle.length(), subPaint, width)
+                    .setAlignment(Layout.Alignment.ALIGN_CENTER).setMaxLines(6)
+                    .setEllipsize(null).build();
+        }
+        canvas.save();
+        canvas.translate((w - width) * 0.5f, h - padBottom - 22f * density - subLayout.getHeight());
+        subLayout.draw(canvas);
+        canvas.restore();
     }
 
     // ------------------------------------------------------------ touch

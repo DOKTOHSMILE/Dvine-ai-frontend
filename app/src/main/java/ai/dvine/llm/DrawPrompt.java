@@ -55,7 +55,9 @@ public final class DrawPrompt {
         if (said == null) {
             return null;
         }
-        Matcher m = ASK.matcher(said.trim().toLowerCase(Locale.US));
+        String t = said.trim().toLowerCase(Locale.US)
+                .replaceAll("\\b(drove|drow|drawer) me\\b", "draw me");
+        Matcher m = ASK.matcher(t);
         if (!m.matches()) {
             return null;
         }
