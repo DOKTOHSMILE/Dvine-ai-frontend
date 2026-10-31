@@ -162,7 +162,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private List<TurnLine> paused;
     private int playId;
     private Runnable afterPlay;
-    private ai.dvine.stage.TypeBar typeBar;
+    private ai.dvine.stage.ChatPane chatPane;
+    private ai.dvine.chat.ChatBook chats;
     /** A word that only sounded like a name, waiting for the user's yes or no ("Did you mean Ivie?"). */
     private ai.dvine.turn.Names.Hearing nameCheck;
     /** The last thing drawn or formed, while it is on show: context for the model. */
@@ -265,6 +266,30 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM);
         root.addView(typeBar, tb);
         fitTypeBar();
+
+        chats = new ai.dvine.chat.ChatBook(new File(getFilesDir(), "chats.json"));
+        chatPane = new ai.dvine.stage.ChatPane(this, chats, new ai.dvine.stage.ChatPane.Host() {
+            @Override
+            public void onSend(String text) {
+                answer(text);
+            }
+
+            @Override
+            public void onSection(ai.dvine.chat.ChatBook.Section section) {
+                if (section == null || section.persona == null) {
+                    return;
+                }
+                prefs.edit().putString("face", section.persona).apply();
+                stage.ensureFace(section.persona, null);
+            }
+        });
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        int edge = (int) (8 * dm.density);
+        android.widget.FrameLayout.LayoutParams chatLp = new android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, (int) (dm.heightPixels * 0.62f),
+                android.view.Gravity.BOTTOM);
+        chatLp.setMargins(edge, 0, edge, edge);
+        root.addView(chatPane, chatLp);
         setContentView(root);
 
         // 2. Add the OnApplyWindowInsetsListener to satisfy Android 15 requirements
@@ -281,6 +306,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 int m = (int) (14 * getResources().getDisplayMetrics().density);
                 flp.setMargins(m, m, m, (side ? m : m * 4) + insets.bottom);
                 typeBar.setLayoutParams(flp);
+            }
+            android.view.ViewGroup.LayoutParams cp = chatPane.getLayoutParams();
+            if (cp instanceof android.widget.FrameLayout.LayoutParams) {
+                android.widget.FrameLayout.LayoutParams flp = (android.widget.FrameLayout.LayoutParams) cp;
+                int edge = (int) (8 * getResources().getDisplayMetrics().density);
+                flp.setMargins(edge, 0, edge, edge + insets.bottom);
+                chatPane.setLayoutParams(flp);
             }
 
             return windowInsets;
@@ -519,6 +551,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;
+        }
+        if (!interpreted) {
+            noteUser(text);
         }
         if (!interpreted && assistant != null) {
             ai.dvine.ops.Outcome outcome = assistant.hear(text, 1);
@@ -890,13 +925,38 @@ public final class MainActivity extends Activity implements StageListener, Liste
     }
 
     /** Who is on screen, what was just discussed and what is on show, for the model ({@link ai.dvine.llm.PersonaPrompt#situation}). */
+    private static String blank(String extra) {
+        return extra == null || extra.isEmpty() ? "" : "\n" + extra;
+    }
+
+    /** Voice didn't already pass through the chat field, so the sheet records it once. */
+    private void noteUser(String text) {
+        if (chats == null || chatPane == null || text == null) {
+            return;
+        }
+        String t = text.trim();
+        java.util.List<ai.dvine.chat.ChatBook.Message> msgs = chats.current().messages;
+        if (!msgs.isEmpty()) {
+            ai.dvine.chat.ChatBook.Message last = msgs.get(msgs.size() - 1);
+            if ("user".equals(last.role) && t.equals(last.body.trim())) {
+                return;
+            }
+        }
+        if (t.toLowerCase(java.util.Locale.US).startsWith("remember ")) {
+            chats.remember(t.substring("remember ".length()).trim());
+        }
+        chats.add("user", "text", t, chats.current().persona);
+        chatPane.show();
+    }
+
     private String situation(boolean ivie) {
         int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
         String part = hour < 5 ? "night"
                 : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 21 ? "evening" : "night";
         return ai.dvine.llm.PersonaPrompt.situation(ivie, examiner.lastTopic(),
                 stage.pictureShown() ? lastDrawn : null, part,
-                connectivity != null && connectivity.isOnline());
+                connectivity != null && connectivity.isOnline())
+                + (chats == null ? "" : blank(chats.memoryForPrompt(6)));
     }
 
     // ------------------------------------------------------------ the on-device language model
@@ -1242,6 +1302,16 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (cropped != bm) {
                     bm.recycle();
                 }
+                java.io.File shot = new java.io.File(getFilesDir(), "chat-images/" + System.currentTimeMillis() + ".png");
+                java.io.File parent = shot.getParentFile();
+                if (parent != null) {
+                    parent.mkdirs();
+                }
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(shot)) {
+                    cropped.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out);
+                } catch (java.io.IOException ignored) {
+                    shot = null;
+                }
                 ai.dvine.render.field.Shape picture = ai.dvine.render.field.Raster.image(cropped,
                         ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
                 cropped.recycle();
@@ -1254,6 +1324,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 }
                 currentSolid = null;
                 stage.showPhotograph(picture, subject);
+                if (chatPane != null && shot != null && shot.isFile()) {
+                    chatPane.image(shot.getAbsolutePath());
+                }
                 String line = "I fetched " + count + " photograph" + (count == 1 ? "" : "s")
                         + " of " + ai.dvine.llm.DrawPrompt.article(subject)
                         + " and I'm showing one, cropped to the middle. "
@@ -2555,6 +2628,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 stage.setMode(StageMode.SPEAKING);
                 stage.setThought(null);
                 stage.setSubtitle(line.text);
+                if (chatPane != null && line.text != null && !line.text.isEmpty()) {
+                    chatPane.assistant(who, line.text);
+                }
                 talk.speak(ivie, line.text, () -> step(token));
             } else if (line.text != null && line.text.length() > 0) {
                 stage.setThought(line.text);
