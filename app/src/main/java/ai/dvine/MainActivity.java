@@ -61,6 +61,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private AmbientPad ambient;
     private OfflineBrain brain;
     private final ai.dvine.brain.ContextExaminer examiner = new ai.dvine.brain.ContextExaminer();
+
+    // Declare typeBar at class level to resolve variable scope errors
+    private ai.dvine.stage.TypeBar typeBar;
+
     // the on-device language model (llama.cpp + Qwen3 1.7B): answers what the offline brain can't, offline
     private ai.dvine.llm.LocalModel model;
     private final java.util.concurrent.ExecutorService modelThread = java.util.concurrent.Executors
@@ -147,6 +151,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             pace.tick(System.currentTimeMillis());
             stage.progress(pace.line());
+            updateThoughtStatus(pace.line(), true);
             handler.postDelayed(this, 800);
         }
     };
@@ -205,23 +210,145 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
-    /** The text field: full width on a phone, at most 560 dp and centred on a tablet or a phone on its side. */
-    private void fitTypeBar() {
-        if (typeBar == null) {
+    private android.widget.FrameLayout chatPaneHost;
+    private android.widget.FrameLayout typeBarHost;
+    private android.widget.TextView thoughtStatus;
+
+    /** Shows live reasoning progress inside the conversation, not only on the hologram. */
+    private void updateThoughtStatus(String message, boolean visible) {
+        if (thoughtStatus == null)
             return;
+        thoughtStatus.setText(message == null || message.trim().isEmpty() ? "Thinking…" : message);
+        android.view.View container = findViewById(R.id.thoughtStatusContainer);
+        if (container != null) {
+            container.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
+            if (visible)
+                container.bringToFront();
         }
+    }
+
+    /** The XML chat screen owns sizing; these views fill their dedicated hosts. */
+    private void fitTypeBar() {
+        if (typeBar == null || typeBar.getParent() == null)
+            return;
         android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        int m = (int) (14 * dm.density);
-        android.widget.FrameLayout.LayoutParams tb = (android.widget.FrameLayout.LayoutParams) typeBar
-                .getLayoutParams();
-        int screen = getResources().getConfiguration().screenWidthDp;
-        tb.width = screen > 600 ? (int) (560 * dm.density)
-                : android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-        tb.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL;
-        boolean side = getResources()
-                .getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
-        tb.setMargins(m, m, m, side ? m : m * 4);
-        typeBar.setLayoutParams(tb);
+        int margin = Math.round(4 * dm.density);
+        android.view.ViewGroup.LayoutParams raw = typeBar.getLayoutParams();
+        if (raw instanceof android.widget.FrameLayout.LayoutParams) {
+            android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) raw;
+            lp.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+            lp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+            lp.gravity = android.view.Gravity.BOTTOM;
+            lp.setMargins(margin, 0, margin, 0);
+            typeBar.setLayoutParams(lp);
+        }
+    }
+
+    private void fitChatPane() {
+        if (chatPane == null || chatPane.getParent() == null)
+            return;
+        android.view.ViewGroup.LayoutParams raw = chatPane.getLayoutParams();
+        raw.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+        raw.height = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+        chatPane.setLayoutParams(raw);
+    }
+
+    private void selectPersona(String persona) {
+        if (persona == null || stage == null)
+            return;
+        if (prefs != null)
+            prefs.edit().putString("face", persona).apply();
+        stage.ensureFace(persona, null);
+        updatePersonaTabs(persona);
+    }
+
+    private void updatePersonaTabs(String persona) {
+        setPersonaTab(findViewById(R.id.tabIvie), "ivie".equalsIgnoreCase(persona));
+        setPersonaTab(findViewById(R.id.tabObi), "obi".equalsIgnoreCase(persona));
+        setPersonaTab(findViewById(R.id.tabIbiko), "ibiko".equalsIgnoreCase(persona));
+    }
+
+    private void setPersonaTab(android.widget.TextView tab, boolean selected) {
+        if (tab == null)
+            return;
+        tab.setTextColor(selected ? 0xFF071018 : 0xFFAAB7C5);
+        tab.setBackgroundResource(
+                selected ? R.drawable.dvine_persona_tab_selected : R.drawable.dvine_persona_tab);
+        tab.setSelected(selected);
+    }
+
+    private void bindChatHeader() {
+        android.view.View ivie = findViewById(R.id.tabIvie);
+        android.view.View obi = findViewById(R.id.tabObi);
+        android.view.View ibiko = findViewById(R.id.tabIbiko);
+        if (ivie != null)
+            ivie.setOnClickListener(v -> selectPersona("ivie"));
+        if (obi != null)
+            obi.setOnClickListener(v -> selectPersona("obi"));
+        if (ibiko != null)
+            ibiko.setOnClickListener(v -> selectPersona("ibiko"));
+
+        android.view.View menu = findViewById(R.id.btnMenu);
+        if (menu != null)
+            menu.setOnClickListener(v -> {
+                android.widget.PopupMenu popup = new android.widget.PopupMenu(this, v);
+                popup.getMenu().add("Ivie").setOnMenuItemClickListener(item -> {
+                    selectPersona("ivie");
+                    return true;
+                });
+                popup.getMenu().add("Obi").setOnMenuItemClickListener(item -> {
+                    selectPersona("obi");
+                    return true;
+                });
+                popup.getMenu().add("Ibiko (Coder)").setOnMenuItemClickListener(item -> {
+                    selectPersona("ibiko");
+                    return true;
+                });
+                popup.show();
+            });
+
+        android.view.View fresh = findViewById(R.id.btnNewChat);
+        if (fresh != null)
+            fresh.setOnClickListener(v -> startNewChatSafely());
+        updatePersonaTabs(prefs == null ? StageView.IVIE : prefs.getString("face", StageView.IVIE));
+    }
+
+    /** Uses the ChatBook's available public new-chat API without assuming its exact method name. */
+    private void startNewChatSafely() {
+        boolean started = false;
+        if (chats != null) {
+            String[] candidates = { "newChat", "startNewChat", "createChat", "newSection",
+                    "newConversation" };
+            for (String name : candidates) {
+                for (java.lang.reflect.Method method : chats.getClass().getMethods()) {
+                    if (!name.equals(method.getName()))
+                        continue;
+                    try {
+                        Class<?>[] types = method.getParameterTypes();
+                        if (types.length == 0) {
+                            method.invoke(chats);
+                            started = true;
+                        } else if (types.length == 1 && types[0] == String.class) {
+                            String persona = prefs == null ? StageView.IVIE
+                                    : prefs.getString("face", StageView.IVIE);
+                            method.invoke(chats, persona);
+                            started = true;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    if (started)
+                        break;
+                }
+                if (started)
+                    break;
+            }
+        }
+        if (chatPane != null)
+            chatPane.show();
+        if (!started) {
+            android.widget.Toast.makeText(this, "New chat action is not exposed by ChatBook yet.",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
@@ -231,10 +358,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
     public void onConfigurationChanged(android.content.res.Configuration config) {
         super.onConfigurationChanged(config);
         fitTypeBar();
-        if (stage != null) {
-            stage.requestLayout();
+        fitChatPane();
+        if (chatPaneHost != null)
+            chatPaneHost.requestLayout();
+        if (typeBarHost != null)
+            typeBarHost.requestLayout();
+        if (stage != null)
             stage.invalidate();
-        }
     }
 
     @Override
@@ -251,21 +381,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
         stage = new StageView(this);
         stage.setListener(this);
-
         final ai.dvine.render.PodView podView = new ai.dvine.render.PodView(this);
         stage.attach(podView);
 
-        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
-        root.setBackgroundColor(0xFF000000);
-        root.addView(podView);
-        root.addView(stage);
-
-        typeBar = new ai.dvine.stage.TypeBar(this, text -> answer(text));
-        android.widget.FrameLayout.LayoutParams tb = new android.widget.FrameLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM);
-        root.addView(typeBar, tb);
-        fitTypeBar();
+        // Inflate the full-screen chat layout. The hologram StageView remains
+        // alive as the rendering/agent surface, while this screen is dedicated
+        // to the conversation UI.
+        setContentView(R.layout.activity_main);
+        android.widget.LinearLayout root = findViewById(R.id.chatScreenRoot);
+        chatPaneHost = findViewById(R.id.chatPaneHost);
+        typeBarHost = findViewById(R.id.typeBarHost);
+        thoughtStatus = findViewById(R.id.thoughtStatus);
+        updateThoughtStatus("Thinking…", false);
 
         chats = new ai.dvine.chat.ChatBook(new File(getFilesDir(), "chats.json"));
         chatPane = new ai.dvine.stage.ChatPane(this, chats, new ai.dvine.stage.ChatPane.Host() {
@@ -276,49 +403,45 @@ public final class MainActivity extends Activity implements StageListener, Liste
 
             @Override
             public void onSection(ai.dvine.chat.ChatBook.Section section) {
-                if (section == null || section.persona == null) {
+                if (section == null || section.persona == null)
                     return;
-                }
-                prefs.edit().putString("face", section.persona).apply();
-                stage.ensureFace(section.persona, null);
+                selectPersona(section.persona);
             }
         });
-        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        int edge = (int) (8 * dm.density);
-        android.widget.FrameLayout.LayoutParams chatLp = new android.widget.FrameLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, (int) (dm.heightPixels * 0.62f),
-                android.view.Gravity.BOTTOM);
-        chatLp.setMargins(edge, 0, edge, edge);
-        root.addView(chatPane, chatLp);
-        setContentView(root);
 
-        // 2. Add the OnApplyWindowInsetsListener to satisfy Android 15 requirements
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
-            androidx.core.graphics.Insets insets = windowInsets
+        if (chatPaneHost != null) {
+            chatPaneHost.addView(chatPane,
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+
+        // ChatPane contains the regular message composer. TypeBar is an
+        // optional alternate input surface and stays collapsed unless onType()
+        // explicitly requests it. This prevents two visible composers.
+        typeBar = new ai.dvine.stage.TypeBar(this, text -> {
+            if (typeBarHost != null)
+                typeBarHost.setVisibility(android.view.View.GONE);
+            answer(text);
+        });
+        if (typeBarHost != null) {
+            typeBarHost.addView(typeBar,
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+            typeBarHost.setVisibility(android.view.View.GONE);
+        }
+        fitTypeBar();
+        fitChatPane();
+
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+            androidx.core.graphics.Insets barsInsets = insets
                     .getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-
-            // Adjust the typeBar bottom margin dynamically based on system navigation bar insets
-            android.view.ViewGroup.LayoutParams lp = typeBar.getLayoutParams();
-            if (lp instanceof android.widget.FrameLayout.LayoutParams) {
-                android.widget.FrameLayout.LayoutParams flp = (android.widget.FrameLayout.LayoutParams) lp;
-                boolean side = getResources()
-                        .getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
-                int m = (int) (14 * getResources().getDisplayMetrics().density);
-                flp.setMargins(m, m, m, (side ? m : m * 4) + insets.bottom);
-                typeBar.setLayoutParams(flp);
-            }
-            android.view.ViewGroup.LayoutParams cp = chatPane.getLayoutParams();
-            if (cp instanceof android.widget.FrameLayout.LayoutParams) {
-                android.widget.FrameLayout.LayoutParams flp = (android.widget.FrameLayout.LayoutParams) cp;
-                int edge = (int) (8 * getResources().getDisplayMetrics().density);
-                flp.setMargins(edge, 0, edge, edge + insets.bottom);
-                chatPane.setLayoutParams(flp);
-            }
-
-            return windowInsets;
+            view.setPadding(view.getPaddingLeft(), barsInsets.top, view.getPaddingRight(),
+                    barsInsets.bottom);
+            return insets;
         });
 
-        // only after setContentView: before it the window has no decor and this throws
         WindowInsetsController bars = window.getInsetsController();
         if (bars != null) {
             bars.hide(WindowInsets.Type.systemBars());
@@ -327,13 +450,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
-        ai.dvine.turn.Names.restore(prefs.getString("name_aliases", null)); // spellings the user confirmed as a name
+        bindChatHeader();
+        ai.dvine.turn.Names.restore(prefs.getString("name_aliases", null));
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
         ambient = new AmbientPad();
         ambient.setEnabled(prefs.getBoolean("music", true));
         stage.setSubtitles(prefs.getBoolean("subtitles", true));
-        // the voice chosen last time (Ivie the first time)
         stage.ensureFace(prefs.getString("face", StageView.IVIE), null);
         talk.setTuning(false,
                 ai.dvine.voice.VoiceTuning.parse(prefs.getString("voice_obi", null), false));
@@ -372,7 +495,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
             stage.activity("TASK", restored);
         }
         handler.postDelayed(taskBeat, 1000);
-        // core pack now (small); the dictionary and other shards load in the background
         brain = new OfflineBrain(store.loadCore(), journal, System::currentTimeMillis,
                 TimeZone.getDefault());
         brain.setThoughts(prefs.getBoolean("thoughts", true));
@@ -381,7 +503,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 final ai.dvine.brain.KnowledgePack full = store.load();
                 handler.post(() -> brain.replacePack(full));
             } catch (RuntimeException broken) {
-                // keep the core pack
             }
         }, "dvine-knowledge");
         loader.setPriority(Thread.MIN_PRIORITY);
@@ -392,7 +513,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
         hub.addListener(onDownload);
         reportModel();
         if (hub.downloading() || hub.status.active()) {
-            onDownload.run(); // the download carried on while the app was closed: show where it is
+            onDownload.run();
         }
         if (model.installed() && prefs.getBoolean("llm_on", true)) {
             loadModel(false);
@@ -401,7 +522,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 prefs, new ai.dvine.net.DeviceVault(prefs));
         sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store, session::token,
                 pack -> {
-                    // a newer core pack arrived: re-merge it with the dictionary and shards
                     final ai.dvine.brain.KnowledgePack full = store.load();
                     handler.post(() -> brain.replacePack(full));
                 });
@@ -434,7 +554,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
             if (online) {
                 sync.kick(brain.pack().version);
             }
-            // research for 3D objects goes through the server while online
             creation.setFetcher(
                     online && serverUrl() != null && serverUrl().trim().startsWith("https://")
                             ? web::fetch
@@ -470,25 +589,19 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
-    /** Server address: the one set by voice, else the build's api_base. */
     private String serverUrl() {
         String set = prefs.getString("server", null);
         return set != null && !set.isEmpty() ? set : getString(R.string.api_base);
     }
 
-    /** Uploads right away when online; otherwise the next time we come online. */
     private void syncSoon() {
         if (connectivity != null && connectivity.isOnline()) {
             sync.kick(brain.pack().version);
         }
     }
-    // ------------------------------------------------------------ the one entry point
 
-    /** What DVINE learned from its brain: words the brain turned into commands, done at once next time. */
     private ai.dvine.agent.LearnedIntents learned;
-    /** True while a command the brain interpreted is being done, so it isn't sent back to the brain. */
     private boolean fromBrain;
-
     private ai.dvine.ops.AssistantCore assistant;
     private static final int PICK_CONTENT = 47;
     private boolean pickerLearn;
@@ -498,7 +611,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         answer(text, false);
     }
 
-    /** Starts a live progress line. Safe from the worker thread. */
     private void armThink(String phase, String writing) {
         thinkToken = readToken;
         thinkWrite = writing == null ? "Writing the answer" : writing;
@@ -509,6 +621,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
             stage.setMode(StageMode.THINKING);
             stage.progress(thinkPace.line());
+            updateThoughtStatus(thinkPace.line(), true);
             handler.removeCallbacks(thinkBeat);
             handler.postDelayed(thinkBeat, 800);
         });
@@ -517,9 +630,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private void endThink() {
         thinkPace = null;
         handler.removeCallbacks(thinkBeat);
+        updateThoughtStatus("", false);
     }
 
-    /** Counts words as they arrive. A lone progress ping means hidden reasoning, which is not spoken. */
     private boolean modelPiece(int id, String text) {
         if (id != askId) {
             return false;
@@ -535,17 +648,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
             handler.post(() -> {
                 if (id == askId && thinkPace != null) {
                     stage.progress(thinkPace.line());
+                    updateThoughtStatus(thinkPace.line(), true);
                 }
             });
         }
         return true;
     }
 
-    /** {@code interpreted}: the words are a command the brain already read; they go straight to DVINE's own brain. */
     private void answer(String text, boolean interpreted) {
         readToken++;
         if (model != null) {
-            model.cancel(); // a new question stops the reply already being written
+            model.cancel();
         }
         endThink();
         fromBrain = interpreted;
@@ -575,13 +688,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 fromBrain = true;
             }
         }
-        if (nameCheck != null) { // the answer to "Did you mean Ivie?"
+        if (nameCheck != null) {
             ai.dvine.turn.Names.Hearing pending = nameCheck;
             nameCheck = null;
             Boolean yes = ai.dvine.turn.Names.yesNo(text);
             if (yes != null) {
                 if (yes) {
-                    ai.dvine.turn.Names.learn(pending.word, pending.guess); // that spelling is the name from now on
+                    ai.dvine.turn.Names.learn(pending.word, pending.guess);
                 } else {
                     ai.dvine.turn.Names.notAName(pending.word);
                 }
@@ -589,8 +702,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 text = yes ? pending.suggested : pending.text;
             }
         }
-        if (!awaitingName) { // a name being given is taken as said
-            // "Evie", "Ivy", "Obie": the names as recognition hears them; a word that only sounds like one is asked about
+        if (!awaitingName) {
             ai.dvine.turn.Names.Hearing heard = ai.dvine.turn.Names.hear(text);
             text = heard.text;
             String own = brain.userName();
@@ -601,9 +713,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 return;
             }
         }
-        askId++; // a newer question makes any desk answer still on its way stale
+        askId++;
         if (discussion != null) {
-            discussion.cancel(); // the user interrupts: queued turns are dropped
+            discussion.cancel();
             discussion = null;
         }
         String said = text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
@@ -650,7 +762,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
             startDebate(debateOn);
             return;
         }
-        // read the whole sentence first: who it is for, whether it is negated, what "it" means, corrections, several requests
         ai.dvine.brain.ContextExaminer.Reading reading = examiner.examine(text);
         stage.activity("VOICE", text.trim());
         stage.activity("CONTEXT", reading.summary());
@@ -688,11 +799,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     null);
             return;
         }
-        // changing one part of the 3D drawing on show: "take out the tyres", "make the roof blue", "add a spoiler"
         if (editParts(asked)) {
             return;
         }
-        // changing the thing on show: "make it bigger", "spin it", "make it red", "scatter it", "clear it"
         ai.dvine.render.field.ShapeCommand change = stage.pictureShown()
                 ? ai.dvine.render.field.ShapeCommand.parse(asked)
                 : null;
@@ -700,8 +809,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
             play(LocalTurn.speakAs(stage.agent(), changeLine(change.op)), null);
             return;
         }
-        // said some other way ("make it do cartwheels", "can I see it from above"): the brain rewrites it into one of
-        // the commands DVINE knows, DVINE does it and remembers the words
         if (change == null && !interpreted && stage.pictureShown() && modelReady
                 && ai.dvine.agent.ViewIntent.looksLikeOne(asked)) {
             askViewIntent(asked);
@@ -739,13 +846,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         TurnRoute route = LocalTurn.route(asked, stage.agent());
         if (route.switchOnly) {
             if (!route.lines.isEmpty()) {
-                prefs.edit().putString("face", route.lines.get(0).agent).apply(); // the voice asked for stays next time
+                prefs.edit().putString("face", route.lines.get(0).agent).apply();
             }
             play(route.lines, null);
             return;
         }
         final BrainAnswer reply;
-        synchronized (brain) { // a cancelled discussion may still be finishing a turn on its thread
+        synchronized (brain) {
             reply = respondInContext(asked, reading);
         }
         stage.activity("ANSWER",
@@ -757,7 +864,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         if ("MODEL_RESET".equals(reply.command) && model != null) {
-            model.forget(); // a correction: the model's old answer shouldn't stay in its conversation
+            model.forget();
         }
         if (reply.newName != null) {
             prefs.edit().putString("user_name", reply.newName).apply();
@@ -807,14 +914,13 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         if ("LEARN".equals(reply.source) || "MEMORY".equals(reply.source)
                 || "OFFLINE".equals(reply.source)) {
-            syncSoon(); // new learning (or a saved unanswered question) goes up as soon as we can
+            syncSoon();
         }
         if ("POSE".equals(reply.command) && !stage.bodyShown()) {
             play(LocalTurn.speakAs(stage.agent(),
                     capabilities().missing(ai.dvine.agent.Interpretation.Task.MOVE)), null);
             return;
         }
-        // the brain proposes; the engine validates, arbitrates and moves the body
         engine.perform(reply, now);
         if ("SELF_REPORT".equals(reply.command)) {
             play(LocalTurn.speakAs(stage.agent(), engine.selfReport(now) + " " + stage.inspect()),
@@ -846,14 +952,11 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
-        // a drawing is a photograph lookup, never a pile of shapes called by the object's name
         String drawWhat = ai.dvine.llm.DrawPrompt.subject(asked);
         if (drawWhat != null && !"PHOTO".equals(reply.source)) {
             lookUpPhotos(drawWhat);
             return;
         }
-        // knowledge and conversation go to the language model when it's installed; commands, maths, time, memory,
-        // what the user taught and anything that acts stay with the offline brain (exact, and instant)
         boolean modelTopic = (!reply.answered || reply.needsOnline
                 || MODEL_SOURCES.contains(reply.source)) && plain(reply);
         if (modelTopic && model != null && model.ready() && prefs.getBoolean("llm_on", true)
@@ -861,8 +964,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return;
         }
         if (modelTopic && ai.dvine.llm.WorldLookup.shouldSearch(
-                connectivity != null && connectivity.isOnline() && prefs.getBoolean("fresh_facts", true),
-                model != null && model.ready(), reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked))) {
+                connectivity != null && connectivity.isOnline()
+                        && prefs.getBoolean("fresh_facts", true),
+                model != null && model.ready(), reply.answered,
+                ai.dvine.llm.FreshFacts.worthLooking(asked))) {
             final int id = ++askId;
             final String question = asked;
             armThink("Checking sources", "Checking sources");
@@ -890,20 +995,22 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
-        if (modelTopic && offerModel(reply, ai.dvine.llm.AnswerGate.refuseUngrounded(
-                model != null && model.ready(), reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked)))) {
+        if (modelTopic && offerModel(reply,
+                ai.dvine.llm.AnswerGate.refuseUngrounded(model != null && model.ready(),
+                        reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked)))) {
             return;
         }
-        if (modelTopic && ai.dvine.llm.AnswerGate.refuseUngrounded(
-                model != null && model.ready(), reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked))) {
-            play(LocalTurn.speakAs(stage.agent(), "I don't have a current source for that, so I won't guess."), null);
+        if (modelTopic && ai.dvine.llm.AnswerGate.refuseUngrounded(model != null && model.ready(),
+                reply.answered, ai.dvine.llm.FreshFacts.worthLooking(asked))) {
+            play(LocalTurn.speakAs(stage.agent(),
+                    "I don't have a current source for that, so I won't guess."), null);
             return;
         }
         if (reply.needsOnline && askDesk(asked, reply)) {
             return;
         }
         if (model != null && plain(reply)) {
-            model.note(asked, spoken(reply.lines)); // so the model reads what follows in the light of it
+            model.note(asked, spoken(reply.lines));
         }
         play(reply.lines,
                 reply.listenAfter || endsInQuestion(reply.lines) ? this::startListening : null);
@@ -919,17 +1026,14 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return b.toString();
     }
 
-    /** A reply that ends by asking the user something: the microphone opens for the answer. */
     private static boolean endsInQuestion(List<TurnLine> said) {
         return spoken(said).trim().endsWith("?");
     }
 
-    /** Who is on screen, what was just discussed and what is on show, for the model ({@link ai.dvine.llm.PersonaPrompt#situation}). */
     private static String blank(String extra) {
         return extra == null || extra.isEmpty() ? "" : "\n" + extra;
     }
 
-    /** Voice didn't already pass through the chat field, so the sheet records it once. */
     private void noteUser(String text) {
         if (chats == null || chatPane == null || text == null) {
             return;
@@ -959,15 +1063,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 + (chats == null ? "" : blank(chats.memoryForPrompt(6)));
     }
 
-    // ------------------------------------------------------------ the on-device language model
-
-    /** Answer sources the language model does better: dictionary, packed facts, wisdom, comfort, unknown questions. */
     private static final java.util.Set<String> MODEL_SOURCES = new java.util.HashSet<String>(
             java.util.Arrays.asList("DICT", "PACK", "WISDOM", "FACT", "CARE", "OFFLINE"));
 
-    /**
-     * Once, the first time a question would have gone to the language model but it isn't installed: the offline answer, then the offer to install it.
-     */
     private boolean offerModel(BrainAnswer reply, boolean refuseGuess) {
         if (model == null || model.installed() || prefs.getBoolean("llm_offered", false)
                 || model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED
@@ -980,7 +1078,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
         if (!refuseGuess) {
             lines2.addAll(reply.lines);
         } else {
-            lines2.add(new TurnLine(stage.agent(), "SAY", "I don't have a current source for that, so I won't guess."));
+            lines2.add(new TurnLine(stage.agent(), "SAY",
+                    "I don't have a current source for that, so I won't guess."));
         }
         String agent = stage.agent();
         lines2.add(new TurnLine(agent, "SAY",
@@ -992,7 +1091,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return true;
     }
 
-    /** The model's state for the activity panel at start. */
     private void reportModel() {
         String line;
         if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
@@ -1007,7 +1105,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.activity("MODEL", line);
     }
 
-    /** What DVINE can do right now. */
     private ai.dvine.agent.Capabilities capabilities() {
         ai.dvine.agent.Capabilities c = new ai.dvine.agent.Capabilities();
         c.brainReady = model != null && model.ready() && prefs.getBoolean("llm_on", true);
@@ -1022,7 +1119,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return t.length() > 60 ? t.substring(0, 57) + "\u2026" : t;
     }
 
-    /** One turn the way DVINE works: the brain reads what the user said and returns its interpretation. */
     private boolean agentTurn(final String question, final BrainAnswer offline) {
         final int id = ++askId;
         stopPlay();
@@ -1069,7 +1165,7 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     command = null;
                 }
                 if (command != null) {
-                    learned.learn(question, command); // DVINE learns it: next time, no brain needed
+                    learned.learn(question, command);
                     stage.innerVoice("Doing it: " + command);
                     answer(command, true);
                     return;
@@ -1081,7 +1177,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return true;
     }
 
-    /** A debate between two personas on the user's topic, written by the brain turn by turn while it is spoken. */
     private void startDebate(final String topic) {
         String missing = capabilities().missing(ai.dvine.agent.Interpretation.Task.DEBATE);
         if (missing != null) {
@@ -1218,7 +1313,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 if (all == null && stream.isEmpty()) {
                     String why = model.problem();
                     if (why != null && (why.contains("quiet") || why.contains("too long"))) {
-                        stream.add(new TurnLine(agent, "SAY", "That reply stopped, " + why + ". This is from my notes."));
+                        stream.add(new TurnLine(agent, "SAY",
+                                "That reply stopped, " + why + ". This is from my notes."));
                     }
                     stream.addAll(offline.lines);
                 } else if (!rest.isEmpty()) {
@@ -1236,10 +1332,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return true;
     }
 
-    /**
-     * "Draw me a bicycle": fetch real photographs. Do not build a shape and call it the object.
-     * Several web photographs are not calibrated views of one object, so no mesh is built from them.
-     */
     private void lookUpPhotos(final String subject) {
         final int id = ++askId;
         final boolean online = connectivity != null && connectivity.isOnline()
@@ -1259,9 +1351,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
             byte[] bytes = null;
             int found = 0;
             try {
-                byte[] listing = ai.dvine.net.WebGet.get(ai.dvine.render.field.PhotoLookup.commonsUrl(subject, 4), 7000, 512 * 1024);
-                java.util.List<String> urls = ai.dvine.render.field.PhotoLookup.urls(
-                        listing == null ? null : new String(listing, "UTF-8"), 4);
+                byte[] listing = ai.dvine.net.WebGet.get(
+                        ai.dvine.render.field.PhotoLookup.commonsUrl(subject, 4), 7000, 512 * 1024);
+                java.util.List<String> urls = ai.dvine.render.field.PhotoLookup
+                        .urls(listing == null ? null : new String(listing, "UTF-8"), 4);
                 found = urls.size();
                 for (String url : urls) {
                     if (id != askId) {
@@ -1289,20 +1382,25 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     return;
                 }
                 endThink();
-                android.graphics.Bitmap bm = got == null ? null : ai.dvine.render.field.Raster.decode(got);
+                android.graphics.Bitmap bm = got == null ? null
+                        : ai.dvine.render.field.Raster.decode(got);
                 if (bm == null) {
                     play(LocalTurn.speakAs(stage.agent(),
-                            "I looked for photographs of " + ai.dvine.llm.DrawPrompt.article(subject)
+                            "I looked for photographs of "
+                                    + ai.dvine.llm.DrawPrompt.article(subject)
                                     + " and didn't get one I can show. I didn't draw a stand-in."),
                             null);
                     return;
                 }
-                int[] box = ai.dvine.render.field.PhotoFrame.middle(bm.getWidth(), bm.getHeight(), 0.72f);
-                android.graphics.Bitmap cropped = android.graphics.Bitmap.createBitmap(bm, box[0], box[1], box[2], box[3]);
+                int[] box = ai.dvine.render.field.PhotoFrame.middle(bm.getWidth(), bm.getHeight(),
+                        0.72f);
+                android.graphics.Bitmap cropped = android.graphics.Bitmap.createBitmap(bm, box[0],
+                        box[1], box[2], box[3]);
                 if (cropped != bm) {
                     bm.recycle();
                 }
-                java.io.File shot = new java.io.File(getFilesDir(), "chat-images/" + System.currentTimeMillis() + ".png");
+                java.io.File shot = new java.io.File(getFilesDir(),
+                        "chat-images/" + System.currentTimeMillis() + ".png");
                 java.io.File parent = shot.getParentFile();
                 if (parent != null) {
                     parent.mkdirs();
@@ -1316,9 +1414,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                         ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
                 cropped.recycle();
                 if (picture == null || picture.count < 80) {
-                    play(LocalTurn.speakAs(stage.agent(),
-                            "I fetched a photograph of " + ai.dvine.llm.DrawPrompt.article(subject)
-                                    + ", but it didn't decode into something I can show. I didn't invent a model."),
+                    play(LocalTurn.speakAs(stage.agent(), "I fetched a photograph of "
+                            + ai.dvine.llm.DrawPrompt.article(subject)
+                            + ", but it didn't decode into something I can show. I didn't invent a model."),
                             null);
                     return;
                 }
@@ -1340,7 +1438,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private final List<ai.dvine.render.field.SolidSpec.Part> takenOut = new ArrayList<ai.dvine.render.field.SolidSpec.Part>();
     private final java.util.ArrayDeque<ai.dvine.render.field.SolidSpec> solidHistory = new java.util.ArrayDeque<ai.dvine.render.field.SolidSpec>();
 
-    /** A change to one part of the 3D drawing on show. */
     private boolean editParts(final String asked) {
         if (currentSolid == null || !stage.pictureShown()) {
             return false;
@@ -1431,7 +1528,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.innerVoice(
                 "Which part is \u201c" + clip(edit.target) + "\u201d? Asking my brain\u2026");
         modelThread.execute(() -> {
-            // FIX: Use ai.dvine.render.field.PartEdit instead of ai.dvine.llm.PartEdit
             String written = model.task(ai.dvine.render.field.PartEdit.whichSystem(),
                     ai.dvine.render.field.PartEdit.whichPrompt(on, lastDrawn, edit.target), 60,
                     text -> id == askId);
@@ -1456,9 +1552,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return true;
     }
 
-    /**
-     * The 3D drawing on show saved to the phone, in Downloads/DVINE, as a 3D file other software opens.
-     */
     private void exportSolid(final ai.dvine.render.field.MeshExport.Format format,
             final String called) {
         final ai.dvine.render.field.SolidSpec spec = currentSolid;
@@ -1527,8 +1620,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
         return true;
     }
-
-    // ------------------------------------------------------------ saved drawings
 
     private ai.dvine.library.DrawingLibrary library;
 
@@ -1734,8 +1825,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     "The drawing " + e.name + " is damaged; I can't open it."), null);
             return;
         }
-        play(LocalTurn.speakAs(stage.agent(),
-                "The drawing " + e.name + " is an old shape stand-in. I won't put those shapes on the board and call them the object."), null);
+        play(LocalTurn.speakAs(stage.agent(), "The drawing " + e.name
+                + " is an old shape stand-in. I won't put those shapes on the board and call them the object."),
+                null);
     }
 
     private static String names(java.util.List<ai.dvine.library.DrawingLibrary.Entry> list) {
@@ -1807,8 +1899,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.innerVoice(line);
         play(LocalTurn.speakAs(stage.agent(), line), null);
     }
-
-    private boolean shapeHintGiven;
 
     private void askViewIntent(final String asked) {
         final int id = ++askId;
@@ -1882,13 +1972,17 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
             if (assistant != null && model.spec != null) {
                 new ai.dvine.ops.mind.ModelAdapter(assistant.models()).report(model.spec.file, ok);
-                assistant.orchestrator().setModel(ok ? ai.dvine.ops.pipe.CheckedReading.of(model, piece -> {
-                    ai.dvine.llm.ThinkPace pace = thinkPace;
-                    if (pace != null && piece != null) {
-                        pace.addText(piece);
-                        handler.post(() -> { if (thinkPace != null) stage.progress(thinkPace.line()); });
-                    }
-                }) : null);
+                assistant.orchestrator()
+                        .setModel(ok ? ai.dvine.ops.pipe.CheckedReading.of(model, piece -> {
+                            ai.dvine.llm.ThinkPace pace = thinkPace;
+                            if (pace != null && piece != null) {
+                                pace.addText(piece);
+                                handler.post(() -> {
+                                    if (thinkPace != null)
+                                        stage.progress(thinkPace.line());
+                                });
+                            }
+                        }) : null);
             }
             handler.post(() -> {
                 stage.activity("MODEL", ok ? "ready, offline" : model.problem());
@@ -1913,7 +2007,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         });
     }
 
-    /** Voice control of the language model with proper boolean return statements. */
     private boolean modelCommand(String said) {
         if (model == null) {
             return false;
@@ -2147,14 +2240,18 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE;
         if (!slow) {
-            armThink(r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.POSE ? "Posing the body" : "Updating the model", "Updating the model");
+            armThink(
+                    r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.POSE ? "Posing the body"
+                            : "Updating the model",
+                    "Updating the model");
             applyCreation(creation.perform(r));
             endThink();
             return true;
         }
         final int id = ++askId;
         stopPlay();
-        String phase = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE ? "Drawing the picture"
+        String phase = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE
+                ? "Drawing the picture"
                 : creation.researchAvailable() ? "Researching it" : "Designing the geometry";
         armThink(phase, phase);
         buildThread.execute(() -> {
@@ -2200,9 +2297,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
     private void discuss(final ai.dvine.turn.DualAgentCoordinator.Request r) {
         stopPlay();
         final String first = r.first != null ? r.first : stage.agent();
-        armThink(first.equals("ivie") ? "Ivie is preparing, then Obi" : "Obi is preparing, then Ivie", "Writing the line");
-        final boolean online = desk != null && connectivity != null && connectivity.isOnline() && serverUrl() != null
-                && serverUrl().trim().startsWith("https://");
+        armThink(first.equals("ivie") ? "Ivie is preparing, then Obi"
+                : "Obi is preparing, then Ivie", "Writing the line");
+        final boolean online = desk != null && connectivity != null && connectivity.isOnline()
+                && serverUrl() != null && serverUrl().trim().startsWith("https://");
         final ai.dvine.turn.DualAgentCoordinator c = new ai.dvine.turn.DualAgentCoordinator(
                 agentFor("obi", online), agentFor("ivie", online));
         discussion = c;
@@ -2338,16 +2436,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
         }
     }
 
-    /** Opens Termux when it is installed, otherwise the install page. It does not ask the user to repeat the request. */
     private void openTermux(boolean preferLaunch) {
         if (preferLaunch && ai.dvine.ops.TermuxAndroid.installed(this)) {
-            android.content.Intent launch = getPackageManager().getLaunchIntentForPackage(ai.dvine.ops.TermuxAndroid.PACKAGE);
+            android.content.Intent launch = getPackageManager()
+                    .getLaunchIntentForPackage(ai.dvine.ops.TermuxAndroid.PACKAGE);
             if (launch != null) {
                 try {
                     startActivity(launch);
                     return;
                 } catch (RuntimeException ignored) {
-                    // fall through to the install page
                 }
             }
         }
@@ -2363,8 +2460,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
             }
         }
     }
-
-    // ------------------------------------------------------------ stage input
 
     @Override
     public void onHeadTap() {
@@ -2509,6 +2604,9 @@ public final class MainActivity extends Activity implements StageListener, Liste
     @Override
     public void onType() {
         if (typeBar != null) {
+            if (typeBarHost != null)
+                typeBarHost.setVisibility(android.view.View.VISIBLE);
+            typeBar.setVisibility(android.view.View.VISIBLE);
             typeBar.show(awaitingName ? "Your name" : "Type to DVINE");
         }
     }
@@ -2516,7 +2614,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
     @Override
     public void onHistory(String action) {
         if ("undo".equals(action) || "redo".equals(action)) {
-            armThink(action.equals("undo") ? "Undoing the last change" : "Redoing the last change", "Updating the model");
+            armThink(action.equals("undo") ? "Undoing the last change" : "Redoing the last change",
+                    "Updating the model");
             create(action);
             endThink();
         }
@@ -2578,8 +2677,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
         stage.setSubtitle(message);
         stage.setMode(StageMode.ERROR);
     }
-
-    // ------------------------------------------------------------ playback
 
     private void play(List<TurnLine> next, Runnable done) {
         stopPlay();
@@ -2678,8 +2775,6 @@ public final class MainActivity extends Activity implements StageListener, Liste
             stage.setListening(false);
         }
     }
-
-    // ------------------------------------------------------------ lifecycle
 
     private void openContentPicker(String kind, boolean learn) {
         pickerLearn = learn;
@@ -2908,7 +3003,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 journal.add(LearningJournal.TAUGHT_FACT, shown, done.note);
             }
             if (done.showImage && !showSelected(uri, done.kind, shown)) {
-                play(LocalTurn.speakAs(stage.agent(), done.speech + " The picture didn't open."), null);
+                play(LocalTurn.speakAs(stage.agent(), done.speech + " The picture didn't open."),
+                        null);
                 return;
             }
             play(LocalTurn.speakAs(stage.agent(), done.speech), null);
