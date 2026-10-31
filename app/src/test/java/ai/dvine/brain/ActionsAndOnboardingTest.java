@@ -94,15 +94,13 @@ public class ActionsAndOnboardingTest {
         assertEquals("STOP", brain.respond("that's enough", "ivie").command);
         assertEquals("SELF_REPORT", brain.respond("what are you doing", "obi").command);
         assertEquals("FAVOURITES", brain.respond("what do I like", "obi").command);
-        // built-in 3D forms
-        assertEquals("globe", brain.respond("draw the globe", "obi").object3d);
-        assertEquals("dna", brain.respond("show me dna", "obi").object3d);
-        assertEquals("galaxy", brain.respond("can you draw a galaxy?", "obi").object3d);
-        assertEquals("black hole", brain.respond("draw a black hole", "ivie").object3d);
-        assertEquals("tesseract", brain.respond("show me a 4d cube", "obi").object3d);
-        assertEquals("lorenz", brain.respond("draw the butterfly effect", "obi").object3d);
-        assertEquals("butterfly", brain.respond("draw a butterfly", "ivie").object3d);
-        assertEquals("eiffel tower", brain.respond("please draw the eiffel tower", "obi").object3d);
+        // a named picture is a photograph lookup, not a stored shape
+        assertEquals("LOOKUP_PHOTO", brain.respond("draw the globe", "obi").command);
+        assertEquals("globe", brain.respond("draw the globe", "obi").commandValue);
+        assertEquals(null, brain.respond("show me dna", "obi").object3d);
+        assertEquals(null, brain.respond("can you draw a galaxy?", "obi").sketch);
+        assertEquals("LOOKUP_PHOTO", brain.respond("draw a black hole", "ivie").command);
+        assertEquals("LOOKUP_PHOTO", brain.respond("please draw the eiffel tower", "obi").command);
         // no face: the old face and body commands are gone
         for (String gone : new String[]{"show your face", "show your full body", "smile", "show me your skeleton", "make your skin darker"}) {
             BrainAnswer a = brain.respond(gone, "obi");

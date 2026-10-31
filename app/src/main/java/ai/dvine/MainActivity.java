@@ -699,24 +699,25 @@ public final class MainActivity extends Activity implements StageListener, Liste
             askViewIntent(asked);
             return;
         }
+        ai.dvine.ops.pipe.MachinePlan plan = ai.dvine.ops.pipe.MachinePlan.read(asked);
+        if (plan.op == ai.dvine.ops.pipe.MachinePlan.Op.LOOK_UP_PHOTOS) {
+            lookUpPhotos(plan.subject);
+            return;
+        }
         ai.dvine.create.ObjectRequestInterpreter.Request known = creation.parse(asked,
                 stage.objectShown());
         if (known != null
                 && known.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT
-                && known.detail != null && modelReady) {
-            askDrawing(known.detail, true); // something the creation engine can't model: the language model plans it in 3D
+                && known.detail != null) {
+            lookUpPhotos(known.detail);
             return;
         }
         if (create(asked)) {
             return;
         }
         String formWhat = ai.dvine.llm.DrawPrompt.formSubject(asked);
-        if (formWhat != null && modelReady
-                && ai.dvine.render.forms.Forms
-                        .objectFor(asked.toLowerCase(java.util.Locale.US)) == null
-                && ai.dvine.stage.Sketch
-                        .forRequest(asked.toLowerCase(java.util.Locale.US)) == null) {
-            askDrawing(formWhat, true);
+        if (formWhat != null && !ai.dvine.ops.pipe.MachinePlan.procedural(formWhat)) {
+            lookUpPhotos(formWhat);
             return;
         }
         ai.dvine.turn.DualAgentCoordinator.Request both = ai.dvine.turn.DualAgentCoordinator
@@ -743,6 +744,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
                 reply.answered ? "from " + reply.source.toLowerCase(java.util.Locale.US)
                         : "not in my notes yet");
         engine.setPersona(stage.agent(), now);
+        if ("LOOKUP_PHOTO".equals(reply.command) && reply.commandValue != null) {
+            lookUpPhotos(reply.commandValue);
+            return;
+        }
         if ("MODEL_RESET".equals(reply.command) && model != null) {
             model.forget(); // a correction: the model's old answer shouldn't stay in its conversation
         }
@@ -833,14 +838,10 @@ public final class MainActivity extends Activity implements StageListener, Liste
             });
             return;
         }
-        // a drawing with no built-in form: the language model describes it in shapes and the particles form it
+        // a drawing is a photograph lookup, never a pile of shapes called by the object's name
         String drawWhat = ai.dvine.llm.DrawPrompt.subject(asked);
-        boolean canDraw = model != null && model.ready() && prefs.getBoolean("llm_on", true)
-                || connectivity != null && connectivity.isOnline();
-        if (drawWhat != null && !"DRAW".equals(reply.source) && canDraw) {
-            // every drawing is built in 3D when the brain is here; without it, a picture from the internet
-            askDrawing(drawWhat,
-                    model != null && model.ready() || ai.dvine.llm.DrawPrompt.in3d(asked));
+        if (drawWhat != null && !"PHOTO".equals(reply.source)) {
+            lookUpPhotos(drawWhat);
             return;
         }
         // knowledge and conversation go to the language model when it's installed; commands, maths, time, memory,
@@ -1202,106 +1203,89 @@ public final class MainActivity extends Activity implements StageListener, Liste
         return true;
     }
 
-    /** "Draw me a lighthouse": always in 3D, and nothing is built in. */
-    private void askDrawing(final String subject, final boolean solidOnly) {
+    /**
+     * "Draw me a bicycle": fetch real photographs. Do not build a shape and call it the object.
+     * Several web photographs are not calibrated views of one object, so no mesh is built from them.
+     */
+    private void lookUpPhotos(final String subject) {
         final int id = ++askId;
-        final boolean ivie = stage.isIvie();
-        final boolean connected = connectivity != null && connectivity.isOnline();
-        final boolean online = !solidOnly && connected;
-        final boolean research = connected && prefs.getBoolean("fresh_facts", true);
-        final boolean modelOk = model != null && model.ready();
+        final boolean online = connectivity != null && connectivity.isOnline()
+                && prefs.getBoolean("fresh_facts", true);
         stopPlay();
-        stage.setMode(StageMode.THINKING);
-        stage.activity("DRAW", subject);
+        stage.activity("PHOTO", subject);
         lastDrawn = subject;
-        if (modelOk) {
-            armThink(research ? "Checking sources" : "Planning the parts", "Planning the parts");
-        } else {
-            stage.setThought((online ? "Finding a picture of " : "Building ") + subject + "\u2026");
+        if (!online) {
+            play(LocalTurn.speakAs(stage.agent(),
+                    "I won't invent a shape and call it " + ai.dvine.llm.DrawPrompt.article(subject)
+                            + ". I need the network to fetch a real photograph."),
+                    null);
+            return;
         }
+        armThink("Looking up photographs", "Looking up photographs");
         modelThread.execute(() -> {
-            ai.dvine.render.field.Shape picture = null;
-            ai.dvine.render.field.SolidSpec plan = null;
-            if (plan == null && modelOk && id == askId) {
-                String facts = research ? ai.dvine.render.field.PictureFinder.describe(subject)
-                        : null;
-                if (facts != null) {
-                    handler.post(() -> {
-                        if (id == askId) {
-                            stage.innerVoice("Found how it looks. Planning its parts\u2026");
-                        }
-                    });
+            byte[] bytes = null;
+            int found = 0;
+            try {
+                byte[] listing = ai.dvine.net.WebGet.get(ai.dvine.render.field.PhotoLookup.commonsUrl(subject, 4), 7000, 512 * 1024);
+                java.util.List<String> urls = ai.dvine.render.field.PhotoLookup.urls(
+                        listing == null ? null : new String(listing, "UTF-8"), 4);
+                found = urls.size();
+                for (String url : urls) {
+                    if (id != askId) {
+                        return;
+                    }
+                    bytes = ai.dvine.net.WebGet.get(url, 7000, 3 * 1024 * 1024);
+                    if (bytes != null && bytes.length > 32) {
+                        break;
+                    }
+                    bytes = null;
                 }
-                String planned = model.task(ai.dvine.llm.DrawPrompt.system(),
-                        ai.dvine.llm.DrawPrompt.user(subject, facts), 280,
-                        text -> modelPiece(id, text));
-                plan = ai.dvine.llm.DrawPrompt.read(planned, subject);
-                if (!ai.dvine.llm.DrawPrompt.usable(plan, subject) && id == askId) {
-                    handler.post(() -> {
-                        if (id == askId) {
-                            stage.innerVoice("That plan wasn't right. Trying again\u2026");
-                        }
-                    });
-                    planned = model.task(ai.dvine.llm.DrawPrompt.system(),
-                            ai.dvine.llm.DrawPrompt.retry(subject), 280,
-                            text -> modelPiece(id, text));
-                    plan = ai.dvine.llm.DrawPrompt.read(planned, subject);
-                }
-                if (!ai.dvine.llm.DrawPrompt.usable(plan, subject)) {
-                    plan = null;
-                }
-            }
-            if (plan != null) {
-                plan.fixFrame();
-                picture = plan.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
-            } else if (online && id == askId) {
-                android.graphics.Bitmap bm = ai.dvine.render.field.Raster
-                        .decode(ai.dvine.render.field.PictureFinder.find(subject));
-                if (bm != null && id == askId) {
-                    picture = ai.dvine.render.field.Raster.image(bm,
-                            ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
-                    if (picture.count < 200) {
-                        picture = null;
+                if (bytes == null) {
+                    bytes = ai.dvine.render.field.PictureFinder.find(subject);
+                    if (bytes != null) {
+                        found = Math.max(found, 1);
                     }
                 }
+            } catch (java.io.UnsupportedEncodingException ignored) {
+                bytes = null;
             }
-            final ai.dvine.render.field.Shape shown = picture != null && picture.count > 0 ? picture
-                    : null;
-            final ai.dvine.render.field.SolidSpec built = shown == null ? null : plan;
+            final byte[] got = bytes;
+            final int count = found;
             handler.post(() -> {
                 if (id != askId || isFinishing()) {
                     return;
                 }
                 endThink();
-                stage.setThought(null);
-                if (shown == null) {
-                    play(LocalTurn.speakAs(ivie, modelOk || online
-                            ? "I tried to make " + ai.dvine.llm.DrawPrompt.article(subject)
-                                    + ", but it didn't come out right. Ask me again?"
-                            : "I need my brain files for that. Say download your brain, and I'll be able to build anything you ask."),
+                android.graphics.Bitmap bm = got == null ? null : ai.dvine.render.field.Raster.decode(got);
+                if (bm == null) {
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "I looked for photographs of " + ai.dvine.llm.DrawPrompt.article(subject)
+                                    + " and didn't get one I can show. I didn't draw a stand-in."),
                             null);
                     return;
                 }
-                String line = "Here's " + ai.dvine.llm.DrawPrompt.article(subject) + " in 3D.";
-                if (built != null) {
-                    currentSolid = built;
-                    currentName = null;
-                    solidHistory.clear();
-                    takenOut.clear();
-                    stage.showSolid(shown, subject);
-                    if (!shapeHintGiven) {
-                        shapeHintGiven = true;
-                        line += " Turn it with your finger, pinch to zoom, or tell me to change a part, like take out the "
-                                + ai.dvine.render.field.PartEdit.example(built) + ".";
-                    }
-                } else {
-                    currentSolid = null;
-                    stage.showPhotograph(shown, subject);
-                    line = "Here's a particle picture of "
-                            + ai.dvine.llm.DrawPrompt.article(subject)
-                            + ". It follows the photo. It is not a measured 3D model.";
+                int[] box = ai.dvine.render.field.PhotoFrame.middle(bm.getWidth(), bm.getHeight(), 0.72f);
+                android.graphics.Bitmap cropped = android.graphics.Bitmap.createBitmap(bm, box[0], box[1], box[2], box[3]);
+                if (cropped != bm) {
+                    bm.recycle();
                 }
-                play(LocalTurn.speakAs(ivie, line), null);
+                ai.dvine.render.field.Shape picture = ai.dvine.render.field.Raster.image(cropped,
+                        ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
+                cropped.recycle();
+                if (picture == null || picture.count < 80) {
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "I fetched a photograph of " + ai.dvine.llm.DrawPrompt.article(subject)
+                                    + ", but it didn't decode into something I can show. I didn't invent a model."),
+                            null);
+                    return;
+                }
+                currentSolid = null;
+                stage.showPhotograph(picture, subject);
+                String line = "I fetched " + count + " photograph" + (count == 1 ? "" : "s")
+                        + " of " + ai.dvine.llm.DrawPrompt.article(subject)
+                        + " and I'm showing one, cropped to the middle. "
+                        + "These are not one object from known camera angles, so I did not build a measured 3D model.";
+                play(LocalTurn.speakAs(stage.agent(), line), null);
             });
         });
     }
@@ -1704,14 +1688,8 @@ public final class MainActivity extends Activity implements StageListener, Liste
                     "The drawing " + e.name + " is damaged; I can't open it."), null);
             return;
         }
-        currentSolid = spec.fixFrame();
-        currentName = e.name;
-        lastDrawn = e.subject.isEmpty() ? e.name : e.subject;
-        solidHistory.clear();
-        takenOut.clear();
-        stage.showSolid(spec.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f),
-                e.name);
-        play(LocalTurn.speakAs(stage.agent(), "Here's " + e.name + "."), null);
+        play(LocalTurn.speakAs(stage.agent(),
+                "The drawing " + e.name + " is an old shape stand-in. I won't put those shapes on the board and call them the object."), null);
     }
 
     private static String names(java.util.List<ai.dvine.library.DrawingLibrary.Entry> list) {

@@ -99,6 +99,8 @@ public final class InternetResearchEngine {
         if (fetcher != null) {
             providers.add(ClaimCheck.wikipedia(fetcher));
             providers.add(ClaimCheck.wikidata(fetcher));
+            providers.add(ClaimCheck.duckDuckGo(fetcher));
+            providers.add(ClaimCheck.reddit(fetcher));
         }
         return claims.inspect(question, fetcher != null, providers, now, control);
     }

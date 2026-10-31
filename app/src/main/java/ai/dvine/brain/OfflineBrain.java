@@ -240,14 +240,21 @@ public final class OfflineBrain {
         }
         String object = ai.dvine.render.forms.Forms.objectFor(text);
         if (object != null) {
-            BrainAnswer a = one(speaker, objectLine(object), "DRAW");
-            a.object3d = object;
+            BrainAnswer a = one(speaker, "I'll look up photographs of " + object + ". I will not draw it from stored shapes.", "PHOTO");
+            a.command = "LOOKUP_PHOTO";
+            a.commandValue = object;
             return a;
         }
         ai.dvine.stage.Sketch sketch = ai.dvine.stage.Sketch.forRequest(text);
-        if (sketch != null) {
+        if (sketch != null && !objectSketch(sketch.title)) {
             BrainAnswer a = one(speaker, sketchLine(sketch), "DRAW");
             a.sketch = sketch;
+            return a;
+        }
+        if (sketch != null) {
+            BrainAnswer a = one(speaker, "I'll look up photographs of " + sketch.title + ". I will not draw it from stored lines.", "PHOTO");
+            a.command = "LOOKUP_PHOTO";
+            a.commandValue = sketch.title;
             return a;
         }
         return null;
@@ -353,6 +360,11 @@ public final class OfflineBrain {
             case "ripples": return "Ripples spreading on water: waves carry energy outward, getting smaller as they spread.";
             default: return "A sphere: every point on its surface is the same distance from the centre.";
         }
+    }
+
+    private static boolean objectSketch(String title) {
+        return title != null && title.toLowerCase(java.util.Locale.US).matches(
+                ".*(house|tree|car|person|fish|boat|ship|flower|sun|moon|heart|solar|eye|mountain).*");
     }
 
     private static String sketchLine(ai.dvine.stage.Sketch s) {

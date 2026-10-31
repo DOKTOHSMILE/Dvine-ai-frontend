@@ -152,7 +152,32 @@ public final class ClaimCheck {
         String tail = hostile ? " I ignored instructions on the page and did not run them." : "";
         if (found.isEmpty()) {
             return new Report(Verdict.UNVERIFIED,
-                    "I searched and could not verify that from Wikipedia or Wikidata." + tail, found, true);
+                    "I searched and could not verify that. There is no Google key in this build, and nothing I did search supported it." + tail, found, true);
+        }
+        Source agreedA = null;
+        Source agreedB = null;
+        Source conflictA = null;
+        Source conflictB = null;
+        for (int i = 0; i < found.size(); i++) {
+            for (int j = i + 1; j < found.size(); j++) {
+                Source left = found.get(i);
+                Source right = found.get(j);
+                if (numbersConflict(left.text, right.text)) {
+                    if (conflictA == null) {
+                        conflictA = left;
+                        conflictB = right;
+                    }
+                } else if (agree(left.text, right.text) && agreedA == null) {
+                    agreedA = left;
+                    agreedB = right;
+                }
+            }
+        }
+        if (agreedA != null) {
+            return new Report(Verdict.VERIFIED,
+                    "Two sources agree, which is not a proof. " + clip(agreedA.text) + " Sources: " + agreedA.name + " ("
+                            + stamp(agreedA.retrievedAt) + "), " + agreedB.name + " (" + stamp(agreedB.retrievedAt) + ")." + tail,
+                    found, true);
         }
         if (found.size() == 1) {
             Source only = found.get(0);
@@ -161,20 +186,14 @@ public final class ClaimCheck {
                             + ". This is not independently verified. " + clip(only.text) + tail,
                     found, true);
         }
+        if (conflictA != null) {
+            return new Report(Verdict.CONFLICT,
+                    "The sources disagree, so I am not calling this verified. " + conflictA.name + " says " + clip(conflictA.text)
+                            + " " + conflictB.name + " says " + clip(conflictB.text) + " Retrieved " + stamp(now) + "." + tail,
+                    found, true);
+        }
         Source a = found.get(0);
         Source b = found.get(1);
-        if (numbersConflict(a.text, b.text)) {
-            return new Report(Verdict.CONFLICT,
-                    "The sources disagree, so I am not calling this verified. " + a.name + " says " + clip(a.text)
-                            + " " + b.name + " says " + clip(b.text) + " Retrieved " + stamp(now) + "." + tail,
-                    found, true);
-        }
-        if (agree(a.text, b.text)) {
-            return new Report(Verdict.VERIFIED,
-                    "Two sources agree, which is not a proof. " + clip(a.text) + " Sources: " + a.name + " ("
-                            + stamp(a.retrievedAt) + "), " + b.name + " (" + stamp(b.retrievedAt) + ")." + tail,
-                    found, true);
-        }
         return new Report(Verdict.UNVERIFIED,
                 "I read " + a.name + " and " + b.name + " and they do not corroborate each other, so this stays unverified. Retrieved "
                         + stamp(now) + "." + tail,
@@ -219,6 +238,40 @@ public final class ClaimCheck {
                     return null;
                 }
                 return new Source("Wikidata", url, text, 0);
+            }
+        };
+    }
+
+    public static SearchProvider duckDuckGo(InternetResearchEngine.Fetcher fetcher) {
+        return new SearchProvider() {
+            public String name() {
+                return "DuckDuckGo";
+            }
+
+            public Source find(String question) {
+                if (fetcher == null) {
+                    return null;
+                }
+                String url = OpenSearch.duckUrl(question);
+                String text = OpenSearch.duckText(fetcher.get(url));
+                return text == null ? null : new Source("DuckDuckGo", url, text, 0);
+            }
+        };
+    }
+
+    public static SearchProvider reddit(InternetResearchEngine.Fetcher fetcher) {
+        return new SearchProvider() {
+            public String name() {
+                return "Reddit";
+            }
+
+            public Source find(String question) {
+                if (fetcher == null) {
+                    return null;
+                }
+                String url = OpenSearch.redditUrl(question);
+                String text = OpenSearch.redditText(fetcher.get(url));
+                return text == null ? null : new Source("Reddit", url, text, 0);
             }
         };
     }

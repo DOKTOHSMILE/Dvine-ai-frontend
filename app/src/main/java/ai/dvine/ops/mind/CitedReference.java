@@ -15,7 +15,8 @@ public final class CitedReference {
             return null;
         }
         ClaimCheck.Report report = new ClaimCheck().inspect(question, true,
-                List.of(ClaimCheck.wikipedia(fetcher), ClaimCheck.wikidata(fetcher)), now);
+                List.of(ClaimCheck.wikipedia(fetcher), ClaimCheck.wikidata(fetcher),
+                        ClaimCheck.duckDuckGo(fetcher), ClaimCheck.reddit(fetcher)), now);
         if (report.verdict != ClaimCheck.Verdict.VERIFIED
                 && report.verdict != ClaimCheck.Verdict.SINGLE_SOURCE
                 && report.verdict != ClaimCheck.Verdict.CONFLICT) {
