@@ -309,9 +309,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         prefs.edit().putBoolean(key, true).apply();
         play(LocalTurn.speakAs("ibiko", installed
-                ? "This is the coding chat. Termux is on this phone, so I can run commands here. Obi and Ivie stay the regular conversation."
-                : "This is the coding chat. Termux is not on this phone yet. Say download Termux and I'll open the install page. Obi and Ivie stay the regular conversation."),
+                ? "This is the coding chat. Ask me to find a zip or unzip it and I'll do it here. I won't open another app."
+                : "This is the coding chat. Ask me to find a zip or unzip it and I'll do it here, in this chat. I won't open another app."),
                 null);
+    }
+
+    private boolean runInChat(String text) {
+        java.util.List<java.io.File> roots = new java.util.ArrayList<java.io.File>();
+        roots.add(getFilesDir());
+        java.io.File ext = getExternalFilesDir(null);
+        if (ext != null) {
+            roots.add(ext);
+        }
+        java.io.File downloads = android.os.Environment
+                .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+        if (downloads != null) {
+            roots.add(downloads);
+        }
+        String report = ai.dvine.ops.shell.LocalShell.run(text, roots, new java.io.File(getFilesDir(), "shell"));
+        if (report == null) {
+            return false;
+        }
+        play(LocalTurn.speakAs("ibiko", report), null);
+        return true;
     }
 
     private void updatePersonaTabs(String persona) {
@@ -898,6 +918,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             noteUser(text);
         }
         if (!interpreted && applyNameChange(text)) {
+            return;
+        }
+        if (!interpreted && "ibiko".equals(stage.agent()) && runInChat(text)) {
             return;
         }
         if (!interpreted && assistant != null) {
