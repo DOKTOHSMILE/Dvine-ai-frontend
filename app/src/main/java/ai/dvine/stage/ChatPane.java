@@ -33,6 +33,8 @@ public final class ChatPane extends LinearLayout {
     private final LinearLayout thread;
     private final ScrollView scroll;
     private final float density;
+    private String thinkingText;
+    private TextView thinkingRow;
 
     public ChatPane(Context context, ChatBook book, Host host) {
         super(context);
@@ -59,32 +61,87 @@ public final class ChatPane extends LinearLayout {
                 thread.addView(plain("That message could not be shown."));
             }
         }
+        thinkingRow = null;
+        if (thinkingText != null) {
+            thinkingRow = plain(thinkingText);
+            thread.addView(thinkingRow);
+        }
+        boolean noMessages = cur.messages.isEmpty() && thinkingText == null;
         View empty = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
         if (empty != null) {
-            empty.setVisibility(cur.messages.isEmpty() ? VISIBLE : GONE);
+            empty.setVisibility(noMessages ? VISIBLE : GONE);
         }
-        setVisibility(cur.messages.isEmpty() ? GONE : VISIBLE);
+        setVisibility(noMessages ? GONE : VISIBLE);
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
 
+    /** The live line sits in the transcript, under the last message, not under the composer. */
+    public void setThinking(String line) {
+        thinkingText = line == null || line.trim().isEmpty() ? null : line.trim();
+        if (thinkingRow != null && thinkingRow.getParent() == thread) {
+            if (thinkingText == null) {
+                thread.removeView(thinkingRow);
+                thinkingRow = null;
+            } else {
+                thinkingRow.setText(thinkingText);
+            }
+        } else if (thinkingText != null) {
+            thinkingRow = plain(thinkingText);
+            thread.addView(thinkingRow);
+        }
+        boolean empty = book.current().messages.isEmpty() && thinkingText == null;
+        View emptyView = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
+        if (emptyView != null) {
+            emptyView.setVisibility(empty ? VISIBLE : GONE);
+        }
+        setVisibility(empty ? GONE : VISIBLE);
+        if (thinkingText != null) {
+            scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+        }
+    }
+
     private void fillSections() {
-        View found = ((Activity) getContext()).findViewById(R.id.sectionChips);
+        View found = ((Activity) getContext()).findViewById(R.id.historyList);
         if (!(found instanceof LinearLayout)) {
             return;
         }
-        LinearLayout chips = (LinearLayout) found;
-        chips.removeAllViews();
+        LinearLayout list = (LinearLayout) found;
+        list.removeAllViews();
         for (ChatBook.Section s : book.sections()) {
-            TextView chip = plain(s.title);
             boolean on = s.id.equals(book.current().id);
-            chip.setTextColor(on ? 0xFF071018 : 0xFFD5E8F2);
-            chip.setBackgroundResource(on ? R.drawable.dvine_persona_tab_selected : R.drawable.dvine_persona_tab);
-            chip.setOnClickListener(v -> {
+            TextView row = new TextView(getContext());
+            String preview = "";
+            for (int i = s.messages.size() - 1; i >= 0; i--) {
+                ChatBook.Message m = s.messages.get(i);
+                if ("text".equals(m.kind) && m.body != null && !m.body.isEmpty()) {
+                    preview = m.body.length() > 48 ? m.body.substring(0, 48) + "…" : m.body;
+                    break;
+                }
+            }
+            row.setText(preview.isEmpty() ? s.title : s.title + "\n" + preview);
+            row.setTextColor(on ? 0xFF071018 : 0xFFE8F6FF);
+            row.setTextSize(14f);
+            int pad = dp(12);
+            row.setPadding(pad, pad, pad, pad);
+            row.setBackgroundResource(on ? R.drawable.dvine_persona_tab_selected : R.drawable.bg_input_container);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.topMargin = dp(8);
+            row.setLayoutParams(lp);
+            row.setOnClickListener(v -> {
                 book.use(s.id);
                 host.onSection(book.current());
                 show();
+                android.view.View drawer = ((Activity) getContext()).findViewById(R.id.historyDrawer);
+                android.view.View scrim = ((Activity) getContext()).findViewById(R.id.drawerScrim);
+                if (drawer != null) {
+                    drawer.setVisibility(GONE);
+                }
+                if (scrim != null) {
+                    scrim.setVisibility(GONE);
+                }
             });
-            chips.addView(chip);
+            list.addView(row);
         }
     }
 

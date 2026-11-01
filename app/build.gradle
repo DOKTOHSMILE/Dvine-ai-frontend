@@ -10,8 +10,8 @@ android {
         applicationId "ai.dvine"
         minSdk 34
         targetSdk 35
-        versionCode 61
-        versionName "0.45.4"
+        versionCode 63
+        versionName "0.45.6"
         // the on-device language model (llama.cpp) is built for 64-bit ARM phones only
         ndk {
             abiFilters "arm64-v8a"

@@ -52,13 +52,13 @@
         android:textSize="13sp"
         android:textStyle="bold"
         android:padding="8dp"
-        android:background="?attr/selectableItemBackground" />
+        android:background="@android:color/transparent" />
 
     <ImageButton
         android:id="@+id/btn_dismiss"
         android:layout_width="28dp"
         android:layout_height="28dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
+        android:background="@android:color/transparent"
         android:src="@drawable/ic_close"
         android:contentDescription="Dismiss" />
 </LinearLayout>

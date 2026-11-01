@@ -1,166 +1,211 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/chatScreenRoot"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/screen"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/bg_main">
 
     <LinearLayout
-        android:id="@+id/chatHeader"
+        android:id="@+id/chatScreenRoot"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:background="@color/bg_sidebar">
-
-        <ImageButton
-            android:id="@+id/btnMenu"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_sort_by_size"
-            android:tint="@color/text_primary"
-            android:contentDescription="Conversations"
-            android:scaleType="center"
-            android:padding="8dp" />
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@color/bg_main">
 
         <LinearLayout
-            android:id="@+id/personaTabs"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="horizontal">
+            android:id="@+id/chatHeader"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:background="@color/bg_sidebar">
 
-            <TextView
-                android:id="@+id/tabIvie"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:gravity="center"
-                android:minWidth="54dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:background="@drawable/dvine_persona_tab"
-                android:text="Ivie"
-                android:textColor="#AAB7C5"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+            <ImageButton
+                android:id="@+id/btnMenu"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@android:drawable/ic_menu_sort_by_size"
+                android:tint="@color/text_primary"
+                android:contentDescription="Chat history"
+                android:scaleType="center"
+                android:padding="8dp" />
 
-            <TextView
-                android:id="@+id/tabObi"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginStart="5dp"
+            <LinearLayout
+                android:id="@+id/personaTabs"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:gravity="center"
-                android:minWidth="54dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:background="@drawable/dvine_persona_tab_selected"
-                android:text="Obi"
-                android:textColor="#071018"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/tabIbiko"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginStart="5dp"
-                android:gravity="center"
-                android:minWidth="58dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:background="@drawable/dvine_persona_tab"
-                android:text="Ibiko"
-                android:textColor="#AAB7C5"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tabIvie"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:gravity="center"
+                    android:minWidth="54dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:background="@drawable/dvine_persona_tab"
+                    android:text="Ivie"
+                    android:textColor="#AAB7C5"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tabObi"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="5dp"
+                    android:gravity="center"
+                    android:minWidth="54dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:background="@drawable/dvine_persona_tab_selected"
+                    android:text="Obi"
+                    android:textColor="#071018"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tabIbiko"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="5dp"
+                    android:gravity="center"
+                    android:minWidth="58dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:background="@drawable/dvine_persona_tab"
+                    android:text="Ibiko"
+                    android:textColor="#AAB7C5"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnNewChat"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@android:drawable/ic_menu_edit"
+                android:tint="@color/text_primary"
+                android:contentDescription="New chat"
+                android:scaleType="center"
+                android:padding="8dp" />
         </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/btnNewChat"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_edit"
-            android:tint="@color/text_primary"
-            android:contentDescription="New chat"
-            android:scaleType="center"
-            android:padding="8dp" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/border_subtle" />
+
+        <include layout="@layout/layout_system_banner" />
+
+        <FrameLayout
+            android:id="@+id/chatPaneHost"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <include layout="@layout/layout_empty_state" />
+
+            <LinearLayout
+                android:id="@+id/thoughtStatusContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|start"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:background="@drawable/bg_typing_pill"
+                android:elevation="6dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/thoughtSpinner"
+                    style="?android:attr/progressBarStyleSmall"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:indeterminate="true"
+                    android:indeterminateTint="@color/accent_cyan" />
+
+                <TextView
+                    android:id="@+id/thoughtStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxWidth="260dp"
+                    android:text="Writing the answer"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:singleLine="true"
+                    android:ellipsize="end" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <include layout="@layout/layout_chat_input" />
     </LinearLayout>
 
     <View
+        android:id="@+id/drawerScrim"
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/border_subtle" />
-
-    <include layout="@layout/layout_system_banner" />
-
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp">
-
-        <LinearLayout
-            android:id="@+id/sectionChips"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal" />
-    </HorizontalScrollView>
-
-    <FrameLayout
-        android:id="@+id/chatPaneHost"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
-
-        <include layout="@layout/layout_empty_state" />
-    </FrameLayout>
+        android:layout_height="match_parent"
+        android:background="#99000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true" />
 
     <LinearLayout
-        android:id="@+id/thoughtStatusContainer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="4dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:background="@drawable/bg_typing_pill"
-        android:visibility="gone">
-
-        <ProgressBar
-            android:id="@+id/thoughtSpinner"
-            style="?android:attr/progressBarStyleSmall"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:indeterminate="true"
-            android:indeterminateTint="@color/accent_cyan" />
+        android:id="@+id/historyDrawer"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:orientation="vertical"
+        android:background="@color/bg_sidebar"
+        android:visibility="gone"
+        android:padding="16dp">
 
         <TextView
-            android:id="@+id/thoughtStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:maxWidth="260dp"
-            android:text="Writing the answer"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
-            android:singleLine="true"
-            android:ellipsize="end" />
+            android:text="Chats"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnDrawerNew"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:background="@drawable/bg_send_button"
+            android:text="+ New chat"
+            android:textColor="@color/text_on_user"
+            android:textStyle="bold" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="12dp">
+
+            <LinearLayout
+                android:id="@+id/historyList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
     </LinearLayout>
-
-    <include layout="@layout/layout_chat_input" />
-
-</LinearLayout>
+</FrameLayout>

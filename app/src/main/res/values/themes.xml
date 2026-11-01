@@ -19,7 +19,7 @@
         <item name="android:editTextStyle">@style/Widget.Dvine.ChatInput</item>
     </style>
 
-    <style name="Widget.Dvine.ChatInput" parent="Widget.AppCompat.EditText">
+    <style name="Widget.Dvine.ChatInput" parent="@android:style/Widget.EditText">
         <item name="android:textColor">@color/chat_text</item>
         <item name="android:textColorHint">@color/chat_hint</item>
         <item name="android:background">@android:color/transparent</item>

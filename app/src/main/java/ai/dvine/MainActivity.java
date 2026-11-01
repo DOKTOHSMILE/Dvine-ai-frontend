@@ -220,9 +220,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thoughtStatus.setText(message == null || message.trim().isEmpty() ? "Thinking…" : message);
         android.view.View container = findViewById(R.id.thoughtStatusContainer);
         if (container != null) {
-            container.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
-            if (visible)
-                container.bringToFront();
+            container.setVisibility(android.view.View.GONE);
+        }
+        if (chatPane != null) {
+            chatPane.setThinking(visible ? thoughtStatus.getText().toString() : null);
         }
     }
 
@@ -298,26 +299,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         android.view.View menu = findViewById(R.id.btnMenu);
         if (menu != null)
-            menu.setOnClickListener(v -> {
-                android.widget.PopupMenu popup = new android.widget.PopupMenu(this, v);
-                popup.getMenu().add("Ivie").setOnMenuItemClickListener(item -> {
-                    selectPersona("ivie");
-                    return true;
-                });
-                popup.getMenu().add("Obi").setOnMenuItemClickListener(item -> {
-                    selectPersona("obi");
-                    return true;
-                });
-                popup.getMenu().add("Ibiko (Coder)").setOnMenuItemClickListener(item -> {
-                    selectPersona("ibiko");
-                    return true;
-                });
-                popup.show();
-            });
+            menu.setOnClickListener(v -> toggleDrawer());
 
         android.view.View fresh = findViewById(R.id.btnNewChat);
         if (fresh != null)
             fresh.setOnClickListener(v -> startNewChatSafely());
+        android.view.View drawerNew = findViewById(R.id.btnDrawerNew);
+        if (drawerNew != null)
+            drawerNew.setOnClickListener(v -> startNewChatSafely());
+        android.view.View scrim = findViewById(R.id.drawerScrim);
+        if (scrim != null)
+            scrim.setOnClickListener(v -> closeDrawer());
         selectPersona(prefs == null ? StageView.IVIE : prefs.getString("face", StageView.IVIE));
         bindComposer();
         bindCrashBanner();
@@ -344,7 +336,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             voice.setOnClickListener(v -> startListening(true));
         }
         if (attach != null) {
-            attach.setOnClickListener(v -> openContentPicker("any", false));
+            attach.setOnClickListener(this::showAttachMenu);
         }
         wireStarter(R.id.chip_explain, "Explain this in plain words");
         wireStarter(R.id.chip_draw, "Draw me a bicycle");
@@ -405,11 +397,82 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         examiner.clearTopic();
         selectPersona(section.persona);
+        closeDrawer();
+    }
+
+    private void toggleDrawer() {
+        android.view.View drawer = findViewById(R.id.historyDrawer);
+        if (drawer == null) {
+            return;
+        }
+        if (drawer.getVisibility() == android.view.View.VISIBLE) {
+            closeDrawer();
+        } else {
+            if (chatPane != null) {
+                chatPane.show();
+            }
+            drawer.setVisibility(android.view.View.VISIBLE);
+            android.view.View scrim = findViewById(R.id.drawerScrim);
+            if (scrim != null) {
+                scrim.setVisibility(android.view.View.VISIBLE);
+            }
+            drawer.bringToFront();
+        }
+    }
+
+    private void closeDrawer() {
+        android.view.View drawer = findViewById(R.id.historyDrawer);
+        android.view.View scrim = findViewById(R.id.drawerScrim);
+        if (drawer != null) {
+            drawer.setVisibility(android.view.View.GONE);
+        }
+        if (scrim != null) {
+            scrim.setVisibility(android.view.View.GONE);
+        }
+    }
+
+    private void showAttachMenu(android.view.View anchor) {
+        final String[] options = new String[] {
+                "Speak",
+                "Photo",
+                "Video",
+                "Audio",
+                "File",
+                "Several photos of one object"
+        };
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Add")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        startListening(true);
+                    } else if (which == 1) {
+                        openContentPicker("image", false);
+                    } else if (which == 2) {
+                        openContentPicker("video", false);
+                    } else if (which == 3) {
+                        openContentPicker("audio", false);
+                    } else if (which == 4) {
+                        openContentPicker("document", false);
+                    } else {
+                        openReconstructionPicker();
+                    }
+                })
+                .show();
     }
 
     /**
      * Turned, folded or resized: nothing restarts (the conversation, a drawing and the brain carry on); the stage lays itself out again for the new size and the text field fits the new width.
      */
+    @Override
+    public void onBackPressed() {
+        android.view.View drawer = findViewById(R.id.historyDrawer);
+        if (drawer != null && drawer.getVisibility() == android.view.View.VISIBLE) {
+            closeDrawer();
+            return;
+        }
+        super.onBackPressed();
+    }
+
     @Override
     public void onConfigurationChanged(android.content.res.Configuration config) {
         super.onConfigurationChanged(config);
@@ -490,7 +553,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         fitTypeBar();
         fitChatPane();
 
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+        android.view.View insetHost = findViewById(R.id.screen);
+        if (insetHost == null) {
+            insetHost = root;
+        }
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(insetHost, (view, insets) -> {
             androidx.core.graphics.Insets barsInsets = insets.getInsets(
                     androidx.core.view.WindowInsetsCompat.Type.systemBars()
                             | androidx.core.view.WindowInsetsCompat.Type.displayCutout()
@@ -2778,7 +2845,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final TurnLine line = lines.get(index);
         index++;
         final String who = line.agent == null ? stage.agent() : line.agent;
-        final boolean ivie = "ivie".equals(who);
         stage.ensureFace(who, () -> {
             if (token != playId) {
                 return;
@@ -2791,12 +2857,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (chatPane != null && line.text != null && !line.text.isEmpty()) {
                     chatPane.assistant(who, line.text);
                 }
-                talk.speak(ivie, line.text, () -> step(token));
+                handler.post(() -> step(token));
             } else if (line.text != null && line.text.length() > 0) {
                 stage.setThought(line.text);
                 stage.setMode(StageMode.THINKING);
                 stage.setSubtitle("");
-                talk.whisper(ivie, line.text, () -> step(token));
+                handler.post(() -> step(token));
             } else {
                 stage.setThought(null);
                 stage.setMode(StageMode.THINKING);
