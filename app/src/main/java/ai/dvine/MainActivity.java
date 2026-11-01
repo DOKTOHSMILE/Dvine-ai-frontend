@@ -123,7 +123,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private volatile int readToken;
     private volatile ai.dvine.llm.ThinkPace thinkPace;
     private int thinkToken;
-    private String thinkWrite = "Writing the answer";
+    private String thinkWrite = "Thinking\u2026";
     private String lastTaskLine = "";
     private final Runnable taskBeat = new Runnable() {
         public void run() {
@@ -737,7 +737,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void armThink(String phase, String writing) {
         thinkToken = readToken;
-        thinkWrite = writing == null ? "Writing the answer" : writing;
+        thinkWrite = writing == null ? "Thinking\u2026" : writing;
         thinkPace = new ai.dvine.llm.ThinkPace(phase, System.currentTimeMillis());
         handler.post(() -> {
             if (thinkPace == null || thinkToken != readToken) {
@@ -1249,7 +1249,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stopPlay();
         stage.setMode(StageMode.THINKING);
         stage.innerVoice("Heard: \u201c" + clip(question) + "\u201d");
-        stage.innerVoice("Asking my brain what you mean\u2026");
+        stage.innerVoice("Thinking\u2026");
         modelThread.execute(() -> {
             final String written = id == askId
                     ? model.task(ai.dvine.agent.Interpretation.PROMPT, question, 90, null)
@@ -1379,7 +1379,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final boolean look = prefs.getBoolean("fresh_facts", true) && connectivity != null
                 && connectivity.isOnline()
                 && (research || ai.dvine.llm.FreshFacts.worthLooking(question));
-        armThink(look ? "Checking sources" : "Reading your words", "Writing the answer");
+        armThink("Thinking\u2026", "Thinking\u2026");
         final String around = situation(ivie);
         modelThread.execute(() -> {
             final String reference = look && id == askId
@@ -1403,7 +1403,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                 });
             }
-            armThink("Writing the answer", "Writing the answer");
+            armThink("Thinking\u2026", "Thinking\u2026");
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
             final ai.dvine.llm.SpeechChunker chunker = new ai.dvine.llm.SpeechChunker();
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
@@ -1651,7 +1651,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final ai.dvine.render.field.SolidSpec on = currentSolid;
         stage.setMode(StageMode.THINKING);
         stage.innerVoice(
-                "Which part is \u201c" + clip(edit.target) + "\u201d? Asking my brain\u2026");
+                "Which part is \u201c" + clip(edit.target) + "\u201d? Thinking\u2026");
         modelThread.execute(() -> {
             String written = model.task(ai.dvine.render.field.PartEdit.whichSystem(),
                     ai.dvine.render.field.PartEdit.whichPrompt(on, lastDrawn, edit.target), 60,
@@ -2029,7 +2029,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final int id = ++askId;
         stage.setMode(StageMode.THINKING);
         stage.innerVoice(
-                "Heard: \u201c" + clip(asked) + "\u201d. Asking my brain how to move it\u2026");
+                "Heard: \u201c" + clip(asked) + "\u201d. Thinking\u2026");
         modelThread.execute(() -> {
             String written = model.task(ai.dvine.agent.ViewIntent.system(), asked, 30,
                     text -> id == askId);
