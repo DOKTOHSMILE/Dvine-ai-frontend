@@ -46,6 +46,18 @@ public final class ChatPane extends LinearLayout {
         thread.setOrientation(VERTICAL);
         scroll = new ScrollView(context);
         scroll.addView(thread, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        scroll.setOnTouchListener((v, event) -> {
+            int action = event.getActionMasked();
+            if (action == android.view.MotionEvent.ACTION_DOWN || action == android.view.MotionEvent.ACTION_MOVE) {
+                userMoved = true;
+                stickToBottom = false;
+            } else if (action == android.view.MotionEvent.ACTION_UP
+                    || action == android.view.MotionEvent.ACTION_CANCEL) {
+                userMoved = false;
+                stickToBottom = !canScrollDown();
+            }
+            return false;
+        });
         addView(scroll, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         show();
     }
@@ -72,7 +84,7 @@ public final class ChatPane extends LinearLayout {
             empty.setVisibility(noMessages ? VISIBLE : GONE);
         }
         setVisibility(noMessages ? GONE : VISIBLE);
-        scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+        followBottom();
     }
 
     /** The live line sits in the transcript, under the last message, not under the composer. */
@@ -96,8 +108,31 @@ public final class ChatPane extends LinearLayout {
         }
         setVisibility(empty ? GONE : VISIBLE);
         if (thinkingText != null) {
-            scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+            followBottom();
         }
+    }
+
+    private boolean stickToBottom = true;
+    private boolean userMoved;
+
+    /** Stays where the user put the list. The thinking line must not pull it back down. */
+    private void followBottom() {
+        if (userMoved || !stickToBottom) {
+            return;
+        }
+        scroll.post(() -> {
+            if (!userMoved && stickToBottom) {
+                scroll.fullScroll(View.FOCUS_DOWN);
+            }
+        });
+    }
+
+    private boolean canScrollDown() {
+        View child = scroll.getChildCount() == 0 ? null : scroll.getChildAt(0);
+        if (child == null) {
+            return false;
+        }
+        return child.getBottom() - (scroll.getScrollY() + scroll.getHeight()) > dp(32);
     }
 
     private void fillSections() {
