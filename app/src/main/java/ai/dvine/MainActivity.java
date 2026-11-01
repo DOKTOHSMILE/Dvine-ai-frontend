@@ -365,10 +365,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             return;
         }
-        if (generating) {
-            stopGeneration();
-            return;
-        }
         field.setText("");
         answer(text);
     }
@@ -778,6 +774,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         setGenerating(false);
     }
 
+    /** Drops the reply on screen and tells the model to stop, so a new message can start. */
+    private void interruptReply() {
+        readToken++;
+        askId++;
+        if (model != null) {
+            model.cancel();
+        }
+        playId++;
+        streamOpen = false;
+        afterPlay = null;
+        endThink();
+        if (talk != null) {
+            talk.stop();
+        }
+    }
+
     private void stopGeneration() {
         readToken++;
         askId++;
@@ -826,11 +838,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void answer(String text, boolean interpreted) {
-        readToken++;
-        if (model != null) {
-            model.cancel();
-        }
-        endThink();
+        interruptReply();
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;

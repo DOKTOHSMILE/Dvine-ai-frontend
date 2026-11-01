@@ -76,7 +76,7 @@ std::string Engine::format(const std::string & system, const std::vector<Turn> &
 // Feeds tokens at positions pos0.. in chunks of the batch size; logits only for the last one.
 bool Engine::decode(const std::vector<int> & tokens, int pos0) {
     const int chunk = 512;
-    for (size_t i = 0; i < tokens.size(); i += chunk) {
+    for (size_t i = 0; i < tokens.size() && !stop_; i += chunk) {
         size_t end = std::min(tokens.size(), i + chunk);
         llama_batch_ext_clear(batch_);
         for (size_t k = i; k < end; ++k) {

@@ -15,6 +15,7 @@ public final class LocalModel {
     public final ModelSpec spec;
     private final File file;
     private volatile State state;
+    private final java.util.concurrent.atomic.AtomicInteger epoch = new java.util.concurrent.atomic.AtomicInteger();
     private volatile String problem;
     private long handle;
     private final List<String[]> history = new ArrayList<String[]>();
@@ -119,6 +120,7 @@ public final class LocalModel {
             return null;
         }
         String asked = context == null ? question : context + "\n\nThe user says: " + question;
+        final int ticket = epoch.get();
         for (int attempt = 0; attempt < 3; attempt++) {
             List<String[]> turns = new ArrayList<String[]>(history);
             turns.add(new String[]{"user", asked});
@@ -128,6 +130,9 @@ public final class LocalModel {
                 texts[i] = turns.get(i)[1];
             }
             String answer = withTimeout(sink, wrapped -> NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, wrapped));
+            if (ticket != epoch.get()) {
+                return null;
+            }
             if (answer != null && !answer.trim().isEmpty()) {
                 remember(question, ActionTags.strip(answer));
                 return answer.trim();
@@ -168,7 +173,11 @@ public final class LocalModel {
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
         final int mine = replies.open();
         final ReplyWatch watch = new ReplyWatch(12_000, 90_000, System.currentTimeMillis());
+        final int ticket = epoch.get();
         NativeLlm.Sink wrapped = text -> {
+            if (ticket != epoch.get()) {
+                return false;
+            }
             watch.touch(System.currentTimeMillis());
             return sink == null || sink.onText(text);
         };
@@ -201,6 +210,7 @@ public final class LocalModel {
 
     /** Stops a reply being written (from any thread). */
     public void cancel() {
+        epoch.incrementAndGet();
         long h = handle;
         if (h != 0) {
             NativeLlm.nCancel(h);
