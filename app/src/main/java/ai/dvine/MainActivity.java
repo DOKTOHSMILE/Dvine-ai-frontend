@@ -124,6 +124,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private volatile ai.dvine.llm.ThinkPace thinkPace;
     private int thinkToken;
     private String thinkWrite = "Thinking\u2026";
+    private boolean inFront = true;
     private long thinkStartedMs;
     private String lastTaskLine = "";
     private final Runnable taskBeat = new Runnable() {
@@ -150,7 +151,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             pace.tick(System.currentTimeMillis());
-            if (System.currentTimeMillis() - thinkStartedMs > 40_000L) {
+            if (inFront && System.currentTimeMillis() - thinkStartedMs > 40_000L) {
                 handler.post(() -> {
                     if (thinkPace == null) {
                         return;
@@ -768,6 +769,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thinkWrite = writing == null ? "Thinking\u2026" : writing;
         thinkPace = new ai.dvine.llm.ThinkPace(phase, System.currentTimeMillis());
         thinkStartedMs = System.currentTimeMillis();
+        keepAwake(true);
         handler.post(() -> {
             if (thinkPace == null || thinkToken != readToken) {
                 return;
@@ -788,6 +790,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         setGenerating(false);
     }
 
+    private void keepAwake(boolean on) {
+        try {
+            if (on) {
+                ai.dvine.llm.ReplyService.start(this);
+            } else {
+                ai.dvine.llm.ReplyService.stop(this);
+            }
+        } catch (RuntimeException ignored) {
+            // a missing notification must not stop the reply itself
+        }
+    }
+
     /** Drops the reply on screen and tells the model to stop, so a new message can start. */
     private void interruptReply() {
         readToken++;
@@ -799,6 +813,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         streamOpen = false;
         afterPlay = null;
         endThink();
+        keepAwake(false);
         if (talk != null) {
             talk.stop();
         }
@@ -811,6 +826,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             model.cancel();
         }
         endThink();
+        keepAwake(false);
         stopPlay();
     }
 
@@ -2940,6 +2956,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 handler.postDelayed(() -> step(token), 120);
                 return;
             }
+            keepAwake(false);
             stage.setMode(StageMode.DONE);
             Runnable after = afterPlay;
             afterPlay = null;
@@ -3350,13 +3367,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     @Override
     protected void onStop() {
-        connectivity.stop();
+        inFront = false;
+        if (thinkPace == null) {
+            connectivity.stop();
+        }
         ambient.stop();
         super.onStop();
     }
 
     @Override
     protected void onPause() {
+        inFront = false;
         handler.removeCallbacks(engineTick);
         super.onPause();
     }
@@ -3364,6 +3385,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onResume() {
         super.onResume();
+        inFront = true;
+        connectivity.start();
         handler.removeCallbacks(engineTick);
         handler.post(engineTick);
         ai.dvine.llm.ThinkPace pace = thinkPace;
@@ -3381,6 +3404,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         handler.removeCallbacks(taskBeat);
         handler.removeCallbacks(engineTick);
         talk.shutdown();
+        keepAwake(false);
         listen.stop();
         sync.shutdown();
         deskThread.shutdownNow();
