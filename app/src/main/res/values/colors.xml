@@ -3,4 +3,7 @@
     <color name="black">#FF000000</color>
     <color name="obi">#FF00E5FF</color>
     <color name="ivie">#FFFFB300</color>
+    <color name="chat_text">#FFE8F6FF</color>
+    <color name="chat_hint">#8890C8E0</color>
+    <color name="chat_sheet">#E605070C</color>
 </resources>

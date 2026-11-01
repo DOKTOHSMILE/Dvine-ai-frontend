@@ -1,7 +1,5 @@
 package ai.dvine;
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -10,7 +8,8 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
-import android.widget.EditText;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -41,7 +40,7 @@ import ai.dvine.voice.TalkBridge;
 /**
  * No screen UI. One persona on black; touch and hold to speak, double-tap to type. Anything that leaves the app is asked out loud first and runs only after a spoken yes.
  */
-public final class MainActivity extends Activity implements StageListener, ListenCallback {
+public final class MainActivity extends AppCompatActivity implements StageListener, ListenCallback {
     private static final int MIC = 21;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -443,11 +442,15 @@ public final class MainActivity extends Activity implements StageListener, Liste
             return insets;
         });
 
-        WindowInsetsController bars = window.getInsetsController();
-        if (bars != null) {
-            bars.hide(WindowInsets.Type.systemBars());
-            bars.setSystemBarsBehavior(
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        try {
+            WindowInsetsController bars = window.getInsetsController();
+            if (bars != null) {
+                bars.hide(WindowInsets.Type.systemBars());
+                bars.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } catch (RuntimeException ignored) {
+            // a missing bar controller must not stop the chat from opening
         }
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);

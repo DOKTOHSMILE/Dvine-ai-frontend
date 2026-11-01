@@ -5,6 +5,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
@@ -14,11 +15,12 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.VideoView;
 
+import ai.dvine.R;
 import ai.dvine.chat.ChatBook;
 
 /**
- * The chat sheet over the 3D stage: sections, a transcript, code, a picture, a video file, and a text field.
- * It only shows a picture or a video when that file is on the phone.
+ * The chat sheet over the 3D stage. The shell is {@code chat_sheet.xml} so the field uses
+ * {@code Theme.Dvine}. A picture is decoded in-process. A video is not opened until it is tapped.
  */
 public final class ChatPane extends LinearLayout {
     public interface Host {
@@ -47,49 +49,21 @@ public final class ChatPane extends LinearLayout {
         bg.setColor(0xE605070C);
         bg.setCornerRadius(18f * density);
         setBackground(bg);
-
-        chips = new LinearLayout(context);
-        chips.setOrientation(HORIZONTAL);
-        HorizontalScrollView chipScroll = new HorizontalScrollView(context);
-        chipScroll.setHorizontalScrollBarEnabled(false);
-        chipScroll.addView(chips);
-        addView(chipScroll, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-
-        LinearLayout head = new LinearLayout(context);
-        head.setOrientation(HORIZONTAL);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        persona = new TextView(context);
-        persona.setTextColor(0xFF7FE3FF);
-        persona.setTextSize(13f);
-        persona.setPadding(dp(4), dp(6), dp(8), dp(4));
+        LayoutInflater.from(context).inflate(R.layout.chat_sheet, this, true);
+        chips = findViewById(R.id.chips);
+        thread = findViewById(R.id.thread);
+        scroll = findViewById(R.id.transcript_scroll);
+        persona = findViewById(R.id.persona);
+        input = findViewById(R.id.message);
+        TextView neu = findViewById(R.id.new_chat);
+        TextView send = findViewById(R.id.send);
         persona.setOnClickListener(v -> cyclePersona());
-        head.addView(persona, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        TextView neu = label(context, "New chat");
         neu.setOnClickListener(v -> {
             ChatBook.Section s = book.open("New chat", book.current().persona);
             host.onSection(s);
             show();
         });
-        head.addView(neu);
-        addView(head, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-
-        thread = new LinearLayout(context);
-        thread.setOrientation(VERTICAL);
-        scroll = new ScrollView(context);
-        scroll.addView(thread);
-        addView(scroll, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
-
-        LinearLayout row = new LinearLayout(context);
-        row.setOrientation(HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        input = new EditText(context);
-        input.setHint("Message");
-        input.setHintTextColor(0x8890C8E0);
-        input.setTextColor(0xFFE8F6FF);
-        input.setTextSize(16f);
-        input.setBackground(null);
-        input.setMaxLines(4);
-        input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEND);
+        send.setOnClickListener(v -> submit());
         input.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
                 submit();
@@ -97,11 +71,6 @@ public final class ChatPane extends LinearLayout {
             }
             return false;
         });
-        row.addView(input, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        TextView send = label(context, "Send");
-        send.setOnClickListener(v -> submit());
-        row.addView(send);
-        addView(row, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         show();
     }
 
@@ -123,10 +92,15 @@ public final class ChatPane extends LinearLayout {
             chips.addView(chip);
         }
         ChatBook.Section cur = book.current();
-        persona.setText(cur.persona.substring(0, 1).toUpperCase() + cur.persona.substring(1) + "  ·  tap to switch");
+        String name = cur.persona == null || cur.persona.isEmpty() ? "ivie" : cur.persona;
+        persona.setText(name.substring(0, 1).toUpperCase() + name.substring(1) + "  ·  tap to switch");
         thread.removeAllViews();
         for (ChatBook.Message m : cur.messages) {
-            thread.addView(bubble(m));
+            try {
+                thread.addView(bubble(m));
+            } catch (RuntimeException failed) {
+                thread.addView(label(getContext(), "That message could not be shown."));
+            }
         }
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
@@ -177,7 +151,10 @@ public final class ChatPane extends LinearLayout {
             ImageView image = new ImageView(getContext());
             java.io.File f = new java.io.File(m.body);
             if (f.isFile()) {
-                image.setImageURI(Uri.fromFile(f));
+                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath());
+                if (bitmap != null) {
+                    image.setImageBitmap(bitmap);
+                }
             }
             image.setAdjustViewBounds(true);
             LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
@@ -186,17 +163,13 @@ public final class ChatPane extends LinearLayout {
             return image;
         }
         if ("video".equals(m.kind)) {
-            VideoView video = new VideoView(getContext());
-            java.io.File f = new java.io.File(m.body);
-            LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(180));
+            TextView tap = label(getContext(), "Video on this phone. Tap to play.");
+            tap.setTextColor(0xFFE8F6FF);
+            LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
             lp.topMargin = dp(6);
-            video.setLayoutParams(lp);
-            if (f.isFile()) {
-                video.setVideoURI(Uri.fromFile(f));
-                video.seekTo(1);
-                video.setOnClickListener(v -> video.start());
-            }
-            return video;
+            tap.setLayoutParams(lp);
+            tap.setOnClickListener(v -> playVideo(m.body, tap));
+            return tap;
         }
         TextView tv = new TextView(getContext());
         tv.setText(m.body);
@@ -222,6 +195,31 @@ public final class ChatPane extends LinearLayout {
             return wrap;
         }
         return tv;
+    }
+
+    private void playVideo(String path, View label) {
+        java.io.File f = new java.io.File(path);
+        if (!f.isFile() || !(label.getParent() instanceof LinearLayout)) {
+            return;
+        }
+        LinearLayout parent = (LinearLayout) label.getParent();
+        int at = parent.indexOfChild(label);
+        try {
+            VideoView video = new VideoView(getContext());
+            LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(180));
+            lp.topMargin = dp(6);
+            video.setLayoutParams(lp);
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), "ai.dvine.files", f);
+            video.setVideoURI(uri);
+            parent.removeView(label);
+            parent.addView(video, at);
+            video.setOnPreparedListener(mp -> video.start());
+        } catch (RuntimeException failed) {
+            label.setOnClickListener(null);
+            if (label instanceof TextView) {
+                ((TextView) label).setText("That video file is here, but the player could not open it.");
+            }
+        }
     }
 
     private TextView label(Context context, String text) {
