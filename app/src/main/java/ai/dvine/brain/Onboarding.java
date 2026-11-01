@@ -9,7 +9,9 @@ public final class Onboarding {
     private static final Pattern SAYS = Pattern.compile(
             "^(?:hi|hello|hey)?[, ]*(?:my name is|my name's|i am|i'm|im|call me|it's|it is|they call me|name's)\\s+(.+)$",
             Pattern.CASE_INSENSITIVE);
-    private static final Pattern RENAME = Pattern.compile("^(?:please )?call me (.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern RENAME = Pattern.compile(
+            "^(?:please )?(?:call me|my name is|my name's|change my name to|set my name to|rename me(?: to)?)\\s+(.+)$",
+            Pattern.CASE_INSENSITIVE);
 
     private Onboarding() {
     }

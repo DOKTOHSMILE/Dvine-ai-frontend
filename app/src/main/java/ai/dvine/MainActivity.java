@@ -274,6 +274,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             prefs.edit().putString("face", persona).apply();
         stage.ensureFace(persona, null);
         updatePersonaTabs(persona);
+        if (chats != null) {
+            chats.persona(persona);
+        }
+        if (chatPane != null) {
+            chatPane.show();
+        }
         android.widget.EditText field = findViewById(R.id.et_message);
         if (field != null) {
             String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
@@ -716,28 +722,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void greetOnOpen() {
-        if (takeCrashReport() != null) {
-            play(LocalTurn.speakAs(true,
-                    "I closed unexpectedly last time. Say copy the crash report, and I'll put the details on your clipboard so you can send them to the developer."),
-                    this::greetAfterCrashNotice);
+        if (chats != null) {
+            chats.dropGreetings();
+        }
+        if (chatPane != null) {
+            chatPane.show();
+        }
+        if (brain.userName() != null) {
             return;
         }
-        greetAfterCrashNotice();
-    }
-
-    private void greetAfterCrashNotice() {
-        String name = brain.userName();
-        if (name == null) {
-            awaitingName = true;
-            nameTries = 0;
-            List<TurnLine> l = new ArrayList<TurnLine>();
-            l.add(new TurnLine("obi", "SAY", Onboarding.welcomeQuestion()));
-            play(l, this::startListening);
-        } else {
-            List<TurnLine> l = new ArrayList<TurnLine>();
-            l.add(new TurnLine(stage.agent(), "SAY", "Welcome back, " + name + "."));
-            play(l, null);
-        }
+        awaitingName = true;
+        nameTries = 0;
+        List<TurnLine> l = new ArrayList<TurnLine>();
+        l.add(new TurnLine(stage.agent(), "SAY", Onboarding.welcomeQuestion()));
+        play(l, this::startListening);
     }
 
     private String serverUrl() {
@@ -876,12 +874,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!interpreted) {
             noteUser(text);
         }
+        if (!interpreted && applyNameChange(text)) {
+            return;
+        }
         if (!interpreted && assistant != null) {
             ai.dvine.ops.Outcome outcome = assistant.hear(text, 1);
-            if (outcome.persona != null && !outcome.persona.isEmpty()) {
-                prefs.edit().putString("face", outcome.persona).apply();
-                stage.ensureFace(outcome.persona, null);
-            }
             if (outcome.handled) {
                 presentOutcome(outcome);
                 return;
@@ -2621,28 +2618,60 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return true;
     }
 
+    private boolean renamingName;
+
+    private boolean applyNameChange(String text) {
+        String said = text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        if (said.matches("^(please )?(change|edit|update|rename) my name$")) {
+            renamingName = brain.userName() != null;
+            awaitingName = true;
+            nameTries = 0;
+            play(LocalTurn.speakAs(stage.agent(), "What should I call you?"), null);
+            return true;
+        }
+        String name = Onboarding.rename(text);
+        if (name == null) {
+            return false;
+        }
+        saveName(name);
+        play(LocalTurn.speakAs(stage.agent(), "Alright, " + name + ". I'll call you that."), null);
+        return true;
+    }
+
+    private void saveName(String name) {
+        prefs.edit().putString("user_name", name).apply();
+        brain.setUserName(name);
+        if (journal != null) {
+            journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
+        }
+        syncSoon();
+    }
+
     private void takeName(String text) {
         String name = Onboarding.parseName(text);
         if (name == null) {
             nameTries++;
             if (nameTries < 2) {
-                play(LocalTurn.speakAs(true,
+                play(LocalTurn.speakAs(stage.agent(),
                         "Sorry, I didn't catch your name. What should we call you?"),
-                        this::startListening);
+                        null);
             } else {
                 awaitingName = false;
-                play(LocalTurn.speakAs(true,
+                renamingName = false;
+                play(LocalTurn.speakAs(stage.agent(),
                         "No problem. Whenever you like, just say call me, and your name."), null);
             }
             return;
         }
         awaitingName = false;
-        prefs.edit().putString("user_name", name).apply();
-        brain.setUserName(name);
-        journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
+        boolean renaming = renamingName || brain.userName() != null;
+        renamingName = false;
+        saveName(name);
         syncSoon();
         stage.burst(24);
-        play(LocalTurn.speakAs(true, Onboarding.welcome(name)), null);
+        play(LocalTurn.speakAs(stage.agent(),
+                renaming ? "Alright, " + name + ". I'll call you that." : Onboarding.welcome(name)),
+                null);
     }
 
     private void applyCommand(String command, String value) {
@@ -2976,7 +3005,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final TurnLine line = lines.get(index);
         index++;
-        final String who = line.agent == null ? stage.agent() : line.agent;
+        final String who = stage.agent();
         stage.ensureFace(who, () -> {
             if (token != playId) {
                 return;

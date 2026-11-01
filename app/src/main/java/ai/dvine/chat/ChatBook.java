@@ -100,8 +100,47 @@ public final class ChatBook {
     }
 
     public synchronized void persona(String persona) {
-        current().persona = personaOf(persona);
+        String p = personaOf(persona);
+        Section s = current();
+        s.persona = p;
+        java.util.List<Message> kept = new ArrayList<Message>();
+        for (Message m : s.messages) {
+            if (!"user".equals(m.role) && greeting(m.body)) {
+                continue;
+            }
+            if ("user".equals(m.role) || p.equals(m.persona)) {
+                kept.add(m);
+            } else {
+                kept.add(new Message(m.role, m.kind, m.body, p, m.language));
+            }
+        }
+        s.messages.clear();
+        s.messages.addAll(kept);
         save();
+    }
+
+    /** Startup lines that should not sit in the chat. */
+    public synchronized void dropGreetings() {
+        boolean changed = false;
+        for (Section s : sections) {
+            for (int i = s.messages.size() - 1; i >= 0; i--) {
+                if (greeting(s.messages.get(i).body)) {
+                    s.messages.remove(i);
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            save();
+        }
+    }
+
+    private static boolean greeting(String body) {
+        if (body == null) {
+            return false;
+        }
+        String t = body.trim();
+        return t.startsWith("I closed unexpectedly last time") || t.startsWith("Welcome back,");
     }
 
     public synchronized void add(String role, String kind, String body, String persona) {
