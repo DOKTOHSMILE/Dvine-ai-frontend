@@ -3233,7 +3233,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     @Override
     protected void onPause() {
-        stopPlay();
         handler.removeCallbacks(engineTick);
         super.onPause();
     }
@@ -3243,6 +3242,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         super.onResume();
         handler.removeCallbacks(engineTick);
         handler.post(engineTick);
+        ai.dvine.llm.ThinkPace pace = thinkPace;
+        if (pace != null && thinkToken == readToken) {
+            pace.tick(System.currentTimeMillis());
+            updateThoughtStatus(pace.line(), true);
+            handler.removeCallbacks(thinkBeat);
+            handler.post(thinkBeat);
+        }
     }
 
     @Override
