@@ -120,6 +120,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private final java.util.concurrent.ExecutorService buildThread = java.util.concurrent.Executors
             .newSingleThreadExecutor();
     private volatile int askId;
+    private String activeQuestion;
     private volatile int readToken;
     private volatile ai.dvine.llm.ThinkPace thinkPace;
     private int thinkToken;
@@ -151,15 +152,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             pace.tick(System.currentTimeMillis());
-            if (inFront && System.currentTimeMillis() - thinkStartedMs > 90_000L) {
+            if (inFront && pace.wordCount() == 0 && System.currentTimeMillis() - thinkStartedMs > 180_000L) {
                 handler.post(() -> {
                     if (thinkPace == null) {
                         return;
                     }
                     interruptReply();
-                    play(LocalTurn.speakAs(stage.agent(),
-                            "That took too long, so I stopped. Ask me again if you still want it."),
-                            null);
+                    String again = activeQuestion;
+                    BrainAnswer noted = again == null ? null : brain.respond(again, stage.agent());
+                    if (noted != null && noted.answered && plain(noted)) {
+                        play(noted.lines, null);
+                    } else {
+                        play(LocalTurn.speakAs(stage.agent(),
+                                "I couldn't finish that on this phone."), null);
+                    }
                 });
                 return;
             }
@@ -929,6 +935,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void askTheBrain(String question) {
+        String bare = question.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        if (bare.matches("^(continue|go on|carry on|again|keep going)$") && activeQuestion != null
+                && !activeQuestion.equalsIgnoreCase(question)) {
+            question = activeQuestion;
+        } else if (!bare.matches("^(continue|go on|carry on|again|keep going)$")) {
+            activeQuestion = question;
+        }
         final String agent = stage.agent();
         ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(question, null);
         if (known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY) {
@@ -1446,24 +1459,30 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String used = null;
             int found = 0;
             try {
-                byte[] listing = ai.dvine.net.WebGet.get(
-                        ai.dvine.render.field.PhotoLookup.commonsUrl(subject, 6), 7000, 512 * 1024);
-                java.util.List<ai.dvine.render.field.PhotoLookup.Shot> shots = ai.dvine.render.field.PhotoLookup
-                        .choose(listing == null ? null : new String(listing, "UTF-8"), subject, 6);
-                found = shots.size();
-                for (ai.dvine.render.field.PhotoLookup.Shot shot : shots) {
-                    if (id != askId) {
-                        return;
-                    }
-                    if (shownPhotos.contains(shot.url)) {
-                        continue;
-                    }
-                    bytes = ai.dvine.net.WebGet.get(shot.url, 7000, 3 * 1024 * 1024);
-                    if (bytes != null && bytes.length > 32) {
-                        used = shot.url;
+                String[] tries = new String[] { subject, ai.dvine.render.field.PhotoLookup.wider(subject) };
+                for (String term : tries) {
+                    if (bytes != null || term == null || term.isEmpty()) {
                         break;
                     }
-                    bytes = null;
+                    byte[] listing = ai.dvine.net.WebGet.get(
+                            ai.dvine.render.field.PhotoLookup.commonsUrl(term, 12), 12000, 512 * 1024);
+                    java.util.List<ai.dvine.render.field.PhotoLookup.Shot> shots = ai.dvine.render.field.PhotoLookup
+                            .choose(listing == null ? null : new String(listing, "UTF-8"), subject, 8);
+                    found = Math.max(found, shots.size());
+                    for (ai.dvine.render.field.PhotoLookup.Shot shot : shots) {
+                        if (id != askId) {
+                            return;
+                        }
+                        if (shownPhotos.contains(shot.url)) {
+                            continue;
+                        }
+                        bytes = ai.dvine.net.WebGet.get(shot.url, 12000, 3 * 1024 * 1024);
+                        if (bytes != null && bytes.length > 32) {
+                            used = shot.url;
+                            break;
+                        }
+                        bytes = null;
+                    }
                 }
                 if (bytes == null) {
                     bytes = ai.dvine.render.field.PictureFinder.find(subject);

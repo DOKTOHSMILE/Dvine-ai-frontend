@@ -127,7 +127,16 @@ public final class BrainOrder {
         if (of.matches()) {
             return tidyPicture(of.group(1));
         }
-        if (t.matches("[\\p{L}]{3,24}") && !t.matches("hello|hey|hi|yes|no|okay|ok|thanks|please")) {
+        if (t.matches("continue|again|more|next|stop|wait|pause|resume|cancel|hello|hey|hi|yes|no|okay|ok|thanks|please|why|how|what|who|help")) {
+            return null;
+        }
+        java.util.regex.Matcher search = java.util.regex.Pattern.compile(
+                "^(?:please )?(?:search|look up|lookup|fetch|get|find)(?: me)?(?: (?:a|an|the))?(?: (?:photo|photograph|picture|image))?(?: (?:of|for|if))?(?: (?:a|an|the))? (.+)$")
+                .matcher(t);
+        if (search.matches()) {
+            return tidyPicture(search.group(1));
+        }
+        if (t.matches("[\\p{L}]{3,24}")) {
             return t;
         }
         return null;

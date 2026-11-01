@@ -12,10 +12,11 @@ public final class PhotoLookup {
     }
 
     public static String commonsUrl(String subject, int limit) {
-        int n = Math.max(1, Math.min(6, limit));
+        int n = Math.max(1, Math.min(20, limit));
         try {
+            String q = (subject == null ? "" : subject.trim()) + " -portrait -crowd -people -boy -man -woman filetype:bitmap";
             return "https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit="
-                    + n + "&gsrsearch=" + URLEncoder.encode(subject == null ? "" : subject.trim(), "UTF-8")
+                    + n + "&gsrsearch=" + URLEncoder.encode(q, "UTF-8")
                     + "&prop=imageinfo&iiprop=url&iiurlwidth=640";
         } catch (java.io.UnsupportedEncodingException e) {
             throw new IllegalStateException(e);
@@ -83,19 +84,52 @@ public final class PhotoLookup {
         }
         final String want = subject == null ? "" : subject.toLowerCase(java.util.Locale.US);
         java.util.Collections.sort(found, (a, b) -> score(b, want) - score(a, want));
-        if (found.size() > limit) {
-            return new ArrayList<Shot>(found.subList(0, limit));
+        List<Shot> clean = new ArrayList<Shot>();
+        for (Shot s : found) {
+            if (score(s, want) >= 4) {
+                clean.add(s);
+            }
         }
-        return found;
+        List<Shot> use = clean.isEmpty() ? new ArrayList<Shot>() : clean;
+        if (use.size() > limit) {
+            return new ArrayList<Shot>(use.subList(0, limit));
+        }
+        return use;
+    }
+
+    /** A second, plainer search when the first name is too broad. */
+    public static String wider(String subject) {
+        if (subject == null) {
+            return "";
+        }
+        String s = subject.trim().toLowerCase(java.util.Locale.US);
+        if ("banana".equals(s)) {
+            return "banana fruit";
+        }
+        if ("trailer".equals(s)) {
+            return "semi-trailer truck";
+        }
+        if ("car".equals(s)) {
+            return "sedan automobile";
+        }
+        if ("bicycle".equals(s) || "bike".equals(s)) {
+            return "road bicycle";
+        }
+        return "";
     }
 
     static int score(Shot shot, String subject) {
         String title = shot.title.toLowerCase(java.util.Locale.US);
         int n = 0;
-        if (!subject.isEmpty() && title.contains(subject)) {
-            n += 6;
+        if (!subject.isEmpty() && title.matches(".*\\b" + java.util.regex.Pattern.quote(subject) + "\\b.*")) {
+            n += 10;
+        } else if (!subject.isEmpty() && title.contains(subject)) {
+            n += 4;
         }
-        if (title.matches(".*\\b(man|boy|woman|girl|child|person|people|portrait|crowd|soldier|farmer|rider)\\b.*")) {
+        if (title.matches(".*\\b(man|boy|woman|girl|child|person|people|portrait|crowd|soldier|farmer|rider|family|wedding)\\b.*")) {
+            n -= 14;
+        }
+        if (title.matches(".*\\b(fodder|harvest|market|street|parade|war|protest|vintage|historical)\\b.*")) {
             n -= 8;
         }
         return n;

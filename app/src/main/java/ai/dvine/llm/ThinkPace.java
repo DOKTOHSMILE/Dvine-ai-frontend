@@ -55,6 +55,10 @@ public final class ThinkPace {
         }
     }
 
+    public synchronized int wordCount() {
+        return words;
+    }
+
     public synchronized String line() {
         long sec = Math.max(0L, (now - started) / 1000L);
         if (words > 0) {

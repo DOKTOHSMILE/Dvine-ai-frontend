@@ -172,7 +172,7 @@ public final class LocalModel {
      */
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
         final int mine = replies.open();
-        final ReplyWatch watch = new ReplyWatch(12_000, 90_000, System.currentTimeMillis());
+        final ReplyWatch watch = new ReplyWatch(12_000, 180_000, System.currentTimeMillis());
         final int ticket = epoch.get();
         NativeLlm.Sink wrapped = text -> {
             if (ticket != epoch.get()) {
