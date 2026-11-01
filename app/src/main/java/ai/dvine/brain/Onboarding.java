@@ -41,10 +41,50 @@ public final class Onboarding {
         }
         String out = sb.toString();
         String lower = out.toLowerCase(Locale.ROOT);
-        if (lower.matches("(yes|no|okay|ok|hello|hi|what|why|who|nothing|obi|ivie|dvine)")) {
+        if (lower.matches("(yes|no|okay|ok|hello|hi|hey|what|why|who|nothing|obi|ivie|ibiko|dvine)")) {
             return null;
         }
         return out;
+    }
+
+    public static final class Names {
+        public final String given;
+        public final String called;
+
+        public Names(String given, String called) {
+            this.given = given;
+            this.called = called;
+        }
+    }
+
+    private static final Pattern COMPOUND = Pattern.compile(
+            "^(?:my name is|i am|i'm|im)\\s+([\\p{L}'-]{2,24})(?:\\s*,?\\s*(?:and |you can |please )*call me\\s+([\\p{L}'-]{2,24}))?$",
+            Pattern.CASE_INSENSITIVE);
+
+    /** "My name is Valentine, you can call me Val", or a plain "call me Val". */
+    public static Names introduce(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String t = raw.trim().replaceAll("[.!?]+$", "");
+        Matcher both = COMPOUND.matcher(t);
+        if (both.matches()) {
+            String given = parseName(both.group(1));
+            String called = both.group(2) == null ? given : parseName(both.group(2));
+            if (given == null || called == null) {
+                return null;
+            }
+            return new Names(given, called);
+        }
+        String one = rename(t);
+        return one == null ? null : new Names(one, one);
+    }
+
+    public static boolean isPersona(String name) {
+        if (name == null) {
+            return false;
+        }
+        return name.trim().toLowerCase(Locale.US).matches("obi|ivie|ibiko|dvine");
     }
 
     /** "call me Val" at any time after onboarding. */

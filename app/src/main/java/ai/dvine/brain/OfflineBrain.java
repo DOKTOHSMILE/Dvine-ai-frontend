@@ -61,6 +61,19 @@ public final class OfflineBrain {
     private String lastTopic, fixPending;
     private final ActionPlanner planner = new ActionPlanner();
     private String userName;
+    private String givenName;
+
+    public synchronized void setGivenName(String name) {
+        givenName = name == null || name.trim().isEmpty() ? null : name.trim();
+    }
+
+    private String nameLine() {
+        if (givenName != null && userName != null && !givenName.equalsIgnoreCase(userName)) {
+            return "Your name is " + givenName + ". I call you " + userName + ".";
+        }
+        String who = givenName != null ? givenName : userName;
+        return "Your name is " + who + ".";
+    }
     private String lastSaid;
 
     public OfflineBrain(KnowledgePack pack, LearningJournal journal, Clock clock, TimeZone zone) {
@@ -175,12 +188,17 @@ public final class OfflineBrain {
             a.listenAfter = true;
             return a;
         }
-        String name = Onboarding.rename(cased);
-        if (name != null) {
-            userName = name;
-            journal.add(LearningJournal.TAUGHT_FACT, "my name", name);
-            BrainAnswer a = one(speaker, "Alright, " + name + ". I'll call you that.", "LEARN");
-            a.newName = name;
+        Onboarding.Names names = Onboarding.introduce(cased);
+        if (names != null) {
+            userName = names.called;
+            givenName = names.given;
+            journal.add(LearningJournal.TAUGHT_FACT, "my name", names.given);
+            String speech = names.given.equalsIgnoreCase(names.called)
+                    ? "Alright, " + names.called + ". I'll call you that."
+                    : "I'll call you " + names.called + ". Your name is " + names.given + ".";
+            BrainAnswer a = one(speaker, speech, "LEARN");
+            a.newName = names.called;
+            a.givenName = names.given;
             return a;
         }
         if (text.matches("^(turn |switch )?(the )?music (off|stop)$|^(stop|mute) (the )?music$|^no music$")) {
@@ -219,8 +237,8 @@ public final class OfflineBrain {
             a.command = "SUBS_ON";
             return a;
         }
-        if (text.matches("^what('s| is) my name$") && userName != null) {
-            return one(speaker, "Your name is " + userName + ".", "MEMORY");
+        if (text.matches("^what('s| is) my name\\??$") && (userName != null || givenName != null)) {
+            return one(speaker, nameLine(), "MEMORY");
         }
         if (text.matches("^(stop|stop it|stop moving|enough|that'?s enough|freeze|cancel that|be still)( now| please)?$")) {
             BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, stopping."), "SET");
@@ -567,6 +585,9 @@ public final class OfflineBrain {
         }
         if (m.matches()) {
             String key = (m.group(1) + " " + m.group(2)).toLowerCase(Locale.US);
+            if ("my name".equals(key)) {
+                return null;
+            }
             String value = m.group(3);
             if (journal.add(LearningJournal.TAUGHT_FACT, key, value) == null) {
                 return one(speaker, "I won't remember that. It looks like a password, a code or a card number, and those stay with you.", "LEARN");
@@ -726,7 +747,7 @@ public final class OfflineBrain {
         }
         List<String> options = "ivie".equals(speaker) ? best.ivie : best.obi;
         String line = options.get(turn % options.size());
-        if (userName != null && ("greet".equals(best.id) || "bye".equals(best.id))) {
+        if (userName != null && !Onboarding.isPersona(userName) && ("greet".equals(best.id) || "bye".equals(best.id))) {
             line = line.replaceFirst("^(Hello|Hi|Goodbye|Good to see you|Sleep well|Until next time)", "$1, " + userName);
         }
         return one(speaker, line, "PACK");

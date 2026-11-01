@@ -22,6 +22,8 @@ public final class BrainAnswer {
     public boolean listenAfter;
     /** A name the user just gave ("call me …"), to store in the profile. */
     public String newName;
+    /** The full name, when they also gave a shorter one to be called. */
+    public String givenName;
     /** Device setting change: MUSIC_ON, MUSIC_OFF, SUBS_ON, SUBS_OFF, or null. */
     public String command;
     /** Extra value for a command, e.g. the server address for SERVER_SET. */
