@@ -75,7 +75,9 @@ public final class ChatPane extends LinearLayout {
         }
         thinkingRow = null;
         if (thinkingText != null) {
-            thinkingRow = plain(thinkingText);
+            thinkingRow = plain(thoughtLabel(thinkingText));
+            thinkingRow.setTextColor(0xFF8E8E93);
+            thinkingRow.setTextSize(14f);
             thread.addView(thinkingRow);
         }
         boolean noMessages = cur.messages.isEmpty() && thinkingText == null;
@@ -95,10 +97,13 @@ public final class ChatPane extends LinearLayout {
                 thread.removeView(thinkingRow);
                 thinkingRow = null;
             } else {
-                thinkingRow.setText(thinkingText);
+                thinkingRow.setText(thoughtLabel(thinkingText));
+                thinkingRow.setTextColor(0xFF8E8E93);
             }
         } else if (thinkingText != null) {
-            thinkingRow = plain(thinkingText);
+            thinkingRow = plain(thoughtLabel(thinkingText));
+            thinkingRow.setTextColor(0xFF8E8E93);
+            thinkingRow.setTextSize(14f);
             thread.addView(thinkingRow);
         }
         boolean empty = book.current().messages.isEmpty() && thinkingText == null;
@@ -144,7 +149,6 @@ public final class ChatPane extends LinearLayout {
         list.removeAllViews();
         for (ChatBook.Section s : book.sections()) {
             boolean on = s.id.equals(book.current().id);
-            TextView row = new TextView(getContext());
             String preview = "";
             for (int i = s.messages.size() - 1; i >= 0; i--) {
                 ChatBook.Message m = s.messages.get(i);
@@ -153,17 +157,24 @@ public final class ChatPane extends LinearLayout {
                     break;
                 }
             }
-            row.setText(preview.isEmpty() ? s.title : s.title + "\n" + preview);
-            row.setMaxLines(3);
-            row.setTextColor(on ? 0xFF7DD3E0 : 0xFFE8F6FF);
-            row.setTextSize(14f);
+            LinearLayout row = new LinearLayout(getContext());
+            row.setOrientation(LinearLayout.VERTICAL);
             int pad = dp(12);
-            row.setPadding(pad, pad, pad, pad);
-            row.setBackgroundResource(R.drawable.bg_input_container);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.topMargin = dp(8);
-            row.setLayoutParams(lp);
+            row.setPadding(0, pad, 0, pad);
+            TextView title = new TextView(getContext());
+            title.setText(s.title);
+            title.setTextColor(0xFFF2F2F7);
+            title.setTextSize(16f);
+            title.setMaxLines(1);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            TextView sub = new TextView(getContext());
+            sub.setText(preview.isEmpty() ? labelOf(s.persona) : preview);
+            sub.setTextColor(on ? 0xFFF2F2F7 : 0xFF8E8E93);
+            sub.setTextSize(13f);
+            sub.setMaxLines(1);
+            sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.addView(title);
+            row.addView(sub);
             row.setOnClickListener(v -> {
                 book.use(s.id);
                 host.onSection(book.current());
@@ -282,23 +293,41 @@ public final class ChatPane extends LinearLayout {
             }
         }
         if (!user && "text".equals(m.kind)) {
-            TextView read = new TextView(getContext());
-            read.setText("Read");
-            read.setTextColor(0xFF7DD3E0);
-            read.setPadding(0, dp(4), 0, 0);
-            read.setOnClickListener(v -> host.onReadAloud(m.body));
+            LinearLayout actions = new LinearLayout(getContext());
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            actions.setPadding(0, dp(6), 0, 0);
+            TextView copy = action("Copy");
+            copy.setOnClickListener(v -> copyText(m.body));
+            TextView listen = action("Listen");
+            listen.setPadding(dp(16), 0, 0, 0);
+            listen.setOnClickListener(v -> host.onReadAloud(m.body));
+            actions.addView(copy);
+            actions.addView(listen);
             View message = row.findViewById(R.id.tv_message);
             if (message != null && message.getParent() instanceof LinearLayout) {
-                ((LinearLayout) message.getParent()).addView(read);
-            }
-            if (body != null) {
-                body.setOnLongClickListener(v -> {
-                    copyText(m.body);
-                    return true;
-                });
+                ((LinearLayout) message.getParent()).addView(actions);
             }
         }
         return row;
+    }
+
+    private TextView action(String label) {
+        TextView tv = new TextView(getContext());
+        tv.setText(label);
+        tv.setTextColor(0xFF8E8E93);
+        tv.setTextSize(13f);
+        return tv;
+    }
+
+    private String thoughtLabel(String line) {
+        if (line == null) {
+            return "Thinking";
+        }
+        java.util.regex.Matcher match = java.util.regex.Pattern.compile("(\\d+)s").matcher(line);
+        if (match.find()) {
+            return "Thought for " + match.group(1) + "s";
+        }
+        return "Thinking";
     }
 
     private void open(Class<?> screen, String extra, String value) {

@@ -16,74 +16,46 @@
             android:id="@+id/chatHeader"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:orientation="horizontal"
+            android:background="@color/bg_main"
             android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:background="@color/bg_sidebar">
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
 
             <ImageButton
                 android:id="@+id/btnMenu"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="@android:color/transparent"
-                android:src="@android:drawable/ic_menu_sort_by_size"
-                android:tint="@color/text_primary"
                 android:contentDescription="Chat history"
+                android:padding="8dp"
                 android:scaleType="center"
-                android:padding="8dp" />
+                android:src="@android:drawable/ic_menu_sort_by_size"
+                android:tint="@color/text_primary" />
 
             <LinearLayout
-                android:id="@+id/personaTabs"
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:paddingStart="4dp">
 
                 <TextView
-                    android:id="@+id/tabIvie"
+                    android:id="@+id/tv_header_title"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:gravity="center"
-                    android:minWidth="54dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:background="@drawable/dvine_persona_tab"
-                    android:text="Ivie"
-                    android:textColor="#AAB7C5"
-                    android:textSize="14sp"
+                    android:layout_height="wrap_content"
+                    android:text="Chat"
+                    android:textColor="@color/text_primary"
+                    android:textSize="17sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tabObi"
+                    android:id="@+id/tv_header_sub"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_marginStart="5dp"
-                    android:gravity="center"
-                    android:minWidth="54dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:background="@drawable/dvine_persona_tab_selected"
-                    android:text="Obi"
-                    android:textColor="#071018"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tabIbiko"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_marginStart="5dp"
-                    android:gravity="center"
-                    android:minWidth="58dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:background="@drawable/dvine_persona_tab"
-                    android:text="Ibiko"
-                    android:textColor="#AAB7C5"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:layout_height="wrap_content"
+                    android:text="DVine AI"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <ImageButton
@@ -91,11 +63,54 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="@android:color/transparent"
-                android:src="@android:drawable/ic_menu_edit"
-                android:tint="@color/text_primary"
                 android:contentDescription="New chat"
+                android:padding="8dp"
                 android:scaleType="center"
-                android:padding="8dp" />
+                android:src="@android:drawable/ic_menu_edit"
+                android:tint="@color/text_primary" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/personaTabs"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:background="@color/bg_main"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tabIvie"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Ivie"
+                android:textColor="@color/text_secondary"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/tabObi"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Obi"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tabIbiko"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Ibiko"
+                android:textColor="@color/text_secondary"
+                android:textSize="15sp" />
         </LinearLayout>
 
         <View
@@ -168,47 +183,48 @@
 
     <LinearLayout
         android:id="@+id/historyDrawer"
-        android:layout_width="300dp"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
         android:background="@color/bg_sidebar"
         android:visibility="gone"
-        android:padding="16dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="12dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Chats"
+            android:text="DVINE"
             android:textColor="@color/text_primary"
-            android:textSize="18sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Conversations"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
 
         <TextView
             android:id="@+id/btnDrawerNew"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:background="@drawable/bg_send_button"
-            android:text="+ New chat"
-            android:textColor="@color/text_on_user"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/btnManageChats"
-            android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="Search and manage"
-            android:textColor="@color/accent_cyan" />
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical"
+            android:text="New chat"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp" />
 
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginTop="12dp">
+            android:layout_marginTop="8dp">
 
             <LinearLayout
                 android:id="@+id/historyList"
@@ -216,5 +232,17 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
         </ScrollView>
+
+        <TextView
+            android:id="@+id/btnManageChats"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_input_container"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:text="Search"
+            android:textColor="@color/text_secondary"
+            android:textSize="15sp" />
     </LinearLayout>
 </FrameLayout>

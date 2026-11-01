@@ -6,15 +6,15 @@
     <color name="chat_text">#FFE8F6FF</color>
     <color name="chat_hint">#8890C8E0</color>
     <color name="chat_sheet">#E605070C</color>
-    <color name="bg_main">#0A0A0F</color>
-    <color name="bg_sidebar">#11111A</color>
-    <color name="bg_surface">#1A1D27</color>
-    <color name="bg_assistant">#1E293B</color>
-    <color name="bubble_user">#B5F0F5</color>
-    <color name="text_primary">#F1F5F9</color>
-    <color name="text_secondary">#94A3B8</color>
-    <color name="text_on_user">#0F172A</color>
-    <color name="accent_cyan">#7DD3E0</color>
-    <color name="border_subtle">#2A2F3E</color>
+    <color name="bg_main">#000000</color>
+    <color name="bg_sidebar">#000000</color>
+    <color name="bg_surface">#1C1C1E</color>
+    <color name="bg_assistant">#000000</color>
+    <color name="bubble_user">#2C2C2E</color>
+    <color name="text_primary">#F2F2F7</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="text_on_user">#F2F2F7</color>
+    <color name="accent_cyan">#AEAEB2</color>
+    <color name="border_subtle">#2C2C2E</color>
     <color name="banner_border">#FCD34D</color>
 </resources>

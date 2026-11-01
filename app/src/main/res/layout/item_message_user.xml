@@ -2,38 +2,27 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:gravity="end"
     android:orientation="horizontal"
-    android:paddingTop="8dp"
-    android:paddingBottom="8dp"
-    android:gravity="end|top">
+    android:paddingTop="10dp"
+    android:paddingBottom="4dp">
 
-    <LinearLayout
-        android:layout_width="0dp"
+    <TextView
+        android:id="@+id/tv_message"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:gravity="end">
-
-        <TextView
-            android:id="@+id/tv_message"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:maxWidth="280dp"
-            android:background="@drawable/bg_user_bubble"
-            android:padding="14dp"
-            android:textColor="@color/text_on_user"
-            android:textSize="@dimen/text_size_message" />
-    </LinearLayout>
+        android:background="@drawable/bg_user_bubble"
+        android:maxWidth="300dp"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="10dp"
+        android:textColor="@color/text_on_user"
+        android:textSize="16sp" />
 
     <TextView
         android:id="@+id/tv_avatar"
-        android:layout_width="@dimen/avatar_size"
-        android:layout_height="@dimen/avatar_size"
-        android:layout_marginStart="12dp"
-        android:background="@drawable/bg_avatar_user"
-        android:gravity="center"
-        android:text=""
-        android:textColor="#0A0A0F"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
 </LinearLayout>

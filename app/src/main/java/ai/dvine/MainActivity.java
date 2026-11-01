@@ -286,8 +286,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         android.widget.EditText field = findViewById(R.id.et_message);
         if (field != null) {
-            field.setHint("ibiko".equals(persona) ? "Code or a command..." : "Message "
-                    + persona.substring(0, 1).toUpperCase() + persona.substring(1) + "...");
+            field.setHint("Ask anything");
+        }
+        android.widget.TextView sub = findViewById(R.id.tv_header_sub);
+        if (sub != null) {
+            String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
+            sub.setText(name + " · DVine AI");
         }
         android.widget.TextView mark = findViewById(R.id.empty_mark);
         if (mark != null) {
@@ -343,9 +347,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void setPersonaTab(android.widget.TextView tab, boolean selected) {
         if (tab == null)
             return;
-        tab.setTextColor(selected ? 0xFF071018 : 0xFFAAB7C5);
-        tab.setBackgroundResource(
-                selected ? R.drawable.dvine_persona_tab_selected : R.drawable.dvine_persona_tab);
+        tab.setTextColor(selected ? 0xFFF2F2F7 : 0xFF8E8E93);
+        tab.setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        tab.setBackgroundColor(0x00000000);
         tab.setSelected(selected);
     }
 
