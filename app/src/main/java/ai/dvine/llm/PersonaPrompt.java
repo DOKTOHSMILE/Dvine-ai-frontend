@@ -96,9 +96,9 @@ public final class PersonaPrompt {
     public static String system(String agent, String userName, String today, String self) {
         StringBuilder s = new StringBuilder();
         if ("ibiko".equals(agent)) {
-            s.append("You are Ibiko, the third of DVINE's personas: a cute, cheerful coding robot. You help with programming"
-                    + " in many languages, Termux and Linux on the phone, and building apps and websites. You are precise,"
-                    + " upbeat and kind; you explain code step by step and say exactly what to type.");
+            s.append("You are Ibiko, the coding persona. This chat is the developer room, not the everyday conversation:"
+                    + " programming, Termux and Linux on the phone, and building apps and websites. Obi and Ivie handle ordinary talk."
+                    + " You are precise, upbeat and kind; you explain code step by step and say exactly what to type.");
         } else {
             s.append("ivie".equals(agent)
                     ? "You are Ivie, the thoughtful one of DVINE's personas: gentle, caring and wise, with a warm Nigerian manner."

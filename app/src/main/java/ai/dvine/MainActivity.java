@@ -268,6 +268,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void selectPersona(String persona) {
+        selectPersona(persona, false);
+    }
+
+    private void selectPersona(String persona, boolean fromTap) {
         if (persona == null || persona.isEmpty() || stage == null)
             return;
         if (prefs != null)
@@ -275,20 +279,39 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.ensureFace(persona, null);
         updatePersonaTabs(persona);
         if (chats != null) {
-            chats.persona(persona);
+            chats.forPersona(persona);
         }
         if (chatPane != null) {
             chatPane.show();
         }
         android.widget.EditText field = findViewById(R.id.et_message);
         if (field != null) {
-            String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
-            field.setHint("Message " + name + "...");
+            field.setHint("ibiko".equals(persona) ? "Code or a command..." : "Message "
+                    + persona.substring(0, 1).toUpperCase() + persona.substring(1) + "...");
         }
         android.widget.TextView mark = findViewById(R.id.empty_mark);
         if (mark != null) {
             mark.setText(persona.substring(0, 1).toUpperCase());
         }
+        if (fromTap && "ibiko".equals(persona)) {
+            offerTermux();
+        }
+    }
+
+    private void offerTermux() {
+        if (prefs == null) {
+            return;
+        }
+        boolean installed = ai.dvine.ops.TermuxAndroid.installed(this);
+        String key = installed ? "ibiko_ready_said" : "ibiko_install_offered";
+        if (prefs.getBoolean(key, false)) {
+            return;
+        }
+        prefs.edit().putBoolean(key, true).apply();
+        play(LocalTurn.speakAs("ibiko", installed
+                ? "This is the coding chat. Termux is on this phone, so I can run commands here. Obi and Ivie stay the regular conversation."
+                : "This is the coding chat. Termux is not on this phone yet. Say download Termux and I'll open the install page. Obi and Ivie stay the regular conversation."),
+                null);
     }
 
     private void updatePersonaTabs(String persona) {
@@ -315,7 +338,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (obi != null)
             obi.setOnClickListener(v -> selectPersona("obi"));
         if (ibiko != null)
-            ibiko.setOnClickListener(v -> selectPersona("ibiko"));
+            ibiko.setOnClickListener(v -> selectPersona("ibiko", true));
 
         android.view.View menu = findViewById(R.id.btnMenu);
         if (menu != null)

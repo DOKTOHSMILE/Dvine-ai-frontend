@@ -100,23 +100,30 @@ public final class ChatBook {
     }
 
     public synchronized void persona(String persona) {
+        current().persona = personaOf(persona);
+        save();
+    }
+
+    /**
+     * The chat for this persona. Obi and Ivie keep a conversation. Ibiko keeps a coding chat.
+     * A different persona is a different chat, not a rename of the one on screen.
+     */
+    public synchronized Section forPersona(String persona) {
         String p = personaOf(persona);
-        Section s = current();
-        s.persona = p;
-        java.util.List<Message> kept = new ArrayList<Message>();
-        for (Message m : s.messages) {
-            if (!"user".equals(m.role) && greeting(m.body)) {
-                continue;
-            }
-            if ("user".equals(m.role) || p.equals(m.persona)) {
-                kept.add(m);
-            } else {
-                kept.add(new Message(m.role, m.kind, m.body, p, m.language));
+        Section cur = current();
+        if (p.equals(cur.persona) && !cur.archived) {
+            return cur;
+        }
+        for (int i = sections.size() - 1; i >= 0; i--) {
+            Section s = sections.get(i);
+            if (!s.archived && p.equals(s.persona)) {
+                currentId = s.id;
+                save();
+                return s;
             }
         }
-        s.messages.clear();
-        s.messages.addAll(kept);
-        save();
+        String title = "ibiko".equals(p) ? "Ibiko code" : ("obi".equals(p) ? "Obi" : "Ivie");
+        return open(title, p);
     }
 
     /** Startup lines that should not sit in the chat. */
