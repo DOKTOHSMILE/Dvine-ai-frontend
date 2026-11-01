@@ -446,7 +446,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         setContentView(R.layout.activity_main);
         android.widget.LinearLayout root = findViewById(R.id.chatScreenRoot);
         chatPaneHost = findViewById(R.id.chatPaneHost);
-        typeBarHost = findViewById(R.id.typeBarHost);
         thoughtStatus = findViewById(R.id.thoughtStatus);
         updateThoughtStatus("Thinking…", false);
 
