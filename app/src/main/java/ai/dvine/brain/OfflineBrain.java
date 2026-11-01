@@ -128,6 +128,7 @@ public final class OfflineBrain {
         if (a == null) a = units(text, speaker);
         if (a == null) a = maths(text, speaker);
         if (a == null) a = learned(text, speaker);
+        if (a == null) a = checkIn(text, speaker);
         if (a == null) a = intents(text, speaker);
         if (a == null) a = synonyms(text, speaker);
         if (a == null) a = facts(text, speaker);
@@ -694,6 +695,16 @@ public final class OfflineBrain {
             }
             return null;
         }
+    }
+
+    private BrainAnswer checkIn(String text, String speaker) {
+        if (text.matches("^(i'm|i am|im) (good|fine|okay|ok|well|great|alright|all right|not bad)( thanks| thank you)?$")
+                || text.matches("^(good|fine|okay|ok|great|not bad|pretty good|doing (good|well|fine))( thanks| thank you)?$")) {
+            return one(speaker, "obi".equals(speaker)
+                    ? "Good. What should we take on?"
+                    : "I'm glad. What would you like to talk about?", "PACK");
+        }
+        return null;
     }
 
     private BrainAnswer intents(String text, String speaker) {

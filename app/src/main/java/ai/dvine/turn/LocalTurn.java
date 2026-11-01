@@ -230,7 +230,7 @@ public final class LocalTurn {
     static boolean blocked(String lower) {
         return hasWord(lower, "delete") || hasWord(lower, "pay") || hasWord(lower, "send")
                 || hasWord(lower, "post") || hasWord(lower, "transfer") || hasWord(lower, "bypass")
-                || hasWord(lower, "shell") || hasWord(lower, "password")
+                || hasWord(lower, "password")
                 || lower.contains("ignore security");
     }
 

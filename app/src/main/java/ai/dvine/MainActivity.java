@@ -438,7 +438,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         String report = freshCrash();
-        banner.setVisibility(report == null ? android.view.View.GONE : android.view.View.VISIBLE);
+        banner.setVisibility(android.view.View.GONE);
         android.view.View copy = findViewById(R.id.btn_copy_crash);
         if (copy != null) {
             copy.setOnClickListener(v -> {
@@ -1245,8 +1245,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             lookUpPhotos(drawWhat);
             return;
         }
-        boolean modelTopic = (!reply.answered || reply.needsOnline
-                || MODEL_SOURCES.contains(reply.source)) && plain(reply);
+        boolean modelTopic = (!reply.answered || reply.needsOnline) && plain(reply);
         if (modelTopic && model != null && model.ready() && prefs.getBoolean("llm_on", true)
                 && askLocal(asked, reply, false)) {
             return;
@@ -1589,12 +1588,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 String body = all == null ? ""
                         : ai.dvine.llm.ReplyLayout.join(ai.dvine.llm.ActionTags.strip(all));
                 if (body.isEmpty()) {
-                    String why = model.problem();
-                    if (why != null && (why.contains("quiet") || why.contains("too long"))) {
-                        stream.add(new TurnLine(agent, "SAY",
-                                "That reply stopped, " + why + ". This is from my notes."));
+                    String said = null;
+                    for (TurnLine line : offline.lines) {
+                        if ("SAY".equals(line.cue) && line.text != null && !line.text.trim().isEmpty()) {
+                            said = spokenLine(line.text);
+                        }
                     }
-                    stream.addAll(offline.lines);
+                    stream.add(new TurnLine(agent, "SAY",
+                            said != null ? said : "I don't have a reply for that yet."));
                 } else {
                     stream.add(new TurnLine(agent, "SAY", body));
                 }
