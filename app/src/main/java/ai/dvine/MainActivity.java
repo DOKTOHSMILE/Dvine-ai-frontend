@@ -152,7 +152,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             pace.tick(System.currentTimeMillis());
-            if (inFront && pace.wordCount() == 0 && System.currentTimeMillis() - thinkStartedMs > 180_000L) {
+            if (inFront && pace.wordCount() == 0
+                    && System.currentTimeMillis() - thinkStartedMs > 180_000L) {
                 handler.post(() -> {
                     if (thinkPace == null) {
                         return;
@@ -336,7 +337,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (downloads != null) {
             roots.add(downloads);
         }
-        String report = ai.dvine.ops.shell.LocalShell.run(text, roots, new java.io.File(getFilesDir(), "shell"));
+        String report = ai.dvine.ops.shell.LocalShell.run(text, roots,
+                new java.io.File(getFilesDir(), "shell"));
         if (report == null) {
             return false;
         }
@@ -354,7 +356,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (tab == null)
             return;
         tab.setTextColor(selected ? 0xFFF2F2F7 : 0xFF8E8E93);
-        tab.setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        tab.setTypeface(null,
+                selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
         tab.setBackgroundColor(0x00000000);
         tab.setSelected(selected);
     }
@@ -455,7 +458,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 android.content.ClipboardManager clips = (android.content.ClipboardManager) getSystemService(
                         CLIPBOARD_SERVICE);
                 if (clips != null && report != null) {
-                    clips.setPrimaryClip(android.content.ClipData.newPlainText("dvine-crash", report));
+                    clips.setPrimaryClip(
+                            android.content.ClipData.newPlainText("dvine-crash", report));
                 }
                 clearCrash();
                 banner.setVisibility(android.view.View.GONE);
@@ -543,16 +547,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void showAttachMenu(android.view.View anchor) {
-        final String[] options = new String[] {
-                "Speak",
-                "Photo",
-                "Video",
-                "Audio",
-                "File",
-                "Several photos of one object"
-        };
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("Add")
+        final String[] options = new String[] { "Speak", "Photo", "Video", "Audio", "File",
+                "Several photos of one object" };
+        new android.app.AlertDialog.Builder(this).setTitle("Add")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
                         startListening(true);
@@ -567,8 +564,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     } else {
                         openReconstructionPicker();
                     }
-                })
-                .show();
+                }).show();
     }
 
     /**
@@ -676,8 +672,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             insetHost = root;
         }
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(insetHost, (view, insets) -> {
-            androidx.core.graphics.Insets barsInsets = insets.getInsets(
-                    androidx.core.view.WindowInsetsCompat.Type.systemBars()
+            androidx.core.graphics.Insets barsInsets = insets
+                    .getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()
                             | androidx.core.view.WindowInsetsCompat.Type.displayCutout()
                             | androidx.core.view.WindowInsetsCompat.Type.ime());
             view.setPadding(barsInsets.left, barsInsets.top, barsInsets.right, barsInsets.bottom);
@@ -931,7 +927,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void openHistory() {
         closeDrawer();
-        startActivityForResult(new android.content.Intent(this, ai.dvine.chat.ui.HistoryActivity.class), HISTORY);
+        startActivityForResult(
+                new android.content.Intent(this, ai.dvine.chat.ui.HistoryActivity.class), HISTORY);
     }
 
     private void askTheBrain(String question) {
@@ -942,14 +939,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         } else if (!bare.matches("^(continue|go on|carry on|again|keep going)$")) {
             activeQuestion = question;
         }
+
+        // Create a final copy so it can be safely captured by lambdas and background threads
+        final String finalQuestion = question;
         final String agent = stage.agent();
-        ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(question, null);
+
+        ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(finalQuestion, null);
         if (known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY) {
-            carryOut(agent, question, known);
+            carryOut(agent, finalQuestion, known);
             return;
         }
         if (model == null || !model.ready() || !prefs.getBoolean("llm_on", true)) {
-            carryOut(agent, question, null);
+            carryOut(agent, finalQuestion, null);
             return;
         }
         final int id = ++askId;
@@ -957,18 +958,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.setMode(StageMode.THINKING);
         armThink("Thinking\u2026", "Thinking\u2026");
         modelThread.execute(() -> {
-            final String all = model.reply(ai.dvine.llm.BrainOrder.prompt(), question, 48, piece -> {
-                if (!modelPiece(id, piece)) {
-                    return false;
-                }
-                return id == askId;
-            });
+            final String all = model.reply(ai.dvine.llm.BrainOrder.prompt(), finalQuestion, 48,
+                    piece -> {
+                        if (!modelPiece(id, piece)) {
+                            return false;
+                        }
+                        return id == askId;
+                    });
             handler.post(() -> {
                 if (id != askId || isFinishing()) {
                     return;
                 }
                 endThink();
-                carryOut(agent, question, ai.dvine.llm.BrainOrder.decide(question, all));
+                carryOut(agent, finalQuestion, ai.dvine.llm.BrainOrder.decide(finalQuestion, all));
             });
         });
     }
@@ -986,8 +988,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         switch (order.kind) {
             case SAY:
                 String said = order.speech.trim();
-                play(LocalTurn.speakAs(agent, said.isEmpty()
-                        ? "I can't carry that out." : said), null);
+                play(LocalTurn.speakAs(agent, said.isEmpty() ? "I can't carry that out." : said),
+                        null);
                 return;
             case PHOTO:
                 lookUpPhotos(order.arg);
@@ -995,13 +997,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             case UNZIP:
             case FINDZIP:
                 String report = ai.dvine.ops.shell.LocalShell.run(
-                        order.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP ? "unzip the zip file" : "find the zip file",
+                        order.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP ? "unzip the zip file"
+                                : "find the zip file",
                         shellRoots(), new java.io.File(getFilesDir(), "shell"));
-                play(LocalTurn.speakAs("ibiko", report == null
-                        ? "I can't carry out that file task." : report), null);
+                play(LocalTurn.speakAs("ibiko",
+                        report == null ? "I can't carry out that file task." : report), null);
                 return;
             case NAME:
-                ai.dvine.brain.Onboarding.Names names = ai.dvine.brain.Onboarding.introduce(order.arg);
+                ai.dvine.brain.Onboarding.Names names = ai.dvine.brain.Onboarding
+                        .introduce(order.arg);
                 if (names == null) {
                     names = ai.dvine.brain.Onboarding.introduce("call me " + order.arg);
                 }
@@ -1012,21 +1016,23 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 saveName(names.called, names.given);
                 play(LocalTurn.speakAs(agent, names.given.equalsIgnoreCase(names.called)
                         ? "Alright, " + names.called + ". I'll call you that."
-                        : "I'll call you " + names.called + ". Your name is " + names.given + "."), null);
+                        : "I'll call you " + names.called + ". Your name is " + names.given + "."),
+                        null);
                 return;
             case GREET:
                 play(LocalTurn.speakAs(agent, "Hello. What do you want to do?"), null);
                 return;
             case TIME:
-                String when = new java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-                        .format(new java.util.Date());
+                String when = new java.text.SimpleDateFormat("h:mm a",
+                        java.util.Locale.getDefault()).format(new java.util.Date());
                 play(LocalTurn.speakAs(agent, "It's " + when + "."), null);
                 return;
             case SHELL:
                 String ran = ai.dvine.ops.shell.LocalShell.run(order.arg, shellRoots(),
                         new java.io.File(getFilesDir(), "shell"));
                 play(LocalTurn.speakAs("ibiko", ran != null ? ran
-                        : "I can't run that command on this phone. I can find a zip or unzip one."), null);
+                        : "I can't run that command on this phone. I can find a zip or unzip one."),
+                        null);
                 return;
             case CANNOT:
             default:
@@ -1146,7 +1152,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return ai.dvine.llm.PersonaPrompt.situation(face, examiner.lastTopic(),
                 stage.pictureShown() ? lastDrawn : null, part,
                 connectivity != null && connectivity.isOnline())
-                + (chats == null ? "" : blank(chats.transcript(700)) + blank(chats.memoryForPrompt(6)));
+                + (chats == null ? ""
+                        : blank(chats.transcript(700)) + blank(chats.memoryForPrompt(6)));
     }
 
     private static final java.util.Set<String> MODEL_SOURCES = new java.util.HashSet<String>(
@@ -1388,7 +1395,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (body.isEmpty()) {
                     String said = null;
                     for (TurnLine line : offline.lines) {
-                        if ("SAY".equals(line.cue) && line.text != null && !line.text.trim().isEmpty()) {
+                        if ("SAY".equals(line.cue) && line.text != null
+                                && !line.text.trim().isEmpty()) {
                             said = spokenLine(line.text);
                         }
                     }
@@ -1427,8 +1435,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String s = m.group(1).trim();
             return s.isEmpty() ? null : s;
         }
-        m = java.util.regex.Pattern.compile(
-                "^(?:please )?(?:design|draw) (?:me )?(?:an |a |the )?(.+)$").matcher(t);
+        m = java.util.regex.Pattern
+                .compile("^(?:please )?(?:design|draw) (?:me )?(?:an |a |the )?(.+)$").matcher(t);
         if (m.matches()) {
             String s = m.group(1).trim();
             return s.isEmpty() || s.split(" ").length > 6 ? null : s;
@@ -1459,15 +1467,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String used = null;
             int found = 0;
             try {
-                String[] tries = new String[] { subject, ai.dvine.render.field.PhotoLookup.wider(subject) };
+                String[] tries = new String[] { subject,
+                        ai.dvine.render.field.PhotoLookup.wider(subject) };
                 for (String term : tries) {
                     if (bytes != null || term == null || term.isEmpty()) {
                         break;
                     }
                     byte[] listing = ai.dvine.net.WebGet.get(
-                            ai.dvine.render.field.PhotoLookup.commonsUrl(term, 12), 12000, 512 * 1024);
+                            ai.dvine.render.field.PhotoLookup.commonsUrl(term, 12), 12000,
+                            512 * 1024);
                     java.util.List<ai.dvine.render.field.PhotoLookup.Shot> shots = ai.dvine.render.field.PhotoLookup
-                            .choose(listing == null ? null : new String(listing, "UTF-8"), subject, 8);
+                            .choose(listing == null ? null : new String(listing, "UTF-8"), subject,
+                                    8);
                     found = Math.max(found, shots.size());
                     for (ai.dvine.render.field.PhotoLookup.Shot shot : shots) {
                         if (id != askId) {
@@ -1505,10 +1516,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : ai.dvine.render.field.Raster.decode(got);
                 if (bm == null) {
                     play(LocalTurn.speakAs(stage.agent(),
-                            shownPhotos.isEmpty()
-                                    ? "I looked for photographs of "
-                                            + ai.dvine.llm.DrawPrompt.article(subject)
-                                            + " and didn't get one I can show. I didn't draw a stand-in."
+                            shownPhotos.isEmpty() ? "I looked for photographs of "
+                                    + ai.dvine.llm.DrawPrompt.article(subject)
+                                    + " and didn't get one I can show. I didn't draw a stand-in."
                                     : "I've already shown the photographs I found of "
                                             + ai.dvine.llm.DrawPrompt.article(subject) + "."),
                             null);
@@ -1642,8 +1652,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final int id = ++askId;
         final ai.dvine.render.field.SolidSpec on = currentSolid;
         stage.setMode(StageMode.THINKING);
-        stage.innerVoice(
-                "Which part is \u201c" + clip(edit.target) + "\u201d? Thinking\u2026");
+        stage.innerVoice("Which part is \u201c" + clip(edit.target) + "\u201d? Thinking\u2026");
         modelThread.execute(() -> {
             String written = model.task(ai.dvine.render.field.PartEdit.whichSystem(),
                     ai.dvine.render.field.PartEdit.whichPrompt(on, lastDrawn, edit.target), 60,
@@ -2020,8 +2029,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void askViewIntent(final String asked) {
         final int id = ++askId;
         stage.setMode(StageMode.THINKING);
-        stage.innerVoice(
-                "Heard: \u201c" + clip(asked) + "\u201d. Thinking\u2026");
+        stage.innerVoice("Heard: \u201c" + clip(asked) + "\u201d. Thinking\u2026");
         modelThread.execute(() -> {
             String written = model.task(ai.dvine.agent.ViewIntent.system(), asked, 30,
                     text -> id == askId);
@@ -2534,8 +2542,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             nameTries++;
             if (nameTries < 2) {
                 play(LocalTurn.speakAs(stage.agent(),
-                        "Sorry, I didn't catch your name. What should we call you?"),
-                        null);
+                        "Sorry, I didn't catch your name. What should we call you?"), null);
             } else {
                 awaitingName = false;
                 renamingName = false;
