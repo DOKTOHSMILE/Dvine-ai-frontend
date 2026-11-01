@@ -1,0 +1,87 @@
+# DVINE — every prompt, built or not
+
+One reading of the instructions sent for the Android app, checked against the code on `main` at **0.45.2** (`1f3a8d9`).
+
+A row marked **Built** means the behaviour exists in the Java app and has been covered by a JVM unit test where a test is named in the notes. It does not mean a phone was used. Gradle was not run in the environment that wrote this file. **Partial** means a real piece exists and the rest of the request does not. **Not built** means it is absent, or it was refused on purpose so the app would not pretend.
+
+The backend was deferred. It is not in this table except where a prompt asked for a server.
+
+## Sources this file was compiled from
+
+| ID | Document |
+|---|---|
+| P1 | SSH, Termux, internal vision, and 3D reconstruction |
+| P2 | Conversation decomposition and brain interpretation |
+| P3 | External LLM, three personas, hologram, particles, audio |
+| P4 | Brain architecture upgrade |
+| P5 | Intelligence repair, persona routing, files, reconstruction |
+| P6 | Internet research, faster model, broader understanding |
+| P7 | Persistent tasks; the microphone must not cancel work |
+| P8 | Test before every GitHub release |
+| P9 | One brain, shared memory, shared tools |
+| P10 | Visual 3D build blueprint (phases 0–12) |
+| P11 | Blueprint versus codebase audit |
+| P12 | Later instructions in chat: no “I’m not sure I follow”, photos instead of fake objects, chat sections, theme crash, the repos in the two screenshots |
+
+## Status
+
+| # | What was asked | Source | Status | What is actually true |
+|---|---|---|---|---|
+| 1 | Offline Android app first. Backend later | P10, chat | Partial | The phone repo is the one being built. No backend service has been started |
+| 2 | Personas Obi, Ivie, and Ibiko, discovered from the code, kept across a turn | P3, P5 | Built | Tabs and `selectPersona`. Ibiko is the coding role, not a second model |
+| 3 | Text and voice take the same path into the brain | P2, P4 | Built | Both enter `answer()`. Rules run first. What they do not handle goes to the model once |
+| 4 | Do not answer “I’m not sure I follow” and then wait forever | P12 | Built | That sentence was removed. A short request is not bounced. Switching chats clears “it” |
+| 5 | The model must not be told to ask “Do you mean?” | P12 | Built | The persona prompt says to interpret and continue |
+| 6 | One model pass, with a visible thinking line | P6, P12 | Built | The extra “what do you mean” pass was removed. A live line shows phase, seconds, or words |
+| 7 | Do not kill a live answer at 25 seconds | P6 | Built | Idle 12 seconds, hard stop 90 seconds, generation token |
+| 8 | Conversation broken into meaning, then a structured plan | P2, P4 | Partial | The decomposition, intent, and plan classes exist. `MainActivity.answer()` is still a long method beside them |
+| 9 | Shared semantic memory and corrections that do not wipe general knowledge | P2, P4, P9 | Partial | Taught facts and a learning journal exist. Chat notes are separate. There is no graph database |
+| 10 | Fact check with more than one source. Do not call one source verified | P5, P11 | Built | Wikipedia, Wikidata, DuckDuckGo, and public Reddit. Two agreeing sources are still not a proof |
+| 11 | Google search | P12 | Not built | There is no Google key. The app says so. It does not pretend to have searched Google |
+| 12 | Logged-in social search (X, Instagram, TikTok) | P12 | Not built | Reddit public titles only |
+| 13 | Real news search | P5 | Not built | The app says it has no news source and does not invent headlines |
+| 14 | Downloadable on-device model, Qwen3 1.7B, llama.cpp, arm64 | P3, P10 | Built | Download, SHA-256, JNI, streamed speech. Phone speed was not measured here |
+| 15 | Termux from natural language, argument list, not a shell string | P1 | Partial | An allow-list (`df`, `ps`, and a few others). Anything else is refused. “Install Termux” opens the app or the store page |
+| 16 | SSH to a machine the user authorised | P1 | Partial | Connection, command, and file-browser classes exist. A destructive command waits for yes. Not proven on a device |
+| 17 | Microphone on must not cancel the running task | P7 | Built | Task states, pause, resume, and a separate microphone path exist in the ops package |
+| 18 | Several tasks, pause one, run another, resume the first | P7 | Partial | The task manager can hold more than one record. A full phone run of that story was not done |
+| 19 | File, image, and video picker, and honest reading of what was picked | P5 | Partial | Picker kinds exist. A hostile text file is not spoken raw. PDF text is not claimed as a picture |
+| 20 | Internal vision that understands an arbitrary photo | P1, P5 | Not built | There is no vision model. A photo is shown or measured only by the sparse solver when the test conditions hold |
+| 21 | “Draw / design / sketch X” must look up real photographs | P12 | Built | Wikimedia Commons, up to four real file URLs. The first file that downloads is shown. Offline, it refuses |
+| 22 | Crop the photograph and say it is not a measured model | P12 | Built | Centre crop. The spoken line says the views are not calibrated |
+| 23 | Build a measured 3D object from web photos taken at different angles | P12 | Not built | Unrelated web photos are not a calibrated scan, so no mesh is made from them |
+| 24 | Delete the lie that a pile of boxes is a pen | P12 | Built | Draw and design no longer call the shape planner. Stored globe, house, car, and similar figures are not put on the board for those requests |
+| 25 | “Build a motorcycle” with detach, restore, undo, save, reopen | P10 | Built | That path is still the procedural model, and it says so. “Draw a motorcycle” is a photograph, not this model |
+| 26 | Sparse photogrammetry, honest labels, not COLMAP | P10, P11 | Built | Calibrated 8-point solver. One photo is not measured. COLMAP and a dense scan are not in the app |
+| 27 | A rigged person: raise an arm, both arms, wave, look up, undo | P10 | Built | Procedural bones and skin. Not a scanned body |
+| 28 | On-screen part tree, undo, redo, catalogue | P10 | Built | The tree, history, and saved-model list exist |
+| 29 | Dense nanoparticle body, diffusion image model, hologram as the product | P3, P5 | Not built | Particle and mesh code exist. They are not a dense scan and not a diffusion model |
+| 30 | High-fidelity skin, clothes, hair, studio look | P3 | Partial | Shaders and looks exist and were checked in a WebGL replay, not as the current phone screen |
+| 31 | Chat screen: sections, new chat, persona per section | P12 | Built | XML chat screen with Ivie, Obi, and Ibiko tabs, plus `ChatBook` sections |
+| 32 | Shared memory across chat sections | P9, P12 | Built | A `remember …` note and the latest line of other chats are given to the model. The open chat’s own transcript is too |
+| 33 | Code, image, and video in the chat | P12 | Partial | A fenced reply is monospace. A fetched photo is an image file. A video plays only if that file is already on the phone. No video is generated |
+| 34 | App opens. The XML chat must not crash on theme | P12 | Built in code | Theme is `Theme.AppCompat`. Activity is `AppCompatActivity`. Not installed on a phone from here |
+| 35 | Thinking chip on the chat screen | P3, chat layout | Partial | The layout has the chip. It is not proven that every long job drives it |
+| 36 | Smaller captions, full sentence visible | P5, P12 | Built | Spoken line is type, up to six lines, not a two-line particle caption |
+| 37 | Repos in the two screenshots (claude-mem, LightRAG, superpowers, public-apis, and the others) | P12 | Not built | They are desktop agent tools or a list of HTTP APIs. They were not copied into the app. The note is `docs/REPO_FIT.md` |
+| 38 | One cognitive pipeline with an inspectable plan for every sentence | P4, P11 | Partial | Plans exist for known operations. Ordinary chat still goes to the model as language, not as a typed plan |
+| 39 | Multi-agent fleet: research agent, comparison agent, visual agent, in parallel | P3, P9 | Not built | One model. Personas change the prompt. There is no pool of subordinate agents |
+| 40 | Tool result verified before the app says it worked | P1, P8 | Partial | Termux and scene edits check an outcome. A spoken “done” is not proof for every tool |
+| 41 | Tests before commit, then push | P8 | Partial | JVM tests were run for the Java changes. Gradle and a device were not |
+| 42 | `gradle assembleDebug` and a phone smoke test | P4, P8 | Not built | This environment has no Android SDK run recorded for 0.45.2. The APK in `releases/` is still 0.26.2 |
+| 43 | Date and clock answered on the phone, not invented | early chat | Built | Clock and date are read from the device |
+| 44 | Safe release: no secrets in the app, destructive actions confirmed | P1, P8 | Partial | Delete and remote destructive wording wait for yes. A GitHub token must not be stored in the repo |
+
+## Still open, in the order that matters
+
+1. Install 0.45.2 on a phone and confirm the chat screen stays open.
+2. Run `gradle assembleDebug` and replace the 0.26.2 APK only if that build succeeds.
+3. Do not build a mesh from random web photos. That stays not built until the cameras are known.
+4. Google and logged-in social search stay not built until there is a real key and a real login. Do not fake them.
+5. The backend stays deferred.
+
+## How to read a row
+
+- **Built** — the path is in the app and does the thing the row says, with the limit in the last column.
+- **Partial** — some of the request is real. The last column says what is missing.
+- **Not built** — do not demo it as if it works.
