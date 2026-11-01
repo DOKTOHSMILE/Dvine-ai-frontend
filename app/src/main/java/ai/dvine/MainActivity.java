@@ -1641,7 +1641,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                             + ai.dvine.llm.DrawPrompt.article(subject)
                                             + " and didn't get one I can show. I didn't draw a stand-in."
                                     : "I've already shown the photographs I found of "
-                                            + ai.dvine.llm.DrawPrompt.article(subject) + ".",
+                                            + ai.dvine.llm.DrawPrompt.article(subject) + "."),
                             null);
                     return;
                 }
