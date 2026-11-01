@@ -437,7 +437,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (banner == null) {
             return;
         }
-        String report = takeCrashReport();
+        String report = freshCrash();
         banner.setVisibility(report == null ? android.view.View.GONE : android.view.View.VISIBLE);
         android.view.View copy = findViewById(R.id.btn_copy_crash);
         if (copy != null) {
@@ -447,12 +447,44 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (clips != null && report != null) {
                     clips.setPrimaryClip(android.content.ClipData.newPlainText("dvine-crash", report));
                 }
+                clearCrash();
+                banner.setVisibility(android.view.View.GONE);
             });
         }
         android.view.View dismiss = findViewById(R.id.btn_dismiss);
         if (dismiss != null) {
-            dismiss.setOnClickListener(v -> banner.setVisibility(android.view.View.GONE));
+            dismiss.setOnClickListener(v -> {
+                clearCrash();
+                banner.setVisibility(android.view.View.GONE);
+            });
         }
+    }
+
+    /** A crash from this version, once. An old report, or one already shown, is removed. */
+    private String freshCrash() {
+        String report = takeCrashReport();
+        if (report == null) {
+            return null;
+        }
+        String version = BuildConfigInfo.version(this);
+        if (!report.startsWith("DVINE " + version + " ")) {
+            clearCrash();
+            return null;
+        }
+        String seen = prefs == null ? "" : prefs.getString("crash_seen", "");
+        String mark = String.valueOf(report.hashCode());
+        if (mark.equals(seen)) {
+            clearCrash();
+            return null;
+        }
+        if (prefs != null) {
+            prefs.edit().putString("crash_seen", mark).apply();
+        }
+        return report;
+    }
+
+    private void clearCrash() {
+        new File(getFilesDir(), "crash.txt").delete();
     }
 
     private void startNewChatSafely() {
