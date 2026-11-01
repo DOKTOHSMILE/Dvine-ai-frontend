@@ -3,9 +3,12 @@
     <!-- AppCompat, not DeviceDefault. The chat field is an AppCompat EditText. DeviceDefault crashes it at startup. -->
     <style name="Theme.Dvine" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/black</item>
-        <item name="android:statusBarColor">@color/black</item>
-        <item name="android:navigationBarColor">@color/black</item>
+        <item name="android:statusBarColor">@color/bg_main</item>
+        <item name="android:navigationBarColor">@color/bg_main</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:colorBackground">@color/black</item>
         <item name="android:textColorPrimary">@color/chat_text</item>
         <item name="android:textColorSecondary">@color/chat_hint</item>

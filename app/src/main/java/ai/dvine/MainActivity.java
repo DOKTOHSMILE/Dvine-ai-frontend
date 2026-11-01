@@ -253,12 +253,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void selectPersona(String persona) {
-        if (persona == null || stage == null)
+        if (persona == null || persona.isEmpty() || stage == null)
             return;
         if (prefs != null)
             prefs.edit().putString("face", persona).apply();
         stage.ensureFace(persona, null);
         updatePersonaTabs(persona);
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (field != null) {
+            String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
+            field.setHint("Message " + name + "...");
+        }
+        android.widget.TextView mark = findViewById(R.id.empty_mark);
+        if (mark != null) {
+            mark.setText(persona.substring(0, 1).toUpperCase());
+        }
     }
 
     private void updatePersonaTabs(String persona) {
@@ -309,45 +318,93 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View fresh = findViewById(R.id.btnNewChat);
         if (fresh != null)
             fresh.setOnClickListener(v -> startNewChatSafely());
-        updatePersonaTabs(prefs == null ? StageView.IVIE : prefs.getString("face", StageView.IVIE));
+        selectPersona(prefs == null ? StageView.IVIE : prefs.getString("face", StageView.IVIE));
+        bindComposer();
+        bindCrashBanner();
     }
 
-    /** Uses the ChatBook's available public new-chat API without assuming its exact method name. */
-    private void startNewChatSafely() {
-        boolean started = false;
-        if (chats != null) {
-            String[] candidates = { "newChat", "startNewChat", "createChat", "newSection",
-                    "newConversation" };
-            for (String name : candidates) {
-                for (java.lang.reflect.Method method : chats.getClass().getMethods()) {
-                    if (!name.equals(method.getName()))
-                        continue;
-                    try {
-                        Class<?>[] types = method.getParameterTypes();
-                        if (types.length == 0) {
-                            method.invoke(chats);
-                            started = true;
-                        } else if (types.length == 1 && types[0] == String.class) {
-                            String persona = prefs == null ? StageView.IVIE
-                                    : prefs.getString("face", StageView.IVIE);
-                            method.invoke(chats, persona);
-                            started = true;
-                        }
-                    } catch (Exception ignored) {
-                    }
-                    if (started)
-                        break;
+    private void bindComposer() {
+        android.widget.EditText field = findViewById(R.id.et_message);
+        android.view.View send = findViewById(R.id.btn_send);
+        android.view.View voice = findViewById(R.id.btn_voice);
+        android.view.View attach = findViewById(R.id.btn_attach);
+        if (field != null) {
+            field.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
+                    sendComposer();
+                    return true;
                 }
-                if (started)
-                    break;
-            }
+                return false;
+            });
         }
-        if (chatPane != null)
+        if (send != null) {
+            send.setOnClickListener(v -> sendComposer());
+        }
+        if (voice != null) {
+            voice.setOnClickListener(v -> startListening(true));
+        }
+        if (attach != null) {
+            attach.setOnClickListener(v -> openContentPicker("any", false));
+        }
+        wireStarter(R.id.chip_explain, "Explain this in plain words");
+        wireStarter(R.id.chip_draw, "Draw me a bicycle");
+        wireStarter(R.id.chip_crash, "What can you do from this chat?");
+    }
+
+    private void wireStarter(int id, String text) {
+        android.view.View chip = findViewById(id);
+        if (chip != null) {
+            chip.setOnClickListener(v -> answer(text));
+        }
+    }
+
+    private void sendComposer() {
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (field == null || field.getText() == null) {
+            return;
+        }
+        String text = field.getText().toString().trim();
+        if (text.isEmpty()) {
+            return;
+        }
+        field.setText("");
+        answer(text);
+    }
+
+    private void bindCrashBanner() {
+        android.view.View banner = findViewById(R.id.banner_crash);
+        if (banner == null) {
+            return;
+        }
+        String report = takeCrashReport();
+        banner.setVisibility(report == null ? android.view.View.GONE : android.view.View.VISIBLE);
+        android.view.View copy = findViewById(R.id.btn_copy_crash);
+        if (copy != null) {
+            copy.setOnClickListener(v -> {
+                android.content.ClipboardManager clips = (android.content.ClipboardManager) getSystemService(
+                        CLIPBOARD_SERVICE);
+                if (clips != null && report != null) {
+                    clips.setPrimaryClip(android.content.ClipData.newPlainText("dvine-crash", report));
+                }
+            });
+        }
+        android.view.View dismiss = findViewById(R.id.btn_dismiss);
+        if (dismiss != null) {
+            dismiss.setOnClickListener(v -> banner.setVisibility(android.view.View.GONE));
+        }
+    }
+
+    private void startNewChatSafely() {
+        if (chats == null) {
+            return;
+        }
+        String persona = prefs == null ? StageView.IVIE : prefs.getString("face", StageView.IVIE);
+        ai.dvine.chat.ChatBook.Section section = chats.open("New chat", persona);
+        if (chatPane != null) {
             chatPane.show();
-        if (!started) {
-            android.widget.Toast.makeText(this, "New chat action is not exposed by ChatBook yet.",
-                    android.widget.Toast.LENGTH_SHORT).show();
         }
+        examiner.clearTopic();
+        selectPersona(section.persona);
     }
 
     /**
@@ -372,10 +429,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         installCrashReporter();
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        window.setStatusBarColor(0xFF000000);
-        window.setNavigationBarColor(0xFF000000);
+        window.setStatusBarColor(0xFF0A0A0F);
+        window.setNavigationBarColor(0xFF0A0A0F);
 
-        // 1. Use WindowCompat instead of calling directly on window
+        // The chat is laid out inside the status and navigation bars. It does not draw under them.
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
 
         stage = new StageView(this);
@@ -435,22 +492,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         fitChatPane();
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
-            androidx.core.graphics.Insets barsInsets = insets
-                    .getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-            view.setPadding(view.getPaddingLeft(), barsInsets.top, view.getPaddingRight(),
-                    barsInsets.bottom);
-            return insets;
+            androidx.core.graphics.Insets barsInsets = insets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                            | androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                            | androidx.core.view.WindowInsetsCompat.Type.ime());
+            view.setPadding(barsInsets.left, barsInsets.top, barsInsets.right, barsInsets.bottom);
+            return androidx.core.view.WindowInsetsCompat.CONSUMED;
         });
-
-        try {
-            WindowInsetsController bars = window.getInsetsController();
-            if (bars != null) {
-                bars.hide(WindowInsets.Type.systemBars());
-                bars.setSystemBarsBehavior(
-                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
-        } catch (RuntimeException ignored) {
-            // a missing bar controller must not stop the chat from opening
+        androidx.core.view.WindowInsetsControllerCompat bars = androidx.core.view.WindowCompat
+                .getInsetsController(window, root);
+        if (bars != null) {
+            bars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+            bars.setAppearanceLightStatusBars(false);
+            bars.setAppearanceLightNavigationBars(false);
         }
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
@@ -2608,6 +2662,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     @Override
     public void onType() {
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (field != null) {
+            field.requestFocus();
+            return;
+        }
         if (typeBar != null) {
             if (typeBarHost != null)
                 typeBarHost.setVisibility(android.view.View.VISIBLE);
