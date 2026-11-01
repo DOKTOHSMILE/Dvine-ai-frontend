@@ -124,6 +124,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private volatile ai.dvine.llm.ThinkPace thinkPace;
     private int thinkToken;
     private String thinkWrite = "Thinking\u2026";
+    private long thinkStartedMs;
     private String lastTaskLine = "";
     private final Runnable taskBeat = new Runnable() {
         public void run() {
@@ -149,6 +150,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             pace.tick(System.currentTimeMillis());
+            if (System.currentTimeMillis() - thinkStartedMs > 40_000L) {
+                handler.post(() -> {
+                    if (thinkPace == null) {
+                        return;
+                    }
+                    interruptReply();
+                    play(LocalTurn.speakAs(stage.agent(),
+                            "That took too long, so I stopped. Ask me again if you still want it."),
+                            null);
+                });
+                return;
+            }
             stage.progress(pace.line());
             updateThoughtStatus(pace.line(), true);
             handler.postDelayed(this, 800);
@@ -754,6 +767,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thinkToken = readToken;
         thinkWrite = writing == null ? "Thinking\u2026" : writing;
         thinkPace = new ai.dvine.llm.ThinkPace(phase, System.currentTimeMillis());
+        thinkStartedMs = System.currentTimeMillis();
         handler.post(() -> {
             if (thinkPace == null || thinkToken != readToken) {
                 return;
@@ -995,6 +1009,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         ai.dvine.ops.pipe.MachinePlan plan = ai.dvine.ops.pipe.MachinePlan.read(asked);
         if (plan.op == ai.dvine.ops.pipe.MachinePlan.Op.LOOK_UP_PHOTOS) {
             lookUpPhotos(plan.subject);
+            return;
+        }
+        String picture = photoSubject(asked);
+        if (picture != null) {
+            lookUpPhotos(picture);
             return;
         }
         ai.dvine.create.ObjectRequestInterpreter.Request known = creation.parse(asked,
@@ -1511,12 +1530,42 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return true;
     }
 
+    private final java.util.LinkedHashSet<String> shownPhotos = new java.util.LinkedHashSet<String>();
+
+    private String photoSubject(String asked) {
+        if (asked == null) {
+            return null;
+        }
+        String t = asked.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        if (t.matches(".*(another|different|next) (photo|photograph|picture|image).*")
+                && lastDrawn != null && !lastDrawn.isEmpty()) {
+            return lastDrawn;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "^(?:please )?(?:get|show|give|fetch|find|send) me (?:an |a |the )?(?:image|photo|photograph|picture) of (.+)$")
+                .matcher(t);
+        if (m.matches()) {
+            String s = m.group(1).trim();
+            return s.isEmpty() ? null : s;
+        }
+        m = java.util.regex.Pattern.compile(
+                "^(?:please )?(?:design|draw) (?:me )?(?:an |a |the )?(.+)$").matcher(t);
+        if (m.matches()) {
+            String s = m.group(1).trim();
+            return s.isEmpty() || s.split(" ").length > 6 ? null : s;
+        }
+        return null;
+    }
+
     private void lookUpPhotos(final String subject) {
         final int id = ++askId;
         final boolean online = connectivity != null && connectivity.isOnline()
                 && prefs.getBoolean("fresh_facts", true);
         stopPlay();
         stage.activity("PHOTO", subject);
+        if (lastDrawn == null || !lastDrawn.equalsIgnoreCase(subject)) {
+            shownPhotos.clear();
+        }
         lastDrawn = subject;
         if (!online) {
             play(LocalTurn.speakAs(stage.agent(),
@@ -1528,19 +1577,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         armThink("Looking up photographs", "Looking up photographs");
         modelThread.execute(() -> {
             byte[] bytes = null;
+            String used = null;
             int found = 0;
             try {
                 byte[] listing = ai.dvine.net.WebGet.get(
-                        ai.dvine.render.field.PhotoLookup.commonsUrl(subject, 4), 7000, 512 * 1024);
-                java.util.List<String> urls = ai.dvine.render.field.PhotoLookup
-                        .urls(listing == null ? null : new String(listing, "UTF-8"), 4);
-                found = urls.size();
-                for (String url : urls) {
+                        ai.dvine.render.field.PhotoLookup.commonsUrl(subject, 6), 7000, 512 * 1024);
+                java.util.List<ai.dvine.render.field.PhotoLookup.Shot> shots = ai.dvine.render.field.PhotoLookup
+                        .choose(listing == null ? null : new String(listing, "UTF-8"), subject, 6);
+                found = shots.size();
+                for (ai.dvine.render.field.PhotoLookup.Shot shot : shots) {
                     if (id != askId) {
                         return;
                     }
-                    bytes = ai.dvine.net.WebGet.get(url, 7000, 3 * 1024 * 1024);
+                    if (shownPhotos.contains(shot.url)) {
+                        continue;
+                    }
+                    bytes = ai.dvine.net.WebGet.get(shot.url, 7000, 3 * 1024 * 1024);
                     if (bytes != null && bytes.length > 32) {
+                        used = shot.url;
                         break;
                     }
                     bytes = null;
@@ -1556,6 +1610,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             final byte[] got = bytes;
             final int count = found;
+            final String chosen = used;
             handler.post(() -> {
                 if (id != askId || isFinishing()) {
                     return;
@@ -1565,18 +1620,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : ai.dvine.render.field.Raster.decode(got);
                 if (bm == null) {
                     play(LocalTurn.speakAs(stage.agent(),
-                            "I looked for photographs of "
-                                    + ai.dvine.llm.DrawPrompt.article(subject)
-                                    + " and didn't get one I can show. I didn't draw a stand-in."),
+                            shownPhotos.isEmpty()
+                                    ? "I looked for photographs of "
+                                            + ai.dvine.llm.DrawPrompt.article(subject)
+                                            + " and didn't get one I can show. I didn't draw a stand-in."
+                                    : "I've already shown the photographs I found of "
+                                            + ai.dvine.llm.DrawPrompt.article(subject) + ".",
                             null);
                     return;
                 }
-                int[] box = ai.dvine.render.field.PhotoFrame.middle(bm.getWidth(), bm.getHeight(),
-                        0.72f);
-                android.graphics.Bitmap cropped = android.graphics.Bitmap.createBitmap(bm, box[0],
-                        box[1], box[2], box[3]);
-                if (cropped != bm) {
-                    bm.recycle();
+                if (chosen != null) {
+                    shownPhotos.add(chosen);
                 }
                 java.io.File shot = new java.io.File(getFilesDir(),
                         "chat-images/" + System.currentTimeMillis() + ".png");
@@ -1585,13 +1639,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     parent.mkdirs();
                 }
                 try (java.io.FileOutputStream out = new java.io.FileOutputStream(shot)) {
-                    cropped.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out);
+                    bm.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out);
                 } catch (java.io.IOException ignored) {
                     shot = null;
                 }
-                ai.dvine.render.field.Shape picture = ai.dvine.render.field.Raster.image(cropped,
+                ai.dvine.render.field.Shape picture = ai.dvine.render.field.Raster.image(bm,
                         ai.dvine.render.field.ParticleDisplay.SKIN_POINTS, 2f);
-                cropped.recycle();
+                bm.recycle();
                 if (picture == null || picture.count < 80) {
                     play(LocalTurn.speakAs(stage.agent(), "I fetched a photograph of "
                             + ai.dvine.llm.DrawPrompt.article(subject)
@@ -1604,10 +1658,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (chatPane != null && shot != null && shot.isFile()) {
                     chatPane.image(shot.getAbsolutePath());
                 }
-                String line = "I fetched " + count + " photograph" + (count == 1 ? "" : "s")
-                        + " of " + ai.dvine.llm.DrawPrompt.article(subject)
-                        + " and I'm showing one, cropped to the middle. "
-                        + "These are not one object from known camera angles, so I did not build a measured 3D model.";
+                String line = "Here's a photograph of " + ai.dvine.llm.DrawPrompt.article(subject)
+                        + (count > 1 ? ". I found " + count + " and this is one of them." : ".")
+                        + " It is a real picture, not a measured 3D model.";
                 play(LocalTurn.speakAs(stage.agent(), line), null);
             });
         });
@@ -2870,6 +2923,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         step(playId);
     }
 
+    private String spokenLine(String line) {
+        if (line != null && line.contains("unable to connect to my database")
+                && connectivity != null && connectivity.isOnline()) {
+            return "I don't have that in my notes.";
+        }
+        return line == null ? "" : line;
+    }
+
     private void step(final int token) {
         if (token != playId) {
             return;
@@ -2907,9 +2968,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if ("SAY".equals(line.cue)) {
                 stage.setMode(StageMode.SPEAKING);
                 stage.setThought(null);
-                stage.setSubtitle(line.text);
+                stage.setSubtitle(spokenLine(line.text));
                 if (chatPane != null && line.text != null && !line.text.isEmpty()) {
-                    chatPane.assistant(who, line.text);
+                    chatPane.assistant(who, spokenLine(line.text));
                 }
                 handler.post(() -> step(token));
             } else if (line.text != null && line.text.length() > 0) {

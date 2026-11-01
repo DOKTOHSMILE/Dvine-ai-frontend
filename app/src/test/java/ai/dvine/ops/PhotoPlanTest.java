@@ -42,6 +42,14 @@ public class PhotoPlanTest {
     }
 
     @Test
+    public void aBicycleFileBeatsAPersonOnABicycle() {
+        String ranked = "{\"title\":\"File:Boy on a bicycle.jpg\",\"thumburl\":\"https://upload.wikimedia.org/a.jpg\"}"
+                + "{\"title\":\"File:Bicycle.jpg\",\"thumburl\":\"https://upload.wikimedia.org/b.jpg\"}";
+        java.util.List<PhotoLookup.Shot> shots = PhotoLookup.choose(ranked, "bicycle", 2);
+        assertEquals("https://upload.wikimedia.org/b.jpg", shots.get(0).url);
+    }
+
+    @Test
     public void webAndSocialTextComeOnlyFromTheirOwnPages() {
         assertTrue(OpenSearch.duckUrl("capital of France").contains("duckduckgo.com"));
         assertEquals("Paris is the capital of France and has been for centuries.",

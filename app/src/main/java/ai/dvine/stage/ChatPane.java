@@ -119,11 +119,12 @@ public final class ChatPane extends LinearLayout {
                 }
             }
             row.setText(preview.isEmpty() ? s.title : s.title + "\n" + preview);
-            row.setTextColor(on ? 0xFF071018 : 0xFFE8F6FF);
+            row.setMaxLines(3);
+            row.setTextColor(on ? 0xFF7DD3E0 : 0xFFE8F6FF);
             row.setTextSize(14f);
             int pad = dp(12);
             row.setPadding(pad, pad, pad, pad);
-            row.setBackgroundResource(on ? R.drawable.dvine_persona_tab_selected : R.drawable.bg_input_container);
+            row.setBackgroundResource(R.drawable.bg_input_container);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             lp.topMargin = dp(8);
@@ -175,6 +176,7 @@ public final class ChatPane extends LinearLayout {
                 }
             }
             image.setAdjustViewBounds(true);
+            image.setMaxHeight(dp(220));
             LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
             lp.topMargin = dp(6);
             lp.gravity = user ? Gravity.END : Gravity.START;
@@ -244,17 +246,22 @@ public final class ChatPane extends LinearLayout {
                 mark.setText(name.substring(0, 1));
             }
         }
-        if (!user && "text".equals(m.kind) && row instanceof LinearLayout) {
+        if (!user && "text".equals(m.kind)) {
             TextView read = new TextView(getContext());
             read.setText("Read");
             read.setTextColor(0xFF7DD3E0);
             read.setPadding(0, dp(4), 0, 0);
             read.setOnClickListener(v -> host.onReadAloud(m.body));
-            ((LinearLayout) row).addView(read);
-            body.setOnLongClickListener(v -> {
-                copyText(m.body);
-                return true;
-            });
+            View message = row.findViewById(R.id.tv_message);
+            if (message != null && message.getParent() instanceof LinearLayout) {
+                ((LinearLayout) message.getParent()).addView(read);
+            }
+            if (body != null) {
+                body.setOnLongClickListener(v -> {
+                    copyText(m.body);
+                    return true;
+                });
+            }
         }
         return row;
     }

@@ -112,7 +112,7 @@ public final class ChatBook {
         if ("user".equals(role) && (s.title == null || s.title.equals("Chat") || s.title.equals("New chat"))
                 && s.messages.isEmpty()) {
             String t = body.trim().replace('\n', ' ');
-            s.title = t.length() > 28 ? t.substring(0, 28) : t;
+            s.title = t.length() > 48 ? t.substring(0, 48) : t;
         }
         if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
                 || "html".equals(kind) || "text".equals(kind)) {

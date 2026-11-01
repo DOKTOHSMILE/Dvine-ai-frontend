@@ -39,4 +39,65 @@ public final class PhotoLookup {
         }
         return out;
     }
+
+    public static final class Shot {
+        public final String title;
+        public final String url;
+
+        public Shot(String title, String url) {
+            this.title = title == null ? "" : title;
+            this.url = url == null ? "" : url;
+        }
+    }
+
+    /**
+     * Prefers a file whose name is the thing itself. A person, a crowd or a portrait is used only when
+     * nothing closer was found.
+     */
+    public static List<Shot> choose(String json, String subject, int limit) {
+        List<Shot> found = new ArrayList<Shot>();
+        if (json == null || limit < 1) {
+            return found;
+        }
+        Matcher titled = Pattern.compile(
+                "\"title\"\\s*:\\s*\"(File:[^\"]+)\"[\\s\\S]{0,900}?\"(?:thumburl|url)\"\\s*:\\s*\"(https://upload\\.wikimedia\\.org/[^\"]+)\"")
+                .matcher(json);
+        while (titled.find()) {
+            String url = titled.group(2).replace("\\/", "/");
+            boolean seen = false;
+            for (Shot s : found) {
+                if (s.url.equals(url)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                found.add(new Shot(titled.group(1).replace("\\/", "/"), url));
+            }
+        }
+        if (found.isEmpty()) {
+            for (String url : urls(json, limit)) {
+                found.add(new Shot("", url));
+            }
+            return found;
+        }
+        final String want = subject == null ? "" : subject.toLowerCase(java.util.Locale.US);
+        java.util.Collections.sort(found, (a, b) -> score(b, want) - score(a, want));
+        if (found.size() > limit) {
+            return new ArrayList<Shot>(found.subList(0, limit));
+        }
+        return found;
+    }
+
+    static int score(Shot shot, String subject) {
+        String title = shot.title.toLowerCase(java.util.Locale.US);
+        int n = 0;
+        if (!subject.isEmpty() && title.contains(subject)) {
+            n += 6;
+        }
+        if (title.matches(".*\\b(man|boy|woman|girl|child|person|people|portrait|crowd|soldier|farmer|rider)\\b.*")) {
+            n -= 8;
+        }
+        return n;
+    }
 }

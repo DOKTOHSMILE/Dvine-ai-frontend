@@ -32,7 +32,7 @@
         android:layout_marginStart="12dp"
         android:background="@drawable/bg_avatar_user"
         android:gravity="center"
-        android:text="I"
+        android:text=""
         android:textColor="#0A0A0F"
         android:textSize="14sp"
         android:textStyle="bold" />
