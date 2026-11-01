@@ -5,7 +5,7 @@ package ai.dvine.llm;
  */
 public final class BrainOrder {
     public enum Kind {
-        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, CANNOT
+        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, CANNOT
     }
 
     public final Kind kind;
@@ -104,7 +104,26 @@ public final class BrainOrder {
         if (photo != null) {
             return new BrainOrder(Kind.PHOTO, photo, "");
         }
+        if (needsLookup(said)) {
+            return new BrainOrder(Kind.SEARCH, said, "");
+        }
         return order;
+    }
+
+    /** A real question, not a name, the time, or a picture. */
+    static boolean needsLookup(String said) {
+        if (said == null) {
+            return false;
+        }
+        String low = said.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        if (low.length() < 16 || low.contains("my name") || low.startsWith("what time")
+                || low.startsWith("what's the time") || low.startsWith("how are you")
+                || low.startsWith("how's it")) {
+            return false;
+        }
+        return low.contains("?") || low.startsWith("what ") || low.startsWith("why ")
+                || low.startsWith("how ") || low.startsWith("explain") || low.startsWith("where ")
+                || low.startsWith("when ") || low.startsWith("who ");
     }
 
     /** "show me a banana", "draw me a banana", or just "banana". Null when it is not a picture. */

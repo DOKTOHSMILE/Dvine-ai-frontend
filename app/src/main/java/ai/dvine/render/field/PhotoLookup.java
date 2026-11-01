@@ -23,6 +23,18 @@ public final class PhotoLookup {
         }
     }
 
+    /** A plain search, used when the strict one returns nothing. */
+    public static String plainUrl(String subject, int limit) {
+        int n = Math.max(1, Math.min(12, limit));
+        try {
+            return "https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit="
+                    + n + "&gsrsearch=" + URLEncoder.encode(subject == null ? "" : subject.trim(), "UTF-8")
+                    + "&prop=imageinfo&iiprop=url&iiurlwidth=640";
+        } catch (java.io.UnsupportedEncodingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private static final Pattern URL = Pattern.compile("\"(?:thumburl|url)\"\\s*:\\s*\"(https://upload\\.wikimedia\\.org/[^\"]+)\"");
 
     /** Image addresses on Wikimedia's own server, thumbnail first, up to {@code limit}. */

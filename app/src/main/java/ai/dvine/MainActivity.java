@@ -1034,6 +1034,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : "I can't run that command on this phone. I can find a zip or unzip one."),
                         null);
                 return;
+            case SEARCH:
+                lookUpAnswer(order.arg);
+                return;
             case CANNOT:
             default:
                 String why = order.speech == null || order.speech.isEmpty()
@@ -1041,6 +1044,53 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : "I can't carry that out. " + order.speech;
                 play(LocalTurn.speakAs(agent, why), null);
         }
+    }
+
+    private void lookUpAnswer(final String question) {
+        final int id = ++askId;
+        final String agent = stage.agent();
+        boolean online = connectivity != null && connectivity.isOnline();
+        if (!online) {
+            BrainAnswer noted = brain.respond(question, agent);
+            if (noted != null && noted.answered && plain(noted)) {
+                play(noted.lines, null);
+            } else {
+                play(LocalTurn.speakAs(agent, "I need the network to look that up, and I don't have it in my notes."), null);
+            }
+            return;
+        }
+        stopPlay();
+        armThink("Looking it up", "Looking it up");
+        modelThread.execute(() -> {
+            final String found = ai.dvine.ops.mind.CitedReference.collect(question, url -> {
+                byte[] body = ai.dvine.net.WebGet.get(url, 8000, 400_000);
+                if (body == null) {
+                    return null;
+                }
+                try {
+                    return new String(body, "UTF-8");
+                } catch (java.io.UnsupportedEncodingException e) {
+                    return null;
+                }
+            }, System.currentTimeMillis());
+            handler.post(() -> {
+                if (id != askId || isFinishing()) {
+                    return;
+                }
+                endThink();
+                if (found != null && !found.trim().isEmpty()) {
+                    play(LocalTurn.speakAs(agent, found), null);
+                    return;
+                }
+                BrainAnswer noted = brain.respond(question, agent);
+                if (noted != null && noted.answered && plain(noted)) {
+                    play(noted.lines, null);
+                } else {
+                    play(LocalTurn.speakAs(agent,
+                            "I looked that up and don't have a source I can stand behind, so I won't guess."), null);
+                }
+            });
+        });
     }
 
     private java.util.List<java.io.File> shellRoots() {
@@ -1490,6 +1540,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         bytes = ai.dvine.net.WebGet.get(shot.url, 12000, 3 * 1024 * 1024);
                         if (bytes != null && bytes.length > 32) {
                             used = shot.url;
+                            break;
+                        }
+                        bytes = null;
+                    }
+                }
+                if (bytes == null) {
+                    byte[] listing = ai.dvine.net.WebGet.get(
+                            ai.dvine.render.field.PhotoLookup.plainUrl(subject, 8), 12000, 512 * 1024);
+                    String json = listing == null ? null : new String(listing, "UTF-8");
+                    java.util.List<String> loose = ai.dvine.render.field.PhotoLookup.urls(json, 4);
+                    found = Math.max(found, loose.size());
+                    for (String url : loose) {
+                        if (id != askId || shownPhotos.contains(url)) {
+                            continue;
+                        }
+                        bytes = ai.dvine.net.WebGet.get(url, 12000, 3 * 1024 * 1024);
+                        if (bytes != null && bytes.length > 32) {
+                            used = url;
                             break;
                         }
                         bytes = null;
