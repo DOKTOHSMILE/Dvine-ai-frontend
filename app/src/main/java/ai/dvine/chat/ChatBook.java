@@ -23,12 +23,18 @@ public final class ChatBook {
         public final String kind;
         public final String body;
         public final String persona;
+        public final String language;
 
         public Message(String role, String kind, String body, String persona) {
+            this(role, kind, body, persona, "");
+        }
+
+        public Message(String role, String kind, String body, String persona, String language) {
             this.role = role == null ? "assistant" : role;
             this.kind = kind == null ? "text" : kind;
             this.body = body == null ? "" : body;
             this.persona = persona == null ? "" : persona;
+            this.language = language == null ? "" : language;
         }
     }
 
@@ -36,6 +42,8 @@ public final class ChatBook {
         public final String id;
         public String title;
         public String persona;
+        public boolean pinned;
+        public boolean archived;
         public final List<Message> messages = new ArrayList<Message>();
 
         Section(String id, String title, String persona) {
@@ -106,7 +114,8 @@ public final class ChatBook {
             String t = body.trim().replace('\n', ' ');
             s.title = t.length() > 28 ? t.substring(0, 28) : t;
         }
-        if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "text".equals(kind)) {
+        if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
+                || "html".equals(kind) || "text".equals(kind)) {
             s.messages.add(new Message(role, kind, body, persona));
         } else {
             s.messages.add(new Message(role, "text", body, persona));
@@ -114,46 +123,26 @@ public final class ChatBook {
         save();
     }
 
-    /** Splits a reply on fenced code blocks. Ordinary speech stays one text message. */
+    /** Splits a reply on fenced code blocks. A fenced HTML page is its own message. */
     public static List<Message> blocks(String role, String persona, String text) {
         List<Message> out = new ArrayList<Message>();
-        if (text == null || text.trim().isEmpty()) {
-            return out;
-        }
-        int i = 0;
-        while (i < text.length()) {
-            int fence = text.indexOf("```", i);
-            if (fence < 0) {
-                String rest = text.substring(i).trim();
-                if (!rest.isEmpty()) {
-                    out.add(new Message(role, "text", rest, persona));
-                }
-                break;
-            }
-            String before = text.substring(i, fence).trim();
-            if (!before.isEmpty()) {
-                out.add(new Message(role, "text", before, persona));
-            }
-            int close = text.indexOf("```", fence + 3);
-            if (close < 0) {
-                String code = text.substring(fence + 3).replaceFirst("^[A-Za-z0-9_+-]*\\n?", "").trim();
-                if (!code.isEmpty()) {
-                    out.add(new Message(role, "code", code, persona));
-                }
-                break;
-            }
-            String code = text.substring(fence + 3, close).replaceFirst("^[A-Za-z0-9_+-]*\\n?", "").trim();
-            if (!code.isEmpty()) {
-                out.add(new Message(role, "code", code, persona));
-            }
-            i = close + 3;
+        for (MessageParts.Part part : MessageParts.split(text)) {
+            out.add(new Message(role, part.kind, part.body, persona, part.language));
         }
         return out;
     }
 
     public synchronized void reply(String persona, String text) {
+        boolean wrote = false;
         for (Message m : blocks("assistant", persona, text)) {
-            add(m.role, m.kind, m.body, m.persona);
+            if (m.body.trim().isEmpty()) {
+                continue;
+            }
+            current().messages.add(m);
+            wrote = true;
+        }
+        if (wrote) {
+            save();
         }
     }
 
@@ -212,7 +201,7 @@ public final class ChatBook {
                 line = who + ": [a photograph file is in this chat]";
             } else if ("video".equals(m.kind)) {
                 line = who + ": [a video file is in this chat]";
-            } else if ("code".equals(m.kind)) {
+            } else if ("code".equals(m.kind) || "html".equals(m.kind)) {
                 String code = m.body.replace('\n', ' ').trim();
                 line = who + " code: " + (code.length() > 180 ? code.substring(0, 180) : code);
             } else {
@@ -240,6 +229,82 @@ public final class ChatBook {
             }
         }
         return null;
+    }
+
+    public synchronized boolean rename(String id, String title) {
+        String t = title == null ? "" : title.trim();
+        if (t.isEmpty()) {
+            return false;
+        }
+        for (Section s : sections) {
+            if (s.id.equals(id)) {
+                s.title = t.length() > 48 ? t.substring(0, 48) : t;
+                save();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public synchronized boolean pin(String id, boolean on) {
+        for (Section s : sections) {
+            if (s.id.equals(id)) {
+                s.pinned = on;
+                save();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public synchronized boolean archive(String id, boolean on) {
+        for (Section s : sections) {
+            if (s.id.equals(id)) {
+                s.archived = on;
+                save();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Removes a chat. The last remaining chat is cleared instead, so the book is never empty. */
+    public synchronized boolean remove(String id) {
+        Section found = null;
+        for (Section s : sections) {
+            if (s.id.equals(id)) {
+                found = s;
+                break;
+            }
+        }
+        if (found == null) {
+            return false;
+        }
+        if (sections.size() == 1) {
+            found.messages.clear();
+            found.title = "Chat";
+            found.pinned = false;
+            found.archived = false;
+            save();
+            return true;
+        }
+        sections.remove(found);
+        if (found.id.equals(currentId)) {
+            currentId = sections.get(sections.size() - 1).id;
+        }
+        save();
+        return true;
+    }
+
+    public synchronized void reload() {
+        sections.clear();
+        shared.clear();
+        currentId = null;
+        next = 1;
+        load();
+        if (sections.isEmpty()) {
+            open("Chat", "ivie");
+        }
     }
 
     private static String personaOf(String persona) {
@@ -276,6 +341,8 @@ public final class ChatBook {
                     Map<?, ?> m = (Map<?, ?>) item;
                     Section s = new Section(MiniJson.str(m.get("id"), "c" + next),
                             MiniJson.str(m.get("title"), "Chat"), personaOf(MiniJson.str(m.get("persona"), "ivie")));
+                    s.pinned = Boolean.TRUE.equals(m.get("pinned"));
+                    s.archived = Boolean.TRUE.equals(m.get("archived"));
                     Object msgs = m.get("messages");
                     if (msgs instanceof List) {
                         for (Object row : (List<?>) msgs) {
@@ -285,7 +352,8 @@ public final class ChatBook {
                             Map<?, ?> mm = (Map<?, ?>) row;
                             s.messages.add(new Message(MiniJson.str(mm.get("role"), "assistant"),
                                     MiniJson.str(mm.get("kind"), "text"), MiniJson.str(mm.get("body"), ""),
-                                    MiniJson.str(mm.get("persona"), s.persona)));
+                                    MiniJson.str(mm.get("persona"), s.persona),
+                                    MiniJson.str(mm.get("language"), "")));
                         }
                     }
                     sections.add(s);
@@ -326,6 +394,8 @@ public final class ChatBook {
             m.put("id", s.id);
             m.put("title", s.title);
             m.put("persona", s.persona);
+            m.put("pinned", Boolean.valueOf(s.pinned));
+            m.put("archived", Boolean.valueOf(s.archived));
             List<Object> msgs = new ArrayList<Object>();
             for (Message msg : s.messages) {
                 Map<String, Object> row = new LinkedHashMap<String, Object>();
@@ -333,6 +403,9 @@ public final class ChatBook {
                 row.put("kind", msg.kind);
                 row.put("body", msg.body);
                 row.put("persona", msg.persona);
+                if (msg.language != null && !msg.language.isEmpty()) {
+                    row.put("language", msg.language);
+                }
                 msgs.add(row);
             }
             m.put("messages", msgs);

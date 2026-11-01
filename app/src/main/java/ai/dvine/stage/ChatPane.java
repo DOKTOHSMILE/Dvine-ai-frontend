@@ -3,7 +3,6 @@ package ai.dvine.stage;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Typeface;
-import android.net.Uri;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,7 +11,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.VideoView;
 
 import ai.dvine.R;
 import ai.dvine.chat.ChatBook;
@@ -26,6 +24,8 @@ public final class ChatPane extends LinearLayout {
         void onSend(String text);
 
         void onSection(ChatBook.Section section);
+
+        void onReadAloud(String text);
     }
 
     private final ChatBook book;
@@ -179,13 +179,51 @@ public final class ChatPane extends LinearLayout {
             lp.topMargin = dp(6);
             lp.gravity = user ? Gravity.END : Gravity.START;
             image.setLayoutParams(lp);
+            image.setOnClickListener(v -> open(ai.dvine.chat.ui.ImageViewActivity.class, "path", m.body));
             return image;
         }
-        if ("video".equals(m.kind)) {
-            TextView tap = plain("Video on this phone. Tap to play.");
+        if ("video".equals(m.kind) || "audio".equals(m.kind)) {
+            TextView tap = plain("audio".equals(m.kind) ? "Audio. Tap to play." : "Video. Tap to play.");
             tap.setTextColor(0xFFE8F6FF);
-            tap.setOnClickListener(v -> playVideo(m.body, tap));
+            tap.setOnClickListener(v -> {
+                android.content.Intent intent = new android.content.Intent(getContext(),
+                        ai.dvine.chat.ui.MediaPlayActivity.class);
+                intent.putExtra(ai.dvine.chat.ui.MediaPlayActivity.EXTRA_PATH, m.body);
+                intent.putExtra(ai.dvine.chat.ui.MediaPlayActivity.EXTRA_VIDEO, "video".equals(m.kind));
+                getContext().startActivity(intent);
+            });
             return tap;
+        }
+        if ("code".equals(m.kind) || "html".equals(m.kind)) {
+            View row = LayoutInflater.from(getContext()).inflate(R.layout.item_code_message, thread, false);
+            TextView lang = row.findViewById(R.id.code_lang);
+            TextView body = row.findViewById(R.id.code_body);
+            if (lang != null) {
+                lang.setText("html".equals(m.kind) ? "HTML preview" : (m.language == null || m.language.isEmpty() ? "code" : m.language));
+            }
+            if (body != null) {
+                body.setText(m.body == null ? "" : m.body);
+            }
+            TextView copy = row.findViewById(R.id.code_copy);
+            if (copy != null) {
+                copy.setOnClickListener(v -> copyText(m.body));
+            }
+            TextView open = row.findViewById(R.id.code_open);
+            if (open != null) {
+                open.setText("html".equals(m.kind) ? "Preview" : "Open");
+                open.setOnClickListener(v -> {
+                    if ("html".equals(m.kind)) {
+                        open(ai.dvine.chat.ui.HtmlViewActivity.class, ai.dvine.chat.ui.HtmlViewActivity.EXTRA_HTML, m.body);
+                    } else {
+                        android.content.Intent intent = new android.content.Intent(getContext(),
+                                ai.dvine.chat.ui.CodeViewActivity.class);
+                        intent.putExtra(ai.dvine.chat.ui.CodeViewActivity.EXTRA_CODE, m.body);
+                        intent.putExtra(ai.dvine.chat.ui.CodeViewActivity.EXTRA_LANG, m.language);
+                        getContext().startActivity(intent);
+                    }
+                });
+            }
+            return row;
         }
         int layout = user ? R.layout.item_message_user : R.layout.item_message_assistant;
         View row = LayoutInflater.from(getContext()).inflate(layout, thread, false);
@@ -206,7 +244,33 @@ public final class ChatPane extends LinearLayout {
                 mark.setText(name.substring(0, 1));
             }
         }
+        if (!user && "text".equals(m.kind) && row instanceof LinearLayout) {
+            TextView read = new TextView(getContext());
+            read.setText("Read");
+            read.setTextColor(0xFF7DD3E0);
+            read.setPadding(0, dp(4), 0, 0);
+            read.setOnClickListener(v -> host.onReadAloud(m.body));
+            ((LinearLayout) row).addView(read);
+            body.setOnLongClickListener(v -> {
+                copyText(m.body);
+                return true;
+            });
+        }
         return row;
+    }
+
+    private void open(Class<?> screen, String extra, String value) {
+        android.content.Intent intent = new android.content.Intent(getContext(), screen);
+        intent.putExtra(extra, value);
+        getContext().startActivity(intent);
+    }
+
+    private void copyText(String text) {
+        android.content.ClipboardManager clips = (android.content.ClipboardManager) getContext()
+                .getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        if (clips != null) {
+            clips.setPrimaryClip(android.content.ClipData.newPlainText("dvine", text == null ? "" : text));
+        }
     }
 
     private static String labelOf(String persona) {
@@ -214,31 +278,6 @@ public final class ChatPane extends LinearLayout {
             return "Obi";
         }
         return persona.substring(0, 1).toUpperCase() + persona.substring(1);
-    }
-
-    private void playVideo(String path, View label) {
-        java.io.File f = new java.io.File(path == null ? "" : path);
-        if (!f.isFile() || !(label.getParent() instanceof LinearLayout)) {
-            return;
-        }
-        LinearLayout parent = (LinearLayout) label.getParent();
-        int at = parent.indexOfChild(label);
-        try {
-            VideoView video = new VideoView(getContext());
-            LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(180));
-            lp.topMargin = dp(6);
-            video.setLayoutParams(lp);
-            Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), "ai.dvine.files", f);
-            video.setVideoURI(uri);
-            parent.removeView(label);
-            parent.addView(video, at);
-            video.setOnPreparedListener(mp -> video.start());
-        } catch (RuntimeException failed) {
-            label.setOnClickListener(null);
-            if (label instanceof TextView) {
-                ((TextView) label).setText("That video file is here, but the player could not open it.");
-            }
-        }
     }
 
     private TextView plain(String text) {

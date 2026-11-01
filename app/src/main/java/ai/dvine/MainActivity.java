@@ -307,6 +307,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View drawerNew = findViewById(R.id.btnDrawerNew);
         if (drawerNew != null)
             drawerNew.setOnClickListener(v -> startNewChatSafely());
+        android.view.View manage = findViewById(R.id.btnManageChats);
+        if (manage != null)
+            manage.setOnClickListener(v -> openHistory());
         android.view.View scrim = findViewById(R.id.drawerScrim);
         if (scrim != null)
             scrim.setOnClickListener(v -> closeDrawer());
@@ -357,6 +360,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         String text = field.getText().toString().trim();
         if (text.isEmpty()) {
+            if (generating) {
+                stopGeneration();
+            }
+            return;
+        }
+        if (generating) {
+            stopGeneration();
             return;
         }
         field.setText("");
@@ -525,6 +535,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 selectPersona(section.persona);
                 examiner.clearTopic();
+            }
+
+            @Override
+            public void onReadAloud(String text) {
+                if (talk != null && text != null && !text.isEmpty() && stage != null) {
+                    talk.speak("ivie".equals(stage.agent()), text, null);
+                }
             }
         });
 
@@ -728,6 +745,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean fromBrain;
     private ai.dvine.ops.AssistantCore assistant;
     private static final int PICK_CONTENT = 47;
+    private static final int HISTORY = 48;
+    private boolean generating;
     private boolean pickerLearn;
     private boolean pickerReconstruct;
 
@@ -748,6 +767,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             updateThoughtStatus(thinkPace.line(), true);
             handler.removeCallbacks(thinkBeat);
             handler.postDelayed(thinkBeat, 800);
+            setGenerating(true);
         });
     }
 
@@ -755,6 +775,32 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thinkPace = null;
         handler.removeCallbacks(thinkBeat);
         updateThoughtStatus("", false);
+        setGenerating(false);
+    }
+
+    private void stopGeneration() {
+        readToken++;
+        askId++;
+        if (model != null) {
+            model.cancel();
+        }
+        endThink();
+        stopPlay();
+    }
+
+    private void setGenerating(boolean on) {
+        generating = on;
+        android.widget.ImageButton send = findViewById(R.id.btn_send);
+        if (send == null) {
+            return;
+        }
+        send.setImageResource(on ? android.R.drawable.ic_media_pause : R.drawable.ic_send);
+        send.setContentDescription(on ? "Stop" : "Send");
+    }
+
+    private void openHistory() {
+        closeDrawer();
+        startActivityForResult(new android.content.Intent(this, ai.dvine.chat.ui.HistoryActivity.class), HISTORY);
     }
 
     private boolean modelPiece(int id, String text) {
@@ -2958,6 +3004,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == HISTORY) {
+            if (chats != null) {
+                chats.reload();
+            }
+            if (chatPane != null) {
+                chatPane.show();
+            }
+            return;
+        }
         if (requestCode != PICK_CONTENT) {
             return;
         }
