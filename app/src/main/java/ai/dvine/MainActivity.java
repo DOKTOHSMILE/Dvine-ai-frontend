@@ -1537,45 +1537,34 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             armThink("Thinking\u2026", "Thinking\u2026");
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
-            final ai.dvine.llm.SpeechChunker chunker = new ai.dvine.llm.SpeechChunker();
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
             final String all = model.reply(system, question, context, 160, text -> {
                 if (!modelPiece(id, text)) {
                     return false;
                 }
-                if ("\u0001".equals(text)) {
-                    return true;
-                }
-                final java.util.List<String> ready = chunker.add(tags.add(text));
-                if (!ready.isEmpty()) {
-                    handler.post(() -> {
-                        if (id == askId) {
-                            endThink();
-                            for (String sentence : ready) {
-                                stream.add(new TurnLine(agent, "SAY", sentence));
-                            }
-                        }
-                    });
+                if (text != null && !"\u0001".equals(text)) {
+                    tags.add(text);
                 }
                 return id == askId;
             });
-            chunker.add(tags.flush());
-            final String rest = chunker.flush();
+            tags.flush();
             final String switchTo = tags.switchTo();
             handler.post(() -> {
                 if (id != askId) {
                     return;
                 }
                 endThink();
-                if (all == null && stream.isEmpty()) {
+                String body = all == null ? ""
+                        : ai.dvine.llm.ReplyLayout.join(ai.dvine.llm.ActionTags.strip(all));
+                if (body.isEmpty()) {
                     String why = model.problem();
                     if (why != null && (why.contains("quiet") || why.contains("too long"))) {
                         stream.add(new TurnLine(agent, "SAY",
                                 "That reply stopped, " + why + ". This is from my notes."));
                     }
                     stream.addAll(offline.lines);
-                } else if (!rest.isEmpty()) {
-                    stream.add(new TurnLine(agent, "SAY", rest));
+                } else {
+                    stream.add(new TurnLine(agent, "SAY", body));
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     afterPlay = () -> switchFace(switchTo, true);
