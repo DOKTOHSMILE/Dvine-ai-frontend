@@ -962,7 +962,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void carryOut(String agent, String question, ai.dvine.llm.BrainOrder order) {
         if (order == null) {
-            BrainAnswer noted = brain.respond(question);
+            BrainAnswer noted = brain.respond(question, agent);
             if (noted != null && noted.answered && plain(noted)) {
                 play(noted.lines, null);
                 return;
