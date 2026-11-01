@@ -100,6 +100,44 @@ public final class BrainOrder {
         if (t.contains("what time") || t.contains("what's the time")) {
             return read("DO TIME");
         }
+        String photo = pictureOf(said);
+        if (photo != null) {
+            return new BrainOrder(Kind.PHOTO, photo, "");
+        }
         return order;
+    }
+
+    /** "show me a banana", "draw me a banana", or just "banana". Null when it is not a picture. */
+    static String pictureOf(String said) {
+        if (said == null) {
+            return null;
+        }
+        String drawn = DrawPrompt.subject(said);
+        if (drawn != null) {
+            return drawn;
+        }
+        String t = said.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        java.util.regex.Matcher show = java.util.regex.Pattern.compile(
+                "^(?:please )?(?:show|see)(?: me)?(?: a| an| the| some)? (.+)$").matcher(t);
+        if (show.matches()) {
+            return tidyPicture(show.group(1));
+        }
+        java.util.regex.Matcher of = java.util.regex.Pattern.compile(
+                "^(?:a |an |the )?(?:picture|photo|photograph|image) of (.+)$").matcher(t);
+        if (of.matches()) {
+            return tidyPicture(of.group(1));
+        }
+        if (t.matches("[\\p{L}]{3,24}") && !t.matches("hello|hey|hi|yes|no|okay|ok|thanks|please")) {
+            return t;
+        }
+        return null;
+    }
+
+    private static String tidyPicture(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String s = raw.trim().replaceAll("^(a|an|the|some) ", "");
+        return s.isEmpty() || s.split(" ").length > 6 ? null : s;
     }
 }

@@ -929,13 +929,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void askTheBrain(String question) {
+        final String agent = stage.agent();
+        ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(question, null);
+        if (known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY) {
+            carryOut(agent, question, known);
+            return;
+        }
         if (model == null || !model.ready() || !prefs.getBoolean("llm_on", true)) {
-            play(LocalTurn.speakAs(stage.agent(),
-                    "The brain isn't ready, so I can't interpret that yet."), null);
+            carryOut(agent, question, null);
             return;
         }
         final int id = ++askId;
-        final String agent = stage.agent();
         stopPlay();
         stage.setMode(StageMode.THINKING);
         armThink("Thinking\u2026", "Thinking\u2026");
@@ -951,21 +955,26 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 endThink();
-                carryOut(agent, ai.dvine.llm.BrainOrder.decide(question, all));
+                carryOut(agent, question, ai.dvine.llm.BrainOrder.decide(question, all));
             });
         });
     }
 
-    private void carryOut(String agent, ai.dvine.llm.BrainOrder order) {
+    private void carryOut(String agent, String question, ai.dvine.llm.BrainOrder order) {
         if (order == null) {
-            play(LocalTurn.speakAs(agent, "The brain went quiet, so I didn't carry that out."), null);
+            BrainAnswer noted = brain.respond(question);
+            if (noted != null && noted.answered && plain(noted)) {
+                play(noted.lines, null);
+                return;
+            }
+            play(LocalTurn.speakAs(agent, "I can't carry that out."), null);
             return;
         }
         switch (order.kind) {
             case SAY:
                 String said = order.speech.trim();
                 play(LocalTurn.speakAs(agent, said.isEmpty()
-                        ? "The brain went quiet, so I didn't carry that out." : said), null);
+                        ? "I can't carry that out." : said), null);
                 return;
             case PHOTO:
                 lookUpPhotos(order.arg);
