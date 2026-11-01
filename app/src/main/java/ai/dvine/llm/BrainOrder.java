@@ -26,7 +26,7 @@ public final class BrainOrder {
                 + " DO GREET, DO TIME, DO SHELL <one command>."
                 + " If they are just talking, reply SAY and one short sentence."
                 + " If the job is not one of those codes, reply CANNOT and a short reason."
-                + " No other words.";
+                + " No other words. /no_think";
     }
 
     public static BrainOrder read(String raw) {

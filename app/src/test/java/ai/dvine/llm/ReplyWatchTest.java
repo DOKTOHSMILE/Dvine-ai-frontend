@@ -10,11 +10,12 @@ public class ReplyWatchTest {
     @Test
     public void tokensKeepAReplyAliveUntilTheCap() {
         ReplyWatch watch = new ReplyWatch(12_000, 90_000, 0);
-        assertFalse(watch.expired(11_000));
-        assertTrue(watch.expired(12_000));
-        assertEquals("idle", watch.reason(12_000));
-        watch.touch(12_000);
-        assertFalse(watch.expired(20_000));
+        assertFalse(watch.expired(12_000));
+        assertFalse(watch.expired(40_000));
+        watch.touch(40_000);
+        assertFalse(watch.expired(50_000));
+        assertTrue(watch.expired(52_000));
+        assertEquals("idle", watch.reason(52_000));
         assertTrue(watch.expired(90_000));
         assertEquals("cap", watch.reason(90_000));
         watch.finish();

@@ -151,7 +151,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             pace.tick(System.currentTimeMillis());
-            if (inFront && System.currentTimeMillis() - thinkStartedMs > 40_000L) {
+            if (inFront && System.currentTimeMillis() - thinkStartedMs > 90_000L) {
                 handler.post(() -> {
                     if (thinkPace == null) {
                         return;

@@ -9,6 +9,7 @@ public final class ReplyWatch {
     private final long capMs;
     private final long started;
     private volatile long lastTouch;
+    private volatile boolean heard;
     private volatile boolean finished;
 
     public ReplyWatch(long idleMs, long capMs, long nowMs) {
@@ -19,6 +20,7 @@ public final class ReplyWatch {
     }
 
     public void touch(long nowMs) {
+        heard = true;
         if (nowMs > lastTouch) {
             lastTouch = nowMs;
         }
@@ -32,19 +34,22 @@ public final class ReplyWatch {
         return finished;
     }
 
-    /** True when nothing has arrived for the idle window, or the hard cap has passed. */
+    /** True once tokens have stalled, or the hard cap has passed. Waiting for the first token is not a stall. */
     public boolean expired(long nowMs) {
         if (finished) {
             return false;
         }
-        return nowMs - started >= capMs || nowMs - lastTouch >= idleMs;
+        if (nowMs - started >= capMs) {
+            return true;
+        }
+        return heard && nowMs - lastTouch >= idleMs;
     }
 
     public String reason(long nowMs) {
         if (nowMs - started >= capMs) {
             return "cap";
         }
-        if (nowMs - lastTouch >= idleMs) {
+        if (heard && nowMs - lastTouch >= idleMs) {
             return "idle";
         }
         return "";
