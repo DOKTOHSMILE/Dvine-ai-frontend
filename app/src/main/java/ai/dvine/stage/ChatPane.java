@@ -216,11 +216,7 @@ public final class ChatPane extends LinearLayout {
         pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
         top.startAnimation(pulse);
         box.addView(top);
-        int from = Math.max(0, steps.size() - 6);
-        if (from > 0) {
-            box.addView(stepLine("\u2026 " + from + " earlier step" + (from == 1 ? "" : "s"), false, false));
-        }
-        for (int i = from; i < steps.size(); i++) {
+        for (int i = 0; i < steps.size(); i++) { // every step, none folded away
             box.addView(stepLine(steps.get(i), i < steps.size() - 1, i == steps.size() - 1));
         }
         return box;

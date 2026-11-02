@@ -6,7 +6,7 @@ import java.util.Locale;
 
 /**
  * What a shell command does, in words, for the steps the user sees: "ls -la src" is "Listed the files in src",
- * "grep -rn TODO app" is "Searched for “TODO” in app", "cat a; wc -l a" is "Read a and 1 more". The command itself
+ * "grep -rn TODO app" is "Searched for “TODO” in app", "cat a; wc -l a" is "Read a, then counted the lines in a": every command named. The command itself
  * stays one tap away (the step's detail). Pure Java.
  */
 public final class CommandWords {
@@ -28,9 +28,17 @@ public final class CommandWords {
         if (parts.isEmpty()) {
             return "Ran a command";
         }
-        String first = one(parts.get(0));
-        int more = parts.size() - 1;
-        return more == 0 ? first : first + " and " + more + " more";
+        // every command named, none counted away: "Listed the files in app, then read app/Main.java"
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < parts.size(); i++) {
+            String said = one(parts.get(i));
+            if (i > 0) {
+                b.append(", then ").append(Character.toLowerCase(said.charAt(0))).append(said.substring(1));
+            } else {
+                b.append(said);
+            }
+        }
+        return b.toString();
     }
 
     /** One command (with its pipes) in words. */
@@ -199,8 +207,14 @@ public final class CommandWords {
         if (args.isEmpty()) {
             return "a file";
         }
-        String first = clean(args.get(0));
-        return args.size() == 1 ? first : first + " and " + (args.size() - 1) + " more";
+        List<String> names = new ArrayList<String>();
+        for (String a : args) {
+            names.add(clean(a));
+        }
+        if (names.size() == 1) {
+            return names.get(0);
+        }
+        return String.join(", ", names.subList(0, names.size() - 1)) + " and " + names.get(names.size() - 1);
     }
 
     private static String clean(String s) {

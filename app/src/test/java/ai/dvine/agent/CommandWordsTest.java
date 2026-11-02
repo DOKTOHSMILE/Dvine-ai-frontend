@@ -14,13 +14,14 @@ import org.junit.Test;
 public class CommandWordsTest {
     @Test
     public void commandsInWords() {
-        assertEquals("Listed the files in Dvine-ai-frontend and 1 more", CommandWords.describe("ls -la; echo ---; ls Dvine-ai-frontend/"));
+        assertEquals("Listed the files in the workspace, then listed the files in Dvine-ai-frontend", CommandWords.describe("ls -la; echo ---; ls Dvine-ai-frontend/"));
         assertEquals("Looked through the files in Dvine-ai-frontend/app/src/main/java (the first lines)",
                 CommandWords.describe("find Dvine-ai-frontend/app/src/main/java -type f | head -n 1"));
         assertEquals("Searched for \\u201cTODO\\u201d in app".replace("\\u201c", "“").replace("\\u201d", "”"),
                 CommandWords.describe("grep -rn TODO app"));
         assertEquals("Read app/Main.java", CommandWords.describe("cat app/Main.java"));
-        assertEquals("Counted the lines in a.py and 1 more", CommandWords.describe("wc -l a.py b.py"));
+        assertEquals("Counted the lines in a.py and b.py", CommandWords.describe("wc -l a.py b.py"));
+        assertEquals("Read a.py, b.py and c.py", CommandWords.describe("cat a.py b.py c.py"));
         assertEquals("Looked for files named “*.java” in src", CommandWords.describe("find src -name '*.java'"));
         assertEquals("Wrote to note.txt", CommandWords.describe("echo hello > note.txt"));
         assertEquals("Ran app.py", CommandWords.describe("cd app && python3 app.py"));
