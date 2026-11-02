@@ -32,6 +32,11 @@ public final class CodeAgent {
     public interface Brain {
         String ask(String system, String transcript);
 
+        /** As {@link #ask}, with room for a long final report (a bigger reply limit). */
+        default String askLong(String system, String transcript) {
+            return ask(system, transcript);
+        }
+
         /** Why the last ask failed ("the API key was refused (401)"), or null when it doesn't know. */
         default String why() {
             return null;
@@ -143,10 +148,18 @@ public final class CodeAgent {
     /** Works on the task; the final answer for the user. */
     public String run(String task, String earlier) {
         StringBuilder work = new StringBuilder();
-        if (earlier != null && !earlier.trim().isEmpty()) {
-            work.append("Earlier in this chat:\n").append(earlier.trim()).append("\n\n");
+        if (resume != null && !resume.trim().isEmpty()) {
+            // "continue", "give me the result": the same work goes on, with everything already read
+            work.append(resume.trim()).append("\n\nThe user now says: ").append(task.trim()).append('\n');
+        } else {
+            if (earlier != null && !earlier.trim().isEmpty()) {
+                work.append("Earlier in this chat:\n").append(earlier.trim()).append("\n\n");
+            }
+            work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
         }
-        work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
+        this.work = work;
+        boolean big = bigTask(task) || bigTask(resume);
+        boolean reportAsked = false;
         for (int step = 1; step <= maxSteps; step++) {
             if (host.stopped()) {
                 return "Stopped." + summary();
@@ -154,8 +167,8 @@ public final class CodeAgent {
             String reply = brain.ask(system(), trimmed(work.toString()));
             if (reply == null || reply.trim().isEmpty()) {
                 String why = brain.why();
-                return "The model didn't answer" + (why == null || why.isEmpty() ? "" : " (" + why + ")") + ", so I stopped at step " + step + "."
-                        + summary();
+                return "The model didn't answer" + (why == null || why.isEmpty() ? "" : " (" + why + ")") + ", so I stopped at step " + step
+                        + ". Say \u201ccontinue\u201d to carry on from here." + summary();
             }
             Call call = parse(reply);
             if (call == null) {
@@ -163,24 +176,31 @@ public final class CodeAgent {
                 if (answer.matches("(?s).*<(tool|tool_call|function|invoke)\\b.*") && nudges < 2) {
                     nudges++; // a call it couldn't be read: say so and let the model try again
                     work.append("\n").append(clip(answer, 600)).append("\n<result>\nThat tool call couldn't be read. Write it exactly as"
-                            + " <tool name=\"…\" …/> (see the tools), on its own.\n</result>\n");
+                            + " <tool name=\"\u2026\" \u2026/> (see the tools), on its own.\n</result>\n");
                     continue;
                 }
-                if (promise(answer) && nudges < 3 && step < maxSteps) {
+                if (promise(answer) && nudges < 2 && step < maxSteps) {
                     nudges++; // "I'll research Google…" is a plan, not an answer: do it
                     work.append("\n").append(answer).append("\n<result>\nDo that now with the tools, then give the actual result"
                             + " as your final answer.\n</result>\n");
                     continue;
+                } else if (big && !reportAsked && answer.length() < REPORT_CHARS) {
+                    // an audit, review, research or report ended in a line or two: never the end. One more round,
+                    // with room for the whole report (and the tools, if more has to be read first)
+                    reportAsked = true;
+                    work.append("\n").append(answer).append("\n<result>\n").append(REPORT_NOW).append("\n</result>\n");
+                    String full = brain.askLong(system(), trimmed(work.toString()));
+                    if (full != null && parse(full) != null) {
+                        reply = full; // it wants to read more first: carry on with the tools
+                        call = parse(full);
+                    } else if (full != null && !full.trim().isEmpty()) {
+                        return full.replaceAll("(?s)<think>.*?</think>", "").trim();
+                    } else {
+                        return answer;
+                    }
+                } else {
+                    return answer;
                 }
-                if (thin(task, answer) && nudges < 3 && step < maxSteps) {
-                    nudges++; // "Auditing your codebase now…" for an audit: a status line, not the result
-                    work.append("\n").append(answer).append("\n<result>\nThat is a status line, not the result the user asked"
-                            + " for. Use the tools for whatever you still need, then write the complete result as your final answer,"
-                            + " in full: what you found (with file names and line numbers), what is wrong or risky, ranked, and"
-                            + " what to do about each. Don't shorten it.\n</result>\n");
-                    continue;
-                }
-                return answer;
             }
             String result;
             try {
@@ -190,25 +210,45 @@ public final class CodeAgent {
             }
             work.append("\n").append(call.raw).append("\n<result>\n").append(clip(result, RESULT_CHARS)).append("\n</result>\n");
         }
-        return "I used all " + maxSteps + " steps without finishing. Tell me to continue and I'll pick up from here." + summary();
+        // out of steps: never end empty-handed; the report from what was found, then "continue" goes on
+        work.append("\n<result>\nYou have used all your steps for now. ").append(REPORT_NOW).append(" Say what is still unread at the end.\n</result>\n");
+        String full = brain.askLong(system(), trimmed(work.toString()));
+        if (full != null && !full.trim().isEmpty() && parse(full) == null) {
+            return full.replaceAll("(?s)<think>.*?</think>", "").trim() + "\n\n(" + maxSteps + " steps used. Say \u201ccontinue\u201d to keep going.)"
+                    + summary();
+        }
+        return "I used all " + maxSteps + " steps without finishing. Say \u201ccontinue\u201d and I'll pick up from here." + summary();
+    }
+
+    /** Below this many characters, the answer to a big task is not taken as its final report. */
+    static final int REPORT_CHARS = 1500;
+    static final String REPORT_NOW = "Now write the complete final report for the user, in full, not a status line: what you"
+            + " found, with file names and line numbers; every problem, ranked by how much it matters; and the fix for each,"
+            + " with code where it helps. If you truly still need to read something first, use a tool now instead; otherwise"
+            + " write the whole report in this reply. Do not shorten it or say you will do it later.";
+
+    private StringBuilder work;
+    private String resume;
+
+    /** Carries on from an earlier run's work ({@link #work()}): "continue", "give me the result". */
+    public CodeAgent resume(String priorWork) {
+        this.resume = priorWork;
+        return this;
+    }
+
+    /** Everything this run did (the task, each tool call and its result), to resume from. */
+    public String work() {
+        return work == null ? "" : work.toString();
+    }
+
+    /** An audit, review, research, analysis, summary, report, overview, plan, comparison or explanation. */
+    static boolean bigTask(String task) {
+        String t = task == null ? "" : task.toLowerCase(Locale.US);
+        return t.matches("(?s).*\\b(audit|review|research|analy[sz]e|analysis|summari[sz]e|summary|report|overview|plan|compare|"
+                + "explain|document|assess|evaluate|investigate|find (all|every|the bugs?)|list (all|every)|go through|result|findings)\\b.*");
     }
 
     private int nudges;
-
-    /**
-     * A final answer too short for what was asked: an audit, review, research, analysis, summary, report, overview,
-     * plan, comparison or explanation answered in a sentence or two.
-     */
-    static boolean thin(String task, String answer) {
-        String t = task == null ? "" : task.toLowerCase(Locale.US);
-        boolean big = t.matches("(?s).*\\b(audit|review|research|analy[sz]e|analysis|summari[sz]e|summary|report|overview|plan|compare|"
-                + "explain|document|assess|evaluate|investigate|find (all|every|the bugs?)|list (all|every)|go through|result)\\b.*");
-        String a = answer == null ? "" : answer.trim();
-        // short, and sounding like progress rather than findings ("Cloned \u2014 now auditing", "Done, checking key files")
-        return big && a.length() < 300 && !a.contains("```") && !a.contains("?")
-                && a.matches("(?is).*\\b(now|next|i'?ll|i will|going to|let me|starting|working on|mapping|checking|scanning|reading|looking|"
-                + "cloned|done|finished|completed|ready|in progress|underway)\\b.*");
-    }
 
     /** A short reply that only says what it is about to do. */
     static boolean promise(String answer) {
