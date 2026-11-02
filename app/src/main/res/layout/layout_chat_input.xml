@@ -9,6 +9,22 @@
     android:paddingEnd="12dp"
     android:paddingBottom="10dp">
 
+    <!-- Diff, Pull requests, Artifacts: what the work produced (hidden when there is nothing) -->
+    <HorizontalScrollView
+        android:id="@+id/work_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="8dp"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/work_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+
     <!-- a short notice ("Claude didn't answer, so OpenAI did."), shown for a few seconds -->
     <TextView
         android:id="@+id/composer_note"

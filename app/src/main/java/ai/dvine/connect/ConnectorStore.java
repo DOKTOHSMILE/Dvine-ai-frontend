@@ -152,7 +152,9 @@ public final class ConnectorStore {
      * repositories clone and pull; pushing asks to sign in).
      */
     public GitHubGit git() {
-        return new GitHubGit(Connectors.https(), ready(Kind.GITHUB) ? token(Kind.GITHUB) : "").useZips(GitHubGit.httpsZips());
+        final android.content.Context c = context;
+        return new GitHubGit(Connectors.https(), ready(Kind.GITHUB) ? token(Kind.GITHUB) : "").useZips(GitHubGit.httpsZips())
+                .onPullRequest(pr -> new ai.dvine.chat.WorkLog(c).pullRequest(pr[0], pr[1], pr[2], pr[3]));
     }
 
     public boolean calendarAllowed() {

@@ -458,9 +458,9 @@ public final class RemoteBrain {
             String noted = ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll(
                     "[an image is attached, but this model can't see images: say so and work from the words]");
             for (ai.dvine.chat.Attachments.Doc d : docs) {
-                String text = sidecar(d);
-                if (text != null) {
-                    noted += "\n\n" + ai.dvine.chat.Attachments.text(d.name, text); // a text-only model still reads the words
+                String inside = sidecar(d);
+                if (inside != null) {
+                    noted += "\n\n" + ai.dvine.chat.Attachments.text(d.name, inside); // a text-only model still reads the words
                 }
             }
             noted = ai.dvine.chat.Attachments.FILE.matcher(noted).replaceAll(
@@ -477,15 +477,15 @@ public final class RemoteBrain {
                 continue;
             }
             // the model can't take this file: what the phone took out of it instead
-            String text = sidecar(d);
-            if (text != null) {
-                words += "\n\n" + ai.dvine.chat.Attachments.text(d.name, text);
+            String inside = sidecar(d);
+            if (inside != null) {
+                words += "\n\n" + ai.dvine.chat.Attachments.text(d.name, inside);
             }
             if (!d.pages.isEmpty()) {
                 images.addAll(d.pages); // a PDF's pages, a video's frames
                 words += "\n[the pictures are " + (d.mime.startsWith("video/") ? "frames of the video " : "the pages of ") + d.name + ", in order]";
             }
-            if (text == null && d.pages.isEmpty()) {
+            if (inside == null && d.pages.isEmpty()) {
                 words += "\n[" + d.name + " (" + d.mime + ") is attached, but this model can't take that kind of file: say so and ask for"
                         + " what matters in it as text]";
             }

@@ -142,22 +142,31 @@ public class ScreenshotTest {
         shoot(c.get(), "13_attachments_night");
         box.clear();
 
-        // Ivie's 3D canvas with a model-drawn car on it
-        java.lang.reflect.Field sf = MainActivity.class.getDeclaredField("stage");
-        sf.setAccessible(true);
-        ai.dvine.stage.StageView stageView = (ai.dvine.stage.StageView) sf.get(c.get());
-        ai.dvine.render.field.SolidSpec car = ai.dvine.render.field.SolidSpec.parse("body | box | red | middle centre | large wide\n"
-                + "cabin | box | sky | above body | medium\nwheel | disc | black | below body, both sides, left | medium sideways\n"
-                + "wheel | disc | black | below body, both sides, right | medium sideways\nheadlight | sphere | yellow | in front of body, both sides | small\n", "car");
-        stageView.showSolid(car.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f), "car");
-        java.lang.reflect.Method canvas = MainActivity.class.getDeclaredMethod("showIvieCanvas", boolean.class);
-        canvas.setAccessible(true);
-        canvas.invoke(c.get(), true);
-        for (int i = 0; i < 40; i++) {
-            ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS);
+
+        // Ibiko's tab with a changed clone, a pull request and an artifact: the Diff, Pull requests and Artifacts chips
+        ai.dvine.connect.GitHubGitTest.FakeHub hub = new ai.dvine.connect.GitHubGitTest.FakeHub();
+        java.util.Map<String, String> files = new java.util.TreeMap<String, String>();
+        files.put("app/Main.java", "class Main {\n}\n");
+        hub.refs.put("main", hub.commit(files, null, "first"));
+        java.io.File repo = new java.io.File(c.get().getFilesDir(), "ibiko/app");
+        new ai.dvine.connect.GitHubGit(hub, "tok").clone("me/app", "main", repo);
+        java.nio.file.Files.write(new java.io.File(repo, "app/Main.java").toPath(),
+                "class Main {\n    void hello() {}\n}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        new ai.dvine.chat.WorkLog(c.get()).pullRequest("7", "Say hello", "https://github.com/me/app/pull/7", "me/app");
+        new ai.dvine.chat.WorkLog(c.get()).artifact("car.glb", "content://x/car.glb", "3D model \u00B7 GLB", "model/gltf-binary");
+        java.lang.reflect.Method persona = MainActivity.class.getDeclaredMethod("selectPersona", String.class);
+        persona.setAccessible(true);
+        persona.invoke(c.get(), "ibiko");
+        for (int i = 0; i < 20; i++) {
+            Thread.sleep(100); // the diff is worked out off the main thread
+            ShadowLooper.idleMainLooper(10, java.util.concurrent.TimeUnit.MILLISECONDS);
         }
-        shoot(c.get(), "14_ivie_canvas_night");
-        canvas.invoke(c.get(), false);
+        android.view.View work = c.get().findViewById(ai.dvine.R.id.work_scroll);
+        org.junit.Assert.assertEquals(android.view.View.VISIBLE, work.getVisibility());
+        android.widget.LinearLayout chips = c.get().findViewById(ai.dvine.R.id.work_row);
+        org.junit.Assert.assertEquals(3, chips.getChildCount());
+        shoot(c.get(), "15_work_chips_night");
+        persona.invoke(c.get(), "ivie");
 
         java.lang.reflect.Method attach = MainActivity.class.getDeclaredMethod("showAttachMenu", android.view.View.class);
         attach.setAccessible(true);

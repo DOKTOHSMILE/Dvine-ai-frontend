@@ -204,7 +204,10 @@ public final class CodeAgent {
         boolean big = t.matches("(?s).*\\b(audit|review|research|analy[sz]e|analysis|summari[sz]e|summary|report|overview|plan|compare|"
                 + "explain|document|assess|evaluate|investigate|find (all|every|the bugs?)|list (all|every)|go through|result)\\b.*");
         String a = answer == null ? "" : answer.trim();
-        return big && a.length() < 400 && !a.contains("```") && !a.contains("?");
+        // short, and sounding like progress rather than findings ("Cloned \u2014 now auditing", "Done, checking key files")
+        return big && a.length() < 300 && !a.contains("```") && !a.contains("?")
+                && a.matches("(?is).*\\b(now|next|i'?ll|i will|going to|let me|starting|working on|mapping|checking|scanning|reading|looking|"
+                + "cloned|done|finished|completed|ready|in progress|underway)\\b.*");
     }
 
     /** A short reply that only says what it is about to do. */

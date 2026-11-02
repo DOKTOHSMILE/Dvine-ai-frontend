@@ -268,8 +268,21 @@ public class GitHubGitTest {
         assertTrue(asked.get(0), asked.get(0).endsWith("/repos/me/app/zipball/" + hub.refs.get("main")));
         assertFalse(hub.calls.toString(), hub.calls.toString().contains("/git/blobs/")); // no file-by-file download
         assertTrue(git.status(dir).contains("nothing changed"));
+        assertTrue(GitHubGit.diff(dir).isEmpty());
         write(new File(dir, "src/main.py"), "print('hello')\n");
+        write(new File(dir, "NOTES.md"), "one\ntwo\n");
+        java.util.List<GitHubGit.FileDiff> d = GitHubGit.diff(dir);
+        assertEquals(2, d.size());
+        GitHubGit.FileDiff added = d.get(0), changed = d.get(1);
+        assertEquals("NOTES.md", added.path);
+        assertEquals("added", added.kind);
+        assertEquals(2, added.diff.added);
+        assertEquals("src/main.py", changed.path);
+        assertEquals(1, changed.diff.added);
+        assertEquals(1, changed.diff.removed);
+        new File(dir, "NOTES.md").delete();
         git.push(dir, "Say hello", "");
+        assertTrue(GitHubGit.diff(dir).isEmpty()); // pushed: nothing left to show
         assertEquals(files("README.md", "# App\n", "src/main.py", "print('hello')\n"), hub.filesAt("main"));
         assertFalse(new File(dir.getParentFile(), ".app.zip").exists());
     }

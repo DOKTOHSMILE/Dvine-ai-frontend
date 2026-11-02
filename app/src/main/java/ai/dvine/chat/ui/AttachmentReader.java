@@ -125,7 +125,7 @@ public final class AttachmentReader {
                     frames.add(jpeg(f, new File(dir, id + "-f" + (i + 1) + ".jpg")));
                 }
             }
-        } catch (RuntimeException e) {
+        } catch (IOException | RuntimeException e) {
             // a video the phone can't decode: it still goes whole to models that take files
         } finally {
             try {

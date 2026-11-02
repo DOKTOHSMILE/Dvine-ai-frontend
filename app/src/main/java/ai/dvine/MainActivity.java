@@ -254,6 +254,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         try {
             android.net.Uri uri = ai.dvine.chat.ui.Downloads.save(this, e.name, e.mime, e.bytes);
+            new ai.dvine.chat.WorkLog(this).artifact(e.name, uri.toString(), "3D model \u00B7 " + e.format.extension.toUpperCase(java.util.Locale.US),
+                    e.mime);
+            refreshChips();
             if (e.extra != null) {
                 ai.dvine.chat.ui.Downloads.save(this, e.extra.name, e.extra.mime, e.extra.bytes);
             }
@@ -436,6 +439,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.ensureFace(persona, null);
         updatePersonaTabs(persona);
         showIvieCanvas("ivie".equals(persona) && stage.objectShown()); // the 3D canvas is Ivie's
+        refreshChips();
         if (chats != null) {
             chats.forPersona(persona);
         }
@@ -599,6 +603,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (attachScroll != null && attachRow != null) {
             attachments = new ai.dvine.chat.ui.ComposerAttachments(this, attachScroll, attachRow, this::refreshSend);
         }
+        android.widget.HorizontalScrollView workScroll = findViewById(R.id.work_scroll);
+        android.widget.LinearLayout workRow = findViewById(R.id.work_row);
+        if (workScroll != null && workRow != null) {
+            workChips = new ai.dvine.chat.ui.WorkChips(this, workScroll, workRow, new java.io.File(getFilesDir(), "ibiko"));
+        }
         android.view.View send = findViewById(R.id.btn_send);
         android.view.View voice = findViewById(R.id.btn_voice);
         android.view.View attach = findViewById(R.id.btn_attach);
@@ -653,6 +662,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             answer(text);
         }
         field.requestFocus(); // the keyboard keeps typing into the box after Send
+    }
+
+    /** Diff, Pull requests and Artifacts above the message box. */
+    private ai.dvine.chat.ui.WorkChips workChips;
+
+    private void refreshChips() {
+        if (workChips != null && stage != null) {
+            workChips.refresh("ibiko".equals(stage.agent()));
+        }
     }
 
     /** Images, files and long pastes waiting above the words; sent with the message. */
@@ -1600,6 +1618,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 endThink();
                 play(LocalTurn.speakAs(persona, answer), null);
+                refreshChips(); // the diff and any pull request it opened
             });
         }, "dvine-agent").start();
     }

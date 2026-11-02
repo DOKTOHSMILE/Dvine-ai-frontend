@@ -333,7 +333,7 @@ public class RemoteBrainTest {
     public void aPdfGoesAsADocumentThenAsPagesThenAsANote() throws Exception {
         java.io.File pdf = java.io.File.createTempFile("doc", ".pdf");
         java.nio.file.Files.write(pdf.toPath(), "%PDF-1.4".getBytes(StandardCharsets.UTF_8));
-        java.io.File page = java.io.File.createTempFile("p1", ".jpg");
+        java.io.File page = java.io.File.createTempFile("page1", ".jpg");
         java.nio.file.Files.write(page.toPath(), new byte[]{9, 9});
         String msg = "Summarise this\n\n" + ai.dvine.chat.Attachments.file(pdf.getPath(), "application/pdf", "report.pdf",
                 java.util.Collections.singletonList(page.getPath()));
