@@ -118,6 +118,24 @@ public class ScreenshotTest {
         pane.setLive("Lagos has about 16 million people in its metropolitan area, which makes it");
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         shoot(c.get(), "10_working_night");
+        // the live line tapped: every step in a bottom sheet
+        java.util.ArrayList<android.view.View> lives = new java.util.ArrayList<android.view.View>();
+        c.get().getWindow().getDecorView().findViewsWithText(lives, "What is happening now; tap for every step",
+                android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        lives.get(0).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog stepsSheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.view.View sd = stepsSheet.getWindow().getDecorView();
+        sd.measure(android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(2340, android.view.View.MeasureSpec.AT_MOST));
+        sd.layout(0, 0, 1080, sd.getMeasuredHeight());
+        android.graphics.Bitmap sb = android.graphics.Bitmap.createBitmap(1080, Math.max(1, sd.getMeasuredHeight()), android.graphics.Bitmap.Config.ARGB_8888);
+        sb.eraseColor(0xFF15151C);
+        sd.draw(new android.graphics.Canvas(sb));
+        try (FileOutputStream o = new FileOutputStream(new File(OUT, "17_steps_sheet_night.png"))) {
+            sb.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o);
+        }
+        stepsSheet.dismiss();
         // a step opened: the changes in green and red
         ai.dvine.chat.ui.DetailSheet.show(c.get(), "Edited app/Main.java", ai.dvine.agent.StepDetail.load(c.get().getFilesDir(), diffId));
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);

@@ -192,13 +192,9 @@ public class CodeAgentTest {
         Phone phone = new Phone();
         String answer = new CodeAgent(ws, brain, phone, "", 20_000).run("Research google", "");
         assertEquals("Google was founded in 1998 by Larry Page and Sergey Brin.", answer);
-        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That was a progress note, not the answer"));
+        // the promise was not taken as the answer: the model was asked, and it carried on with a tool
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("You wrote text without a tool call"));
         assertTrue(brain.seen.get(2), brain.seen.get(2).contains("connector said: web.search Google"));
-        assertTrue(CodeAgent.promise("I'll clone the repo into the workspace, then audit it."));
-        assertFalse(CodeAgent.promise("Want me to retry the clone?"));
-        assertTrue(CodeAgent.promise("Cloned \u2014 now auditing your codebase."));
-        assertTrue(CodeAgent.promise("Starting the audit\u2026"));
-        assertFalse(CodeAgent.promise("The codebase has 239 Java files; MainActivity is the largest."));
     }
 
     @Test
@@ -211,6 +207,11 @@ public class CodeAgentTest {
                 "<tool name=\"write_file\" path=\"app/Main.java\">gone</tool>", "Main.java declares an empty class Main.");
         CodeAgent obi = new CodeAgent(ws, brain, new Phone(), "", 20_000).as("Obi", true);
         assertTrue(obi.system().startsWith("You are Obi, reading the files"));
+        assertFalse(obi.system().contains("Local sandbox")); // reading only: no sandbox, no git
+        CodeAgent ibiko = new CodeAgent(ws, brain, new Phone(), "", 20_000)
+                .useGit(new ai.dvine.connect.GitHubGit(new ai.dvine.connect.GitHubGitTest.FakeHub(), "tok"));
+        assertTrue(ibiko.system().contains("Local sandbox") && ibiko.system().contains("sandbox/<short-name>"));
+        assertTrue(ibiko.system().contains("git pull, then push again") && ibiko.system().contains("open a pull request with git pr"));
         assertFalse(obi.system().contains("write_file") || obi.system().contains("name=\"run\""));
         assertEquals("Main.java declares an empty class Main.", obi.run("What is in the cloned app's Main.java?", ""));
         assertTrue(brain.seen.get(1), brain.seen.get(1).contains("1\tclass Main {}"));
@@ -226,6 +227,7 @@ public class CodeAgentTest {
     @Test
     public void tuningKeepsNumbersInRange() {
         assertEquals(30, ai.dvine.chat.Tuning.AGENT_STEPS.get(null));
+        assertEquals(5000, ai.dvine.chat.Tuning.CLONE_FILES.get(null)); // the clone limit is a setting, not a fixed 600
         assertEquals(1500, ai.dvine.chat.Tuning.PASTE_CHARS.get(null));
         assertTrue(ai.dvine.chat.Attachments.longPaste("x".repeat(300), 200));
         assertFalse(ai.dvine.chat.Attachments.longPaste("x".repeat(300)));
@@ -239,9 +241,7 @@ public class CodeAgentTest {
         Script brain = new Script("Auditing your codebase now \u2014 mapping structure and checking key files.", report);
         String answer = new CodeAgent(ws, brain, new Phone(), "", 20_000).run("Give me the result of the audit", "");
         assertEquals(report, answer);
-        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That is a status line, not the result")
-                || brain.seen.get(1).contains("give the actual result as your final answer")
-                || brain.seen.get(1).contains("That was a progress note, not the answer")); // sent back to finish
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("You wrote text without a tool call")); // asked: done, or go on?
         assertTrue(CodeAgent.bigTask("RE clone the repo and Audit my codebase then share findings"));
         assertFalse(CodeAgent.bigTask("hello"));
     }
@@ -317,18 +317,14 @@ public class CodeAgentTest {
         Script asking = new Script("I listed the files. Shall I proceed?", "<final>Done: 3 files, all fine.</final>");
         Phone phone = new Phone();
         assertEquals("Done: 3 files, all fine.", new CodeAgent(ws, asking, phone, "", 20_000).run("check the files", ""));
-        assertTrue(asking.seen.get(1), asking.seen.get(1).contains("Don't ask the user whether to go on"));
+        assertTrue(asking.seen.get(1), asking.seen.get(1).contains("don't describe it and don't ask"));
         assertTrue(phone.steps.toString(), phone.steps.toString().contains("I listed the files. Shall I proceed?"));
-        assertTrue(CodeAgent.asksPermission("Want me to continue straight into the full findings + fixes, or pause here?"));
-        assertFalse(CodeAgent.asksPermission("What is the capital of France? Paris."));
-        assertTrue(CodeAgent.status("Got it \u2014 auditing your clone now, I'll pull the findings together."));
-        assertFalse(CodeAgent.status("Google was founded in 1998 by Larry Page and Sergey Brin."));
-        // lines about the work, from the screenshots: not the answer
-        assertTrue(CodeAgent.status("Fixing your build errors \u2014 digging into the failing sources."));
-        assertTrue(CodeAgent.status("Inspecting the layouts to re-anchor the pills."));
-        // real short answers stay answers
-        assertFalse(CodeAgent.status("Fixed it \u2014 missing import added in Main.java."));
-        assertFalse(CodeAgent.status("Nothing to fix: the build is green."));
-        assertFalse(CodeAgent.status("Missing semicolon on line 12 of Main.java; added it."));
+        // no word lists: whatever the wording, text without a tool call is asked about once; what the model does
+        // next decides. A tool call: the work goes on. Plain text again: that is the answer.
+        Script narrating = new Script("Fixing your build errors \u2014 digging into the failing sources.",
+                "<tool name=\"list_files\" path=\".\"/>", "<final>Fixed: the missing import in Main.java.</final>");
+        assertEquals("Fixed: the missing import in Main.java.", new CodeAgent(ws, narrating, new Phone(), "", 20_000).run("fix the build", ""));
+        Script plain = new Script("Fixed it \u2014 missing import added in Main.java.", "Fixed it \u2014 missing import added in Main.java.");
+        assertEquals("Fixed it \u2014 missing import added in Main.java.", new CodeAgent(ws, plain, new Phone(), "", 20_000).run("fix the build", ""));
     }
 }

@@ -44,7 +44,12 @@ public final class Tuning {
     public static final Knob WEB_PAGES = new Knob("adv_web_pages", "Pages read per search",
             "How many of the results are opened and read.", 3, 0, 10);
 
-    public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES};
+    public static final Knob CLONE_FILES = new Knob("adv_clone_files", "Most files in a clone",
+            "A repository with more files than this isn't cloned onto the phone (a bigger number needs more storage and time).",
+            5000, 100, 50000);
+
+    public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES,
+            CLONE_FILES};
 
     private Tuning() {
     }

@@ -83,9 +83,104 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.view.View copy = described(c.get().getWindow().getDecorView(), "Copy your message");
         assertNotNull(copy);
+        org.junit.Assert.assertEquals(android.view.View.GONE, ((android.view.View) copy.getParent()).getVisibility()); // hidden until a tap
+        java.util.ArrayList<android.view.View> said = new java.util.ArrayList<android.view.View>();
+        c.get().getWindow().getDecorView().findViewsWithText(said, "RE clone the repo and audit my codebase", android.view.View.FIND_VIEWS_WITH_TEXT);
+        said.removeIf(v -> v.getId() != ai.dvine.R.id.tv_message); // the message itself, not the chat list's preview
+        said.get(0).performClick();
+        org.junit.Assert.assertEquals(android.view.View.VISIBLE, ((android.view.View) copy.getParent()).getVisibility());
+        said.get(0).performClick(); // a second tap hides it
+        org.junit.Assert.assertEquals(android.view.View.GONE, ((android.view.View) copy.getParent()).getVisibility());
+        said.get(0).performClick();
         copy.performClick();
         android.content.ClipboardManager clips = (android.content.ClipboardManager) c.get().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
         org.junit.Assert.assertEquals("RE clone the repo and audit my codebase", clips.getPrimaryClip().getItemAt(0).getText().toString());
+        chats.add("assistant", "text", "On it.", chats.current().persona); // the chat moves on: the icon hides again
+        ((ai.dvine.stage.ChatPane) pf.get(c.get())).show();
+        android.view.View again = described(c.get().getWindow().getDecorView(), "Copy your message");
+        org.junit.Assert.assertEquals(android.view.View.GONE, ((android.view.View) again.getParent()).getVisibility());
+        c.pause().stop().destroy();
+    }
+
+    @Test
+    public void aDoubleTapOnSendSendsOnceAndCancelsNothing() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        field.setText("What time is it?");
+        android.view.View send = c.get().findViewById(ai.dvine.R.id.btn_send);
+        send.performClick();
+        send.performClick(); // the second tap of a double tap: neither a second send nor a Stop
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        int asked = 0;
+        for (ai.dvine.chat.ChatBook.Message m : chats.current().messages) {
+            if ("user".equals(m.role) && "What time is it?".equals(m.body)) {
+                asked++;
+            }
+        }
+        org.junit.Assert.assertEquals(1, asked);
+        java.lang.reflect.Field at = MainActivity.class.getDeclaredField("lastSendAt");
+        at.setAccessible(true);
+        org.junit.Assert.assertTrue((long) at.get(c.get()) >= 0);
+        c.pause().stop().destroy();
+    }
+
+    @Test
+    public void theStepsOpenInABottomSheetAndTheChatKeepsOneTypedLine() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        pane.activityStep("Cloned me/app");
+        pane.activityStep("Read app/Main.java");
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS); // the typewriter finishes
+        android.view.View root = c.get().getWindow().getDecorView();
+        android.view.View live = described(root, "What is happening now; tap for every step");
+        assertNotNull(live);
+        java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+        root.findViewsWithText(found, "Read app/Main.java", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertEquals(1, found.size()); // only the current step is in the chat, typed out
+        root.findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "Cloned me/app", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertTrue(found.isEmpty()); // the earlier steps are in the sheet, not the chat
+        live.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        assertNotNull(sheet);
+        sheet.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "Cloned me/app",
+                android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertEquals(1, found.size());
+        pane.activityStep("Wrote app/Main.java"); // live: the open sheet grows
+        sheet.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "Wrote app/Main.java",
+                android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertEquals(1, found.size());
+        sheet.dismiss();
+        pane.activityEnd();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.view.View worked = described(root, "Worked for 1s \u00B7 3 steps, open the steps");
+        assertNotNull(worked);
+        worked.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.robolectric.shadows.ShadowDialog.getLatestDialog().getWindow().getDecorView().findViewsWithText(
+                found = new java.util.ArrayList<android.view.View>(), "Cloned me/app", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertEquals(1, found.size());
+        c.pause().stop().destroy();
+    }
+
+    @Test
+    public void thePersonasHaveIconsAndTheChosenOneItsName() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        for (int id : new int[]{ai.dvine.R.id.tabIvie, ai.dvine.R.id.tabObi, ai.dvine.R.id.tabIbiko}) {
+            android.widget.TextView tab = c.get().findViewById(id);
+            assertNotNull(tab.getCompoundDrawablesRelative()[0]); // graphics, chat, tools
+        }
+        org.junit.Assert.assertEquals("Ibiko", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabIbiko)).getText().toString());
+        org.junit.Assert.assertEquals("", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabObi)).getText().toString());
         c.pause().stop().destroy();
     }
 
