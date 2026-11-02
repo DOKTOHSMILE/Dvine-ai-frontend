@@ -69,6 +69,10 @@
             android:theme="@style/Theme.Dvine.Sheet"
             android:windowSoftInputMode="adjustResize" />
         <activity
+            android:name=".chat.ui.SetupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
             android:name=".chat.ui.UsageActivity"
             android:exported="false"
             android:theme="@style/Theme.Dvine" />

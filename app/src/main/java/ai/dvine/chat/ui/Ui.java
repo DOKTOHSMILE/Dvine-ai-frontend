@@ -10,11 +10,13 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** The look shared by the settings sheets: dark rounded cards, a pink accent, pill badges. */
+/** The look shared by DVINE's screens: dark rounded cards, a coral accent, pill badges, 48 dp buttons. */
 final class Ui {
-    static final int SHEET = 0xFF2B2A2E, CARD = 0xFF333238, CARD_ON = 0xFF5E3446, BORDER = 0xFF4A4850, BORDER_ON = 0xFFF0A3BE,
-            FIELD = 0xFF403E45, TEXT = 0xFFF2F2F7, SUB = 0xFFB9B6C0, ACCENT = 0xFFF4A3BF, PILL = 0xFF6E5A2E, PILL_TEXT = 0xFFF6E7C1,
-            BLUE = 0xFF3B82F6, ORANGE = 0xFFE5603B, GREEN = 0xFF22A06B, AMBER = 0xFFE8A93A, GREY = 0xFF8E8E93, TRACK = 0xFF3A3A40;
+    /** One palette for every screen, after Claude's dark theme: warm near-black, a coral accent. */
+    static final int BG = 0xFF1F1E1D, SURFACE = 0xFF2A2927, LINE = 0xFF3A3936, CORAL = 0xFFD97757, ON_CORAL = 0xFF1F1E1D;
+    static final int SHEET = 0xFF262624, CARD = 0xFF2E2D2A, CARD_ON = 0xFF3B2C26, BORDER = 0xFF3D3C38, BORDER_ON = CORAL,
+            FIELD = 0xFF3A3936, TEXT = 0xFFECEBE6, SUB = 0xFF9E9C95, ACCENT = CORAL, PILL = 0xFF4A3A2A, PILL_TEXT = 0xFFF2D9C7,
+            BLUE = 0xFF5B8DEF, ORANGE = CORAL, GREEN = 0xFF5FB37F, AMBER = 0xFFE8B04A, GREY = 0xFF8A8880, TRACK = 0xFF3A3936;
 
     private Ui() {
     }
@@ -79,6 +81,17 @@ final class Ui {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         p.topMargin = dp(c, top);
         return p;
+    }
+
+    /** A full-width button, 48 dp tall: coral when it is the main action, outlined otherwise. */
+    static TextView button(Context c, String label, boolean primary) {
+        TextView b = text(c, label, 16, primary ? ON_CORAL : TEXT, true);
+        b.setGravity(Gravity.CENTER);
+        b.setMinHeight(dp(c, 48));
+        b.setPadding(dp(c, 16), dp(c, 12), dp(c, 16), dp(c, 12));
+        b.setBackground(primary ? round(c, CORAL, 0, 14) : round(c, SURFACE, LINE, 14));
+        b.setClickable(true);
+        return b;
     }
 
     static View gap(Context c, float h) {

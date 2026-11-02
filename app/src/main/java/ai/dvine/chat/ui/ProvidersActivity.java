@@ -25,7 +25,7 @@ import ai.dvine.llm.RemoteBrain;
 
 /**
  * The AI providers sheet: the brain on this phone, or an API with the user's own key (Anthropic, OpenAI, Google
- * Gemini, OpenRouter, a custom gateway). The chosen card opens to its key (hidden, with Show), a backup key, the
+ * Gemini, OpenRouter, a custom gateway), up to three in a switching order (primary, then backups). A tapped card opens to its key (hidden, with Show), a backup key, the
  * address, the model and an optional CA certificate; Test makes one tiny call and marks it Connected. Keys are kept
  * on this phone only, encrypted ({@link ProviderStore}). Done saves and goes back to the chat.
  */
@@ -58,10 +58,11 @@ public final class ProvidersActivity extends Activity {
         sheet.setPadding(pad, pad, pad, pad);
         sheet.setClickable(true); // a tap inside doesn't close it
         int max = Ui.dp(this, 560);
+        // the sheet fills the screen within margins and the list takes what is left, so Done is always full size
         FrameLayout.LayoutParams sp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+                FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER);
         int side = Ui.dp(this, 16);
-        sp.setMargins(side, Ui.dp(this, 40), side, Ui.dp(this, 40));
+        sp.setMargins(side, Ui.dp(this, 48), side, Ui.dp(this, 32));
         if (getResources().getDisplayMetrics().widthPixels > max + 2 * side) {
             sp.width = max;
         }
@@ -82,22 +83,40 @@ public final class ProvidersActivity extends Activity {
         TextView lead = Ui.text(this, "Choose a provider and add your key. Keys are stored on this device.", 14, Ui.SUB, false);
         sheet.addView(lead, Ui.wide(this, 12));
 
+        // automatic switching between up to three APIs
+        LinearLayout auto = new LinearLayout(this);
+        auto.setGravity(Gravity.CENTER_VERTICAL);
+        auto.setBackground(Ui.round(this, Ui.CARD, Ui.BORDER, 16));
+        auto.setPadding(Ui.dp(this, 16), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10));
+        LinearLayout autoText = new LinearLayout(this);
+        autoText.setOrientation(LinearLayout.VERTICAL);
+        autoText.addView(Ui.text(this, "Switch automatically", 16, Ui.TEXT, true));
+        autoText.addView(Ui.text(this, "If the primary fails, is out of credit or goes quiet, a backup answers. Up to three.",
+                12, Ui.SUB, false));
+        auto.addView(autoText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        android.widget.Switch toggle = new android.widget.Switch(this);
+        toggle.setChecked(store.autoSwitch());
+        toggle.setThumbTintList(android.content.res.ColorStateList.valueOf(Ui.TEXT));
+        toggle.setTrackTintList(new android.content.res.ColorStateList(new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{Ui.CORAL, Ui.FIELD}));
+        toggle.setOnCheckedChangeListener((b, on) -> {
+            store.setAutoSwitch(on);
+            fill();
+        });
+        auto.addView(toggle);
+        sheet.addView(auto, Ui.wide(this, 14));
+
         ScrollView scroll = new ScrollView(this);
         cards = new LinearLayout(this);
         cards.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(cards);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         lp.topMargin = Ui.dp(this, 12);
-        sheet.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                Math.round(getResources().getDisplayMetrics().heightPixels * 0.6f)));
+        sheet.addView(scroll, lp);
 
-        TextView done = Ui.text(this, "Done", 17, 0xFF3A1626, false);
-        done.setGravity(Gravity.CENTER);
-        done.setBackground(Ui.round(this, Ui.ACCENT, 0, 18));
-        done.setPadding(0, Ui.dp(this, 16), 0, Ui.dp(this, 16));
+        TextView done = Ui.button(this, "Done", true);
         done.setOnClickListener(v -> {
             saveAll();
-            store.setActive(chosen);
             setResult(RESULT_OK);
             finish();
         });
@@ -125,11 +144,23 @@ public final class ProvidersActivity extends Activity {
 
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView radio = Ui.text(this, on ? "◉" : "○", 24, on ? Ui.TEXT : Ui.GREY, false);
+        String place = place(p);
+        TextView radio = Ui.text(this, place != null ? "◉" : "○", 24, place != null ? Ui.CORAL : Ui.GREY, false);
         row.addView(radio);
-        TextView name = Ui.text(this, p.title, 19, Ui.TEXT, true);
+        TextView name = Ui.text(this, p.title, 18, Ui.TEXT, true);
         name.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 8), 0);
+        name.setSingleLine(true);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
         row.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (place != null) {
+            TextView pl = Ui.pill(this, place);
+            pl.setTextColor(Ui.ON_CORAL);
+            pl.setBackground(Ui.round(this, Ui.CORAL, 0, 14));
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            pp.rightMargin = Ui.dp(this, 6);
+            row.addView(pl, pp);
+        }
         String badge = badge(p);
         if (badge != null) {
             row.addView(Ui.pill(this, badge));
@@ -147,8 +178,20 @@ public final class ProvidersActivity extends Activity {
         card.addView(Ui.text(this, p.about, 13, Ui.SUB, false), Ui.wide(this, 10));
         if (!p.api()) {
             phoneBrain(card);
+            if (!store.order().isEmpty()) {
+                TextView only = Ui.button(this, "Use only this phone", false);
+                only.setOnClickListener(v -> {
+                    for (Providers q : store.order()) {
+                        store.removeBackup(q);
+                    }
+                    store.setActive(Providers.ON_PHONE);
+                    fill();
+                });
+                card.addView(only, Ui.wide(this, 12));
+            }
             return card;
         }
+        card.addView(useAs(p), Ui.wide(this, 14));
         final Form f = new Form();
         forms.put(p, f);
         // the key, hidden, with Show
@@ -254,21 +297,78 @@ public final class ProvidersActivity extends Activity {
         }
         card.addView(Ui.text(this, state, 14, Ui.TEXT, false), Ui.wide(this, 12));
         if (m.state() == LocalModel.State.NOT_INSTALLED) {
-            TextView get = Ui.text(this, "Download the brain", 15, Ui.TEXT, true);
-            get.setBackground(Ui.round(this, Ui.FIELD, Ui.BORDER_ON, 16));
-            get.setPadding(Ui.dp(this, 18), Ui.dp(this, 10), Ui.dp(this, 18), Ui.dp(this, 10));
+            TextView get = Ui.button(this, "Download the brain", true);
             get.setOnClickListener(v -> {
                 hub.startDownload(this);
                 get.setText("Downloading in the background…");
                 get.setEnabled(false);
+                get.setAlpha(0.6f);
             });
-            LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            gp.topMargin = Ui.dp(this, 12);
-            card.addView(get, gp);
+            card.addView(get, Ui.wide(this, 12));
         }
         card.addView(Ui.text(this, "With an API chosen, the phone's brain still answers when there is no connection.", 13, Ui.SUB, false),
                 Ui.wide(this, 12));
+    }
+
+    /** "Primary", "Backup 1", "Backup 2" (or, with switching off, only "Primary"); null when not used. */
+    private String place(Providers p) {
+        if (!p.api()) {
+            return store.order().isEmpty() ? "In use" : null;
+        }
+        int i = store.place(p);
+        if (i < 0 || (i > 0 && !store.autoSwitch())) {
+            return null;
+        }
+        return i == 0 ? "Primary" : "Backup " + i;
+    }
+
+    /** Primary · Backup · Off, for one API. */
+    private View useAs(final Providers p) {
+        LinearLayout seg = new LinearLayout(this);
+        seg.setBackground(Ui.round(this, Ui.FIELD, 0, 14));
+        seg.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
+        int at = store.place(p);
+        String[] labels = {"Primary", "Backup", "Off"};
+        boolean[] on = {at == 0, at > 0, at < 0};
+        for (int i = 0; i < 3; i++) {
+            final int which = i;
+            TextView t = Ui.text(this, labels[i], 14, on[i] ? Ui.ON_CORAL : Ui.TEXT, on[i]);
+            t.setGravity(Gravity.CENTER);
+            t.setMinHeight(Ui.dp(this, 40));
+            if (on[i]) {
+                t.setBackground(Ui.round(this, Ui.CORAL, 0, 11));
+            }
+            t.setOnClickListener(v -> {
+                saveAll();
+                if (which == 0) {
+                    store.setActive(p);
+                } else if (which == 1) {
+                    if (store.place(p) == 0) { // the primary steps back: the next takes the lead
+                        store.removeBackup(p);
+                        java.util.List<Providers> rest = store.order();
+                        store.setActive(rest.isEmpty() ? Providers.ON_PHONE : rest.get(0));
+                    }
+                    if (!store.addBackup(p)) {
+                        android.widget.Toast.makeText(this, "Three are already in the order. Turn one off first.",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    boolean wasPrimary = store.place(p) == 0;
+                    store.removeBackup(p);
+                    if (wasPrimary) {
+                        java.util.List<Providers> rest = store.order();
+                        store.setActive(rest.isEmpty() ? Providers.ON_PHONE : rest.get(0));
+                    }
+                }
+                fill();
+            });
+            seg.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(Ui.text(this, "Use as", 13, Ui.SUB, false));
+        box.addView(seg, Ui.wide(this, 6));
+        return box;
     }
 
     private String badge(Providers p) {

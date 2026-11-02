@@ -75,6 +75,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 45 | Add a custom API, like the AI providers sheet of a coding app (Anthropic, OpenAI, Gemini, OpenRouter, custom gateway, backup key, CA certificate) | P12 | Built (JVM) | 0.48.0: drawer → AI providers, or tap the model under the chat title. Keys encrypted on the phone. Tested against recorded API replies, not against a live key |
 | 46 | A Usage screen like Claude's (context window, plan usage) | P12 | Built (JVM) | 0.48.0: the last reply's context window by part, today's requests and tokens, the brain and storage. There is no plan limit to show: spending is on the provider's own dashboard |
 
+| 47 | The brain is downloaded with a button, asked for at first open, required unless an API key is linked | P12 | Built (JVM) | 0.49.0: the setup screen with Download and Add an API key; it returns until one is chosen |
+| 48 | The chat laid out like Claude (buttons, drawer, sizes) | P12 | Built (rendered) | 0.49.0: see `docs/brand/chat_0_49/`. Checked as rendered screens, not on a phone |
+| 49 | Switch automatically across three APIs | P12 | Built (JVM) | 0.49.0: primary and two backups; a failure before any words hands over; tested against recorded replies |
+
 ## Still open, in the order that matters
 
 1. Install 0.45.2 on a phone and confirm the chat screen stays open.

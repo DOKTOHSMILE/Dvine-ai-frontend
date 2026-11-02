@@ -23,7 +23,7 @@ public final class Capabilities {
             case BUILD:
                 return brainReady || online ? null : "To draw that I need my brain files or the internet.";
             case DEBATE:
-                return brainReady ? null : "For a debate, both of us need my brain files on this phone. Say download your brain.";
+                return brainReady ? null : "For a debate we need a brain: download it, or add an API key, from AI providers in the menu.";
             case MOVE:
                 return bodyShown ? null : "There's no body to move yet. Ask me to build one in 3D first, like build me a robot.";
             case OTHER:

@@ -4,20 +4,22 @@
     android:layout_height="wrap_content"
     android:gravity="end"
     android:orientation="horizontal"
-    android:paddingTop="10dp"
-    android:paddingBottom="4dp">
+    android:paddingStart="48dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="8dp">
 
     <TextView
         android:id="@+id/tv_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_user_bubble"
-        android:maxWidth="300dp"
-        android:paddingStart="14dp"
+        android:lineSpacingExtra="2dp"
+        android:paddingStart="16dp"
         android:paddingTop="10dp"
-        android:paddingEnd="14dp"
+        android:paddingEnd="16dp"
         android:paddingBottom="10dp"
         android:textColor="@color/text_on_user"
+        android:textIsSelectable="true"
         android:textSize="16sp" />
 
     <TextView

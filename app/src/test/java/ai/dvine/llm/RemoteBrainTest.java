@@ -186,4 +186,59 @@ public class RemoteBrainTest {
         assertNull(m.reply("sys", "hi", 48, null));
         assertEquals(2, f.urls.size());
     }
+
+    private static List<String> names(String... n) {
+        return java.util.Arrays.asList(n);
+    }
+
+    @Test
+    public void switchesToTheBackupWhenThePrimaryFailsAndLetsItRest() throws Exception {
+        LocalModel m = new LocalModel(java.nio.file.Files.createTempDirectory("models").toFile(), ModelSpec.QWEN3_1_7B, true);
+        Fake first = new Fake().reply(401, "{\"error\":{\"message\":\"bad key\"}}");
+        Fake second = new Fake().reply(200, OPENAI_STREAM).reply(200, OPENAI_STREAM);
+        List<RemoteBrain> chain = new ArrayList<RemoteBrain>();
+        chain.add(new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "k1", "", first));
+        chain.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "k2", "", second));
+        m.useRemotes(chain, names("Anthropic (Claude)", "OpenAI"), java.util.Arrays.asList(1_000_000, 400_000), () -> true);
+        assertEquals(2, m.remoteCount());
+        assertEquals("Hello there.", m.reply("sys", "hi", 48, null));
+        String note = m.takeSwitchNote();
+        assertTrue(note, note.startsWith("Anthropic (Claude) didn't answer (the API key was refused"));
+        assertTrue(note.endsWith("so OpenAI did."));
+        assertNull(m.takeSwitchNote()); // said once
+        assertTrue(m.usage.last().brain.contains("OpenAI"));
+        // the primary rests: the next question goes straight to the backup
+        assertEquals("Hello there.", m.reply("sys", "again", 48, null));
+        assertEquals(1, first.urls.size());
+        assertEquals(2, second.urls.size());
+        assertEquals(400_000, m.window());
+    }
+
+    @Test
+    public void aReplyAlreadyStartedIsNotSwitchedMidSentence() throws Exception {
+        LocalModel m = new LocalModel(java.nio.file.Files.createTempDirectory("models").toFile(), ModelSpec.QWEN3_1_7B, true);
+        // the first starts speaking, then the stream breaks off with an error event and nothing more
+        Fake first = new Fake().reply(200, "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n");
+        Fake second = new Fake().reply(200, OPENAI_STREAM);
+        List<RemoteBrain> chain = new ArrayList<RemoteBrain>();
+        chain.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://a.example/v1", "m1", "k1", "", first));
+        chain.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://b.example/v1", "m2", "k2", "", second));
+        m.useRemotes(chain, names("A", "B"), java.util.Arrays.asList(1000, 1000), () -> true);
+        // "Hel" arrives and the stream ends: that counts as an answer, so B is never asked
+        assertEquals("Hel", m.reply("sys", "hi", 48, null));
+        assertEquals(0, second.urls.size());
+    }
+
+    @Test
+    public void everyProviderFailingLeavesTheReasonAndNoAnswer() throws Exception {
+        LocalModel m = new LocalModel(java.nio.file.Files.createTempDirectory("models").toFile(), ModelSpec.QWEN3_1_7B, true);
+        List<RemoteBrain> chain = new ArrayList<RemoteBrain>();
+        chain.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://a.example/v1", "m1", "k1", "", new Fake().reply(500, "{}")));
+        chain.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://b.example/v1", "m2", "k2", "", new Fake().reply(429, "{}")));
+        chain.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://c.example/v1", "m3", "k3", "", new Fake().reply(404, "{}")));
+        m.useRemotes(chain, names("A", "B", "C"), java.util.Arrays.asList(1000, 1000, 1000), () -> true);
+        assertNull(m.reply("sys", "hi", 48, null)); // no brain on the phone either
+        assertTrue(m.problem().contains("(404"));
+        assertEquals(3, m.usage.failedToday(System.currentTimeMillis()));
+    }
 }

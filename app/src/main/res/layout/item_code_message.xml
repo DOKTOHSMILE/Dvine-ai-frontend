@@ -3,51 +3,73 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="10dp"
-    android:background="@drawable/bg_input_container"
-    android:orientation="vertical"
-    android:padding="12dp">
+    android:layout_marginBottom="4dp"
+    android:background="@drawable/bg_code"
+    android:orientation="vertical">
 
+    <!-- language · open · copy -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_code_header"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="6dp">
 
         <TextView
             android:id="@+id/code_lang"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:fontFamily="monospace"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/code_open"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="Open"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
         <TextView
             android:id="@+id/code_copy"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="4dp"
+            android:layout_height="36dp"
+            android:drawableStart="@drawable/ic_copy"
+            android:drawablePadding="6dp"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
             android:text="Copy"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/code_body"
+    <!-- long lines scroll sideways instead of wrapping, as in an editor -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:fontFamily="monospace"
-        android:maxLines="16"
-        android:textColor="#E6C07B"
-        android:textIsSelectable="true"
-        android:textSize="13sp" />
+        android:scrollbars="none">
 
-    <TextView
-        android:id="@+id/code_open"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingTop="8dp"
-        android:text="Open"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp" />
+        <TextView
+            android:id="@+id/code_body"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="2dp"
+            android:maxLines="40"
+            android:paddingStart="14dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="14dp"
+            android:textColor="@color/code_text"
+            android:textIsSelectable="true"
+            android:textSize="13sp" />
+    </HorizontalScrollView>
 </LinearLayout>

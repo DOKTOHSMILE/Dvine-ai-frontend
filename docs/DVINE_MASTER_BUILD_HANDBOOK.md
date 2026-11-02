@@ -1087,6 +1087,35 @@ The chosen card holds:
 
 Spending and plan limits belong to each provider's own dashboard; the app has no view of them, so it doesn't show any.
 
+## 38. Brain setup, the Claude-style chat, and switching between APIs (app v0.49.0, built)
+
+**A brain first.** Every word goes to a brain to be understood. With no brain on the phone and no API set up, the first screen (`chat/ui/SetupActivity`) is "Give DVINE a brain", with two buttons:
+- **Download.** The download runs in the background and its progress shows on this screen; the chat can be opened while it downloads.
+- **Add an API key.** This opens the AI providers sheet.
+
+The screen comes back until one is chosen, and Back on it closes the app. On a phone that can't run the downloaded brain, only the API is offered. "Download your brain" now opens this screen; it is a button, not a spoken yes.
+
+**The chat, after Claude.** One palette for every screen: warm near-black (`#1F1E1D`), surfaces `#2A2927`, a coral accent `#D97757`.
+- **Header (56 dp):** menu and new-chat icons with 48 dp targets, the chat's title, and the model (tap it for AI providers).
+- **Persona switch:** a segmented control for Ivie, Obi and Ibiko.
+- **Messages:** your messages sit in rounded bubbles on the right. Replies are plain text, with Copy and Listen once at the end of each reply. Copy takes the whole reply including code; Listen skips the code.
+- **Code blocks:** a header with the language, Open and Copy; long lines scroll sideways instead of wrapping.
+- **Composer:** the words sit above a row with plus (attach), mic and a coral send button that greys out until there is something to send (it is a stop square while a reply is written).
+- **Empty chat:** a greeting by the time of day, with your name when DVINE knows it.
+- **Drawer (304 dp, over a scrim):** search, New chat, Recents as single lines with the open chat highlighted, then AI providers and Usage at the foot.
+
+`ScreenshotTest` renders the screens with real pixels (Robolectric native graphics) into `build/screens`; the 0.49.0 set is in `docs/brand/chat_0_49/`.
+
+**Three APIs that take over from each other.** On the AI providers sheet each API card has **Use as: Primary, Backup, Off**, and a **Switch automatically** toggle sits at the top. The order holds at most three: the primary, then up to two backups.
+
+`LocalModel.askRemote` asks them in order:
+- **Failure before any words:** an API that fails (error, refused key, out of credit, rate limit) or goes quiet for 12 seconds before saying anything rests, and the next is asked.
+- **Resting times:** 1 minute, or 5 when the failure was credit or rate limits. A resting API is still tried last if every other one fails too.
+- **No mid-sentence switch:** a reply that has already started is never switched, so nothing is said twice.
+- **Your stop** stops everything and is not counted as a failure.
+- **A note** above the message box says which took over ("Anthropic (Claude) didn't answer (…), so OpenAI did.").
+- **Fallback:** if every API fails, or the phone is offline, the phone's own brain answers when it is installed.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
