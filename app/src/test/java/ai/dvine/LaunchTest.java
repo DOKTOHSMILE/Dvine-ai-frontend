@@ -181,7 +181,95 @@ public class LaunchTest {
         }
         org.junit.Assert.assertEquals("Ibiko", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabIbiko)).getText().toString());
         org.junit.Assert.assertEquals("", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabObi)).getText().toString());
+        // the model under the title opens a switch: the offline models on the phone, every model, the API providers
+        c.get().findViewById(ai.dvine.R.id.tv_header_sub).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        for (String name : new String[]{"All offline models", "AI providers"}) {
+            java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+            sheet.getWindow().getDecorView().findViewsWithText(found, name, android.view.View.FIND_VIEWS_WITH_TEXT);
+            org.junit.Assert.assertFalse(name, found.isEmpty());
+        }
+        sheet.dismiss();
         c.pause().stop().destroy();
+    }
+
+    @Test
+    public void theOfflineModelCanBeChangedInSettings() throws Exception {
+        ActivityController<ai.dvine.chat.ui.SettingsActivity> c = Robolectric.buildActivity(ai.dvine.chat.ui.SettingsActivity.class)
+                .create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        ai.dvine.llm.ModelHub hub = ai.dvine.llm.ModelHub.get(c.get());
+        try {
+            java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+            c.get().getWindow().getDecorView().findViewsWithText(found, "Change the offline model", android.view.View.FIND_VIEWS_WITH_TEXT);
+            org.junit.Assert.assertFalse(found.isEmpty());
+            android.view.View v = found.get(0);
+            while (!v.hasOnClickListeners()) {
+                v = (android.view.View) v.getParent();
+            }
+            v.performClick();
+            ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+            // first the family, then its size
+            android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+            for (String name : new String[]{"Qwen3", "Llama 3.2", "Gemma 3", "Phi-4", "Sizes: 0.6B \u00B7 1.7B \u00B7 4B \u00B7 8B. In use: 1.7B."}) {
+                sheet.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), name,
+                        android.view.View.FIND_VIEWS_WITH_TEXT);
+                org.junit.Assert.assertFalse(name, found.isEmpty());
+            }
+            tapRow(sheet, "Qwen3");
+            android.app.Dialog sizes = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+            for (String name : new String[]{"Qwen3 0.6B", "Qwen3 1.7B  \u00B7 in use", "Qwen3 4B", "Qwen3 8B"}) {
+                sizes.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), name,
+                        android.view.View.FIND_VIEWS_WITH_TEXT);
+                org.junit.Assert.assertFalse(name, found.isEmpty());
+            }
+            sizes.dismiss();
+            tapRow(sheet, "Phi-4");
+            tapRow(org.robolectric.shadows.ShadowDialog.getLatestDialog(), "Phi-4 mini");
+            ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+            org.junit.Assert.assertSame(ai.dvine.llm.ModelSpec.PHI_4_MINI, hub.model.spec);
+            c.get().getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "On this phone: Phi-4 mini",
+                    android.view.View.FIND_VIEWS_WITH_TEXT);
+            org.junit.Assert.assertEquals(1, found.size()); // the card names the new model, with Download under it
+            // a model on the phone is listed with Delete, to free the space
+            java.io.File kept = new java.io.File(hub.model.file().getParentFile(), ai.dvine.llm.ModelSpec.QWEN3_4B.file);
+            kept.getParentFile().mkdirs();
+            java.nio.file.Files.write(kept.toPath(), new byte[2048]);
+            c.pause().resume(); // the card is filled again
+            ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+            android.view.View delete = described(c.get().getWindow().getDecorView(), "Delete Qwen3 4B");
+            assertNotNull(delete);
+            delete.performClick();
+            ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+            ((androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog()).getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+            for (int i = 0; i < 20 && kept.exists(); i++) {
+                Thread.sleep(50);
+                ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+            org.junit.Assert.assertFalse(kept.exists());
+        } finally {
+            hub.choose(c.get(), ai.dvine.llm.ModelSpec.QWEN3_1_7B, false);
+            c.pause().stop().destroy();
+        }
+    }
+
+    /** Taps the row of a bottom sheet whose name is {@code name}. */
+    private static void tapRow(android.app.Dialog sheet, String name) {
+        java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+        sheet.getWindow().getDecorView().findViewsWithText(found, name, android.view.View.FIND_VIEWS_WITH_TEXT);
+        android.view.View row = null;
+        for (android.view.View v : found) {
+            if (v instanceof android.widget.TextView && name.contentEquals(((android.widget.TextView) v).getText())) {
+                row = v;
+            }
+        }
+        assertNotNull(name, row);
+        while (!row.hasOnClickListeners()) {
+            row = (android.view.View) row.getParent();
+        }
+        row.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     private static android.view.View described(android.view.View v, String what) {

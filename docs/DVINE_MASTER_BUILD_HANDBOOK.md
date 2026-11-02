@@ -1452,6 +1452,45 @@ The agent's rules, from the user's screenshots:
   7. Scratch work (a new project, a test script, notes, a report) goes in `sandbox/<short-name>/` in the workspace, never inside a clone. It stays on the phone and shows as artifacts.
 - **The clone limit is a setting:** Settings › Advanced › Most files in a clone (`Tuning.CLONE_FILES`, default 5,000, 100–50,000) replaces the fixed 600 that refused the user's repository. The refusal names the number and the setting.
 
+## 52. A choice of offline model, in families and sizes (app v0.63.0, built)
+
+Settings › Models › **Change the offline model** opens a bottom sheet of families, then the chosen family's sizes, as Claude comes as Haiku, Sonnet and Opus: smaller is faster and lighter, bigger answers better and needs more memory. Every one is a 4-bit GGUF (Q4_K_M) for the app's own llama.cpp, pinned to a Hugging Face revision and checked against its SHA-256 (sizes and hashes read from Hugging Face's API on 2026-11-02):
+
+| Family | Size | File size | Memory it wants | Licence |
+|---|---|---|---|---|
+| Qwen3 | 0.6B | 0.40 GB | 2 GB | Apache 2.0 |
+| Qwen3 | 1.7B (default) | 1.11 GB | 4 GB | Apache 2.0 |
+| Qwen3 | 4B | 2.50 GB | 6 GB | Apache 2.0 |
+| Qwen3 | 8B | 5.03 GB | 10 GB | Apache 2.0 |
+| Llama 3.2 | 1B | 0.81 GB | 3 GB | Llama 3.2 Community Licence |
+| Llama 3.2 | 3B | 2.02 GB | 6 GB | Llama 3.2 Community Licence |
+| Gemma 3 | 1B | 0.81 GB | 3 GB | Gemma Terms of Use |
+| Gemma 3 | 4B | 2.49 GB | 6 GB | Gemma Terms of Use |
+| Phi-4 | mini | 2.49 GB | 6 GB | MIT |
+
+Choosing a model:
+- `ModelSpec.ALL` lists the models. `families()` and `sizes(family)` group them for the sheets.
+- A model has its family, size, a line about it, the memory it wants, and whether it understands Qwen3's "/no_think" (`ModelSpec.prompt` removes the words for the others).
+- The choice is kept in the `offline_model` preference (`ModelHub.chosen`). An unknown file falls back to the default.
+- `LocalModel.switchTo` frees the loaded model, forgets the conversation and points at the new file. The API chain, usage and learning stay as they were.
+- The sheets mark the model in use and the ones already on the phone. They warn when the phone has less memory than a model wants.
+- Switching away from a downloaded model asks whether to keep it (to switch back without downloading again) or delete it.
+- Switching is refused during a download. Pause it first.
+- Back in the chat, the new model loads if it is on the phone (`ModelHub.generation`). Otherwise the card shows Download.
+
+Switching from the chat, at any time:
+- The model under the chat title opens a sheet. It offers the offline models already on the phone (one tap switches and loads, with no download), "All offline models" (Settings) and "AI providers".
+- The header names the offline model in use ("Qwen3 4B") when no API answers.
+
+Freeing space:
+- Settings › Models lists every model on the phone, whole or part-downloaded, with its size and a **Delete** (`LocalModel.onPhone`, `LocalModel.delete`).
+- Deleting the model in use frees it too, and answers then need an API until another is downloaded.
+
+Engine:
+- The chat template comes from each file (`llama_chat_apply_template`).
+- The vendored llama.cpp supports the Qwen3, Llama, Phi-3/4 and Gemma 3 architectures and the gpt-4o tokenizer.
+- The models have not been run on a phone from this cloud session.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

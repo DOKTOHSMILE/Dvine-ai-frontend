@@ -23,8 +23,34 @@ public final class ModelHub {
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private ModelHub(Context c) {
-        model = new LocalModel(new File(c.getFilesDir(), "models"), ModelSpec.QWEN3_1_7B,
+        model = new LocalModel(new File(c.getFilesDir(), "models"), chosen(c),
                 LocalModel.cpuSupported(android.os.Build.SUPPORTED_ABIS, cpuinfo()));
+    }
+
+    static final String PREF = "offline_model";
+
+    /** The offline model the user chose in Settings (the default until they choose). */
+    static ModelSpec chosen(Context c) {
+        return ModelSpec.byFile(c.getSharedPreferences("dvine", Context.MODE_PRIVATE).getString(PREF, ModelSpec.QWEN3_1_7B.file));
+    }
+
+    /** Bumped on every change of model, so a screen that loads it knows to load again. */
+    public volatile int generation;
+
+    /**
+     * Switches the phone's model: a running download stops, the new choice is kept, and the old file is deleted when
+     * {@code deleteOld} (else it stays for switching back). The app loads the new model once it is on the phone.
+     */
+    public void choose(Context c, ModelSpec next, boolean deleteOld) {
+        if (next == null || next.file.equals(model.spec.file)) {
+            return;
+        }
+        stopDownload();
+        model.switchTo(next, deleteOld);
+        c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putString(PREF, next.file).apply();
+        status.reset();
+        generation++;
+        changed();
     }
 
     public static synchronized ModelHub get(Context c) {

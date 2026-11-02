@@ -123,6 +123,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 90 | Layout fix: PR/Artifact pills attached to the reply, Auto-accept pill in the header, persona tabs in the composer | P12 | Built (Robolectric) | 0.60.0: each reply keeps its own Diff / Pull requests / Artifacts; "Auto"/"Ask" in the header; tabs beside attach; "Fixing … — digging into …" no longer ends Ibiko's work |
 | 91 | Send double tap; persona icons; steps in a bottom sheet with a typewriter line; no trigger words, write until done; pick several files of any kind | P12 | Built (Robolectric) | 0.61.0: the model ends its turn by structure (tool call, <final>, or text confirmed once), cut-off replies continue until they end by themselves |
 | 92 | Copy icon on my message only on a tap; standard check icon; teach the model push/pull and a local sandbox; better offline model? | P12 | Built (Robolectric) | 0.62.0: tap toggles copy, hidden on new messages; ic_check; git workflow + sandbox/ in Ibiko's prompt; clone limit a setting (5,000). Offline model: answered in chat, not changed |
+| 93 | Yes: add more advanced offline models; delete to save space; sizes per family (like Opus/Sonnet/Haiku), switch any time | P12 | Built (Robolectric) | 0.63.0: Settings › Change the offline model (family, then size: Qwen3 0.6B–8B, Llama 3.2 1B/3B, Gemma 3 1B/4B, Phi-4 mini); Delete per model; quick switch from the chat header; not yet run on a phone |
 
 ## Still open, in the order that matters
 
