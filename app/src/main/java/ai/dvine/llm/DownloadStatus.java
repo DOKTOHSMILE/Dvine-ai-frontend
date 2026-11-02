@@ -34,6 +34,13 @@ public final class DownloadStatus {
         }
     }
 
+    /** Nothing under way (another model was chosen). */
+    public synchronized void reset() {
+        phase = Phase.IDLE;
+        done = total = markDone = 0;
+        speed = 0;
+    }
+
     public synchronized void finish(Phase result) {
         phase = result;
         if (result == Phase.DONE) {

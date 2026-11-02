@@ -111,9 +111,10 @@ public final class SettingsActivity extends AppCompatActivity {
                 ProvidersActivity.class));
         body.addView(apis, Ui.wide(this, 8));
         LinearLayout model = card();
-        model.addView(Ui.text(this, "On this phone: " + ai.dvine.llm.ModelSpec.WEIGHTS, 17, Ui.TEXT, true));
-        model.addView(Ui.text(this, "Answers offline and when every API fails. " + hub.model.spec.sizeWords() + ", best on Wi-Fi.",
-                13, Ui.SUB, false), Ui.wide(this, 4));
+        modelTitle = Ui.text(this, "", 17, Ui.TEXT, true);
+        model.addView(modelTitle);
+        modelAbout = Ui.text(this, "", 13, Ui.SUB, false);
+        model.addView(modelAbout, Ui.wide(this, 4));
         modelState = Ui.text(this, "", 15, Ui.TEXT, false);
         model.addView(modelState, Ui.wide(this, 12));
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -143,6 +144,11 @@ public final class SettingsActivity extends AppCompatActivity {
         rp.leftMargin = Ui.dp(this, 10);
         buttons.addView(modelRemove, rp);
         model.addView(buttons, Ui.wide(this, 14));
+        model.addView(action("Change the offline model", "Qwen3, Llama, Gemma or Phi, each in sizes: bigger answers better,"
+                + " smaller is faster", this::chooseModel), Ui.wide(this, 10));
+        onPhone = new LinearLayout(this);
+        onPhone.setOrientation(LinearLayout.VERTICAL);
+        model.addView(onPhone, Ui.wide(this, 6));
         body.addView(model, Ui.wide(this, 8));
         refreshModel();
 
@@ -373,6 +379,8 @@ public final class SettingsActivity extends AppCompatActivity {
             return;
         }
         LocalModel m = hub.model;
+        modelTitle.setText("On this phone: " + m.spec.weights);
+        modelAbout.setText("Answers offline and when every API fails. " + m.spec.sizeWords() + ", best on Wi-Fi.");
         boolean downloading = hub.downloading() || m.state() == LocalModel.State.DOWNLOADING;
         boolean installed = m.installed();
         String state;
@@ -400,6 +408,133 @@ public final class SettingsActivity extends AppCompatActivity {
         modelAction.setVisibility(installed || unsupported ? View.GONE : View.VISIBLE);
         modelAction.setText(downloading ? "Pause" : hub.status.percent() > 0 ? "Resume" : "Download");
         modelRemove.setVisibility(installed || (!downloading && hub.status.percent() > 0) ? View.VISIBLE : View.GONE);
+        fillOnPhone();
+    }
+
+    private LinearLayout onPhone;
+
+    /** Every model on the phone (whole or part-downloaded) with its size and a Delete, to free the space. */
+    private void fillOnPhone() {
+        if (onPhone == null) {
+            return;
+        }
+        onPhone.removeAllViews();
+        for (final ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.ALL) {
+            final long bytes = hub.model.onPhone(m);
+            if (bytes <= 0) {
+                continue;
+            }
+            if (onPhone.getChildCount() == 0) {
+                onPhone.addView(Ui.text(this, "Models on this phone", 14, Ui.SUB, false), Ui.wide(this, 8));
+            }
+            final boolean using = m.file.equals(hub.model.spec.file);
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(Ui.dp(this, 48));
+            row.addView(Ui.text(this, m.weights + "  \u00B7  " + bytes(bytes) + (using ? "  \u00B7  in use" : hub.model.has(m) ? "" : "  \u00B7  part"),
+                    15, Ui.TEXT, false), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            TextView delete = Ui.text(this, "Delete", 15, Ui.CORAL, true);
+            delete.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
+            delete.setContentDescription("Delete " + m.weights);
+            delete.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setMessage("Delete " + m.weights + " from this phone? It frees " + bytes(bytes) + "."
+                            + (using ? " Answers then need an API until you download a model again." : ""))
+                    .setPositiveButton("Delete", (d, w) -> {
+                        if (using) {
+                            hub.stopDownload();
+                        }
+                        new Thread(() -> {
+                            hub.model.delete(m);
+                            runOnUiThread(() -> {
+                                refreshModel();
+                                toast(m.weights + " deleted.");
+                            });
+                        }, "dvine-delete-model").start();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show());
+            row.addView(delete);
+            onPhone.addView(row);
+        }
+    }
+
+    private TextView modelTitle, modelAbout;
+
+    /**
+     * The offline models on offer: first the family (Qwen3, Llama 3.2, Gemma 3, Phi-4), then its size, as Claude
+     * comes as Haiku, Sonnet and Opus. Each size shows its download, the memory it wants and whether it is here.
+     */
+    private void chooseModel() {
+        final java.util.List<String> families = ai.dvine.llm.ModelSpec.families();
+        BottomSheet.Item[] items = new BottomSheet.Item[families.size()];
+        for (int i = 0; i < families.size(); i++) {
+            String f = families.get(i);
+            StringBuilder sizes = new StringBuilder();
+            for (ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.sizes(f)) {
+                sizes.append(sizes.length() == 0 ? "" : " \u00B7 ").append(m.size);
+            }
+            boolean using = f.equals(hub.model.spec.family);
+            items[i] = new BottomSheet.Item(using ? ai.dvine.R.drawable.ic_check : ai.dvine.R.drawable.ic_cube, f,
+                    "Sizes: " + sizes + (using ? ". In use: " + hub.model.spec.size + "." : "."));
+        }
+        BottomSheet.show(this, "Offline model", items, which -> chooseSize(families.get(which)));
+    }
+
+    /** One family's sizes: smaller is faster and lighter, bigger answers better. */
+    private void chooseSize(String family) {
+        final java.util.List<ai.dvine.llm.ModelSpec> sizes = ai.dvine.llm.ModelSpec.sizes(family);
+        long ram = phoneMemoryGb();
+        BottomSheet.Item[] items = new BottomSheet.Item[sizes.size()];
+        for (int i = 0; i < sizes.size(); i++) {
+            ai.dvine.llm.ModelSpec m = sizes.get(i);
+            boolean using = m.file.equals(hub.model.spec.file);
+            String about = m.about + " " + String.format(java.util.Locale.US, "%.1f GB", m.bytes / 1e9) + ", wants " + m.ramGb
+                    + " GB of memory" + (ram > 0 && ram < m.ramGb ? " (this phone has " + ram + " GB: it may not start)" : "")
+                    + (hub.model.has(m) ? ". On this phone." : ".");
+            items[i] = new BottomSheet.Item(using ? ai.dvine.R.drawable.ic_check : ai.dvine.R.drawable.ic_cube,
+                    m.weights + (using ? "  \u00B7 in use" : ""), about);
+        }
+        BottomSheet.show(this, family, items, which -> pick(sizes.get(which)));
+    }
+
+    /** Switches to {@code next}, asking first whether to keep the model in use on the phone. */
+    private void pick(final ai.dvine.llm.ModelSpec next) {
+        final ai.dvine.llm.ModelSpec now = hub.model.spec;
+        if (next.file.equals(now.file)) {
+            return;
+        }
+        if (hub.downloading()) {
+            toast("Pause the download first, then change the model.");
+            return;
+        }
+        if (hub.model.has(now)) {
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setMessage("Switch to " + next.weights + ". Keep " + now.weights + " on the phone to switch back later, or delete it to free "
+                            + now.sizeWords() + "?")
+                    .setPositiveButton("Delete it", (d, w) -> switchModel(next, true))
+                    .setNegativeButton("Keep it", (d, w) -> switchModel(next, false))
+                    .show();
+        } else {
+            switchModel(next, false); // a part-download of the old one stays, listed with a Delete
+        }
+    }
+
+    private void switchModel(ai.dvine.llm.ModelSpec next, boolean deleteOld) {
+        hub.choose(this, next, deleteOld);
+        refreshModel();
+        toast(hub.model.installed() ? next.weights + " is on the phone: it starts when you go back to the chat."
+                : "Now tap Download to get " + next.weights + " (" + next.sizeWords() + ").");
+    }
+
+    /** The phone's memory, in whole gigabytes (0 when unknown). */
+    private long phoneMemoryGb() {
+        android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (am == null) {
+            return 0;
+        }
+        android.app.ActivityManager.MemoryInfo info = new android.app.ActivityManager.MemoryInfo();
+        am.getMemoryInfo(info);
+        return Math.round(info.totalMem / 1e9);
     }
 
     private void modelAction() {

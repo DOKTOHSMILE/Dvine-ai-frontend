@@ -12,8 +12,10 @@ import java.util.List;
 public final class LocalModel {
     public enum State { NOT_INSTALLED, DOWNLOADING, INSTALLED, LOADING, READY, UNSUPPORTED, FAILED }
 
-    public final ModelSpec spec;
-    private final File file;
+    /** The weights in use; another can be chosen ({@link #switchTo}). */
+    public volatile ModelSpec spec;
+    private volatile File file;
+    private final File dir;
     private volatile State state;
     private final java.util.concurrent.atomic.AtomicInteger epoch = new java.util.concurrent.atomic.AtomicInteger();
     private volatile String problem;
@@ -73,6 +75,7 @@ public final class LocalModel {
 
     public LocalModel(File dir, ModelSpec spec, boolean cpuSupported) {
         this.spec = spec;
+        this.dir = dir;
         this.file = new File(dir, spec.file);
         state = !cpuSupported ? State.UNSUPPORTED : installed() ? State.INSTALLED : State.NOT_INSTALLED;
         if (!cpuSupported) {
@@ -281,7 +284,7 @@ public final class LocalModel {
             }
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
-            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, system, roles, texts, maxTokens, 0.7f, wrapped));
+            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), roles, texts, maxTokens, 0.7f, wrapped));
             if (ticket != epoch.get()) {
                 return null;
             }
@@ -324,7 +327,7 @@ public final class LocalModel {
         }
         final int[] pieces = {0};
         final long began = System.currentTimeMillis();
-        String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{ai.dvine.chat.Attachments.withoutImages(prompt)}, maxTokens, 0.35f, wrapped));
+        String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), new String[]{"user"}, new String[]{ai.dvine.chat.Attachments.withoutImages(prompt)}, maxTokens, 0.35f, wrapped));
         recordLocal(system, java.util.Collections.<String[]>emptyList(), prompt, answer, pieces[0], began);
         if (answer == null || answer.trim().isEmpty()) {
             problem = NativeLlm.nError(handle);
@@ -506,7 +509,7 @@ public final class LocalModel {
         for (String[] t : turns) {
             conversation += UsageLog.estimate(t[1]);
         }
-        usage.record(new UsageLog.Call("On this phone: " + ModelSpec.WEIGHTS, LOCAL_WINDOW, UsageLog.estimate(system), conversation,
+        usage.record(new UsageLog.Call("On this phone: " + spec.weights, LOCAL_WINDOW, UsageLog.estimate(system), conversation,
                 UsageLog.estimate(message), Math.max(pieces, 1), false, now - began, now));
     }
 
@@ -550,6 +553,54 @@ public final class LocalModel {
 
     synchronized int historySize() {
         return history.size();
+    }
+
+    /**
+     * Uses other weights from now on: the loaded model is freed and the conversation forgotten; the new one is
+     * loaded (once on the phone) by {@link #load}. The old file stays unless {@code deleteOld}.
+     */
+    public synchronized void switchTo(ModelSpec next, boolean deleteOld) {
+        if (next == null || next.file.equals(spec.file)) {
+            return;
+        }
+        if (handle != 0) {
+            NativeLlm.nFree(handle);
+            handle = 0;
+        }
+        history.clear();
+        File old = file;
+        if (deleteOld) {
+            old.delete();
+            new File(old.getPath() + ".part").delete();
+        }
+        spec = next;
+        file = new File(dir, next.file);
+        problem = null;
+        if (state != State.UNSUPPORTED) {
+            state = installed() ? State.INSTALLED : State.NOT_INSTALLED;
+        }
+    }
+
+    /** Whether {@code m}'s file is on the phone, whole. */
+    public boolean has(ModelSpec m) {
+        File f = new File(dir, m.file);
+        return f.isFile() && f.length() == m.bytes;
+    }
+
+    /** The space {@code m} takes on the phone: its file, whole or part-downloaded (bytes). */
+    public long onPhone(ModelSpec m) {
+        File f = new File(dir, m.file), part = new File(dir, m.file + ".part");
+        return (f.isFile() ? f.length() : 0) + (part.isFile() ? part.length() : 0);
+    }
+
+    /** Deletes a model that is not in use (its file and any part-download), to free the space. */
+    public synchronized boolean delete(ModelSpec m) {
+        if (m.file.equals(spec.file)) {
+            return uninstall();
+        }
+        File f = new File(dir, m.file);
+        new File(dir, m.file + ".part").delete();
+        return !f.exists() || f.delete();
     }
 
     /** Frees the model and deletes its file. */

@@ -560,7 +560,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             });
         android.view.View header = findViewById(R.id.tv_header_sub);
         if (header != null)
-            header.setOnClickListener(v -> openProviders());
+            header.setOnClickListener(v -> showModelSwitch());
         android.view.View manage = findViewById(R.id.btnManageChats);
         if (manage != null)
             manage.setOnClickListener(v -> openHistory());
@@ -1142,6 +1142,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         brain.setUserName(storedName);
         brain.setGivenName(prefs.getString("given_name", null));
         hub = ai.dvine.llm.ModelHub.get(this);
+        modelGeneration = hub.generation;
         model = hub.model;
         model.onStep = this::activity;
         model.learning = ai.dvine.chat.ui.UsageActivity.learningOn(prefs) ? new ai.dvine.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null;
@@ -2419,7 +2420,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!use.isEmpty()) {
             return providers.model(use.get(0)) + (use.size() > 1 ? " +" + (use.size() - 1) : "");
         }
-        return "DVINE model";
+        return model == null ? "DVINE model" : model.spec.weights; // the offline model on the phone, by its own name
     }
 
     /** No brain on the phone and no API: the setup screen (download or API key) comes first. */
@@ -2429,9 +2430,62 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
+    /**
+     * The model under the title, tapped: switch between the offline models already on the phone (any time, no
+     * download), or go to every model, or to the AI providers (API models).
+     */
+    private void showModelSwitch() {
+        final java.util.List<ai.dvine.llm.ModelSpec> here = new java.util.ArrayList<ai.dvine.llm.ModelSpec>();
+        for (ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.ALL) {
+            if (model != null && model.has(m)) {
+                here.add(m);
+            }
+        }
+        java.util.List<ai.dvine.chat.ui.BottomSheet.Item> items = new java.util.ArrayList<ai.dvine.chat.ui.BottomSheet.Item>();
+        for (ai.dvine.llm.ModelSpec m : here) {
+            boolean using = m.file.equals(model.spec.file);
+            items.add(new ai.dvine.chat.ui.BottomSheet.Item(using ? R.drawable.ic_check : R.drawable.ic_cube,
+                    m.weights + (using ? "  \u00B7 in use" : ""), "Offline, on this phone. " + m.about));
+        }
+        items.add(new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_settings, "All offline models",
+                "Download another family or size, or delete one"));
+        items.add(new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_key, "AI providers", "API models and keys"));
+        ai.dvine.chat.ui.BottomSheet.show(this, "Model", items.toArray(new ai.dvine.chat.ui.BottomSheet.Item[0]), which -> {
+            if (which < here.size()) {
+                switchOfflineModel(here.get(which));
+            } else if (which == here.size()) {
+                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
+            } else {
+                openProviders();
+            }
+        });
+    }
+
+    /** Switches to an offline model that is already on the phone, keeping the other file, and loads it. */
+    private void switchOfflineModel(ai.dvine.llm.ModelSpec next) {
+        if (next.file.equals(model.spec.file)) {
+            return;
+        }
+        if (hub.downloading()) {
+            note("Pause the model download first, then switch.");
+            return;
+        }
+        hub.choose(this, next, false);
+        modelGeneration = hub.generation;
+        reportModel();
+        note("Switching to " + next.weights + "\u2026");
+        applyProvider(); // the header names the model now in use
+        if (prefs.getBoolean("llm_on", true)) {
+            loadModel(false);
+        }
+    }
+
     private void openProviders() {
         startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ProvidersActivity.class));
     }
+
+    /** The model choice this screen loaded ({@link ai.dvine.llm.ModelHub#generation}). */
+    private int modelGeneration;
 
     private void loadModel(final boolean tell) {
         modelThread.execute(() -> {
@@ -3489,6 +3543,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         connectivity.start();
         applyProvider(); // back from the AI providers sheet: the brain the user chose answers
         applySettings(); // back from Settings: name, voice speed, Enter key, deleted chats
+        if (hub != null && hub.generation != modelGeneration) {
+            modelGeneration = hub.generation; // another offline model was chosen in Settings: it starts now
+            reportModel();
+            if (model.installed() && prefs.getBoolean("llm_on", true)) {
+                loadModel(false);
+            }
+        }
         askForBrainIfNone();
         handler.removeCallbacks(engineTick);
         handler.post(engineTick);

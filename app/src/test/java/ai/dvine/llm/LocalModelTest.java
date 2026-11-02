@@ -2,6 +2,7 @@ package ai.dvine.llm;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -130,5 +131,52 @@ public class LocalModelTest {
         assertEquals(12, m.historySize());
         assertTrue(ModelSpec.QWEN3_1_7B.url.startsWith("https://huggingface.co/") && ModelSpec.QWEN3_1_7B.sha256.length() == 64);
         assertEquals("1.1 gigabytes", ModelSpec.QWEN3_1_7B.sizeWords());
+    }
+
+    @Test
+    public void otherOfflineModelsCanBeChosen() throws Exception {
+        java.util.Set<String> files = new java.util.HashSet<String>();
+        for (ModelSpec m : ModelSpec.ALL) {
+            // each pinned to a revision, checked by its SHA-256, a 4-bit GGUF, its own file
+            assertTrue(m.url, m.url.matches("https://huggingface\\.co/[^/]+/[^/]+/resolve/[0-9a-f]{40}/.+\\.gguf"));
+            assertTrue(m.weights, m.sha256.matches("[0-9a-f]{64}") && m.bytes > 300_000_000L && files.add(m.file));
+            assertTrue(m.url.contains("Q4_K_M"));
+        }
+        assertEquals(9, ModelSpec.ALL.length);
+        // families in sizes, as Claude comes as Haiku, Sonnet and Opus
+        assertEquals(java.util.Arrays.asList("Qwen3", "Llama 3.2", "Gemma 3", "Phi-4"), ModelSpec.families());
+        assertEquals(java.util.Arrays.asList(ModelSpec.QWEN3_0_6B, ModelSpec.QWEN3_1_7B, ModelSpec.QWEN3_4B, ModelSpec.QWEN3_8B),
+                ModelSpec.sizes("Qwen3"));
+        assertEquals("Qwen3 1.7B", ModelSpec.QWEN3_1_7B.weights);
+        assertEquals(ModelSpec.WEIGHTS, ModelSpec.QWEN3_1_7B.weights);
+        assertSame(ModelSpec.QWEN3_4B, ModelSpec.byFile("qwen3-4b-q4km.gguf"));
+        assertSame(ModelSpec.QWEN3_1_7B, ModelSpec.byFile("gone.gguf")); // an unknown choice falls back to the default
+        // "/no_think" is Qwen3's switch; other models would only read it as text
+        assertEquals("Be brief. /no_think", ModelSpec.QWEN3_4B.prompt("Be brief. /no_think"));
+        assertEquals("Be brief.", ModelSpec.LLAMA_3_2_3B.prompt("Be brief. /no_think"));
+
+        File dir = Files.createTempDirectory("dvine-models").toFile();
+        LocalModel m = new LocalModel(dir, ModelSpec.QWEN3_1_7B, true);
+        m.remember("q", "a");
+        File old = new File(dir, ModelSpec.QWEN3_1_7B.file);
+        Files.write(old.toPath(), new byte[]{1, 2, 3});
+        m.switchTo(ModelSpec.GEMMA_3_4B, false);
+        assertSame(ModelSpec.GEMMA_3_4B, m.spec);
+        assertEquals(new File(dir, ModelSpec.GEMMA_3_4B.file), m.file());
+        assertEquals(LocalModel.State.NOT_INSTALLED, m.state()); // not downloaded yet
+        assertEquals(0, m.historySize()); // a new model starts a fresh conversation
+        assertTrue(old.isFile()); // kept for switching back
+        m.switchTo(ModelSpec.QWEN3_1_7B, false);
+        m.switchTo(ModelSpec.PHI_4_MINI, true);
+        assertFalse(old.isFile()); // deleted when asked
+        // any model on the phone can be deleted to free the space, whole or part-downloaded
+        File other = new File(dir, ModelSpec.QWEN3_4B.file), part = new File(dir, ModelSpec.GEMMA_3_1B.file + ".part");
+        Files.write(other.toPath(), new byte[1000]);
+        Files.write(part.toPath(), new byte[500]);
+        assertEquals(1000, m.onPhone(ModelSpec.QWEN3_4B));
+        assertEquals(500, m.onPhone(ModelSpec.GEMMA_3_1B));
+        assertTrue(m.delete(ModelSpec.QWEN3_4B) && m.delete(ModelSpec.GEMMA_3_1B));
+        assertFalse(other.exists() || part.exists());
+        assertSame(ModelSpec.PHI_4_MINI, m.spec); // deleting another model leaves the one in use alone
     }
 }
