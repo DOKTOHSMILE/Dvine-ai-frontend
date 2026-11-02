@@ -205,14 +205,17 @@ public final class CodeAgent {
                     step--;
                     continue;
                 }
-                if (pending != null) {
+                String failed = brain.why();
+                if (pending != null && (failed == null || failed.isEmpty())) {
                     String answer = pending; // asked whether it was done, it had nothing to add: that text was the answer
                     pending = null;
                     String full = big && answer.length() < REPORT_CHARS && !reportAsked ? report(work, answer) : null;
                     return full != null && full.length() > answer.length() ? full : answer;
                 }
-                String why = brain.why();
-                return "The model didn't answer" + (why == null || why.isEmpty() ? "" : " (" + why + ")") + ", so I stopped at step " + step
+                // a failed request is not "nothing to add": the work stopped, and the user hears why and where
+                String why = failed;
+                return (pending == null ? "" : pending + "\n\n") + "The model didn't answer" + (why == null || why.isEmpty() ? "" : " (" + why + ")")
+                        + ", so I stopped at step " + step
                         + ". Say \u201ccontinue\u201d to carry on from here." + summary();
             }
             retried = false;

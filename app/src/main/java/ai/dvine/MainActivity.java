@@ -99,7 +99,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 stage.setDownload(true, "Model downloaded", 100, false,
                         "verified, starting now");
                 handler.postDelayed(() -> stage.setDownload(false, "", 100, false, ""), 6000);
-                loadModel(true);
+                // a short note, not a chat reply: a download finishing in the background must not land inside
+                // whatever the persona is saying at that moment
+                note(model.spec.weights + " is downloaded and starting. It answers offline too.");
+                loadModel(false);
                 break;
             case PAUSED:
                 stage.activity("DOWNLOAD", "paused at " + st.percent() + "%");

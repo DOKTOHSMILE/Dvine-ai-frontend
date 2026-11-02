@@ -18,7 +18,7 @@ import ai.dvine.llm.TaskSize;
 
 /** Ibiko's coding agent with a scripted brain, its workspace walls, and the task-size guess. */
 public class CodeAgentTest {
-    private static final class Script implements CodeAgent.Brain {
+    private static class Script implements CodeAgent.Brain {
         final List<String> replies, seen = new ArrayList<String>();
 
         Script(String... replies) {
@@ -324,6 +324,16 @@ public class CodeAgentTest {
         Script narrating = new Script("Fixing your build errors \u2014 digging into the failing sources.",
                 "<tool name=\"list_files\" path=\".\"/>", "<final>Fixed: the missing import in Main.java.</final>");
         assertEquals("Fixed: the missing import in Main.java.", new CodeAgent(ws, narrating, new Phone(), "", 20_000).run("fix the build", ""));
+        // asked whether it was done, the request failed: that is not "nothing to add", the user hears why
+        Script dropped = new Script("Clearing your phone sandbox \u2014 wiping the local workspace clean.") {
+            @Override
+            public String why() {
+                return "the connection to the gateway broke";
+            }
+        };
+        String stopped = new CodeAgent(ws, dropped, new Phone(), "", 20_000).run("clear my sandbox", "");
+        assertTrue(stopped, stopped.contains("The model didn't answer (the connection to the gateway broke)")
+                && stopped.startsWith("Clearing your phone sandbox"));
         Script plain = new Script("Fixed it \u2014 missing import added in Main.java.", "Fixed it \u2014 missing import added in Main.java.");
         assertEquals("Fixed it \u2014 missing import added in Main.java.", new CodeAgent(ws, plain, new Phone(), "", 20_000).run("fix the build", ""));
     }

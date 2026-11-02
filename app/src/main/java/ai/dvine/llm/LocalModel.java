@@ -64,6 +64,25 @@ public final class LocalModel {
         }
     }
 
+    /** A cautious count of characters per token, for fitting text into the phone's own model's memory. */
+    static final int CHARS_PER_TOKEN = 3;
+
+    /**
+     * {@code text} cut to {@code chars} characters, keeping its start (the task, a quarter) and its end (the latest
+     * work), with a mark where the middle was left out. Unchanged when it fits.
+     */
+    static String fit(String text, int chars) {
+        String t = text == null ? "" : text;
+        int room = Math.max(400, chars);
+        if (t.length() <= room) {
+            return t;
+        }
+        String gap = "\n\u2026(earlier work left out to fit the phone's model)\u2026\n";
+        int head = (room - gap.length()) / 4;
+        int tail = room - gap.length() - head;
+        return t.substring(0, Math.max(0, head)) + gap + t.substring(t.length() - Math.max(0, tail));
+    }
+
     /** Keeps a remembered answer short so the next reply is not rereading a long one. */
     static String clip(String answer, int n) {
         String t = answer == null ? "" : answer.trim();
@@ -363,6 +382,9 @@ public final class LocalModel {
         if (state != State.READY) {
             return null;
         }
+        final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
+        final int room = Math.min(maxTokens, Math.max(256, localWindow() / 4));
+        asked = fit(asked, (localWindow() - room) * CHARS_PER_TOKEN - (system == null ? 0 : system.length()) - 600);
         ai.dvine.learn.LearningLog l = learning;
         String learned = l == null ? "" : l.examplesFor(question, 2, 1400);
         step("Answering with the model on this phone");
@@ -381,7 +403,7 @@ public final class LocalModel {
             }
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
-            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), roles, texts, maxTokens, 0.7f, wrapped));
+            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), roles, texts, room, 0.7f, wrapped));
             if (ticket != epoch.get()) {
                 return null;
             }
@@ -390,8 +412,10 @@ public final class LocalModel {
                 remember(question, ActionTags.strip(answer));
                 return answer.trim();
             }
-            problem = NativeLlm.nError(handle);
-            if (problem == null || !problem.contains("too long") || history.isEmpty()) {
+            String local = NativeLlm.nError(handle);
+            problem = apiProblem == null ? local
+                    : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
+            if (local == null || !local.contains("too long") || history.isEmpty()) {
                 return null;
             }
             // too long: forget the oldest half of the conversation and try once more
@@ -422,12 +446,19 @@ public final class LocalModel {
         if (state != State.READY) {
             return null;
         }
+        final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
+        // the phone's own model takes over with what fits its memory: the start of the task and the latest work
+        final int reply = Math.min(maxTokens, Math.max(256, localWindow() / 4));
+        final String fitted = fit(prompt, (localWindow() - reply) * CHARS_PER_TOKEN - system.length() - 200);
         final int[] pieces = {0};
         final long began = System.currentTimeMillis();
-        String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), new String[]{"user"}, new String[]{ai.dvine.chat.Attachments.withoutImages(prompt)}, maxTokens, 0.35f, wrapped));
-        recordLocal(system, java.util.Collections.<String[]>emptyList(), prompt, answer, pieces[0], began);
+        String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), new String[]{"user"},
+                new String[]{ai.dvine.chat.Attachments.withoutImages(fitted)}, reply, 0.35f, wrapped));
+        recordLocal(system, java.util.Collections.<String[]>emptyList(), fitted, answer, pieces[0], began);
         if (answer == null || answer.trim().isEmpty()) {
-            problem = NativeLlm.nError(handle);
+            String local = NativeLlm.nError(handle);
+            problem = apiProblem == null ? local
+                    : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
             return null;
         }
         return answer.trim();
