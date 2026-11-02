@@ -1388,6 +1388,20 @@ Every command and every file is named, none counted away, and every step is list
 
 The detail is kept in `files/steps/<id>`, and the step line carries the id.
 
+## 48. The agent works until it hands in its answer (app v0.59.0, built)
+
+Recognising "status lines" by their words kept missing new phrasings, so the rule itself changed, as in coding agents like Claude Code. Each reply of the model is one of four things:
+1. **A tool call:** it runs, and the work goes on.
+2. **`<final>…</final>`:** the work is done and that is the answer. For a big task (audit, review, research, report…) a very short final gets one round to be written in full.
+3. **A progress note or a request for leave** (`CodeAgent.status`, `asksPermission`, `promise`): never the end. It is shown as a step, and the model is told to carry on: "don't describe it, do it", or "don't ask, they asked for the whole job". After three notes, or two requests for leave, the report is written from everything read so far (`report`, a 12,000-token allowance).
+4. **Anything else:** an answer. For a plain request it ends the work ("hello", "capital of France?"). For a big task it ends the work if it is a whole report (1,500+ characters). Otherwise it gets one round to be written in full.
+
+Also:
+- An empty reply is asked again once.
+- A dropped connection (`IOException`, a broken stream before any words) is tried twice more after 1.5 and 4 seconds (`RemoteBrain.chat`). A server error goes to the next model through `LocalModel`'s switching instead.
+- The system prompt tells the model to finish with `<final>` and never to stop to ask or narrate.
+- The live text shows the final answer as it is written.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
