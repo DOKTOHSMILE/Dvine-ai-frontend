@@ -328,4 +328,31 @@ public class RemoteBrainTest {
         assertTrue(b0, b0.contains("\"temperature\":0.2"));
         assertTrue(RemoteBrain.validExtra("{\"a\":1}") && RemoteBrain.validExtra("") && !RemoteBrain.validExtra("temperature=1"));
     }
+
+    @Test
+    public void aPdfGoesAsADocumentThenAsPagesThenAsANote() throws Exception {
+        java.io.File pdf = java.io.File.createTempFile("doc", ".pdf");
+        java.nio.file.Files.write(pdf.toPath(), "%PDF-1.4".getBytes(StandardCharsets.UTF_8));
+        java.io.File page = java.io.File.createTempFile("p1", ".jpg");
+        java.nio.file.Files.write(page.toPath(), new byte[]{9, 9});
+        String msg = "Summarise this\n\n" + ai.dvine.chat.Attachments.file(pdf.getPath(), "application/pdf", "report.pdf",
+                java.util.Collections.singletonList(page.getPath()));
+        // Claude: a document block
+        Fake a = new Fake().reply(200, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Ok.\"}}\n\n");
+        new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "k", "", a).chat("s", ask(msg), 48, 0.7f, null);
+        assertTrue(a.bodies.get(0), a.bodies.get(0).contains("\"type\":\"document\"") && a.bodies.get(0).contains("\"media_type\":\"application/pdf\""));
+        // OpenAI form: a file part; refused, then the pages as pictures
+        Fake o = new Fake().reply(400, "{\"error\":{\"message\":\"file parts not supported\"}}").reply(200, OPENAI_STREAM);
+        RemoteBrain gw = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://gw.example.com/v1", "some-vision-model", "k", "", o);
+        assertEquals("Hello there.", gw.chat("s", ask(msg), 48, 0.7f, null));
+        assertTrue(o.bodies.get(0), o.bodies.get(0).contains("\"type\":\"file\"") && o.bodies.get(0).contains("\"filename\":\"report.pdf\""));
+        assertTrue(o.bodies.get(1), !o.bodies.get(1).contains("\"type\":\"file\"") && o.bodies.get(1).contains("image_url")
+                && o.bodies.get(1).contains("the pages of report.pdf"));
+        // a text-only model: a note
+        Fake t = new Fake().reply(200, OPENAI_STREAM);
+        new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.deepseek.com/v1", "deepseek-chat", "k", "", t).options("off", "auto", 0, 180, "")
+                .chat("s", ask(msg), 48, 0.7f, null);
+        assertTrue(t.bodies.get(0), t.bodies.get(0).contains("a document, report.pdf, is attached, but this model can't read files"));
+        assertEquals("Summarise this\n\n[a document: report.pdf]", ai.dvine.chat.Attachments.withoutImages(msg));
+    }
 }

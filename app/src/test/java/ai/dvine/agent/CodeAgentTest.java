@@ -196,6 +196,9 @@ public class CodeAgentTest {
         assertTrue(brain.seen.get(2), brain.seen.get(2).contains("connector said: web.search Google"));
         assertTrue(CodeAgent.promise("I'll clone the repo into the workspace, then audit it."));
         assertFalse(CodeAgent.promise("Want me to retry the clone?"));
+        assertTrue(CodeAgent.promise("Cloned \u2014 now auditing your codebase."));
+        assertTrue(CodeAgent.promise("Starting the audit\u2026"));
+        assertFalse(CodeAgent.promise("The codebase has 239 Java files; MainActivity is the largest."));
     }
 
     @Test
@@ -226,5 +229,18 @@ public class CodeAgentTest {
         assertEquals(1500, ai.dvine.chat.Tuning.PASTE_CHARS.get(null));
         assertTrue(ai.dvine.chat.Attachments.longPaste("x".repeat(300), 200));
         assertFalse(ai.dvine.chat.Attachments.longPaste("x".repeat(300)));
+    }
+
+    @Test
+    public void aLongTaskGetsTheFullResultNotAStatusLine() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        String report = "Audit of app/: 3 problems.\n1. MainActivity.java is 3,000 lines (split it).\n2. No tests for the network layer.\n"
+                + "3. Keys are logged in debug builds (RemoteBrain.java:120): remove the log.\n" + "x".repeat(400);
+        Script brain = new Script("Auditing your codebase now \u2014 mapping structure and checking key files.", report);
+        String answer = new CodeAgent(ws, brain, new Phone(), "", 20_000).run("Give me the result of the audit", "");
+        assertEquals(report, answer);
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That is a status line, not the result"));
+        assertTrue(CodeAgent.thin("audit this codebase", "Cloned."));
+        assertFalse(CodeAgent.thin("hello", "Hi!"));
     }
 }

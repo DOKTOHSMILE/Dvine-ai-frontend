@@ -50,10 +50,55 @@ public final class AttachmentReader {
             }
             return new ComposerAttachments.Item("text", name, null, text);
         }
+        if ((mime != null && mime.contains("pdf")) || lower.endsWith(".pdf")) {
+            return pdf(c, uri, name);
+        }
         String kind = mime == null ? "a file" : mime.startsWith("video/") ? "a video" : mime.startsWith("audio/") ? "a sound recording"
                 : mime.contains("pdf") ? "a PDF" : "a file (" + mime + ")";
         return new ComposerAttachments.Item("file", name, null,
                 "The user attached " + kind + " named " + name + ". Its contents can't be read on the phone yet, so ask them to paste the part that matters.");
+    }
+
+    static final int MAX_PDF = 20 * 1024 * 1024, PDF_PAGES = 6;
+
+    /**
+     * A PDF: kept whole (a model that takes files gets the document itself), with its first pages drawn as pictures
+     * for a model that sees images but takes no files.
+     */
+    private static ComposerAttachments.Item pdf(Context c, Uri uri, String name) throws IOException {
+        File dir = new File(c.getFilesDir(), "attachments");
+        dir.mkdirs();
+        String id = UUID.randomUUID().toString();
+        File out = new File(dir, id + ".pdf");
+        byte[] bytes = readAll(c, uri, MAX_PDF + 1);
+        if (bytes.length > MAX_PDF) {
+            return new ComposerAttachments.Item("file", name, null, "The user attached a PDF named " + name
+                    + ", over 20 MB, too big to send. Ask them for the pages that matter.");
+        }
+        java.nio.file.Files.write(out.toPath(), bytes);
+        java.util.List<String> pages = new java.util.ArrayList<String>();
+        int count = 0;
+        try (android.os.ParcelFileDescriptor fd = android.os.ParcelFileDescriptor.open(out, android.os.ParcelFileDescriptor.MODE_READ_ONLY);
+                android.graphics.pdf.PdfRenderer r = new android.graphics.pdf.PdfRenderer(fd)) {
+            count = r.getPageCount();
+            for (int i = 0; i < Math.min(PDF_PAGES, count); i++) {
+                try (android.graphics.pdf.PdfRenderer.Page page = r.openPage(i)) {
+                    float k = Math.min(2f, 1400f / Math.max(page.getWidth(), page.getHeight()));
+                    Bitmap bmp = Bitmap.createBitmap(Math.max(1, Math.round(page.getWidth() * k)), Math.max(1, Math.round(page.getHeight() * k)),
+                            Bitmap.Config.ARGB_8888);
+                    bmp.eraseColor(0xFFFFFFFF);
+                    page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                    File png = new File(dir, id + "-p" + (i + 1) + ".jpg");
+                    try (FileOutputStream o = new FileOutputStream(png)) {
+                        bmp.compress(Bitmap.CompressFormat.JPEG, 85, o);
+                    }
+                    pages.add(png.getAbsolutePath());
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            // pages can't be drawn (a protected PDF): the document still goes to models that take files
+        }
+        return new ComposerAttachments.Item("doc", name, out.getAbsolutePath(), String.join(";", pages) + "\n" + count);
     }
 
     private static ComposerAttachments.Item image(Context c, Uri uri, String name, int side) throws IOException {

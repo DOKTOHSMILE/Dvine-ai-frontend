@@ -238,6 +238,11 @@ public final class ChatBook {
 
     /** The current section only, newest tail, so the brain can follow this chat and not another one. */
     public synchronized String transcript(int maxChars) {
+        return transcript(maxChars, 220);
+    }
+
+    /** As above, each message kept up to {@code perMessage} characters (an agent needs the earlier findings whole). */
+    public synchronized String transcript(int maxChars, int perMessage) {
         Section s = current();
         StringBuilder b = new StringBuilder();
         for (Message m : s.messages) {
@@ -257,7 +262,7 @@ public final class ChatBook {
                 line = who + " code: " + (code.length() > 180 ? code.substring(0, 180) : code);
             } else {
                 String t = m.body.replace('\n', ' ').trim();
-                line = who + ": " + (t.length() > 220 ? t.substring(0, 220) : t);
+                line = who + ": " + (t.length() > perMessage ? t.substring(0, perMessage) : t);
             }
             b.append(line).append('\n');
         }

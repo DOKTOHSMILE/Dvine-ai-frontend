@@ -182,6 +182,102 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     };
     /** ANRE: the particles build researched, editable 3D objects. */
     private ai.dvine.create.CreationDirector creation;
+    /** Ivie's model-drawn 3D things: any subject as named parts, edited part by part, exported as files. */
+    private ai.dvine.create.IvieStudio studio;
+    /** The last thing on Ivie's canvas came from the studio (not the creation engine). */
+    private boolean studioOnShow;
+
+    /**
+     * Ivie's studio: with a model-drawn thing on show, "take out the tyres", "make the wheels black", "add a
+     * spoiler", "put the tyres back", "undo" and "export it as an STL" act on it; "draw me a dragon" (anything the
+     * creation engine doesn't build itself) has the model plan it as parts. False when the words are none of those.
+     */
+    private boolean ivieStudio(final String text) {
+        if (model == null || !model.ready()) {
+            return false;
+        }
+        if (studio == null) {
+            studio = new ai.dvine.create.IvieStudio((system, prompt, max) -> model.task(system, prompt, max, null));
+        }
+        final int tokens = ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs);
+        if (studioOnShow && studio.has() && ai.dvine.create.IvieStudio.wantsExport(text)) {
+            exportStudio(text);
+            return true;
+        }
+        boolean edit = studioOnShow && studio.has()
+                && (ai.dvine.render.field.PartEdit.parse(text) != null || ai.dvine.create.IvieStudio.undoWord(text) != null);
+        final String subject = edit ? null : ai.dvine.create.IvieStudio.drawSubject(text);
+        if (!edit && subject == null) {
+            return false;
+        }
+        if (!edit) {
+            ai.dvine.create.ObjectRequestInterpreter.Request known = creation.parse(text, stage.objectShown());
+            if (known != null && known.kind != ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT) {
+                return false; // the creation engine builds this kind of thing itself
+            }
+        }
+        final int id = ++askId;
+        stopPlay();
+        armThink(edit ? "Changing the parts" : "Planning the parts of " + ai.dvine.llm.DrawPrompt.article(subject),
+                edit ? "Changing the parts" : "Planning the parts");
+        showIvieCanvas(true);
+        buildThread.execute(() -> {
+            final ai.dvine.create.IvieStudio.Result r = edit ? studio.edit(text, tokens) : studio.draw(subject, null, tokens);
+            handler.post(() -> {
+                if (id != askId || isFinishing()) {
+                    return;
+                }
+                endThink();
+                if (r != null && r.spec != null) {
+                    ai.dvine.render.field.Shape shape = r.spec.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
+                    if (edit && stage.pictureShown()) {
+                        stage.reshapeSolid(shape);
+                    } else {
+                        stage.showSolid(shape, studio.subject());
+                    }
+                    studioOnShow = true;
+                    currentSolid = studio.spec(); // "save this drawing" keeps it in the library
+                    lastDrawn = studio.subject();
+                }
+                play(LocalTurn.speakAs("ivie", r == null ? "I couldn't change that." : r.line), null);
+            });
+        });
+        return true;
+    }
+
+    /** Saves what is on Ivie's canvas as a GLB, OBJ (+MTL), STL or PLY file in Downloads/DVINE, and offers to share it. */
+    private void exportStudio(String said) {
+        ai.dvine.create.IvieStudio.Export e = studio.export(said);
+        if (e == null) {
+            play(LocalTurn.speakAs("ivie", "There's nothing on my canvas to export yet."), null);
+            return;
+        }
+        try {
+            android.net.Uri uri = ai.dvine.chat.ui.Downloads.save(this, e.name, e.mime, e.bytes);
+            if (e.extra != null) {
+                ai.dvine.chat.ui.Downloads.save(this, e.extra.name, e.extra.mime, e.extra.bytes);
+            }
+            play(LocalTurn.speakAs("ivie", "Saved " + e.name + (e.extra != null ? " and " + e.extra.name : "") + " in Downloads/DVINE. It opens in "
+                    + e.format.opensIn + "."), null);
+            android.content.Intent share = new android.content.Intent(android.content.Intent.ACTION_SEND)
+                    .setType(e.mime).putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            note("Tap to share " + e.name + ".");
+            android.view.View n = findViewById(R.id.composer_note);
+            if (n != null) {
+                n.setOnClickListener(v -> {
+                    try {
+                        startActivity(android.content.Intent.createChooser(share, "Share " + e.name));
+                    } catch (RuntimeException ignored) {
+                        // no app to share with
+                    }
+                });
+            }
+        } catch (java.io.IOException | RuntimeException ex) {
+            play(LocalTurn.speakAs("ivie", "I couldn't save the file: " + ex.getMessage() + "."), null);
+        }
+    }
+
     /** The GL scene under the stage; both go into Ivie's 3D canvas when she shows something. */
     private ai.dvine.render.PodView podView;
 
@@ -223,6 +319,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean ivieGraphics(String text) {
         if (creation == null || !"ivie".equals(stage.agent()) || ai.dvine.chat.Attachments.has(text)) {
             return false;
+        }
+        if (ivieStudio(text)) {
+            return true; // drawn by the model as parts: part edits, export, undo, or a new thing
         }
         ai.dvine.create.ObjectRequestInterpreter.Request r = creation.parse(text, stage.objectShown());
         if (r == null || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT) {
@@ -571,7 +670,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if ("image".equals(it.kind)) {
                     chats.add("user", "image", it.path, persona);
                 } else {
-                    chats.add("user", "file", it.name + "\n" + ("text".equals(it.kind) ? ai.dvine.chat.Attachments.lines(it.text) : "file"), persona);
+                    chats.add("user", "file", it.name + "\n" + ("text".equals(it.kind) ? ai.dvine.chat.Attachments.lines(it.text)
+                            : "doc".equals(it.kind) ? ai.dvine.chat.ui.ComposerAttachments.pages(it) : "file"), persona);
                 }
             }
             if (!words.isEmpty()) {
@@ -1467,7 +1567,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         armThink(readOnly ? who + " is reading the files" : who + " is working", who + " is working");
         final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
-        final String earlier = chats == null ? "" : chats.transcript(1500);
+        final String earlier = chats == null ? "" : chats.transcript(model.remoteOn() ? 12000 : 1500, model.remoteOn() ? 6000 : 220); // what was already found, whole
         final String tools = connectorTools();
         model.coding = true;
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> askId,
@@ -1479,7 +1579,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }, () -> showIbikoMode(true));
         new Thread(() -> {
             ai.dvine.agent.CodeAgent agent = new ai.dvine.agent.CodeAgent(workspace,
-                    (system, transcript) -> model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), piece -> modelPiece(id, piece)), host, tools,
+                    new ai.dvine.agent.CodeAgent.Brain() {
+                        @Override
+                        public String ask(String system, String transcript) {
+                            return model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), piece -> modelPiece(id, piece));
+                        }
+
+                        @Override
+                        public String why() {
+                            return model.problem(); // shown with "the model didn't answer", so the cause is visible
+                        }
+                    }, host, tools,
                     model.window() * 3);
             agent.useGit(connectors.git()).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly);
             final String answer = agent.run(task, earlier);
@@ -2003,6 +2113,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 currentSolid = null;
+                studioOnShow = false;
                 stage.showPhotograph(picture, subject);
                 if (chatPane != null && shot != null && shot.isFile()) {
                     chatPane.image(shot.getAbsolutePath());
@@ -2450,6 +2561,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (o.picture != null || o.model != null || stage.objectShown()) {
             showIvieCanvas(true);
+            studioOnShow = false; // the engine's thing is on show now
         }
         List<TurnLine> lines = new ArrayList<TurnLine>();
         for (String l : o.lines) {

@@ -142,6 +142,23 @@ public class ScreenshotTest {
         shoot(c.get(), "13_attachments_night");
         box.clear();
 
+        // Ivie's 3D canvas with a model-drawn car on it
+        java.lang.reflect.Field sf = MainActivity.class.getDeclaredField("stage");
+        sf.setAccessible(true);
+        ai.dvine.stage.StageView stageView = (ai.dvine.stage.StageView) sf.get(c.get());
+        ai.dvine.render.field.SolidSpec car = ai.dvine.render.field.SolidSpec.parse("body | box | red | middle centre | large wide\n"
+                + "cabin | box | sky | above body | medium\nwheel | disc | black | below body, both sides, left | medium sideways\n"
+                + "wheel | disc | black | below body, both sides, right | medium sideways\nheadlight | sphere | yellow | in front of body, both sides | small\n", "car");
+        stageView.showSolid(car.points(ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS, 2f), "car");
+        java.lang.reflect.Method canvas = MainActivity.class.getDeclaredMethod("showIvieCanvas", boolean.class);
+        canvas.setAccessible(true);
+        canvas.invoke(c.get(), true);
+        for (int i = 0; i < 40; i++) {
+            ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        shoot(c.get(), "14_ivie_canvas_night");
+        canvas.invoke(c.get(), false);
+
         java.lang.reflect.Method attach = MainActivity.class.getDeclaredMethod("showAttachMenu", android.view.View.class);
         attach.setAccessible(true);
         attach.invoke(c.get(), (android.view.View) null);

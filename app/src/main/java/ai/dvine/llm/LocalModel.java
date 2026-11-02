@@ -55,6 +55,11 @@ public final class LocalModel {
     }
 
     /** Keeps a remembered answer short so the next reply is not rereading a long one. */
+    static String clip(String answer, int n) {
+        String t = answer == null ? "" : answer.trim();
+        return t.length() <= n ? t : t.substring(0, n) + "...";
+    }
+
     static String clipMemory(String answer) {
         if (answer == null) {
             return "";
@@ -536,7 +541,8 @@ public final class LocalModel {
     synchronized void remember(String question, String answer) {
         // an image is sent once, with its question; the remembered conversation keeps "[an image]"
         history.add(new String[]{"user", ai.dvine.chat.Attachments.withoutImages(question)});
-        history.add(new String[]{"assistant", clipMemory(answer)});
+        // the phone's small model keeps a short memory; an API model keeps the whole reply (a report stays a report)
+        history.add(new String[]{"assistant", remoteOn() ? clip(answer, 6000) : clipMemory(answer)});
         while (history.size() > HISTORY_TURNS * 2) {
             history.remove(0);
         }

@@ -74,7 +74,9 @@ public final class RemoteBrain {
     private Map<String, Object> extra = new LinkedHashMap<String, Object>();
     /** Models that refused an image this session: they get a note instead. */
     private static final java.util.Set<String> NO_VISION = java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
-    private boolean dropImages;
+    private boolean dropImages, dropFiles;
+    /** Models that refused a document this session: they get its pages as pictures, or a note. */
+    private static final java.util.Set<String> NO_FILES = java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
 
     /**
      * The provider's advanced settings: images ("auto", "on", "off"), reasoning ("auto", "on", "off"), the most it may
@@ -106,6 +108,20 @@ public final class RemoteBrain {
         } catch (RuntimeException e) {
             return false;
         }
+    }
+
+    private static boolean hasFiles(List<String[]> turns) {
+        for (String[] t : turns) {
+            if (t[1] != null && ai.dvine.chat.Attachments.FILE.matcher(t[1]).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether documents (PDFs) go to this model as files: when it takes images and hasn't refused one. */
+    boolean takesFiles() {
+        return seesImages() && !dropFiles && ("on".equals(vision) || !NO_FILES.contains(baseUrl + "|" + model));
     }
 
     private static boolean hasImages(List<String[]> turns) {
@@ -214,6 +230,7 @@ public final class RemoteBrain {
             // a server that refuses one optional field is asked again in the plainer form
             // a reasoning model gets its own form first (no temperature, room to think), saving two refused requests
             dropImages = false;
+            dropFiles = false;
             for (int form = reasoning() ? 2 : 0; form < (protocol == Protocol.ANTHROPIC ? 2 : 3); form++) {
                 Response r;
                 try {
@@ -223,7 +240,14 @@ public final class RemoteBrain {
                     return null;
                 }
                 try (InputStream in = r.body) {
-                    if ((r.status == 400 || r.status == 422) && !dropImages && seesImages() && hasImages(turns)) {
+                    if ((r.status == 400 || r.status == 422) && takesFiles() && hasFiles(turns)) {
+                        // a model that takes no documents: the same request with the pages as pictures (or a note)
+                        NO_FILES.add(baseUrl + "|" + model);
+                        dropFiles = true;
+                        form--;
+                        continue;
+                    }
+                    if ((r.status == 400 || r.status == 422) && !dropImages && seesImages() && (hasImages(turns) || hasFiles(turns))) {
                         // a model that can't see (DeepSeek and others): the same request with notes instead of images
                         NO_VISION.add(baseUrl + "|" + model);
                         dropImages = true;
@@ -318,7 +342,7 @@ public final class RemoteBrain {
                 // answer comes back empty ("the model didn't answer")
                 req.put("max_completion_tokens", (double) (reasoning() && maxOutput <= 0 ? Math.min(32_000, Math.max(8_000, allowance * 4)) : allowance));
                 if (small || reasoning()) {
-                    req.put("reasoning_effort", small || allowance <= 2_000 ? "low" : "medium");
+                    req.put("reasoning_effort", small || allowance <= 4_000 ? "low" : "medium");
                 }
             } else {
                 req.put("max_tokens", (double) allowance);
@@ -365,16 +389,55 @@ public final class RemoteBrain {
      * read]".
      */
     Map<String, Object> content(String role, String text) {
-        java.util.List<String> images = ai.dvine.chat.Attachments.images(text);
-        if (images.isEmpty() || !"user".equals(role)) {
+        java.util.List<String> images = new ArrayList<String>(ai.dvine.chat.Attachments.images(text));
+        java.util.List<ai.dvine.chat.Attachments.Doc> docs = ai.dvine.chat.Attachments.files(text);
+        if ((images.isEmpty() && docs.isEmpty()) || !"user".equals(role)) {
             return message(role, ai.dvine.chat.Attachments.withoutImages(text));
         }
         if (!seesImages()) {
-            return message(role, ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll(
-                    "[an image is attached, but this model can't see images: say so and work from the words]"));
+            String noted = ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll(
+                    "[an image is attached, but this model can't see images: say so and work from the words]");
+            noted = ai.dvine.chat.Attachments.FILE.matcher(noted).replaceAll(
+                    "[a document, $3, is attached, but this model can't read files: say so and ask for the part that matters as text]");
+            return message(role, noted);
         }
         List<Object> parts = new ArrayList<Object>();
-        String words = ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll("").trim();
+        String words = ai.dvine.chat.Attachments.FILE.matcher(ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll("")).replaceAll("").trim();
+        for (ai.dvine.chat.Attachments.Doc d : docs) {
+            java.io.File f = new java.io.File(d.path);
+            if (takesFiles() && f.isFile() && f.length() <= 20L * 1024 * 1024) {
+                byte[] bytes;
+                try {
+                    bytes = java.nio.file.Files.readAllBytes(f.toPath());
+                } catch (IOException | RuntimeException e) {
+                    words += "\n[the document " + d.name + " couldn't be read]";
+                    continue;
+                }
+                String b64 = java.util.Base64.getEncoder().encodeToString(bytes);
+                Map<String, Object> part = new LinkedHashMap<String, Object>();
+                if (protocol == Protocol.ANTHROPIC) {
+                    Map<String, Object> src = new LinkedHashMap<String, Object>();
+                    src.put("type", "base64");
+                    src.put("media_type", d.mime);
+                    src.put("data", b64);
+                    part.put("type", "document");
+                    part.put("source", src);
+                    part.put("title", d.name);
+                } else {
+                    Map<String, Object> file = new LinkedHashMap<String, Object>();
+                    file.put("filename", d.name);
+                    file.put("file_data", "data:" + d.mime + ";base64," + b64);
+                    part.put("type", "file");
+                    part.put("file", file);
+                }
+                parts.add(part);
+            } else if (!d.pages.isEmpty()) {
+                images.addAll(d.pages); // the pages as pictures for a model that sees but takes no files
+                words += "\n[the pictures are the pages of " + d.name + (d.pages.size() > 1 ? ", in order" : "") + "]";
+            } else {
+                words += "\n[a document, " + d.name + ", is attached but couldn't be sent to this model]";
+            }
+        }
         for (String path : images) {
             byte[] bytes;
             try {

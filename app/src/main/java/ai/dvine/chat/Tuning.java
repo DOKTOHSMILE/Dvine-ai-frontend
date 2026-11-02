@@ -34,7 +34,7 @@ public final class Tuning {
     public static final Knob AGENT_STEPS = new Knob("adv_agent_steps", "Agent steps per task",
             "How many tool steps Ibiko (or a persona reading files) may take before reporting back.", 15, 3, 60);
     public static final Knob AGENT_TOKENS = new Knob("adv_agent_tokens", "Agent step length, tokens",
-            "How much the model may write in one step (a whole file needs more).", 2000, 256, 32000);
+            "How much the model may write in one step (a whole file or a full report needs more).", 4000, 256, 32000);
     public static final Knob PASTE_CHARS = new Knob("adv_paste_chars", "Paste becomes a file at, characters",
             "A longer paste turns into an attachment card.", 1500, 200, 100000);
     public static final Knob IMAGE_SIDE = new Knob("adv_image_side", "Image size sent, pixels",
