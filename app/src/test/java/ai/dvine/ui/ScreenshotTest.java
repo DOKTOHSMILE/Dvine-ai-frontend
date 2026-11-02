@@ -142,6 +142,32 @@ public class ScreenshotTest {
         shoot(c.get(), "13_attachments_night");
         box.clear();
 
+
+        // Ibiko's tab with a changed clone, a pull request and an artifact: the Diff, Pull requests and Artifacts chips
+        ai.dvine.connect.GitHubGitTest.FakeHub hub = new ai.dvine.connect.GitHubGitTest.FakeHub();
+        java.util.Map<String, String> files = new java.util.TreeMap<String, String>();
+        files.put("app/Main.java", "class Main {\n}\n");
+        hub.refs.put("main", hub.commit(files, null, "first"));
+        java.io.File repo = new java.io.File(c.get().getFilesDir(), "ibiko/app");
+        new ai.dvine.connect.GitHubGit(hub, "tok").clone("me/app", "main", repo);
+        java.nio.file.Files.write(new java.io.File(repo, "app/Main.java").toPath(),
+                "class Main {\n    void hello() {}\n}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        new ai.dvine.chat.WorkLog(c.get()).pullRequest("7", "Say hello", "https://github.com/me/app/pull/7", "me/app");
+        new ai.dvine.chat.WorkLog(c.get()).artifact("car.glb", "content://x/car.glb", "3D model \u00B7 GLB", "model/gltf-binary");
+        java.lang.reflect.Method persona = MainActivity.class.getDeclaredMethod("selectPersona", String.class);
+        persona.setAccessible(true);
+        persona.invoke(c.get(), "ibiko");
+        for (int i = 0; i < 20; i++) {
+            Thread.sleep(100); // the diff is worked out off the main thread
+            ShadowLooper.idleMainLooper(10, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        android.view.View work = c.get().findViewById(ai.dvine.R.id.work_scroll);
+        org.junit.Assert.assertEquals(android.view.View.VISIBLE, work.getVisibility());
+        android.widget.LinearLayout chips = c.get().findViewById(ai.dvine.R.id.work_row);
+        org.junit.Assert.assertEquals(3, chips.getChildCount());
+        shoot(c.get(), "15_work_chips_night");
+        persona.invoke(c.get(), "ivie");
+
         java.lang.reflect.Method attach = MainActivity.class.getDeclaredMethod("showAttachMenu", android.view.View.class);
         attach.setAccessible(true);
         attach.invoke(c.get(), (android.view.View) null);

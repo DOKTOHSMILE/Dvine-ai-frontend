@@ -328,4 +328,62 @@ public class RemoteBrainTest {
         assertTrue(b0, b0.contains("\"temperature\":0.2"));
         assertTrue(RemoteBrain.validExtra("{\"a\":1}") && RemoteBrain.validExtra("") && !RemoteBrain.validExtra("temperature=1"));
     }
+
+    @Test
+    public void aPdfGoesAsADocumentThenAsPagesThenAsANote() throws Exception {
+        java.io.File pdf = java.io.File.createTempFile("doc", ".pdf");
+        java.nio.file.Files.write(pdf.toPath(), "%PDF-1.4".getBytes(StandardCharsets.UTF_8));
+        java.io.File page = java.io.File.createTempFile("page1", ".jpg");
+        java.nio.file.Files.write(page.toPath(), new byte[]{9, 9});
+        String msg = "Summarise this\n\n" + ai.dvine.chat.Attachments.file(pdf.getPath(), "application/pdf", "report.pdf",
+                java.util.Collections.singletonList(page.getPath()));
+        // Claude: a document block
+        Fake a = new Fake().reply(200, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Ok.\"}}\n\n");
+        new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "k", "", a).chat("s", ask(msg), 48, 0.7f, null);
+        assertTrue(a.bodies.get(0), a.bodies.get(0).contains("\"type\":\"document\"") && a.bodies.get(0).contains("\"media_type\":\"application/pdf\""));
+        // OpenAI form: a file part; refused, then the pages as pictures
+        Fake o = new Fake().reply(400, "{\"error\":{\"message\":\"file parts not supported\"}}").reply(200, OPENAI_STREAM);
+        RemoteBrain gw = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://gw.example.com/v1", "some-vision-model", "k", "", o);
+        assertEquals("Hello there.", gw.chat("s", ask(msg), 48, 0.7f, null));
+        assertTrue(o.bodies.get(0), o.bodies.get(0).contains("\"type\":\"file\"") && o.bodies.get(0).contains("\"filename\":\"report.pdf\""));
+        assertTrue(o.bodies.get(1), !o.bodies.get(1).contains("\"type\":\"file\"") && o.bodies.get(1).contains("image_url")
+                && o.bodies.get(1).contains("the pages of report.pdf"));
+        // a text-only model: a note
+        Fake t = new Fake().reply(200, OPENAI_STREAM);
+        new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.deepseek.com/v1", "deepseek-chat", "k", "", t).options("off", "auto", 0, 180, "")
+                .chat("s", ask(msg), 48, 0.7f, null);
+        assertTrue(t.bodies.get(0), t.bodies.get(0).contains("a file, report.pdf, is attached, but this model can't take files"));
+        assertEquals("Summarise this\n\n[a document: report.pdf]", ai.dvine.chat.Attachments.withoutImages(msg));
+    }
+
+    @Test
+    public void anyFileGoesAsItselfOrAsWhatThePhoneTookOutOfIt() throws Exception {
+        java.io.File xlsx = java.io.File.createTempFile("sales", ".xlsx");
+        java.nio.file.Files.write(xlsx.toPath(), new byte[]{1, 2, 3});
+        java.nio.file.Files.write(new java.io.File(xlsx.getPath() + ".txt").toPath(), "sheet1:\nMonth\tSales\nJan\t120".getBytes(StandardCharsets.UTF_8));
+        String mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        String msg = "Total the sales\n\n" + ai.dvine.chat.Attachments.file(xlsx.getPath(), mime, "sales.xlsx", new ArrayList<String>());
+        // the OpenAI form: the spreadsheet itself; refused: its cells as text
+        Fake o = new Fake().reply(400, "{\"error\":{\"message\":\"unsupported file\"}}").reply(200, OPENAI_STREAM);
+        new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://gw2.example.com/v1", "m", "k", "", o).chat("s", ask(msg), 48, 0.7f, null);
+        assertTrue(o.bodies.get(0), o.bodies.get(0).contains("\"filename\":\"sales.xlsx\"") && o.bodies.get(0).contains("spreadsheetml"));
+        assertTrue(o.bodies.get(1), o.bodies.get(1).contains("Jan\\t120") && !o.bodies.get(1).contains("\"type\":\"file\""));
+        // Anthropic takes no spreadsheets: straight to the text, no refused request
+        Fake a = new Fake().reply(200, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"120.\"}}\n\n");
+        new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "k", "", a).chat("s", ask(msg), 48, 0.7f, null);
+        assertEquals(1, a.bodies.size());
+        assertTrue(a.bodies.get(0), a.bodies.get(0).contains("Jan\\t120") && !a.bodies.get(0).contains("\"document\""));
+        // a sound to the OpenAI form goes as audio
+        java.io.File mp3 = java.io.File.createTempFile("note", ".mp3");
+        java.nio.file.Files.write(mp3.toPath(), new byte[]{7});
+        Fake s3 = new Fake().reply(200, OPENAI_STREAM);
+        new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-4o-audio-preview", "k", "", s3).chat("s",
+                ask("Transcribe\n\n" + ai.dvine.chat.Attachments.file(mp3.getPath(), "audio/mpeg", "note.mp3", new ArrayList<String>())), 48, 0.7f, null);
+        assertTrue(s3.bodies.get(0), s3.bodies.get(0).contains("\"type\":\"input_audio\"") && s3.bodies.get(0).contains("\"format\":\"mp3\""));
+        // a text-only model still gets the words
+        Fake t = new Fake().reply(200, OPENAI_STREAM);
+        new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.deepseek.com/v1", "deepseek-chat", "k", "", t).options("off", "auto", 0, 180, "")
+                .chat("s", ask(msg), 48, 0.7f, null);
+        assertTrue(t.bodies.get(0), t.bodies.get(0).contains("Jan\\t120"));
+    }
 }

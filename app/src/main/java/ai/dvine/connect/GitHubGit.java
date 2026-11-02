@@ -32,6 +32,13 @@ public final class GitHubGit {
     private final Connectors.Http http;
     private final String token;
     private Zips zips;
+    private java.util.function.Consumer<String[]> onPullRequest;
+
+    /** Told {number, title, url, repo} of each pull request opened (for the Pull requests list). */
+    public GitHubGit onPullRequest(java.util.function.Consumer<String[]> listener) {
+        this.onPullRequest = listener;
+        return this;
+    }
 
     /** Downloads a file (a branch as a zip) to disk; false when it can't. */
     public interface Zips {
@@ -129,6 +136,7 @@ public final class GitHubGit {
             File f = inside(dir, e.getKey());
             f.getParentFile().mkdirs();
             Files.write(f.toPath(), bytes);
+            base(dir, e.getKey(), bytes);
             r.files.put(e.getKey(), e.getValue());
         }
         r.write(dir);
@@ -173,6 +181,7 @@ public final class GitHubGit {
                 continue;
             }
             File f = inside(dir, path);
+            base(dir, path, bytes); // the diff is now against GitHub's version
             if (mine.touched(path)) {
                 Files.write(inside(dir, path + ".theirs").toPath(), bytes);
                 conflicts.add(path);
@@ -190,6 +199,7 @@ public final class GitHubGit {
                     conflicts.add(path + " (deleted upstream)");
                 } else {
                     inside(dir, path).delete();
+                    base(dir, path, null);
                     updated.add(path + " (deleted)");
                 }
             }
@@ -242,10 +252,12 @@ public final class GitHubGit {
             String sha = MiniJson.str(post("/repos/" + r.repo + "/git/blobs", b).get("sha"), "");
             entries.add(entry(path, sha));
             next.put(path, sha);
+            base(dir, path, bytes); // pushed: the diff starts again from here
         }
         for (String path : c.deleted) {
             entries.add(entry(path, null));
             next.remove(path);
+            base(dir, path, null);
         }
         Map<String, Object> t = new LinkedHashMap<String, Object>();
         t.put("base_tree", r.tree);
@@ -293,6 +305,10 @@ public final class GitHubGit {
         pr.put("base", base.trim());
         pr.put("body", body == null ? "" : body);
         Map<String, Object> got = post("/repos/" + r.repo + "/pulls", pr);
+        if (onPullRequest != null) {
+            onPullRequest.accept(new String[]{String.valueOf((int) MiniJson.num(got.get("number"), 0)), MiniJson.str(pr.get("title"), ""),
+                    MiniJson.str(got.get("html_url"), ""), r.repo});
+        }
         return "Opened pull request #" + (int) MiniJson.num(got.get("number"), 0) + ": " + MiniJson.str(got.get("html_url"), "");
     }
 
@@ -318,6 +334,7 @@ public final class GitHubGit {
                 }
                 byte[] all = bytes.toByteArray();
                 Files.write(f.toPath(), all);
+                base(dir, path, all);
                 r.files.put(path, blobSha(all));
                 n++;
             }
@@ -358,6 +375,83 @@ public final class GitHubGit {
             }
             return true;
         };
+    }
+
+    // ------------------------------------------------------------ the diff
+
+    /** Where the version last cloned, pulled or pushed is kept, so the changes can be shown line by line. */
+    static File baseDir(File dir) {
+        return new File(dir, ".git/dvine-base");
+    }
+
+    private static void base(File dir, String path, byte[] bytes) throws IOException {
+        File f = inside(baseDir(dir), path);
+        if (bytes == null) {
+            f.delete();
+            return;
+        }
+        f.getParentFile().mkdirs();
+        Files.write(f.toPath(), bytes);
+    }
+
+    /** One file's changes since the clone, pull or push. */
+    public static final class FileDiff {
+        public final String path, kind;
+        public final LineDiff.Result diff;
+
+        public FileDiff(String path, String kind, LineDiff.Result diff) {
+            this.path = path;
+            this.kind = kind;
+            this.diff = diff;
+        }
+    }
+
+    /**
+     * Every changed file in a cloned folder, with its lines added and removed (a binary file counts as changed,
+     * without lines). Empty when nothing changed or the folder isn't a clone.
+     */
+    public static List<FileDiff> diff(File dir) {
+        List<FileDiff> out = new ArrayList<FileDiff>();
+        Record r;
+        try {
+            r = Record.read(dir);
+        } catch (IOException | RuntimeException e) {
+            return out;
+        }
+        Changes c;
+        try {
+            c = changes(dir, r);
+        } catch (IOException e) {
+            return out;
+        }
+        for (String p : c.added) {
+            out.add(new FileDiff(p, "added", LineDiff.of("", text(new File(dir, p)))));
+        }
+        for (String p : c.modified) {
+            out.add(new FileDiff(p, "modified", LineDiff.of(text(new File(baseDir(dir), p)), text(new File(dir, p)))));
+        }
+        for (String p : c.deleted) {
+            out.add(new FileDiff(p, "deleted", LineDiff.of(text(new File(baseDir(dir), p)), "")));
+        }
+        return out;
+    }
+
+    /** A file's text, or "" when it is missing, binary or over 2 MB. */
+    private static String text(File f) {
+        try {
+            if (!f.isFile() || f.length() > 2_000_000) {
+                return "";
+            }
+            byte[] b = Files.readAllBytes(f.toPath());
+            for (int i = 0; i < Math.min(b.length, 8000); i++) {
+                if (b[i] == 0) {
+                    return ""; // binary
+                }
+            }
+            return new String(b, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            return "";
+        }
     }
 
     // ------------------------------------------------------------ changes

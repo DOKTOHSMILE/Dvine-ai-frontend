@@ -76,11 +76,26 @@ public final class ComposerAttachments {
             b.append("\n\n");
             if ("image".equals(it.kind)) {
                 b.append(Attachments.image(it.path));
+            } else if ("doc".equals(it.kind)) {
+                java.util.List<String> pages = new java.util.ArrayList<String>();
+                for (String p : it.text.split("\n")[0].split(";")) {
+                    if (!p.isEmpty()) {
+                        pages.add(p);
+                    }
+                }
+                String[] meta = it.text.split("\n");
+                b.append(Attachments.file(it.path, meta.length > 2 ? meta[2] : "application/octet-stream", it.name, pages));
             } else {
                 b.append(Attachments.text(it.name, it.text));
             }
         }
         return b.toString();
+    }
+
+    /** What kind of file it is ("PDF · 12 pages", "Spreadsheet", "Video"). */
+    public static String pages(Item it) {
+        String[] lines = it.text == null ? new String[0] : it.text.split("\n");
+        return lines.length > 1 ? lines[1].trim() : "File";
     }
 
     private void render() {
@@ -110,7 +125,8 @@ public final class ComposerAttachments {
                 n.setSingleLine(true);
                 n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
                 card.addView(n);
-                card.addView(Ui.text(context, "text".equals(it.kind) ? Attachments.lines(it.text) : "file", 12, Ui.SUB, false));
+                card.addView(Ui.text(context, "text".equals(it.kind) ? Attachments.lines(it.text) : "doc".equals(it.kind) ? pages(it) : "file",
+                        12, Ui.SUB, false));
                 face = card;
                 box.addView(face, new FrameLayout.LayoutParams(Ui.dp(context, 150), Ui.dp(context, 64)));
             }
