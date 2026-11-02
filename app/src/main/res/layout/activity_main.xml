@@ -12,7 +12,7 @@
         android:background="@color/bg_main"
         android:orientation="vertical">
 
-        <!-- header: menu · chat title over the model · new chat (48 dp targets, as in Claude) -->
+        <!-- header: menu · chat title over the model · Ibiko's Auto pill · new chat (48 dp targets, as in Claude) -->
         <LinearLayout
             android:id="@+id/chatHeader"
             android:layout_width="match_parent"
@@ -67,6 +67,21 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
+            <!-- Ibiko only: whether commands run without asking (Claude Code's auto-accept); tap to switch -->
+            <TextView
+                android:id="@+id/ibikoMode"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_mode_pill"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Ask"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
             <ImageButton
                 android:id="@+id/btnNewChat"
                 android:layout_width="48dp"
@@ -76,62 +91,6 @@
                 android:scaleType="center"
                 android:src="@drawable/ic_new_chat" />
         </LinearLayout>
-
-        <!-- who answers: a compact segmented control -->
-        <LinearLayout
-            android:id="@+id/personaTabs"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="6dp"
-            android:background="@drawable/bg_segment"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:padding="3dp">
-
-            <TextView
-                android:id="@+id/tabIvie"
-                android:layout_width="72dp"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="Ivie"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tabObi"
-                android:layout_width="72dp"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="Obi"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tabIbiko"
-                android:layout_width="72dp"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="Ibiko"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Ibiko only: whether commands run without asking (Claude Code's auto-accept) -->
-        <TextView
-            android:id="@+id/ibikoMode"
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="6dp"
-            android:background="@drawable/bg_mode_pill"
-            android:gravity="center"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:text="Ask before commands"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp"
-            android:visibility="gone" />
 
         <include layout="@layout/layout_system_banner" />
 

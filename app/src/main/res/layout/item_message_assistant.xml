@@ -26,4 +26,20 @@
         android:textColor="@color/text_primary"
         android:textIsSelectable="true"
         android:textSize="16sp" />
+
+    <!-- Diff, Pull requests, Artifacts: what this reply produced (hidden when it produced nothing) -->
+    <HorizontalScrollView
+        android:id="@+id/reply_work_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/reply_work_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
 </LinearLayout>

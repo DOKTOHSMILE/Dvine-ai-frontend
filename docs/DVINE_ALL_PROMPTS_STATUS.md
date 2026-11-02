@@ -120,6 +120,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 87 | Make my own messages copyable | P12 | Built (Robolectric) | 0.58.1: a copy icon under each, text selectable |
 | 88 | Stop the voice recording from starting by itself anywhere in the app | P12 | Built | 0.58.2: only a tap on the mic (or a hold on the stage) listens |
 | 89 | No more status lines, questions or empty replies instead of the result; fix it once and for all | P12 | Built (JVM) | 0.59.0: the agent works until it hands in its answer; dropped connections retried |
+| 90 | Layout fix: PR/Artifact pills attached to the reply, Auto-accept pill in the header, persona tabs in the composer | P12 | Built (Robolectric) | 0.60.0: each reply keeps its own Diff / Pull requests / Artifacts; "Auto"/"Ask" in the header; tabs beside attach; "Fixing … — digging into …" no longer ends Ibiko's work |
 
 ## Still open, in the order that matters
 

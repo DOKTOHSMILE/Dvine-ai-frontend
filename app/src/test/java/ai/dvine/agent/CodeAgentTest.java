@@ -323,5 +323,12 @@ public class CodeAgentTest {
         assertFalse(CodeAgent.asksPermission("What is the capital of France? Paris."));
         assertTrue(CodeAgent.status("Got it \u2014 auditing your clone now, I'll pull the findings together."));
         assertFalse(CodeAgent.status("Google was founded in 1998 by Larry Page and Sergey Brin."));
+        // lines about the work, from the screenshots: not the answer
+        assertTrue(CodeAgent.status("Fixing your build errors \u2014 digging into the failing sources."));
+        assertTrue(CodeAgent.status("Inspecting the layouts to re-anchor the pills."));
+        // real short answers stay answers
+        assertFalse(CodeAgent.status("Fixed it \u2014 missing import added in Main.java."));
+        assertFalse(CodeAgent.status("Nothing to fix: the build is green."));
+        assertFalse(CodeAgent.status("Missing semicolon on line 12 of Main.java; added it."));
     }
 }

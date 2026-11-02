@@ -21,7 +21,7 @@ public final class WorkLog {
         public final String title, address, detail, mime;
         public final long at;
 
-        Entry(String title, String address, String detail, String mime, long at) {
+        public Entry(String title, String address, String detail, String mime, long at) {
             this.title = title;
             this.address = address;
             this.detail = detail;

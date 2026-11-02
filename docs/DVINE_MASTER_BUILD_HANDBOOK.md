@@ -1402,6 +1402,22 @@ Also:
 - The system prompt tells the model to finish with `<final>` and never to stop to ask or narrate.
 - The live text shows the final answer as it is written.
 
+## 49. Pills under the reply, controls where the thumb is (app v0.60.0, built)
+
+The chat screen follows Claude Code's layout:
+- **Header:** menu · chat title over the model · Ibiko's **Auto** pill · new chat. The pill shows on Ibiko's tab only. It reads "Auto" when commands run without asking and "Ask" when they wait, and a tap switches it.
+- **Composer row:** attach · **Ivie / Obi / Ibiko** · mic · send. The persona tabs left the space under the header and keep their ids (`tabIvie`, `tabObi`, `tabIbiko`).
+- **Pills under the reply that produced them.** Diff, Pull requests and Artifacts moved from above the message box into the reply (`item_message_assistant.xml`: `reply_work_scroll` / `reply_work_row`).
+  - When a run ends (`MainActivity.attachWork`), `WorkChips.capture` keeps what that run did in `files/work/<id>.json`:
+    - the diffs of the files it changed inside cloned repositories;
+    - the pull requests and artifacts logged since it started.
+  - A `work` message with that id goes into the chat. It is kept with the chat and never sent to the model.
+  - `ChatPane.show` draws the pills inside the turn's last text row, or in a strip of their own. Each reply keeps its own pills and scrolls with them. A reply that produced nothing shows none. An Ivie export puts its model file under her reply the same way.
+
+The agent's rules, from the user's screenshots:
+- A short line that opens with a work verb ("Fixing your build errors — digging into the failing sources.", "Inspecting the layouts…") is a progress note (`CodeAgent.GERUND_NOTE`), not the answer. Short real answers ("Fixed it — missing import added.") stay answers.
+- An empty `<final></final>` is sent back once or twice for the actual answer, so a "Continue" never shows an empty reply.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
