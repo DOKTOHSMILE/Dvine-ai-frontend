@@ -80,7 +80,7 @@ Status words: NOT STARTED / IN PROGRESS / BLOCKED / VERIFIED. Plan: `DVINE_MASTE
 
 | Dual-AI steps 3–6, FACS face, Ibiko (third persona: the cute coding robot) | NOT STARTED | — | handbook §31 (item 7: Ibiko, coding in many languages, Termux, Linux, SSH) |
 
-Commands run: `gradle testDebugUnitTest assembleDebug` → 132 tests passed (incl. Robolectric), APK built (v0.26.0, `releases/`, with the arm64 native library); `node tools/check_shaders.js` → 8 programs compile and link (the field and the pod scene).
+Commands run (0.47.8, 2026-11-02, cloud session): `gradle :app:testDebugUnitTest` → exit 0, 226 tests, 0 failures; `gradle :app:assembleDebug` → exit 0, APK `releases/dvine-0.47.8-debug.apk`; `node tools/check_shaders.js` → 9 programs compile and link. Before 0.47.8 main did not build with Gradle: `checkDebugDuplicateClasses` failed (kotlin-stdlib 1.8.22 from appcompat against kotlin-stdlib-jdk7/jdk8 1.6.0), and the unit tests did not compile (`Files.readString` in `SceneEditTest`).
 Not run: `lintDebug` (dependency download rate-limited in the sandbox), any on-device test.
 
 Known limits:

@@ -228,7 +228,7 @@ public class SceneEditTest {
     }
 
     private static String assetId(File file) throws Exception {
-        return MiniJson.str(MiniJson.obj(MiniJson.parse(Files.readString(file.toPath()))).get("assetId"), "");
+        return MiniJson.str(MiniJson.obj(MiniJson.parse(new String(Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8))).get("assetId"), "");
     }
 
     private static boolean measured(File file) throws Exception {
