@@ -69,6 +69,42 @@ public class LaunchTest {
     }
 
     /** The view showing exactly this text (its card, for a title in a card row), or null. */
+    @Test(timeout = 120000)
+    public void yourOwnMessageCanBeCopied() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        chats.add("user", "text", "RE clone the repo and audit my codebase", chats.current().persona);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ((ai.dvine.stage.ChatPane) pf.get(c.get())).show();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.view.View copy = described(c.get().getWindow().getDecorView(), "Copy your message");
+        assertNotNull(copy);
+        copy.performClick();
+        android.content.ClipboardManager clips = (android.content.ClipboardManager) c.get().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        org.junit.Assert.assertEquals("RE clone the repo and audit my codebase", clips.getPrimaryClip().getItemAt(0).getText().toString());
+        c.pause().stop().destroy();
+    }
+
+    private static android.view.View described(android.view.View v, String what) {
+        if (what.contentEquals(v.getContentDescription() == null ? "" : v.getContentDescription())) {
+            return v;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                android.view.View f = described(g.getChildAt(i), what);
+                if (f != null) {
+                    return f;
+                }
+            }
+        }
+        return null;
+    }
+
     private static android.view.View find(android.view.View v, String text) {
         if (v instanceof android.widget.TextView && text.contentEquals(((android.widget.TextView) v).getText())) {
             android.view.View up = v;

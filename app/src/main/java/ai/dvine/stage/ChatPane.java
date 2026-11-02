@@ -86,6 +86,9 @@ public final class ChatPane extends LinearLayout {
             }
             if ("user".equals(m.role)) {
                 reply.setLength(0);
+                if ("text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
+                    thread.addView(userActions(m.body)); // the user's own message: copyable too
+                }
                 continue;
             }
             if (("text".equals(m.kind) || "code".equals(m.kind)) && m.body != null) {
@@ -531,6 +534,7 @@ public final class ChatPane extends LinearLayout {
         View row = LayoutInflater.from(getContext()).inflate(layout, thread, false);
         TextView body = row.findViewById(R.id.tv_message);
         body.setText(m.body == null ? "" : m.body);
+        body.setTextIsSelectable(true); // hold to select any part and copy it
         if ("code".equals(m.kind)) {
             body.setTypeface(Typeface.MONOSPACE);
             body.setTextSize(13f);
@@ -559,6 +563,21 @@ public final class ChatPane extends LinearLayout {
             android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
         }));
         bar.addView(icon(R.drawable.ic_speaker, "Read aloud", v -> host.onReadAloud(spoken)));
+        return bar;
+    }
+
+    /** Copy under the user's own message, on its side (right), as under a reply. */
+    private View userActions(final String text) {
+        LinearLayout bar = new LinearLayout(getContext());
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.END);
+        bar.setPadding(0, 0, 0, dp(4));
+        bar.addView(icon(R.drawable.ic_copy, "Copy your message", v -> {
+            copyText(text);
+            android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
+        }));
+        LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        bar.setLayoutParams(lp);
         return bar;
     }
 
