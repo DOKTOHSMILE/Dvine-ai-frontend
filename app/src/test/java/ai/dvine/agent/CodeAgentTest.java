@@ -197,4 +197,34 @@ public class CodeAgentTest {
         assertTrue(CodeAgent.promise("I'll clone the repo into the workspace, then audit it."));
         assertFalse(CodeAgent.promise("Want me to retry the clone?"));
     }
+
+    @Test
+    public void obiOrIvieOnlyReadAndTheStepLimitIsTheUsers() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        File repo = new File(ws, "app");
+        repo.mkdirs();
+        Files.write(new File(repo, "Main.java").toPath(), "class Main {}\n".getBytes(StandardCharsets.UTF_8));
+        Script brain = new Script("<tool name=\"read_file\" path=\"app/Main.java\"/>",
+                "<tool name=\"write_file\" path=\"app/Main.java\">gone</tool>", "Main.java declares an empty class Main.");
+        CodeAgent obi = new CodeAgent(ws, brain, new Phone(), "", 20_000).as("Obi", true);
+        assertTrue(obi.system().startsWith("You are Obi, reading the files"));
+        assertFalse(obi.system().contains("write_file") || obi.system().contains("name=\"run\""));
+        assertEquals("Main.java declares an empty class Main.", obi.run("What is in the cloned app's Main.java?", ""));
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("1\tclass Main {}"));
+        assertTrue(brain.seen.get(2), brain.seen.get(2).contains("Only reading here"));
+        assertEquals("class Main {}\n", new String(Files.readAllBytes(new File(repo, "Main.java").toPath()), StandardCharsets.UTF_8));
+
+        Script looping = new Script("<tool name=\"list_files\" path=\".\"/>", "<tool name=\"list_files\" path=\".\"/>",
+                "<tool name=\"list_files\" path=\".\"/>");
+        String out = new CodeAgent(ws, looping, new Phone(), "", 20_000).steps(2).run("look", "");
+        assertTrue(out, out.startsWith("I used all 2 steps"));
+    }
+
+    @Test
+    public void tuningKeepsNumbersInRange() {
+        assertEquals(15, ai.dvine.chat.Tuning.AGENT_STEPS.get(null));
+        assertEquals(1500, ai.dvine.chat.Tuning.PASTE_CHARS.get(null));
+        assertTrue(ai.dvine.chat.Attachments.longPaste("x".repeat(300), 200));
+        assertFalse(ai.dvine.chat.Attachments.longPaste("x".repeat(300)));
+    }
 }

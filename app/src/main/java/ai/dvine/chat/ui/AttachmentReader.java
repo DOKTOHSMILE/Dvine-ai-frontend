@@ -29,11 +29,16 @@ public final class AttachmentReader {
     }
 
     public static ComposerAttachments.Item read(Context c, Uri uri) throws IOException {
+        return read(c, uri, MAX_SIDE);
+    }
+
+    /** As above, with the long side of a photo in pixels (Settings › Advanced). */
+    public static ComposerAttachments.Item read(Context c, Uri uri, int side) throws IOException {
         String name = name(c, uri);
         String mime = c.getContentResolver().getType(uri);
         String lower = name.toLowerCase(Locale.US);
         if ((mime != null && mime.startsWith("image/")) || lower.matches(".*\\.(jpe?g|png|webp|gif|heic|bmp)$")) {
-            return image(c, uri, name);
+            return image(c, uri, name, side);
         }
         boolean texty = (mime != null && (mime.startsWith("text/") || mime.contains("json") || mime.contains("xml")
                 || mime.contains("javascript"))) || lower.matches(".*\\.(txt|md|csv|json|xml|html?|css|js|ts|tsx|jsx|java|kt|py|rb|go|rs|c|h|cpp|cs|php|swift|sh|ya?ml|toml|ini|gradle|sql|log)$");
@@ -51,14 +56,14 @@ public final class AttachmentReader {
                 "The user attached " + kind + " named " + name + ". Its contents can't be read on the phone yet, so ask them to paste the part that matters.");
     }
 
-    private static ComposerAttachments.Item image(Context c, Uri uri, String name) throws IOException {
+    private static ComposerAttachments.Item image(Context c, Uri uri, String name, int side) throws IOException {
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         try (InputStream in = c.getContentResolver().openInputStream(uri)) {
             BitmapFactory.decodeStream(in, null, bounds);
         }
         int sample = 1;
-        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_SIDE) {
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= side) {
             sample *= 2;
         }
         BitmapFactory.Options o = new BitmapFactory.Options();
@@ -70,7 +75,7 @@ public final class AttachmentReader {
         if (bmp == null) {
             throw new IOException("the picture couldn't be read");
         }
-        float scale = Math.min(1f, MAX_SIDE / (float) Math.max(bmp.getWidth(), bmp.getHeight()));
+        float scale = Math.min(1f, side / (float) Math.max(bmp.getWidth(), bmp.getHeight()));
         if (scale < 1f) {
             bmp = Bitmap.createScaledBitmap(bmp, Math.round(bmp.getWidth() * scale), Math.round(bmp.getHeight() * scale), true);
         }

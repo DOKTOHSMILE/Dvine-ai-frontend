@@ -14,6 +14,8 @@ public enum Providers {
             "GPT models. Key from platform.openai.com."),
     GEMINI("Google Gemini", RemoteBrain.Protocol.OPENAI, "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-pro", "gemini-2.5-flash",
             1_000_000, "Gemini through Google's OpenAI-compatible endpoint. Key from aistudio.google.com."),
+    DEEPSEEK("DeepSeek", RemoteBrain.Protocol.OPENAI, "https://api.deepseek.com/v1", "deepseek-reasoner", "deepseek-chat", 128_000,
+            "DeepSeek models (text only: images are described to it in words). Key from platform.deepseek.com."),
     OPENROUTER("OpenRouter", RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "openai/gpt-5", "openai/gpt-5-mini", 400_000,
             "Hundreds of models behind one key. Key from openrouter.ai."),
     CUSTOM("Custom gateway", RemoteBrain.Protocol.OPENAI, "", "", "", 128_000,
@@ -49,6 +51,8 @@ public enum Providers {
                 return new String[]{"gpt-5-mini", "gpt-5", "gpt-4.1-mini", "gpt-4o-mini"};
             case GEMINI:
                 return new String[]{"gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"};
+            case DEEPSEEK:
+                return new String[]{"deepseek-reasoner", "deepseek-chat"};
             case OPENROUTER:
                 return new String[]{"openai/gpt-5-mini", "anthropic/claude-sonnet-5-5", "google/gemini-2.5-flash",
                         "meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-chat"};

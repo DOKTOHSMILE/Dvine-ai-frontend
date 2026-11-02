@@ -1283,6 +1283,46 @@ Each persona's instructions say this.
 - The unused `create/Materials` class was removed.
 - Classes now used only by tests are kept for Ivie's tools to come: `MeshExport`, `PartEdit`, `ObjImporter`, `PhotoFrame`, `Debate`, `ViewIntent`, `AnswerGate`, `SpeechChunker`, `WorldLookup`, `ResponseStreamingManager`, `CreationRouter`, `MachinePlan`, `SemanticGraph`, `ReconstructionJob`.
 
+## 45. Any model, the phone's files, and open settings (app v0.56.0, built)
+
+**Models that take no images or files.** DeepSeek and many others are text only.
+- A pasted text or text file is already text inside the message (`<attachment>`), so every model reads it.
+- An image is sent as an image. If the provider refuses the request (400 or 422), `RemoteBrain` sends the same request again with a note in the image's place ("an image is attached, but this model can't see images"). It then remembers that model, so later requests go straight to notes.
+- AI providers › Advanced › Sees images can be set to Yes or No instead of Auto.
+- DeepSeek is a provider preset: `https://api.deepseek.com/v1`, deepseek-reasoner for real work, deepseek-chat for quick questions.
+
+**The phone's files, for any persona and any model.**
+- The agent's tools are plain text, not a provider's function-calling, so any model can use them.
+- On Obi's or Ivie's tab, a question about the cloned repositories runs the agent read-only (`CodeAgent.as("Obi", true)`). That means the word repo, codebase or cloned, a cloned folder's name, or a file name.
+- The read-only agent can list, read, search, fetch pages and use the connectors. Writing, commands and git are refused and left to Ibiko.
+- The answer comes back from that persona.
+
+**Settings instead of fixed numbers.**
+
+Per provider (AI providers › a provider › Advanced):
+
+| Setting | Values |
+|---|---|
+| Sees images | Auto, Yes, No |
+| Reasoning model | Auto, Yes, No (Auto goes by the model's name) |
+| Most it may write | tokens; empty means DVINE decides |
+| Time a reply may take | seconds (180) |
+| Context window | tokens |
+| Extra request fields | JSON sent as given, e.g. `{"temperature": 0.3}`, `top_p`, OpenRouter's `provider` routing; checked to be JSON |
+
+App-wide (Settings › Advanced, `chat/Tuning`). Each has a range and "Back to the defaults":
+
+| Setting | Default |
+|---|---|
+| Everyday reply length | 160 |
+| Long reply length | 1,500 |
+| Agent steps | 15 |
+| Agent step length | 2,000 |
+| Paste becomes a file at | 1,500 characters |
+| Image size | 1,568 px |
+| Web results | 8 |
+| Pages read | 3 |
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

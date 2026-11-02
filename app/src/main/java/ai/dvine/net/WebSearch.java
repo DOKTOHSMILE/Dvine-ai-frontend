@@ -156,7 +156,12 @@ public final class WebSearch {
      * of the first {@code pages} pages that load, all within {@code maxChars}. Null when nothing was found.
      */
     public static String research(String q, Connectors.Http http, Settings s, Get get, int pages, int maxChars) {
-        List<Hit> hits = search(q, http, s, 8);
+        return research(q, http, s, get, 8, pages, maxChars);
+    }
+
+    /** As above, listing up to {@code results} results. */
+    public static String research(String q, Connectors.Http http, Settings s, Get get, int results, int pages, int maxChars) {
+        List<Hit> hits = search(q, http, s, Math.max(1, results));
         if (hits.isEmpty()) {
             return null;
         }

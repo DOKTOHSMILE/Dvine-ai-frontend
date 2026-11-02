@@ -61,6 +61,67 @@ public final class RemoteBrain {
     private volatile Used used;
     private volatile boolean cancelled;
 
+    // ------------------------------------------------------------ the user's settings for this provider (open, not fixed)
+
+    /** "auto" (send images; drop them if the model refuses), "on" or "off". */
+    private String vision = "auto";
+    /** "auto" (known reasoning model names), "on" or "off". */
+    private String reasoningMode = "auto";
+    /** The most the model may write, in tokens; 0 lets DVINE decide per request. */
+    private int maxOutput;
+    private int timeoutMs = 180_000;
+    /** Extra fields put into every request as they are (temperature, top_p, provider routing…), from JSON. */
+    private Map<String, Object> extra = new LinkedHashMap<String, Object>();
+    /** Models that refused an image this session: they get a note instead. */
+    private static final java.util.Set<String> NO_VISION = java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
+    private boolean dropImages;
+
+    /**
+     * The provider's advanced settings: images ("auto", "on", "off"), reasoning ("auto", "on", "off"), the most it may
+     * write (0 = DVINE decides), the time it may take (seconds) and extra request fields as JSON ("" for none).
+     */
+    public RemoteBrain options(String vision, String reasoning, int maxOutput, int timeoutSeconds, String extraJson) {
+        this.vision = vision == null || vision.isEmpty() ? "auto" : vision;
+        this.reasoningMode = reasoning == null || reasoning.isEmpty() ? "auto" : reasoning;
+        this.maxOutput = Math.max(0, maxOutput);
+        this.timeoutMs = Math.max(10, timeoutSeconds <= 0 ? 180 : timeoutSeconds) * 1000;
+        this.extra = new LinkedHashMap<String, Object>();
+        if (extraJson != null && !extraJson.trim().isEmpty()) {
+            try {
+                this.extra.putAll(MiniJson.obj(MiniJson.parse(extraJson.trim())));
+            } catch (RuntimeException e) {
+                // not JSON: ignored (the providers sheet says so)
+            }
+        }
+        return this;
+    }
+
+    /** Whether extra request fields are valid JSON (an object), for the providers sheet. */
+    public static boolean validExtra(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return true;
+        }
+        try {
+            return MiniJson.parse(json.trim()) instanceof Map;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static boolean hasImages(List<String[]> turns) {
+        for (String[] t : turns) {
+            if (t[1] != null && ai.dvine.chat.Attachments.IMAGE.matcher(t[1]).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether images are sent to this model as images. */
+    boolean seesImages() {
+        return !"off".equals(vision) && !dropImages && ("on".equals(vision) || !NO_VISION.contains(baseUrl + "|" + model));
+    }
+
     public RemoteBrain(Protocol protocol, String baseUrl, String model, String key, String backupKey, Transport transport) {
         this.protocol = protocol == null ? Protocol.OPENAI : protocol;
         this.baseUrl = normalise(baseUrl);
@@ -120,8 +181,13 @@ public final class RemoteBrain {
      * takes max_completion_tokens and no temperature, and needs room for its hidden reasoning.
      */
     boolean reasoning() {
-        return protocol == Protocol.OPENAI && model != null
-                && model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gpt-5.*|o[1-9](-.*)?|.*-r1.*|.*reason.*|.*thinking.*)");
+        if (protocol != Protocol.OPENAI || model == null) {
+            return false;
+        }
+        if (!"auto".equals(reasoningMode)) {
+            return "on".equals(reasoningMode); // the user said so on the providers sheet
+        }
+        return model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gpt-5.*|o[1-9](-.*)?|.*-r1.*|.*reason.*|.*thinking.*|qwq.*)");
     }
 
     /** Stops the reply being written (from any thread); the stream is abandoned at the next piece. */
@@ -147,15 +213,23 @@ public final class RemoteBrain {
             boolean last = k == keys.length - 1;
             // a server that refuses one optional field is asked again in the plainer form
             // a reasoning model gets its own form first (no temperature, room to think), saving two refused requests
+            dropImages = false;
             for (int form = reasoning() ? 2 : 0; form < (protocol == Protocol.ANTHROPIC ? 2 : 3); form++) {
                 Response r;
                 try {
-                    r = transport.post(url(), headers(keys[k], form), body(system, turns, maxTokens, temperature, form), 180_000);
+                    r = transport.post(url(), headers(keys[k], form), body(system, turns, maxTokens, temperature, form), timeoutMs);
                 } catch (IOException e) {
                     problem = "I couldn't reach " + host() + (e.getMessage() == null ? "" : " (" + e.getMessage() + ")");
                     return null;
                 }
                 try (InputStream in = r.body) {
+                    if ((r.status == 400 || r.status == 422) && !dropImages && seesImages() && hasImages(turns)) {
+                        // a model that can't see (DeepSeek and others): the same request with notes instead of images
+                        NO_VISION.add(baseUrl + "|" + model);
+                        dropImages = true;
+                        form--;
+                        continue;
+                    }
                     if ((r.status == 400 || r.status == 422) && form < (protocol == Protocol.ANTHROPIC ? 1 : 2)) {
                         continue;
                     }
@@ -209,7 +283,7 @@ public final class RemoteBrain {
         Map<String, Object> req = new LinkedHashMap<String, Object>();
         req.put("model", model);
         String sys = system == null ? "" : system.replace("/no_think", "").trim();
-        int allowance = Math.max(1024, maxTokens);
+        int allowance = maxOutput > 0 ? maxOutput : Math.max(1024, maxTokens);
         boolean small = maxTokens <= 256;
         List<Object> messages = new ArrayList<Object>();
         if (protocol == Protocol.ANTHROPIC) {
@@ -242,7 +316,7 @@ public final class RemoteBrain {
             if (form == 2) {
                 // a reasoning model's hidden thinking counts against this limit: without room for it, the visible
                 // answer comes back empty ("the model didn't answer")
-                req.put("max_completion_tokens", (double) (reasoning() ? Math.min(32_000, Math.max(8_000, allowance * 4)) : allowance));
+                req.put("max_completion_tokens", (double) (reasoning() && maxOutput <= 0 ? Math.min(32_000, Math.max(8_000, allowance * 4)) : allowance));
                 if (small || reasoning()) {
                     req.put("reasoning_effort", small || allowance <= 2_000 ? "low" : "medium");
                 }
@@ -254,6 +328,15 @@ public final class RemoteBrain {
                 Map<String, Object> opts = new LinkedHashMap<String, Object>();
                 opts.put("include_usage", Boolean.TRUE);
                 req.put("stream_options", opts);
+            }
+        }
+        if (form < 2 || protocol == Protocol.ANTHROPIC) {
+            req.putAll(extra); // the user's own request fields win (temperature, top_p, routing…)
+        } else {
+            for (Map.Entry<String, Object> e : extra.entrySet()) {
+                if (!e.getKey().equals("temperature") && !e.getKey().equals("max_tokens")) {
+                    req.put(e.getKey(), e.getValue()); // the reasoning form refuses these two
+                }
             }
         }
         return MiniJson.write(req).getBytes(StandardCharsets.UTF_8);
@@ -285,6 +368,10 @@ public final class RemoteBrain {
         java.util.List<String> images = ai.dvine.chat.Attachments.images(text);
         if (images.isEmpty() || !"user".equals(role)) {
             return message(role, ai.dvine.chat.Attachments.withoutImages(text));
+        }
+        if (!seesImages()) {
+            return message(role, ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll(
+                    "[an image is attached, but this model can't see images: say so and work from the words]"));
         }
         List<Object> parts = new ArrayList<Object>();
         String words = ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll("").trim();

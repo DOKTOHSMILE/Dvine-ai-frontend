@@ -107,6 +107,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 74 | Clone repositories to the phone, let the models read and edit them, push; or work on the repo directly | P12 | Built (JVM) | 0.55.0: one-zip clone kept on the phone, public repos without sign-in; Ibiko reads, edits and pushes. Editing on GitHub without a clone is still open |
 | 75 | Why is Wikipedia the only search source | P12 | Built (JVM) | 0.55.0: Brave, Tavily or Google with the user's key; otherwise Wikipedia's search, several articles; pages read and cited |
 | 76 | Split MainActivity, remove unused and broken code; Ivie graphics, Obi chat, Ibiko code | P12 | Partly built | 0.55.0: 4,040 → 3,180 lines, 31 unused members gone, three classes moved out; personas organised and Ivie's 3D canvas. More of MainActivity can still move out |
+| 77 | Models that don't take files or images (DeepSeek and others) read the cloned files on the phone and do their work | P12 | Built (JVM) | 0.56.0: refused images become notes; any persona reads the phone's files as text through the read-only agent; DeepSeek preset |
+| 78 | Don't hard-code what should be open variables | P12 | Built (JVM) | 0.56.0: per-provider Advanced (images, reasoning, length, time, window, extra JSON) and Settings › Advanced (lengths, steps, paste, image size, web) |
 
 ## Still open, in the order that matters
 

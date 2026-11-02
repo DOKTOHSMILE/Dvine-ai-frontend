@@ -62,6 +62,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private void fill() {
         body.removeAllViews();
+        knobs.clear();
 
         // ---- profile
         section("Profile");
@@ -194,12 +195,65 @@ public final class SettingsActivity extends AppCompatActivity {
                 13, Ui.SUB, false), Ui.wide(this, 10));
         body.addView(data, Ui.wide(this, 8));
 
+        // ---- advanced: the limits DVINE works within, all changeable
+        section("Advanced");
+        LinearLayout adv = card();
+        adv.addView(Ui.text(this, "The numbers DVINE works with. Each provider's own settings (images, reasoning, length, time,"
+                + " extra request fields) are under AI providers \u203A a provider \u203A Advanced.", 13, Ui.SUB, false));
+        for (final ai.dvine.chat.Tuning.Knob k : ai.dvine.chat.Tuning.ALL) {
+            adv.addView(Ui.text(this, k.name, 15, Ui.TEXT, false), Ui.wide(this, 14));
+            adv.addView(Ui.text(this, k.about + " (" + k.min + " to " + k.max + ", default " + k.def + ")", 12, Ui.SUB, false));
+            final android.widget.EditText v = Ui.field(this, String.valueOf(k.def), String.valueOf(k.get(prefs)), false, false);
+            v.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            v.setOnFocusChangeListener((view, focused) -> {
+                if (!focused) {
+                    save(k, v);
+                }
+            });
+            v.setOnEditorActionListener((view, action, e) -> {
+                save(k, v);
+                return false;
+            });
+            knobs.put(k, v);
+            adv.addView(v, Ui.wide(this, 6));
+        }
+        TextView reset = Ui.text(this, "Back to the defaults", 15, Ui.ACCENT, false);
+        reset.setPadding(0, Ui.dp(this, 14), 0, 0);
+        reset.setOnClickListener(x -> {
+            android.content.SharedPreferences.Editor e = prefs.edit();
+            for (ai.dvine.chat.Tuning.Knob k : ai.dvine.chat.Tuning.ALL) {
+                e.remove(k.key);
+            }
+            e.apply();
+            knobs.clear();
+            fill();
+        });
+        adv.addView(reset);
+        body.addView(adv, Ui.wide(this, 8));
+
         // ---- about
         section("About");
         LinearLayout about = card();
         about.addView(Ui.text(this, "DVINE " + version(), 16, Ui.TEXT, false));
         about.addView(Ui.text(this, "Ivie, Obi and Ibiko, with your models or the one on this phone.", 13, Ui.SUB, false), Ui.wide(this, 4));
         body.addView(about, Ui.wide(this, 8));
+    }
+
+    private final java.util.Map<ai.dvine.chat.Tuning.Knob, android.widget.EditText> knobs =
+            new java.util.LinkedHashMap<ai.dvine.chat.Tuning.Knob, android.widget.EditText>();
+
+    /** Keeps a number, brought into its range (the field shows what was kept). */
+    private void save(ai.dvine.chat.Tuning.Knob k, android.widget.EditText v) {
+        try {
+            int n = Integer.parseInt(v.getText().toString().trim());
+            prefs.edit().putInt(k.key, Math.max(k.min, Math.min(k.max, n))).apply();
+        } catch (NumberFormatException e) {
+            prefs.edit().remove(k.key).apply();
+        }
+        String kept = String.valueOf(k.get(prefs));
+        if (!kept.equals(v.getText().toString())) {
+            v.setText(kept);
+        }
     }
 
     /** A switch row kept in the preferences; {@code changed} also runs when it flips. */
@@ -367,6 +421,9 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         hub.removeListener(onChange);
+        for (java.util.Map.Entry<ai.dvine.chat.Tuning.Knob, android.widget.EditText> e : knobs.entrySet()) {
+            save(e.getKey(), e.getValue()); // a number still being typed is kept too
+        }
         super.onPause();
     }
 

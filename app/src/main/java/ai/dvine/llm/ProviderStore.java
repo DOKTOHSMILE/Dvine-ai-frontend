@@ -166,6 +166,44 @@ public final class ProviderStore {
         return prefs.getInt(p.name() + ".window", p.window);
     }
 
+    // ------------------------------------------------------------ advanced, per provider (all changeable)
+
+    /** "auto", "on" or "off": whether the model is sent images. */
+    public String vision(Providers p) {
+        return prefs.getString(p.name() + ".vision", "auto");
+    }
+
+    /** "auto", "on" or "off": whether it is a reasoning model (room to think, no temperature). */
+    public String reasoning(Providers p) {
+        return prefs.getString(p.name() + ".reasoning", "auto");
+    }
+
+    /** The most it may write in tokens; 0 lets DVINE decide. */
+    public int maxOutput(Providers p) {
+        return prefs.getInt(p.name() + ".max_out", 0);
+    }
+
+    /** Seconds a reply may take. */
+    public int timeout(Providers p) {
+        return prefs.getInt(p.name() + ".timeout", 180);
+    }
+
+    /** Extra request fields, JSON ("" for none). */
+    public String extra(Providers p) {
+        return prefs.getString(p.name() + ".extra", "");
+    }
+
+    public void saveAdvanced(Providers p, String vision, String reasoning, int maxOutput, int timeout, String extra, int window) {
+        prefs.edit().putString(p.name() + ".vision", vision).putString(p.name() + ".reasoning", reasoning)
+                .putInt(p.name() + ".max_out", Math.max(0, maxOutput)).putInt(p.name() + ".timeout", Math.max(10, timeout))
+                .putString(p.name() + ".extra", extra == null ? "" : extra.trim())
+                .putInt(p.name() + ".window", window > 0 ? window : p.window).apply();
+    }
+
+    private RemoteBrain configured(Providers p, RemoteBrain b) {
+        return b.options(vision(p), reasoning(p), maxOutput(p), timeout(p), extra(p));
+    }
+
     public String key(Providers p) {
         return open(prefs.getString(p.name() + ".key", ""));
     }
@@ -201,7 +239,8 @@ public final class ProviderStore {
     /** Forgets this provider's keys and settings. */
     public void clear(Providers p) {
         SharedPreferences.Editor e = prefs.edit();
-        for (String f : new String[]{"address", "model", "fast", "key", "backup", "ca", "ok", "window"}) {
+        for (String f : new String[]{"address", "model", "fast", "key", "backup", "ca", "ok", "window", "vision", "reasoning", "max_out",
+                "timeout", "extra"}) {
             e.remove(p.name() + "." + f);
         }
         if (active() == p) {
@@ -218,7 +257,7 @@ public final class ProviderStore {
         if (!p.api() || RemoteBrain.check(address(p), model(p), key(p)) != null) {
             return null;
         }
-        return new RemoteBrain(p.protocol, address(p), model(p), key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p))));
+        return configured(p, new RemoteBrain(p.protocol, address(p), model(p), key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p)))));
     }
 
     /** The same provider on its fast model, or null when there is none (or smart routing is off). */
@@ -227,7 +266,7 @@ public final class ProviderStore {
         if (!smartRouting() || fast.isEmpty() || fast.equals(model(p)) || brain(p) == null) {
             return null;
         }
-        return new RemoteBrain(p.protocol, address(p), fast, key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p))));
+        return configured(p, new RemoteBrain(p.protocol, address(p), fast, key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p)))));
     }
 
     /**
