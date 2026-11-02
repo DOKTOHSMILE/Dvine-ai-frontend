@@ -1531,6 +1531,14 @@ People say these in endless ways: "are you done?", "where are we with that", "ke
 
 Longer messages are tasks or questions, and they go to the brain whole.
 
+In app v0.66.0 the list grew by nine commands. DVINE carries each out with the same action as its button (`Command.direct()`, `MainActivity.command`):
+- start a new chat
+- switch to Ivie, Obi or Ibiko (only when the message is just about switching; "ask Obi about X" stays a message to Obi)
+- stop
+- turn auto-accept on or off
+- clear Ibiko's workspace (clones, sandbox, files and the kept agent work; it asks first, since it can't be undone)
+- open Settings
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

@@ -23,7 +23,21 @@ public final class Meaning {
         DOWNLOAD_PROGRESS("how is the download going", false, "ask how far the model's download has got"),
         MODEL_OFF("turn off the model", false, "stop using the phone's own model"),
         MODEL_ON("turn on the model", false, "start using the phone's own model again"),
+        NEW_CHAT("start a new chat", false, "start a new, empty chat"),
+        SWITCH_IVIE("switch to Ivie", false, "talk to Ivie (graphics and 3D) from now on; only when the message is just about switching"),
+        SWITCH_OBI("switch to Obi", false, "talk to Obi (chat and research) from now on; only when the message is just about switching"),
+        SWITCH_IBIKO("switch to Ibiko", false, "talk to Ibiko (coding) from now on; only when the message is just about switching"),
+        STOP("stop", false, "stop the reply or the work going on now"),
+        AUTO_ON("turn auto-accept on", false, "let Ibiko run commands, pushes and pull requests without asking first"),
+        AUTO_OFF("turn auto-accept off", false, "make Ibiko ask before running commands, pushes and pull requests"),
+        CLEAR_WORKSPACE("clear Ibiko's workspace", false, "delete the cloned repositories, the sandbox and the files in Ibiko's workspace on the phone"),
+        OPEN_SETTINGS("open Settings", false, "open the app's settings"),
         NONE("", false, "anything else: a question, a request, chat, a new task");
+
+        /** Carried out by DVINE's own action ({@code act}), not by running {@link #canonical} as a message. */
+        public boolean direct() {
+            return ordinal() >= NEW_CHAT.ordinal() && this != NONE;
+        }
 
         /** The wording DVINE's code acts on. */
         public final String canonical;

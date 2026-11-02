@@ -287,6 +287,52 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void rephrasedAppCommandsRunTheirOwnActions() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        ai.dvine.turn.Meaning.Memory m = new ai.dvine.turn.Meaning.Memory();
+        m.put("let me talk to the research one", ai.dvine.turn.Meaning.Command.SWITCH_OBI);
+        m.put("let ibiko just do things", ai.dvine.turn.Meaning.Command.AUTO_ON);
+        m.put("wipe everything you cloned", ai.dvine.turn.Meaning.Command.CLEAR_WORKSPACE);
+        prefs.edit().putString("meanings", m.write()).putBoolean("auto_accept", false).commit();
+        java.lang.reflect.Field mf = MainActivity.class.getDeclaredField("meanings");
+        mf.setAccessible(true);
+        mf.set(c.get(), null);
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        android.view.View send = c.get().findViewById(ai.dvine.R.id.btn_send);
+
+        field.setText("Let me talk to the research one");
+        send.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("Obi", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabObi)).getText().toString());
+
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS); // past the double-tap guard
+        field.setText("let Ibiko just do things");
+        send.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertTrue(prefs.getBoolean("auto_accept", false));
+
+        java.io.File ws = new java.io.File(c.get().getFilesDir(), "ibiko/sandbox/demo");
+        ws.mkdirs();
+        java.nio.file.Files.write(new java.io.File(ws, "main.py").toPath(), "print(1)\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        field.setText("wipe everything you cloned");
+        send.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        // it can't be undone, so it asks first
+        ((androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog())
+                .getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+        java.io.File root = new java.io.File(c.get().getFilesDir(), "ibiko");
+        for (int i = 0; i < 40 && root.exists(); i++) {
+            Thread.sleep(50);
+            ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        org.junit.Assert.assertFalse(root.exists());
+        c.pause().stop().destroy();
+    }
+
     /** Taps the row of a bottom sheet whose name is {@code name}. */
     private static void tapRow(android.app.Dialog sheet, String name) {
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();

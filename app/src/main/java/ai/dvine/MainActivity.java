@@ -2035,7 +2035,76 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         note("Understood as \u201c" + c.canonical + "\u201d");
+        if (c.direct()) {
+            command(c);
+            return;
+        }
         answer(c.canonical, true); // the user's own words stay in the chat; the command's wording is what runs
+    }
+
+    /** The commands DVINE carries out with its own actions, the same ones its buttons use. */
+    private void command(ai.dvine.turn.Meaning.Command c) {
+        switch (c) {
+            case NEW_CHAT:
+                startNewChatSafely();
+                break;
+            case SWITCH_IVIE:
+                selectPersona("ivie");
+                break;
+            case SWITCH_OBI:
+                selectPersona("obi");
+                break;
+            case SWITCH_IBIKO:
+                selectPersona("ibiko", true);
+                break;
+            case STOP:
+                stopGeneration();
+                break;
+            case AUTO_ON:
+            case AUTO_OFF:
+                prefs.edit().putBoolean("auto_accept", c == ai.dvine.turn.Meaning.Command.AUTO_ON).apply();
+                showIbikoMode("ibiko".equals(stage.agent()));
+                play(LocalTurn.speakAs(stage.agent(), c == ai.dvine.turn.Meaning.Command.AUTO_ON
+                        ? "Auto-accept is on: Ibiko runs commands, pushes and pull requests without asking."
+                        : "Auto-accept is off: Ibiko asks before running commands, pushes and pull requests."), null);
+                break;
+            case CLEAR_WORKSPACE:
+                clearWorkspace();
+                break;
+            case OPEN_SETTINGS:
+                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** Clears Ibiko's workspace (clones, sandbox, files) and its kept work, after a yes: it can't be undone. */
+    private void clearWorkspace() {
+        final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setMessage("Delete everything in Ibiko's workspace on this phone: the cloned repositories, the sandbox and its"
+                        + " files? Changes that weren't pushed are lost.")
+                .setPositiveButton("Delete", (d, w) -> new Thread(() -> {
+                    deleteTree(ws);
+                    for (String persona : new String[]{"ibiko", "obi", "ivie"}) {
+                        new java.io.File(getFilesDir(), "agent-" + persona + ".txt").delete();
+                    }
+                    handler.post(() -> play(LocalTurn.speakAs(stage.agent(),
+                            "Done. Ibiko's workspace on this phone is empty."), null));
+                }, "dvine-clear-workspace").start())
+                .setNegativeButton("Keep it", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Okay, nothing was deleted."), null))
+                .show();
+    }
+
+    private static void deleteTree(java.io.File f) {
+        java.io.File[] kids = f.listFiles();
+        if (kids != null) {
+            for (java.io.File k : kids) {
+                deleteTree(k);
+            }
+        }
+        f.delete();
     }
 
     private static String spoken(List<TurnLine> said) {

@@ -127,6 +127,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 94 | Server as an online model; offline memory 8,192 customizable with slowness advice; GPU speed | P12 | Partial | 0.64.0 + backend: /api/v1/llm relays to llama-server, DVINE server provider signs in with the session; memory setting and advice built. GPU (Vulkan) not built: building upstream code was refused in the cloud session |
 | 95 | Screenshot: "too long for the model's memory", a progress line as the answer, "My model is ready" inside a reply | P12 | Built (JVM) | 0.64.1: the offline take-over fits its memory and keeps the API's reason; a failed request after "are you done?" says so; download-finished is a note |
 | 96 | Interpret every message by meaning, not words: a rephrased "are you done?" must still be understood, converted to the command and sent on | P12 | Built (Robolectric) | 0.65.0: turn/Meaning reads short messages into the commands DVINE runs, acts on their wording, remembers each phrasing |
+| 97 | Add the further commands (new chat, switch persona, stop, auto-accept, clear workspace, Settings) | P12 | Built (Robolectric) | 0.66.0: understood by meaning, run with the buttons' actions; clearing asks first |
 
 ## Still open, in the order that matters
 
