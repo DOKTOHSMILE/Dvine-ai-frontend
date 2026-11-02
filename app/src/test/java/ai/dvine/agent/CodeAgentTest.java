@@ -192,7 +192,7 @@ public class CodeAgentTest {
         Phone phone = new Phone();
         String answer = new CodeAgent(ws, brain, phone, "", 20_000).run("Research google", "");
         assertEquals("Google was founded in 1998 by Larry Page and Sergey Brin.", answer);
-        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("Do that now with the tools"));
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That was a progress note, not the answer"));
         assertTrue(brain.seen.get(2), brain.seen.get(2).contains("connector said: web.search Google"));
         assertTrue(CodeAgent.promise("I'll clone the repo into the workspace, then audit it."));
         assertFalse(CodeAgent.promise("Want me to retry the clone?"));
@@ -240,7 +240,8 @@ public class CodeAgentTest {
         String answer = new CodeAgent(ws, brain, new Phone(), "", 20_000).run("Give me the result of the audit", "");
         assertEquals(report, answer);
         assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That is a status line, not the result")
-                || brain.seen.get(1).contains("give the actual result as your final answer")); // sent back to finish either way
+                || brain.seen.get(1).contains("give the actual result as your final answer")
+                || brain.seen.get(1).contains("That was a progress note, not the answer")); // sent back to finish
         assertTrue(CodeAgent.bigTask("RE clone the repo and Audit my codebase then share findings"));
         assertFalse(CodeAgent.bigTask("hello"));
     }
@@ -253,7 +254,9 @@ public class CodeAgentTest {
         String report = "Audit: 2 problems.\n1. Main.java:1 is an empty class.\n2. No tests.\n" + "detail ".repeat(300).trim();
         CodeAgent.Brain brain = new CodeAgent.Brain() {
             final List<String> replies = new ArrayList<String>(Arrays.asList("<tool name=\"read_file\" path=\"Main.java\"/>",
-                    "Re-cloning and auditing your codebase \u2014 now reading the core files to surface issues and fixes."));
+                    "Re-cloning and auditing your codebase \u2014 now reading the core files to surface issues and fixes.",
+                    "Here's where things stand. Want me to continue straight into the full findings + fixes, or pause here?",
+                    "Got it \u2014 auditing your clone now, I'll pull the findings together."));
 
             @Override
             public String ask(String system, String transcript) {
@@ -300,5 +303,25 @@ public class CodeAgentTest {
         };
         String capped = new CodeAgent(ws, looping, new Phone(), "", 50_000).steps(3).run("audit it", "");
         assertTrue(capped, capped.startsWith(report) && capped.contains("3 steps used. Say \u201ccontinue\u201d"));
+    }
+
+    @Test
+    public void finalAnswersEmptyRepliesAndQuestions() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        // <final> ends the work, its words are the answer
+        assertEquals("Hello! I'm Ibiko.", new CodeAgent(ws, new Script("<final>Hello! I'm Ibiko.</final>"), new Phone(), "", 20_000).run("hello", ""));
+        // an empty reply (a dropped connection) is asked again once
+        Script flaky = new Script("", "Paris.");
+        assertEquals("Paris.", new CodeAgent(ws, flaky, new Phone(), "", 20_000).run("capital of France?", ""));
+        // a plain request may end on a plain answer; asking leave never ends a job
+        Script asking = new Script("I listed the files. Shall I proceed?", "<final>Done: 3 files, all fine.</final>");
+        Phone phone = new Phone();
+        assertEquals("Done: 3 files, all fine.", new CodeAgent(ws, asking, phone, "", 20_000).run("check the files", ""));
+        assertTrue(asking.seen.get(1), asking.seen.get(1).contains("Don't ask the user whether to go on"));
+        assertTrue(phone.steps.toString(), phone.steps.toString().contains("I listed the files. Shall I proceed?"));
+        assertTrue(CodeAgent.asksPermission("Want me to continue straight into the full findings + fixes, or pause here?"));
+        assertFalse(CodeAgent.asksPermission("What is the capital of France? Paris."));
+        assertTrue(CodeAgent.status("Got it \u2014 auditing your clone now, I'll pull the findings together."));
+        assertFalse(CodeAgent.status("Google was founded in 1998 by Larry Page and Sergey Brin."));
     }
 }

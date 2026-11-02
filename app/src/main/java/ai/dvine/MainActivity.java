@@ -1672,7 +1672,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     live.append(piece);
                                     sofar = live.toString();
                                 }
-                                String t = sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
+                                String t = sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim(); // the answer shows as it is written
                                 boolean tool = t.startsWith("<") || t.contains("<tool") || t.contains("<function") || t.contains("<invoke");
                                 long now = System.currentTimeMillis();
                                 if (!tool && t.length() > 0 && now - shown[0] > 120) {
