@@ -216,22 +216,46 @@ public final class ChatPane extends LinearLayout {
         pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
         top.startAnimation(pulse);
         box.addView(top);
-        int from = Math.max(0, steps.size() - 6);
-        if (from > 0) {
-            box.addView(stepLine("\u2026 " + from + " earlier step" + (from == 1 ? "" : "s"), false, false));
-        }
-        for (int i = from; i < steps.size(); i++) {
+        for (int i = 0; i < steps.size(); i++) { // every step, none folded away
             box.addView(stepLine(steps.get(i), i < steps.size() - 1, i == steps.size() - 1));
         }
         return box;
     }
 
+    /**
+     * One step. A step with a detail (a file written or edited, a command run, a file read) shows its +added −removed
+     * and opens with a tap: the changes in green and red, or what the command printed.
+     */
     private TextView stepLine(String text, boolean done, boolean current) {
-        TextView t = plain((done ? "\u2713  " : current ? "\u203A  " : "    ") + text);
+        final String words = ai.dvine.agent.StepDetail.words(text);
+        final String id = ai.dvine.agent.StepDetail.id(text);
+        final ai.dvine.agent.StepDetail.Detail d = id == null ? null : ai.dvine.agent.StepDetail.load(getContext().getFilesDir(), id);
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder((done ? "\u2713  " : current ? "\u203A  " : "    ") + words);
+        if (d != null && d.diff()) {
+            appendColoured(b, "  +" + d.added, ai.dvine.chat.ui.DetailSheet.GREEN);
+            appendColoured(b, " \u2212" + d.removed, ai.dvine.chat.ui.DetailSheet.RED);
+        }
+        if (d != null) {
+            b.append("  \u203A");
+        }
+        TextView t = plain("");
+        t.setText(b);
         t.setTextColor(color(current ? R.color.text_primary : R.color.text_secondary));
         t.setTextSize(13f);
         t.setPadding(dp(4), dp(1), 0, dp(1));
+        if (d != null) {
+            t.setPaintFlags(t.getPaintFlags());
+            t.setContentDescription(words + ", open");
+            t.setOnClickListener(v -> ai.dvine.chat.ui.DetailSheet.show((Activity) getContext(), words, d));
+            t.setPadding(dp(4), dp(4), 0, dp(4)); // a bigger target
+        }
         return t;
+    }
+
+    private static void appendColoured(android.text.SpannableStringBuilder b, String s, int colour) {
+        int at = b.length();
+        b.append(s);
+        b.setSpan(new android.text.style.ForegroundColorSpan(colour), at, b.length(), android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
 
     /** A kept activity line: folded to "Worked for 6s · 4 steps ›", a tap opens the steps. */

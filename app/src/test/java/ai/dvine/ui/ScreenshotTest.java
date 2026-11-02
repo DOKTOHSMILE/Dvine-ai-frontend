@@ -112,9 +112,26 @@ public class ScreenshotTest {
         pane.activityStep("Read a source: Wikipedia, Lagos");
         pane.activityStep("Asking OpenAI (gpt-5-mini), the fast model");
         pane.activityStep("Writing the answer");
+        String diffId = ai.dvine.agent.StepDetail.save(c.get().getFilesDir(), "app/Main.java", java.util.Arrays.asList("@ line 1",
+                " class Main {", "-    void old() {}", "+    void hello() {", "+        System.out.println(\"hi\");", "+    }", " }"), 3, 1);
+        pane.activityStep("Edited app/Main.java" + ai.dvine.agent.StepDetail.mark(diffId));
         pane.setLive("Lagos has about 16 million people in its metropolitan area, which makes it");
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         shoot(c.get(), "10_working_night");
+        // a step opened: the changes in green and red
+        ai.dvine.chat.ui.DetailSheet.show(c.get(), "Edited app/Main.java", ai.dvine.agent.StepDetail.load(c.get().getFilesDir(), diffId));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog opened = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.view.View ov = opened.getWindow().getDecorView();
+        ov.measure(android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(1200, android.view.View.MeasureSpec.EXACTLY));
+        ov.layout(0, 0, 1080, 1200);
+        android.graphics.Bitmap ob = android.graphics.Bitmap.createBitmap(1080, 1200, android.graphics.Bitmap.Config.ARGB_8888);
+        ov.draw(new android.graphics.Canvas(ob));
+        try (FileOutputStream o = new FileOutputStream(new File(OUT, "16_step_diff_night.png"))) {
+            ob.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o);
+        }
+        opened.dismiss();
         pane.activityEnd();
         pane.setLive(null);
         pane.assistant("obi", "Lagos has about 16 million people in its metropolitan area.");

@@ -110,6 +110,16 @@ public final class PhoneHost implements CodeAgent.Host {
         });
     }
 
+    /**
+     * A step with something to open: the detail is kept in a small file on the phone, and the step line carries
+     * its name ("Edited app.py ⟦…⟧"), so it can be opened from the chat now and later.
+     */
+    @Override
+    public void step(String line, String title, java.util.List<String> detail, int added, int removed) {
+        String keep = StepDetail.save(activity.getFilesDir(), title, detail, added, removed);
+        step(keep == null ? line : line + StepDetail.mark(keep));
+    }
+
     @Override
     public boolean stopped() {
         return id != current.getAsInt();

@@ -1392,6 +1392,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void askTheBrain(String question) {
         String bare = question.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        boolean agentGoesOn = carriesOn(question) && !agentWork(stage.agent()).isEmpty();
+        if (agentGoesOn && model != null && model.ready()) {
+            // Ibiko (or Obi or Ivie reading files) carries on with the same work, everything already read kept
+            runAgent(question, stage.agent(), !"ibiko".equals(stage.agent()));
+            return;
+        }
         if (bare.matches("^(continue|go on|carry on|again|keep going)$") && activeQuestion != null
                 && !activeQuestion.equalsIgnoreCase(question)) {
             question = activeQuestion;
@@ -1621,16 +1627,71 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> askId,
                 line -> {
                     if (chatPane != null) {
-                        chatPane.activityStep(line);
+                        chatPane.activityStep(line); // with its detail, opened by a tap
                     }
-                    updateThoughtStatus(line, true);
+                    updateThoughtStatus(ai.dvine.agent.StepDetail.words(line), true);
                 }, () -> showIbikoMode(true));
         new Thread(() -> {
+            final StringBuilder live = new StringBuilder();
+            final long[] shown = {0};
             ai.dvine.agent.CodeAgent agent = new ai.dvine.agent.CodeAgent(workspace,
                     new ai.dvine.agent.CodeAgent.Brain() {
                         @Override
                         public String ask(String system, String transcript) {
-                            return model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), piece -> modelPiece(id, piece));
+                            return asked(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
+                        }
+
+                        @Override
+                        public String askLong(String system, String transcript) {
+                            // the final report: room to write all of it
+                            return asked(system, transcript, Math.max(12000, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs) * 3));
+                        }
+
+                        /**
+                         * One step, its words streamed into the chat as they are written (as ChatGPT does), unless
+                         * they turn out to be a tool call, which only shows in the steps.
+                         */
+                        private String asked(String system, String transcript, int tokens) {
+                            synchronized (live) {
+                                live.setLength(0);
+                            }
+                            handler.post(() -> {
+                                if (id == askId && chatPane != null) {
+                                    chatPane.setLive(null);
+                                }
+                            });
+                            return model.task(system, transcript, tokens, piece -> {
+                                if (!modelPiece(id, piece)) {
+                                    return false;
+                                }
+                                if (piece == null || "\u0001".equals(piece)) {
+                                    return id == askId;
+                                }
+                                final String sofar;
+                                synchronized (live) {
+                                    live.append(piece);
+                                    sofar = live.toString();
+                                }
+                                String t = sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
+                                boolean tool = t.startsWith("<") || t.contains("<tool") || t.contains("<function") || t.contains("<invoke");
+                                long now = System.currentTimeMillis();
+                                if (!tool && t.length() > 0 && now - shown[0] > 120) {
+                                    shown[0] = now;
+                                    handler.post(() -> {
+                                        if (id == askId && chatPane != null) {
+                                            chatPane.setLive(t);
+                                        }
+                                    });
+                                } else if (tool && now - shown[0] > 120) {
+                                    shown[0] = now;
+                                    handler.post(() -> {
+                                        if (id == askId && chatPane != null) {
+                                            chatPane.setLive(null);
+                                        }
+                                    });
+                                }
+                                return id == askId;
+                            });
                         }
 
                         @Override
@@ -1640,7 +1701,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }, host, tools,
                     model.window() * 3);
             agent.useGit(connectors.git()).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly);
+            if (carriesOn(task)) {
+                agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
+            }
             final String answer = agent.run(task, earlier);
+            saveAgentWork(persona, agent.work());
             if (!readOnly) {
                 recordIbikoFiles(workspace, agent.changed());
             }
@@ -1654,6 +1719,37 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 refreshChips(); // the diff and any pull request it opened
             });
         }, "dvine-agent").start();
+    }
+
+    /** "continue", "go on", "give me the result", "what did you find": the last task goes on, not a new one. */
+    static boolean carriesOn(String said) {
+        String t = said == null ? "" : said.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        return t.matches("^(continue|go on|keep going|carry on|proceed|resume|finish( it| the (audit|report|task|job))?|"
+                + "(now )?(give|show|send|share) me the (full |complete |final )?(result|results|report|findings|audit)( of the (audit|review|task))?|"
+                + "what did you find|what are the findings|where is the (report|result)|and\\?|so\\?)$");
+    }
+
+    /** The agent's work so far for this persona (its tool calls and results), kept on the phone to carry on from. */
+    private String agentWork(String persona) {
+        java.io.File f = new java.io.File(getFilesDir(), "agent-" + persona + ".txt");
+        try {
+            return f.isFile() ? new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8) : "";
+        } catch (java.io.IOException e) {
+            return "";
+        }
+    }
+
+    private void saveAgentWork(String persona, String work) {
+        if (work == null || work.isEmpty()) {
+            return;
+        }
+        String w = work.length() > 400_000 ? work.substring(work.length() - 400_000) : work;
+        try {
+            java.nio.file.Files.write(new java.io.File(getFilesDir(), "agent-" + persona + ".txt").toPath(),
+                    w.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException ignored) {
+            // carrying on is a bonus
+        }
     }
 
     /** The Auto-accept pill under the persona switch: shown for Ibiko, coral when commands run without asking. */

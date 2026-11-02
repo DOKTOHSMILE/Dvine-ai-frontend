@@ -225,7 +225,7 @@ public class CodeAgentTest {
 
     @Test
     public void tuningKeepsNumbersInRange() {
-        assertEquals(15, ai.dvine.chat.Tuning.AGENT_STEPS.get(null));
+        assertEquals(30, ai.dvine.chat.Tuning.AGENT_STEPS.get(null));
         assertEquals(1500, ai.dvine.chat.Tuning.PASTE_CHARS.get(null));
         assertTrue(ai.dvine.chat.Attachments.longPaste("x".repeat(300), 200));
         assertFalse(ai.dvine.chat.Attachments.longPaste("x".repeat(300)));
@@ -241,7 +241,64 @@ public class CodeAgentTest {
         assertEquals(report, answer);
         assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That is a status line, not the result")
                 || brain.seen.get(1).contains("give the actual result as your final answer")); // sent back to finish either way
-        assertTrue(CodeAgent.thin("audit this codebase", "Cloned."));
-        assertFalse(CodeAgent.thin("hello", "Hi!"));
+        assertTrue(CodeAgent.bigTask("RE clone the repo and Audit my codebase then share findings"));
+        assertFalse(CodeAgent.bigTask("hello"));
+    }
+
+    @Test
+    public void aBigTaskNeverEndsOnAStatusLineAndCarriesOn() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Files.write(new File(ws, "Main.java").toPath(), "class Main {}\n".getBytes(StandardCharsets.UTF_8));
+        final List<String> longAsks = new ArrayList<String>();
+        String report = "Audit: 2 problems.\n1. Main.java:1 is an empty class.\n2. No tests.\n" + "detail ".repeat(300).trim();
+        CodeAgent.Brain brain = new CodeAgent.Brain() {
+            final List<String> replies = new ArrayList<String>(Arrays.asList("<tool name=\"read_file\" path=\"Main.java\"/>",
+                    "Re-cloning and auditing your codebase \u2014 now reading the core files to surface issues and fixes."));
+
+            @Override
+            public String ask(String system, String transcript) {
+                return replies.isEmpty() ? null : replies.remove(0);
+            }
+
+            @Override
+            public String askLong(String system, String transcript) {
+                longAsks.add(transcript);
+                return report;
+            }
+        };
+        CodeAgent agent = new CodeAgent(ws, brain, new Phone(), "", 20_000);
+        assertEquals(report, agent.run("RE clone the repo and Audit my codebase then share findings and solutions", ""));
+        assertEquals(1, longAsks.size());
+        assertTrue(longAsks.get(0).contains("Now write the complete final report"));
+        assertTrue(longAsks.get(0).contains("1\tclass Main {}")); // with what was read
+        assertTrue(agent.work().contains("<tool name=\"read_file\" path=\"Main.java\"/>"));
+
+        // "give me the result": the same work goes on, nothing read again
+        final List<String> seen = new ArrayList<String>();
+        CodeAgent.Brain again = new CodeAgent.Brain() {
+            @Override
+            public String ask(String system, String transcript) {
+                seen.add(transcript);
+                return report;
+            }
+        };
+        String out = new CodeAgent(ws, again, new Phone(), "", 50_000).resume(agent.work()).run("give me the result of the audit", "");
+        assertEquals(report, out);
+        assertTrue(seen.get(0), seen.get(0).contains("1\tclass Main {}") && seen.get(0).contains("The user now says: give me the result of the audit"));
+
+        // out of steps: the report from what was found, not "I used all the steps"
+        CodeAgent.Brain looping = new CodeAgent.Brain() {
+            @Override
+            public String ask(String system, String transcript) {
+                return "<tool name=\"list_files\" path=\".\"/>";
+            }
+
+            @Override
+            public String askLong(String system, String transcript) {
+                return report;
+            }
+        };
+        String capped = new CodeAgent(ws, looping, new Phone(), "", 50_000).steps(3).run("audit it", "");
+        assertTrue(capped, capped.startsWith(report) && capped.contains("3 steps used. Say \u201ccontinue\u201d"));
     }
 }
