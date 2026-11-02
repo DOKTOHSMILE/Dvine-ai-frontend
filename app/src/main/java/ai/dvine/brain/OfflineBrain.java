@@ -118,6 +118,10 @@ public final class OfflineBrain {
         turn++;
         String speaker = "ivie".equals(onScreen) ? "ivie" : "obi";
         String text = normalize(raw);
+        String named = ai.dvine.llm.PersonaPrompt.introduce(onScreen, raw);
+        if (named != null) {
+            return one(onScreen == null ? speaker : onScreen, named, "PACK");
+        }
         if (text.length() == 0) {
             return one(speaker, pick(speaker, "I'm here. Give me the goal and the constraint.",
                     "I'm here. Tell me what you want, and I'll stay with you."), "PACK");

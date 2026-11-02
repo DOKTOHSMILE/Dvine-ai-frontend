@@ -943,6 +943,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // Create a final copy so it can be safely captured by lambdas and background threads
         final String finalQuestion = question;
         final String agent = stage.agent();
+        String who = ai.dvine.llm.PersonaPrompt.introduce(agent, finalQuestion);
+        if (who != null) {
+            play(LocalTurn.speakAs(agent, who), null);
+            return;
+        }
 
         ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(finalQuestion, null);
         if (known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY) {

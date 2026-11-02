@@ -130,4 +130,63 @@ public final class PersonaPrompt {
         s.append(" /no_think"); // Qwen3: answer directly, without a hidden reasoning pass (too slow for speech)
         return s.toString();
     }
+
+    /**
+     * Who the user is asking about: the persona on screen, one of the three, or all of them.
+     * Null when the words are not about the personas.
+     */
+    public static String introduce(String speaker, String said) {
+        String whom = whom(said);
+        if (whom == null) {
+            return null;
+        }
+        String s = speaker == null ? "ivie" : speaker.trim().toLowerCase(java.util.Locale.US);
+        if (!"ivie".equals(s) && !"obi".equals(s) && !"ibiko".equals(s)) {
+            s = "ivie";
+        }
+        if ("self".equals(whom)) {
+            whom = s;
+        }
+        if ("ibiko".equals(whom)) {
+            return "ibiko".equals(s)
+                    ? "I'm Ibiko. This room is for code, Termux, and commands on this phone. Obi and Ivie handle the everyday talk."
+                    : "Ibiko is the developer persona. He handles code, Termux, and commands. Obi and Ivie are for ordinary conversation.";
+        }
+        if ("obi".equals(whom)) {
+            return "obi".equals(s)
+                    ? "I'm Obi. I look at structure, risk, and what we can verify. Ivie looks at people and meaning."
+                    : "Obi is the analytical persona. He looks at structure, risk, and what we can verify.";
+        }
+        if ("ivie".equals(whom)) {
+            return "ivie".equals(s)
+                    ? "I'm Ivie. My name means precious coral beads, a sign of royalty in Edo and Delta culture. I look at how things land on people."
+                    : "Ivie's name means precious coral beads, a sign of royalty in Edo and Delta culture. She sees people clearly.";
+        }
+        return "There are three of us. Ivie looks at people and meaning. Obi looks at structure and risk. Ibiko handles code and commands. You're talking to "
+                + ("ibiko".equals(s) ? "Ibiko" : "obi".equals(s) ? "Obi" : "Ivie") + ".";
+    }
+
+    private static String whom(String said) {
+        if (said == null) {
+            return null;
+        }
+        String t = said.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "").replaceAll("\\s+", " ");
+        t = t.replace("evie", "ivie").replace("eva", "ivie").replace("ibeko", "ibiko").replace("ebiko", "ibiko");
+        if (t.matches("^(who are you|what are you|what is your name|what's your name|whats your name|who is this|who am i (chatting|talking|speaking) (with|to))$")) {
+            return "self";
+        }
+        if (t.matches("^(who are the personas|what are the personas|who are the three)$")) {
+            return "all";
+        }
+        if (t.matches("^(who is|who's|whos|tell me about|what is) ibiko$")) {
+            return "ibiko";
+        }
+        if (t.matches("^(who is|who's|whos|tell me about|what is) obi$")) {
+            return "obi";
+        }
+        if (t.matches("^(who is|who's|whos|tell me about|what is|what does) ivie( mean)?$")) {
+            return "ivie";
+        }
+        return null;
+    }
 }

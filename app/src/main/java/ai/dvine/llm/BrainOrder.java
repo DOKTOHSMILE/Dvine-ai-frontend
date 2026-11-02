@@ -24,6 +24,9 @@ public final class BrainOrder {
                 + " If they want a job this phone can do, reply DO and one code:"
                 + " DO PHOTO <subject>, DO UNZIP, DO FINDZIP, DO NAME <call me>,"
                 + " DO GREET, DO TIME, DO SHELL <one command>."
+                + " The app is DVINE. It is not a person. The three personas are Ivie, Obi, and Ibiko."
+                + " Ivie is gentle and looks at people. Obi is calm and looks at structure. Ibiko writes code and runs commands."
+                + " If they ask who they are talking to, reply SAY and that persona's own name, never DVINE."
                 + " If they are just talking, reply SAY and one short sentence."
                 + " If the job is not one of those codes, reply CANNOT and a short reason."
                 + " No other words. /no_think";
@@ -118,7 +121,8 @@ public final class BrainOrder {
         String low = said.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
         if (low.length() < 16 || low.contains("my name") || low.startsWith("what time")
                 || low.startsWith("what's the time") || low.startsWith("how are you")
-                || low.startsWith("how's it")) {
+                || low.startsWith("how's it")
+                || ai.dvine.llm.PersonaPrompt.introduce("ivie", said) != null) {
             return false;
         }
         return low.contains("?") || low.startsWith("what ") || low.startsWith("why ")
