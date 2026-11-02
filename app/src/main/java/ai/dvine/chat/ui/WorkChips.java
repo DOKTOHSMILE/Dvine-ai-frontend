@@ -27,7 +27,7 @@ import ai.dvine.connect.GitHubGit;
  * The chips above the message box, as in Claude Code: "Diff +1193 −26" (what changed in the cloned repositories
  * since they were cloned, pulled or pushed; tap for the changes line by line), "Pull requests · 2" (the ones Ibiko
  * opened; tap to open one on GitHub) and "Artifacts · 1" (the files made, such as Ivie's exported models; tap to
- * open or share). Each shows only when it has something; the diff is worked out off the main thread.
+ * open or share). They show on Ibiko's tab, each only when it has something; the diff is worked out off the main thread.
  */
 public final class WorkChips {
     private final Activity activity;
@@ -46,11 +46,12 @@ public final class WorkChips {
         Ui.init(activity);
     }
 
-    /** Works the chips out again; {@code coding}: Ibiko's tab (diff and pull requests show there). */
+    /** Works the chips out again; {@code coding}: Ibiko's tab, the only one the chips show on. */
     public void refresh(boolean coding) {
         this.coding = coding;
         paint();
         if (!coding) {
+            scroll.setVisibility(View.GONE);
             return;
         }
         new Thread(() -> {
@@ -97,7 +98,7 @@ public final class WorkChips {
             add(chip);
         }
         List<WorkLog.Entry> made = log.artifacts();
-        if (!made.isEmpty()) {
+        if (coding && !made.isEmpty()) {
             LinearLayout chip = chip();
             chip.addView(Ui.text(activity, "Artifacts · " + made.size(), 15, Ui.TEXT, false));
             chip.setOnClickListener(v -> showList("Artifacts", made));

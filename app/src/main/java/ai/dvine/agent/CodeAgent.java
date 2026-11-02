@@ -166,18 +166,18 @@ public final class CodeAgent {
                             + " <tool name=\"…\" …/> (see the tools), on its own.\n</result>\n");
                     continue;
                 }
+                if (promise(answer) && nudges < 3 && step < maxSteps) {
+                    nudges++; // "I'll research Google…" is a plan, not an answer: do it
+                    work.append("\n").append(answer).append("\n<result>\nDo that now with the tools, then give the actual result"
+                            + " as your final answer.\n</result>\n");
+                    continue;
+                }
                 if (thin(task, answer) && nudges < 3 && step < maxSteps) {
                     nudges++; // "Auditing your codebase now…" for an audit: a status line, not the result
                     work.append("\n").append(answer).append("\n<result>\nThat is a status line, not the result the user asked"
                             + " for. Use the tools for whatever you still need, then write the complete result as your final answer,"
                             + " in full: what you found (with file names and line numbers), what is wrong or risky, ranked, and"
                             + " what to do about each. Don't shorten it.\n</result>\n");
-                    continue;
-                }
-                if (promise(answer) && nudges < 3 && step < maxSteps) {
-                    nudges++; // "I'll research Google…" is a plan, not an answer: do it
-                    work.append("\n").append(answer).append("\n<result>\nDo that now with the tools, then give the actual result"
-                            + " as your final answer.\n</result>\n");
                     continue;
                 }
                 return answer;

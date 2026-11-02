@@ -664,6 +664,36 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         field.requestFocus(); // the keyboard keeps typing into the box after Send
     }
 
+    /**
+     * Files Ibiko made outside the cloned repositories (a script, a page, a report) become artifacts, openable and
+     * shareable from the Artifacts chip; changes inside a clone show in the Diff instead.
+     */
+    private void recordIbikoFiles(java.io.File workspace, java.util.List<String> changed) {
+        ai.dvine.chat.WorkLog log = new ai.dvine.chat.WorkLog(this);
+        java.util.Set<String> known = new java.util.HashSet<String>();
+        for (ai.dvine.chat.WorkLog.Entry e : log.artifacts()) {
+            known.add(e.address);
+        }
+        for (String path : changed) {
+            java.io.File f = new java.io.File(workspace, path);
+            String top = path.contains("/") ? path.substring(0, path.indexOf('/')) : "";
+            if (!f.isFile() || (!top.isEmpty() && new java.io.File(workspace, top + "/" + ai.dvine.connect.GitHubGit.RECORD).isFile())) {
+                continue; // inside a clone: that's the diff
+            }
+            try {
+                android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(this, "ai.dvine.files", f);
+                if (known.contains(uri.toString())) {
+                    continue;
+                }
+                String ext = f.getName().contains(".") ? f.getName().substring(f.getName().lastIndexOf('.') + 1) : "";
+                String mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase(java.util.Locale.US));
+                log.artifact(f.getName(), uri.toString(), "Made by Ibiko \u00B7 " + path, mime == null ? "text/plain" : mime);
+            } catch (RuntimeException ignored) {
+                // not shareable: it stays in the workspace
+            }
+        }
+    }
+
     /** Diff, Pull requests and Artifacts above the message box. */
     private ai.dvine.chat.ui.WorkChips workChips;
 
@@ -1611,6 +1641,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     model.window() * 3);
             agent.useGit(connectors.git()).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly);
             final String answer = agent.run(task, earlier);
+            if (!readOnly) {
+                recordIbikoFiles(workspace, agent.changed());
+            }
             handler.post(() -> {
                 model.coding = false;
                 if (id != askId || isFinishing()) {
