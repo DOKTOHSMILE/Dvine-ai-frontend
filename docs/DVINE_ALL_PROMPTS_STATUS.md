@@ -72,6 +72,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 43 | Date and clock answered on the phone, not invented | early chat | Built | Clock and date are read from the device |
 | 44 | Safe release: no secrets in the app, destructive actions confirmed | P1, P8 | Partial | Delete and remote destructive wording wait for yes. A GitHub token must not be stored in the repo |
 
+| 45 | Add a custom API, like the AI providers sheet of a coding app (Anthropic, OpenAI, Gemini, OpenRouter, custom gateway, backup key, CA certificate) | P12 | Built (JVM) | 0.48.0: drawer → AI providers, or tap the model under the chat title. Keys encrypted on the phone. Tested against recorded API replies, not against a live key |
+| 46 | A Usage screen like Claude's (context window, plan usage) | P12 | Built (JVM) | 0.48.0: the last reply's context window by part, today's requests and tokens, the brain and storage. There is no plan limit to show: spending is on the provider's own dashboard |
+
 ## Still open, in the order that matters
 
 1. Install 0.45.2 on a phone and confirm the chat screen stays open.

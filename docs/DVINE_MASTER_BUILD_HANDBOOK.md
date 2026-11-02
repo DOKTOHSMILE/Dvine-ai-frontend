@@ -1054,6 +1054,39 @@ The format comes from the words ("for 3D printing" means STL).
 
 **Limits.** Parts are simple solids (spheres, boxes, cylinders, cones, rings, discs), so organic shapes are approximate. Building a mesh from photos of every side of a thing needs a GPU server; it can't be done on a phone today. Candidate models: TripoSR, Hunyuan3D, Stable Fast 3D. Splitting a mesh into parts would also need a server: SAMPart3D and SAM 3D.
 
+## 37. Your own brain: AI providers, and Usage (app v0.48.0, built)
+
+**AI providers.** The drawer's "AI providers", or a tap on the model under the chat title, opens a sheet like a coding app's. There is one card per brain:
+- On this phone (the downloaded model)
+- Anthropic (Claude)
+- OpenAI
+- Google Gemini (through Google's OpenAI-compatible endpoint)
+- OpenRouter
+- Custom gateway (any OpenAI-compatible address: LiteLLM, a self-hosted server)
+
+The chosen card holds:
+- the key, hidden with Show / Hide
+- an optional backup key, tried when the first is refused or out of credit
+- the address and the model, with suggestions
+- an optional CA certificate (PEM) for a gateway on a private CA. It is trusted in addition to the phone's own authorities, and the chain is still verified.
+
+**Test** makes one tiny call and marks the card Connected. Keys stay on the phone, encrypted with an AES-GCM key in the Android Keystore; if the Keystore fails, the key isn't kept. Only https addresses are accepted. Error messages never repeat a key.
+
+**How it answers.** `LocalModel` stays the one door to the brain. While the phone is online, `reply()` and `task()` go to the chosen API (`llm/RemoteBrain`) with the same conversation memory, the same quiet and total time limits, and the same cancel. When the API fails or the phone is offline, the phone's own brain answers if it is installed.
+
+`RemoteBrain` details:
+- **Anthropic.** It speaks the Messages API: `x-api-key`, `anthropic-version: 2026-10-21`, so no `temperature`. Thinking blocks are skipped and only text is spoken. A refusal is reported as one. Anthropic's server-side refusal fallback (`fallbacks: "default"`) is on for Claude Opus 5.5, Opus 5, Sonnet 5.5 and Fable 5.1. Short calls (the one-line order) ask for low effort.
+- **OpenAI-compatible.** It speaks chat completions. A field a server refuses is asked again in a plainer form: without the usage option, then the reasoning-model form (`max_completion_tokens`, no temperature).
+- **Token floor.** A remote call never asks for fewer than 1024 tokens, because a thinking model spends part of its allowance before it writes.
+- **Raw HTTP.** It uses raw https rather than a provider SDK: the Anthropic Java SDK would bring OkHttp, Kotlin and Jackson into a build that must stay plain for CodeAssist and already had a Kotlin clash.
+
+**Usage.** For the last reply, the screen shows how the context window was filled: the conversation, the system prompt, this message, the reply, and the free space. Counts come from the API where it reports them; otherwise they are estimated at about four characters a token, and labelled as estimates. It also shows:
+- today's requests, tokens sent and written, speed and failures (reset at midnight, kept across restarts)
+- the chosen brain
+- what is stored on the phone
+
+Spending and plan limits belong to each provider's own dashboard; the app has no view of them, so it doesn't show any.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

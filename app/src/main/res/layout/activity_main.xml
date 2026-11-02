@@ -234,6 +234,25 @@
         </ScrollView>
 
         <TextView
+            android:id="@+id/btnProviders"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:text="AI providers"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/btnUsage"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:gravity="center_vertical"
+            android:text="Usage"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp" />
+
+        <TextView
             android:id="@+id/btnManageChats"
             android:layout_width="match_parent"
             android:layout_height="44dp"
