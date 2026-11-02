@@ -298,7 +298,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null) {
             String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
-            sub.setText(name + " · " + brainLabel() + " \u02C5");
+            sub.setText(name + " · " + brainLabel());
         }
         android.widget.TextView mark = findViewById(R.id.empty_mark);
         if (mark != null) {
@@ -355,10 +355,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void setPersonaTab(android.widget.TextView tab, boolean selected) {
         if (tab == null)
             return;
-        tab.setTextColor(selected ? 0xFFF2F2F7 : 0xFF8E8E93);
+        tab.setTextColor(selected ? 0xFFECEBE6 : 0xFF9E9C95);
         tab.setTypeface(null,
                 selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-        tab.setBackgroundColor(0x00000000);
+        if (selected) {
+            tab.setBackgroundResource(R.drawable.bg_segment_selected);
+        } else {
+            tab.setBackgroundColor(0x00000000);
+        }
         tab.setSelected(selected);
     }
 
@@ -406,11 +410,28 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             scrim.setOnClickListener(v -> closeDrawer());
         selectPersona(prefs == null ? StageView.IVIE : prefs.getString("face", StageView.IVIE));
         bindComposer();
+        refreshSend();
         bindCrashBanner();
     }
 
     private void bindComposer() {
         android.widget.EditText field = findViewById(R.id.et_message);
+        if (field != null) {
+            field.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    refreshSend();
+                }
+
+                @Override
+                public void afterTextChanged(android.text.Editable s) {
+                }
+            });
+        }
         android.view.View send = findViewById(R.id.btn_send);
         android.view.View voice = findViewById(R.id.btn_voice);
         android.view.View attach = findViewById(R.id.btn_attach);
@@ -890,6 +911,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         handler.removeCallbacks(thinkBeat);
         updateThoughtStatus("", false);
         setGenerating(false);
+        String switched = model == null ? null : model.takeSwitchNote();
+        if (switched != null) {
+            note(switched);
+        }
+    }
+
+    private final Runnable hideNote = () -> {
+        android.view.View n = findViewById(R.id.composer_note);
+        if (n != null) {
+            n.setVisibility(android.view.View.GONE);
+        }
+    };
+
+    /** A short line above the message box for a few seconds ("…, so OpenAI did."). */
+    private void note(String text) {
+        android.widget.TextView n = findViewById(R.id.composer_note);
+        if (n == null) {
+            return;
+        }
+        n.setText(text);
+        n.setVisibility(android.view.View.VISIBLE);
+        handler.removeCallbacks(hideNote);
+        handler.postDelayed(hideNote, 7000);
     }
 
     private void keepAwake(boolean on) {
@@ -938,8 +982,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (send == null) {
             return;
         }
-        send.setImageResource(on ? android.R.drawable.ic_media_pause : R.drawable.ic_send);
+        send.setImageResource(on ? R.drawable.ic_stop : R.drawable.ic_send);
         send.setContentDescription(on ? "Stop" : "Send");
+        refreshSend();
+    }
+
+    /** Send is lit when there is something to send, or a reply to stop; grey otherwise. */
+    private void refreshSend() {
+        android.view.View send = findViewById(R.id.btn_send);
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (send == null) {
+            return;
+        }
+        boolean words = field != null && field.getText() != null && field.getText().toString().trim().length() > 0;
+        send.setEnabled(generating || words);
     }
 
     private void openHistory() {
@@ -1017,10 +1073,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 } else if (model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING) {
                     play(LocalTurn.speakAs(agent, "My brain is still downloading. I'll understand that once it's here."), null);
                 } else {
-                    confirmModelDownload = true;
-                    play(LocalTurn.speakAs(agent, "I need my brain to understand that. It's a " + model.spec.sizeWords()
-                            + " download, best on Wi-Fi, and then I can think offline. Shall I download it now?"),
-                            this::startListening);
+                    play(LocalTurn.speakAs(agent, "I need a brain to understand that: download it, or add an API key."), null);
+                    startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SetupActivity.class));
                 }
                 return;
             }
@@ -1721,7 +1775,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (edit.op == ai.dvine.render.field.PartEdit.Op.ADD) {
             if (model == null || !model.ready()) {
                 play(LocalTurn.speakAs(stage.agent(),
-                        "To add new parts I need my brain. Say download your brain."), null);
+                        "To add new parts I need my brain: download it, or add an API key, from AI providers in the menu."), null);
                 return true;
             }
             final int id = ++askId;
@@ -2215,24 +2269,40 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
-        ai.dvine.llm.Providers p = providers.active();
-        ai.dvine.llm.RemoteBrain remote = providers.brain(p);
-        model.useRemote(remote, providers.window(p), () -> connectivity == null || connectivity.isOnline());
+        java.util.List<ai.dvine.llm.RemoteBrain> brains = new java.util.ArrayList<ai.dvine.llm.RemoteBrain>();
+        java.util.List<String> names = new java.util.ArrayList<String>();
+        java.util.List<Integer> windows = new java.util.ArrayList<Integer>();
+        for (ai.dvine.llm.Providers p : providers.usable()) { // the primary, then the backups it switches to
+            ai.dvine.llm.RemoteBrain b = providers.brain(p);
+            if (b != null) {
+                brains.add(b);
+                names.add(p.title);
+                windows.add(providers.window(p));
+            }
+        }
+        model.useRemotes(brains, names, windows, () -> connectivity == null || connectivity.isOnline());
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
             String face = stage.agent();
-            sub.setText(face.substring(0, 1).toUpperCase() + face.substring(1) + " · " + brainLabel() + " \u02C5");
+            sub.setText(face.substring(0, 1).toUpperCase() + face.substring(1) + " · " + brainLabel());
         }
     }
 
     /** What the chat header says answers: the API's model, or the phone's brain. */
     private String brainLabel() {
         ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
-        ai.dvine.llm.Providers p = providers.active();
-        if (p.api() && providers.brain(p) != null) {
-            return providers.model(p);
+        java.util.List<ai.dvine.llm.Providers> use = providers.usable();
+        if (!use.isEmpty()) {
+            return providers.model(use.get(0)) + (use.size() > 1 ? " +" + (use.size() - 1) : "");
         }
         return "DVINE brain";
+    }
+
+    /** No brain on the phone and no API: the setup screen (download or API key) comes first. */
+    private void askForBrainIfNone() {
+        if (model != null && ai.dvine.chat.ui.SetupActivity.needed(this)) {
+            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SetupActivity.class));
+        }
     }
 
     private void openProviders() {
@@ -2293,7 +2363,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 startModelDownload();
             } else {
                 play(LocalTurn.speakAs(stage.agent(),
-                        "Okay, not now. Say download your brain whenever you're ready."), null);
+                        "Okay, not now. You can download it from AI providers in the menu whenever you're ready."), null);
             }
             return true;
         }
@@ -2328,10 +2398,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 play(LocalTurn.speakAs(ivie,
                         "It's downloading now. I'll tell you when it's ready."), null);
             } else {
-                confirmModelDownload = true;
-                play(LocalTurn.speakAs(ivie, "My brain files are a " + model.spec.sizeWords()
-                        + " download, best on Wi-Fi, and then I can think offline. Shall I start?"),
-                        this::startListening);
+                // a button, not a spoken yes: the setup screen has the download and its progress
+                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SetupActivity.class));
             }
             return true;
         }
@@ -2364,7 +2432,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     st.phase() == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING,
                     model.installed() ? "installed"
                             : st.phase() == ai.dvine.llm.DownloadStatus.Phase.IDLE
-                                    ? "not started: say download your brain"
+                                    ? "not started: AI providers in the menu"
                                     : st.detail());
             play(LocalTurn.speakAs(ivie,
                     model.installed() ? "My brain files are already downloaded." : st.spoken()),
@@ -2409,7 +2477,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 play(LocalTurn
                         .speakAs(ivie,
                                 model.localReady() || model.remoteOn() ? "My brain is on."
-                                        : "It isn't installed yet. Say download your brain."),
+                                        : "It isn't installed yet. Download it from AI providers in the menu."),
                         null);
             }
             return true;
@@ -2437,7 +2505,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     line = "It's installed but didn't start: " + model.problem() + ".";
                     break;
                 default:
-                    line = "Not installed yet. Say download your brain.";
+                    line = "Not installed yet: download it from AI providers in the menu.";
             }
             play(LocalTurn.speakAs(ivie, line), null);
             return true;
@@ -3456,6 +3524,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         inFront = true;
         connectivity.start();
         applyProvider(); // back from the AI providers sheet: the brain the user chose answers
+        askForBrainIfNone();
         handler.removeCallbacks(engineTick);
         handler.post(engineTick);
         ai.dvine.llm.ThinkPace pace = thinkPace;

@@ -106,7 +106,7 @@ public final class DownloadStatus {
             case FAILED:
                 return "It stopped at " + percent() + " percent. Say continue the download to carry on from there.";
             case BAD_FILE:
-                return "The last download was damaged, so I deleted it. Say download your brain to try again.";
+                return "The last download was damaged, so I deleted it. Download it again from AI providers in the menu.";
             default:
                 return "There's no download running.";
         }

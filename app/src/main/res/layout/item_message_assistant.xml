@@ -3,8 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="8dp"
-    android:paddingBottom="6dp">
+    android:paddingTop="6dp"
+    android:paddingBottom="2dp">
 
     <TextView
         android:id="@+id/tv_avatar"
@@ -22,7 +22,8 @@
         android:id="@+id/tv_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:lineSpacingExtra="3dp"
+        android:lineSpacingMultiplier="1.25"
         android:textColor="@color/text_primary"
+        android:textIsSelectable="true"
         android:textSize="16sp" />
 </LinearLayout>

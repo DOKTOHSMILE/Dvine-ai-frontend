@@ -30,8 +30,102 @@ public final class ProviderStore {
         return Providers.named(prefs.getString("active", Providers.ON_PHONE.name()));
     }
 
+    /** Makes this the primary brain; an API chosen this way goes to the front of the switching order. */
     public void setActive(Providers p) {
-        prefs.edit().putString("active", p.name()).apply();
+        java.util.List<Providers> o = order();
+        o.remove(p);
+        if (p.api()) {
+            o.add(0, p);
+        }
+        prefs.edit().putString("active", p.name()).putString("order", join(trim(o))).apply();
+    }
+
+    /**
+     * The APIs in the order they are tried (at most three): the primary first, then the backups. With automatic
+     * switching off, only the primary.
+     */
+    public java.util.List<Providers> order() {
+        java.util.List<Providers> o = new java.util.ArrayList<Providers>();
+        for (String n : prefs.getString("order", "").split(",")) {
+            Providers p = Providers.named(n.trim());
+            if (p.api() && !o.contains(p)) {
+                o.add(p);
+            }
+        }
+        Providers a = active();
+        if (a.api()) {
+            o.remove(a);
+            o.add(0, a);
+        }
+        return trim(o);
+    }
+
+    /** Where this API is in the switching order (0 primary, 1 and 2 backups), or -1. */
+    public int place(Providers p) {
+        return order().indexOf(p);
+    }
+
+    /** Adds an API as the next backup (at most three in all); false when the order is full. */
+    public boolean addBackup(Providers p) {
+        java.util.List<Providers> o = order();
+        if (!p.api() || o.contains(p)) {
+            return o.contains(p);
+        }
+        if (o.size() >= 3) {
+            return false;
+        }
+        o.add(p);
+        prefs.edit().putString("order", join(o)).apply();
+        return true;
+    }
+
+    public void removeBackup(Providers p) {
+        java.util.List<Providers> o = order();
+        if (o.remove(p)) {
+            prefs.edit().putString("order", join(o)).apply();
+        }
+    }
+
+    public boolean autoSwitch() {
+        return prefs.getBoolean("auto_switch", true);
+    }
+
+    public void setAutoSwitch(boolean on) {
+        prefs.edit().putBoolean("auto_switch", on).apply();
+    }
+
+    /** The brains to use, in order, that are set up well enough to call (the primary only when switching is off). */
+    public java.util.List<Providers> usable() {
+        java.util.List<Providers> out = new java.util.ArrayList<Providers>();
+        for (Providers p : order()) {
+            if (RemoteBrain.check(address(p), model(p), key(p)) == null) {
+                out.add(p);
+            }
+            if (!autoSwitch() && !out.isEmpty()) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    /** Whether the user has any brain: an API set up, or nothing here (the phone's brain is checked elsewhere). */
+    public boolean hasApi() {
+        return !usable().isEmpty();
+    }
+
+    private static java.util.List<Providers> trim(java.util.List<Providers> o) {
+        while (o.size() > 3) {
+            o.remove(o.size() - 1);
+        }
+        return o;
+    }
+
+    private static String join(java.util.List<Providers> o) {
+        StringBuilder b = new StringBuilder();
+        for (Providers p : o) {
+            b.append(b.length() == 0 ? "" : ",").append(p.name());
+        }
+        return b.toString();
     }
 
     public String address(Providers p) {
@@ -95,6 +189,9 @@ public final class ProviderStore {
         if (active() == p) {
             e.putString("active", Providers.ON_PHONE.name());
         }
+        java.util.List<Providers> o = order();
+        o.remove(p);
+        e.putString("order", join(o));
         e.apply();
     }
 

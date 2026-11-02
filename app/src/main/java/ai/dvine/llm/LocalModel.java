@@ -25,10 +25,30 @@ public final class LocalModel {
     public final UsageLog usage = new UsageLog();
     /** The context window the phone's own brain is loaded with (tokens). */
     public static final int LOCAL_WINDOW = 2048;
-    /** A brain the user brought (an API), used instead of the phone's own when it is set and the phone is online. */
-    private volatile RemoteBrain remote;
-    private volatile int remoteWindow = 32_768;
+    /**
+     * The brains the user brought (APIs), in the order they are tried: the first that isn't resting answers; one
+     * that fails before it has said anything hands over to the next (up to three), and rests for a while.
+     */
+    private volatile List<Slot> chain = new ArrayList<Slot>();
     private volatile java.util.function.BooleanSupplier online = () -> true;
+    private volatile RemoteBrain current;
+    private volatile String switchNote;
+    /** How long a provider rests after failing: a minute, or five when it is out of credit or rate-limited. */
+    static final long REST_MS = 60_000, REST_LONG_MS = 300_000;
+
+    /** One API in the switching order. */
+    static final class Slot {
+        final RemoteBrain brain;
+        final String name;
+        final int window;
+        volatile long restUntil;
+
+        Slot(RemoteBrain brain, String name, int window) {
+            this.brain = brain;
+            this.name = name;
+            this.window = window > 0 ? window : 32_768;
+        }
+    }
 
     /** Keeps a remembered answer short so the next reply is not rereading a long one. */
     static String clipMemory(String answer) {
@@ -82,26 +102,78 @@ public final class LocalModel {
      * context window in tokens, for the Usage screen; {@code online} says whether the phone has a connection.
      */
     public void useRemote(RemoteBrain brain, int window, java.util.function.BooleanSupplier online) {
-        this.remote = brain;
-        this.remoteWindow = window > 0 ? window : 32_768;
+        List<RemoteBrain> one = new ArrayList<RemoteBrain>();
+        List<String> names = new ArrayList<String>();
+        List<Integer> windows = new ArrayList<Integer>();
+        if (brain != null) {
+            one.add(brain);
+            names.add(brain.model);
+            windows.add(window);
+        }
+        useRemotes(one, names, windows, online);
+    }
+
+    /**
+     * Uses these APIs in this order (at most three), switching to the next when one fails; an empty list means
+     * only the phone's own brain.
+     */
+    public void useRemotes(List<RemoteBrain> brains, List<String> names, List<Integer> windows, java.util.function.BooleanSupplier online) {
+        List<Slot> next = new ArrayList<Slot>();
+        for (int i = 0; i < brains.size() && next.size() < 3; i++) {
+            if (brains.get(i) != null) {
+                next.add(new Slot(brains.get(i), i < names.size() ? names.get(i) : brains.get(i).model,
+                        i < windows.size() ? windows.get(i) : 32_768));
+            }
+        }
+        // a provider still resting keeps resting when the order is set again
+        for (Slot n : next) {
+            for (Slot old : chain) {
+                if (old.name.equals(n.name) && old.brain.model.equals(n.brain.model)) {
+                    n.restUntil = old.restUntil;
+                }
+            }
+        }
+        this.chain = next;
         if (online != null) {
             this.online = online;
         }
     }
 
+    /** The first API in the order, or null. */
     public RemoteBrain remote() {
-        return remote;
+        List<Slot> c = chain;
+        return c.isEmpty() ? null : c.get(0).brain;
     }
 
-    /** The user's API will answer the next question (it is set, and the phone is online). */
+    /** How many APIs are in the switching order. */
+    public int remoteCount() {
+        return chain.size();
+    }
+
+    /** The user's API will answer the next question (one is set, and the phone is online). */
     public boolean remoteOn() {
-        RemoteBrain r = remote;
-        return r != null && online.getAsBoolean();
+        return !chain.isEmpty() && online.getAsBoolean();
+    }
+
+    /** "Claude didn't answer (…), so OpenAI did." once, after a switch; then null. */
+    public String takeSwitchNote() {
+        String n = switchNote;
+        switchNote = null;
+        return n;
     }
 
     /** The context window of the brain that will answer next. */
     public int window() {
-        return remoteOn() ? remoteWindow : LOCAL_WINDOW;
+        if (remoteOn()) {
+            long now = System.currentTimeMillis();
+            for (Slot sl : chain) {
+                if (sl.restUntil <= now) {
+                    return sl.window;
+                }
+            }
+            return chain.get(0).window;
+        }
+        return LOCAL_WINDOW;
     }
 
     /** Downloads and verifies the model (blocking); the progress callback may stop it. */
@@ -279,26 +351,59 @@ public final class LocalModel {
         }
     }
 
-    /** The user's API answers: same limits and cancelling as the phone's brain; what it used is recorded. */
+    /**
+     * The user's APIs answer, in order: the first that isn't resting is asked; one that fails (or goes quiet) before
+     * it has said anything rests, and the next is asked. Once a reply has started, it isn't switched mid-sentence.
+     * Same limits and cancelling as the phone's brain; what it used is recorded.
+     */
     private String askRemote(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
-        final RemoteBrain r = remote;
-        if (r == null) {
-            return null;
+        List<Slot> order = new ArrayList<Slot>(chain);
+        long now = System.currentTimeMillis();
+        // resting providers go last, not out: if every one is resting, they are still tried
+        List<Slot> ready = new ArrayList<Slot>(), resting = new ArrayList<Slot>();
+        for (Slot sl : order) {
+            (sl.restUntil <= now ? ready : resting).add(sl);
         }
-        final int ticket = epoch.get();
-        final int[] pieces = {0};
-        final long began = System.currentTimeMillis();
-        String answer = withTimeout(counting(sink, pieces), wrapped -> r.chat(system, turns, maxTokens, temperature, wrapped));
-        if (ticket != epoch.get()) {
-            problem = "stopped";
-            return null;
-        }
-        if (answer == null || answer.trim().isEmpty()) {
-            String why = r.problem();
-            problem = why == null ? "the API sent nothing back" : why;
+        ready.addAll(resting);
+        String firstFailure = null, failedName = null;
+        for (Slot sl : ready) {
+            final RemoteBrain r = sl.brain;
+            current = r;
+            final int ticket = epoch.get();
+            final int[] pieces = {0};
+            final long began = System.currentTimeMillis();
+            problem = null;
+            String answer = withTimeout(counting(sink, pieces), wrapped -> r.chat(system, turns, maxTokens, temperature, wrapped));
+            boolean timedOut = problem != null && problem.startsWith("the reply");
+            if (ticket != epoch.get() && !timedOut) {
+                problem = "stopped"; // the user stopped it: nothing more is asked
+                return null;
+            }
+            if (answer != null && !answer.trim().isEmpty() && ticket == epoch.get()) {
+                if (failedName != null) {
+                    switchNote = failedName + " didn't answer (" + firstFailure + "), so " + sl.name + " did.";
+                }
+                record(sl, system, turns, answer, pieces[0], began);
+                return answer;
+            }
+            String why = timedOut ? problem : r.problem() == null ? "it sent nothing back" : r.problem();
             usage.failure(System.currentTimeMillis());
-            return null;
+            boolean credit = why.contains("(402") || why.contains("(429") || why.contains("credit") || why.contains("too many");
+            sl.restUntil = System.currentTimeMillis() + (credit ? REST_LONG_MS : REST_MS);
+            if (firstFailure == null) {
+                firstFailure = why;
+                failedName = sl.name;
+            }
+            problem = why;
+            if (pieces[0] > 0) {
+                return null; // it had started speaking: switching now would repeat or contradict it
+            }
         }
+        return null;
+    }
+
+    private void record(Slot sl, String system, List<String[]> turns, String answer, int pieces, long began) {
+        RemoteBrain r = sl.brain;
         int conversation = 0;
         for (int i = 0; i < turns.size() - 1; i++) {
             conversation += UsageLog.estimate(turns.get(i)[1]);
@@ -313,10 +418,9 @@ public final class LocalModel {
             conversation = Math.round((float) u.promptTokens * conversation / est);
             msg = Math.max(0, u.promptTokens - sys - conversation);
         }
-        int out = u != null && u.outputTokens >= 0 ? u.outputTokens : Math.max(pieces[0], UsageLog.estimate(answer));
-        usage.record(new UsageLog.Call("API: " + r.model + " at " + r.host(), remoteWindow, sys, conversation, msg, out, measured,
+        int out = u != null && u.outputTokens >= 0 ? u.outputTokens : Math.max(pieces, UsageLog.estimate(answer));
+        usage.record(new UsageLog.Call("API: " + sl.name + " (" + r.model + ")", sl.window, sys, conversation, msg, out, measured,
                 System.currentTimeMillis() - began, System.currentTimeMillis()));
-        return answer;
     }
 
     /** Counts the pieces as they stream (the phone's brain sends one token a piece). */
@@ -343,7 +447,7 @@ public final class LocalModel {
 
     /** Stops a reply being written (from any thread). */
     public void cancel() {
-        RemoteBrain r = remote;
+        RemoteBrain r = current;
         if (r != null) {
             r.cancel();
         }

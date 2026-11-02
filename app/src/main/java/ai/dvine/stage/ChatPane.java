@@ -66,24 +66,45 @@ public final class ChatPane extends LinearLayout {
         fillSections();
         thread.removeAllViews();
         ChatBook.Section cur = book.current();
-        for (ChatBook.Message m : cur.messages) {
+        StringBuilder reply = new StringBuilder(); // the whole of the assistant's turn, for its Copy and Listen
+        for (int i = 0; i < cur.messages.size(); i++) {
+            ChatBook.Message m = cur.messages.get(i);
             try {
                 thread.addView(bubble(m));
             } catch (RuntimeException failed) {
                 thread.addView(plain("That message could not be shown."));
             }
+            if ("user".equals(m.role)) {
+                reply.setLength(0);
+                continue;
+            }
+            if (("text".equals(m.kind) || "code".equals(m.kind)) && m.body != null) {
+                reply.append(reply.length() == 0 ? "" : "\n\n").append("code".equals(m.kind) ? "```" + (m.language == null ? "" : m.language)
+                        + "\n" + m.body + "\n```" : m.body);
+            }
+            boolean lastOfTurn = i == cur.messages.size() - 1 || "user".equals(cur.messages.get(i + 1).role);
+            if (lastOfTurn && reply.length() > 0) {
+                thread.addView(actions(reply.toString(), stripCode(reply.toString())));
+                reply.setLength(0);
+            }
         }
+        title(cur);
         thinkingRow = null;
         if (thinkingText != null) {
             thinkingRow = plain(thoughtLabel(thinkingText));
-            thinkingRow.setTextColor(0xFF8E8E93);
+            thinkingRow.setTextColor(0xFF9E9C95);
             thinkingRow.setTextSize(14f);
+            thinkingRow.setPadding(0, dp(10), 0, dp(10));
             thread.addView(thinkingRow);
         }
         boolean noMessages = cur.messages.isEmpty() && thinkingText == null;
         View empty = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
         if (empty != null) {
             empty.setVisibility(noMessages ? VISIBLE : GONE);
+            TextView hello = ((Activity) getContext()).findViewById(R.id.empty_title);
+            if (hello != null && noMessages) {
+                hello.setText(greeting());
+            }
         }
         setVisibility(noMessages ? GONE : VISIBLE);
         followBottom();
@@ -102,8 +123,9 @@ public final class ChatPane extends LinearLayout {
             }
         } else if (thinkingText != null) {
             thinkingRow = plain(thoughtLabel(thinkingText));
-            thinkingRow.setTextColor(0xFF8E8E93);
+            thinkingRow.setTextColor(0xFF9E9C95);
             thinkingRow.setTextSize(14f);
+            thinkingRow.setPadding(0, dp(10), 0, dp(10));
             thread.addView(thinkingRow);
         }
         boolean empty = book.current().messages.isEmpty() && thinkingText == null;
@@ -157,24 +179,20 @@ public final class ChatPane extends LinearLayout {
                     break;
                 }
             }
-            LinearLayout row = new LinearLayout(getContext());
-            row.setOrientation(LinearLayout.VERTICAL);
-            int pad = dp(12);
-            row.setPadding(0, pad, 0, pad);
-            TextView title = new TextView(getContext());
-            title.setText(s.title);
-            title.setTextColor(0xFFF2F2F7);
-            title.setTextSize(16f);
-            title.setMaxLines(1);
-            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            TextView sub = new TextView(getContext());
-            sub.setText(preview.isEmpty() ? labelOf(s.persona) : preview);
-            sub.setTextColor(on ? 0xFFF2F2F7 : 0xFF8E8E93);
-            sub.setTextSize(13f);
-            sub.setMaxLines(1);
-            sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            row.addView(title);
-            row.addView(sub);
+            // one line per chat, as in Claude: its title (or its last words), the open one highlighted
+            TextView row = new TextView(getContext());
+            String named = s.title == null || s.title.trim().isEmpty() || s.title.matches("(?i)^(chat|new chat)$")
+                    ? (preview.isEmpty() ? "New chat" : preview) : s.title;
+            row.setText(named);
+            row.setTextColor(on ? 0xFFECEBE6 : 0xFFC9C7C0);
+            row.setTextSize(15f);
+            row.setSingleLine(true);
+            row.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinHeight(dp(44));
+            row.setPadding(dp(10), 0, dp(10), 0);
+            row.setBackgroundResource(R.drawable.bg_drawer_row);
+            row.setSelected(on);
             row.setOnClickListener(v -> {
                 book.use(s.id);
                 host.onSection(book.current());
@@ -292,31 +310,59 @@ public final class ChatPane extends LinearLayout {
                 mark.setText(name.substring(0, 1));
             }
         }
-        if (!user && "text".equals(m.kind)) {
-            LinearLayout actions = new LinearLayout(getContext());
-            actions.setOrientation(LinearLayout.HORIZONTAL);
-            actions.setPadding(0, dp(6), 0, 0);
-            TextView copy = action("Copy");
-            copy.setOnClickListener(v -> copyText(m.body));
-            TextView listen = action("Listen");
-            listen.setPadding(dp(16), 0, 0, 0);
-            listen.setOnClickListener(v -> host.onReadAloud(m.body));
-            actions.addView(copy);
-            actions.addView(listen);
-            View message = row.findViewById(R.id.tv_message);
-            if (message != null && message.getParent() instanceof LinearLayout) {
-                ((LinearLayout) message.getParent()).addView(actions);
-            }
-        }
         return row;
     }
 
-    private TextView action(String label) {
-        TextView tv = new TextView(getContext());
-        tv.setText(label);
-        tv.setTextColor(0xFF8E8E93);
-        tv.setTextSize(13f);
-        return tv;
+    /** Copy and Listen, once, under the whole of a reply: small icons with 40 dp targets. */
+    private View actions(final String all, final String spoken) {
+        LinearLayout bar = new LinearLayout(getContext());
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setPadding(0, dp(2), 0, dp(10));
+        bar.addView(icon(R.drawable.ic_copy, "Copy", v -> {
+            copyText(all);
+            android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
+        }));
+        bar.addView(icon(R.drawable.ic_speaker, "Read aloud", v -> host.onReadAloud(spoken)));
+        return bar;
+    }
+
+    private View icon(int drawable, String label, View.OnClickListener click) {
+        android.widget.ImageButton b = new android.widget.ImageButton(getContext());
+        b.setImageResource(drawable);
+        b.setContentDescription(label);
+        android.util.TypedValue ripple = new android.util.TypedValue();
+        getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true);
+        b.setBackgroundResource(ripple.resourceId);
+        b.setOnClickListener(click);
+        LayoutParams lp = new LayoutParams(dp(40), dp(36));
+        b.setLayoutParams(lp);
+        return b;
+    }
+
+    /** What to read aloud: the words, not the code. */
+    private static String stripCode(String text) {
+        return text.replaceAll("(?s)```.*?```", " (code) ").replaceAll("\\s+", " ").trim();
+    }
+
+    /** The header shows the open chat's name. */
+    private void title(ChatBook.Section cur) {
+        TextView t = ((Activity) getContext()).findViewById(R.id.tv_header_title);
+        if (t == null) {
+            return;
+        }
+        String name = cur.title == null || cur.title.trim().isEmpty() || cur.title.matches("(?i)^chat$") ? "New chat" : cur.title;
+        if (cur.messages.isEmpty()) {
+            name = "DVINE";
+        }
+        t.setText(name);
+    }
+
+    /** "Good evening, Valentine" by the phone's clock, with the name DVINE was told. */
+    private String greeting() {
+        int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        String part = hour < 5 ? "Hello" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+        String name = getContext().getSharedPreferences("dvine", Context.MODE_PRIVATE).getString("user_name", null);
+        return name == null || name.trim().isEmpty() ? part : part + ", " + name.trim();
     }
 
     private String thoughtLabel(String line) {
@@ -354,7 +400,7 @@ public final class ChatPane extends LinearLayout {
     private TextView plain(String text) {
         TextView tv = new TextView(getContext());
         tv.setText(text);
-        tv.setTextColor(0xFFD5E8F2);
+        tv.setTextColor(0xFFECEBE6);
         tv.setTextSize(13f);
         int pad = dp(10);
         tv.setPadding(pad, dp(6), pad, dp(6));

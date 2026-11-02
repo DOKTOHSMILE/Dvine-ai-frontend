@@ -30,7 +30,7 @@ public final class UsageActivity extends Activity {
         super.onCreate(savedInstanceState);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF1C1C1E);
+        root.setBackgroundColor(Ui.BG);
         int pad = Ui.dp(this, 16);
 
         LinearLayout head = new LinearLayout(this);
@@ -156,7 +156,7 @@ public final class UsageActivity extends Activity {
     private LinearLayout card() {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setBackground(Ui.round(this, 0xFF2C2C30, 0, 22));
+        c.setBackground(Ui.round(this, Ui.SURFACE, 0, 20));
         int p = Ui.dp(this, 18);
         c.setPadding(p, p, p, p);
         return c;
