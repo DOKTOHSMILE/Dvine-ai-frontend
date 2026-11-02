@@ -2126,10 +2126,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     afterPlay = () -> switchFace(switchTo, true);
-                } else if (all != null
-                        && ai.dvine.turn.Followup.wantsReply(ai.dvine.llm.ActionTags.strip(all))) {
-                    afterPlay = this::startListening;
-                }
+                } // the microphone never opens by itself: only a tap on the mic
                 streamOpen = false;
             });
         });
@@ -2304,7 +2301,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             saveDrawing(name, about, false);
         };
-        play(LocalTurn.speakAs(stage.agent(), question), this::startListening);
+        play(LocalTurn.speakAs(stage.agent(), question), null); // answered by typing or a tap on the mic
     }
 
     private void saveDrawing(final String name, final String description, boolean replace) {
@@ -2330,7 +2327,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     + " is already used for another drawing: " + clash.about() + ", saved on "
                     + when
                     + ". Give me another name or a short description to tell them apart, or say replace it."),
-                    this::startListening);
+                    null);
             return;
         }
         try {
@@ -2565,7 +2562,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             } else {
                 confirmModelRemove = true;
                 play(LocalTurn.speakAs(ivie, "Remove the model and free "
-                        + model.spec.sizeWords() + "? Say yes or no."), this::startListening);
+                        + model.spec.sizeWords() + "? Say yes or no."), null);
             }
             return true;
         }
@@ -2858,10 +2855,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         answer(all);
     }
 
-    private void startListening() {
-        startListening(false);
-    }
-
     private void startListening(boolean hold) {
         if (checkSelfPermission(
                 android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -2996,10 +2989,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             stage.setMode(StageMode.DONE);
             Runnable after = afterPlay;
             afterPlay = null;
-            if (after == null && lastSaid(lines) != null
-                    && ai.dvine.turn.Followup.wantsReply(lastSaid(lines))) {
-                after = this::startListening;
-            }
+
             final Runnable done = after;
             if (done != null) {
                 // the microphone waits until the voice has finished, so it doesn't hear DVINE's own words
@@ -3404,7 +3394,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (results.length > 0
                 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            startListening();
+            toggleDictation(); // the tap that asked for the permission: dictation into the box, as the mic button does
         } else {
             play(LocalTurn.speakAs(stage.agent(),
                     "I need the microphone to hear you. You can still type by pressing and holding the screen."),
