@@ -1985,6 +1985,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** The phrasings already understood ("are you done?" → give me the result), kept on the phone. */
     private ai.dvine.turn.Meaning.Memory meanings;
+    /** How long the reading of a message may take before the message goes on as written (API, phone's model). */
+    static final long MEANING_WAIT_API_MS = 6000, MEANING_WAIT_PHONE_MS = 4000;
+
     /** The message being read; a newer message makes an older reading moot. */
     private int meaningToken;
 
@@ -2013,13 +2016,27 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         final int token = ++meaningToken;
+        // the reading never holds the message up for long: a busy or slow model (the phone's own, still finishing
+        // earlier work) gets a few seconds, then the message goes on as written and the reading is stopped
+        final boolean[] settled = {false};
+        final android.view.View clock = chatPane != null ? chatPane : getWindow().getDecorView();
+        clock.postDelayed(() -> {
+            if (settled[0] || token != meaningToken || isFinishing()) {
+                return;
+            }
+            settled[0] = true;
+            meaningToken++;
+            model.cancel();
+            askTheBrain(text);
+        }, model.remoteOn() ? MEANING_WAIT_API_MS : MEANING_WAIT_PHONE_MS);
         new Thread(() -> {
             String reply = model.task(ai.dvine.turn.Meaning.prompt(work), text, 24, null);
             final ai.dvine.turn.Meaning.Command c = ai.dvine.turn.Meaning.read(reply);
             handler.post(() -> {
-                if (token != meaningToken || isFinishing()) {
+                if (settled[0] || token != meaningToken || isFinishing()) {
                     return;
                 }
+                settled[0] = true;
                 if (reply != null) {
                     meanings().put(text, c);
                     prefs.edit().putString("meanings", meanings().write()).apply();

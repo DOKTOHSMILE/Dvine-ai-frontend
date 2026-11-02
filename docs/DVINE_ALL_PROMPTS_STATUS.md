@@ -129,6 +129,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 96 | Interpret every message by meaning, not words: a rephrased "are you done?" must still be understood, converted to the command and sent on | P12 | Built (Robolectric) | 0.65.0: turn/Meaning reads short messages into the commands DVINE runs, acts on their wording, remembers each phrasing |
 | 97 | Add the further commands (new chat, switch persona, stop, auto-accept, clear workspace, Settings) | P12 | Built (Robolectric) | 0.66.0: understood by meaning, run with the buttons' actions; clearing asks first |
 | 98 | Screenshot: offline Gemma 3 1B keeps saying "too long for the model's memory" | P12 | Built (JVM) | 0.66.1: cut down further and retried until it fits; compact instructions for small memories; a plain message when nothing fits |
+| 99 | Obi says nothing to "Hello, how are you?" on Gemma (the mediator); pictures to the sender's side; image viewer broken | P12 | Built (Robolectric + real model on desktop) | 0.66.2: the reading waits at most 4 s, then the message goes on; pictures right-aligned at their own shape; the viewer fits, zooms and pans |
 
 ## Still open, in the order that matters
 

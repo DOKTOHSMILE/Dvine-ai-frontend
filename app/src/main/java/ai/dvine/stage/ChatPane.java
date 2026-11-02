@@ -571,17 +571,26 @@ public final class ChatPane extends LinearLayout {
     private View bubble(ChatBook.Message m) {
         boolean user = "user".equals(m.role);
         if ("image".equals(m.kind)) {
+            // the picture at its own shape on the sender's side (the user's on the right, as their messages), never
+            // stretched across the chat; decoded small for the chat, whole in the viewer
             ImageView image = new ImageView(getContext());
-            java.io.File f = new java.io.File(m.body == null ? "" : m.body);
-            if (f.isFile()) {
-                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath());
-                if (bitmap != null) {
-                    image.setImageBitmap(bitmap);
-                }
+            android.graphics.Bitmap bitmap = ai.dvine.chat.ui.ImageViewActivity.decode(m.body == null ? "" : m.body, dp(360));
+            if (bitmap != null) {
+                image.setImageBitmap(bitmap);
             }
             image.setAdjustViewBounds(true);
-            image.setMaxHeight(dp(220));
-            LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+            image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            image.setMaxHeight(dp(240));
+            image.setMaxWidth((int) (getResources().getDisplayMetrics().widthPixels * 0.7f));
+            image.setClipToOutline(true);
+            image.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                @Override
+                public void getOutline(View v, android.graphics.Outline o) {
+                    o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(14));
+                }
+            });
+            image.setContentDescription(user ? "Your picture. Tap to open." : "Picture. Tap to open.");
+            LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
             lp.topMargin = dp(6);
             lp.gravity = user ? Gravity.END : Gravity.START;
             image.setLayoutParams(lp);
