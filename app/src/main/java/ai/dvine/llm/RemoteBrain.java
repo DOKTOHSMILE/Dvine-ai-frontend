@@ -110,6 +110,66 @@ public final class RemoteBrain {
         }
     }
 
+    /**
+     * The file as the API takes it, or null when this provider takes no such file (then its text, pages or
+     * frames go instead): Anthropic reads PDFs and plain text as documents; the OpenAI form takes a sound
+     * (mp3, wav) as audio and any other file as a file part, which the gateway passes on or refuses.
+     */
+    private Map<String, Object> nativeFile(ai.dvine.chat.Attachments.Doc d, java.io.File f) {
+        String mime = d.mime == null ? "application/octet-stream" : d.mime.toLowerCase(java.util.Locale.US);
+        if (protocol == Protocol.ANTHROPIC && !mime.contains("pdf") && !mime.startsWith("text/")) {
+            return null;
+        }
+        byte[] bytes;
+        try {
+            bytes = java.nio.file.Files.readAllBytes(f.toPath());
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+        Map<String, Object> part = new LinkedHashMap<String, Object>();
+        if (protocol == Protocol.ANTHROPIC) {
+            Map<String, Object> src = new LinkedHashMap<String, Object>();
+            if (mime.startsWith("text/")) {
+                src.put("type", "text");
+                src.put("media_type", "text/plain");
+                src.put("data", new String(bytes, StandardCharsets.UTF_8));
+            } else {
+                src.put("type", "base64");
+                src.put("media_type", "application/pdf");
+                src.put("data", java.util.Base64.getEncoder().encodeToString(bytes));
+            }
+            part.put("type", "document");
+            part.put("source", src);
+            part.put("title", d.name);
+            return part;
+        }
+        String b64 = java.util.Base64.getEncoder().encodeToString(bytes);
+        if (mime.equals("audio/mpeg") || mime.equals("audio/mp3") || mime.equals("audio/wav") || mime.equals("audio/x-wav")) {
+            Map<String, Object> audio = new LinkedHashMap<String, Object>();
+            audio.put("data", b64);
+            audio.put("format", mime.contains("wav") ? "wav" : "mp3");
+            part.put("type", "input_audio");
+            part.put("input_audio", audio);
+            return part;
+        }
+        Map<String, Object> file = new LinkedHashMap<String, Object>();
+        file.put("filename", d.name);
+        file.put("file_data", "data:" + mime + ";base64," + b64);
+        part.put("type", "file");
+        part.put("file", file);
+        return part;
+    }
+
+    /** The words the phone took out of an attached file (kept beside it as ".txt"), or null. */
+    private static String sidecar(ai.dvine.chat.Attachments.Doc d) {
+        java.io.File t = new java.io.File(d.path + ".txt");
+        try {
+            return t.isFile() ? new String(java.nio.file.Files.readAllBytes(t.toPath()), StandardCharsets.UTF_8) : null;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     private static boolean hasFiles(List<String[]> turns) {
         for (String[] t : turns) {
             if (t[1] != null && ai.dvine.chat.Attachments.FILE.matcher(t[1]).find()) {
@@ -397,45 +457,37 @@ public final class RemoteBrain {
         if (!seesImages()) {
             String noted = ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll(
                     "[an image is attached, but this model can't see images: say so and work from the words]");
+            for (ai.dvine.chat.Attachments.Doc d : docs) {
+                String text = sidecar(d);
+                if (text != null) {
+                    noted += "\n\n" + ai.dvine.chat.Attachments.text(d.name, text); // a text-only model still reads the words
+                }
+            }
             noted = ai.dvine.chat.Attachments.FILE.matcher(noted).replaceAll(
-                    "[a document, $3, is attached, but this model can't read files: say so and ask for the part that matters as text]");
+                    "[a file, $3, is attached, but this model can't take files: work from any text of it given here, or ask for the part that matters]");
             return message(role, noted);
         }
         List<Object> parts = new ArrayList<Object>();
         String words = ai.dvine.chat.Attachments.FILE.matcher(ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll("")).replaceAll("").trim();
         for (ai.dvine.chat.Attachments.Doc d : docs) {
             java.io.File f = new java.io.File(d.path);
-            if (takesFiles() && f.isFile() && f.length() <= 20L * 1024 * 1024) {
-                byte[] bytes;
-                try {
-                    bytes = java.nio.file.Files.readAllBytes(f.toPath());
-                } catch (IOException | RuntimeException e) {
-                    words += "\n[the document " + d.name + " couldn't be read]";
-                    continue;
-                }
-                String b64 = java.util.Base64.getEncoder().encodeToString(bytes);
-                Map<String, Object> part = new LinkedHashMap<String, Object>();
-                if (protocol == Protocol.ANTHROPIC) {
-                    Map<String, Object> src = new LinkedHashMap<String, Object>();
-                    src.put("type", "base64");
-                    src.put("media_type", d.mime);
-                    src.put("data", b64);
-                    part.put("type", "document");
-                    part.put("source", src);
-                    part.put("title", d.name);
-                } else {
-                    Map<String, Object> file = new LinkedHashMap<String, Object>();
-                    file.put("filename", d.name);
-                    file.put("file_data", "data:" + d.mime + ";base64," + b64);
-                    part.put("type", "file");
-                    part.put("file", file);
-                }
+            Map<String, Object> part = takesFiles() && f.isFile() && f.length() <= 20L * 1024 * 1024 ? nativeFile(d, f) : null;
+            if (part != null) {
                 parts.add(part);
-            } else if (!d.pages.isEmpty()) {
-                images.addAll(d.pages); // the pages as pictures for a model that sees but takes no files
-                words += "\n[the pictures are the pages of " + d.name + (d.pages.size() > 1 ? ", in order" : "") + "]";
-            } else {
-                words += "\n[a document, " + d.name + ", is attached but couldn't be sent to this model]";
+                continue;
+            }
+            // the model can't take this file: what the phone took out of it instead
+            String text = sidecar(d);
+            if (text != null) {
+                words += "\n\n" + ai.dvine.chat.Attachments.text(d.name, text);
+            }
+            if (!d.pages.isEmpty()) {
+                images.addAll(d.pages); // a PDF's pages, a video's frames
+                words += "\n[the pictures are " + (d.mime.startsWith("video/") ? "frames of the video " : "the pages of ") + d.name + ", in order]";
+            }
+            if (text == null && d.pages.isEmpty()) {
+                words += "\n[" + d.name + " (" + d.mime + ") is attached, but this model can't take that kind of file: say so and ask for"
+                        + " what matters in it as text]";
             }
         }
         for (String path : images) {

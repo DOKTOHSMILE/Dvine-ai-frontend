@@ -83,7 +83,8 @@ public final class ComposerAttachments {
                         pages.add(p);
                     }
                 }
-                b.append(Attachments.file(it.path, "application/pdf", it.name, pages));
+                String[] meta = it.text.split("\n");
+                b.append(Attachments.file(it.path, meta.length > 2 ? meta[2] : "application/octet-stream", it.name, pages));
             } else {
                 b.append(Attachments.text(it.name, it.text));
             }
@@ -91,11 +92,10 @@ public final class ComposerAttachments {
         return b.toString();
     }
 
-    /** "PDF · 12 pages". */
+    /** What kind of file it is ("PDF · 12 pages", "Spreadsheet", "Video"). */
     public static String pages(Item it) {
         String[] lines = it.text == null ? new String[0] : it.text.split("\n");
-        String n = lines.length > 1 ? lines[1].trim() : "";
-        return "PDF" + (n.isEmpty() || n.equals("0") ? "" : " \u00B7 " + n + (n.equals("1") ? " page" : " pages"));
+        return lines.length > 1 ? lines[1].trim() : "File";
     }
 
     private void render() {

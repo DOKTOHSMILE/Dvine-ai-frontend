@@ -50,37 +50,48 @@ public final class AttachmentReader {
             }
             return new ComposerAttachments.Item("text", name, null, text);
         }
-        if ((mime != null && mime.contains("pdf")) || lower.endsWith(".pdf")) {
-            return pdf(c, uri, name);
-        }
-        String kind = mime == null ? "a file" : mime.startsWith("video/") ? "a video" : mime.startsWith("audio/") ? "a sound recording"
-                : mime.contains("pdf") ? "a PDF" : "a file (" + mime + ")";
-        return new ComposerAttachments.Item("file", name, null,
-                "The user attached " + kind + " named " + name + ". Its contents can't be read on the phone yet, so ask them to paste the part that matters.");
+        return doc(c, uri, name, mime == null ? guess(lower) : mime);
     }
 
-    static final int MAX_PDF = 20 * 1024 * 1024, PDF_PAGES = 6;
+    static final int MAX_FILE = 20 * 1024 * 1024, PDF_PAGES = 6, VIDEO_FRAMES = 4;
 
     /**
-     * A PDF: kept whole (a model that takes files gets the document itself), with its first pages drawn as pictures
-     * for a model that sees images but takes no files.
+     * Any other file, kept whole so a model that takes files gets the file itself; and, for a model that doesn't,
+     * what can be taken out of it on the phone: a PDF's first pages as pictures, a video's frames as pictures, the
+     * words of a Word, Excel, PowerPoint, OpenDocument or EPUB file, a zip's listing ({@link ai.dvine.chat.FileText}),
+     * kept beside it as ".txt".
      */
-    private static ComposerAttachments.Item pdf(Context c, Uri uri, String name) throws IOException {
+    private static ComposerAttachments.Item doc(Context c, Uri uri, String name, String mime) throws IOException {
         File dir = new File(c.getFilesDir(), "attachments");
         dir.mkdirs();
         String id = UUID.randomUUID().toString();
-        File out = new File(dir, id + ".pdf");
-        byte[] bytes = readAll(c, uri, MAX_PDF + 1);
-        if (bytes.length > MAX_PDF) {
-            return new ComposerAttachments.Item("file", name, null, "The user attached a PDF named " + name
-                    + ", over 20 MB, too big to send. Ask them for the pages that matter.");
+        String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')).replaceAll("[^A-Za-z0-9.]", "") : "";
+        File out = new File(dir, id + ext);
+        byte[] bytes = readAll(c, uri, MAX_FILE + 1);
+        if (bytes.length > MAX_FILE) {
+            return new ComposerAttachments.Item("file", name, null, "The user attached " + name
+                    + ", over 20 MB, too big to send. Ask them for the part that matters.");
         }
         java.nio.file.Files.write(out.toPath(), bytes);
         java.util.List<String> pages = new java.util.ArrayList<String>();
-        int count = 0;
-        try (android.os.ParcelFileDescriptor fd = android.os.ParcelFileDescriptor.open(out, android.os.ParcelFileDescriptor.MODE_READ_ONLY);
+        String label = label(name, mime);
+        if (mime.contains("pdf")) {
+            int count = pdfPages(out, dir, id, pages);
+            label = "PDF" + (count > 0 ? " \u00B7 " + count + (count == 1 ? " page" : " pages") : "");
+        } else if (mime.startsWith("video/")) {
+            videoFrames(out, dir, id, pages);
+        }
+        String text = ai.dvine.chat.FileText.of(name, mime, bytes);
+        if (text != null) {
+            java.nio.file.Files.write(new File(out.getPath() + ".txt").toPath(), text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return new ComposerAttachments.Item("doc", name, out.getAbsolutePath(), String.join(";", pages) + "\n" + label + "\n" + mime);
+    }
+
+    private static int pdfPages(File pdf, File dir, String id, java.util.List<String> pages) {
+        try (android.os.ParcelFileDescriptor fd = android.os.ParcelFileDescriptor.open(pdf, android.os.ParcelFileDescriptor.MODE_READ_ONLY);
                 android.graphics.pdf.PdfRenderer r = new android.graphics.pdf.PdfRenderer(fd)) {
-            count = r.getPageCount();
+            int count = r.getPageCount();
             for (int i = 0; i < Math.min(PDF_PAGES, count); i++) {
                 try (android.graphics.pdf.PdfRenderer.Page page = r.openPage(i)) {
                     float k = Math.min(2f, 1400f / Math.max(page.getWidth(), page.getHeight()));
@@ -88,17 +99,68 @@ public final class AttachmentReader {
                             Bitmap.Config.ARGB_8888);
                     bmp.eraseColor(0xFFFFFFFF);
                     page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-                    File png = new File(dir, id + "-p" + (i + 1) + ".jpg");
-                    try (FileOutputStream o = new FileOutputStream(png)) {
-                        bmp.compress(Bitmap.CompressFormat.JPEG, 85, o);
-                    }
-                    pages.add(png.getAbsolutePath());
+                    pages.add(jpeg(bmp, new File(dir, id + "-p" + (i + 1) + ".jpg")));
                 }
             }
+            return count;
         } catch (IOException | RuntimeException e) {
-            // pages can't be drawn (a protected PDF): the document still goes to models that take files
+            return 0; // a protected PDF: it still goes whole to models that take files
         }
-        return new ComposerAttachments.Item("doc", name, out.getAbsolutePath(), String.join(";", pages) + "\n" + count);
+    }
+
+    private static void videoFrames(File video, File dir, String id, java.util.List<String> frames) {
+        android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+        try {
+            r.setDataSource(video.getAbsolutePath());
+            String d = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            long ms = d == null ? 0 : Long.parseLong(d);
+            for (int i = 0; i < VIDEO_FRAMES; i++) {
+                long at = ms <= 0 ? 0 : ms * (2L * i + 1) / (2L * VIDEO_FRAMES);
+                Bitmap f = r.getFrameAtTime(at * 1000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (f != null) {
+                    float k = Math.min(1f, 1024f / Math.max(f.getWidth(), f.getHeight()));
+                    if (k < 1f) {
+                        f = Bitmap.createScaledBitmap(f, Math.round(f.getWidth() * k), Math.round(f.getHeight() * k), true);
+                    }
+                    frames.add(jpeg(f, new File(dir, id + "-f" + (i + 1) + ".jpg")));
+                }
+            }
+        } catch (RuntimeException e) {
+            // a video the phone can't decode: it still goes whole to models that take files
+        } finally {
+            try {
+                r.release();
+            } catch (IOException | RuntimeException ignored) {
+                // released
+            }
+        }
+    }
+
+    private static String jpeg(Bitmap bmp, File to) throws IOException {
+        try (FileOutputStream o = new FileOutputStream(to)) {
+            bmp.compress(Bitmap.CompressFormat.JPEG, 85, o);
+        }
+        return to.getAbsolutePath();
+    }
+
+    /** What kind of file it is, in words ("Word document", "Spreadsheet", "Video"). */
+    static String label(String name, String mime) {
+        String n = name.toLowerCase(java.util.Locale.US);
+        if (mime.startsWith("video/")) return "Video";
+        if (mime.startsWith("audio/")) return "Audio";
+        if (n.matches(".*\\.(docx?|odt|rtf|pages)$")) return "Document";
+        if (n.matches(".*\\.(xlsx?|ods|numbers)$")) return "Spreadsheet";
+        if (n.matches(".*\\.(pptx?|odp|key)$")) return "Presentation";
+        if (n.matches(".*\\.(zip|jar|apk|aar|7z|rar|tar|gz)$")) return "Archive";
+        if (n.endsWith(".epub")) return "Book";
+        return mime.isEmpty() || mime.equals("application/octet-stream") ? "File" : mime;
+    }
+
+    /** A type from the name when the phone doesn't say. */
+    static String guess(String lower) {
+        String ext = lower.contains(".") ? lower.substring(lower.lastIndexOf('.') + 1) : "";
+        String t = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+        return t == null ? "application/octet-stream" : t;
     }
 
     private static ComposerAttachments.Item image(Context c, Uri uri, String name, int side) throws IOException {
