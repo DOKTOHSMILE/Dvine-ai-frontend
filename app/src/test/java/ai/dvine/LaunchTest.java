@@ -45,6 +45,16 @@ public class LaunchTest {
         find(root, "Custom gateway").performClick(); // opens its card: key, address, model, certificate
         assertNotNull(find(root, "Add backup key"));
         root.draw(new android.graphics.Canvas(bmp));
+        // the keyboard opens: the sheet must move up above it (Android 15 no longer does this by itself)
+        android.view.View content = ((android.view.ViewGroup) p.get().findViewById(android.R.id.content)).getChildAt(0);
+        androidx.core.view.WindowInsetsCompat withKeyboard = new androidx.core.view.WindowInsetsCompat.Builder()
+                .setInsets(androidx.core.view.WindowInsetsCompat.Type.ime(), androidx.core.graphics.Insets.of(0, 0, 0, 900))
+                .setVisible(androidx.core.view.WindowInsetsCompat.Type.ime(), true)
+                .setInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars(), androidx.core.graphics.Insets.of(0, 80, 0, 40))
+                .build();
+        androidx.core.view.ViewCompat.dispatchApplyWindowInsets(content, withKeyboard);
+        org.junit.Assert.assertEquals(900, content.getPaddingBottom());
+        org.junit.Assert.assertEquals(80, content.getPaddingTop());
         p.pause().stop().destroy();
 
         ActivityController<ai.dvine.chat.ui.UsageActivity> u = Robolectric.buildActivity(ai.dvine.chat.ui.UsageActivity.class)

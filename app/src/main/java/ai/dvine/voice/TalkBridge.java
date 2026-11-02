@@ -101,6 +101,8 @@ public final class TalkBridge extends UtteranceProgressListener {
     private void say(boolean ivie, String text, TalkDone done, boolean thought) {
         final int token = ++generation;
         pending = done;
+        queued = 0; // a flush drops the queued sentences
+        whenQuiet = null;
         if (!ready || text == null || text.trim().isEmpty()) {
             main.postDelayed(() -> finish(token), 280);
             return;
@@ -121,9 +123,68 @@ public final class TalkBridge extends UtteranceProgressListener {
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, (ivie ? "IVIE-" : "OBI-") + token);
     }
 
+    /** Sentences queued by {@link #queue} that haven't finished being spoken. */
+    private int queued;
+    private Runnable whenQuiet;
+
+    /**
+     * Speaks a sentence after those already queued, without cutting them off: the reply is read out sentence by
+     * sentence while the model is still writing the rest.
+     */
+    public void queue(boolean ivie, String text) {
+        if (!ready || text == null || text.trim().isEmpty()) {
+            return;
+        }
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        Voice v = t.voice == null ? null : byName.get(t.voice);
+        if (v != null && queued == 0) {
+            tts.setVoice(v);
+        }
+        String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
+        float bright = robot && !ivie ? 1.25f : 1f, quick = robot && !ivie ? 1.06f : 1f;
+        tts.setPitch(t.pitchFor(ivie, g) * bright);
+        tts.setSpeechRate(t.rate * quick);
+        speaking = text;
+        queued++;
+        Bundle params = new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f);
+        tts.speak(text, TextToSpeech.QUEUE_ADD, params, (ivie ? "IVIE-Q" : "OBI-Q") + generation + "x" + queued);
+    }
+
+    /** Whether queued sentences are still being read. */
+    public boolean talking() {
+        return queued > 0;
+    }
+
+    /** Runs {@code then} once the queued sentences have all been read (at once if there are none). */
+    public void whenQuiet(Runnable then) {
+        if (queued <= 0) {
+            then.run();
+        } else {
+            whenQuiet = then;
+        }
+    }
+
+    private void queueDone(String utteranceId) {
+        String gen = utteranceId.substring(utteranceId.indexOf("-Q") + 2, utteranceId.indexOf('x'));
+        main.post(() -> {
+            if (!gen.equals(String.valueOf(generation)) || queued <= 0) {
+                return;
+            }
+            queued--;
+            if (queued == 0 && whenQuiet != null) {
+                Runnable r = whenQuiet;
+                whenQuiet = null;
+                r.run();
+            }
+        });
+    }
+
     public void stop() {
         generation++;
         pending = null;
+        queued = 0;
+        whenQuiet = null;
         if (tts != null) {
             tts.stop();
         }
@@ -209,11 +270,19 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (listener != null) {
             main.post(() -> listener.onSpeaking(false, false));
         }
+        if (utteranceId != null && utteranceId.contains("-Q")) {
+            queueDone(utteranceId);
+            return;
+        }
         finish(utteranceId);
     }
 
     @Override
     public void onError(String utteranceId) {
+        if (utteranceId != null && utteranceId.contains("-Q")) {
+            queueDone(utteranceId);
+            return;
+        }
         finish(utteranceId);
     }
 

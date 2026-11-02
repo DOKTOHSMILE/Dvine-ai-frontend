@@ -1202,6 +1202,24 @@ Usage → Learning also has the on/off switch (on by default) and Delete. Two li
 
 Push and pull request ask first (Run / Always run / Don't run) unless Auto-accept is on. The token needs Contents read and write to push, and Pull requests to open them. Limits: 600 files and 1 MB a file per repository.
 
+## 42. Voice lag and the keyboard (app v0.53.0, built)
+
+**Where the time went.** A spoken question waited on four things in a row:
+1. the recognizer deciding the user had stopped (often 1.5 to 3 seconds of silence, and a server round trip);
+2. a one-line routing call to the model;
+3. for real work, a second call that had to finish completely;
+4. nothing on screen or aloud until the last word. Spoken replies weren't read out at all since the chat redesign.
+
+**What changed:**
+- **Listening** (`voice/ListenBridge`): the on-device recognizer when the phone has one (no network; it falls back to the usual recognizer if the language pack is missing, and remembers that); a 0.7 s end-of-speech silence asked for; and DVINE ends the turn itself 0.85 s after the words stop changing (`SETTLE_MS`). If the final words haven't come 0.7 s later, the partial words are used. If the recognizer stumbles after hearing words, those words are used instead of "I didn't catch that". Holding the mic is unchanged.
+- **One call, not two:** real work (`TaskSize` STRONG) that isn't an order for the phone (`TaskSize.mayNeedAction`: search, photo, file, run, GitHub, calendar, and so on) goes straight to the full answer.
+- **Words as they come:** `ChatPane.setLive` shows the reply while it is written, in place of the "Thinking…" line.
+- **Voice as it comes:** on a spoken turn, `voice/SentenceStream` cuts the streaming reply into sentences (not at "e.g.", "Dr." or "3.5"; short ones join the next after the first) and `TalkBridge.queue` reads each as soon as it is complete. Code blocks aren't read ("The code is on the screen."); markdown, links and action tags are cleaned. The mic reopens only after the voice has finished (`TalkBridge.whenQuiet`). Typed messages stay silent; Listen still reads any reply.
+
+The full speech-to-text, model and voice on one machine (a server with streaming recognition and a voice model) is the next step if this is still not quick enough; it belongs with the backend on the VPS.
+
+**Keyboard.** Android 15 (target SDK 35) draws apps edge to edge and ignores `adjustResize`, so the keyboard covered the providers sheet's fields. `Ui.fitInsets` pads the providers sheet, Connectors, Setup and Usage for the keyboard and the system bars and scrolls the focused field into view; the providers sheet's two switches now scroll with the cards, so the list keeps its room.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

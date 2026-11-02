@@ -99,6 +99,7 @@ public final class SetupActivity extends AppCompatActivity {
         continueButton.setOnClickListener(v -> finish());
         page.addView(continueButton, Ui.wide(this, 24));
         setContentView(scroll);
+        Ui.fitInsets(scroll);
     }
 
     private LinearLayout card() {

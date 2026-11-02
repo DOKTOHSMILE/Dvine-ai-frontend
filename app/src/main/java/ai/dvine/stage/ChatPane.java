@@ -35,6 +35,9 @@ public final class ChatPane extends LinearLayout {
     private final float density;
     private String thinkingText;
     private TextView thinkingRow;
+    /** The reply as the model writes it, shown before it is finished; null when nothing is being written. */
+    private String liveText;
+    private View liveRow;
 
     public ChatPane(Context context, ChatBook book, Host host) {
         super(context);
@@ -90,7 +93,11 @@ public final class ChatPane extends LinearLayout {
         }
         title(cur);
         thinkingRow = null;
-        if (thinkingText != null) {
+        liveRow = null;
+        if (liveText != null) {
+            liveRow = liveView(liveText);
+            thread.addView(liveRow);
+        } else if (thinkingText != null) {
             thinkingRow = plain(thoughtLabel(thinkingText));
             thinkingRow.setTextColor(color(R.color.text_secondary));
             thinkingRow.setTextSize(14f);
@@ -112,6 +119,9 @@ public final class ChatPane extends LinearLayout {
 
     /** The live line sits in the transcript, under the last message, not under the composer. */
     public void setThinking(String line) {
+        if (liveText != null && line != null) {
+            return; // the words themselves are showing: no "Writing…" line under them
+        }
         thinkingText = line == null || line.trim().isEmpty() ? null : line.trim();
         if (thinkingRow != null && thinkingRow.getParent() == thread) {
             if (thinkingText == null) {
@@ -136,6 +146,47 @@ public final class ChatPane extends LinearLayout {
         setVisibility(empty ? GONE : VISIBLE);
         if (thinkingText != null) {
             followBottom();
+        }
+    }
+
+    /**
+     * Shows the reply while it is being written, as Claude does, in place of the thinking line; null removes it
+     * (the finished reply then takes its place).
+     */
+    public void setLive(String text) {
+        String t = text == null || text.trim().isEmpty() ? null : text.trim();
+        if (t != null && thinkingRow != null && thinkingRow.getParent() == thread) {
+            thread.removeView(thinkingRow);
+            thinkingRow = null;
+            thinkingText = null;
+        }
+        liveText = t;
+        int at = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
+        if (at >= 0) {
+            thread.removeViewAt(at);
+        }
+        liveRow = null;
+        if (t != null) {
+            liveRow = liveView(t);
+            if (at >= 0) {
+                thread.addView(liveRow, at);
+            } else {
+                thread.addView(liveRow);
+            }
+            setVisibility(VISIBLE);
+            View empty = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
+            if (empty != null) {
+                empty.setVisibility(GONE);
+            }
+            followBottom();
+        }
+    }
+
+    private View liveView(String text) {
+        try {
+            return bubble(new ChatBook.Message("assistant", "text", text, book.current().persona));
+        } catch (RuntimeException e) {
+            return plain(text);
         }
     }
 

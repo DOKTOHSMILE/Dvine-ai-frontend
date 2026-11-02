@@ -105,7 +105,9 @@ public final class ProvidersActivity extends AppCompatActivity {
             fill();
         });
         auto.addView(toggle);
-        sheet.addView(auto, Ui.wide(this, 14));
+        LinearLayout settings = new LinearLayout(this);
+        settings.setOrientation(LinearLayout.VERTICAL);
+        settings.addView(auto);
 
         // simple questions to the fast model, real work to the strong one
         LinearLayout route = new LinearLayout(this);
@@ -124,14 +126,18 @@ public final class ProvidersActivity extends AppCompatActivity {
                 new int[]{Ui.CORAL, Ui.FIELD}));
         routeToggle.setOnCheckedChangeListener((b, on) -> store.setSmartRouting(on));
         route.addView(routeToggle);
-        sheet.addView(route, Ui.wide(this, 8));
+        settings.addView(route, Ui.wide(this, 8));
 
         ScrollView scroll = new ScrollView(this);
+        LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.VERTICAL);
+        inner.addView(settings);
         cards = new LinearLayout(this);
         cards.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(cards);
+        inner.addView(cards, Ui.wide(this, 12));
+        scroll.addView(inner);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
-        lp.topMargin = Ui.dp(this, 12);
+        lp.topMargin = Ui.dp(this, 14);
         sheet.addView(scroll, lp);
 
         TextView done = Ui.button(this, "Done", true);
@@ -142,6 +148,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         });
         sheet.addView(done, Ui.wide(this, 16));
         setContentView(dim);
+        Ui.fitInsets(dim);
         fill();
     }
 

@@ -38,6 +38,18 @@ public final class TaskSize {
         return Tier.FAST;
     }
 
+    private static final String ACTION = ".*\\b(search|look up|google|latest|news|today|weather|price|photo|picture|"
+            + "image|draw|zip|unzip|file|folder|run|command|shell|terminal|github|repo|repository|issue|calendar|"
+            + "schedule|notion|time|call me|my name|open|switch|debate)\\b.*";
+
+    /**
+     * Whether a message may be an order for the phone (a search, a photo, a file, a connector) rather than
+     * something to answer in words: those still go through the routing call first.
+     */
+    public static boolean mayNeedAction(String text) {
+        return text != null && text.toLowerCase(Locale.US).matches("(?s)" + ACTION);
+    }
+
     /** For a call that isn't a user's message: a short one (an order, a test) is fast, a long write-up is strong. */
     public static Tier ofCall(String text, int maxTokens, boolean coding) {
         if (maxTokens <= 120) {
