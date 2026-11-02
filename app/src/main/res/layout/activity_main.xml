@@ -117,6 +117,22 @@
                 android:textSize="14sp" />
         </LinearLayout>
 
+        <!-- Ibiko only: whether commands run without asking (Claude Code's auto-accept) -->
+        <TextView
+            android:id="@+id/ibikoMode"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_mode_pill"
+            android:gravity="center"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="Ask before commands"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <include layout="@layout/layout_system_banner" />
 
         <FrameLayout

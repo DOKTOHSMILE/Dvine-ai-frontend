@@ -84,6 +84,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 52 | Connectors | P12 | Built (JVM) | 0.50.0: web search, phone calendar, GitHub, Notion, a custom MCP server. Tested against recorded replies, not live services |
 | 53 | Don't ask the user's name at start | P12 | Built | 0.50.0: the question is gone; "call me …" sets a name any time |
 
+| 54 | Ibiko as the Claude Code of DVINE, with that flexibility | P12 | Built (JVM) | 0.51.0: a step-by-step agent with files, search, shell commands (asked first, or Auto-accept), web pages and connectors, in its own folder |
+| 55 | A cheaper model for simple questions, a stronger one for big tasks, switched automatically | P12 | Built (JVM) | 0.51.0: a fast and a strong model per API; real work gets the strong one and a full answer |
+| 56 | Fix the attach icon | P12 | Built (rendered) | 0.51.0: a paperclip matching the mic |
+
 ## Still open, in the order that matters
 
 1. Install 0.45.2 on a phone and confirm the chat screen stays open.

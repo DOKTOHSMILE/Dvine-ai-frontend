@@ -38,7 +38,7 @@ public final class ProvidersActivity extends AppCompatActivity {
 
     /** One card's fields. */
     private static final class Form {
-        EditText key, backup, address, model, ca;
+        EditText key, backup, address, model, fast, ca;
     }
 
     @Override
@@ -106,6 +106,25 @@ public final class ProvidersActivity extends AppCompatActivity {
         });
         auto.addView(toggle);
         sheet.addView(auto, Ui.wide(this, 14));
+
+        // simple questions to the fast model, real work to the strong one
+        LinearLayout route = new LinearLayout(this);
+        route.setGravity(Gravity.CENTER_VERTICAL);
+        route.setBackground(Ui.round(this, Ui.CARD, Ui.BORDER, 16));
+        route.setPadding(Ui.dp(this, 16), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10));
+        LinearLayout routeText = new LinearLayout(this);
+        routeText.setOrientation(LinearLayout.VERTICAL);
+        routeText.addView(Ui.text(this, "Fast model for simple questions", 16, Ui.TEXT, true));
+        routeText.addView(Ui.text(this, "Quick questions go to the fast model; writing, coding, analysis and Ibiko's work to the strong one.",
+                12, Ui.SUB, false));
+        route.addView(routeText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        android.widget.Switch routeToggle = new android.widget.Switch(this);
+        routeToggle.setChecked(store.smartRouting());
+        routeToggle.setTrackTintList(new android.content.res.ColorStateList(new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{Ui.CORAL, Ui.FIELD}));
+        routeToggle.setOnCheckedChangeListener((b, on) -> store.setSmartRouting(on));
+        route.addView(routeToggle);
+        sheet.addView(route, Ui.wide(this, 8));
 
         ScrollView scroll = new ScrollView(this);
         cards = new LinearLayout(this);
@@ -229,8 +248,13 @@ public final class ProvidersActivity extends AppCompatActivity {
 
         f.address = Ui.field(this, "https://… (the API's base address)", store.address(p), false, false);
         card.addView(f.address, Ui.wide(this, 12));
+        card.addView(Ui.text(this, "Model for real work", 13, Ui.SUB, false), Ui.wide(this, 12));
         f.model = Ui.field(this, "Model", store.model(p), false, false);
-        card.addView(f.model, Ui.wide(this, 12));
+        card.addView(f.model, Ui.wide(this, 6));
+        card.addView(Ui.text(this, "Fast model for simple questions (empty: the one above for everything)", 13, Ui.SUB, false),
+                Ui.wide(this, 10));
+        f.fast = Ui.field(this, "Fast model", store.fastModel(p), false, false);
+        card.addView(f.fast, Ui.wide(this, 6));
         String[] models = p.suggestions();
         if (models.length > 0) {
             HorizontalScrollView chipsScroll = new HorizontalScrollView(this);
@@ -385,6 +409,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             Form f = e.getValue();
             store.save(e.getKey(), f.address.getText().toString(), f.model.getText().toString(), f.key.getText().toString(),
                     f.backup.getText().toString(), f.ca.getText().toString());
+            store.setFastModel(e.getKey(), f.fast.getText().toString());
         }
     }
 

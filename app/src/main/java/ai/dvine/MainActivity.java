@@ -304,6 +304,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (mark != null) {
             mark.setText(persona.substring(0, 1).toUpperCase());
         }
+        showIbikoMode("ibiko".equals(persona));
         if (fromTap && "ibiko".equals(persona)) {
             offerTermux();
         }
@@ -392,6 +393,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             providers.setOnClickListener(v -> {
                 closeDrawer();
                 openProviders();
+            });
+        android.view.View ibikoMode = findViewById(R.id.ibikoMode);
+        if (ibikoMode != null)
+            ibikoMode.setOnClickListener(v -> {
+                prefs.edit().putBoolean("auto_accept", !prefs.getBoolean("auto_accept", false)).apply();
+                showIbikoMode(true);
             });
         android.view.View connectors = findViewById(R.id.btnConnectors);
         if (connectors != null)
@@ -1050,6 +1057,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
 
         ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(finalQuestion, null);
+        if ("ibiko".equals(agent) && model != null && model.ready() && prefs.getBoolean("llm_on", true)
+                && !finalQuestion.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
+            boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
+                    || known.kind == ai.dvine.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.dvine.llm.BrainOrder.Kind.TIME
+                    || known.kind == ai.dvine.llm.BrainOrder.Kind.NAME);
+            if (!shortcut) {
+                runIbiko(finalQuestion); // Ibiko codes: the agent works on it, step by step
+                return;
+            }
+        }
         if (known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY) {
             carryOut(agent, finalQuestion, known);
             return;
@@ -1075,7 +1092,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 endThink();
-                carryOut(agent, finalQuestion, ai.dvine.llm.BrainOrder.decide(finalQuestion, all));
+                ai.dvine.llm.BrainOrder order = ai.dvine.llm.BrainOrder.decide(finalQuestion, all);
+                boolean talk = order == null || order.kind == ai.dvine.llm.BrainOrder.Kind.SAY;
+                if (talk && ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG) {
+                    // real work, not small talk: the strong model writes the whole answer, not one line
+                    askLocal(finalQuestion, null, false, 1500);
+                    return;
+                }
+                carryOut(agent, finalQuestion, order);
             });
         });
     }
@@ -1170,6 +1194,119 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : "I can't carry that out. " + order.speech;
                 play(LocalTurn.speakAs(agent, why), null);
         }
+    }
+
+    /**
+     * Ibiko as a coding agent (Claude Code style): it plans, reads and writes files in its workspace, runs commands
+     * (asking first unless Auto-accept is on), fetches pages and uses connectors, step by step, then answers. Each
+     * step shows in the chat. The strong model does the work; the stop button stops it between steps.
+     */
+    private void runIbiko(final String task) {
+        final int id = ++askId;
+        stopPlay();
+        stage.setMode(StageMode.THINKING);
+        armThink("Ibiko is working", "Ibiko is working");
+        final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
+        final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
+        final String earlier = chats == null ? "" : chats.transcript(1500);
+        final String tools = connectorTools();
+        model.coding = true;
+        final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.CodeAgent.Host() {
+            @Override
+            public boolean allowRun(String command) {
+                if (prefs.getBoolean("auto_accept", false)) {
+                    return true;
+                }
+                final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+                final boolean[] ok = {false};
+                handler.post(() -> new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Ibiko wants to run a command")
+                        .setMessage(command + "\n\nIt runs in Ibiko's project folder on this phone.")
+                        .setPositiveButton("Run", (d, w) -> {
+                            ok[0] = true;
+                            done.countDown();
+                        })
+                        .setNeutralButton("Always run", (d, w) -> {
+                            prefs.edit().putBoolean("auto_accept", true).apply();
+                            showIbikoMode(true);
+                            ok[0] = true;
+                            done.countDown();
+                        })
+                        .setNegativeButton("Don't run", (d, w) -> done.countDown())
+                        .setOnCancelListener(d -> done.countDown())
+                        .show());
+                try {
+                    done.await(3, java.util.concurrent.TimeUnit.MINUTES);
+                } catch (InterruptedException e) {
+                    return false;
+                }
+                return ok[0];
+            }
+
+            @Override
+            public String run(String command, java.io.File dir) {
+                return ai.dvine.agent.SandboxShell.run(command, dir, 30_000, 8000);
+            }
+
+            @Override
+            public String fetch(String url) {
+                byte[] body = ai.dvine.net.WebGet.get(url, 10_000, 1_000_000);
+                return body == null ? null : ai.dvine.agent.SandboxShell.text(new String(body, java.nio.charset.StandardCharsets.UTF_8));
+            }
+
+            @Override
+            public String connector(String call) {
+                String[] c = ai.dvine.connect.Connectors.parseCall(call);
+                return c == null ? "No tool named." : connectors.run(c[0], c[1], q -> ai.dvine.ops.mind.CitedReference.collect(q, url -> {
+                    byte[] body = ai.dvine.net.WebGet.get(url, 8000, 400_000);
+                    return body == null ? null : new String(body, java.nio.charset.StandardCharsets.UTF_8);
+                }, System.currentTimeMillis()));
+            }
+
+            @Override
+            public void step(String line) {
+                handler.post(() -> {
+                    if (id != askId || chats == null || chatPane == null) {
+                        return;
+                    }
+                    chats.add("assistant", "step", line, "ibiko");
+                    chatPane.show();
+                    updateThoughtStatus(line, true);
+                });
+            }
+
+            @Override
+            public boolean stopped() {
+                return id != askId;
+            }
+        };
+        new Thread(() -> {
+            ai.dvine.agent.CodeAgent agent = new ai.dvine.agent.CodeAgent(workspace,
+                    (system, transcript) -> model.task(system, transcript, 2000, piece -> modelPiece(id, piece)), host, tools,
+                    model.window() * 3);
+            final String answer = agent.run(task, earlier);
+            handler.post(() -> {
+                model.coding = false;
+                if (id != askId || isFinishing()) {
+                    return;
+                }
+                endThink();
+                play(LocalTurn.speakAs("ibiko", answer), null);
+            });
+        }, "ibiko-agent").start();
+    }
+
+    /** The Auto-accept pill under the persona switch: shown for Ibiko, coral when commands run without asking. */
+    private void showIbikoMode(boolean visible) {
+        android.widget.TextView mode = findViewById(R.id.ibikoMode);
+        if (mode == null) {
+            return;
+        }
+        mode.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
+        boolean auto = prefs != null && prefs.getBoolean("auto_accept", false);
+        mode.setText(auto ? "Auto-accept on" : "Ask before commands");
+        mode.setSelected(auto);
+        mode.setTextColor(getColor(auto ? R.color.on_accent : R.color.text_secondary));
     }
 
     /** The connectors' tools, as lines for the brain (empty when none is on). */
@@ -1548,6 +1685,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private boolean askLocal(final String question, final BrainAnswer offline,
             final boolean research) {
+        return askLocal(question, offline, research, 160);
+    }
+
+    /** {@code length}: the most the reply may run to (tokens); a big task gets room for a full answer. */
+    private boolean askLocal(final String question, final BrainAnswer offline,
+            final boolean research, final int length) {
         final int id = ++askId;
         final boolean ivie = stage.isIvie();
         final String agent = stage.agent();
@@ -1598,7 +1741,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             armThink("Thinking\u2026", "Thinking\u2026");
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
-            final String all = model.reply(system, question, context, 160, text -> {
+            final String all = model.reply(system, question, context, length, text -> {
                 if (!modelPiece(id, text)) {
                     return false;
                 }
@@ -1618,7 +1761,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : ai.dvine.llm.ReplyLayout.join(ai.dvine.llm.ActionTags.strip(all));
                 if (body.isEmpty()) {
                     String said = null;
-                    for (TurnLine line : offline.lines) {
+                    for (TurnLine line : offline == null ? new ArrayList<TurnLine>() : offline.lines) {
                         if ("SAY".equals(line.cue) && line.text != null
                                 && !line.text.trim().isEmpty()) {
                             said = spokenLine(line.text);
@@ -2343,17 +2486,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
         java.util.List<ai.dvine.llm.RemoteBrain> brains = new java.util.ArrayList<ai.dvine.llm.RemoteBrain>();
+        java.util.List<ai.dvine.llm.RemoteBrain> fasts = new java.util.ArrayList<ai.dvine.llm.RemoteBrain>();
         java.util.List<String> names = new java.util.ArrayList<String>();
         java.util.List<Integer> windows = new java.util.ArrayList<Integer>();
         for (ai.dvine.llm.Providers p : providers.usable()) { // the primary, then the backups it switches to
             ai.dvine.llm.RemoteBrain b = providers.brain(p);
             if (b != null) {
                 brains.add(b);
+                fasts.add(providers.fastBrain(p));
                 names.add(p.title);
                 windows.add(providers.window(p));
             }
         }
-        model.useRemotes(brains, names, windows, () -> connectivity == null || connectivity.isOnline());
+        model.useRemotes(brains, fasts, names, windows, () -> connectivity == null || connectivity.isOnline());
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
             String face = stage.agent();

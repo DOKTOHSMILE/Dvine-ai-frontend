@@ -260,6 +260,15 @@ public final class ChatPane extends LinearLayout {
             });
             return tap;
         }
+        if ("step".equals(m.kind)) {
+            // one step of Ibiko's work: a small grey line, no actions
+            TextView step = plain("\u2022 " + (m.body == null ? "" : m.body));
+            step.setTextColor(color(R.color.text_secondary));
+            step.setTypeface(Typeface.MONOSPACE);
+            step.setTextSize(12.5f);
+            step.setPadding(0, dp(2), 0, dp(2));
+            return step;
+        }
         if ("code".equals(m.kind) || "html".equals(m.kind)) {
             View row = LayoutInflater.from(getContext()).inflate(R.layout.item_code_message, thread, false);
             TextView lang = row.findViewById(R.id.code_lang);
