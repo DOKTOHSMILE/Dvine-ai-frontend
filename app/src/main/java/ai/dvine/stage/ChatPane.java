@@ -92,7 +92,7 @@ public final class ChatPane extends LinearLayout {
         thinkingRow = null;
         if (thinkingText != null) {
             thinkingRow = plain(thoughtLabel(thinkingText));
-            thinkingRow.setTextColor(0xFF9E9C95);
+            thinkingRow.setTextColor(color(R.color.text_secondary));
             thinkingRow.setTextSize(14f);
             thinkingRow.setPadding(0, dp(10), 0, dp(10));
             thread.addView(thinkingRow);
@@ -119,11 +119,11 @@ public final class ChatPane extends LinearLayout {
                 thinkingRow = null;
             } else {
                 thinkingRow.setText(thoughtLabel(thinkingText));
-                thinkingRow.setTextColor(0xFF8E8E93);
+                thinkingRow.setTextColor(color(R.color.text_secondary));
             }
         } else if (thinkingText != null) {
             thinkingRow = plain(thoughtLabel(thinkingText));
-            thinkingRow.setTextColor(0xFF9E9C95);
+            thinkingRow.setTextColor(color(R.color.text_secondary));
             thinkingRow.setTextSize(14f);
             thinkingRow.setPadding(0, dp(10), 0, dp(10));
             thread.addView(thinkingRow);
@@ -184,7 +184,7 @@ public final class ChatPane extends LinearLayout {
             String named = s.title == null || s.title.trim().isEmpty() || s.title.matches("(?i)^(chat|new chat)$")
                     ? (preview.isEmpty() ? "New chat" : preview) : s.title;
             row.setText(named);
-            row.setTextColor(on ? 0xFFECEBE6 : 0xFFC9C7C0);
+            row.setTextColor(color(on ? R.color.text_primary : R.color.icon));
             row.setTextSize(15f);
             row.setSingleLine(true);
             row.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -250,7 +250,7 @@ public final class ChatPane extends LinearLayout {
         }
         if ("video".equals(m.kind) || "audio".equals(m.kind)) {
             TextView tap = plain("audio".equals(m.kind) ? "Audio. Tap to play." : "Video. Tap to play.");
-            tap.setTextColor(0xFFE8F6FF);
+            tap.setTextColor(color(R.color.text_primary));
             tap.setOnClickListener(v -> {
                 android.content.Intent intent = new android.content.Intent(getContext(),
                         ai.dvine.chat.ui.MediaPlayActivity.class);
@@ -272,11 +272,14 @@ public final class ChatPane extends LinearLayout {
             }
             TextView copy = row.findViewById(R.id.code_copy);
             if (copy != null) {
-                copy.setOnClickListener(v -> copyText(m.body));
+                copy.setOnClickListener(v -> {
+                    copyText(m.body);
+                    android.widget.Toast.makeText(getContext(), "Code copied", android.widget.Toast.LENGTH_SHORT).show();
+                });
             }
             TextView open = row.findViewById(R.id.code_open);
             if (open != null) {
-                open.setText("html".equals(m.kind) ? "Preview" : "Open");
+                open.setContentDescription("html".equals(m.kind) ? "Preview" : "Open full screen");
                 open.setOnClickListener(v -> {
                     if ("html".equals(m.kind)) {
                         open(ai.dvine.chat.ui.HtmlViewActivity.class, ai.dvine.chat.ui.HtmlViewActivity.EXTRA_HTML, m.body);
@@ -400,11 +403,15 @@ public final class ChatPane extends LinearLayout {
     private TextView plain(String text) {
         TextView tv = new TextView(getContext());
         tv.setText(text);
-        tv.setTextColor(0xFFECEBE6);
+        tv.setTextColor(color(R.color.text_primary));
         tv.setTextSize(13f);
         int pad = dp(10);
         tv.setPadding(pad, dp(6), pad, dp(6));
         return tv;
+    }
+
+    private int color(int id) {
+        return getContext().getColor(id);
     }
 
     private int dp(int v) {

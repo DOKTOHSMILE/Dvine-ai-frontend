@@ -60,7 +60,7 @@ public final class HistoryActivity extends AppCompatActivity {
             TextView row = new TextView(this);
             String mark = (s.pinned ? "Pinned · " : "") + (s.archived ? "Archived · " : "");
             row.setText(mark + title + "\n" + preview(s) + "\nRename  Pin  Archive  Delete");
-            row.setTextColor(0xFFE8F6FF);
+            row.setTextColor(getColor(R.color.text_primary));
             row.setTextSize(15f);
             int pad = (int) (12 * getResources().getDisplayMetrics().density);
             row.setPadding(pad, pad, pad, pad);

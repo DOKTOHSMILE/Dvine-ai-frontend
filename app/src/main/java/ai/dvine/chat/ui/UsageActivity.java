@@ -1,6 +1,6 @@
 package ai.dvine.chat.ui;
 
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -22,12 +22,13 @@ import ai.dvine.llm.UsageLog;
  * instructions, the new message, the reply, what was free), today's requests and tokens, which brain answers, and
  * what is stored on the phone. Counts the API reported are marked as measured; the rest are estimates and say so.
  */
-public final class UsageActivity extends Activity {
+public final class UsageActivity extends AppCompatActivity {
     private LinearLayout body;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Ui.init(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
@@ -90,7 +91,7 @@ public final class UsageActivity extends Activity {
             for (int i = 0; i < names.length; i++) {
                 ctx.addView(legend(colours[i], names[i], parts[i], window), Ui.wide(this, 10));
             }
-            ctx.addView(legend(0xFF2C2C30, "Free space", Math.max(0, window - used), window), Ui.wide(this, 10));
+            ctx.addView(legend(Ui.TRACK, "Free space", Math.max(0, window - used), window), Ui.wide(this, 10));
             divider(ctx);
             ctx.addView(row("Answered by", c.brain), Ui.wide(this, 10));
             ctx.addView(row("Speed", c.speed() <= 0 ? "-" : String.format(Locale.US, "%.1f tokens a second", c.speed())), Ui.wide(this, 8));
@@ -164,7 +165,7 @@ public final class UsageActivity extends Activity {
 
     private void divider(LinearLayout c) {
         View v = new View(this);
-        v.setBackgroundColor(0xFF3A3A40);
+        v.setBackgroundColor(Ui.LINE);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 1));
         lp.topMargin = Ui.dp(this, 14);
         c.addView(v, lp);

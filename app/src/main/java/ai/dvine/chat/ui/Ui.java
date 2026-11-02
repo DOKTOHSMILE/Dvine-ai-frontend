@@ -12,11 +12,45 @@ import android.widget.TextView;
 
 /** The look shared by DVINE's screens: dark rounded cards, a coral accent, pill badges, 48 dp buttons. */
 final class Ui {
-    /** One palette for every screen, after Claude's dark theme: warm near-black, a coral accent. */
-    static final int BG = 0xFF1F1E1D, SURFACE = 0xFF2A2927, LINE = 0xFF3A3936, CORAL = 0xFFD97757, ON_CORAL = 0xFF1F1E1D;
-    static final int SHEET = 0xFF262624, CARD = 0xFF2E2D2A, CARD_ON = 0xFF3B2C26, BORDER = 0xFF3D3C38, BORDER_ON = CORAL,
-            FIELD = 0xFF3A3936, TEXT = 0xFFECEBE6, SUB = 0xFF9E9C95, ACCENT = CORAL, PILL = 0xFF4A3A2A, PILL_TEXT = 0xFFF2D9C7,
-            BLUE = 0xFF5B8DEF, ORANGE = CORAL, GREEN = 0xFF5FB37F, AMBER = 0xFFE8B04A, GREY = 0xFF8A8880, TRACK = 0xFF3A3936;
+    /**
+     * One palette for every screen, after Claude's: day (warm off-white) or night (warm near-black), with a coral
+     * accent. Read from the theme's colours by {@link #init}, so it follows the phone's day / night setting or the
+     * one chosen in DVINE.
+     */
+    static int BG, SURFACE, LINE, CORAL, ON_CORAL, SHEET, CARD, CARD_ON, BORDER, BORDER_ON, FIELD, TEXT, SUB, ACCENT, PILL,
+            PILL_TEXT, ORANGE, GREY, TRACK;
+    static final int BLUE = 0xFF5B8DEF, GREEN = 0xFF5FB37F, AMBER = 0xFFE8B04A;
+
+    static {
+        // night values until a screen calls init (tests that build views without an activity)
+        BG = 0xFF1F1E1D; SURFACE = 0xFF2A2927; LINE = 0xFF3A3936; CORAL = 0xFFD97757; ON_CORAL = 0xFF1F1E1D; SHEET = 0xFF262624;
+        CARD = 0xFF2E2D2A; CARD_ON = 0xFF3B2C26; BORDER = LINE; BORDER_ON = CORAL; FIELD = 0xFF3A3936; TEXT = 0xFFECEBE6;
+        SUB = 0xFF9E9C95; ACCENT = CORAL; PILL = 0xFF4A3A2A; PILL_TEXT = 0xFFF2D9C7; ORANGE = CORAL; GREY = 0xFF8A8880;
+        TRACK = 0xFF3A3936;
+    }
+
+    /** Reads the palette for the screen's current day or night mode. */
+    static void init(Context c) {
+        BG = c.getColor(ai.dvine.R.color.bg_main);
+        SURFACE = c.getColor(ai.dvine.R.color.bg_surface);
+        LINE = c.getColor(ai.dvine.R.color.line);
+        CORAL = c.getColor(ai.dvine.R.color.accent);
+        ON_CORAL = c.getColor(ai.dvine.R.color.on_accent);
+        SHEET = c.getColor(ai.dvine.R.color.sheet);
+        CARD = c.getColor(ai.dvine.R.color.card);
+        CARD_ON = c.getColor(ai.dvine.R.color.card_on);
+        BORDER = LINE;
+        BORDER_ON = CORAL;
+        FIELD = c.getColor(ai.dvine.R.color.field);
+        TEXT = c.getColor(ai.dvine.R.color.text_primary);
+        SUB = c.getColor(ai.dvine.R.color.text_secondary);
+        ACCENT = CORAL;
+        ORANGE = CORAL;
+        PILL = c.getColor(ai.dvine.R.color.pill);
+        PILL_TEXT = c.getColor(ai.dvine.R.color.pill_text);
+        GREY = c.getColor(ai.dvine.R.color.chat_hint);
+        TRACK = c.getColor(ai.dvine.R.color.track);
+    }
 
     private Ui() {
     }

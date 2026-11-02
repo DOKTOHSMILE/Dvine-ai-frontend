@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Night: warm near-black with a coral accent. -->
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="obi">#FF00E5FF</color>
+    <color name="ivie">#FFFFB300</color>
+    <color name="banner_border">#FCD34D</color>
+    <color name="chat_text">#ECEBE6</color>
+    <color name="chat_hint">#8A8880</color>
+    <color name="chat_sheet">#E605070C</color>
+    <color name="bg_main">#1F1E1D</color>
+    <color name="bg_sidebar">#171716</color>
+    <color name="bg_surface">#2A2927</color>
+    <color name="bg_assistant">#1F1E1D</color>
+    <color name="bubble_user">#33322F</color>
+    <color name="text_primary">#ECEBE6</color>
+    <color name="text_secondary">#9E9C95</color>
+    <color name="text_on_user">#ECEBE6</color>
+    <color name="accent_cyan">#D97757</color>
+    <color name="border_subtle">#33322F</color>
+    <color name="accent">#D97757</color>
+    <color name="on_accent">#1F1E1D</color>
+    <color name="surface_high">#33322F</color>
+    <color name="code_bg">#141413</color>
+    <color name="code_header">#242321</color>
+    <color name="code_text">#E8E6DF</color>
+    <color name="icon">#C9C7C0</color>
+    <color name="line">#3A3936</color>
+    <color name="line_strong">#45443F</color>
+    <color name="selected">#2A2927</color>
+    <color name="segment_on">#45443F</color>
+    <color name="send_off">#4A4945</color>
+    <color name="scrim">#99000000</color>
+    <color name="sheet">#262624</color>
+    <color name="card">#2E2D2A</color>
+    <color name="card_on">#3B2C26</color>
+    <color name="field">#3A3936</color>
+    <color name="pill">#4A3A2A</color>
+    <color name="pill_text">#F2D9C7</color>
+    <color name="track">#3A3936</color>
+</resources>

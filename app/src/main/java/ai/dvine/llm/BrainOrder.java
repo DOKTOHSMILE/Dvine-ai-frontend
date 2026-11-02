@@ -5,7 +5,7 @@ package ai.dvine.llm;
  */
 public final class BrainOrder {
     public enum Kind {
-        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, CANNOT
+        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, CANNOT
     }
 
     public final Kind kind;
@@ -19,6 +19,24 @@ public final class BrainOrder {
     }
 
     public static String prompt() {
+        return prompt("");
+    }
+
+    /**
+     * As {@link #prompt()}, with the connectors' tools the brain may use ({@code tools}: one "- name <argument>:
+     * what it does" a line, or empty): it asks for one with "DO TOOL name argument".
+     */
+    public static String prompt(String tools) {
+        String base = basePrompt();
+        if (tools == null || tools.trim().isEmpty()) {
+            return base;
+        }
+        return base.replace(" /no_think", "") + " When the answer needs the user's own data or something you don't know,"
+                + " reply DO TOOL and one of these tools with its argument, for example DO TOOL github.issues owner/repo:"
+                + tools + " /no_think";
+    }
+
+    private static String basePrompt() {
         return "You are the brain. The user speaks only to you. DVINE does not answer them."
                 + " Read their words and reply with exactly one line."
                 + " If they want a job this phone can do, reply DO and one code:"
@@ -74,6 +92,9 @@ public final class BrainOrder {
             }
             if ("SHELL".equals(code) && !arg.isEmpty()) {
                 return new BrainOrder(Kind.SHELL, arg, "");
+            }
+            if ("TOOL".equals(code) && !arg.isEmpty()) {
+                return new BrainOrder(Kind.TOOL, arg, "");
             }
             return new BrainOrder(Kind.CANNOT, code, "That isn't a function I have.");
         }

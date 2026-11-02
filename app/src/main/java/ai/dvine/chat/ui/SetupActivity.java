@@ -1,6 +1,6 @@
 package ai.dvine.chat.ui;
 
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -20,7 +20,7 @@ import ai.dvine.llm.ProviderStore;
  * open while it downloads), or use an API key (the AI providers sheet). It comes back until one is chosen; on a
  * phone that can't run the downloaded brain, only the API is offered.
  */
-public final class SetupActivity extends Activity {
+public final class SetupActivity extends AppCompatActivity {
     /** Whether the app has a brain, or is getting one: then there is nothing to set up. */
     public static boolean needed(android.content.Context c) {
         ModelHub hub = ModelHub.get(c);
@@ -37,6 +37,7 @@ public final class SetupActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Ui.init(this);
         hub = ModelHub.get(this);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -48,10 +49,10 @@ public final class SetupActivity extends Activity {
         page.setPadding(side, Ui.dp(this, 64), side, Ui.dp(this, 32));
         scroll.addView(page);
 
-        TextView mark = Ui.text(this, "D", 30, 0xFF1E1E1C, true);
+        TextView mark = Ui.text(this, "D", 24, Ui.ON_CORAL, true);
         mark.setGravity(Gravity.CENTER);
         mark.setBackground(Ui.round(this, Ui.CORAL, 0, 20));
-        page.addView(mark, new LinearLayout.LayoutParams(Ui.dp(this, 64), Ui.dp(this, 64)));
+        page.addView(mark, new LinearLayout.LayoutParams(Ui.dp(this, 52), Ui.dp(this, 52)));
         TextView title = Ui.text(this, "Give DVINE a brain", 28, Ui.TEXT, true);
         title.setGravity(Gravity.CENTER);
         page.addView(title, Ui.wide(this, 24));
