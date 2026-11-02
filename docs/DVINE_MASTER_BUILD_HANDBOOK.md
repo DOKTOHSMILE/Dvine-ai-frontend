@@ -1323,6 +1323,47 @@ App-wide (Settings › Advanced, `chat/Tuning`). Each has a range and "Back to t
 | Web results | 8 |
 | Pages read | 3 |
 
+## 46. Ivie's studio, files to the API, Ibiko's results and chips (app v0.57.0, built)
+
+**Ivie's studio** (`create/IvieStudio`). On Ivie's tab:
+- "draw me a dragon" (anything the creation engine doesn't build itself) has the model plan it as named parts: one line each, `part | solid | colour | where | size` (`DrawPrompt`). The app builds the parts (`SolidSpec`) and shows them on her canvas.
+- Then the thing is worked on by its parts (`PartEdit`): "take out the tyres" (a tyre is a wheel), "show only the engine", "make the wheels black", "make the roof bigger", "add a spoiler" (the model writes the new part lines), "put the tyres back", "undo", "redo". The model is asked which parts a word means when the names don't say.
+- "Export it" saves it with `MeshExport` in Downloads/DVINE, and the note above the box shares it:
+
+| Format | Opens in |
+|---|---|
+| GLB | Blender, Unity, Unreal, Godot |
+| OBJ + MTL | Blender, Maya, 3ds Max, SketchUp |
+| STL | 3D printing |
+| PLY | MeshLab |
+
+Any model can do this: it only writes lines of words.
+
+**Any file to the API.** A picked file is kept whole and sent as itself where the provider takes it:
+
+| Provider form | Sent as |
+|---|---|
+| Claude | `document` blocks for PDFs and plain text |
+| OpenAI form (OpenAI, OpenRouter, gateways) | `file` parts for any type; sounds (mp3, wav) as `input_audio` |
+
+When a model refuses, the same request goes again with what the phone took out of the file (`chat/FileText`, `AttachmentReader`):
+- the text of Word, Excel (cells by row), PowerPoint (by slide), OpenDocument and EPUB files;
+- a zip's listing;
+- a PDF's first 6 pages as pictures;
+- 4 frames of a video as pictures.
+
+A text-only model gets the text. Otherwise it gets a note to ask for the part that matters.
+
+**Ibiko's full results.**
+- A short progress line ("Auditing your codebase now — mapping structure…") for an audit, review, research, report or similar is sent back with "write the complete result". A promise ("I'll…") is sent back to act.
+- The next turn sees earlier messages whole (up to 6,000 characters each), and an API model's replies are remembered whole.
+- "The model didn't answer" now gives the provider's reason. The step length is 4,000 tokens by default.
+
+**Ibiko's chips** (`chat/ui/WorkChips`, Ibiko's tab only, as in Claude Code):
+- **Diff +a −r:** what changed in the cloned repositories since the clone, pull or push. It is compared with copies kept in each clone's `.git/dvine-base` (`connect/LineDiff`, three lines of context). Tap it for every file, line by line, green and red.
+- **Pull requests · n:** the ones Ibiko opened. Tap one to open it on GitHub.
+- **Artifacts · n:** files Ibiko made outside the clones, and models exported on Ivie's tab. Tap to open, hold to share.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

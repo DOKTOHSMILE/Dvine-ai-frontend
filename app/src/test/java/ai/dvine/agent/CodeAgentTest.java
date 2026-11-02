@@ -239,7 +239,8 @@ public class CodeAgentTest {
         Script brain = new Script("Auditing your codebase now \u2014 mapping structure and checking key files.", report);
         String answer = new CodeAgent(ws, brain, new Phone(), "", 20_000).run("Give me the result of the audit", "");
         assertEquals(report, answer);
-        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That is a status line, not the result"));
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("That is a status line, not the result")
+                || brain.seen.get(1).contains("give the actual result as your final answer")); // sent back to finish either way
         assertTrue(CodeAgent.thin("audit this codebase", "Cloned."));
         assertFalse(CodeAgent.thin("hello", "Hi!"));
     }

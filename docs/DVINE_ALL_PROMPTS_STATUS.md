@@ -109,6 +109,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 76 | Split MainActivity, remove unused and broken code; Ivie graphics, Obi chat, Ibiko code | P12 | Partly built | 0.55.0: 4,040 → 3,180 lines, 31 unused members gone, three classes moved out; personas organised and Ivie's 3D canvas. More of MainActivity can still move out |
 | 77 | Models that don't take files or images (DeepSeek and others) read the cloned files on the phone and do their work | P12 | Built (JVM) | 0.56.0: refused images become notes; any persona reads the phone's files as text through the read-only agent; DeepSeek preset |
 | 78 | Don't hard-code what should be open variables | P12 | Built (JVM) | 0.56.0: per-provider Advanced (images, reasoning, length, time, window, extra JSON) and Settings › Advanced (lengths, steps, paste, image size, web) |
+| 79 | Connect Ivie to mesh export and part edit | P12 | Built (JVM) | 0.57.0: Ivie's studio: model-drawn parts, edits by name, undo, GLB/OBJ/STL/PLY to Downloads |
+| 80 | Show the full result in a long message | P12 | Built (JVM) | 0.57.0: progress lines sent back for the full report; earlier findings and replies kept whole |
+| 81 | Let the model receive files from the API, any type | P12 | Built (JVM) | 0.57.0: native PDF, text, audio and file parts; else extracted text, pages or frames; else a note |
+| 82 | Diff, Pull requests and Artifacts for Ibiko | P12 | Built (rendered) | 0.57.0: the three chips on Ibiko's tab with their sheets |
 
 ## Still open, in the order that matters
 
