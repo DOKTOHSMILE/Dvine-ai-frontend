@@ -179,4 +179,35 @@ public class LocalModelTest {
         assertFalse(other.exists() || part.exists());
         assertSame(ModelSpec.PHI_4_MINI, m.spec); // deleting another model leaves the one in use alone
     }
+
+    @Test
+    public void memoryIsASettingAndSlownessIsSaidOnce() throws Exception {
+        File dir = Files.createTempDirectory("dvine-memory").toFile();
+        LocalModel m = new LocalModel(dir, ModelSpec.QWEN3_4B, true);
+        assertEquals(8192, m.localWindow()); // 8,192 tokens unless the user picks another size
+        assertEquals(8192, ai.dvine.chat.Tuning.OFFLINE_CONTEXT.get(null));
+        assertFalse(m.context(4096)); // nothing loaded: the size is used at the next load
+        assertEquals(4096, m.localWindow());
+        m.context(500);
+        assertEquals(LocalModel.LOCAL_WINDOW, m.localWindow()); // never below the smallest that works
+
+        m.context(8192);
+        assertEquals(null, m.slowAdvice(4)); // nothing measured yet
+        m.noteSpeed(40, 20_000); // 2 tokens a second
+        m.noteSpeed(40, 20_000);
+        assertEquals(null, m.slowAdvice(4)); // two replies are not enough to judge
+        m.noteSpeed(5, 20_000); // a short reply doesn't count
+        assertEquals(null, m.slowAdvice(4));
+        m.noteSpeed(60, 20_000);
+        String advice = m.slowAdvice(4);
+        assertTrue(advice, advice.startsWith("Qwen3 4B is running slowly on this phone (2.3 tokens a second)"));
+        assertTrue(advice, advice.contains("a smaller size, Qwen3 1.7B") && advice.contains("Offline model memory, 4,096 instead of 8,192")
+                && advice.contains("an API model"));
+        assertEquals(null, m.slowAdvice(4)); // said once
+        m.context(4096); // the user took less memory: still slow, so it is said again, without the memory tip
+        String again = m.slowAdvice(4);
+        assertTrue(again, again.contains("Qwen3 1.7B") && !again.contains("Offline model memory"));
+        m.context(8192);
+        assertEquals(null, m.slowAdvice(1)); // fast enough for a lower bar
+    }
 }

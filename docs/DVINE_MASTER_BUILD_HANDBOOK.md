@@ -1491,6 +1491,26 @@ Engine:
 - The vendored llama.cpp supports the Qwen3, Llama, Phi-3/4 and Gemma 3 architectures and the gpt-4o tokenizer.
 - The models have not been run on a phone from this cloud session.
 
+## 53. More memory for the offline model, slowness advice, DVINE's own online model (app v0.64.0, built)
+
+**Offline model memory.** Settings › Advanced › Offline model memory, tokens (`Tuning.OFFLINE_CONTEXT`) sets the phone's own model's context window. The default is 8,192, and it can be set from 1,024 to 32,768. It used to be fixed at 2,048.
+- A change takes effect on return to the chat. The loaded model is freed and loaded again (`LocalModel.context`).
+- When there isn't enough memory for the size asked, the model starts with 2,048 and the user is told why and where to change it (`takeMemoryNote`).
+- The Usage screen and the agent's transcript allowance follow the real window.
+
+**Slowness advice.** `LocalModel.noteSpeed` keeps the speed of the last three local replies (16+ pieces). When their average is under Settings › Advanced › "Offline model is slow below, tokens a second" (`Tuning.SLOW_SPEED`, default 4), DVINE says once in the chat, per model and memory size (`slowAdvice`), what would make it faster:
+- the next smaller size of the same family;
+- 4,096 tokens of memory instead of more;
+- or an API model.
+
+**DVINE's own online model.** The DVINE server provider in AI providers (`Providers.DVINE_SERVER`) uses the server's model, for example Qwen3 14B.
+- The address is the app's server plus `/api/v1/llm`. The model name defaults to `qwen3-14b`.
+- There is no key. `ProviderStore.serverSession`, the phone's 12-hour session from `SessionClient`, is fetched at every request through `RemoteBrain.keySource`, so a renewed token is used at once.
+- When the phone can't sign in, the reply says so and no request is sent.
+- The backend relays the request to llama-server (backend `docs/SERVER_MODEL.md`).
+
+**GPU (not built).** Building llama.cpp's Vulkan backend needs its upstream source plus the Khronos Vulkan and SPIR-V headers built in the build machine. That was refused in the cloud session, so the engine stays CPU-only.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
