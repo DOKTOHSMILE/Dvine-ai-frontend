@@ -1511,6 +1511,26 @@ Engine:
 
 **GPU (not built).** Building llama.cpp's Vulkan backend needs its upstream source plus the Khronos Vulkan and SPIR-V headers built in the build machine. That was refused in the cloud session, so the engine stays CPU-only.
 
+## 54. The brain reads what a message means (app v0.65.0, built)
+
+DVINE carries out a few things itself, and each has one wording its code knows:
+- carry on: "continue"
+- hand in the result: "give me the result"
+- get the model: "download the model"
+- remove it: "delete the model"
+- the download's progress
+- the model on or off
+
+People say these in endless ways: "are you done?", "where are we with that", "keep at it", "free up the model's space". Matching words missed every new phrasing, so the meaning is read instead (`turn/Meaning`):
+
+1. **The fixed wordings still act at once.** That means pause and resume, the model commands, and `carriesOn`.
+2. **Every other short message is read for its meaning** (one line, up to 160 characters, no code). `Meaning.prompt` lists the commands with what each means. Carrying on and the result are offered only while there is work under way: an agent's kept work, or a paused reply. The brain (the fast model when one is set) names one command or none, in up to 24 tokens.
+3. **DVINE acts on that command's own wording.** It shows "Understood as “give me the result”" above the message box. The user's words stay in the chat. A message that means none goes on as it was written.
+4. **Each phrasing is remembered.** `Meaning.Memory` keeps up to 300 in the `meanings` preference, punctuation and case aside. The next time, it is understood at once, even offline, with no model call. A phrasing that meant none is remembered too, so it isn't read again.
+5. **Nothing to read with means no reading.** With no model at all, the message goes on as written.
+
+Longer messages are tasks or questions, and they go to the brain whole.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
