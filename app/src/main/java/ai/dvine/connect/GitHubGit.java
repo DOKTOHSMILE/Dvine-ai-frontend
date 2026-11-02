@@ -31,6 +31,18 @@ public final class GitHubGit {
 
     private final Connectors.Http http;
     private final String token;
+    private Zips zips;
+
+    /** Downloads a file (a branch as a zip) to disk; false when it can't. */
+    public interface Zips {
+        boolean download(String url, Map<String, String> headers, File to) throws IOException;
+    }
+
+    /** Clone by downloading the branch as one zip (fast, any size up to 300 MB) instead of file by file. */
+    public GitHubGit useZips(Zips zips) {
+        this.zips = zips;
+        return this;
+    }
     private static final String API = "https://api.github.com";
 
     public GitHubGit(Connectors.Http http, String token) {
@@ -92,8 +104,21 @@ public final class GitHubGit {
         r.branch = branch;
         r.head = head;
         r.tree = treeOf(repo, head);
-        Map<String, String> remote = files(repo, r.tree);
         dir.mkdirs();
+        if (zips != null) {
+            File zip = new File(dir.getParentFile(), "." + dir.getName() + ".zip");
+            try {
+                if (zips.download(API + "/repos/" + repo + "/zipball/" + head, headers(), zip)) {
+                    int n = unzip(zip, dir, r);
+                    r.write(dir);
+                    return "Cloned " + repo + " (" + branch + ", " + n + " files) into " + dir.getName()
+                            + "/. It is on the phone now: read, edit and push it any time.";
+                }
+            } finally {
+                zip.delete();
+            }
+        }
+        Map<String, String> remote = files(repo, r.tree);
         int skipped = 0;
         for (Map.Entry<String, String> e : remote.entrySet()) {
             byte[] bytes = blob(repo, e.getValue());
@@ -271,6 +296,70 @@ public final class GitHubGit {
         return "Opened pull request #" + (int) MiniJson.num(got.get("number"), 0) + ": " + MiniJson.str(got.get("html_url"), "");
     }
 
+    /** Unpacks GitHub's zip (its one top folder dropped) into the folder, recording each file's blob id. */
+    static int unzip(File zip, File dir, Record r) throws IOException {
+        int n = 0;
+        try (java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(new java.io.BufferedInputStream(new java.io.FileInputStream(zip)))) {
+            java.util.zip.ZipEntry e;
+            byte[] buf = new byte[16384];
+            while ((e = in.getNextEntry()) != null) {
+                String name = e.getName();
+                int slash = name.indexOf('/');
+                String path = slash < 0 ? "" : name.substring(slash + 1);
+                if (e.isDirectory() || path.isEmpty()) {
+                    continue;
+                }
+                File f = inside(dir, path);
+                f.getParentFile().mkdirs();
+                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                int got;
+                while ((got = in.read(buf)) > 0) {
+                    bytes.write(buf, 0, got);
+                }
+                byte[] all = bytes.toByteArray();
+                Files.write(f.toPath(), all);
+                r.files.put(path, blobSha(all));
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** The real download: https, the token, redirects followed (GitHub hands zips to codeload), 300 MB at most. */
+    public static Zips httpsZips() {
+        return (url, headers, to) -> {
+            javax.net.ssl.HttpsURLConnection c = (javax.net.ssl.HttpsURLConnection) new java.net.URL(url).openConnection();
+            c.setInstanceFollowRedirects(true);
+            c.setConnectTimeout(20_000);
+            c.setReadTimeout(60_000);
+            for (Map.Entry<String, String> h : headers.entrySet()) {
+                c.setRequestProperty(h.getKey(), h.getValue());
+            }
+            int status = c.getResponseCode();
+            if (status == 401 || status == 403 || status == 404) {
+                throw new IOException("GitHub said " + status + " (the token may lack access to this repository)");
+            }
+            if (status < 200 || status >= 300) {
+                return false;
+            }
+            long total = 0;
+            try (java.io.InputStream in = c.getInputStream(); java.io.OutputStream out = new java.io.FileOutputStream(to)) {
+                byte[] b = new byte[65536];
+                int n;
+                while ((n = in.read(b)) > 0) {
+                    total += n;
+                    if (total > 300L * 1024 * 1024) {
+                        throw new IOException("the repository is over 300 MB, too big for the phone");
+                    }
+                    out.write(b, 0, n);
+                }
+            } finally {
+                c.disconnect();
+            }
+            return true;
+        };
+    }
+
     // ------------------------------------------------------------ changes
 
     static final class Changes {
@@ -425,7 +514,9 @@ public final class GitHubGit {
         Map<String, String> h = new LinkedHashMap<String, String>();
         h.put("Accept", "application/vnd.github+json");
         h.put("X-GitHub-Api-Version", "2022-11-28");
-        h.put("Authorization", "Bearer " + token);
+        if (token != null && !token.trim().isEmpty()) {
+            h.put("Authorization", "Bearer " + token.trim()); // without one, public repositories still clone and pull
+        }
         h.put("User-Agent", "DVINE");
         return h;
     }
@@ -441,7 +532,7 @@ public final class GitHubGit {
             // not JSON
         }
         if (r.status == 401) {
-            throw new IOException("GitHub refused the token (401)");
+            throw new IOException("GitHub needs you signed in for that (Connectors \u203A GitHub)");
         }
         if (r.status == 403 || r.status == 404) {
             throw new IOException("GitHub said " + r.status + (why.isEmpty() ? "" : ": " + why)

@@ -436,6 +436,30 @@ public final class ChatPane extends LinearLayout {
         if ("activity".equals(m.kind)) {
             return activityRecord(m);
         }
+        if ("file".equals(m.kind)) {
+            // an attached file or long paste: a small card on the user's side
+            String[] parts = (m.body == null ? "file" : m.body).split("\n", 2);
+            LinearLayout card = new LinearLayout(getContext());
+            card.setOrientation(VERTICAL);
+            card.setBackgroundResource(R.drawable.bg_user_bubble);
+            card.setPadding(dp(14), dp(10), dp(14), dp(10));
+            TextView n = plain("\uD83D\uDCC4  " + parts[0]);
+            n.setTextSize(14f);
+            n.setPadding(0, 0, 0, 0);
+            card.addView(n);
+            if (parts.length > 1) {
+                TextView sub = plain(parts[1]);
+                sub.setTextColor(color(R.color.text_secondary));
+                sub.setTextSize(12f);
+                sub.setPadding(0, dp(2), 0, 0);
+                card.addView(sub);
+            }
+            LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            lp.gravity = Gravity.END;
+            lp.topMargin = dp(6);
+            card.setLayoutParams(lp);
+            return card;
+        }
         if ("step".equals(m.kind)) {
             // one step of Ibiko's work: a small grey line, no actions
             TextView step = plain("\u2022 " + (m.body == null ? "" : m.body));

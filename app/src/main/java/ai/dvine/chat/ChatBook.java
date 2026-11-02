@@ -161,7 +161,7 @@ public final class ChatBook {
             s.title = t.length() > 48 ? t.substring(0, 48) : t;
         }
         if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
-                || "html".equals(kind) || "text".equals(kind) || "activity".equals(kind) || "step".equals(kind)) {
+                || "html".equals(kind) || "text".equals(kind) || "activity".equals(kind) || "step".equals(kind) || "file".equals(kind)) {
             s.messages.add(new Message(role, kind, body, persona));
         } else {
             s.messages.add(new Message(role, "text", body, persona));
@@ -248,6 +248,8 @@ public final class ChatBook {
             String line;
             if ("image".equals(m.kind)) {
                 line = who + ": [a photograph file is in this chat]";
+            } else if ("file".equals(m.kind)) {
+                line = who + ": [attached " + m.body.split("\n")[0] + "]";
             } else if ("video".equals(m.kind)) {
                 line = who + ": [a video file is in this chat]";
             } else if ("code".equals(m.kind) || "html".equals(m.kind)) {

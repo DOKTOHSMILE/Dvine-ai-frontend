@@ -60,7 +60,9 @@ public class RemoteBrainTest {
         assertEquals("Bearer sk-test", f.headers.get(0).get("Authorization"));
         Map<String, Object> req = MiniJson.obj(MiniJson.parse(f.bodies.get(0)));
         assertEquals("openai/gpt-5-mini", req.get("model"));
-        assertEquals(1024.0, MiniJson.num(req.get("max_tokens"), 0), 0); // never so few that a thinking model writes nothing
+        // a reasoning model: room for its hidden thinking on the first request, so it never comes back empty
+        assertEquals(8000.0, MiniJson.num(req.get("max_completion_tokens"), 0), 0);
+        assertFalse(f.bodies.get(0).contains("temperature"));
         assertFalse(f.bodies.get(0).contains("no_think"));
         assertEquals(31, b.used().promptTokens);
         assertEquals(3, b.used().outputTokens);
@@ -71,7 +73,7 @@ public class RemoteBrainTest {
         Fake f = new Fake().reply(400, "{\"error\":{\"message\":\"Unknown field stream_options\"}}")
                 .reply(400, "{\"error\":{\"message\":\"Unsupported parameter: 'max_tokens'. Use 'max_completion_tokens'\"}}")
                 .reply(200, OPENAI_STREAM);
-        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "sk-a", "", f);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-4.1-mini", "sk-a", "", f);
         assertEquals("Hello there.", b.chat("s", ask("hi"), 48, 0.7f, null));
         assertTrue(f.bodies.get(0).contains("stream_options"));
         assertFalse(f.bodies.get(1).contains("stream_options"));
@@ -272,5 +274,19 @@ public class RemoteBrainTest {
         m.task("sys", "list files", 2000, null);
         assertEquals(1, strong2.urls.size());
         assertEquals(0, fast2.urls.size());
+    }
+
+    @Test
+    public void reasoningModelsGetRoomToThinkOnTheFirstRequest() {
+        RemoteBrain gpt5 = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5", "k", "", null);
+        assertTrue(gpt5.reasoning());
+        String body = new String(gpt5.body("sys", java.util.Collections.singletonList(new String[]{"user", "hi"}), 2000, 0.7f, 2),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(body, body.contains("\"max_completion_tokens\":8000") && body.contains("\"reasoning_effort\":\"low\""));
+        assertTrue(body, !body.contains("temperature"));
+        RemoteBrain plain = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-4.1", "k", "", null);
+        org.junit.Assert.assertFalse(plain.reasoning());
+        assertTrue(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "openai/gpt-5-mini", "k", "", null).reasoning());
+        assertTrue(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "deepseek/deepseek-r1", "k", "", null).reasoning());
     }
 }

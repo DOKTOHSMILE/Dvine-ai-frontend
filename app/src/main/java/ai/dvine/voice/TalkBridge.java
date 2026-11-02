@@ -83,6 +83,12 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     private volatile boolean robot;
+    private volatile float rateScale = 1f;
+
+    /** Settings › Voice › Speaking speed (0.85, 1 or 1.2), on top of each persona's own pace. */
+    public void setRateScale(float scale) {
+        rateScale = Math.max(0.5f, Math.min(2f, scale));
+    }
 
     /** Ibiko's voice: the male voice, brighter and a little quicker. */
     public void setRobot(boolean on) {
@@ -116,7 +122,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         float pitch = t.pitchFor(ivie, g);
         float bright = robot && !ivie ? 1.25f : 1f, quick = robot && !ivie ? 1.06f : 1f;
         tts.setPitch((thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch) * bright);
-        tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick);
+        tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick * rateScale);
         speaking = text;
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, thought ? VoiceTuning.THOUGHT_VOLUME : 1f);
@@ -143,7 +149,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
         float bright = robot && !ivie ? 1.25f : 1f, quick = robot && !ivie ? 1.06f : 1f;
         tts.setPitch(t.pitchFor(ivie, g) * bright);
-        tts.setSpeechRate(t.rate * quick);
+        tts.setSpeechRate(t.rate * quick * rateScale);
         speaking = text;
         queued++;
         Bundle params = new Bundle();

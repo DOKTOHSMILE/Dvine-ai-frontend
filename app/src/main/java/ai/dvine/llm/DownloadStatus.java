@@ -104,7 +104,7 @@ public final class DownloadStatus {
             case PAUSED:
                 return "It's paused at " + percent() + " percent. Say continue the download to carry on.";
             case FAILED:
-                return "It stopped at " + percent() + " percent. Say continue the download to carry on from there.";
+                return "It stopped at " + percent() + " percent. Resume it in Settings, or say continue the download.";
             case BAD_FILE:
                 return "The last download was damaged, so I deleted it. Download it again from AI providers in the menu.";
             default:

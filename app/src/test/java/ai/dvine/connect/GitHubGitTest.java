@@ -245,4 +245,32 @@ public class GitHubGitTest {
             assertTrue(e.getMessage().contains("owner/name"));
         }
     }
+
+    @Test
+    public void clonesFromOneZipThenPushesOnlyWhatChanged() throws Exception {
+        FakeHub hub = new FakeHub();
+        hub.refs.put("main", hub.commit(files("README.md", "# App\n", "src/main.py", "print('hi')\n"), null, "first"));
+        final java.util.List<String> asked = new java.util.ArrayList<String>();
+        GitHubGit git = new GitHubGit(hub, "tok").useZips((url, headers, to) -> {
+            asked.add(url);
+            try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(to))) {
+                for (String[] f : new String[][]{{"me-app-c1/README.md", "# App\n"}, {"me-app-c1/src/main.py", "print('hi')\n"}}) {
+                    z.putNextEntry(new java.util.zip.ZipEntry(f[0]));
+                    z.write(f[1].getBytes(StandardCharsets.UTF_8));
+                    z.closeEntry();
+                }
+            }
+            return true;
+        });
+        File dir = new File(Files.createTempDirectory("git").toFile(), "app");
+        String said = git.clone("me/app", "", dir);
+        assertTrue(said, said.contains("2 files") && said.contains("on the phone"));
+        assertTrue(asked.get(0), asked.get(0).endsWith("/repos/me/app/zipball/" + hub.refs.get("main")));
+        assertFalse(hub.calls.toString(), hub.calls.toString().contains("/git/blobs/")); // no file-by-file download
+        assertTrue(git.status(dir).contains("nothing changed"));
+        write(new File(dir, "src/main.py"), "print('hello')\n");
+        git.push(dir, "Say hello", "");
+        assertEquals(files("README.md", "# App\n", "src/main.py", "print('hello')\n"), hub.filesAt("main"));
+        assertFalse(new File(dir.getParentFile(), ".app.zip").exists());
+    }
 }

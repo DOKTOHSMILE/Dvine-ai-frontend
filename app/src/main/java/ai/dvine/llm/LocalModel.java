@@ -272,7 +272,7 @@ public final class LocalModel {
             String[] roles = new String[turns.size()], texts = new String[turns.size()];
             for (int i = 0; i < turns.size(); i++) {
                 roles[i] = turns.get(i)[0];
-                texts[i] = turns.get(i)[1];
+                texts[i] = ai.dvine.chat.Attachments.withoutImages(turns.get(i)[1]); // the phone's model can't see images
             }
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
@@ -319,7 +319,7 @@ public final class LocalModel {
         }
         final int[] pieces = {0};
         final long began = System.currentTimeMillis();
-        String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{prompt}, maxTokens, 0.35f, wrapped));
+        String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, system, new String[]{"user"}, new String[]{ai.dvine.chat.Attachments.withoutImages(prompt)}, maxTokens, 0.35f, wrapped));
         recordLocal(system, java.util.Collections.<String[]>emptyList(), prompt, answer, pieces[0], began);
         if (answer == null || answer.trim().isEmpty()) {
             problem = NativeLlm.nError(handle);
@@ -534,7 +534,8 @@ public final class LocalModel {
     }
 
     synchronized void remember(String question, String answer) {
-        history.add(new String[]{"user", question});
+        // an image is sent once, with its question; the remembered conversation keeps "[an image]"
+        history.add(new String[]{"user", ai.dvine.chat.Attachments.withoutImages(question)});
         history.add(new String[]{"assistant", clipMemory(answer)});
         while (history.size() > HISTORY_TURNS * 2) {
             history.remove(0);
