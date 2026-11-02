@@ -79,6 +79,11 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 48 | The chat laid out like Claude (buttons, drawer, sizes) | P12 | Built (rendered) | 0.49.0: see `docs/brand/chat_0_49/`. Checked as rendered screens, not on a phone |
 | 49 | Switch automatically across three APIs | P12 | Built (JVM) | 0.49.0: primary and two backups; a failure before any words hands over; tested against recorded replies |
 
+| 50 | Copy and Listen as icons; icons at 24 dp | P12 | Built (rendered) | 0.50.0: reply actions and the code block's Open and Copy are icons; 24 dp header and composer icons, 20 dp actions |
+| 51 | Day and night theme | P12 | Built (rendered) | 0.50.0: follows the phone, or Light / Dark from Appearance in the drawer |
+| 52 | Connectors | P12 | Built (JVM) | 0.50.0: web search, phone calendar, GitHub, Notion, a custom MCP server. Tested against recorded replies, not live services |
+| 53 | Don't ask the user's name at start | P12 | Built | 0.50.0: the question is gone; "call me …" sets a name any time |
+
 ## Still open, in the order that matters
 
 1. Install 0.45.2 on a phone and confirm the chat screen stays open.

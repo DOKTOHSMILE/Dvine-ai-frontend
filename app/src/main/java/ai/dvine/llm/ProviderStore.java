@@ -280,7 +280,7 @@ public final class ProviderStore {
         return g.generateKey();
     }
 
-    private static String seal(String plain) {
+    public static String seal(String plain) {
         if (plain == null || plain.isEmpty()) {
             return "";
         }
@@ -294,7 +294,7 @@ public final class ProviderStore {
         }
     }
 
-    private static String open(String sealed) {
+    public static String open(String sealed) {
         if (sealed == null || !sealed.contains(":")) {
             return "";
         }

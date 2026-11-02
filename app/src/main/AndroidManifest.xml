@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- the Phone calendar connector, asked for only when the user switches it on -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- the language model download: a background service with a progress notification, kept awake while it runs -->
@@ -33,7 +35,7 @@
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|navigation"
             android:exported="true"
             android:resizeableActivity="true"
             android:screenOrientation="fullUser"
@@ -72,6 +74,11 @@
             android:name=".chat.ui.SetupActivity"
             android:exported="false"
             android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.ConnectorsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".chat.ui.UsageActivity"
             android:exported="false"

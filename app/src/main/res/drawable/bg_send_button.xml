@@ -1,4 +1,4 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_enabled="false"><shape android:shape="oval"><solid android:color="#4A4945" /></shape></item>
+    <item android:state_enabled="false"><shape android:shape="oval"><solid android:color="@color/send_off" /></shape></item>
     <item><shape android:shape="oval"><solid android:color="@color/accent" /></shape></item>
 </selector>

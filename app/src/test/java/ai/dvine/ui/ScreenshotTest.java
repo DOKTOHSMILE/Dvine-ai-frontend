@@ -72,6 +72,26 @@ public class ScreenshotTest {
         assertTrue(new File(OUT, "1_chat_empty.png").length() > 0);
     }
 
+    /** The same chat and drawer at night. */
+    @Test(timeout = 180000)
+    @Config(sdk = 35, qualifiers = "w411dp-h891dp-night-xxhdpi")
+    public void rendersTheNightTheme() throws Exception {
+        OUT.mkdirs();
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        shoot(c.get(), "6_chat_night");
+        java.lang.reflect.Method toggle = MainActivity.class.getDeclaredMethod("toggleDrawer");
+        toggle.setAccessible(true);
+        toggle.invoke(c.get());
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        shoot(c.get(), "7_drawer_night");
+        c.pause().stop().destroy();
+        ActivityController<ai.dvine.chat.ui.ConnectorsActivity> k = Robolectric.buildActivity(ai.dvine.chat.ui.ConnectorsActivity.class)
+                .create().start().resume().visible();
+        shoot(k.get(), "8_connectors_night");
+        k.pause().stop().destroy();
+    }
+
     private static void shoot(android.app.Activity a, String name) throws Exception {
         android.view.View root = a.getWindow().getDecorView();
         int w = 1080, h = 2340;

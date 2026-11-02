@@ -1116,6 +1116,32 @@ The screen comes back until one is chosen, and Back on it closes the app. On a p
 - **A note** above the message box says which took over ("Anthropic (Claude) didn't answer (…), so OpenAI did.").
 - **Fallback:** if every API fails, or the phone is offline, the phone's own brain answers when it is installed.
 
+## 39. Day and night, connectors, and a quiet start (app v0.50.0, built)
+
+**Day and night.** The light palette (warm off-white `#FAF9F5`, text `#1F1E1D`, coral `#C96442`) lives in `values/colors.xml`, and the dark one (`#1F1E1D`, coral `#D97757`) in `values-night/colors.xml`.
+- **Theme:** `Theme.AppCompat.DayNight`, with status- and navigation-bar icons that are dark by day and light by night.
+- **Named colours everywhere:** every drawable uses named colours, and the code-built screens read them through `Ui.init`.
+- **Appearance** in the drawer offers Match the phone (the default), Light or Dark; `MainActivity.applyTheme` applies it before the screen is built. The activity no longer handles `uiMode` itself, so a change redraws it in the new colours. Chats are kept on disk and the brain in `ModelHub`, so nothing is lost.
+
+**Icons.** 24 dp in the header and composer, 20 dp for the reply actions and in the drawer, with 36–48 dp touch targets. The code block's Open and Copy are icons.
+
+**Connectors** (`connect/`, drawer → Connectors). These are services the brain may use when it answers:
+- **Web search:** the built-in cited lookup, with its old switch.
+- **Phone calendar:** the next 7 days, through `CalendarContract.Instances`, with calendar permission asked for only when it is switched on.
+- **GitHub:** a personal access token; tools `github.repos`, `github.search`, `github.issues`, `github.file`.
+- **Notion:** an integration token; `notion.search`.
+- **Custom MCP server:** the Model Context Protocol over Streamable HTTP, at an https address with an optional bearer token. On Test, DVINE runs initialize then tools/list, and keeps the tools under a short prefix such as `tasks.add_task`. Calls go through tools/call, keep the server's session id, and accept JSON or SSE replies.
+
+Tokens are encrypted on the phone like the API keys.
+
+How a tool is used:
+1. The brain's instructions list only the tools that are on and ready.
+2. It asks for one in its one-line order: `DO TOOL github.issues owner/repo`.
+3. DVINE runs it (results cut to 3,500 characters).
+4. The brain writes the answer from the result. It is told the result is data, not instructions, so a page or a tool can't steer it.
+
+**A quiet start.** The app no longer asks for the user's name when it opens; "call me …" sets one at any time.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

@@ -1,6 +1,6 @@
 package ai.dvine.chat.ui;
 
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -29,7 +29,7 @@ import ai.dvine.llm.RemoteBrain;
  * address, the model and an optional CA certificate; Test makes one tiny call and marks it Connected. Keys are kept
  * on this phone only, encrypted ({@link ProviderStore}). Done saves and goes back to the chat.
  */
-public final class ProvidersActivity extends Activity {
+public final class ProvidersActivity extends AppCompatActivity {
     private ProviderStore store;
     private Providers chosen;
     private LinearLayout cards;
@@ -44,11 +44,12 @@ public final class ProvidersActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Ui.init(this);
         store = new ProviderStore(this);
         chosen = store.active();
 
         FrameLayout dim = new FrameLayout(this);
-        dim.setBackgroundColor(0xB3000000);
+        dim.setBackgroundColor(getColor(ai.dvine.R.color.scrim));
         dim.setOnClickListener(v -> finish());
 
         LinearLayout sheet = new LinearLayout(this);
