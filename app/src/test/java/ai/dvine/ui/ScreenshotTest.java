@@ -178,10 +178,30 @@ public class ScreenshotTest {
             Thread.sleep(100); // the diff is worked out off the main thread
             ShadowLooper.idleMainLooper(10, java.util.concurrent.TimeUnit.MILLISECONDS);
         }
-        android.view.View work = c.get().findViewById(ai.dvine.R.id.work_scroll);
-        org.junit.Assert.assertEquals(android.view.View.VISIBLE, work.getVisibility());
-        android.widget.LinearLayout chips = c.get().findViewById(ai.dvine.R.id.work_row);
-        org.junit.Assert.assertEquals(3, chips.getChildCount());
+        // the reply that did the work carries its own pills
+        java.lang.reflect.Field chatsField = MainActivity.class.getDeclaredField("chats");
+        chatsField.setAccessible(true);
+        ai.dvine.chat.ChatBook book = (ai.dvine.chat.ChatBook) chatsField.get(c.get());
+        book.add("user", "text", "Add a hello to Main and open a pull request", "ibiko");
+        book.add("assistant", "text", "Added hello() to Main.java and opened pull request #7.", "ibiko");
+        java.lang.reflect.Method attachWork = MainActivity.class.getDeclaredMethod("attachWork", java.util.List.class, long.class);
+        attachWork.setAccessible(true);
+        attachWork.invoke(c.get(), java.util.Collections.singletonList("app/app/Main.java"), 0L);
+        for (int i = 0; i < 20; i++) {
+            Thread.sleep(100); // the work is gathered off the main thread
+            ShadowLooper.idleMainLooper(10, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        java.util.ArrayList<android.view.View> rows = new java.util.ArrayList<android.view.View>();
+        c.get().getWindow().getDecorView().findViewsWithText(rows, "Pull requests \u00B7 1", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertEquals(1, rows.size());
+        android.widget.LinearLayout chips = (android.widget.LinearLayout) rows.get(0).getParent().getParent();
+        org.junit.Assert.assertEquals(ai.dvine.R.id.reply_work_row, chips.getId());
+        org.junit.Assert.assertEquals(3, chips.getChildCount()); // Diff, Pull requests, Artifacts
+        // the persona tabs sit in the composer row beside the attach button; the Auto pill sits in the header
+        org.junit.Assert.assertSame(c.get().findViewById(ai.dvine.R.id.btn_attach).getParent(),
+                c.get().findViewById(ai.dvine.R.id.tabIbiko).getParent().getParent());
+        org.junit.Assert.assertSame(c.get().findViewById(ai.dvine.R.id.chatHeader), c.get().findViewById(ai.dvine.R.id.ibikoMode).getParent());
+        org.junit.Assert.assertEquals(android.view.View.VISIBLE, c.get().findViewById(ai.dvine.R.id.ibikoMode).getVisibility());
         shoot(c.get(), "15_work_chips_night");
         persona.invoke(c.get(), "ivie");
 

@@ -252,11 +252,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs("ivie", "There's nothing on my canvas to export yet."), null);
             return;
         }
+        final long since = System.currentTimeMillis();
         try {
             android.net.Uri uri = ai.dvine.chat.ui.Downloads.save(this, e.name, e.mime, e.bytes);
             new ai.dvine.chat.WorkLog(this).artifact(e.name, uri.toString(), "3D model \u00B7 " + e.format.extension.toUpperCase(java.util.Locale.US),
                     e.mime);
-            refreshChips();
+            attachWork(null, since); // the model file, as a pill under this reply
             if (e.extra != null) {
                 ai.dvine.chat.ui.Downloads.save(this, e.extra.name, e.extra.mime, e.extra.bytes);
             }
@@ -439,7 +440,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.ensureFace(persona, null);
         updatePersonaTabs(persona);
         showIvieCanvas("ivie".equals(persona) && stage.objectShown()); // the 3D canvas is Ivie's
-        refreshChips();
         if (chats != null) {
             chats.forPersona(persona);
         }
@@ -603,11 +603,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (attachScroll != null && attachRow != null) {
             attachments = new ai.dvine.chat.ui.ComposerAttachments(this, attachScroll, attachRow, this::refreshSend);
         }
-        android.widget.HorizontalScrollView workScroll = findViewById(R.id.work_scroll);
-        android.widget.LinearLayout workRow = findViewById(R.id.work_row);
-        if (workScroll != null && workRow != null) {
-            workChips = new ai.dvine.chat.ui.WorkChips(this, workScroll, workRow, new java.io.File(getFilesDir(), "ibiko"));
-        }
         android.view.View send = findViewById(R.id.btn_send);
         android.view.View voice = findViewById(R.id.btn_voice);
         android.view.View attach = findViewById(R.id.btn_attach);
@@ -694,13 +689,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** Diff, Pull requests and Artifacts above the message box. */
-    private ai.dvine.chat.ui.WorkChips workChips;
-
-    private void refreshChips() {
-        if (workChips != null && stage != null) {
-            workChips.refresh("ibiko".equals(stage.agent()));
-        }
+    /**
+     * Diff, Pull requests and Artifacts under the reply that produced them: what changed in {@code changed} (Ibiko's
+     * files) and what was logged since {@code since} is kept with the chat, and the reply shows it as pills.
+     */
+    private void attachWork(final java.util.List<String> changed, final long since) {
+        final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
+        new Thread(() -> {
+            final String work = ai.dvine.chat.ui.WorkChips.capture(this, workspace, changed, since);
+            if (work != null) {
+                handler.post(() -> {
+                    if (chatPane != null && !isFinishing()) {
+                        chatPane.work(work);
+                    }
+                });
+            }
+        }, "dvine-work").start();
     }
 
     /** Images, files and long pastes waiting above the words; sent with the message. */
@@ -1615,6 +1619,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     private void runAgent(final String task, final String persona, final boolean readOnly) {
         final int id = ++askId;
+        final long since = System.currentTimeMillis(); // what this reply opens or makes is shown under it
         stopPlay();
         stage.setMode(StageMode.THINKING);
         String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
@@ -1715,8 +1720,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 endThink();
+                attachWork(readOnly ? null : agent.changed(), since); // the diff, pull requests and files, under this reply
                 play(LocalTurn.speakAs(persona, answer), null);
-                refreshChips(); // the diff and any pull request it opened
             });
         }, "dvine-agent").start();
     }
@@ -1752,7 +1757,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** The Auto-accept pill under the persona switch: shown for Ibiko, coral when commands run without asking. */
+    /** The Auto pill in the header: shown for Ibiko, filled when commands run without asking ("Ask" when they wait). */
     private void showIbikoMode(boolean visible) {
         android.widget.TextView mode = findViewById(R.id.ibikoMode);
         if (mode == null) {
@@ -1760,7 +1765,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         mode.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
         boolean auto = prefs != null && prefs.getBoolean("auto_accept", false);
-        mode.setText(auto ? "Auto-accept on" : "Ask before commands");
+        mode.setText(auto ? "Auto" : "Ask");
+        mode.setContentDescription(auto ? "Auto-accept on: commands run without asking. Tap to switch."
+                : "Ask before commands. Tap to switch to auto-accept.");
         mode.setSelected(auto);
         mode.setTextColor(getColor(auto ? R.color.on_accent : R.color.text_secondary));
     }

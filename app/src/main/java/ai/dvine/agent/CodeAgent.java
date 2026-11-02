@@ -189,6 +189,11 @@ public final class CodeAgent {
             }
             retried = false;
             String fin = finalOf(text);
+            if (fin != null && fin.isEmpty() && parse(text) == null && nudges < 2) {
+                nudges++; // "<final></final>": an empty answer would show as nothing at all
+                work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(EMPTY_FINAL).append("\n</result>\n");
+                continue;
+            }
             if (fin != null && !fin.isEmpty()) {
                 if (big && !reportAsked && fin.length() < REPORT_CHARS) {
                     reportAsked = true; // "<final>Done.</final>" for an audit: the report itself, please
@@ -249,6 +254,9 @@ public final class CodeAgent {
 
     static final String KEEP_GOING = "That was a progress note, not the answer. Don't describe what you are doing: do it. Call the"
             + " next tool now, and when everything is done give the complete answer inside <final>\u2026</final>.";
+    static final String EMPTY_FINAL = "That <final> was empty, so the user would see nothing. If there is work left, do it with"
+            + " the tools; otherwise write the whole answer inside <final>\u2026</final>: what you did, which files changed, and"
+            + " what is still wrong.";
     static final String NO_ASKING = "Don't ask the user whether to go on: they asked for the whole job. Carry on with the tools,"
             + " and when everything is done give the complete answer inside <final>\u2026</final>.";
 
@@ -264,10 +272,16 @@ public final class CodeAgent {
      */
     static boolean status(String text) {
         String t = text.trim();
+        if (t.length() < 300 && !t.contains("```") && !t.contains("\n\n") && GERUND_NOTE.matcher(t).find()) {
+            return true; // "Fixing your build errors — digging into the failing sources.": a line about the work, not its result
+        }
         return t.length() < 400 && !t.contains("```") && t.toLowerCase(Locale.US).matches("(?s).*\\b(now|next|then|i'?ll|i will|i'?m going to|"
                 + "going to|let me|starting|working on|mapping|checking|scanning|reading|looking|cloning|re-cloning|cloned|auditing|"
                 + "pulling|gathering|compiling|collecting|reviewing|analy[sz]ing|got it|on it|in progress|underway|stand by|one moment)\\b.*");
     }
+
+    /** A sentence that opens with what it is doing ("Fixing …", "Inspecting …") or turns to it ("— digging into …"). */
+    static final Pattern GERUND_NOTE = Pattern.compile("(?i)(^|[\u2014\u2013]\\s*(and\\s+)?(now\\s+)?)(digging|looking|reading|checking|inspecting|investigating|searching|scanning|tracing|working|fixing|building|compiling|running|testing|cloning|re-cloning|pulling|exploring|reviewing|examining|auditing|analy[sz]ing|mapping|gathering|collecting|diving|heading|moving|starting|opening|patching|editing|updating|rewriting|refactoring|debugging|diagnosing|re-?running|verifying|preparing)\\b");
 
     /** "Want me to continue…, or pause here?", "Shall I proceed?": asking leave instead of finishing. */
     static boolean asksPermission(String text) {

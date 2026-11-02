@@ -77,12 +77,17 @@ public final class ChatPane extends LinearLayout {
         thread.removeAllViews();
         ChatBook.Section cur = book.current();
         StringBuilder reply = new StringBuilder(); // the whole of the assistant's turn, for its Copy and Listen
+        String work = null; // this reply's Diff, Pull requests and Artifacts, shown under it
         for (int i = 0; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
-            try {
-                thread.addView(bubble(m));
-            } catch (RuntimeException failed) {
-                thread.addView(plain("That message could not be shown."));
+            if ("work".equals(m.kind)) {
+                work = m.body;
+            } else {
+                try {
+                    thread.addView(bubble(m));
+                } catch (RuntimeException failed) {
+                    thread.addView(plain("That message could not be shown."));
+                }
             }
             if ("user".equals(m.role)) {
                 reply.setLength(0);
@@ -96,6 +101,10 @@ public final class ChatPane extends LinearLayout {
                         + "\n" + m.body + "\n```" : m.body);
             }
             boolean lastOfTurn = i == cur.messages.size() - 1 || "user".equals(cur.messages.get(i + 1).role);
+            if (lastOfTurn && work != null) {
+                workPills(work);
+                work = null;
+            }
             if (lastOfTurn && reply.length() > 0) {
                 thread.addView(actions(reply.toString(), stripCode(reply.toString())));
                 reply.setLength(0);
@@ -421,6 +430,34 @@ public final class ChatPane extends LinearLayout {
     public void image(String path) {
         book.add("assistant", "image", path, book.current().persona);
         show();
+    }
+
+    /** Keeps a reply's work (its id in files/work) with the chat; the reply shows it as pills. */
+    public void work(String id) {
+        book.add("assistant", "work", id, book.current().persona);
+        show();
+    }
+
+    /**
+     * The pills of a reply's work, inside the reply's last text row when it ends with one, else in a strip of their
+     * own, so they sit under the reply that produced them and scroll with it.
+     */
+    private void workPills(String id) {
+        ai.dvine.chat.ui.WorkChips.Run run = ai.dvine.chat.ui.WorkChips.load(getContext(), id);
+        if (run.isEmpty()) {
+            return;
+        }
+        View last = thread.getChildCount() == 0 ? null : thread.getChildAt(thread.getChildCount() - 1);
+        android.widget.HorizontalScrollView sv = last == null ? null : last.findViewById(R.id.reply_work_scroll);
+        LinearLayout row = last == null ? null : last.findViewById(R.id.reply_work_row);
+        if (sv == null || row == null) {
+            View strip = LayoutInflater.from(getContext()).inflate(R.layout.item_message_assistant, thread, false);
+            strip.findViewById(R.id.tv_message).setVisibility(GONE);
+            thread.addView(strip);
+            sv = strip.findViewById(R.id.reply_work_scroll);
+            row = strip.findViewById(R.id.reply_work_row);
+        }
+        new ai.dvine.chat.ui.WorkChips((Activity) getContext(), sv, row).show(run);
     }
 
     public void video(String path) {

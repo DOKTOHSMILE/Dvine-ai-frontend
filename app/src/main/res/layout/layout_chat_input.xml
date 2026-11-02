@@ -9,22 +9,6 @@
     android:paddingEnd="12dp"
     android:paddingBottom="10dp">
 
-    <!-- Diff, Pull requests, Artifacts: what the work produced (hidden when there is nothing) -->
-    <HorizontalScrollView
-        android:id="@+id/work_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingBottom="8dp"
-        android:scrollbars="none"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/work_row"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal" />
-    </HorizontalScrollView>
-
     <!-- a short notice ("Claude didn't answer, so OpenAI did."), shown for a few seconds -->
     <TextView
         android:id="@+id/composer_note"
@@ -97,6 +81,45 @@
                 android:contentDescription="Add a photo or file"
                 android:scaleType="center"
                 android:src="@drawable/ic_attach" />
+
+            <!-- who answers: Ivie, Obi or Ibiko, a compact segmented control beside the attach button -->
+            <LinearLayout
+                android:id="@+id/personaTabs"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_segment"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:padding="2dp">
+
+                <TextView
+                    android:id="@+id/tabIvie"
+                    android:layout_width="48dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="Ivie"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tabObi"
+                    android:layout_width="48dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="Obi"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tabIbiko"
+                    android:layout_width="48dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="Ibiko"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
             <View
                 android:layout_width="0dp"
