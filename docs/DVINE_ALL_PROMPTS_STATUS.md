@@ -117,6 +117,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 84 | Tap a step to see code added in green and removed in red | P12 | Built (rendered) | 0.58.0 |
 | 85 | Steps in words, not ls | P12 | Built (JVM) | 0.58.0 |
 | 86 | All steps listed, not "+2 more" | P12 | Built | 0.58.0 |
+| 87 | Make my own messages copyable | P12 | Built (Robolectric) | 0.58.1: a copy icon under each, text selectable |
 
 ## Still open, in the order that matters
 
