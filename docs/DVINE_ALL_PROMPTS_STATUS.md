@@ -128,6 +128,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 95 | Screenshot: "too long for the model's memory", a progress line as the answer, "My model is ready" inside a reply | P12 | Built (JVM) | 0.64.1: the offline take-over fits its memory and keeps the API's reason; a failed request after "are you done?" says so; download-finished is a note |
 | 96 | Interpret every message by meaning, not words: a rephrased "are you done?" must still be understood, converted to the command and sent on | P12 | Built (Robolectric) | 0.65.0: turn/Meaning reads short messages into the commands DVINE runs, acts on their wording, remembers each phrasing |
 | 97 | Add the further commands (new chat, switch persona, stop, auto-accept, clear workspace, Settings) | P12 | Built (Robolectric) | 0.66.0: understood by meaning, run with the buttons' actions; clearing asks first |
+| 98 | Screenshot: offline Gemma 3 1B keeps saying "too long for the model's memory" | P12 | Built (JVM) | 0.66.1: cut down further and retried until it fits; compact instructions for small memories; a plain message when nothing fits |
 
 ## Still open, in the order that matters
 

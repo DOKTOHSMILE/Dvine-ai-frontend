@@ -64,6 +64,9 @@ public final class LocalModel {
         }
     }
 
+    /** How many times a reply that is still too long is cut down further and tried again. */
+    static final int FIT_TRIES = 4;
+
     /** A cautious count of characters per token, for fitting text into the phone's own model's memory. */
     static final int CHARS_PER_TOKEN = 3;
 
@@ -393,7 +396,7 @@ public final class LocalModel {
             asked = learned + "\n\n" + (context == null ? "" : context + "\n\n") + "The user says: " + question;
         }
         final int ticket = epoch.get();
-        for (int attempt = 0; attempt < 3; attempt++) {
+        for (int attempt = 0; attempt < FIT_TRIES + 2; attempt++) {
             List<String[]> turns = new ArrayList<String[]>(history);
             turns.add(new String[]{"user", asked});
             String[] roles = new String[turns.size()], texts = new String[turns.size()];
@@ -415,8 +418,15 @@ public final class LocalModel {
             String local = NativeLlm.nError(handle);
             problem = apiProblem == null ? local
                     : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
-            if (local == null || !local.contains("too long") || history.isEmpty()) {
+            if (local == null || !local.contains("too long")) {
                 return null;
+            }
+            if (history.isEmpty()) {
+                if (asked.length() <= 400) {
+                    return null; // as short as it can be
+                }
+                asked = fit(asked, asked.length() * 55 / 100); // the message itself, cut down further
+                continue;
             }
             // too long: forget the oldest half of the conversation and try once more
             int drop = Math.max(2, history.size() / 2 / 2 * 2);
@@ -448,20 +458,36 @@ public final class LocalModel {
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
         // the phone's own model takes over with what fits its memory: the start of the task and the latest work
-        final int reply = Math.min(maxTokens, Math.max(256, localWindow() / 4));
-        final String fitted = fit(prompt, (localWindow() - reply) * CHARS_PER_TOKEN - system.length() - 200);
-        final int[] pieces = {0};
-        final long began = System.currentTimeMillis();
-        String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), new String[]{"user"},
-                new String[]{ai.dvine.chat.Attachments.withoutImages(fitted)}, reply, 0.35f, wrapped));
-        recordLocal(system, java.util.Collections.<String[]>emptyList(), fitted, answer, pieces[0], began);
-        if (answer == null || answer.trim().isEmpty()) {
-            String local = NativeLlm.nError(handle);
-            problem = apiProblem == null ? local
-                    : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
-            return null;
+        // characters per token is only an estimate (code and paths take more tokens): when the model says it is
+        // still too long, the same work is cut down further and tried again, never just refused
+        int reply = Math.min(maxTokens, Math.max(256, localWindow() / 4));
+        int budget = (localWindow() - reply) * CHARS_PER_TOKEN - system.length() - 200;
+        String local = null;
+        for (int attempt = 0; attempt < FIT_TRIES; attempt++) {
+            final String fitted = fit(prompt, budget);
+            final int room = reply;
+            final int[] pieces = {0};
+            final long began = System.currentTimeMillis();
+            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), new String[]{"user"},
+                    new String[]{ai.dvine.chat.Attachments.withoutImages(fitted)}, room, 0.35f, wrapped));
+            recordLocal(system, java.util.Collections.<String[]>emptyList(), fitted, answer, pieces[0], began);
+            if (answer != null && !answer.trim().isEmpty()) {
+                return answer.trim();
+            }
+            local = NativeLlm.nError(handle);
+            if (local == null || !local.contains("too long")) {
+                break;
+            }
+            budget = budget * 55 / 100;
+            reply = Math.max(128, reply * 3 / 4);
         }
-        return answer.trim();
+        if (local != null && local.contains("too long")) {
+            local = "even cut down, the work is too much for " + spec.weights + "'s memory of " + String.format(java.util.Locale.US, "%,d",
+                    localWindow()) + " tokens: a bigger offline model, more memory (Settings \u203A Advanced), or an API would fit it";
+        }
+        problem = apiProblem == null ? local
+                : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
+        return null;
     }
 
     /**
