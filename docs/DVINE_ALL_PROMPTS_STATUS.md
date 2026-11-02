@@ -113,6 +113,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 80 | Show the full result in a long message | P12 | Built (JVM) | 0.57.0: progress lines sent back for the full report; earlier findings and replies kept whole |
 | 81 | Let the model receive files from the API, any type | P12 | Built (JVM) | 0.57.0: native PDF, text, audio and file parts; else extracted text, pages or frames; else a note |
 | 82 | Diff, Pull requests and Artifacts for Ibiko | P12 | Built (rendered) | 0.57.0: the three chips on Ibiko's tab with their sheets |
+| 83 | Keep writing findings until the report is done, not a short sentence | P12 | Built (JVM) | 0.58.0: a big task always gets its full report round; streamed as written; continue carries on |
+| 84 | Tap a step to see code added in green and removed in red | P12 | Built (rendered) | 0.58.0 |
+| 85 | Steps in words, not ls | P12 | Built (JVM) | 0.58.0 |
+| 86 | All steps listed, not "+2 more" | P12 | Built | 0.58.0 |
 
 ## Still open, in the order that matters
 

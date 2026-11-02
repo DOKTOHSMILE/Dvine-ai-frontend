@@ -1364,6 +1364,30 @@ A text-only model gets the text. Otherwise it gets a note to ask for the part th
 - **Pull requests · n:** the ones Ibiko opened. Tap one to open it on GitHub.
 - **Artifacts · n:** files Ibiko made outside the clones, and models exported on Ivie's tab. Tap to open, hold to share.
 
+## 47. Full reports, continue, and steps that open (app v0.58.0, built)
+
+**A big task ends with its report.** Recognising status lines by their words ("now auditing", "mapping…") missed every new phrasing. So for an audit, review, research, analysis, summary, report, plan or comparison (`CodeAgent.bigTask`):
+- A reply under 1,500 characters is never the end. It gets one more round: "write the complete final report: findings with file names and line numbers, problems ranked, the fix for each; use a tool first if you must." That round has room for it (`Brain.askLong`, 12,000 tokens or more).
+- When the steps run out (30 by default), the report is written from what was found, ending "say continue to keep going".
+- A promise ("I'll…") still gets the short "do it now" first.
+
+**Streaming.** Each step's words show in the chat as they are written, as in ChatGPT, unless they turn out to be a tool call, which shows only as a step.
+
+**Continue.** Each persona's agent work is kept on the phone (`files/agent-<persona>.txt`): the task, every tool call and every result. "continue", "go on", "give me the result", "what did you find" go on from it with nothing read again. They are no longer swapped for the last question.
+
+**Steps in words** (`agent/CommandWords`):
+- `ls -la; echo ---; ls app` is "Listed the files in the workspace, then listed the files in app".
+- `grep -rn TODO app` is "Searched for "TODO" in app"; `cat a.py b.py` is "Read a.py and b.py"; `find src -name '*.java'` is "Looked for files named "*.java" in src".
+
+Every command and every file is named, none counted away, and every step is listed in the panel.
+
+**Steps that open** (`agent/StepDetail`, `chat/ui/DetailSheet`). A step with a detail shows "+3 −1 ›" and opens with a tap, live or later from "Worked for…":
+- **A file written or edited:** its diff with line numbers, added lines in green and removed in red.
+- **A command:** the command and what it printed.
+- **A file read, or a listing:** its text.
+
+The detail is kept in `files/steps/<id>`, and the step line carries the id.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
