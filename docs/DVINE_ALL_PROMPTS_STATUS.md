@@ -40,7 +40,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 11 | Google search | P12 | Not built | There is no Google key. The app says so. It does not pretend to have searched Google |
 | 12 | Logged-in social search (X, Instagram, TikTok) | P12 | Not built | Reddit public titles only |
 | 13 | Real news search | P5 | Not built | The app says it has no news source and does not invent headlines |
-| 14 | Downloadable on-device model, Qwen3 1.7B, llama.cpp, arm64 | P3, P10 | Built | Download, SHA-256, JNI, streamed speech. Phone speed was not measured here |
+| 14 | Downloadable on-device model, Qwen3 1.7B, llama.cpp, arm64 | P3, P10 | Built | 0.47.0 to 0.47.7 dropped the call that hears "download your brain" (every message went to the brain, and with no brain installed nothing could read it); 0.47.8 handles the download words before the brain again. | Download, SHA-256, JNI, streamed speech. Phone speed was not measured here |
 | 15 | Termux from natural language, argument list, not a shell string | P1 | Partial | An allow-list (`df`, `ps`, and a few others). Anything else is refused. “Install Termux” opens the app or the store page |
 | 16 | SSH to a machine the user authorised | P1 | Partial | Connection, command, and file-browser classes exist. A destructive command waits for yes. Not proven on a device |
 | 17 | Microphone on must not cancel the running task | P7 | Built | Task states, pause, resume, and a separate microphone path exist in the ops package |
@@ -68,7 +68,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 39 | Multi-agent fleet: research agent, comparison agent, visual agent, in parallel | P3, P9 | Not built | One model. Personas change the prompt. There is no pool of subordinate agents |
 | 40 | Tool result verified before the app says it worked | P1, P8 | Partial | Termux and scene edits check an outcome. A spoken “done” is not proof for every tool |
 | 41 | Tests before commit, then push | P8 | Partial | JVM tests were run for the Java changes. Gradle and a device were not |
-| 42 | `gradle assembleDebug` and a phone smoke test | P4, P8 | Not built | This environment has no Android SDK run recorded for 0.45.2. The APK in `releases/` is still 0.26.2 |
+| 42 | `gradle assembleDebug` and a phone smoke test | P4, P8 | Partial | 0.47.8: `gradle assembleDebug` and the 226 JVM tests pass in a cloud session with the Android SDK; the APK is `releases/dvine-0.47.8-debug.apk`. No phone smoke test from here |
 | 43 | Date and clock answered on the phone, not invented | early chat | Built | Clock and date are read from the device |
 | 44 | Safe release: no secrets in the app, destructive actions confirmed | P1, P8 | Partial | Delete and remote destructive wording wait for yes. A GitHub token must not be stored in the repo |
 

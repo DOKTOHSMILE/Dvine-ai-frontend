@@ -10,8 +10,8 @@ android {
         applicationId "ai.dvine"
         minSdk 34
         targetSdk 35
-        versionCode 86
-        versionName "0.47.7"
+        versionCode 87
+        versionName "0.47.8"
         // the on-device language model (llama.cpp) is built for 64-bit ARM phones only
         ndk {
             abiFilters "arm64-v8a"
@@ -56,4 +56,12 @@ apply from: "tests.gradle"
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.core:core:1.12.0'
+}
+
+// appcompat brings kotlin-stdlib 1.8.22, which already contains the old kotlin-stdlib-jdk7 / -jdk8 classes; a
+// library still asks for those 1.6.0 jars, and two copies of the same classes stop the APK build
+// (checkDebugDuplicateClasses). Leave the old jars out.
+configurations.configureEach {
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
 }

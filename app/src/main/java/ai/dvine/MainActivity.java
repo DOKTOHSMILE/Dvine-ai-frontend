@@ -987,6 +987,26 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 play(noted.lines, null);
                 return;
             }
+            if (model != null && !model.ready() && model.state() != ai.dvine.llm.LocalModel.State.UNSUPPORTED
+                    && ai.dvine.llm.NativeLlm.available()) {
+                // no brain to read the words yet: say so, and offer it, instead of a flat refusal
+                if (model.state() == ai.dvine.llm.LocalModel.State.FAILED) {
+                    play(LocalTurn.speakAs(agent, "My brain couldn't start: " + model.problem() + "."), null);
+                } else if (model.installed()) {
+                    play(LocalTurn.speakAs(agent, "My brain is still starting. Ask me again in a moment."), null);
+                    if (model.state() != ai.dvine.llm.LocalModel.State.LOADING) {
+                        loadModel(false);
+                    }
+                } else if (model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING) {
+                    play(LocalTurn.speakAs(agent, "My brain is still downloading. I'll understand that once it's here."), null);
+                } else {
+                    confirmModelDownload = true;
+                    play(LocalTurn.speakAs(agent, "I need my brain to understand that. It's a " + model.spec.sizeWords()
+                            + " download, best on Wi-Fi, and then I can think offline. Shall I download it now?"),
+                            this::startListening);
+                }
+                return;
+            }
             play(LocalTurn.speakAs(agent, "I can't carry that out."), null);
             return;
         }
@@ -1158,6 +1178,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         paused = null;
+        // the one thing that can't wait for the brain: getting the brain ("download your brain", the yes to it,
+        // pause / continue / show the download). Without it there is nothing to read the words.
+        if (modelCommand(control)) {
+            return;
+        }
         askTheBrain(text);
         return;
     }
