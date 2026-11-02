@@ -119,6 +119,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 86 | All steps listed, not "+2 more" | P12 | Built | 0.58.0 |
 | 87 | Make my own messages copyable | P12 | Built (Robolectric) | 0.58.1: a copy icon under each, text selectable |
 | 88 | Stop the voice recording from starting by itself anywhere in the app | P12 | Built | 0.58.2: only a tap on the mic (or a hold on the stage) listens |
+| 89 | No more status lines, questions or empty replies instead of the result; fix it once and for all | P12 | Built (JVM) | 0.59.0: the agent works until it hands in its answer; dropped connections retried |
 
 ## Still open, in the order that matters
 

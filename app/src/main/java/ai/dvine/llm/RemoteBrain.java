@@ -275,7 +275,39 @@ public final class RemoteBrain {
      * One chat: the system instructions and the turns (role, text), streamed to {@code sink} piece by piece.
      * Returns the whole reply, or null when it failed or was stopped ({@link #problem} says why).
      */
+    /** Waits between tries after a dropped connection (ms). */
+    static long[] retryWaits = {1500, 4000};
+    private boolean transientFailure;
+
+    /**
+     * The model's reply, streamed to {@code sink}. A dropped connection ("Software caused connection abort", a broken
+     * stream) is tried again, twice, with a short wait, as long as nothing has been written yet; a server's error
+     * goes to the next model instead (LocalModel's switching). The reason of the last failure is in {@link #problem()}.
+     */
     public String chat(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
+        for (int attempt = 0; ; attempt++) {
+            transientFailure = false;
+            final int[] got = {0};
+            NativeLlm.Sink counted = text -> {
+                got[0]++;
+                return sink == null || sink.onText(text);
+            };
+            String out = chatOnce(system, turns, maxTokens, temperature, counted);
+            if (out != null || !transientFailure || got[0] > 0 || cancelled || attempt >= retryWaits.length) {
+                return out;
+            }
+            try {
+                Thread.sleep(retryWaits[attempt]);
+            } catch (InterruptedException e) {
+                return null;
+            }
+            if (cancelled) {
+                return null;
+            }
+        }
+    }
+
+    private String chatOnce(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
         cancelled = false;
         problem = null;
         used = null;
@@ -297,6 +329,7 @@ public final class RemoteBrain {
                     r = transport.post(url(), headers(keys[k], form), body(system, turns, maxTokens, temperature, form), timeoutMs);
                 } catch (IOException e) {
                     problem = "I couldn't reach " + host() + (e.getMessage() == null ? "" : " (" + e.getMessage() + ")");
+                    transientFailure = true;
                     return null;
                 }
                 try (InputStream in = r.body) {
@@ -327,6 +360,7 @@ public final class RemoteBrain {
                     return protocol == Protocol.ANTHROPIC ? readAnthropic(in, sink) : readOpenAi(in, sink);
                 } catch (IOException e) {
                     problem = "the connection to " + host() + " broke";
+                    transientFailure = true;
                     return null;
                 }
             }

@@ -386,4 +386,27 @@ public class RemoteBrainTest {
                 .chat("s", ask(msg), 48, 0.7f, null);
         assertTrue(t.bodies.get(0), t.bodies.get(0).contains("Jan\\t120"));
     }
+
+    @Test
+    public void aDroppedConnectionIsTriedAgain() {
+        long[] waits = RemoteBrain.retryWaits;
+        RemoteBrain.retryWaits = new long[]{0, 0};
+        try {
+            final int[] calls = {0};
+            RemoteBrain.Transport flaky = (url, h, body, timeoutMs) -> {
+                if (calls[0]++ < 2) {
+                    throw new java.io.IOException("Software caused connection abort");
+                }
+                return new RemoteBrain.Response(200, new ByteArrayInputStream(OPENAI_STREAM.getBytes(StandardCharsets.UTF_8)));
+            };
+            RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://brewkeg.dev/v1", "gpt-4.1", "k", "", flaky);
+            assertEquals("Hello there.", b.chat("s", ask("hi"), 48, 0.7f, null));
+            assertEquals(3, calls[0]);
+            calls[0] = -100; // always failing: gives up after two more tries, and says why
+            assertNull(b.chat("s", ask("hi"), 48, 0.7f, null));
+            assertTrue(b.problem(), b.problem().startsWith("I couldn't reach brewkeg.dev"));
+        } finally {
+            RemoteBrain.retryWaits = waits;
+        }
+    }
 }
