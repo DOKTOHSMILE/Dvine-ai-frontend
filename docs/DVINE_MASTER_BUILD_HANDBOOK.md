@@ -1418,6 +1418,26 @@ The agent's rules, from the user's screenshots:
 - A short line that opens with a work verb ("Fixing your build errors — digging into the failing sources.", "Inspecting the layouts…") is a progress note (`CodeAgent.GERUND_NOTE`), not the answer. Short real answers ("Fixed it — missing import added.") stay answers.
 - An empty `<final></final>` is sent back once or twice for the actual answer, so a "Continue" never shows an empty reply.
 
+## 50. The model decides when it is done; steps in a sheet (app v0.61.0, built)
+
+**No trigger words.** The agent no longer reads the model's wording to guess whether a reply is progress or the answer. The lists `status`, `promise`, `asksPermission` and `GERUND_NOTE` are removed. The work ends by structure:
+1. **A tool call:** it runs, and the work goes on.
+2. **`<final>…</final>`:** that is the answer.
+3. **Text with neither** (the model stopped writing): DVINE asks once, in the same words whatever was written (`DONE_OR_GO_ON`: "finished? put it in `<final>`; anything left? call the next tool"). What the model does next decides:
+   - a tool call: the work goes on;
+   - `<final>`, the same text again, or nothing more: the work is done, and the text is the answer.
+
+   A whole report (1,500+ characters) needs no asking. A short answer to a big task still gets one round to be written in full.
+
+**Written until it ends by itself.** `RemoteBrain` reads the server's own stop reason: `finish_reason: "length"` (OpenAI form) or `stop_reason: "max_tokens"` (Anthropic). When the allowance cut a reply off, the model is asked to continue exactly where it stopped, up to 4 times, and the pieces are joined into one reply. A reply that ended by itself is never extended.
+
+**Steps in a bottom sheet.** While the work runs, the chat keeps one line: a pulsing dot, then the current step typed out like a typewriter (18 ms a character), then the time and the step count with a ›. A tap opens a bottom sheet (`BottomSheet.showView`) listing every step, and the sheet grows while it is open. A step with a file change still opens its green/red diff. The reply comes underneath as plain text. Afterwards, "Worked for 6s · 4 steps ›" opens the same sheet instead of expanding in the chat.
+
+**Composer.**
+- Send ignores taps for 900 ms after a send, so a double tap neither cancels the reply nor sends twice.
+- The persona tabs have icons: graphics for Ivie (triangle, square, circle), a chat bubble for Obi and a wrench for Ibiko. The chosen tab also shows its name.
+- "Files" in the attach sheet picks several files of any kinds at once (`EXTRA_ALLOW_MULTIPLE`, `*/*`). Each one waits in the box for the instructions.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

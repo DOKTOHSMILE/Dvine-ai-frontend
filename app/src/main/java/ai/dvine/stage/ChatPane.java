@@ -186,9 +186,16 @@ public final class ChatPane extends LinearLayout {
             }
             book.add("assistant", "activity", body.toString().trim(), book.current().persona);
         }
+        if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
+            fillSteps(steps, true); // an open sheet stays, every step now ticked
+            stepsLive = false;
+        }
         steps.clear();
         workStarted = 0;
         thinkingText = null;
+        removeCallbacks(typeNext);
+        typing = "";
+        typed = 0;
         show();
     }
 
@@ -211,27 +218,119 @@ public final class ChatPane extends LinearLayout {
         }
     }
 
-    /** The live panel: a pulsing dot and the status, then each step (done ones ticked, the current one bold). */
+    /**
+     * The live line: a pulsing dot, what is happening now typed out like a typewriter ("Reading app/Main.java"), and
+     * the time and step count. The steps themselves are in a bottom sheet a tap away (live while it is open), so the
+     * chat keeps only this line and the reply as plain text.
+     */
     private View activityBlock() {
-        LinearLayout box = new LinearLayout(getContext());
-        box.setOrientation(VERTICAL);
-        box.setPadding(0, dp(8), 0, dp(8));
-        long secs = workStarted == 0 ? 0 : (System.currentTimeMillis() - workStarted) / 1000;
-        String head = thinkingText != null ? stripTimer(thinkingText) : "Working";
-        TextView top = plain("\u25CF  " + head + (secs > 0 ? " \u00B7 " + secs + "s" : ""));
-        top.setTextColor(color(R.color.accent));
-        top.setTextSize(14f);
-        top.setPadding(0, dp(2), 0, dp(4));
-        android.view.animation.AlphaAnimation pulse = new android.view.animation.AlphaAnimation(1f, 0.45f);
-        pulse.setDuration(700);
-        pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
-        pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
-        top.startAnimation(pulse);
-        box.addView(top);
-        for (int i = 0; i < steps.size(); i++) { // every step, none folded away
-            box.addView(stepLine(steps.get(i), i < steps.size() - 1, i == steps.size() - 1));
+        if (liveBlock == null) {
+            liveBlock = new LinearLayout(getContext());
+            liveBlock.setOrientation(HORIZONTAL);
+            liveBlock.setGravity(Gravity.CENTER_VERTICAL);
+            liveBlock.setPadding(0, dp(8), 0, dp(8));
+            liveBlock.setMinimumHeight(dp(40));
+            TextView dot = plain("\u25CF");
+            dot.setTextColor(color(R.color.accent));
+            dot.setTextSize(12f);
+            dot.setPadding(0, 0, dp(8), 0);
+            android.view.animation.AlphaAnimation pulse = new android.view.animation.AlphaAnimation(1f, 0.35f);
+            pulse.setDuration(700);
+            pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
+            pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
+            dot.startAnimation(pulse);
+            liveBlock.addView(dot);
+            liveNow = plain("");
+            liveNow.setTextColor(color(R.color.text_primary));
+            liveNow.setTextSize(14f);
+            liveNow.setPadding(0, 0, 0, 0);
+            liveNow.setMaxLines(2);
+            liveNow.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            liveBlock.addView(liveNow, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+            liveMeta = plain("");
+            liveMeta.setTextColor(color(R.color.text_secondary));
+            liveMeta.setTextSize(13f);
+            liveMeta.setPadding(dp(8), 0, 0, 0);
+            liveBlock.addView(liveMeta);
+            liveBlock.setOnClickListener(v -> openSteps("Working", steps, true));
+            liveBlock.setContentDescription("What is happening now; tap for every step");
         }
-        return box;
+        if (liveBlock.getParent() instanceof android.view.ViewGroup) {
+            ((android.view.ViewGroup) liveBlock.getParent()).removeView(liveBlock);
+        }
+        String now = !steps.isEmpty() ? ai.dvine.agent.StepDetail.words(steps.get(steps.size() - 1))
+                : thinkingText != null ? stripTimer(thinkingText) : "Working";
+        type(now);
+        long secs = workStarted == 0 ? 0 : (System.currentTimeMillis() - workStarted) / 1000;
+        liveMeta.setText((secs > 0 ? secs + "s" : "") + (steps.isEmpty() ? "" : (secs > 0 ? " \u00B7 " : "") + steps.size()
+                + " step" + (steps.size() == 1 ? "" : "s")) + "  \u203A");
+        if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
+            fillSteps(steps, false);
+        }
+        return liveBlock;
+    }
+
+    private LinearLayout liveBlock;
+    private TextView liveNow, liveMeta;
+    /** The words being typed and how many are shown so far. */
+    private String typing = "";
+    private int typed;
+    private final Runnable typeNext = new Runnable() {
+        @Override
+        public void run() {
+            if (liveNow == null || typed >= typing.length()) {
+                return;
+            }
+            typed = Math.min(typing.length(), typed + Math.max(1, typing.length() / 60)); // long lines type faster
+            liveNow.setText(typing.substring(0, typed) + (typed < typing.length() ? "\u258F" : ""));
+            if (typed < typing.length()) {
+                postDelayed(this, TYPE_MS);
+            }
+        }
+    };
+    /** A character every this many milliseconds: the typewriter's pace. */
+    static final long TYPE_MS = 18;
+
+    /** Types {@code words} into the live line, a character at a time; the same words again are left as they are. */
+    private void type(String words) {
+        if (words.equals(typing)) {
+            return;
+        }
+        typing = words;
+        typed = 0;
+        removeCallbacks(typeNext);
+        liveNow.setText("");
+        post(typeNext);
+    }
+
+    private android.app.Dialog stepsSheet;
+    private LinearLayout stepsList;
+    private boolean stepsLive;
+
+    /** The steps in a bottom sheet; {@code live}: the current work, which keeps adding to it while it is open. */
+    private void openSteps(String title, List<String> list, boolean live) {
+        stepsLive = live;
+        stepsList = new LinearLayout(getContext());
+        stepsList.setOrientation(VERTICAL);
+        stepsList.setPadding(dp(20), 0, dp(20), dp(8));
+        fillSteps(list, !live);
+        stepsSheet = ai.dvine.chat.ui.BottomSheet.showView((Activity) getContext(), title, stepsList);
+    }
+
+    private void fillSteps(List<String> list, boolean allDone) {
+        if (stepsList == null) {
+            return;
+        }
+        stepsList.removeAllViews();
+        if (list.isEmpty()) {
+            TextView none = plain(thinkingText != null ? stripTimer(thinkingText) : "Nothing yet.");
+            none.setTextColor(color(R.color.text_secondary));
+            stepsList.addView(none);
+        }
+        for (int i = 0; i < list.size(); i++) {
+            boolean last = i == list.size() - 1;
+            stepsList.addView(stepLine(list.get(i), allDone || !last, !allDone && last));
+        }
     }
 
     /**
@@ -280,27 +379,14 @@ public final class ChatPane extends LinearLayout {
                 kept.add(lines[i].trim());
             }
         }
-        final LinearLayout box = new LinearLayout(getContext());
-        box.setOrientation(VERTICAL);
         final String label = "Worked for " + secs + "s \u00B7 " + kept.size() + " step" + (kept.size() == 1 ? "" : "s");
         final TextView head = plain(label + "  \u203A");
         head.setTextColor(color(R.color.text_secondary));
         head.setTextSize(13f);
-        head.setPadding(0, dp(6), 0, dp(4));
-        box.addView(head);
-        head.setOnClickListener(v -> {
-            boolean open = box.getChildCount() > 1;
-            while (box.getChildCount() > 1) {
-                box.removeViewAt(1);
-            }
-            if (!open) {
-                for (String st : kept) {
-                    box.addView(stepLine(st, true, false));
-                }
-            }
-            head.setText(label + (open ? "  \u203A" : "  \u2304"));
-        });
-        return box;
+        head.setPadding(0, dp(8), 0, dp(6));
+        head.setContentDescription(label + ", open the steps");
+        head.setOnClickListener(v -> openSteps(label, kept, false));
+        return head;
     }
 
     private static String stripTimer(String line) {

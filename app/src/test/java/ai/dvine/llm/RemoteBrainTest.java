@@ -409,4 +409,40 @@ public class RemoteBrainTest {
             RemoteBrain.retryWaits = waits;
         }
     }
+
+    @Test
+    public void aReplyCutOffByItsLimitIsCarriedOnUntilItEnds() {
+        final java.util.List<String> sent = new java.util.ArrayList<String>();
+        final String[] parts = {
+                "data: {\"choices\":[{\"delta\":{\"content\":\"The audit found three \"}}]}\n"
+                        + "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\ndata: [DONE]\n",
+                "data: {\"choices\":[{\"delta\":{\"content\":\"problems, all fixed.\"}}]}\n"
+                        + "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\ndata: [DONE]\n"};
+        final int[] calls = {0};
+        RemoteBrain.Transport t = (url, h, body, timeoutMs) -> {
+            sent.add(new String(body, StandardCharsets.UTF_8));
+            return new RemoteBrain.Response(200, new ByteArrayInputStream(parts[Math.min(calls[0]++, 1)].getBytes(StandardCharsets.UTF_8)));
+        };
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://brewkeg.dev/v1", "gpt-4.1", "k", "", t);
+        assertEquals("The audit found three problems, all fixed.", b.chat("s", ask("audit"), 48, 0.7f, null));
+        assertEquals(2, calls[0]); // stopped by itself the second time: no third request
+        assertTrue(sent.get(1), sent.get(1).contains("The audit found three ") && sent.get(1).contains("Continue exactly where you stopped"));
+    }
+
+    @Test
+    public void anthropicMaxTokensIsCarriedOnToo() {
+        final String[] parts = {
+                "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Part one, \"}}\n"
+                        + "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"max_tokens\"},\"usage\":{\"output_tokens\":5}}\n"
+                        + "data: {\"type\":\"message_stop\"}\n",
+                "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"part two.\"}}\n"
+                        + "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n"
+                        + "data: {\"type\":\"message_stop\"}\n"};
+        final int[] calls = {0};
+        RemoteBrain.Transport t = (url, h, body, timeoutMs) ->
+                new RemoteBrain.Response(200, new ByteArrayInputStream(parts[Math.min(calls[0]++, 1)].getBytes(StandardCharsets.UTF_8)));
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-sonnet-5-5", "k", "", t);
+        assertEquals("Part one, part two.", b.chat("s", ask("write"), 48, 0.7f, null));
+        assertEquals(2, calls[0]);
+    }
 }

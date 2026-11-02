@@ -169,8 +169,8 @@ public final class CodeAgent {
         }
         this.work = work;
         boolean big = bigTask(task) || bigTask(resume);
-        int narrations = 0;
         boolean retried = false, reportAsked = false;
+        pending = null;
         for (int step = 1; step <= maxSteps; step++) {
             if (host.stopped()) {
                 return "Stopped." + summary();
@@ -182,6 +182,12 @@ public final class CodeAgent {
                     retried = true; // a dropped connection or an empty reply: once more before giving up
                     step--;
                     continue;
+                }
+                if (pending != null) {
+                    String answer = pending; // asked whether it was done, it had nothing to add: that text was the answer
+                    pending = null;
+                    String full = big && answer.length() < REPORT_CHARS && !reportAsked ? report(work, answer) : null;
+                    return full != null && full.length() > answer.length() ? full : answer;
                 }
                 String why = brain.why();
                 return "The model didn't answer" + (why == null || why.isEmpty() ? "" : " (" + why + ")") + ", so I stopped at step " + step
@@ -206,7 +212,7 @@ public final class CodeAgent {
             }
             Call call = parse(text);
             if (call != null) {
-                narrations = 0;
+                pending = null; // it carried on: whatever it wrote before was not the answer
                 String result;
                 try {
                     result = carryOut(call);
@@ -222,27 +228,23 @@ public final class CodeAgent {
                         + " <tool name=\"\u2026\" \u2026/> (see the tools), on its own.\n</result>\n");
                 continue;
             }
-            boolean asks = asksPermission(text);
-            boolean progress = asks || promise(text) || status(text);
-            if (!progress) {
-                if (!big || text.length() >= REPORT_CHARS || reportAsked) {
-                    return text; // an answer: a plain one to a plain request, or a whole report without the tag
-                }
-                reportAsked = true; // a real but short answer to an audit or research: one round to write it in full
-                String full = report(work, text);
-                return full != null && full.length() > text.length() ? full : text;
+            // No tool call and no <final>: the model stopped writing. Whether it is done is not guessed from its words:
+            // it is asked once, and it answers by what it does next (a tool call: the work goes on; <final> or plain
+            // text again: that is the answer). A whole report (1,500+ characters) needs no asking.
+            if (pending == null && text.length() < REPORT_CHARS) {
+                pending = text;
+                host.step(clip(text.replaceAll("\\s+", " "), 160).replace("\n\u2026(cut short)", "\u2026"));
+                work.append("\n").append(text).append("\n<result>\n").append(DONE_OR_GO_ON).append("\n</result>\n");
+                continue;
             }
-            // progress, a plan or "shall I continue?": never the end. It goes in the steps and the work goes on
-            narrations++;
-            host.step(clip(text.replaceAll("\\s+", " "), 160).replace("\n\u2026(cut short)", "\u2026"));
-            if (narrations >= 3 || (asks && narrations >= 2)) {
-                String full = report(work, text);
-                if (full != null) {
-                    return full;
-                }
-                return text + summary();
+            String answer = pending != null && pending.length() > text.length() ? pending : text;
+            pending = null;
+            if (big && answer.length() < REPORT_CHARS && !reportAsked) {
+                reportAsked = true; // a short answer to an audit or research: one round to write it in full
+                String full = report(work, answer);
+                return full != null && full.length() > answer.length() ? full : answer;
             }
-            work.append("\n").append(text).append("\n<result>\n").append(asks ? NO_ASKING : KEEP_GOING).append("\n</result>\n");
+            return answer;
         }
         // out of steps: never end empty-handed; the report from what was found, then "continue" goes on
         String full = report(work, "(all " + maxSteps + " steps used)");
@@ -252,47 +254,20 @@ public final class CodeAgent {
         return "I used all " + maxSteps + " steps without finishing. Say \u201ccontinue\u201d and I'll pick up from here." + summary();
     }
 
-    static final String KEEP_GOING = "That was a progress note, not the answer. Don't describe what you are doing: do it. Call the"
-            + " next tool now, and when everything is done give the complete answer inside <final>\u2026</final>.";
+    /** Text without a tool call or <final>: the model is asked, once, which it is. */
+    static final String DONE_OR_GO_ON = "You wrote text without a tool call. If the task is finished, give your complete answer"
+            + " inside <final>\u2026</final>: all of it, not a summary. If anything is left to do, don't describe it and don't"
+            + " ask: call the next tool now.";
+    /** The model's last text without a tool call, waiting to be confirmed as the answer; null when there is none. */
+    private String pending;
+
     static final String EMPTY_FINAL = "That <final> was empty, so the user would see nothing. If there is work left, do it with"
             + " the tools; otherwise write the whole answer inside <final>\u2026</final>: what you did, which files changed, and"
             + " what is still wrong.";
-    static final String NO_ASKING = "Don't ask the user whether to go on: they asked for the whole job. Carry on with the tools,"
-            + " and when everything is done give the complete answer inside <final>\u2026</final>.";
-
     /** The answer inside <final>…</final> (or after an unclosed <final>), or null when there is none. */
     static String finalOf(String text) {
         java.util.regex.Matcher m = Pattern.compile("(?s)<final>\\s*(.*?)\\s*(?:</final>|$)").matcher(text);
         return m.find() ? m.group(1).trim() : null;
-    }
-
-    /**
-     * A progress note rather than an answer: short, and about the work going on ("Got it \u2014 auditing your clone
-     * now, I'll pull the findings together", "Re-cloning and auditing \u2014 now reading the core files").
-     */
-    static boolean status(String text) {
-        String t = text.trim();
-        if (t.length() < 300 && !t.contains("```") && !t.contains("\n\n") && GERUND_NOTE.matcher(t).find()) {
-            return true; // "Fixing your build errors — digging into the failing sources.": a line about the work, not its result
-        }
-        return t.length() < 400 && !t.contains("```") && t.toLowerCase(Locale.US).matches("(?s).*\\b(now|next|then|i'?ll|i will|i'?m going to|"
-                + "going to|let me|starting|working on|mapping|checking|scanning|reading|looking|cloning|re-cloning|cloned|auditing|"
-                + "pulling|gathering|compiling|collecting|reviewing|analy[sz]ing|got it|on it|in progress|underway|stand by|one moment)\\b.*");
-    }
-
-    /** A sentence that opens with what it is doing ("Fixing …", "Inspecting …") or turns to it ("— digging into …"). */
-    static final Pattern GERUND_NOTE = Pattern.compile("(?i)(^|[\u2014\u2013]\\s*(and\\s+)?(now\\s+)?)(digging|looking|reading|checking|inspecting|investigating|searching|scanning|tracing|working|fixing|building|compiling|running|testing|cloning|re-cloning|pulling|exploring|reviewing|examining|auditing|analy[sz]ing|mapping|gathering|collecting|diving|heading|moving|starting|opening|patching|editing|updating|rewriting|refactoring|debugging|diagnosing|re-?running|verifying|preparing)\\b");
-
-    /** "Want me to continue…, or pause here?", "Shall I proceed?": asking leave instead of finishing. */
-    static boolean asksPermission(String text) {
-        String t = text.trim();
-        int q = t.lastIndexOf('?');
-        if (q < 0 || q < t.length() - 3) {
-            return false;
-        }
-        String last = t.substring(Math.max(0, t.lastIndexOf('\n', q) + 1)).toLowerCase(Locale.US);
-        return last.matches("(?s).*\\b(want me to|should i|shall i|do you want|would you like|continue|proceed|pause|go ahead|carry on|"
-                + "move on|keep going|next step)\\b.*");
     }
 
     /** The report written from everything done so far (a big allowance); null when the model gave nothing usable. */
@@ -337,20 +312,6 @@ public final class CodeAgent {
     }
 
     private int nudges;
-
-    /** A short reply that only says what it is about to do. */
-    static boolean promise(String answer) {
-        String a = answer.trim();
-        if (a.length() >= 280 || a.contains("?") || a.contains("```")) {
-            return false;
-        }
-        return a.matches("(?is)^(ok(ay)?[,.!]?\\s*)?(sure[,.!]?\\s*)?(i'?ll|i will|let me|i'?m going to|first,? i'?ll|next,? i'?ll)\\b.*")
-                // "Cloned \u2014 now auditing your codebase.", "Now checking the files…", "Starting the audit."
-                || a.matches("(?is)^(\\w+(\\s\\w+)?\\s*[\\u2014\\-,:.]+\\s*)?(now|next|then)\\s+(i'?ll\\s+|i'?m\\s+)?\\w+ing\\b.*")
-                || a.matches("(?is)^(starting|beginning|working on|moving on to)\\b.*") || a.endsWith("\u2026") || a.endsWith("...")
-                // "Auditing your codebase now — mapping structure and checking key files."
-                || (a.length() < 200 && a.matches("(?is)^\\w+ing\\b.*\\b(now|next)\\b.*"));
-    }
 
     private String summary() {
         return changed.isEmpty() ? "" : "\n\nChanged: " + String.join(", ", changed);

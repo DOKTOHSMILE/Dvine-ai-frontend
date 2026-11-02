@@ -82,7 +82,7 @@
                 android:scaleType="center"
                 android:src="@drawable/ic_attach" />
 
-            <!-- who answers: Ivie, Obi or Ibiko, a compact segmented control beside the attach button -->
+            <!-- who answers: Ivie (graphics), Obi (chat) or Ibiko (tools); icons, with the chosen one's name -->
             <LinearLayout
                 android:id="@+id/personaTabs"
                 android:layout_width="wrap_content"
@@ -95,27 +95,45 @@
 
                 <TextView
                     android:id="@+id/tabIvie"
-                    android:layout_width="48dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
+                    android:contentDescription="Ivie"
+                    android:drawableStart="@drawable/ic_persona_graphics"
+                    android:drawablePadding="4dp"
                     android:gravity="center"
+                    android:minWidth="40dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
                     android:text="Ivie"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/tabObi"
-                    android:layout_width="48dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
+                    android:contentDescription="Obi"
+                    android:drawableStart="@drawable/ic_persona_chat"
+                    android:drawablePadding="4dp"
                     android:gravity="center"
+                    android:minWidth="40dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
                     android:text="Obi"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/tabIbiko"
-                    android:layout_width="48dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
+                    android:contentDescription="Ibiko"
+                    android:drawableStart="@drawable/ic_persona_tools"
+                    android:drawablePadding="4dp"
                     android:gravity="center"
+                    android:minWidth="40dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
                     android:text="Ibiko"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />

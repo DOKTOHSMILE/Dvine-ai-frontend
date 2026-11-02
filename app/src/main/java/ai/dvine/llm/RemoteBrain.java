@@ -285,6 +285,30 @@ public final class RemoteBrain {
      * goes to the next model instead (LocalModel's switching). The reason of the last failure is in {@link #problem()}.
      */
     public String chat(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
+        String out = chatRetrying(system, turns, maxTokens, temperature, sink);
+        // the model was cut off by its allowance, not finished: it writes on from where it stopped, until it ends
+        // by itself (the server's own stop reason says which), and the pieces are one reply
+        for (int more = 0; out != null && cutOff && more < MAX_CONTINUATIONS && !cancelled; more++) {
+            List<String[]> next = new ArrayList<String[]>(turns);
+            next.add(new String[]{"assistant", out});
+            next.add(new String[]{"user", CONTINUE});
+            String rest = chatRetrying(system, next, maxTokens, temperature, sink);
+            if (rest == null || rest.isEmpty()) {
+                break;
+            }
+            out = out + rest;
+        }
+        return out;
+    }
+
+    /** How many times a reply cut off by its allowance is carried on. */
+    static final int MAX_CONTINUATIONS = 4;
+    static final String CONTINUE = "You were cut off by the length limit. Continue exactly where you stopped, mid-sentence"
+            + " if need be, without repeating anything or starting over.";
+    /** The last reply stopped at its allowance (finish_reason "length", stop_reason "max_tokens"), not by itself. */
+    private volatile boolean cutOff;
+
+    private String chatRetrying(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
         for (int attempt = 0; ; attempt++) {
             transientFailure = false;
             final int[] got = {0};
@@ -309,6 +333,7 @@ public final class RemoteBrain {
 
     private String chatOnce(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
         cancelled = false;
+        cutOff = false;
         problem = null;
         used = null;
         String why = check(baseUrl, model, key);
@@ -599,6 +624,9 @@ public final class RemoteBrain {
             if (choices.isEmpty()) {
                 continue;
             }
+            if ("length".equals(MiniJson.str(MiniJson.obj(choices.get(0)).get("finish_reason"), ""))) {
+                cutOff = true;
+            }
             String piece = MiniJson.str(MiniJson.obj(MiniJson.obj(choices.get(0)).get("delta")).get("content"), "");
             if (!piece.isEmpty()) {
                 all.append(piece);
@@ -613,6 +641,7 @@ public final class RemoteBrain {
             Map<String, Object> o = parse(plain.toString());
             List<Object> choices = o == null ? new ArrayList<Object>() : MiniJson.list(o.get("choices"));
             String text = choices.isEmpty() ? "" : MiniJson.str(MiniJson.obj(MiniJson.obj(choices.get(0)).get("message")).get("content"), "");
+            cutOff = !choices.isEmpty() && "length".equals(MiniJson.str(MiniJson.obj(choices.get(0)).get("finish_reason"), ""));
             if (!text.isEmpty() && sink != null) {
                 sink.onText(text);
             }
@@ -678,6 +707,7 @@ public final class RemoteBrain {
             }
         }
         used = new Used(input, output);
+        cutOff = "max_tokens".equals(stop);
         if ("refusal".equals(stop) && all.length() == 0) {
             problem = "the model declined to answer that";
             return null;

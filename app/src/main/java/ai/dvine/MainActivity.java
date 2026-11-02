@@ -490,6 +490,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void setPersonaTab(android.widget.TextView tab, boolean selected) {
         if (tab == null)
             return;
+        // an icon each (graphics for Ivie, chat for Obi, tools for Ibiko); the chosen one also shows its name
+        CharSequence name = tab.getContentDescription();
+        tab.setText(selected && name != null ? name : "");
+        tab.setCompoundDrawablePadding(selected ? Math.round(4 * getResources().getDisplayMetrics().density) : 0);
+        tab.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(
+                getColor(selected ? R.color.text_primary : R.color.text_secondary)));
         tab.setTextColor(getColor(selected ? R.color.text_primary : R.color.text_secondary));
         tab.setTypeface(null,
                 selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
@@ -636,6 +642,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
+    /** After a send, taps on the button are ignored this long, so a double tap neither cancels nor sends twice. */
+    static final long SEND_GUARD_MS = 900;
+    private long lastSendAt = -SEND_GUARD_MS;
+
     private void sendComposer() {
         android.widget.EditText field = findViewById(R.id.et_message);
         if (field == null || field.getText() == null) {
@@ -643,12 +653,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         String text = field.getText().toString().trim();
         boolean attached = attachments != null && !attachments.isEmpty();
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastSendAt < SEND_GUARD_MS) {
+            return; // a double tap: the second tap would otherwise stop the reply it just asked for, or send twice
+        }
         if (text.isEmpty() && !attached) {
             if (generating) {
                 stopGeneration();
             }
             return;
         }
+        lastSendAt = now;
         field.setText("");
         voiceTurn = dictation != null && dictation.takeDraft();
         if (attached) {
@@ -901,7 +916,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_image, "Photo", "From your gallery"),
                 new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_video, "Video", null),
                 new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_audio, "Audio", null),
-                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_file, "File", "Text or PDF"),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_file, "Files", "Any kind, several at once"),
                 new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_cube, "Several photos of one object", "Builds a 3D model from them") };
         ai.dvine.chat.ui.BottomSheet.show(this, "Add to the chat", items, which -> {
             if (which == 0) {
@@ -3097,12 +3112,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             intent.setType("video/*");
         } else if ("audio".equals(kind)) {
             intent.setType("audio/*");
-        } else if ("document".equals(kind)) {
-            intent.setType("*/*");
-            intent.putExtra(android.content.Intent.EXTRA_MIME_TYPES,
-                    new String[] { "text/plain", "text/*", "application/pdf" });
         } else {
-            intent.setType("*/*");
+            intent.setType("*/*"); // any kind of file: documents, code, sheets, archives, models…
+        }
+        if (!learn) {
+            intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, true); // several at once, of any kinds
         }
         try {
             startActivityForResult(intent, PICK_CONTENT);
@@ -3188,6 +3202,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             new Thread(() -> deliverReconstruction(chosen, token), "dvine-recon").start();
             return;
         }
+        if (resultCode == RESULT_OK && data != null && !pickerLearn && attachments != null) {
+            java.util.List<android.net.Uri> picked = pickedUris(data);
+            if (!picked.isEmpty()) {
+                for (android.net.Uri u : picked) {
+                    try {
+                        getContentResolver().takePersistableUriPermission(u,
+                                data.getFlags() & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (SecurityException ignored) {
+                    }
+                    attachPicked(u); // each waits in the box for the user's instructions
+                }
+                return;
+            }
+        }
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             pickerLearn = false;
             play(LocalTurn.speakAs(stage.agent(), "You closed the picker. I didn't open a file."),
@@ -3210,6 +3238,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.activity("FILE", "Reading the file");
         final int token = ++askId;
         new Thread(() -> deliverFile(uri, learn, token), "dvine-file").start();
+    }
+
+    /** Every file the picker returned: several (ClipData) or one (getData). */
+    static java.util.List<android.net.Uri> pickedUris(android.content.Intent data) {
+        java.util.ArrayList<android.net.Uri> uris = new java.util.ArrayList<android.net.Uri>();
+        android.content.ClipData clip = data.getClipData();
+        if (clip != null) {
+            for (int i = 0; i < clip.getItemCount(); i++) {
+                android.net.Uri uri = clip.getItemAt(i).getUri();
+                if (uri != null && !uris.contains(uri)) {
+                    uris.add(uri);
+                }
+            }
+        }
+        if (uris.isEmpty() && data.getData() != null) {
+            uris.add(data.getData());
+        }
+        return uris;
     }
 
     private void deliverReconstruction(java.util.List<android.net.Uri> uris, int token) {
