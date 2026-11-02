@@ -1157,6 +1157,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final ai.dvine.net.SessionClient session = new ai.dvine.net.SessionClient(this::serverUrl,
                 prefs, new ai.dvine.net.DeviceVault(prefs));
+        ai.dvine.llm.ProviderStore.serverSession = session::token; // the DVINE server's own model signs in with it
         sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store, session::token,
                 pack -> {
                     final ai.dvine.brain.KnowledgePack full = store.load();
@@ -1309,6 +1310,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void endThink() {
         if (chatPane != null) {
             chatPane.activityEnd();
+        }
+        final String slow = model == null ? null : model.slowAdvice(ai.dvine.chat.Tuning.SLOW_SPEED.get(prefs));
+        if (slow != null && chatPane != null) {
+            // the phone's own model has been slow for three replies: say once what would make it faster (posted on the
+            // chat itself: the activity's handler is cleared when the reply starts playing)
+            final ai.dvine.stage.ChatPane pane = chatPane;
+            pane.postDelayed(() -> {
+                if (stage != null) {
+                    pane.assistant(stage.agent(), slow);
+                }
+            }, 2500);
         }
         thinkPace = null;
         if (chatPane != null && streamOpen == false) {
@@ -1642,7 +1654,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         armThink(readOnly ? who + " is reading the files" : who + " is working", who + " is working");
         final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
-        final String earlier = chats == null ? "" : chats.transcript(model.remoteOn() ? 12000 : 1500, model.remoteOn() ? 6000 : 220); // what was already found, whole
+        final String earlier = chats == null ? "" : chats.transcript(model.remoteOn() ? 12000 : Math.max(1500, model.window()),
+                model.remoteOn() ? 6000 : Math.max(220, model.window() / 6)); // what was already found, as much as the model can hold
         final String tools = connectorTools();
         model.coding = true;
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> askId,
@@ -2488,6 +2501,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private int modelGeneration;
 
     private void loadModel(final boolean tell) {
+        model.context(ai.dvine.chat.Tuning.OFFLINE_CONTEXT.get(prefs)); // Settings › Advanced › Offline model memory
         modelThread.execute(() -> {
             final boolean ok = model.load(
                     ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
@@ -2505,8 +2519,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             }
                         }) : null);
             }
+            final String memory = ok ? model.takeMemoryNote() : null;
             handler.post(() -> {
-                stage.activity("MODEL", ok ? "ready, offline" : model.problem());
+                if (memory != null) {
+                    note(memory); // it had to start with less memory than asked
+                }
+                stage.activity("MODEL", ok ? "ready, offline (" + model.localWindow() + " tokens of memory)" : model.problem());
                 int taught = journal == null ? 0 : journal.taughtCount();
                 if (ok) {
                     stage.activity("BRAIN",
@@ -3543,6 +3561,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         connectivity.start();
         applyProvider(); // back from the AI providers sheet: the brain the user chose answers
         applySettings(); // back from Settings: name, voice speed, Enter key, deleted chats
+        if (model != null && model.context(ai.dvine.chat.Tuning.OFFLINE_CONTEXT.get(prefs)) && prefs.getBoolean("llm_on", true)) {
+            loadModel(false); // the offline model's memory was changed in Settings: it starts again with the new size
+        }
         if (hub != null && hub.generation != modelGeneration) {
             modelGeneration = hub.generation; // another offline model was chosen in Settings: it starts now
             reportModel();

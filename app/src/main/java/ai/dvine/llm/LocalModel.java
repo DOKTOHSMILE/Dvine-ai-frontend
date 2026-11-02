@@ -25,8 +25,16 @@ public final class LocalModel {
     private final ReplyLease replies = new ReplyLease();
     /** What each reply used, for the Usage screen. */
     public final UsageLog usage = new UsageLog();
-    /** The context window the phone's own brain is loaded with (tokens). */
+    /** The smallest context window the phone's own brain is loaded with (tokens): the fallback when memory is short. */
     public static final int LOCAL_WINDOW = 2048;
+    /** The memory asked for (Settings › Advanced › Offline model memory) and what the loaded model really has. */
+    private volatile int contextTokens = 8192, loadedContext;
+    /** Said once after a load that had to take less memory than asked; null otherwise. */
+    private volatile String memoryNote;
+    /** The last few local replies' speeds, tokens a second, newest last. */
+    private final java.util.ArrayDeque<Float> speeds = new java.util.ArrayDeque<Float>();
+    /** The model and memory the slowness advice was last given for, so it is said once. */
+    private volatile String advisedFor;
     /**
      * The brains the user brought (APIs), in the order they are tried: the first that isn't resting answers; one
      * that fails before it has said anything hands over to the next (up to three), and rests for a while.
@@ -193,7 +201,84 @@ public final class LocalModel {
             }
             return chain.get(0).window;
         }
-        return LOCAL_WINDOW;
+        return localWindow();
+    }
+
+    /** The phone's own brain's context window: what it was loaded with, or what it will be. */
+    public int localWindow() {
+        return loadedContext > 0 ? loadedContext : contextTokens;
+    }
+
+    /**
+     * The memory to load the model with, in tokens. A loaded model with another size is freed (true: load it again
+     * with {@link #load}); otherwise the size is used at the next load.
+     */
+    public synchronized boolean context(int tokens) {
+        int t = Math.max(LOCAL_WINDOW, tokens);
+        if (t == contextTokens) {
+            return false;
+        }
+        contextTokens = t;
+        advisedFor = null;
+        if (handle != 0 && loadedContext != t) {
+            NativeLlm.nFree(handle);
+            handle = 0;
+            loadedContext = 0;
+            history.clear();
+            if (state == State.READY) {
+                state = State.INSTALLED;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /** What to tell the user once after a load that had to settle for less memory; null when there is nothing. */
+    public String takeMemoryNote() {
+        String n = memoryNote;
+        memoryNote = null;
+        return n;
+    }
+
+    /**
+     * Advice when the phone's own model is slow: the last three local replies averaged under {@code slowBelow}
+     * tokens a second. It names a smaller size of the same family, or less memory, or an API; said once per model
+     * and memory size. Null when it is fast enough, or the advice was already given.
+     */
+    public String slowAdvice(int slowBelow) {
+        float sum = 0;
+        int n;
+        synchronized (speeds) {
+            n = speeds.size();
+            for (float f : speeds) {
+                sum += f;
+            }
+        }
+        if (n < 3 || sum / n >= slowBelow) {
+            return null;
+        }
+        String key = spec.file + "|" + localWindow();
+        if (key.equals(advisedFor)) {
+            return null;
+        }
+        advisedFor = key;
+        String speed = String.format(java.util.Locale.US, "%.1f", sum / n);
+        ModelSpec smaller = null;
+        for (ModelSpec m : ModelSpec.sizes(spec.family)) {
+            if (m.bytes < spec.bytes) {
+                smaller = m; // the next size down
+            }
+        }
+        StringBuilder b = new StringBuilder(spec.weights + " is running slowly on this phone (" + speed + " tokens a second). For faster replies:");
+        if (smaller != null) {
+            b.append("\n\u2022 a smaller size, ").append(smaller.weights).append(" (tap the model name at the top)");
+        }
+        if (localWindow() > 4096) {
+            b.append("\n\u2022 less memory: Settings \u203A Advanced \u203A Offline model memory, 4,096 instead of ")
+                    .append(String.format(java.util.Locale.US, "%,d", localWindow()));
+        }
+        b.append("\n\u2022 an API model for the heavy work (Settings \u203A AI providers)");
+        return b.toString();
     }
 
     /** Downloads and verifies the model (blocking); the progress callback may stop it. */
@@ -225,7 +310,19 @@ public final class LocalModel {
             return false;
         }
         state = State.LOADING;
-        handle = NativeLlm.nLoad(file.getPath(), 2048, threads);
+        int want = contextTokens;
+        handle = NativeLlm.nLoad(file.getPath(), want, threads);
+        if (handle == 0 && want > LOCAL_WINDOW) {
+            // not enough memory for that much: the smallest working memory still runs, and the user is told
+            handle = NativeLlm.nLoad(file.getPath(), LOCAL_WINDOW, threads);
+            if (handle != 0) {
+                memoryNote = "There wasn't enough free memory for " + String.format(java.util.Locale.US, "%,d", want) + " tokens, so "
+                        + spec.weights + " runs with " + String.format(java.util.Locale.US, "%,d", LOCAL_WINDOW)
+                        + " (Settings \u203A Advanced \u203A Offline model memory).";
+                want = LOCAL_WINDOW;
+            }
+        }
+        loadedContext = handle == 0 ? 0 : want;
         if (handle == 0) {
             state = State.FAILED;
             problem = "the model couldn't be loaded (not enough memory, or a damaged file)";
@@ -509,8 +606,22 @@ public final class LocalModel {
         for (String[] t : turns) {
             conversation += UsageLog.estimate(t[1]);
         }
-        usage.record(new UsageLog.Call("On this phone: " + spec.weights, LOCAL_WINDOW, UsageLog.estimate(system), conversation,
+        usage.record(new UsageLog.Call("On this phone: " + spec.weights, localWindow(), UsageLog.estimate(system), conversation,
                 UsageLog.estimate(message), Math.max(pieces, 1), false, now - began, now));
+        noteSpeed(pieces, now - began);
+    }
+
+    /** Keeps the speed of a local reply (pieces written a second) for {@link #slowAdvice}; short replies don't count. */
+    void noteSpeed(int pieces, long millis) {
+        if (pieces < 16 || millis <= 0) {
+            return;
+        }
+        synchronized (speeds) {
+            speeds.addLast(pieces * 1000f / millis);
+            while (speeds.size() > 3) {
+                speeds.removeFirst();
+            }
+        }
     }
 
     /** Stops a reply being written (from any thread). */
@@ -566,6 +677,10 @@ public final class LocalModel {
         if (handle != 0) {
             NativeLlm.nFree(handle);
             handle = 0;
+        }
+        loadedContext = 0;
+        synchronized (speeds) {
+            speeds.clear(); // a new model's speed is its own
         }
         history.clear();
         File old = file;

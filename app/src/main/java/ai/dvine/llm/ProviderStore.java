@@ -21,9 +21,11 @@ import javax.crypto.spec.GCMParameterSpec;
 public final class ProviderStore {
     private static final String KEY_ALIAS = "dvine_api_keys";
     private final SharedPreferences prefs;
+    private final Context context;
 
     public ProviderStore(Context c) {
-        prefs = c.getApplicationContext().getSharedPreferences("dvine_providers", Context.MODE_PRIVATE);
+        context = c.getApplicationContext();
+        prefs = context.getSharedPreferences("dvine_providers", Context.MODE_PRIVATE);
     }
 
     public Providers active() {
@@ -128,8 +130,25 @@ public final class ProviderStore {
         return b.toString();
     }
 
+    /**
+     * This phone's sign-in to its DVINE server (a session token, renewed when it runs out), set by the app; null
+     * while the app has none. The DVINE server provider uses it instead of a key.
+     */
+    public static volatile java.util.function.Supplier<String> serverSession;
+    /** The path of the server's own model (OpenAI form) under the server's address. */
+    public static final String SERVER_MODEL_PATH = "/api/v1/llm";
+
     public String address(Providers p) {
+        if (p == Providers.DVINE_SERVER && !prefs.contains(p.name() + ".address")) {
+            return serverRoot().replaceAll("/+$", "") + SERVER_MODEL_PATH; // the server the app already uses
+        }
         return prefs.getString(p.name() + ".address", p.address);
+    }
+
+    /** The DVINE server's address, as the app is set up with (Settings or the build's default). */
+    private String serverRoot() {
+        String set = context.getSharedPreferences("dvine", Context.MODE_PRIVATE).getString("server", null);
+        return set != null && !set.isEmpty() ? set : context.getString(ai.dvine.R.string.api_base);
     }
 
     public String model(Providers p) {
@@ -205,14 +224,23 @@ public final class ProviderStore {
     }
 
     public String key(Providers p) {
+        if (p == Providers.DVINE_SERVER && serverSession != null) {
+            return SIGNED_IN; // the live session is fetched at each request (RemoteBrain.keySource)
+        }
         return open(prefs.getString(p.name() + ".key", ""));
     }
+
+    /** Stands in for a key where the phone's sign-in is used instead. */
+    static final String SIGNED_IN = "signed-in";
 
     public String backupKey(Providers p) {
         return open(prefs.getString(p.name() + ".backup", ""));
     }
 
     public boolean hasKey(Providers p) {
+        if (p == Providers.DVINE_SERVER) {
+            return serverSession != null;
+        }
         return !prefs.getString(p.name() + ".key", "").isEmpty();
     }
 
@@ -257,7 +285,14 @@ public final class ProviderStore {
         if (!p.api() || RemoteBrain.check(address(p), model(p), key(p)) != null) {
             return null;
         }
-        return configured(p, new RemoteBrain(p.protocol, address(p), model(p), key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p)))));
+        return signedIn(p, configured(p, new RemoteBrain(p.protocol, address(p), model(p), key(p), backupKey(p),
+                RemoteBrain.https(sockets(certificate(p))))));
+    }
+
+    /** The DVINE server signs in with the phone's session, fetched at each request; other providers keep their key. */
+    private static RemoteBrain signedIn(Providers p, RemoteBrain b) {
+        java.util.function.Supplier<String> s = serverSession;
+        return p == Providers.DVINE_SERVER && s != null ? b.keySource(s) : b;
     }
 
     /** The same provider on its fast model, or null when there is none (or smart routing is off). */
@@ -266,7 +301,8 @@ public final class ProviderStore {
         if (!smartRouting() || fast.isEmpty() || fast.equals(model(p)) || brain(p) == null) {
             return null;
         }
-        return configured(p, new RemoteBrain(p.protocol, address(p), fast, key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p)))));
+        return signedIn(p, configured(p, new RemoteBrain(p.protocol, address(p), fast, key(p), backupKey(p),
+                RemoteBrain.https(sockets(certificate(p))))));
     }
 
     /**

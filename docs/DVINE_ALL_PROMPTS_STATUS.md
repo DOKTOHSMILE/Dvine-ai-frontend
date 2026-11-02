@@ -124,6 +124,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 91 | Send double tap; persona icons; steps in a bottom sheet with a typewriter line; no trigger words, write until done; pick several files of any kind | P12 | Built (Robolectric) | 0.61.0: the model ends its turn by structure (tool call, <final>, or text confirmed once), cut-off replies continue until they end by themselves |
 | 92 | Copy icon on my message only on a tap; standard check icon; teach the model push/pull and a local sandbox; better offline model? | P12 | Built (Robolectric) | 0.62.0: tap toggles copy, hidden on new messages; ic_check; git workflow + sandbox/ in Ibiko's prompt; clone limit a setting (5,000). Offline model: answered in chat, not changed |
 | 93 | Yes: add more advanced offline models; delete to save space; sizes per family (like Opus/Sonnet/Haiku), switch any time | P12 | Built (Robolectric) | 0.63.0: Settings › Change the offline model (family, then size: Qwen3 0.6B–8B, Llama 3.2 1B/3B, Gemma 3 1B/4B, Phi-4 mini); Delete per model; quick switch from the chat header; not yet run on a phone |
+| 94 | Server as an online model; offline memory 8,192 customizable with slowness advice; GPU speed | P12 | Partial | 0.64.0 + backend: /api/v1/llm relays to llama-server, DVINE server provider signs in with the session; memory setting and advice built. GPU (Vulkan) not built: building upstream code was refused in the cloud session |
 
 ## Still open, in the order that matters
 

@@ -331,6 +331,15 @@ public final class RemoteBrain {
         }
     }
 
+    /** Where a key that changes (a server session, renewed every few hours) comes from; null: the fixed key. */
+    private volatile java.util.function.Supplier<String> keySource;
+
+    /** Takes its key from {@code source} at every request (called off the main thread; null means "not signed in"). */
+    public RemoteBrain keySource(java.util.function.Supplier<String> source) {
+        keySource = source;
+        return this;
+    }
+
     private String chatOnce(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
         cancelled = false;
         cutOff = false;
@@ -342,6 +351,16 @@ public final class RemoteBrain {
             return null;
         }
         String[] keys = backupKey.isEmpty() || backupKey.equals(key) ? new String[]{key} : new String[]{key, backupKey};
+        java.util.function.Supplier<String> source = keySource;
+        if (source != null) {
+            String live = source.get();
+            if (live == null || live.isEmpty()) {
+                problem = "the phone couldn't sign in to the DVINE server";
+                transientFailure = true;
+                return null;
+            }
+            keys = new String[]{live};
+        }
         for (int k = 0; k < keys.length; k++) {
             boolean last = k == keys.length - 1;
             // a server that refuses one optional field is asked again in the plainer form

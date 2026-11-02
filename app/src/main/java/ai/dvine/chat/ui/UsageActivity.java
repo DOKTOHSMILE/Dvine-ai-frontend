@@ -119,7 +119,7 @@ public final class UsageActivity extends AppCompatActivity {
                 : "On this phone: " + hub.model.spec.weights;
         brain.addView(row("Chosen", answers));
         brain.addView(row("On this phone", phoneState(m)), Ui.wide(this, 8));
-        brain.addView(row("Context window", tokens(active.api() ? store.window(active) : LocalModel.LOCAL_WINDOW) + " tokens"), Ui.wide(this, 8));
+        brain.addView(row("Context window", tokens(active.api() ? store.window(active) : hub.model.localWindow()) + " tokens"), Ui.wide(this, 8));
         TextView change = Ui.text(this, "Change the model", 15, Ui.ACCENT, false);
         change.setPadding(0, Ui.dp(this, 14), 0, 0);
         change.setOnClickListener(v -> startActivity(new android.content.Intent(this, ProvidersActivity.class)));

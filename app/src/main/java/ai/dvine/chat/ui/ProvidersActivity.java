@@ -239,6 +239,14 @@ public final class ProvidersActivity extends AppCompatActivity {
         keyBox.addView(show, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.CENTER_VERTICAL));
         card.addView(keyBox, Ui.wide(this, 14));
+        if (p == Providers.DVINE_SERVER) {
+            // no key: the phone signs in to its own DVINE server; the address is that server's unless changed
+            keyBox.setVisibility(View.GONE);
+            card.addView(Ui.text(this, ai.dvine.llm.ProviderStore.serverSession != null
+                    ? "Signs in with this phone's own account on the server. The server's owner runs the model (docs/SERVER_MODEL.md)."
+                    : "Open the chat once so the app can sign in to the server; then this works without a key.", 13, Ui.SUB, false),
+                    Ui.wide(this, 10));
+        }
 
         f.backup = Ui.field(this, "Backup key (used when the first is refused or out of credit)", store.backupKey(p), true, false);
         final TextView addBackup = Ui.text(this, "Add backup key", 15, Ui.ACCENT, false);
@@ -246,6 +254,9 @@ public final class ProvidersActivity extends AppCompatActivity {
         boolean hasBackup = !store.backupKey(p).isEmpty();
         f.backup.setVisibility(hasBackup ? View.VISIBLE : View.GONE);
         addBackup.setVisibility(hasBackup ? View.GONE : View.VISIBLE);
+        if (p == Providers.DVINE_SERVER) {
+            addBackup.setVisibility(View.GONE); // signed in, no keys
+        }
         addBackup.setOnClickListener(v -> {
             f.backup.setVisibility(View.VISIBLE);
             addBackup.setVisibility(View.GONE);

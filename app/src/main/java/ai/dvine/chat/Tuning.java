@@ -48,8 +48,14 @@ public final class Tuning {
             "A repository with more files than this isn't cloned onto the phone (a bigger number needs more storage and time).",
             5000, 100, 50000);
 
+    public static final Knob OFFLINE_CONTEXT = new Knob("adv_offline_context", "Offline model memory, tokens",
+            "How much of the conversation and the work the phone's own model keeps in mind. More lets Ibiko work offline and"
+                    + " remember longer chats, but takes more of the phone's memory and starts slower.", 8192, 1024, 32768);
+    public static final Knob SLOW_SPEED = new Knob("adv_slow_speed", "Offline model is slow below, tokens a second",
+            "When the phone's own model writes slower than this, DVINE suggests a smaller size or less memory.", 4, 1, 50);
+
     public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES,
-            CLONE_FILES};
+            CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED};
 
     private Tuning() {
     }
