@@ -254,6 +254,39 @@ public class LaunchTest {
         }
     }
 
+    @Test
+    public void aRephrasedCommandIsActedOnByItsMeaning() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        // Ibiko has work under way, and "where are we with that" was understood before as "give me the result"
+        c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
+        java.nio.file.Files.write(new java.io.File(c.get().getFilesDir(), "agent-ibiko.txt").toPath(),
+                "Task: audit the repo\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        ai.dvine.turn.Meaning.Memory m = new ai.dvine.turn.Meaning.Memory();
+        m.put("Where are we with that?", ai.dvine.turn.Meaning.Command.RESULT);
+        prefs.edit().putString("meanings", m.write()).commit();
+        java.lang.reflect.Field mf = MainActivity.class.getDeclaredField("meanings");
+        mf.setAccessible(true);
+        mf.set(c.get(), null); // read again from the phone
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        field.setText("where are we with that");
+        c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.TextView note = c.get().findViewById(ai.dvine.R.id.composer_note);
+        org.junit.Assert.assertEquals("Understood as \u201cgive me the result\u201d", note.getText().toString());
+        // the user's own words stay in the chat
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        boolean kept = false;
+        for (ai.dvine.chat.ChatBook.Message msg : chats.current().messages) {
+            kept |= "user".equals(msg.role) && "where are we with that".equals(msg.body);
+        }
+        org.junit.Assert.assertTrue(kept);
+        c.pause().stop().destroy();
+    }
+
     /** Taps the row of a bottom sheet whose name is {@code name}. */
     private static void tapRow(android.app.Dialog sheet, String name) {
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();

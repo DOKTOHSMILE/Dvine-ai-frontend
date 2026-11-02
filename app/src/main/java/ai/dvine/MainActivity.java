@@ -1974,8 +1974,68 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (modelCommand(control)) {
             return;
         }
+        if (!interpreted && !carriesOn(text) && ai.dvine.turn.Meaning.worthReading(text)) {
+            understand(text); // the words didn't match a command's wording: the brain reads what they mean
+            return;
+        }
         askTheBrain(text);
         return;
+    }
+
+    /** The phrasings already understood ("are you done?" → give me the result), kept on the phone. */
+    private ai.dvine.turn.Meaning.Memory meanings;
+    /** The message being read; a newer message makes an older reading moot. */
+    private int meaningToken;
+
+    private ai.dvine.turn.Meaning.Memory meanings() {
+        if (meanings == null) {
+            meanings = ai.dvine.turn.Meaning.Memory.read(prefs == null ? null : prefs.getString("meanings", null));
+        }
+        return meanings;
+    }
+
+    /**
+     * Reads what a short message means before acting on it: one of the commands DVINE carries out itself (carry on,
+     * hand in the result, get or remove the model…), however it is worded, or none. A phrasing understood before is
+     * known at once; a new one is read by the brain (a few tokens) and remembered. Then DVINE acts on the command's own
+     * wording, or passes the message on as it was written.
+     */
+    private void understand(final String text) {
+        final boolean work = paused != null || !agentWork(stage.agent()).isEmpty();
+        ai.dvine.turn.Meaning.Command known = meanings().get(text);
+        if (known != null) {
+            act(text, known, work);
+            return;
+        }
+        if (model == null || !model.ready() || !prefs.getBoolean("llm_on", true) && !model.remoteOn()) {
+            askTheBrain(text); // nothing to read it with: it goes on as written
+            return;
+        }
+        final int token = ++meaningToken;
+        new Thread(() -> {
+            String reply = model.task(ai.dvine.turn.Meaning.prompt(work), text, 24, null);
+            final ai.dvine.turn.Meaning.Command c = ai.dvine.turn.Meaning.read(reply);
+            handler.post(() -> {
+                if (token != meaningToken || isFinishing()) {
+                    return;
+                }
+                if (reply != null) {
+                    meanings().put(text, c);
+                    prefs.edit().putString("meanings", meanings().write()).apply();
+                }
+                act(text, c, work);
+            });
+        }, "dvine-meaning").start();
+    }
+
+    /** Carries out what the message meant: the command under its own wording, or the message itself. */
+    private void act(String text, ai.dvine.turn.Meaning.Command c, boolean work) {
+        if (c == ai.dvine.turn.Meaning.Command.NONE || (c.needsWork && !work)) {
+            askTheBrain(text);
+            return;
+        }
+        note("Understood as \u201c" + c.canonical + "\u201d");
+        answer(c.canonical, true); // the user's own words stay in the chat; the command's wording is what runs
     }
 
     private static String spoken(List<TurnLine> said) {

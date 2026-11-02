@@ -126,6 +126,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 93 | Yes: add more advanced offline models; delete to save space; sizes per family (like Opus/Sonnet/Haiku), switch any time | P12 | Built (Robolectric) | 0.63.0: Settings › Change the offline model (family, then size: Qwen3 0.6B–8B, Llama 3.2 1B/3B, Gemma 3 1B/4B, Phi-4 mini); Delete per model; quick switch from the chat header; not yet run on a phone |
 | 94 | Server as an online model; offline memory 8,192 customizable with slowness advice; GPU speed | P12 | Partial | 0.64.0 + backend: /api/v1/llm relays to llama-server, DVINE server provider signs in with the session; memory setting and advice built. GPU (Vulkan) not built: building upstream code was refused in the cloud session |
 | 95 | Screenshot: "too long for the model's memory", a progress line as the answer, "My model is ready" inside a reply | P12 | Built (JVM) | 0.64.1: the offline take-over fits its memory and keeps the API's reason; a failed request after "are you done?" says so; download-finished is a note |
+| 96 | Interpret every message by meaning, not words: a rephrased "are you done?" must still be understood, converted to the command and sent on | P12 | Built (Robolectric) | 0.65.0: turn/Meaning reads short messages into the commands DVINE runs, acts on their wording, remembers each phrasing |
 
 ## Still open, in the order that matters
 
