@@ -25,6 +25,9 @@ public final class ReplyLayout {
         for (String line : lines) {
             String t = line.trim();
             if (t.isEmpty()) {
+                if (prose.length() > 0 && !prose.toString().endsWith("\n")) {
+                    prose.append("\n");
+                }
                 continue;
             }
             if (command(t)) {
@@ -34,8 +37,10 @@ public final class ReplyLayout {
                 code.append(t);
             } else if (prose.length() == 0) {
                 prose.append(t);
+            } else if (prose.toString().endsWith("\n")) {
+                prose.append(t);
             } else {
-                prose.append(' ').append(t);
+                prose.append('\n').append(t);
             }
         }
         if (code.length() == 0) {

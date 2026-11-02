@@ -533,8 +533,11 @@ public final class ChatPane extends LinearLayout {
         int layout = user ? R.layout.item_message_user : R.layout.item_message_assistant;
         View row = LayoutInflater.from(getContext()).inflate(layout, thread, false);
         TextView body = row.findViewById(R.id.tv_message);
-        body.setText(m.body == null ? "" : m.body);
+        body.setText(user ? (m.body == null ? "" : m.body) : styled(m.body));
         body.setTextIsSelectable(true); // hold to select any part and copy it
+        if (!user) {
+            body.setLineSpacing(dp(3), 1.05f);
+        }
         if ("code".equals(m.kind)) {
             body.setTypeface(Typeface.MONOSPACE);
             body.setTextSize(13f);
@@ -642,6 +645,107 @@ public final class ChatPane extends LinearLayout {
                 .getSystemService(android.content.Context.CLIPBOARD_SERVICE);
         if (clips != null) {
             clips.setPrimaryClip(android.content.ClipData.newPlainText("dvine", text == null ? "" : text));
+        }
+    }
+
+    /** Bold, inline code and headings, so a reply is not a wall of asterisks. */
+    private CharSequence styled(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        String[] lines = text.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                b.append('\n');
+            }
+            String line = lines[i];
+            int heading = 0;
+            while (heading < line.length() && line.charAt(heading) == '#') {
+                heading++;
+            }
+            if (heading > 0 && heading <= 3 && heading < line.length() && line.charAt(heading) == ' ') {
+                line = line.substring(heading + 1);
+            }
+            int from = b.length();
+            appendInline(b, line);
+            if (heading > 0) {
+                b.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), from, b.length(),
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        return b;
+    }
+
+    private void appendInline(android.text.SpannableStringBuilder b, String line) {
+        int i = 0;
+        while (i < line.length()) {
+            if (line.startsWith("**", i) || line.startsWith("__", i)) {
+                int end = line.indexOf(line.substring(i, i + 2), i + 2);
+                if (end > i + 2) {
+                    int from = b.length();
+                    appendCode(b, line.substring(i + 2, end));
+                    b.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), from, b.length(),
+                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    i = end + 2;
+                    continue;
+                }
+            }
+            if (line.charAt(i) == '`') {
+                int end = line.indexOf('`', i + 1);
+                if (end > i) {
+                    int from = b.length();
+                    b.append(line, i + 1, end);
+                    b.setSpan(new android.text.style.TypefaceSpan("monospace"), from, b.length(),
+                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    i = end + 1;
+                    continue;
+                }
+            }
+            int next = line.length();
+            int star = line.indexOf("**", i);
+            int under = line.indexOf("__", i);
+            int tick = line.indexOf('`', i);
+            if (star >= 0) {
+                next = Math.min(next, star);
+            }
+            if (under >= 0) {
+                next = Math.min(next, under);
+            }
+            if (tick >= 0) {
+                next = Math.min(next, tick);
+            }
+            if (next == i) {
+                b.append(line.charAt(i));
+                i++;
+            } else {
+                b.append(line, i, next);
+                i = next;
+            }
+        }
+    }
+
+    private void appendCode(android.text.SpannableStringBuilder b, String line) {
+        int i = 0;
+        while (i < line.length()) {
+            if (line.charAt(i) == '`') {
+                int end = line.indexOf('`', i + 1);
+                if (end > i) {
+                    int from = b.length();
+                    b.append(line, i + 1, end);
+                    b.setSpan(new android.text.style.TypefaceSpan("monospace"), from, b.length(),
+                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    i = end + 1;
+                    continue;
+                }
+            }
+            int tick = line.indexOf('`', i);
+            if (tick < 0) {
+                b.append(line.substring(i));
+                return;
+            }
+            b.append(line, i, tick);
+            i = tick;
         }
     }
 

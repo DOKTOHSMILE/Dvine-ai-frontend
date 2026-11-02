@@ -39,7 +39,7 @@ public final class LocalTurn {
         if (!"ibiko".equals(agent)) {
             return speakAs("ivie".equals(agent), text);
         }
-        String clean = clean(text);
+        String clean = ai.dvine.chat.ReplyText.prepare(text);
         if (clean.length() == 0) {
             return call(agent);
         }
@@ -50,7 +50,7 @@ public final class LocalTurn {
 
     public static List<TurnLine> speakAs(boolean ivie, String text) {
         List<TurnLine> lines = new ArrayList<TurnLine>();
-        String clean = clean(text);
+        String clean = ai.dvine.chat.ReplyText.prepare(text);
         if (clean.length() == 0) {
             return call(ivie);
         }
