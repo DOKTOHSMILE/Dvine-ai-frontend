@@ -1,3 +1,5 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:strokeColor="@color/icon" android:strokeWidth="2" android:strokeLineCap="round" android:pathData="M12,5v14M5,12h14" />
+    <!-- a paperclip: add a photo or a file -->
+    <path android:strokeColor="@color/icon" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M20.5,11.2l-8.4,8.4a5.2,5.2 0,0 1,-7.4 -7.4l8.4,-8.4a3.5,3.5 0,0 1,4.9 4.9l-8.4,8.4a1.75,1.75 0,0 1,-2.5 -2.5l7.8,-7.8" />
 </vector>

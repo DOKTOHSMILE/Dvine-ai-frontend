@@ -136,6 +136,24 @@ public final class ProviderStore {
         return prefs.getString(p.name() + ".model", p.model);
     }
 
+    /** The fast model for simple questions; empty means the main model answers everything. */
+    public String fastModel(Providers p) {
+        return prefs.getString(p.name() + ".fast", p.fast);
+    }
+
+    public void setFastModel(Providers p, String fast) {
+        prefs.edit().putString(p.name() + ".fast", fast == null ? "" : fast.trim()).apply();
+    }
+
+    /** Simple questions to the fast model, real work to the strong one (on by default). */
+    public boolean smartRouting() {
+        return prefs.getBoolean("smart_routing", true);
+    }
+
+    public void setSmartRouting(boolean on) {
+        prefs.edit().putBoolean("smart_routing", on).apply();
+    }
+
     public String certificate(Providers p) {
         return prefs.getString(p.name() + ".ca", "");
     }
@@ -183,7 +201,7 @@ public final class ProviderStore {
     /** Forgets this provider's keys and settings. */
     public void clear(Providers p) {
         SharedPreferences.Editor e = prefs.edit();
-        for (String f : new String[]{"address", "model", "key", "backup", "ca", "ok", "window"}) {
+        for (String f : new String[]{"address", "model", "fast", "key", "backup", "ca", "ok", "window"}) {
             e.remove(p.name() + "." + f);
         }
         if (active() == p) {
@@ -201,6 +219,15 @@ public final class ProviderStore {
             return null;
         }
         return new RemoteBrain(p.protocol, address(p), model(p), key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p))));
+    }
+
+    /** The same provider on its fast model, or null when there is none (or smart routing is off). */
+    public RemoteBrain fastBrain(Providers p) {
+        String fast = fastModel(p);
+        if (!smartRouting() || fast.isEmpty() || fast.equals(model(p)) || brain(p) == null) {
+            return null;
+        }
+        return new RemoteBrain(p.protocol, address(p), fast, key(p), backupKey(p), RemoteBrain.https(sockets(certificate(p))));
     }
 
     /**

@@ -2,30 +2,33 @@ package ai.dvine.llm;
 
 /**
  * The brains the user can choose, as on the AI providers sheet: the one on this phone, and the APIs. Each API has
- * its address and a model to start with; every field can be changed, and "Custom gateway" takes any
+ * its address, a strong model for real work and a fast one for simple questions; every field can be changed, and "Custom gateway" takes any
  * OpenAI-compatible address (OpenRouter, LiteLLM, a self-hosted server). Pure Java.
  */
 public enum Providers {
-    ON_PHONE("On this phone", null, "", "", 0,
+    ON_PHONE("On this phone", null, "", "", "", 0,
             "DVINE's own brain, " + ModelSpec.WEIGHTS + ". Works offline after a one-time download."),
-    ANTHROPIC("Anthropic (Claude)", RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", 1_000_000,
+    ANTHROPIC("Anthropic (Claude)", RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "claude-haiku-5-5", 1_000_000,
             "Claude models. Key from console.anthropic.com."),
-    OPENAI("OpenAI", RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", 400_000,
+    OPENAI("OpenAI", RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5", "gpt-5-mini", 400_000,
             "GPT models. Key from platform.openai.com."),
-    GEMINI("Google Gemini", RemoteBrain.Protocol.OPENAI, "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash",
+    GEMINI("Google Gemini", RemoteBrain.Protocol.OPENAI, "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-pro", "gemini-2.5-flash",
             1_000_000, "Gemini through Google's OpenAI-compatible endpoint. Key from aistudio.google.com."),
-    OPENROUTER("OpenRouter", RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "openai/gpt-5-mini", 400_000,
+    OPENROUTER("OpenRouter", RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "openai/gpt-5", "openai/gpt-5-mini", 400_000,
             "Hundreds of models behind one key. Key from openrouter.ai."),
-    CUSTOM("Custom gateway", RemoteBrain.Protocol.OPENAI, "", "", 128_000,
+    CUSTOM("Custom gateway", RemoteBrain.Protocol.OPENAI, "", "", "", 128_000,
             "OpenAI-compatible: OpenRouter, LiteLLM, or a self-hosted endpoint.");
 
     public final String title, address, model, about;
+    /** The faster, cheaper model for simple questions ("" = use {@link #model} for everything). */
+    public final String fast;
     public final RemoteBrain.Protocol protocol;
     /** The model's context window in tokens, for the Usage screen (changeable for a custom model). */
     public final int window;
 
-    Providers(String title, RemoteBrain.Protocol protocol, String address, String model, int window, String about) {
+    Providers(String title, RemoteBrain.Protocol protocol, String address, String model, String fast, int window, String about) {
         this.title = title;
+        this.fast = fast;
         this.protocol = protocol;
         this.address = address;
         this.model = model;

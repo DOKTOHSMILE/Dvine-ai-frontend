@@ -1142,6 +1142,42 @@ How a tool is used:
 
 **A quiet start.** The app no longer asks for the user's name when it opens; "call me …" sets one at any time.
 
+## 40. Ibiko the coding agent, and fast and strong models (app v0.51.0, built)
+
+**Ibiko works like Claude Code.** On Ibiko's tab, a task (anything but a greeting) goes to `agent/CodeAgent`. The work happens in Ibiko's own project folder (`files/ibiko`), in steps:
+1. Each step the brain replies with exactly one tool call, or with its final answer.
+2. DVINE carries the call out and hands back the result. A result is data, not instructions.
+3. This repeats up to 15 steps, then the final answer comes in the chat with code in fenced blocks and a list of the files changed. "Continue" picks the work up again.
+
+The tools:
+- `list_files`, `read_file` (with line numbers), `write_file`, `edit_file` (an exact, unique replacement), `search`
+- `run`: one shell command through the phone's own `sh`/toybox, in the folder, as the app, with a 30-second limit and output cut to 8,000 characters
+- `fetch`: an https page as text
+- `connector`: GitHub, Notion, MCP, web search
+
+Boundaries:
+- **Workspace:** paths are resolved inside the workspace; anything that climbs out is refused.
+- **Commands:** they ask first (Run / Always run / Don't run). The **Auto-accept** pill under the persona switch, shown on Ibiko's tab, turns asking off.
+- **Progress and stopping:** every step shows in the chat as a small grey line, and the stop button stops between steps.
+- **Model:** Ibiko always uses the strong model.
+
+**Fast and strong models.** Each API on the providers sheet has a model for real work and a fast one for simple questions. The defaults:
+
+| Provider | Strong | Fast |
+|---|---|---|
+| Anthropic | `claude-opus-5-5` | `claude-haiku-5-5` |
+| OpenAI | `gpt-5` | `gpt-5-mini` |
+| Gemini | `gemini-2.5-pro` | `gemini-2.5-flash` |
+| OpenRouter | `openai/gpt-5` | `openai/gpt-5-mini` |
+
+`llm/TaskSize` picks the tier from the words:
+- **Strong:** writing, building, coding, debugging, analysing, planning, research, long or many-part messages, code in the message, and anything for Ibiko.
+- **Fast:** everything else, and every one-line routing order.
+
+A big request whose routing order is only talk now goes to `askLocal` with room for 1,500 tokens on the strong model, so it gets a whole answer, not one sentence. If the fast model fails before saying anything, the same provider's strong model answers before the next provider is tried. "Fast model for simple questions" on the sheet turns this off.
+
+**Attach** is a 24 dp paperclip on a 40 dp borderless target, matching the mic.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

@@ -241,4 +241,36 @@ public class RemoteBrainTest {
         assertTrue(m.problem().contains("(404"));
         assertEquals(3, m.usage.failedToday(System.currentTimeMillis()));
     }
+
+    @Test
+    public void simpleQuestionsToTheFastModelRealWorkToTheStrongOne() throws Exception {
+        LocalModel m = new LocalModel(java.nio.file.Files.createTempDirectory("models").toFile(), ModelSpec.QWEN3_1_7B, true);
+        Fake strong = new Fake().reply(200, OPENAI_STREAM).reply(200, OPENAI_STREAM);
+        Fake fast = new Fake().reply(200, OPENAI_STREAM).reply(500, "{}");
+        List<RemoteBrain> brains = new ArrayList<RemoteBrain>(), fasts = new ArrayList<RemoteBrain>();
+        brains.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5", "k", "", strong));
+        fasts.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "k", "", fast));
+        m.useRemotes(brains, fasts, names("OpenAI"), java.util.Arrays.asList(400_000), () -> true);
+        m.reply("sys", "what's the capital of Nigeria?", 48, null); // a one-line order: fast
+        assertEquals(1, fast.urls.size());
+        assertEquals(0, strong.urls.size());
+        assertTrue(m.usage.last().brain.contains("gpt-5-mini"));
+        m.reply("sys", "write a business plan", 1500, null); // real work: strong
+        assertEquals(1, strong.urls.size());
+        assertTrue(m.usage.last().brain.contains("(gpt-5)"));
+        m.reply("sys", "and the time?", 48, null); // the fast model fails: the same provider's strong one answers
+        assertEquals(2, fast.urls.size());
+        assertEquals(2, strong.urls.size());
+        assertNull(m.takeSwitchNote() == null ? null : null);
+        m.coding = true; // Ibiko: strong even for a short call
+        Fake strong2 = new Fake().reply(200, OPENAI_STREAM);
+        List<RemoteBrain> b2 = new ArrayList<RemoteBrain>(), f2 = new ArrayList<RemoteBrain>();
+        b2.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5", "k", "", strong2));
+        Fake fast2 = new Fake();
+        f2.add(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "k", "", fast2));
+        m.useRemotes(b2, f2, names("OpenAI"), java.util.Arrays.asList(400_000), () -> true);
+        m.task("sys", "list files", 2000, null);
+        assertEquals(1, strong2.urls.size());
+        assertEquals(0, fast2.urls.size());
+    }
 }

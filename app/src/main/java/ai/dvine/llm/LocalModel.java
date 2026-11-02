@@ -33,12 +33,16 @@ public final class LocalModel {
     private volatile java.util.function.BooleanSupplier online = () -> true;
     private volatile RemoteBrain current;
     private volatile String switchNote;
+    /** Ibiko is answering: every call goes to the strong model. */
+    public volatile boolean coding;
     /** How long a provider rests after failing: a minute, or five when it is out of credit or rate-limited. */
     static final long REST_MS = 60_000, REST_LONG_MS = 300_000;
 
     /** One API in the switching order. */
     static final class Slot {
         final RemoteBrain brain;
+        /** The same provider's fast model for simple questions, or null. */
+        RemoteBrain fast;
         final String name;
         final int window;
         volatile long restUntil;
@@ -118,11 +122,19 @@ public final class LocalModel {
      * only the phone's own brain.
      */
     public void useRemotes(List<RemoteBrain> brains, List<String> names, List<Integer> windows, java.util.function.BooleanSupplier online) {
+        useRemotes(brains, null, names, windows, online);
+    }
+
+    /** As above, each API with its fast model for simple questions ({@code fasts}, null entries for none). */
+    public void useRemotes(List<RemoteBrain> brains, List<RemoteBrain> fasts, List<String> names, List<Integer> windows,
+            java.util.function.BooleanSupplier online) {
         List<Slot> next = new ArrayList<Slot>();
         for (int i = 0; i < brains.size() && next.size() < 3; i++) {
             if (brains.get(i) != null) {
-                next.add(new Slot(brains.get(i), i < names.size() ? names.get(i) : brains.get(i).model,
-                        i < windows.size() ? windows.get(i) : 32_768));
+                Slot sl = new Slot(brains.get(i), i < names.size() ? names.get(i) : brains.get(i).model,
+                        i < windows.size() ? windows.get(i) : 32_768);
+                sl.fast = fasts != null && i < fasts.size() ? fasts.get(i) : null;
+                next.add(sl);
             }
         }
         // a provider still resting keeps resting when the order is set again
@@ -233,7 +245,7 @@ public final class LocalModel {
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>(history);
             turns.add(new String[]{"user", asked});
-            String answer = askRemote(system, turns, maxTokens, 0.7f, sink);
+            String answer = askRemote(system, turns, maxTokens, 0.7f, sink, TaskSize.ofCall(question, maxTokens, coding));
             if (answer != null) {
                 remember(question, ActionTags.strip(answer));
                 return answer.trim();
@@ -287,7 +299,7 @@ public final class LocalModel {
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>();
             turns.add(new String[]{"user", prompt});
-            String answer = askRemote(system, turns, maxTokens, 0.35f, sink);
+            String answer = askRemote(system, turns, maxTokens, 0.35f, sink, TaskSize.ofCall(prompt, maxTokens, coding));
             if (answer != null) {
                 return answer.trim();
             }
@@ -356,7 +368,8 @@ public final class LocalModel {
      * it has said anything rests, and the next is asked. Once a reply has started, it isn't switched mid-sentence.
      * Same limits and cancelling as the phone's brain; what it used is recorded.
      */
-    private String askRemote(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink) {
+    private String askRemote(String system, List<String[]> turns, int maxTokens, float temperature, NativeLlm.Sink sink,
+            TaskSize.Tier tier) {
         List<Slot> order = new ArrayList<Slot>(chain);
         long now = System.currentTimeMillis();
         // resting providers go last, not out: if every one is resting, they are still tried
@@ -366,8 +379,18 @@ public final class LocalModel {
         }
         ready.addAll(resting);
         String firstFailure = null, failedName = null;
+        // each provider: its fast model first for a simple request (when it has one), then its strong model
+        List<Object[]> tries = new ArrayList<Object[]>();
         for (Slot sl : ready) {
-            final RemoteBrain r = sl.brain;
+            if (tier == TaskSize.Tier.FAST && sl.fast != null) {
+                tries.add(new Object[]{sl, sl.fast});
+            }
+            tries.add(new Object[]{sl, sl.brain});
+        }
+        lastTier = tier;
+        for (Object[] attempt : tries) {
+            final Slot sl = (Slot) attempt[0];
+            final RemoteBrain r = (RemoteBrain) attempt[1];
             current = r;
             final int ticket = epoch.get();
             final int[] pieces = {0};
@@ -383,13 +406,15 @@ public final class LocalModel {
                 if (failedName != null) {
                     switchNote = failedName + " didn't answer (" + firstFailure + "), so " + sl.name + " did.";
                 }
-                record(sl, system, turns, answer, pieces[0], began);
+                record(sl, r, system, turns, answer, pieces[0], began);
                 return answer;
             }
             String why = timedOut ? problem : r.problem() == null ? "it sent nothing back" : r.problem();
             usage.failure(System.currentTimeMillis());
             boolean credit = why.contains("(402") || why.contains("(429") || why.contains("credit") || why.contains("too many");
-            sl.restUntil = System.currentTimeMillis() + (credit ? REST_LONG_MS : REST_MS);
+            if (r == sl.brain) { // a provider rests when its main model fails (its fast model failing alone doesn't)
+                sl.restUntil = System.currentTimeMillis() + (credit ? REST_LONG_MS : REST_MS);
+            }
             if (firstFailure == null) {
                 firstFailure = why;
                 failedName = sl.name;
@@ -402,8 +427,10 @@ public final class LocalModel {
         return null;
     }
 
-    private void record(Slot sl, String system, List<String[]> turns, String answer, int pieces, long began) {
-        RemoteBrain r = sl.brain;
+    /** Which tier the last call asked for (for the Usage screen). */
+    public volatile TaskSize.Tier lastTier = TaskSize.Tier.FAST;
+
+    private void record(Slot sl, RemoteBrain r, String system, List<String[]> turns, String answer, int pieces, long began) {
         int conversation = 0;
         for (int i = 0; i < turns.size() - 1; i++) {
             conversation += UsageLog.estimate(turns.get(i)[1]);
