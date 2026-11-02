@@ -210,4 +210,19 @@ public class LocalModelTest {
         m.context(8192);
         assertEquals(null, m.slowAdvice(1)); // fast enough for a lower bar
     }
+
+    @Test
+    public void whatThePhonesModelTakesOverFitsItsMemory() {
+        String task = "Task: read the code in app/ and explain it.\n";
+        StringBuilder work = new StringBuilder(task);
+        for (int i = 0; i < 5000; i++) {
+            work.append("result line ").append(i).append('\n');
+        }
+        String fitted = LocalModel.fit(work.toString(), 6000);
+        assertTrue(fitted.length() <= 6000);
+        assertTrue(fitted.startsWith(task)); // the task stays
+        assertTrue(fitted.endsWith("result line 4999\n")); // and the latest work
+        assertTrue(fitted.contains("earlier work left out to fit the phone's model"));
+        assertEquals("short", LocalModel.fit("short", 6000)); // what fits is untouched
+    }
 }
