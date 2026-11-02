@@ -298,7 +298,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null) {
             String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
-            sub.setText(name + " · DVine AI");
+            sub.setText(name + " · " + brainLabel() + " \u02C5");
         }
         android.widget.TextView mark = findViewById(R.id.empty_mark);
         if (mark != null) {
@@ -383,6 +383,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View drawerNew = findViewById(R.id.btnDrawerNew);
         if (drawerNew != null)
             drawerNew.setOnClickListener(v -> startNewChatSafely());
+        android.view.View providers = findViewById(R.id.btnProviders);
+        if (providers != null)
+            providers.setOnClickListener(v -> {
+                closeDrawer();
+                openProviders();
+            });
+        android.view.View usage = findViewById(R.id.btnUsage);
+        if (usage != null)
+            usage.setOnClickListener(v -> {
+                closeDrawer();
+                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.UsageActivity.class));
+            });
+        android.view.View header = findViewById(R.id.tv_header_sub);
+        if (header != null)
+            header.setOnClickListener(v -> openProviders());
         android.view.View manage = findViewById(R.id.btnManageChats);
         if (manage != null)
             manage.setOnClickListener(v -> openHistory());
@@ -754,6 +769,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         brain.setGivenName(prefs.getString("given_name", null));
         hub = ai.dvine.llm.ModelHub.get(this);
         model = hub.model;
+        model.usage.restore(prefs.getString("usage_today", null), System.currentTimeMillis());
         hub.addListener(onDownload);
         reportModel();
         if (hub.downloading() || hub.status.active()) {
@@ -803,6 +819,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             ? web::fetch
                             : null);
         });
+        applyProvider();
 
         stage.wake();
         handler.postDelayed(this::greetOnOpen, 700);
@@ -2189,6 +2206,39 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
+    /**
+     * The brain the user chose on the AI providers sheet: an API answers while the phone is online (the phone's own
+     * brain, when installed, answers when it isn't); "On this phone" uses only the phone's.
+     */
+    private void applyProvider() {
+        if (model == null) {
+            return;
+        }
+        ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
+        ai.dvine.llm.Providers p = providers.active();
+        ai.dvine.llm.RemoteBrain remote = providers.brain(p);
+        model.useRemote(remote, providers.window(p), () -> connectivity == null || connectivity.isOnline());
+        android.widget.TextView sub = findViewById(R.id.tv_header_sub);
+        if (sub != null && stage != null) {
+            String face = stage.agent();
+            sub.setText(face.substring(0, 1).toUpperCase() + face.substring(1) + " · " + brainLabel() + " \u02C5");
+        }
+    }
+
+    /** What the chat header says answers: the API's model, or the phone's brain. */
+    private String brainLabel() {
+        ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
+        ai.dvine.llm.Providers p = providers.active();
+        if (p.api() && providers.brain(p) != null) {
+            return providers.model(p);
+        }
+        return "DVINE brain";
+    }
+
+    private void openProviders() {
+        startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ProvidersActivity.class));
+    }
+
     private void loadModel(final boolean tell) {
         modelThread.execute(() -> {
             final boolean ok = model.load(
@@ -2268,10 +2318,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         "My brain can't run on this phone: " + model.problem() + "."), null);
             } else if (model.installed()) {
                 play(LocalTurn.speakAs(ivie,
-                        model.ready() ? "My brain is already installed and running."
+                        model.localReady() ? "My brain is already installed and running."
                                 : "It's already installed. Starting it now."),
                         null);
-                if (!model.ready()) {
+                if (!model.localReady()) {
                     loadModel(true);
                 }
             } else if (model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING) {
@@ -2353,12 +2403,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (said.matches("^(turn on|enable|use|switch on|start) " + thing + "( again)?$")) {
             prefs.edit().putBoolean("llm_on", true).apply();
-            if (model.installed() && !model.ready()) {
+            if (model.installed() && !model.localReady()) {
                 loadModel(true);
             } else {
                 play(LocalTurn
                         .speakAs(ivie,
-                                model.ready() ? "My brain is on."
+                                model.localReady() || model.remoteOn() ? "My brain is on."
                                         : "It isn't installed yet. Say download your brain."),
                         null);
             }
@@ -3393,6 +3443,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onPause() {
         inFront = false;
+        if (model != null && prefs != null) {
+            prefs.edit().putString("usage_today", model.usage.save()).apply();
+        }
         handler.removeCallbacks(engineTick);
         super.onPause();
     }
@@ -3402,6 +3455,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         super.onResume();
         inFront = true;
         connectivity.start();
+        applyProvider(); // back from the AI providers sheet: the brain the user chose answers
         handler.removeCallbacks(engineTick);
         handler.post(engineTick);
         ai.dvine.llm.ThinkPace pace = thinkPace;

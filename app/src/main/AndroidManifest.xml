@@ -63,6 +63,15 @@
             android:name=".chat.ui.HistoryActivity"
             android:exported="false"
             android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.ProvidersActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine.Sheet"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".chat.ui.UsageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="ai.dvine.files"

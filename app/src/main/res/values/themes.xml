@@ -19,6 +19,13 @@
         <item name="android:editTextStyle">@style/Widget.Dvine.ChatInput</item>
     </style>
 
+    <!-- A sheet over the chat (AI providers): the chat stays visible, dimmed, behind it. -->
+    <style name="Theme.Dvine.Sheet" parent="Theme.Dvine">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+    </style>
+
     <style name="Widget.Dvine.ChatInput" parent="@android:style/Widget.EditText">
         <item name="android:textColor">@color/chat_text</item>
         <item name="android:textColorHint">@color/chat_hint</item>

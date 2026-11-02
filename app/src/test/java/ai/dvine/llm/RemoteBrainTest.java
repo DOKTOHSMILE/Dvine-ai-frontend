@@ -1,0 +1,189 @@
+package ai.dvine.llm;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.Test;
+
+import ai.dvine.brain.MiniJson;
+
+/** The brain the user brings: OpenAI-compatible and Anthropic APIs, against a fake server. */
+public class RemoteBrainTest {
+    /** A fake server: answers in turn, and keeps what it was sent. */
+    private static final class Fake implements RemoteBrain.Transport {
+        final List<String> urls = new ArrayList<String>(), bodies = new ArrayList<String>();
+        final List<Map<String, String>> headers = new ArrayList<Map<String, String>>();
+        final List<Object[]> replies = new ArrayList<Object[]>();
+
+        Fake reply(int status, String body) {
+            replies.add(new Object[]{status, body});
+            return this;
+        }
+
+        @Override
+        public RemoteBrain.Response post(String url, Map<String, String> h, byte[] body, int timeoutMs) {
+            urls.add(url);
+            headers.add(h);
+            bodies.add(new String(body, StandardCharsets.UTF_8));
+            Object[] r = replies.remove(0);
+            return new RemoteBrain.Response((Integer) r[0], new ByteArrayInputStream(((String) r[1]).getBytes(StandardCharsets.UTF_8)));
+        }
+    }
+
+    private static List<String[]> ask(String q) {
+        List<String[]> t = new ArrayList<String[]>();
+        t.add(new String[]{"user", q});
+        return t;
+    }
+
+    private static final String OPENAI_STREAM = "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n"
+            + "data: {\"choices\":[{\"delta\":{\"content\":\" there.\"}}]}\n\n"
+            + "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":31,\"completion_tokens\":3}}\n\ndata: [DONE]\n";
+
+    @Test
+    public void streamsAnOpenAiReplyPieceByPiece() {
+        Fake f = new Fake().reply(200, OPENAI_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "openrouter.ai/api/v1/", "openai/gpt-5-mini", "sk-test", "", f);
+        List<String> pieces = new ArrayList<String>();
+        assertEquals("Hello there.", b.chat("Be brief. /no_think", ask("hi"), 48, 0.7f, t -> pieces.add(t)));
+        assertEquals(2, pieces.size()); // spoken as it arrives
+        assertEquals("https://openrouter.ai/api/v1/chat/completions", f.urls.get(0));
+        assertEquals("Bearer sk-test", f.headers.get(0).get("Authorization"));
+        Map<String, Object> req = MiniJson.obj(MiniJson.parse(f.bodies.get(0)));
+        assertEquals("openai/gpt-5-mini", req.get("model"));
+        assertEquals(1024.0, MiniJson.num(req.get("max_tokens"), 0), 0); // never so few that a thinking model writes nothing
+        assertFalse(f.bodies.get(0).contains("no_think"));
+        assertEquals(31, b.used().promptTokens);
+        assertEquals(3, b.used().outputTokens);
+    }
+
+    @Test
+    public void asksAgainInThePlainerFormsWhenAFieldIsRefused() {
+        Fake f = new Fake().reply(400, "{\"error\":{\"message\":\"Unknown field stream_options\"}}")
+                .reply(400, "{\"error\":{\"message\":\"Unsupported parameter: 'max_tokens'. Use 'max_completion_tokens'\"}}")
+                .reply(200, OPENAI_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "sk-a", "", f);
+        assertEquals("Hello there.", b.chat("s", ask("hi"), 48, 0.7f, null));
+        assertTrue(f.bodies.get(0).contains("stream_options"));
+        assertFalse(f.bodies.get(1).contains("stream_options"));
+        assertTrue(f.bodies.get(2).contains("max_completion_tokens"));
+        assertFalse(f.bodies.get(2).contains("temperature"));
+    }
+
+    @Test
+    public void triesTheBackupKeyAndNeverRepeatsAKey() {
+        Fake f = new Fake().reply(429, "{\"error\":{\"message\":\"quota\"}}").reply(200, OPENAI_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "sk-first", "sk-second", f);
+        assertNotNull(b.chat("s", ask("hi"), 48, 0.7f, null));
+        assertEquals("Bearer sk-second", f.headers.get(1).get("Authorization"));
+
+        Fake bad = new Fake().reply(401, "{\"error\":{\"message\":\"Incorrect API key provided: sk-secret-123\"}}");
+        RemoteBrain c = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "sk-secret-123", "", bad);
+        assertNull(c.chat("s", ask("hi"), 48, 0.7f, null));
+        assertTrue(c.problem().startsWith("the API key was refused (401"));
+        assertFalse(c.problem().contains("sk-secret-123")); // the key is never repeated back
+    }
+
+    @Test
+    public void onlyHttpsAndAModelAndAKey() {
+        assertNotNull(RemoteBrain.check("http://example.com/v1", "m", "k"));
+        assertNotNull(RemoteBrain.check("https://example.com/v1", "", "k"));
+        assertNotNull(RemoteBrain.check("https://example.com/v1", "m", ""));
+        assertNull(RemoteBrain.check("brewkeg.dev/v1", "gpt-5-mini", "k"));
+        assertEquals("https://brewkeg.dev/v1", RemoteBrain.normalise("brewkeg.dev/v1/chat/completions"));
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "http://plain.example/v1", "m", "k", "", new Fake());
+        assertNull(b.chat("s", ask("hi"), 48, 0.7f, null));
+        assertTrue(b.problem().contains("https"));
+    }
+
+    private static final String ANTHROPIC_STREAM = "event: message_start\n"
+            + "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"usage\":{\"input_tokens\":120,\"output_tokens\":1}}}\n\n"
+            + "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\n"
+            + "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\"}}\n\n"
+            + "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"SAY Hi,\"}}\n\n"
+            + "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Valentine.\"}}\n\n"
+            + "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":9}}\n\n"
+            + "event: message_stop\ndata: {\"type\":\"message_stop\"}\n";
+
+    @Test
+    public void streamsAClaudeReplyAndSkipsThinking() {
+        Fake f = new Fake().reply(200, ANTHROPIC_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "sk-ant-x", "", f);
+        List<String[]> turns = new ArrayList<String[]>();
+        turns.add(new String[]{"assistant", "a greeting nobody asked for"}); // can't start with the assistant
+        turns.add(new String[]{"user", "hello"});
+        turns.add(new String[]{"user", "it's Valentine"}); // two in a row are joined
+        assertEquals("SAY Hi, Valentine.", b.chat("You are the brain. /no_think", turns, 48, 0.7f, null));
+        assertEquals("https://api.anthropic.com/v1/messages", f.urls.get(0));
+        Map<String, String> h = f.headers.get(0);
+        assertEquals("sk-ant-x", h.get("x-api-key"));
+        assertEquals("2026-10-21", h.get("anthropic-version"));
+        assertNull(h.get("Authorization"));
+        Map<String, Object> req = MiniJson.obj(MiniJson.parse(f.bodies.get(0)));
+        assertFalse(req.containsKey("temperature")); // the 2026-10-21 API refuses it
+        assertEquals("You are the brain.", req.get("system"));
+        List<Object> msgs = MiniJson.list(req.get("messages"));
+        assertEquals(1, msgs.size());
+        assertEquals("hello\n\nit's Valentine", MiniJson.obj(msgs.get(0)).get("content"));
+        assertEquals("default", req.get("fallbacks")); // the refusal fallback, on for this model
+        assertEquals("server-side-fallback-2026-07-01", h.get("anthropic-beta"));
+        assertEquals("low", MiniJson.obj(req.get("output_config")).get("effort")); // a one-line order: little thinking
+        assertEquals(120, b.used().promptTokens);
+        assertEquals(9, b.used().outputTokens);
+    }
+
+    @Test
+    public void aClaudeModelWithoutTheFallbackIsAskedPlainly() {
+        Fake f = new Fake().reply(400, "{\"type\":\"error\",\"error\":{\"message\":\"effort not supported\"}}").reply(200, ANTHROPIC_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-haiku-4-5", "k", "", f);
+        assertNotNull(b.chat("s", ask("hi"), 48, 0.7f, null));
+        assertFalse(f.bodies.get(0).contains("fallbacks"));
+        assertFalse(f.bodies.get(1).contains("output_config"));
+    }
+
+    @Test
+    public void aRefusalIsSaidAsOne() {
+        String refused = "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":10}}}\n"
+                + "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"refusal\"},\"usage\":{\"output_tokens\":0}}\n"
+                + "data: {\"type\":\"message_stop\"}\n";
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "k", "",
+                new Fake().reply(200, refused));
+        assertNull(b.chat("s", ask("hi"), 48, 0.7f, null));
+        assertEquals("the model declined to answer that", b.problem());
+    }
+
+    @Test
+    public void theModelAnswersThroughTheApiWhenOnlineAndRemembersIt() throws Exception {
+        java.io.File dir = java.nio.file.Files.createTempDirectory("models").toFile();
+        LocalModel m = new LocalModel(dir, ModelSpec.QWEN3_1_7B, true);
+        assertFalse(m.ready());
+        final boolean[] online = {true};
+        Fake f = new Fake().reply(200, OPENAI_STREAM).reply(200, OPENAI_STREAM);
+        m.useRemote(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "k", "", f), 400_000, () -> online[0]);
+        assertTrue(m.ready());
+        assertFalse(m.localReady());
+        assertEquals(400_000, m.window());
+        assertEquals("Hello there.", m.reply("sys", "hi", 48, null));
+        UsageLog.Call c = m.usage.last();
+        assertTrue(c.measured);
+        assertEquals(31, c.system + c.conversation + c.message);
+        assertEquals(3, c.reply);
+        assertTrue(c.brain.contains("gpt-5-mini"));
+        // the next question carries the conversation
+        m.reply("sys", "and again", 48, null);
+        assertTrue(f.bodies.get(1).contains("Hello there."));
+        online[0] = false; // offline: the API isn't used, and with no brain on the phone there is none
+        assertFalse(m.ready());
+        assertNull(m.reply("sys", "hi", 48, null));
+        assertEquals(2, f.urls.size());
+    }
+}
