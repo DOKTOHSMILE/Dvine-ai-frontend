@@ -83,9 +83,22 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.view.View copy = described(c.get().getWindow().getDecorView(), "Copy your message");
         assertNotNull(copy);
+        org.junit.Assert.assertEquals(android.view.View.GONE, ((android.view.View) copy.getParent()).getVisibility()); // hidden until a tap
+        java.util.ArrayList<android.view.View> said = new java.util.ArrayList<android.view.View>();
+        c.get().getWindow().getDecorView().findViewsWithText(said, "RE clone the repo and audit my codebase", android.view.View.FIND_VIEWS_WITH_TEXT);
+        said.removeIf(v -> v.getId() != ai.dvine.R.id.tv_message); // the message itself, not the chat list's preview
+        said.get(0).performClick();
+        org.junit.Assert.assertEquals(android.view.View.VISIBLE, ((android.view.View) copy.getParent()).getVisibility());
+        said.get(0).performClick(); // a second tap hides it
+        org.junit.Assert.assertEquals(android.view.View.GONE, ((android.view.View) copy.getParent()).getVisibility());
+        said.get(0).performClick();
         copy.performClick();
         android.content.ClipboardManager clips = (android.content.ClipboardManager) c.get().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
         org.junit.Assert.assertEquals("RE clone the repo and audit my codebase", clips.getPrimaryClip().getItemAt(0).getText().toString());
+        chats.add("assistant", "text", "On it.", chats.current().persona); // the chat moves on: the icon hides again
+        ((ai.dvine.stage.ChatPane) pf.get(c.get())).show();
+        android.view.View again = described(c.get().getWindow().getDecorView(), "Copy your message");
+        org.junit.Assert.assertEquals(android.view.View.GONE, ((android.view.View) again.getParent()).getVisibility());
         c.pause().stop().destroy();
     }
 

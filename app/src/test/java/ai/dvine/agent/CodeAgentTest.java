@@ -207,6 +207,11 @@ public class CodeAgentTest {
                 "<tool name=\"write_file\" path=\"app/Main.java\">gone</tool>", "Main.java declares an empty class Main.");
         CodeAgent obi = new CodeAgent(ws, brain, new Phone(), "", 20_000).as("Obi", true);
         assertTrue(obi.system().startsWith("You are Obi, reading the files"));
+        assertFalse(obi.system().contains("Local sandbox")); // reading only: no sandbox, no git
+        CodeAgent ibiko = new CodeAgent(ws, brain, new Phone(), "", 20_000)
+                .useGit(new ai.dvine.connect.GitHubGit(new ai.dvine.connect.GitHubGitTest.FakeHub(), "tok"));
+        assertTrue(ibiko.system().contains("Local sandbox") && ibiko.system().contains("sandbox/<short-name>"));
+        assertTrue(ibiko.system().contains("git pull, then push again") && ibiko.system().contains("open a pull request with git pr"));
         assertFalse(obi.system().contains("write_file") || obi.system().contains("name=\"run\""));
         assertEquals("Main.java declares an empty class Main.", obi.run("What is in the cloned app's Main.java?", ""));
         assertTrue(brain.seen.get(1), brain.seen.get(1).contains("1\tclass Main {}"));
@@ -222,6 +227,7 @@ public class CodeAgentTest {
     @Test
     public void tuningKeepsNumbersInRange() {
         assertEquals(30, ai.dvine.chat.Tuning.AGENT_STEPS.get(null));
+        assertEquals(5000, ai.dvine.chat.Tuning.CLONE_FILES.get(null)); // the clone limit is a setting, not a fixed 600
         assertEquals(1500, ai.dvine.chat.Tuning.PASTE_CHARS.get(null));
         assertTrue(ai.dvine.chat.Attachments.longPaste("x".repeat(300), 200));
         assertFalse(ai.dvine.chat.Attachments.longPaste("x".repeat(300)));

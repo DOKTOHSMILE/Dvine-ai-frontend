@@ -122,6 +122,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 89 | No more status lines, questions or empty replies instead of the result; fix it once and for all | P12 | Built (JVM) | 0.59.0: the agent works until it hands in its answer; dropped connections retried |
 | 90 | Layout fix: PR/Artifact pills attached to the reply, Auto-accept pill in the header, persona tabs in the composer | P12 | Built (Robolectric) | 0.60.0: each reply keeps its own Diff / Pull requests / Artifacts; "Auto"/"Ask" in the header; tabs beside attach; "Fixing … — digging into …" no longer ends Ibiko's work |
 | 91 | Send double tap; persona icons; steps in a bottom sheet with a typewriter line; no trigger words, write until done; pick several files of any kind | P12 | Built (Robolectric) | 0.61.0: the model ends its turn by structure (tool call, <final>, or text confirmed once), cut-off replies continue until they end by themselves |
+| 92 | Copy icon on my message only on a tap; standard check icon; teach the model push/pull and a local sandbox; better offline model? | P12 | Built (Robolectric) | 0.62.0: tap toggles copy, hidden on new messages; ic_check; git workflow + sandbox/ in Ibiko's prompt; clone limit a setting (5,000). Offline model: answered in chat, not changed |
 
 ## Still open, in the order that matters
 

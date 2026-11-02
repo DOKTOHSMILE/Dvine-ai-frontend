@@ -26,7 +26,15 @@ import ai.dvine.brain.MiniJson;
  */
 public final class GitHubGit {
     public static final String RECORD = ".dvine-git.json";
-    static final int MAX_FILES = 600;
+    /** The most files a clone or pull takes (Settings › Advanced › Most files in a clone). */
+    static final int MAX_FILES = 5000;
+    private int maxFiles = MAX_FILES;
+
+    /** The most files a repository may have to be cloned or pulled here. */
+    public GitHubGit maxFiles(int most) {
+        maxFiles = Math.max(1, most);
+        return this;
+    }
     static final long MAX_FILE_BYTES = 1_000_000;
 
     private final Connectors.Http http;
@@ -554,7 +562,7 @@ public final class GitHubGit {
         return MiniJson.str(MiniJson.obj(get("/repos/" + repo + "/git/commits/" + commit).get("tree")).get("sha"), "");
     }
 
-    /** Every file (path → blob id) in a tree, up to {@link #MAX_FILES}. */
+    /** Every file (path → blob id) in a tree, up to {@link #maxFiles}. */
     private Map<String, String> files(String repo, String tree) throws IOException {
         Map<String, Object> m = get("/repos/" + repo + "/git/trees/" + tree + "?recursive=1");
         Map<String, String> out = new TreeMap<String, String>();
@@ -563,8 +571,9 @@ public final class GitHubGit {
             if (!"blob".equals(MiniJson.str(e.get("type"), "")) || MiniJson.num(e.get("size"), 0) > MAX_FILE_BYTES) {
                 continue;
             }
-            if (out.size() >= MAX_FILES) {
-                throw new IOException(repo + " has more than " + MAX_FILES + " files; too big to clone on the phone");
+            if (out.size() >= maxFiles) {
+                throw new IOException(repo + " has more than " + maxFiles + " files, the most set for a clone"
+                        + " (Settings \u203A Advanced \u203A Most files in a clone)");
             }
             out.put(MiniJson.str(e.get("path"), ""), MiniJson.str(e.get("sha"), ""));
         }

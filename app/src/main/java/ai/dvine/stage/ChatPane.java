@@ -75,24 +75,32 @@ public final class ChatPane extends LinearLayout {
     public void show() {
         fillSections();
         thread.removeAllViews();
+        openActions = null;
         ChatBook.Section cur = book.current();
         StringBuilder reply = new StringBuilder(); // the whole of the assistant's turn, for its Copy and Listen
         String work = null; // this reply's Diff, Pull requests and Artifacts, shown under it
         for (int i = 0; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
+            View shown = null;
             if ("work".equals(m.kind)) {
                 work = m.body;
             } else {
                 try {
-                    thread.addView(bubble(m));
+                    shown = bubble(m);
+                    thread.addView(shown);
                 } catch (RuntimeException failed) {
                     thread.addView(plain("That message could not be shown."));
                 }
             }
             if ("user".equals(m.role)) {
                 reply.setLength(0);
-                if ("text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
-                    thread.addView(userActions(m.body)); // the user's own message: copyable too
+                if (shown != null && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
+                    // the user's own message: its copy icon shows on a tap and hides on the next one (or when the
+                    // chat moves on: every redraw starts with it hidden)
+                    View actions = userActions(m.body);
+                    actions.setVisibility(GONE);
+                    thread.addView(actions);
+                    tapToggles(shown, actions);
                 }
                 continue;
             }
@@ -341,7 +349,7 @@ public final class ChatPane extends LinearLayout {
         final String words = ai.dvine.agent.StepDetail.words(text);
         final String id = ai.dvine.agent.StepDetail.id(text);
         final ai.dvine.agent.StepDetail.Detail d = id == null ? null : ai.dvine.agent.StepDetail.load(getContext().getFilesDir(), id);
-        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder((done ? "\u2713  " : current ? "\u203A  " : "    ") + words);
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder(words);
         if (d != null && d.diff()) {
             appendColoured(b, "  +" + d.added, ai.dvine.chat.ui.DetailSheet.GREEN);
             appendColoured(b, " \u2212" + d.removed, ai.dvine.chat.ui.DetailSheet.RED);
@@ -353,6 +361,15 @@ public final class ChatPane extends LinearLayout {
         t.setText(b);
         t.setTextColor(color(current ? R.color.text_primary : R.color.text_secondary));
         t.setTextSize(13f);
+        // a standard check icon for a step that is done, a chevron for the one happening now
+        android.graphics.drawable.Drawable mark = done || current
+                ? androidx.core.content.ContextCompat.getDrawable(getContext(), done ? R.drawable.ic_check : R.drawable.ic_chevron_right).mutate()
+                : new android.graphics.drawable.ColorDrawable(0);
+        mark.setBounds(0, 0, dp(16), dp(16));
+        mark.setTint(color(done ? R.color.text_secondary : R.color.accent));
+        t.setCompoundDrawablesRelative(mark, null, null, null);
+        t.setCompoundDrawablePadding(dp(10));
+        t.setGravity(Gravity.CENTER_VERTICAL);
         t.setPadding(dp(4), dp(1), 0, dp(1));
         if (d != null) {
             t.setPaintFlags(t.getPaintFlags());
@@ -693,6 +710,26 @@ public final class ChatPane extends LinearLayout {
     }
 
     /** Copy under the user's own message, on its side (right), as under a reply. */
+    /** The message box's actions, open after a tap on it; null when none is open. */
+    private View openActions;
+
+    /**
+     * A tap on the message shows its actions, another tap hides them; opening one closes the one open before. A
+     * long press still selects text.
+     */
+    private void tapToggles(View message, final View actions) {
+        final Runnable toggle = () -> {
+            boolean show = actions.getVisibility() != VISIBLE;
+            if (openActions != null && openActions != actions) {
+                openActions.setVisibility(GONE);
+            }
+            actions.setVisibility(show ? VISIBLE : GONE);
+            openActions = show ? actions : null;
+        };
+        View text = message.findViewById(R.id.tv_message);
+        (text != null ? text : message).setOnClickListener(v -> toggle.run()); // a long press still selects text
+    }
+
     private View userActions(final String text) {
         LinearLayout bar = new LinearLayout(getContext());
         bar.setOrientation(LinearLayout.HORIZONTAL);

@@ -1438,6 +1438,20 @@ The agent's rules, from the user's screenshots:
 - The persona tabs have icons: graphics for Ivie (triangle, square, circle), a chat bubble for Obi and a wrench for Ibiko. The chosen tab also shows its name.
 - "Files" in the attach sheet picks several files of any kinds at once (`EXTRA_ALLOW_MULTIPLE`, `*/*`). Each one waits in the box for the instructions.
 
+## 51. Copy on a tap, check icons, git and a sandbox taught (app v0.62.0, built)
+
+- **Your message's copy icon** is hidden until you tap the message. A second tap hides it, opening another message's icon closes the first, and every redraw (a new message) starts with it hidden. A long press still selects text.
+- **Steps** show a standard check icon (`ic_check`) when done and a chevron (`ic_chevron_right`, accent) for the one happening now, instead of the ✓ and › characters.
+- **Ibiko is taught git and a sandbox** (`CodeAgent.GIT_WAY`, `CodeAgent.SANDBOX`, in the system prompt for the working personas):
+  1. Clone once, and pull before working on an existing clone.
+  2. Check `git status` before pushing.
+  3. Push to a new `ibiko/<what-it-does>` branch and open a pull request, unless the user asked for the main branch.
+  4. When a push is refused because GitHub has newer commits, pull and push again.
+  5. Merge each `.theirs` conflict copy into its file, then delete the copy.
+  6. Never claim a push or a pull request the tool didn't report.
+  7. Scratch work (a new project, a test script, notes, a report) goes in `sandbox/<short-name>/` in the workspace, never inside a clone. It stays on the phone and shows as artifacts.
+- **The clone limit is a setting:** Settings › Advanced › Most files in a clone (`Tuning.CLONE_FILES`, default 5,000, 100–50,000) replaces the fixed 600 that refused the user's repository. The refusal names the number and the setting.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
