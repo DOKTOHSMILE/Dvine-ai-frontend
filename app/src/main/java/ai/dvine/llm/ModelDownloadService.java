@@ -101,8 +101,8 @@ public final class ModelDownloadService extends Service {
     }
 
     static void channel(Context c) {
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "Brain files download", NotificationManager.IMPORTANCE_LOW);
-        ch.setDescription("Progress of DVINE's brain files download");
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "Model download", NotificationManager.IMPORTANCE_LOW);
+        ch.setDescription("Progress of DVINE's model download");
         ch.setShowBadge(false);
         c.getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
@@ -123,7 +123,7 @@ public final class ModelDownloadService extends Service {
         boolean waiting = s.phase() != DownloadStatus.Phase.DOWNLOADING;
         return new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_download)
-                .setContentTitle("Downloading DVINE's brain files · " + s.percent() + "%")
+                .setContentTitle("Downloading DVINE's model · " + s.percent() + "%")
                 .setContentText(s.detail())
                 .setProgress(100, s.percent(), waiting)
                 .setOngoing(true)
@@ -141,7 +141,7 @@ public final class ModelDownloadService extends Service {
         boolean ok = s.phase() == DownloadStatus.Phase.DONE;
         return new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_download)
-                .setContentTitle(ok ? "DVINE's brain is ready" : "Brain files download " + (s.phase() == DownloadStatus.Phase.PAUSED ? "paused" : "stopped"))
+                .setContentTitle(ok ? "DVINE's model is ready" : "Model download " + (s.phase() == DownloadStatus.Phase.PAUSED ? "paused" : "stopped"))
                 .setContentText(ok ? "Open DVINE and ask anything, even offline." : s.detail())
                 .setAutoCancel(true)
                 .setContentIntent(openApp(c))

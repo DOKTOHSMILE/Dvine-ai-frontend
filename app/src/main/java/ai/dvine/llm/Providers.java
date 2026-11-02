@@ -7,7 +7,7 @@ package ai.dvine.llm;
  */
 public enum Providers {
     ON_PHONE("On this phone", null, "", "", "", 0,
-            "DVINE's own brain, " + ModelSpec.WEIGHTS + ". Works offline after a one-time download."),
+            "DVINE's own model, " + ModelSpec.WEIGHTS + ". Works offline after a one-time download."),
     ANTHROPIC("Anthropic (Claude)", RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "claude-haiku-5-5", 1_000_000,
             "Claude models. Key from console.anthropic.com."),
     OPENAI("OpenAI", RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5", "gpt-5-mini", 400_000,

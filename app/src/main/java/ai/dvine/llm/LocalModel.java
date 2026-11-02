@@ -258,6 +258,11 @@ public final class LocalModel {
         if (state != State.READY) {
             return null;
         }
+        ai.dvine.learn.LearningLog l = learning;
+        String learned = l == null ? "" : l.examplesFor(question, 2, 1400);
+        if (!learned.isEmpty()) {
+            asked = learned + "\n\n" + (context == null ? "" : context + "\n\n") + "The user says: " + question;
+        }
         final int ticket = epoch.get();
         for (int attempt = 0; attempt < 3; attempt++) {
             List<String[]> turns = new ArrayList<String[]>(history);
@@ -407,6 +412,10 @@ public final class LocalModel {
                     switchNote = failedName + " didn't answer (" + firstFailure + "), so " + sl.name + " did.";
                 }
                 record(sl, r, system, turns, answer, pieces[0], began);
+                ai.dvine.learn.LearningLog l = learning;
+                if (l != null) {
+                    l.record(system, turns, answer, sl.name + " (" + r.model + ")", tier.name(), System.currentTimeMillis());
+                }
                 return answer;
             }
             String why = timedOut ? problem : r.problem() == null ? "it sent nothing back" : r.problem();
@@ -426,6 +435,12 @@ public final class LocalModel {
         }
         return null;
     }
+
+    /**
+     * Where DVINE keeps what the API models answer, to learn from (null: not learning). When the phone's own model
+     * answers, the closest past answers are given to it as examples.
+     */
+    public volatile ai.dvine.learn.LearningLog learning;
 
     /** Which tier the last call asked for (for the Usage screen). */
     public volatile TaskSize.Tier lastTier = TaskSize.Tier.FAST;

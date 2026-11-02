@@ -20,7 +20,7 @@ public final class ConnectorStore {
     public enum Kind {
         WEB("Web search", "Wikipedia, Wikidata and DuckDuckGo, for facts and anything recent."),
         CALENDAR("Phone calendar", "Your events for the next week, read from this phone's calendar."),
-        GITHUB("GitHub", "Your repositories, issues and files. Needs a personal access token (read-only is enough)."),
+        GITHUB("GitHub", "Your repositories, issues and files; Ibiko can clone, pull, commit, push and open pull requests. Needs a personal access token (Contents: read and write to push; Pull requests to open them)."),
         NOTION("Notion", "Search the pages you shared with a Notion integration. Needs its token."),
         MCP("Custom MCP server", "Any server that speaks the Model Context Protocol, over https. Its tools are found on Test.");
 
@@ -101,6 +101,11 @@ public final class ConnectorStore {
             list.add(m);
         }
         prefs.edit().putString("MCP.tools", MiniJson.write(list)).apply();
+    }
+
+    /** Git with GitHub for Ibiko, or null when the GitHub connector isn't on and ready. */
+    public GitHubGit git() {
+        return ready(Kind.GITHUB) ? new GitHubGit(Connectors.https(), token(Kind.GITHUB)) : null;
     }
 
     public boolean calendarAllowed() {
