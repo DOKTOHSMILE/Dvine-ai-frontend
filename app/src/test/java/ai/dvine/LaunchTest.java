@@ -5,6 +5,7 @@ import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
@@ -331,6 +332,61 @@ public class LaunchTest {
         }
         org.junit.Assert.assertFalse(root.exists());
         c.pause().stop().destroy();
+    }
+
+    @Test
+    public void yourPicturesSitOnYourSideAndOpenFittedToTheScreen() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.io.File img = new java.io.File(c.get().getFilesDir(), "attachments/wide.jpg");
+        img.getParentFile().mkdirs();
+        android.graphics.Bitmap pic = android.graphics.Bitmap.createBitmap(1600, 900, android.graphics.Bitmap.Config.ARGB_8888);
+        pic.eraseColor(0xFF6A8CAF);
+        try (java.io.FileOutputStream o = new java.io.FileOutputStream(img)) {
+            pic.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, o);
+        }
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        chats.add("user", "image", img.getAbsolutePath(), chats.current().persona);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ((ai.dvine.stage.ChatPane) pf.get(c.get())).show();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.view.View shown = described(c.get().getWindow().getDecorView(), "Your picture. Tap to open.");
+        assertNotNull(shown);
+        android.widget.LinearLayout.LayoutParams lp = (android.widget.LinearLayout.LayoutParams) shown.getLayoutParams();
+        org.junit.Assert.assertEquals(android.view.Gravity.END, lp.gravity); // on the right, with the user's messages
+        org.junit.Assert.assertEquals(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, lp.width); // its own size, not the chat's width
+        c.pause().stop().destroy();
+
+        // the viewer: fitted to the screen, then a double tap zooms in and another goes back
+        android.content.Intent open = new android.content.Intent(RuntimeEnvironment.getApplication(), ai.dvine.chat.ui.ImageViewActivity.class)
+                .putExtra(ai.dvine.chat.ui.ImageViewActivity.EXTRA_PATH, img.getAbsolutePath());
+        ActivityController<ai.dvine.chat.ui.ImageViewActivity> v = Robolectric.buildActivity(ai.dvine.chat.ui.ImageViewActivity.class, open)
+                .create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field zf = ai.dvine.chat.ui.ImageViewActivity.class.getDeclaredField("image");
+        zf.setAccessible(true);
+        ai.dvine.chat.ui.ZoomImageView zoom = (ai.dvine.chat.ui.ZoomImageView) zf.get(v.get());
+        zoom.measure(android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(2340, android.view.View.MeasureSpec.EXACTLY));
+        zoom.layout(0, 0, 1080, 2340);
+        org.junit.Assert.assertNotNull(zoom.getDrawable());
+        org.junit.Assert.assertEquals(1f, zoom.zoom(), 0.01f);
+        android.graphics.RectF r = new android.graphics.RectF(0, 0, zoom.getDrawable().getIntrinsicWidth(), zoom.getDrawable().getIntrinsicHeight());
+        zoom.getImageMatrix().mapRect(r);
+        org.junit.Assert.assertEquals(0f, r.left, 1f); // the whole width on the screen
+        org.junit.Assert.assertEquals(1080f, r.right, 1f);
+        org.junit.Assert.assertEquals((2340f - r.height()) / 2f, r.top, 1f); // and centred
+        v.pause().stop().destroy();
+        // a missing picture says so instead of a blank screen
+        ActivityController<ai.dvine.chat.ui.ImageViewActivity> gone = Robolectric.buildActivity(ai.dvine.chat.ui.ImageViewActivity.class,
+                new android.content.Intent().putExtra(ai.dvine.chat.ui.ImageViewActivity.EXTRA_PATH, "/nowhere.jpg")).create().start().resume().visible();
+        java.util.ArrayList<android.view.View> said = new java.util.ArrayList<android.view.View>();
+        gone.get().getWindow().getDecorView().findViewsWithText(said, "This picture isn't on the phone any more.", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertEquals(1, said.size());
+        gone.pause().stop().destroy();
     }
 
     /** Taps the row of a bottom sheet whose name is {@code name}. */
