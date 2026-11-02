@@ -18,7 +18,7 @@ import ai.dvine.llm.ProviderStore;
  */
 public final class ConnectorStore {
     public enum Kind {
-        WEB("Web search", "Wikipedia, Wikidata and DuckDuckGo, for facts and anything recent."),
+        WEB("Web search", "Searches the web and reads the best pages. Free: Wikipedia. Whole web: your Brave Search, Tavily or Google key."),
         CALENDAR("Phone calendar", "Your events for the next week, read from this phone's calendar."),
         GITHUB("GitHub", "Your repositories, issues and files; Ibiko can clone, pull, commit, push and open pull requests. Sign in with GitHub in the browser, or paste a token."),
         NOTION("Notion", "Search the pages you shared with a Notion integration. Needs its token."),
@@ -82,6 +82,29 @@ public final class ConnectorStore {
         prefs.edit().putString("GITHUB.user", user == null ? "" : user.trim()).apply();
     }
 
+    /** The web search chosen on the Web search card (free Wikipedia search when none). */
+    public ai.dvine.net.WebSearch.Settings webSearch() {
+        return new ai.dvine.net.WebSearch.Settings(prefs.getString("WEB.provider", ""), ProviderStore.open(prefs.getString("WEB.key", "")),
+                prefs.getString("WEB.cx", ""));
+    }
+
+    public void setWebSearch(String provider, String key, String cx) {
+        prefs.edit().putString("WEB.provider", provider == null ? "" : provider)
+                .putString("WEB.key", ProviderStore.seal(key == null ? "" : key.trim()))
+                .putString("WEB.cx", cx == null ? "" : cx.trim()).apply();
+    }
+
+    /**
+     * Searches the web and reads the best {@code pages} pages: the text a model answers from, or null (blocking;
+     * call off the main thread).
+     */
+    public String research(String question, int pages, int maxChars) {
+        return ai.dvine.net.WebSearch.research(question, Connectors.https(), webSearch(), url -> {
+            ai.dvine.net.WebGet.Page p = ai.dvine.net.WebGet.page(url, 8000, 600_000);
+            return p.body;
+        }, pages, maxChars);
+    }
+
     public String mcpUrl() {
         return prefs.getString("MCP.url", "");
     }
@@ -121,9 +144,12 @@ public final class ConnectorStore {
         prefs.edit().putString("MCP.tools", MiniJson.write(list)).apply();
     }
 
-    /** Git with GitHub for Ibiko, or null when the GitHub connector isn't on and ready. */
+    /**
+     * Git with GitHub for Ibiko: signed in when the GitHub connector is ready, otherwise anonymous (public
+     * repositories clone and pull; pushing asks to sign in).
+     */
     public GitHubGit git() {
-        return ready(Kind.GITHUB) ? new GitHubGit(Connectors.https(), token(Kind.GITHUB)) : null;
+        return new GitHubGit(Connectors.https(), ready(Kind.GITHUB) ? token(Kind.GITHUB) : "").useZips(GitHubGit.httpsZips());
     }
 
     public boolean calendarAllowed() {
@@ -148,7 +174,7 @@ public final class ConnectorStore {
     public List<Connectors.Tool> tools() {
         List<Connectors.Tool> t = new ArrayList<Connectors.Tool>();
         if (ready(Kind.WEB)) {
-            t.add(new Connectors.Tool("web.search", "look a fact up on the web (Wikipedia, Wikidata, DuckDuckGo)", "question"));
+            t.add(new Connectors.Tool("web.search", "search the web and read the best pages (" + webSearch().label() + ")", "words to search for"));
         }
         if (ready(Kind.CALENDAR)) {
             t.add(new Connectors.Tool("calendar.week", "the user's calendar events for the next 7 days", ""));
@@ -172,7 +198,10 @@ public final class ConnectorStore {
     public String run(String tool, String arg, java.util.function.Function<String, String> web) {
         try {
             if (tool.equals("web.search")) {
-                String found = web.apply(arg);
+                String found = research(arg, 3, 6000);
+                if (found == null && web != null) {
+                    found = web.apply(arg);
+                }
                 return found == null || found.trim().isEmpty() ? "Nothing reliable was found." : Connectors.clip(found);
             }
             if (tool.equals("calendar.week")) {

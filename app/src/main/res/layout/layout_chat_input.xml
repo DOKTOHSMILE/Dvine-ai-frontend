@@ -32,6 +32,23 @@
         android:paddingEnd="8dp"
         android:paddingBottom="8dp">
 
+        <!-- attached images, files and long pastes, waiting for the message (hidden when there are none) -->
+        <HorizontalScrollView
+            android:id="@+id/attach_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="6dp"
+            android:paddingTop="6dp"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/attach_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
         <EditText
             android:id="@+id/et_message"
             android:layout_width="match_parent"

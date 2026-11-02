@@ -135,6 +135,17 @@
 
         <include layout="@layout/layout_system_banner" />
 
+        <!-- Ivie only: the 3D canvas for what she draws and builds (hidden until there is something to show) -->
+        <FrameLayout
+            android:id="@+id/ivieCanvas"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_input_container"
+            android:visibility="gone" />
+
         <FrameLayout
             android:id="@+id/chatPaneHost"
             android:layout_width="match_parent"

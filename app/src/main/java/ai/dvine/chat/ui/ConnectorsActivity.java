@@ -153,6 +153,9 @@ public final class ConnectorsActivity extends AppCompatActivity {
             }
             inside.addView(Ui.text(this, t.toString(), 13, Ui.SUB, false), Ui.wide(this, 10));
         }
+        if (k == ConnectorStore.Kind.WEB) {
+            webSearchSettings(inside);
+        }
         if (k != ConnectorStore.Kind.WEB) {
             final TextView result = Ui.text(this, "", 13, Ui.SUB, false);
             TextView test = Ui.button(this, "Save and test", true);
@@ -187,6 +190,63 @@ public final class ConnectorsActivity extends AppCompatActivity {
         }
         card.addView(inside);
         return card;
+    }
+
+    // ------------------------------------------------------------ web search
+
+    /** Which search: free (Wikipedia), or the whole web with the user's Brave Search, Tavily or Google key. */
+    private void webSearchSettings(LinearLayout inside) {
+        final ai.dvine.net.WebSearch.Settings now = store.webSearch();
+        final String[] keys = {"", "brave", "tavily", "google"};
+        final String[] names = {"Free", "Brave", "Tavily", "Google"};
+        final String[] chosen = {now.provider};
+        final LinearLayout row = new LinearLayout(this);
+        row.setBackground(Ui.round(this, Ui.FIELD, 0, 14));
+        row.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
+        final EditText key = Ui.field(this, "API key", now.key, true, false);
+        final EditText cx = Ui.field(this, "Search engine ID (cx)", now.cx, false, false);
+        final TextView how = Ui.text(this, "", 12, Ui.SUB, false);
+        final Runnable[] paint = new Runnable[1];
+        paint[0] = () -> {
+            row.removeAllViews();
+            for (int i = 0; i < keys.length; i++) {
+                final String kk = keys[i];
+                boolean on = kk.equals(chosen[0]);
+                TextView t = Ui.text(this, names[i], 14, on ? Ui.ON_CORAL : Ui.TEXT, on);
+                t.setGravity(Gravity.CENTER);
+                t.setMinHeight(Ui.dp(this, 38));
+                if (on) {
+                    t.setBackground(Ui.round(this, Ui.CORAL, 0, 11));
+                }
+                t.setOnClickListener(v -> {
+                    chosen[0] = kk;
+                    paint[0].run();
+                });
+                row.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            }
+            key.setVisibility(chosen[0].isEmpty() ? View.GONE : View.VISIBLE);
+            cx.setVisibility("google".equals(chosen[0]) ? View.VISIBLE : View.GONE);
+            switch (chosen[0]) {
+                case "brave": how.setText("The whole web. A key from api.search.brave.com (there is a free plan)."); break;
+                case "tavily": how.setText("The whole web, made for AI answers. A key from tavily.com (free credits each month)."); break;
+                case "google": how.setText("Google results through Programmable Search: an API key and a search engine ID from programmablesearchengine.google.com."); break;
+                default: how.setText("Wikipedia's search, several articles at a time. No key. For the whole web, choose a provider and add its key.");
+            }
+        };
+        paint[0].run();
+        inside.addView(row, Ui.wide(this, 12));
+        inside.addView(how, Ui.wide(this, 8));
+        inside.addView(key, Ui.wide(this, 10));
+        inside.addView(cx, Ui.wide(this, 10));
+        TextView save = Ui.button(this, "Save", true);
+        save.setOnClickListener(v -> {
+            store.setWebSearch(chosen[0], key.getText().toString(), cx.getText().toString());
+            android.widget.Toast.makeText(this, "Web search: " + store.webSearch().label()
+                    + (chosen[0].isEmpty() || store.webSearch().keyed() ? "." : " needs its key; using Wikipedia until then."),
+                    android.widget.Toast.LENGTH_LONG).show();
+            fill();
+        });
+        inside.addView(save, Ui.wide(this, 12));
     }
 
     // ------------------------------------------------------------ GitHub sign-in
@@ -374,6 +434,9 @@ public final class ConnectorsActivity extends AppCompatActivity {
         }
         if (store.ready(k) && k == ConnectorStore.Kind.GITHUB && !store.githubUser().isEmpty()) {
             return "Connected as @" + store.githubUser();
+        }
+        if (k == ConnectorStore.Kind.WEB) {
+            return "On \u00B7 " + store.webSearch().label();
         }
         if (store.ready(k)) {
             return k == ConnectorStore.Kind.MCP ? "Connected: " + store.mcpTools().size() + " tools" : "Connected";

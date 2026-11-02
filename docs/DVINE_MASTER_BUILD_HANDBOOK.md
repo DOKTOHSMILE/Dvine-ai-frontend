@@ -1247,6 +1247,42 @@ When the turn ends it folds into "Worked for 6s · 5 steps ›" above the reply 
 
 The card then says "Connected as @user" and offers Sign out.
 
+## 44. Ibiko with any model, real search, attachments, Settings, three personas (app v0.55.0, built)
+
+**What went wrong with a custom API (GPT-5), and the fixes:**
+1. **Tool calls shown as text.** Models write tool calls in the forms they were trained on: `<tool_call><function=git action="clone" …/></function></tool_call>`, `<function=fetch><parameter=url>…</parameter></function>`, `<invoke name="…"><parameter name="…">`, or JSON `{"name", "arguments"}`. `CodeAgent.parse` only knew `<tool name=…>`, so the clone never ran and the workspace stayed empty. `CodeAgent.foreign` now reads all of them and maps common names (web_search → web.search, bash → run, read → read_file, ls → list_files). A reply with a tool call it still can't read, or a short promise ("I'll research Google…"), is answered once with "do that now with the tools" instead of ending the task.
+2. **"The model didn't answer."** Reasoning models (GPT-5, the o-series, R1, "thinking" models) spend hidden reasoning tokens from the reply's limit; with 2,000 the visible answer came back empty. `RemoteBrain.reasoning()` sends them `max_completion_tokens` of 8,000 to 32,000 and `reasoning_effort` low (medium for long work) on the first request, without the two refused forms first, and the read timeout is 180 s.
+3. **"It stopped at 16 percent. Say continue the download."** A failed model download posted into the chat, which also cut off the current reply. It is now a short note pointing to Settings.
+
+**Web search** (`net/WebSearch`). The free search was effectively Wikipedia: DuckDuckGo's instant-answer API returns Wikipedia abstracts. Search engines' own result pages refuse automated queries and are not scraped. So:
+- with the user's key (Connectors › Web search): Brave Search (free plan), Tavily, or Google Programmable Search (key and engine ID);
+- without one: Wikipedia's search API, several articles;
+- then the best pages are read (`WebGet.page`: a browser-like client, big pages cut not dropped, failures explained) and the model answers from the numbered results with the sources. Persona answers, "look it up" and Ibiko's `web.search` all use it.
+
+**Repositories on the phone.** Clone downloads the branch as one zip (up to 300 MB) and unpacks it with each file's git blob id, instead of one API call per file (and a 600-file limit). The clone stays in Ibiko's workspace, usable offline: the models read and edit it through Ibiko, and push when online. Public repositories clone and pull without signing in. Editing on GitHub without a clone is still open.
+
+**Attachments** (`chat/Attachments`, `chat/ui/ComposerAttachments`, `chat/ui/AttachmentReader`):
+- A paste of 1,500+ characters or 25+ lines becomes a "Pasted text · N lines" card.
+- A picked photo becomes a thumbnail (shrunk to 1,568 px). A text or code file is read as text (up to 300 kB). A PDF, video or sound is attached by name.
+- Nothing is sent until Send. The chat then shows the photos and cards with the words.
+- The model gets each image as a real image (`[[image:path]]` → OpenAI `image_url` / Anthropic `image` parts) and each text as `<attachment>` data.
+- The phone's own model and the remembered history see "[an image]".
+
+**Settings:** profile (your name, the persona to start with), chat (Enter sends; show the working steps), voice (read aloud; speaking speed), models (AI providers; the on-phone model with live progress, pause, resume, remove), web and services, Ibiko (auto-accept; clear the workspace), appearance, data and privacy (learning; export chats; delete all chats), about.
+
+**The three personas:**
+- **Ivie** is images, drawings and 3D. On her tab a drawing, a build, an edit of what is shown, a view, undo, save, open or export goes to the creation engine (`CreationDirector`). The result shows on her 3D canvas above the chat: the GL scene and stage, with ✕ to hide it. It is shown on her tab only.
+- **Obi** is conversation, questions and research.
+- **Ibiko** is code, files and GitHub.
+
+Each persona's instructions say this.
+
+**Clean-up:**
+- `MainActivity` went from 4,040 to 3,180 lines. 25 unreachable methods (old debate, part editing, export, desk, name and view paths) and 6 unused fields were removed.
+- Ibiko's phone host moved to `agent/PhoneHost`, the streaming reply to `chat/LiveReply`, and dictation to `voice/Dictation`.
+- The unused `create/Materials` class was removed.
+- Classes now used only by tests are kept for Ivie's tools to come: `MeshExport`, `PartEdit`, `ObjImporter`, `PhotoFrame`, `Debate`, `ViewIntent`, `AnswerGate`, `SpeechChunker`, `WorldLookup`, `ResponseStreamingManager`, `CreationRouter`, `MachinePlan`, `SemanticGraph`, `ReconstructionJob`.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

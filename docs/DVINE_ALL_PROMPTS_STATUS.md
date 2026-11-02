@@ -100,6 +100,13 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 67 | GitHub with email or username and password, or several ways in | P12 | Built (JVM) | 0.54.0: browser sign-in (email or username and password on github.com, approved with a code), a pre-filled token page, or a pasted token. Passwords can't be taken by apps (GitHub's rule since 2021) |
 | 68 | A settings page with the offline model's download progress | P12 | Built (rendered) | 0.54.0: Settings with live progress, pause, resume, remove |
 | 69 | The Add menu as a bottom sheet with standard icons | P12 | Built (rendered) | 0.54.0 |
+| 70 | Ibiko with a custom API: tool calls shown as text, "the model didn't answer", "continue" resuming a download, promises instead of results | P12 | Built (JVM) | 0.55.0: every common tool-call form read; room for reasoning models; download notices off the chat; nudged to act |
+| 71 | Long pastes become a file | P12 | Built (rendered) | 0.55.0: a "Pasted text" card |
+| 72 | A picked image waits for instructions instead of being sent | P12 | Built (rendered) | 0.55.0: attachments in the box; images go to the model as images |
+| 73 | A standard Settings page with good features | P12 | Built (rendered) | 0.55.0 |
+| 74 | Clone repositories to the phone, let the models read and edit them, push; or work on the repo directly | P12 | Built (JVM) | 0.55.0: one-zip clone kept on the phone, public repos without sign-in; Ibiko reads, edits and pushes. Editing on GitHub without a clone is still open |
+| 75 | Why is Wikipedia the only search source | P12 | Built (JVM) | 0.55.0: Brave, Tavily or Google with the user's key; otherwise Wikipedia's search, several articles; pages read and cited |
+| 76 | Split MainActivity, remove unused and broken code; Ivie graphics, Obi chat, Ibiko code | P12 | Partly built | 0.55.0: 4,040 → 3,180 lines, 31 unused members gone, three classes moved out; personas organised and Ivie's 3D canvas. More of MainActivity can still move out |
 
 ## Still open, in the order that matters
 

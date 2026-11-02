@@ -121,6 +121,27 @@ public class ScreenshotTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         shoot(c.get(), "11_worked_night");
 
+        // a photo and a long paste waiting in the box for the instructions
+        java.io.File img = new java.io.File(c.get().getFilesDir(), "attachments/shot.jpg");
+        img.getParentFile().mkdirs();
+        android.graphics.Bitmap pic = android.graphics.Bitmap.createBitmap(200, 200, android.graphics.Bitmap.Config.ARGB_8888);
+        pic.eraseColor(0xFF6A8CAF);
+        try (FileOutputStream o = new FileOutputStream(img)) {
+            pic.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, o);
+        }
+        java.lang.reflect.Field af = MainActivity.class.getDeclaredField("attachments");
+        af.setAccessible(true);
+        ai.dvine.chat.ui.ComposerAttachments box = (ai.dvine.chat.ui.ComposerAttachments) af.get(c.get());
+        box.add(new ai.dvine.chat.ui.ComposerAttachments.Item("image", "bike.jpg", img.getAbsolutePath(), null));
+        StringBuilder longText = new StringBuilder();
+        for (int i = 0; i < 120; i++) {
+            longText.append("line ").append(i).append('\n');
+        }
+        box.add(new ai.dvine.chat.ui.ComposerAttachments.Item("text", "Pasted text", null, longText.toString()));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        shoot(c.get(), "13_attachments_night");
+        box.clear();
+
         java.lang.reflect.Method attach = MainActivity.class.getDeclaredMethod("showAttachMenu", android.view.View.class);
         attach.setAccessible(true);
         attach.invoke(c.get(), (android.view.View) null);

@@ -115,6 +115,15 @@ public final class RemoteBrain {
         return baseUrl.replaceAll("(?i)^https?://", "").replaceAll("/.*$", "");
     }
 
+    /**
+     * A model that reasons before it answers (GPT-5, the o-series, R1, "thinking" models) behind the OpenAI form: it
+     * takes max_completion_tokens and no temperature, and needs room for its hidden reasoning.
+     */
+    boolean reasoning() {
+        return protocol == Protocol.OPENAI && model != null
+                && model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gpt-5.*|o[1-9](-.*)?|.*-r1.*|.*reason.*|.*thinking.*)");
+    }
+
     /** Stops the reply being written (from any thread); the stream is abandoned at the next piece. */
     public void cancel() {
         cancelled = true;
@@ -137,10 +146,11 @@ public final class RemoteBrain {
         for (int k = 0; k < keys.length; k++) {
             boolean last = k == keys.length - 1;
             // a server that refuses one optional field is asked again in the plainer form
-            for (int form = 0; form < (protocol == Protocol.ANTHROPIC ? 2 : 3); form++) {
+            // a reasoning model gets its own form first (no temperature, room to think), saving two refused requests
+            for (int form = reasoning() ? 2 : 0; form < (protocol == Protocol.ANTHROPIC ? 2 : 3); form++) {
                 Response r;
                 try {
-                    r = transport.post(url(), headers(keys[k], form), body(system, turns, maxTokens, temperature, form), 90_000);
+                    r = transport.post(url(), headers(keys[k], form), body(system, turns, maxTokens, temperature, form), 180_000);
                 } catch (IOException e) {
                     problem = "I couldn't reach " + host() + (e.getMessage() == null ? "" : " (" + e.getMessage() + ")");
                     return null;
@@ -208,7 +218,7 @@ public final class RemoteBrain {
                 req.put("system", sys);
             }
             for (String[] t : merged(turns)) {
-                messages.add(message(t[0], t[1]));
+                messages.add(content(t[0], t[1]));
             }
             req.put("messages", messages);
             req.put("stream", Boolean.TRUE);
@@ -225,14 +235,16 @@ public final class RemoteBrain {
                 messages.add(message("system", sys));
             }
             for (String[] t : turns) {
-                messages.add(message("assistant".equals(t[0]) ? "assistant" : "user", t[1]));
+                messages.add(content("assistant".equals(t[0]) ? "assistant" : "user", t[1]));
             }
             req.put("messages", messages);
             req.put("stream", Boolean.TRUE);
             if (form == 2) {
-                req.put("max_completion_tokens", (double) allowance);
-                if (small) {
-                    req.put("reasoning_effort", "low");
+                // a reasoning model's hidden thinking counts against this limit: without room for it, the visible
+                // answer comes back empty ("the model didn't answer")
+                req.put("max_completion_tokens", (double) (reasoning() ? Math.min(32_000, Math.max(8_000, allowance * 4)) : allowance));
+                if (small || reasoning()) {
+                    req.put("reasoning_effort", small || allowance <= 2_000 ? "low" : "medium");
                 }
             } else {
                 req.put("max_tokens", (double) allowance);
@@ -262,6 +274,54 @@ public final class RemoteBrain {
             }
         }
         return out;
+    }
+
+    /**
+     * A message with any attached images ({@code [[image:path]]}) sent as real images, in this protocol's form;
+     * without images it is plain text. A missing or unreadable image becomes the words "[an image that couldn't be
+     * read]".
+     */
+    Map<String, Object> content(String role, String text) {
+        java.util.List<String> images = ai.dvine.chat.Attachments.images(text);
+        if (images.isEmpty() || !"user".equals(role)) {
+            return message(role, ai.dvine.chat.Attachments.withoutImages(text));
+        }
+        List<Object> parts = new ArrayList<Object>();
+        String words = ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll("").trim();
+        for (String path : images) {
+            byte[] bytes;
+            try {
+                bytes = java.nio.file.Files.readAllBytes(new java.io.File(path).toPath());
+            } catch (IOException | RuntimeException e) {
+                words += "\n[an image that couldn't be read]";
+                continue;
+            }
+            String b64 = java.util.Base64.getEncoder().encodeToString(bytes);
+            String type = path.toLowerCase(java.util.Locale.US).endsWith(".png") ? "image/png" : "image/jpeg";
+            Map<String, Object> part = new LinkedHashMap<String, Object>();
+            if (protocol == Protocol.ANTHROPIC) {
+                Map<String, Object> src = new LinkedHashMap<String, Object>();
+                src.put("type", "base64");
+                src.put("media_type", type);
+                src.put("data", b64);
+                part.put("type", "image");
+                part.put("source", src);
+            } else {
+                Map<String, Object> url = new LinkedHashMap<String, Object>();
+                url.put("url", "data:" + type + ";base64," + b64);
+                part.put("type", "image_url");
+                part.put("image_url", url);
+            }
+            parts.add(part);
+        }
+        Map<String, Object> t = new LinkedHashMap<String, Object>();
+        t.put("type", "text");
+        t.put("text", words.isEmpty() ? "(see the image)" : words);
+        parts.add(t);
+        Map<String, Object> m = new LinkedHashMap<String, Object>();
+        m.put("role", role);
+        m.put("content", parts);
+        return m;
     }
 
     private static Map<String, Object> message(String role, String content) {

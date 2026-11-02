@@ -155,4 +155,46 @@ public class CodeAgentTest {
         assertTrue(phone.asked.get(0), phone.asked.get(0).startsWith("git commit and push app"));
         assertEquals("x = 1\n", hub.filesAt("main").get("app.py")); // not allowed: nothing pushed
     }
+
+    @Test
+    public void readsTheToolCallFormsOtherModelsWrite() {
+        // exactly what GPT-5 wrote on the phone
+        CodeAgent.Call a = CodeAgent.parse("I'll clone the repo first, then audit it.<tool_call><function=git action=\"clone\" "
+                + "repo=\"DOKTOHSMILE/Dvine-ai-frontend.git\"/></function></tool_call>");
+        assertEquals("git", a.name);
+        assertEquals("clone", a.a("action"));
+        assertEquals("DOKTOHSMILE/Dvine-ai-frontend.git", a.a("repo"));
+        CodeAgent.Call b = CodeAgent.parse("<tool_call><function=fetch><parameter=url>https://brewkeg.dev/install.sh</parameter></function></tool_call>");
+        assertEquals("fetch", b.name);
+        assertEquals("https://brewkeg.dev/install.sh", b.a("url"));
+        CodeAgent.Call c = CodeAgent.parse("<tool_call><function=list_files><parameter=path>.</parameter></function></tool_call>");
+        assertEquals("list_files", c.name);
+        assertEquals(".", c.a("path"));
+        CodeAgent.Call d = CodeAgent.parse("<tool_call>{\"name\": \"write_file\", \"arguments\": {\"path\": \"a.py\", \"content\": \"x = 1\\n\"}}</tool_call>");
+        assertEquals("write_file", d.name);
+        assertEquals("a.py", d.a("path"));
+        assertEquals("x = 1\n", d.body);
+        CodeAgent.Call e = CodeAgent.parse("<invoke name=\"bash\"><parameter name=\"command\">ls -la</parameter></invoke>");
+        assertEquals("run", e.name);
+        assertEquals("ls -la", e.a("command"));
+        CodeAgent.Call f = CodeAgent.parse("<function=web_search><parameter=query>Google history</parameter></function>");
+        assertEquals("connector", f.name);
+        assertEquals("web.search Google history", f.a("call"));
+        assertNull(CodeAgent.parse("Here is the file you asked for."));
+    }
+
+    @Test
+    public void aPromiseIsNotAnAnswer() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Script brain = new Script("I'll research Google and compile a full overview.",
+                "<function=web_search><parameter=query>Google</parameter></function>",
+                "Google was founded in 1998 by Larry Page and Sergey Brin.");
+        Phone phone = new Phone();
+        String answer = new CodeAgent(ws, brain, phone, "", 20_000).run("Research google", "");
+        assertEquals("Google was founded in 1998 by Larry Page and Sergey Brin.", answer);
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("Do that now with the tools"));
+        assertTrue(brain.seen.get(2), brain.seen.get(2).contains("connector said: web.search Google"));
+        assertTrue(CodeAgent.promise("I'll clone the repo into the workspace, then audit it."));
+        assertFalse(CodeAgent.promise("Want me to retry the clone?"));
+    }
 }
