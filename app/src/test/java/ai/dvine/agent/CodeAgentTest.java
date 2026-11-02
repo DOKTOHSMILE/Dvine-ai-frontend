@@ -212,6 +212,10 @@ public class CodeAgentTest {
                 .useGit(new ai.dvine.connect.GitHubGit(new ai.dvine.connect.GitHubGitTest.FakeHub(), "tok"));
         assertTrue(ibiko.system().contains("Local sandbox") && ibiko.system().contains("sandbox/<short-name>"));
         assertTrue(ibiko.system().contains("git pull, then push again") && ibiko.system().contains("open a pull request with git pr"));
+        String full = ibiko.system();
+        String small = ibiko.compact(true).system(); // a small model's memory: the walkthroughs go, the tools stay
+        assertFalse(small.contains("Local sandbox") || small.contains("Git, step by step"));
+        assertTrue(small.contains("action=\"push\"") && small.length() < full.length() - 1000);
         assertFalse(obi.system().contains("write_file") || obi.system().contains("name=\"run\""));
         assertEquals("Main.java declares an empty class Main.", obi.run("What is in the cloned app's Main.java?", ""));
         assertTrue(brain.seen.get(1), brain.seen.get(1).contains("1\tclass Main {}"));

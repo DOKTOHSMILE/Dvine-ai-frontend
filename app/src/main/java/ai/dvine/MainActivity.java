@@ -1737,7 +1737,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         }
                     }, host, tools,
                     model.window() * 3);
-            agent.useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly);
+            agent.useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly)
+                    .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             if (carriesOn(task)) {
                 agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
             }
