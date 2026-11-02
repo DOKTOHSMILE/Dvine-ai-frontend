@@ -23,6 +23,16 @@ public class MeaningTest {
         assertEquals("give me the result", Meaning.Command.RESULT.canonical);
         assertEquals("continue", Meaning.Command.CONTINUE.canonical);
         assertEquals("delete the model", Meaning.Command.REMOVE_MODEL.canonical);
+        // the commands DVINE carries out with its own actions (its buttons'), not as a message
+        assertEquals(Meaning.Command.SWITCH_OBI, Meaning.read("COMMAND: switch_obi"));
+        assertEquals(Meaning.Command.CLEAR_WORKSPACE, Meaning.read("COMMAND: clear_workspace"));
+        for (Meaning.Command c : new Meaning.Command[]{Meaning.Command.NEW_CHAT, Meaning.Command.SWITCH_IVIE, Meaning.Command.SWITCH_OBI,
+                Meaning.Command.SWITCH_IBIKO, Meaning.Command.STOP, Meaning.Command.AUTO_ON, Meaning.Command.AUTO_OFF,
+                Meaning.Command.CLEAR_WORKSPACE, Meaning.Command.OPEN_SETTINGS}) {
+            assertTrue(c.name(), c.direct());
+            assertTrue(c.name(), Meaning.prompt(false).contains(c.name().toLowerCase(java.util.Locale.US) + ":"));
+        }
+        assertFalse(Meaning.Command.RESULT.direct() || Meaning.Command.REMOVE_MODEL.direct() || Meaning.Command.NONE.direct());
     }
 
     @Test
