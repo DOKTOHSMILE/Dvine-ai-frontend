@@ -20,7 +20,7 @@ public final class ConnectorStore {
     public enum Kind {
         WEB("Web search", "Wikipedia, Wikidata and DuckDuckGo, for facts and anything recent."),
         CALENDAR("Phone calendar", "Your events for the next week, read from this phone's calendar."),
-        GITHUB("GitHub", "Your repositories, issues and files; Ibiko can clone, pull, commit, push and open pull requests. Needs a personal access token (Contents: read and write to push; Pull requests to open them)."),
+        GITHUB("GitHub", "Your repositories, issues and files; Ibiko can clone, pull, commit, push and open pull requests. Sign in with GitHub in the browser, or paste a token."),
         NOTION("Notion", "Search the pages you shared with a Notion integration. Needs its token."),
         MCP("Custom MCP server", "Any server that speaks the Model Context Protocol, over https. Its tools are found on Test.");
 
@@ -62,6 +62,24 @@ public final class ConnectorStore {
 
     public void setToken(Kind k, String token) {
         prefs.edit().putString(k.name() + ".token", ProviderStore.seal(token == null ? "" : token.trim())).apply();
+    }
+
+    /** The client ID of the user's GitHub OAuth app, for browser sign-in (public, not a secret). */
+    public String githubClientId() {
+        return prefs.getString("GITHUB.client", "");
+    }
+
+    public void setGithubClientId(String id) {
+        prefs.edit().putString("GITHUB.client", id == null ? "" : id.trim()).apply();
+    }
+
+    /** The GitHub username the token belongs to, when known. */
+    public String githubUser() {
+        return prefs.getString("GITHUB.user", "");
+    }
+
+    public void setGithubUser(String user) {
+        prefs.edit().putString("GITHUB.user", user == null ? "" : user.trim()).apply();
     }
 
     public String mcpUrl() {

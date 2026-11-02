@@ -308,11 +308,11 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:background="@drawable/bg_drawer_row"
-            android:drawableStart="@drawable/ic_theme"
+            android:drawableStart="@drawable/ic_settings"
             android:drawablePadding="12dp"
             android:gravity="center_vertical"
             android:paddingStart="10dp"
-            android:text="Appearance"
+            android:text="Settings"
             android:textColor="@color/text_primary"
             android:textSize="16sp" />
 

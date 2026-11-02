@@ -13,7 +13,7 @@ import android.widget.TextView;
 /** The look shared by DVINE's screens: dark rounded cards, a coral accent, pill badges, 48 dp buttons. */
 final class Ui {
     /**
-     * One palette for every screen, after Claude's: day (warm off-white) or night (warm near-black), with a coral
+     * One palette for every screen, DVINE's own: day (cool off-white) or night (deep blue-black), with a violet
      * accent. Read from the theme's colours by {@link #init}, so it follows the phone's day / night setting or the
      * one chosen in DVINE.
      */
@@ -23,10 +23,10 @@ final class Ui {
 
     static {
         // night values until a screen calls init (tests that build views without an activity)
-        BG = 0xFF1F1E1D; SURFACE = 0xFF2A2927; LINE = 0xFF3A3936; CORAL = 0xFFD97757; ON_CORAL = 0xFF1F1E1D; SHEET = 0xFF262624;
-        CARD = 0xFF2E2D2A; CARD_ON = 0xFF3B2C26; BORDER = LINE; BORDER_ON = CORAL; FIELD = 0xFF3A3936; TEXT = 0xFFECEBE6;
-        SUB = 0xFF9E9C95; ACCENT = CORAL; PILL = 0xFF4A3A2A; PILL_TEXT = 0xFFF2D9C7; ORANGE = CORAL; GREY = 0xFF8A8880;
-        TRACK = 0xFF3A3936;
+        BG = 0xFF121218; SURFACE = 0xFF1C1C24; LINE = 0xFF2E2D3A; CORAL = 0xFF8B7CFF; ON_CORAL = 0xFF0E0E14; SHEET = 0xFF17171F;
+        CARD = 0xFF1E1E28; CARD_ON = 0xFF2A2545; BORDER = LINE; BORDER_ON = CORAL; FIELD = 0xFF262632; TEXT = 0xFFECECF3;
+        SUB = 0xFF9A99AA; ACCENT = CORAL; PILL = 0xFF2D2650; PILL_TEXT = 0xFFDCD6FF; ORANGE = CORAL; GREY = 0xFF8A8898;
+        TRACK = 0xFF2E2D3A;
     }
 
     /**

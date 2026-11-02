@@ -410,9 +410,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 closeDrawer();
                 startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ConnectorsActivity.class));
             });
-        android.view.View theme = findViewById(R.id.btnTheme);
-        if (theme != null)
-            theme.setOnClickListener(v -> chooseTheme());
+        android.view.View settings = findViewById(R.id.btnTheme);
+        if (settings != null)
+            settings.setOnClickListener(v -> {
+                closeDrawer();
+                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
+            });
         android.view.View usage = findViewById(R.id.btnUsage);
         if (usage != null)
             usage.setOnClickListener(v -> {
@@ -468,7 +471,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             send.setOnClickListener(v -> sendComposer());
         }
         if (voice != null) {
-            voice.setOnClickListener(v -> startListening(true));
+            voice.setOnClickListener(v -> toggleDictation());
         }
         if (attach != null) {
             attach.setOnClickListener(this::showAttachMenu);
@@ -498,7 +501,86 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         field.setText("");
+        voiceTurn = dictatedDraft;
+        dictatedDraft = false;
         answer(text);
+        field.requestFocus(); // the keyboard keeps typing into the box after Send
+    }
+
+    /** The mic is writing into the message box (not sending). */
+    private boolean dictating;
+    /** What was in the box before this dictation (new words are added after it). */
+    private String dictateBefore = "";
+    /** The message in the box was spoken: its reply may be read aloud ("Only when I used the microphone"). */
+    private boolean dictatedDraft;
+
+    /**
+     * The mic button writes what you say into the message box, so you can read and edit it before sending. Tap
+     * again to stop; it also stops by itself after a pause.
+     */
+    private void toggleDictation() {
+        if (dictating) {
+            listen.finish();
+            return;
+        }
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (field == null) {
+            startListening(false);
+            return;
+        }
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { android.Manifest.permission.RECORD_AUDIO }, MIC);
+            return;
+        }
+        if (talk != null) {
+            talk.stop();
+        }
+        dictateBefore = field.getText() == null ? "" : field.getText().toString();
+        dictating = true;
+        showDictating(true);
+        listen.start(this, true);
+    }
+
+    private void showDictating(boolean on) {
+        android.widget.ImageButton mic = findViewById(R.id.btn_voice);
+        if (mic != null) {
+            mic.setSelected(on);
+            mic.setImageTintList(on ? android.content.res.ColorStateList.valueOf(getColor(R.color.accent)) : null);
+            mic.setContentDescription(on ? "Stop dictating" : "Speak");
+        }
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (field != null) {
+            field.setHint(on ? "Listening\u2026" : "Ask anything");
+        }
+    }
+
+    /** Puts the spoken words in the box after what was already typed. */
+    private void dictated(String words, boolean done) {
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (field == null) {
+            return;
+        }
+        String w = words == null ? "" : words.trim();
+        if (done && !w.isEmpty()) {
+            w = w.substring(0, 1).toUpperCase(java.util.Locale.getDefault()) + w.substring(1);
+        }
+        String before = dictateBefore.replaceAll("\\s+$", "");
+        String text = before.isEmpty() ? w : w.isEmpty() ? dictateBefore : before + " " + w;
+        field.setText(text);
+        field.setSelection(field.getText().length());
+        if (done) {
+            dictating = false;
+            showDictating(false);
+            if (!w.isEmpty()) {
+                dictatedDraft = true;
+            }
+            field.requestFocus();
+            android.view.inputmethod.InputMethodManager ime = (android.view.inputmethod.InputMethodManager)
+                    getSystemService(INPUT_METHOD_SERVICE);
+            if (ime != null) {
+                ime.showSoftInput(field, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            }
+        }
     }
 
     private void bindCrashBanner() {
@@ -603,24 +685,28 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void showAttachMenu(android.view.View anchor) {
-        final String[] options = new String[] { "Speak", "Photo", "Video", "Audio", "File",
-                "Several photos of one object" };
-        new android.app.AlertDialog.Builder(this).setTitle("Add")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        startListening(true);
-                    } else if (which == 1) {
-                        openContentPicker("image", false);
-                    } else if (which == 2) {
-                        openContentPicker("video", false);
-                    } else if (which == 3) {
-                        openContentPicker("audio", false);
-                    } else if (which == 4) {
-                        openContentPicker("document", false);
-                    } else {
-                        openReconstructionPicker();
-                    }
-                }).show();
+        ai.dvine.chat.ui.BottomSheet.Item[] items = {
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mic, "Speak", "Say it; the words go into the message box"),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_image, "Photo", "From your gallery"),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_video, "Video", null),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_audio, "Audio", null),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_file, "File", "Text or PDF"),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_cube, "Several photos of one object", "Builds a 3D model from them") };
+        ai.dvine.chat.ui.BottomSheet.show(this, "Add to the chat", items, which -> {
+            if (which == 0) {
+                toggleDictation();
+            } else if (which == 1) {
+                openContentPicker("image", false);
+            } else if (which == 2) {
+                openContentPicker("video", false);
+            } else if (which == 3) {
+                openContentPicker("audio", false);
+            } else if (which == 4) {
+                openContentPicker("document", false);
+            } else {
+                openReconstructionPicker();
+            }
+        });
     }
 
     /**
@@ -650,11 +736,39 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** Day, night, or the phone's setting (the default). */
-    static void applyTheme(String choice) {
+    public static void applyTheme(String choice) {
         androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode("light".equals(choice)
                 ? androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
                 : "dark".equals(choice) ? androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
                         : androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+    }
+
+    /** "always" (the default), "mic" (only after the microphone) or "off". */
+    private String readAloud() {
+        return prefs == null ? "always" : prefs.getString("read_aloud", "always");
+    }
+
+    /** Whether this reply is read out: always, after a dictated message, or never, as chosen in the drawer. */
+    private boolean speakReply() {
+        String mode = readAloud();
+        return "always".equals(mode) || ("mic".equals(mode) && voiceTurn);
+    }
+
+    private void chooseVoiceReplies() {
+        final String[] keys = {"always", "mic", "off"};
+        int at = java.util.Arrays.asList(keys).indexOf(readAloud());
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Read replies aloud")
+                .setSingleChoiceItems(new String[]{"Always", "Only when I used the microphone", "Never (tap Listen to hear one)"},
+                        Math.max(0, at), (d, which) -> {
+                            prefs.edit().putString("read_aloud", keys[which]).apply();
+                            if ("off".equals(keys[which]) && talk != null) {
+                                talk.stop();
+                            }
+                            d.dismiss();
+                            closeDrawer();
+                        })
+                .show();
     }
 
     /** Appearance: System, Light or Dark; the screen redraws in the new colours. */
@@ -836,6 +950,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         brain.setGivenName(prefs.getString("given_name", null));
         hub = ai.dvine.llm.ModelHub.get(this);
         model = hub.model;
+        model.onStep = this::activity;
         model.learning = ai.dvine.chat.ui.UsageActivity.learningOn(prefs) ? new ai.dvine.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null;
         model.usage.restore(prefs.getString("usage_today", null), System.currentTimeMillis());
         hub.addListener(onDownload);
@@ -931,12 +1046,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thinkToken = readToken;
         thinkWrite = writing == null ? "Thinking\u2026" : writing;
         thinkPace = new ai.dvine.llm.ThinkPace(phase, System.currentTimeMillis());
+        writingShown = false;
+        reasoningShown = false;
         thinkStartedMs = System.currentTimeMillis();
         keepAwake(true);
+        final String stepLine = phase == null ? null : phase.replace("\u2026", "").trim();
         handler.post(() -> {
             if (thinkPace == null || thinkToken != readToken) {
                 return;
             }
+            activity("Thinking".equals(stepLine) ? "Reading your message" : stepLine);
             stage.setMode(StageMode.THINKING);
             stage.progress(thinkPace.line());
             updateThoughtStatus(thinkPace.line(), true);
@@ -946,7 +1065,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         });
     }
 
+    /** One step of what DVINE is doing, shown live in the chat ("Searching the web for …"); any thread. */
+    private void activity(final String line) {
+        if (line == null || line.trim().isEmpty()) {
+            return;
+        }
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            handler.post(() -> activity(line));
+            return;
+        }
+        if (chatPane != null && thinkPace != null) {
+            chatPane.activityStep(line);
+        }
+    }
+
     private void endThink() {
+        if (chatPane != null) {
+            chatPane.activityEnd();
+        }
         thinkPace = null;
         if (chatPane != null && streamOpen == false) {
             chatPane.setLive(null);
@@ -1284,8 +1420,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (id != askId || chats == null || chatPane == null) {
                         return;
                     }
-                    chats.add("assistant", "step", line, "ibiko");
-                    chatPane.show();
+                    chatPane.activityStep(line);
                     updateThoughtStatus(line, true);
                 });
             }
@@ -1430,6 +1565,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return roots;
     }
 
+    private volatile boolean writingShown, reasoningShown;
+
     private boolean modelPiece(int id, String text) {
         if (id != askId) {
             return false;
@@ -1438,7 +1575,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (pace != null && text != null) {
             if ("\u0001".equals(text)) {
                 pace.phase("Thinking");
+                if (!reasoningShown) {
+                    reasoningShown = true;
+                    activity("Reasoning");
+                }
             } else {
+                if (!writingShown) {
+                    writingShown = true;
+                    activity("Writing the answer");
+                }
                 pace.phase(thinkWrite);
                 pace.addText(text);
             }
@@ -1796,6 +1941,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 && (research || ai.dvine.llm.FreshFacts.worthLooking(question));
         armThink("Thinking\u2026", "Thinking\u2026");
         final String around = situation(ivie);
+        if (look) {
+            activity("Searching the web for \u201c" + clip(question) + "\u201d");
+        }
         modelThread.execute(() -> {
             final String reference = look && id == askId
                     ? ai.dvine.ops.mind.CitedReference.collect(question, url -> {
@@ -1813,6 +1961,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (look) {
                 handler.post(() -> {
                     if (id == askId) {
+                        activity(reference != null ? "Read a source: " + clip(reference) : "Nothing current found; answering from what I know");
                         stage.innerVoice(reference != null ? "Found: " + clip(reference)
                                 : "Nothing current found. I'll use what I know.");
                     }
@@ -1821,7 +1970,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             armThink("Thinking\u2026", "Thinking\u2026");
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
-            final LiveReply live = new LiveReply(id, agent, voiceTurn);
+            final LiveReply live = new LiveReply(id, agent, speakReply());
             final String all = model.reply(system, question, context, length, text -> {
                 if (!modelPiece(id, text)) {
                     return false;
@@ -3323,12 +3472,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     @Override
     public void onPartial(String text) {
+        if (dictating) {
+            dictated(text, false);
+            return;
+        }
         lastPartial = text;
         stage.setSubtitle((heldWords + " " + text).trim());
     }
 
     @Override
     public void onResult(String text) {
+        if (dictating) {
+            dictated(text, true);
+            return;
+        }
         if (holdingMic) {
             heldWords.append(' ').append(text);
             lastPartial = "";
@@ -3348,6 +3505,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     @Override
     public void onError(String message) {
+        if (dictating) {
+            dictated("", true);
+            note(message);
+            return;
+        }
         if (holdingMic) {
             listen.start(this, true);
             return;
@@ -3433,7 +3595,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (chatPane != null && line.text != null && !line.text.isEmpty()) {
                     chatPane.assistant(who, spokenLine(line.text));
                 }
-                if (voiceTurn && talk != null && !spokenLive.remove(line) && line.text != null) {
+                if (speakReply() && talk != null && !spokenLive.remove(line) && line.text != null) {
                     ai.dvine.voice.SentenceStream cut = new ai.dvine.voice.SentenceStream();
                     boolean ivieVoice = "ivie".equals(who);
                     for (String sentence : cut.add(spokenLine(line.text))) {

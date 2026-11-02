@@ -260,7 +260,9 @@ public final class LocalModel {
         }
         ai.dvine.learn.LearningLog l = learning;
         String learned = l == null ? "" : l.examplesFor(question, 2, 1400);
+        step("Answering with the model on this phone");
         if (!learned.isEmpty()) {
+            step("Recalled similar answers I learned before");
             asked = learned + "\n\n" + (context == null ? "" : context + "\n\n") + "The user says: " + question;
         }
         final int ticket = epoch.get();
@@ -397,6 +399,7 @@ public final class LocalModel {
             final Slot sl = (Slot) attempt[0];
             final RemoteBrain r = (RemoteBrain) attempt[1];
             current = r;
+            step("Asking " + sl.name + " (" + r.model + ")" + (sl.fast != null ? (r == sl.fast ? ", the fast model" : ", the strong model") : ""));
             final int ticket = epoch.get();
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
@@ -424,6 +427,7 @@ public final class LocalModel {
             if (r == sl.brain) { // a provider rests when its main model fails (its fast model failing alone doesn't)
                 sl.restUntil = System.currentTimeMillis() + (credit ? REST_LONG_MS : REST_MS);
             }
+            step(sl.name + " didn't answer (" + why + ")");
             if (firstFailure == null) {
                 firstFailure = why;
                 failedName = sl.name;
@@ -441,6 +445,20 @@ public final class LocalModel {
      * answers, the closest past answers are given to it as examples.
      */
     public volatile ai.dvine.learn.LearningLog learning;
+
+    /** Told each step of an answer as it happens ("Asking OpenAI (gpt-5-mini), the fast model"); may be null. */
+    public volatile java.util.function.Consumer<String> onStep;
+
+    private void step(String line) {
+        java.util.function.Consumer<String> s = onStep;
+        if (s != null) {
+            try {
+                s.accept(line);
+            } catch (RuntimeException ignored) {
+                // a display problem must not stop the answer
+            }
+        }
+    }
 
     /** Which tier the last call asked for (for the Usage screen). */
     public volatile TaskSize.Tier lastTier = TaskSize.Tier.FAST;
