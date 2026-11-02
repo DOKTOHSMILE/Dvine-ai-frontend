@@ -92,6 +92,56 @@ public class ScreenshotTest {
         k.pause().stop().destroy();
     }
 
+    @Test(timeout = 180000)
+    @Config(sdk = 35, qualifiers = "w411dp-h891dp-night-xxhdpi")
+    public void rendersSettingsTheAddSheetAndTheWorkingSteps() throws Exception {
+        OUT.mkdirs();
+        ActivityController<ai.dvine.chat.ui.SettingsActivity> st = Robolectric.buildActivity(ai.dvine.chat.ui.SettingsActivity.class)
+                .create().start().resume().visible();
+        shoot(st.get(), "9_settings_night");
+        st.pause().stop().destroy();
+
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field f = MainActivity.class.getDeclaredField("chatPane");
+        f.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) f.get(c.get());
+        pane.setThinking("Writing the answer");
+        pane.activityStep("Reading your message");
+        pane.activityStep("Searching the web for \u201cLagos population 2026\u201d");
+        pane.activityStep("Read a source: Wikipedia, Lagos");
+        pane.activityStep("Asking OpenAI (gpt-5-mini), the fast model");
+        pane.activityStep("Writing the answer");
+        pane.setLive("Lagos has about 16 million people in its metropolitan area, which makes it");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        shoot(c.get(), "10_working_night");
+        pane.activityEnd();
+        pane.setLive(null);
+        pane.assistant("obi", "Lagos has about 16 million people in its metropolitan area.");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        shoot(c.get(), "11_worked_night");
+
+        java.lang.reflect.Method attach = MainActivity.class.getDeclaredMethod("showAttachMenu", android.view.View.class);
+        attach.setAccessible(true);
+        attach.invoke(c.get(), (android.view.View) null);
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        org.junit.Assert.assertNotNull(sheet);
+        android.view.View sv = sheet.getWindow().getDecorView();
+        int w = 1080;
+        sv.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(2340, android.view.View.MeasureSpec.AT_MOST));
+        sv.layout(0, 0, w, sv.getMeasuredHeight());
+        android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(w, Math.max(1, sv.getMeasuredHeight()),
+                android.graphics.Bitmap.Config.ARGB_8888);
+        sv.draw(new android.graphics.Canvas(bmp));
+        try (FileOutputStream o = new FileOutputStream(new File(OUT, "12_add_sheet_night.png"))) {
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o);
+        }
+        sheet.dismiss();
+        c.pause().stop().destroy();
+    }
+
     private static void shoot(android.app.Activity a, String name) throws Exception {
         android.view.View root = a.getWindow().getDecorView();
         int w = 1080, h = 2340;

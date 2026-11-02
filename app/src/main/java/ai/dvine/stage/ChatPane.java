@@ -12,6 +12,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import ai.dvine.R;
 import ai.dvine.chat.ChatBook;
 
@@ -34,7 +37,7 @@ public final class ChatPane extends LinearLayout {
     private final ScrollView scroll;
     private final float density;
     private String thinkingText;
-    private TextView thinkingRow;
+    private View thinkingRow;
     /** The reply as the model writes it, shown before it is finished; null when nothing is being written. */
     private String liveText;
     private View liveRow;
@@ -48,6 +51,10 @@ public final class ChatPane extends LinearLayout {
         thread = new LinearLayout(context);
         thread.setOrientation(VERTICAL);
         scroll = new ScrollView(context);
+        // the transcript never takes the focus (or the keyboard) from the message box
+        scroll.setFocusable(false);
+        scroll.setFocusableInTouchMode(false);
+        scroll.setDescendantFocusability(android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         scroll.addView(thread, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         scroll.setOnTouchListener((v, event) -> {
             int action = event.getActionMasked();
@@ -94,17 +101,15 @@ public final class ChatPane extends LinearLayout {
         title(cur);
         thinkingRow = null;
         liveRow = null;
+        if (working()) {
+            thinkingRow = activityBlock();
+            thread.addView(thinkingRow);
+        }
         if (liveText != null) {
             liveRow = liveView(liveText);
             thread.addView(liveRow);
-        } else if (thinkingText != null) {
-            thinkingRow = plain(thoughtLabel(thinkingText));
-            thinkingRow.setTextColor(color(R.color.text_secondary));
-            thinkingRow.setTextSize(14f);
-            thinkingRow.setPadding(0, dp(10), 0, dp(10));
-            thread.addView(thinkingRow);
         }
-        boolean noMessages = cur.messages.isEmpty() && thinkingText == null;
+        boolean noMessages = cur.messages.isEmpty() && !working() && liveText == null;
         View empty = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
         if (empty != null) {
             empty.setVisibility(noMessages ? VISIBLE : GONE);
@@ -117,49 +122,161 @@ public final class ChatPane extends LinearLayout {
         followBottom();
     }
 
-    /** The live line sits in the transcript, under the last message, not under the composer. */
+    // ------------------------------------------------------------ what DVINE is doing, step by step
+
+    /** The steps of the current turn ("Searching the web for …", "Asking OpenAI (gpt-5-mini)"), oldest first. */
+    private final List<String> steps = new ArrayList<String>();
+    private long workStarted;
+
+    private boolean working() {
+        return thinkingText != null || !steps.isEmpty();
+    }
+
+    /**
+     * The live status line (what is happening this second, with a timer, e.g. "Writing · 12s"); null when the turn
+     * is over. Shown at the top of the activity panel, with the steps so far under it.
+     */
     public void setThinking(String line) {
-        if (liveText != null && line != null) {
-            return; // the words themselves are showing: no "Writing…" line under them
+        String t = line == null || line.trim().isEmpty() ? null : line.trim();
+        if (t != null && workStarted == 0) {
+            workStarted = System.currentTimeMillis();
         }
-        thinkingText = line == null || line.trim().isEmpty() ? null : line.trim();
-        if (thinkingRow != null && thinkingRow.getParent() == thread) {
-            if (thinkingText == null) {
-                thread.removeView(thinkingRow);
-                thinkingRow = null;
-            } else {
-                thinkingRow.setText(thoughtLabel(thinkingText));
-                thinkingRow.setTextColor(color(R.color.text_secondary));
+        thinkingText = t;
+        refreshActivity();
+    }
+
+    /** A new step of the turn, shown as it happens (repeats of the last step are ignored). */
+    public void activityStep(String line) {
+        if (line == null || line.trim().isEmpty()) {
+            return;
+        }
+        String l = line.trim();
+        if (!steps.isEmpty() && steps.get(steps.size() - 1).equals(l)) {
+            return;
+        }
+        if (workStarted == 0) {
+            workStarted = System.currentTimeMillis();
+        }
+        steps.add(l);
+        refreshActivity();
+    }
+
+    /**
+     * The turn is over: its steps are kept in the chat as a folded "Worked for 6s · 4 steps" line above the reply,
+     * which opens to show them, as Claude and Grok do.
+     */
+    public void activityEnd() {
+        if (!steps.isEmpty()) {
+            long secs = Math.max(1, (System.currentTimeMillis() - workStarted + 500) / 1000);
+            StringBuilder body = new StringBuilder(secs + "\n");
+            for (String st : steps) {
+                body.append(st.replace('\n', ' ')).append('\n');
             }
-        } else if (thinkingText != null) {
-            thinkingRow = plain(thoughtLabel(thinkingText));
-            thinkingRow.setTextColor(color(R.color.text_secondary));
-            thinkingRow.setTextSize(14f);
-            thinkingRow.setPadding(0, dp(10), 0, dp(10));
-            thread.addView(thinkingRow);
+            book.add("assistant", "activity", body.toString().trim(), book.current().persona);
         }
-        boolean empty = book.current().messages.isEmpty() && thinkingText == null;
-        View emptyView = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
-        if (emptyView != null) {
-            emptyView.setVisibility(empty ? VISIBLE : GONE);
+        steps.clear();
+        workStarted = 0;
+        thinkingText = null;
+        show();
+    }
+
+    private void refreshActivity() {
+        int at = thinkingRow != null && thinkingRow.getParent() == thread ? thread.indexOfChild(thinkingRow) : -1;
+        if (at >= 0) {
+            thread.removeViewAt(at);
         }
-        setVisibility(empty ? GONE : VISIBLE);
-        if (thinkingText != null) {
+        thinkingRow = null;
+        if (working()) {
+            thinkingRow = activityBlock();
+            int liveAt = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
+            thread.addView(thinkingRow, at >= 0 ? at : liveAt >= 0 ? liveAt : thread.getChildCount());
+            setVisibility(VISIBLE);
+            View emptyView = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
+            if (emptyView != null) {
+                emptyView.setVisibility(GONE);
+            }
             followBottom();
         }
     }
 
+    /** The live panel: a pulsing dot and the status, then each step (done ones ticked, the current one bold). */
+    private View activityBlock() {
+        LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(VERTICAL);
+        box.setPadding(0, dp(8), 0, dp(8));
+        long secs = workStarted == 0 ? 0 : (System.currentTimeMillis() - workStarted) / 1000;
+        String head = thinkingText != null ? stripTimer(thinkingText) : "Working";
+        TextView top = plain("\u25CF  " + head + (secs > 0 ? " \u00B7 " + secs + "s" : ""));
+        top.setTextColor(color(R.color.accent));
+        top.setTextSize(14f);
+        top.setPadding(0, dp(2), 0, dp(4));
+        android.view.animation.AlphaAnimation pulse = new android.view.animation.AlphaAnimation(1f, 0.45f);
+        pulse.setDuration(700);
+        pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
+        pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
+        top.startAnimation(pulse);
+        box.addView(top);
+        int from = Math.max(0, steps.size() - 6);
+        if (from > 0) {
+            box.addView(stepLine("\u2026 " + from + " earlier step" + (from == 1 ? "" : "s"), false, false));
+        }
+        for (int i = from; i < steps.size(); i++) {
+            box.addView(stepLine(steps.get(i), i < steps.size() - 1, i == steps.size() - 1));
+        }
+        return box;
+    }
+
+    private TextView stepLine(String text, boolean done, boolean current) {
+        TextView t = plain((done ? "\u2713  " : current ? "\u203A  " : "    ") + text);
+        t.setTextColor(color(current ? R.color.text_primary : R.color.text_secondary));
+        t.setTextSize(13f);
+        t.setPadding(dp(4), dp(1), 0, dp(1));
+        return t;
+    }
+
+    /** A kept activity line: folded to "Worked for 6s · 4 steps ›", a tap opens the steps. */
+    private View activityRecord(ChatBook.Message m) {
+        String[] lines = (m.body == null ? "" : m.body).split("\n");
+        String secs = lines.length > 0 ? lines[0].trim() : "";
+        final List<String> kept = new ArrayList<String>();
+        for (int i = 1; i < lines.length; i++) {
+            if (!lines[i].trim().isEmpty()) {
+                kept.add(lines[i].trim());
+            }
+        }
+        final LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(VERTICAL);
+        final String label = "Worked for " + secs + "s \u00B7 " + kept.size() + " step" + (kept.size() == 1 ? "" : "s");
+        final TextView head = plain(label + "  \u203A");
+        head.setTextColor(color(R.color.text_secondary));
+        head.setTextSize(13f);
+        head.setPadding(0, dp(6), 0, dp(4));
+        box.addView(head);
+        head.setOnClickListener(v -> {
+            boolean open = box.getChildCount() > 1;
+            while (box.getChildCount() > 1) {
+                box.removeViewAt(1);
+            }
+            if (!open) {
+                for (String st : kept) {
+                    box.addView(stepLine(st, true, false));
+                }
+            }
+            head.setText(label + (open ? "  \u203A" : "  \u2304"));
+        });
+        return box;
+    }
+
+    private static String stripTimer(String line) {
+        return line.replaceAll("\\s*[\\u00B7(]?\\s*\\d+\\s*s\\)?\\s*$", "").replaceAll("\\u2026$", "").trim();
+    }
+
     /**
-     * Shows the reply while it is being written, as Claude does, in place of the thinking line; null removes it
-     * (the finished reply then takes its place).
+     * Shows the reply while it is being written, under the activity panel; null removes it (the finished reply
+     * then takes its place).
      */
     public void setLive(String text) {
         String t = text == null || text.trim().isEmpty() ? null : text.trim();
-        if (t != null && thinkingRow != null && thinkingRow.getParent() == thread) {
-            thread.removeView(thinkingRow);
-            thinkingRow = null;
-            thinkingText = null;
-        }
         liveText = t;
         int at = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
         if (at >= 0) {
@@ -200,7 +317,12 @@ public final class ChatPane extends LinearLayout {
         }
         scroll.post(() -> {
             if (!userMoved && stickToBottom) {
-                scroll.fullScroll(View.FOCUS_DOWN);
+                // scrollTo, not fullScroll: fullScroll moves the focus onto the list, which took the keyboard away
+                // from the message box after Send and on every "Thinking" update
+                View child = scroll.getChildAt(0);
+                if (child != null) {
+                    scroll.scrollTo(0, Math.max(0, child.getBottom() - scroll.getHeight()));
+                }
             }
         });
     }
@@ -310,6 +432,9 @@ public final class ChatPane extends LinearLayout {
                 getContext().startActivity(intent);
             });
             return tap;
+        }
+        if ("activity".equals(m.kind)) {
+            return activityRecord(m);
         }
         if ("step".equals(m.kind)) {
             // one step of Ibiko's work: a small grey line, no actions

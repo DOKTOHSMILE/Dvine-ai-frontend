@@ -161,7 +161,7 @@ public final class ChatBook {
             s.title = t.length() > 48 ? t.substring(0, 48) : t;
         }
         if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
-                || "html".equals(kind) || "text".equals(kind)) {
+                || "html".equals(kind) || "text".equals(kind) || "activity".equals(kind) || "step".equals(kind)) {
             s.messages.add(new Message(role, kind, body, persona));
         } else {
             s.messages.add(new Message(role, "text", body, persona));
@@ -241,6 +241,9 @@ public final class ChatBook {
         Section s = current();
         StringBuilder b = new StringBuilder();
         for (Message m : s.messages) {
+            if ("activity".equals(m.kind) || "step".equals(m.kind)) {
+                continue; // how a reply was worked out isn't part of the conversation the model sees
+            }
             String who = "user".equals(m.role) ? "User" : (m.persona == null || m.persona.isEmpty() ? "Assistant" : m.persona);
             String line;
             if ("image".equals(m.kind)) {

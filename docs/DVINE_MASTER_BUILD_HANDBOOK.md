@@ -1220,6 +1220,33 @@ The full speech-to-text, model and voice on one machine (a server with streaming
 
 **Keyboard.** Android 15 (target SDK 35) draws apps edge to edge and ignores `adjustResize`, so the keyboard covered the providers sheet's fields. `Ui.fitInsets` pads the providers sheet, Connectors, Setup and Usage for the keyboard and the system bars and scrolls the focused field into view; the providers sheet's two switches now scroll with the cards, so the list keeps its room.
 
+## 43. Focus, dictation, live steps, Settings, colours, GitHub sign-in (app v0.54.0, built)
+
+**The keyboard typing into nothing.** `ChatPane` kept the list at the bottom with `ScrollView.fullScroll(FOCUS_DOWN)`, which also moves the focus to the list. It ran after Send and on every thinking update, so the message box lost the keyboard while DVINE worked. It now uses `scrollTo`, the list blocks focus (`FOCUS_BLOCK_DESCENDANTS`), and `sendComposer` gives the focus back to the box.
+
+**The mic writes, you send.** The mic button (and Speak in the Add sheet) starts dictation: partial words appear in the box after whatever was typed, the final words replace them, the box gets the focus and the keyboard, and you edit and send. Tap the mic again to stop early. The holo stage's hold-to-talk and the auto-listen after a question still send directly.
+
+**Read aloud.** Settings → Voice: Always (default), After the mic, Never. Replies are read sentence by sentence as they are written (§42).
+
+**What DVINE is doing.** The chat shows a live panel instead of "Thinking":
+- a pulsing status line with a timer;
+- each step as it happens: reading your message; searching the web for …; a source read; "Asking OpenAI (gpt-5-mini), the fast model"; a provider that didn't answer; reasoning; writing the answer; Ibiko's tool steps; the on-phone model and recalled answers (`LocalModel.onStep`, `MainActivity.activity`).
+
+When the turn ends it folds into "Worked for 6s · 5 steps ›" above the reply (kept in the chat as an `activity` message, left out of what the model reads), which opens to show the steps. The reply streams under the panel.
+
+**Settings** (drawer, replacing Appearance): the on-phone model (state, a live progress bar with the download detail, Download / Pause / Resume, Remove with a confirmation), Read replies aloud, Appearance (System, Light, Dark), and links to AI providers, Connectors and Usage and learning.
+
+**Add** opens a bottom sheet (`chat/ui/BottomSheet`) with a 24 dp outline icon per choice: Speak, Photo, Video, Audio, File, Several photos of one object.
+
+**Colours.** DVINE's own palette: night `#121218` with violet `#8B7CFF`, day `#F7F7FB` with `#5B4BDB`; cool neutrals instead of warm ones.
+
+**GitHub sign-in** (`connect/GitHubLogin`). GitHub stopped accepting passwords from apps in 2021, so the ways in are:
+1. **Sign in with GitHub:** GitHub's device sign-in. DVINE shows a short code, opens github.com/login/device, the user signs in there with email or username and password (and two-factor), types the code and approves; the token arrives by itself. It needs the client ID of an OAuth app the user makes once (Settings → Developer settings → OAuth Apps, "Enable Device Flow"); the client ID is public, not a secret, and is asked for the first time only.
+2. **Create a token on GitHub:** opens the token page filled in (`repo`, `read:user`, named DVINE), then paste.
+3. **Paste a token.**
+
+The card then says "Connected as @user" and offers Sign out.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

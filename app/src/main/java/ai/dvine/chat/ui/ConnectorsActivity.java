@@ -17,8 +17,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import ai.dvine.connect.ConnectorStore;
 
 /**
- * Connectors, as in Claude: the services the brain may use when it answers. Each card has an on/off switch and its
- * status; a tapped card opens its token (hidden, with Show), the MCP server's address, and Test. The brain is only
+ * Connectors: the services DVINE may use when it answers. Each card has an on/off switch and its
+ * status; a tapped card opens its token (hidden, with Show), the MCP server's address, and Test. The model is only
  * told about connectors that are on and ready.
  */
 public final class ConnectorsActivity extends AppCompatActivity {
@@ -125,7 +125,11 @@ public final class ConnectorsActivity extends AppCompatActivity {
             inside.addView(url, Ui.wide(this, 12));
             inside.addView(name, Ui.wide(this, 10));
         }
-        final EditText token = Ui.field(this, k == ConnectorStore.Kind.MCP ? "Token (optional)" : "Token", store.token(k), true, false);
+        if (k == ConnectorStore.Kind.GITHUB) {
+            githubSignIn(inside);
+        }
+        final EditText token = Ui.field(this, k == ConnectorStore.Kind.MCP ? "Token (optional)"
+                : k == ConnectorStore.Kind.GITHUB ? "Or paste a token" : "Token", store.token(k), true, false);
         if (k == ConnectorStore.Kind.GITHUB || k == ConnectorStore.Kind.NOTION || k == ConnectorStore.Kind.MCP) {
             FrameLayout box = new FrameLayout(this);
             token.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 70), Ui.dp(this, 14));
@@ -161,6 +165,13 @@ public final class ConnectorsActivity extends AppCompatActivity {
                 result.setText("Testing…");
                 new Thread(() -> {
                     final String why = store.test(k);
+                    if (why == null && k == ConnectorStore.Kind.GITHUB) {
+                        try {
+                            store.setGithubUser(ai.dvine.connect.GitHubLogin.user(ai.dvine.connect.Connectors.https(), store.token(k)));
+                        } catch (java.io.IOException | RuntimeException ignored) {
+                            // the name is a nicety
+                        }
+                    }
                     main.post(() -> {
                         if (isFinishing()) {
                             return;
@@ -178,9 +189,191 @@ public final class ConnectorsActivity extends AppCompatActivity {
         return card;
     }
 
+    // ------------------------------------------------------------ GitHub sign-in
+
+    private volatile boolean signingIn;
+
+    /**
+     * The GitHub card's ways in: who is signed in (with Sign out), "Sign in with GitHub" in the browser (you sign in
+     * on github.com with your email or username and password, then approve DVINE with a short code), and "Create a
+     * token" (GitHub's token page, filled in). GitHub doesn't let apps take your password directly.
+     */
+    private void githubSignIn(LinearLayout inside) {
+        final ConnectorStore.Kind k = ConnectorStore.Kind.GITHUB;
+        if (!store.githubUser().isEmpty() && !store.token(k).isEmpty()) {
+            LinearLayout who = new LinearLayout(this);
+            who.setGravity(Gravity.CENTER_VERTICAL);
+            who.addView(Ui.text(this, "Signed in as @" + store.githubUser(), 15, Ui.TEXT, true),
+                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            TextView out = Ui.text(this, "Sign out", 15, Ui.ACCENT, false);
+            out.setPadding(Ui.dp(this, 12), Ui.dp(this, 8), 0, Ui.dp(this, 8));
+            out.setOnClickListener(v -> {
+                store.setToken(k, "");
+                store.setGithubUser("");
+                store.setOn(k, false);
+                fill();
+            });
+            who.addView(out);
+            inside.addView(who, Ui.wide(this, 10));
+        }
+        TextView browser = Ui.button(this, "Sign in with GitHub", true);
+        browser.setOnClickListener(v -> {
+            if (store.githubClientId().isEmpty()) {
+                askClientId();
+            } else {
+                startDeviceSignIn();
+            }
+        });
+        inside.addView(browser, Ui.wide(this, 12));
+        inside.addView(Ui.text(this, "Opens github.com, where you sign in with your email or username and password, then approve DVINE"
+                + " with a short code.", 12, Ui.SUB, false), Ui.wide(this, 6));
+        TextView make = Ui.text(this, "Create a token on GitHub \u203A", 15, Ui.ACCENT, false);
+        make.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 2));
+        make.setOnClickListener(v -> open(ai.dvine.connect.GitHubLogin.newTokenUrl()));
+        inside.addView(make);
+    }
+
+    private void open(String url) {
+        try {
+            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+        } catch (android.content.ActivityNotFoundException e) {
+            android.widget.Toast.makeText(this, "No browser on this phone.", android.widget.Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Browser sign-in needs a GitHub OAuth app's client ID (made once, free); asked for the first time only. */
+    private void askClientId() {
+        final EditText id = Ui.field(this, "Client ID (looks like Ov23li…)", "", false, false);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = Ui.dp(this, 20);
+        box.setPadding(p, Ui.dp(this, 8), p, 0);
+        box.addView(Ui.text(this, "Browser sign-in goes through a GitHub OAuth app of your own (once, free): on GitHub, Settings \u203A"
+                + " Developer settings \u203A OAuth Apps \u203A New OAuth App (any name; homepage and callback can be"
+                + " https://github.com), tick \u201cEnable Device Flow\u201d, and paste its Client ID here.", 13, Ui.SUB, false));
+        box.addView(id, Ui.wide(this, 12));
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Sign in with GitHub")
+                .setView(box)
+                .setNeutralButton("Open GitHub", (d, w) -> open("https://github.com/settings/applications/new"))
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Continue", (d, w) -> {
+                    store.setGithubClientId(id.getText().toString());
+                    if (!store.githubClientId().isEmpty()) {
+                        startDeviceSignIn();
+                    }
+                })
+                .show();
+    }
+
+    /** Shows the code, opens github.com/login/device, and waits for the approval. */
+    private void startDeviceSignIn() {
+        final ai.dvine.connect.GitHubLogin login = new ai.dvine.connect.GitHubLogin(ai.dvine.connect.Connectors.https(),
+                store.githubClientId());
+        android.widget.Toast.makeText(this, "Asking GitHub for a code\u2026", android.widget.Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            final ai.dvine.connect.GitHubLogin.Code code;
+            try {
+                code = login.start();
+            } catch (java.io.IOException | RuntimeException e) {
+                main.post(() -> android.widget.Toast.makeText(this, "Couldn't start: " + e.getMessage() + ".",
+                        android.widget.Toast.LENGTH_LONG).show());
+                return;
+            }
+            main.post(() -> showCode(login, code));
+        }, "dvine-github-code").start();
+    }
+
+    private void showCode(final ai.dvine.connect.GitHubLogin login, final ai.dvine.connect.GitHubLogin.Code code) {
+        if (isFinishing()) {
+            return;
+        }
+        TextView big = Ui.text(this, code.userCode, 30, Ui.TEXT, true);
+        big.setGravity(Gravity.CENTER);
+        big.setTextIsSelectable(true);
+        big.setPadding(0, Ui.dp(this, 16), 0, Ui.dp(this, 8));
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = Ui.dp(this, 20);
+        box.setPadding(p, 0, p, 0);
+        box.addView(Ui.text(this, "On GitHub, sign in, type this code and approve DVINE. This screen finishes by itself.",
+                14, Ui.SUB, false));
+        box.addView(big);
+        signingIn = true;
+        final androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Sign in with GitHub")
+                .setView(box)
+                .setPositiveButton("Copy code and open GitHub", null)
+                .setNegativeButton("Cancel", (d, w) -> signingIn = false)
+                .setOnCancelListener(d -> signingIn = false)
+                .show();
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            android.content.ClipboardManager clips = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clips != null) {
+                clips.setPrimaryClip(android.content.ClipData.newPlainText("GitHub code", code.userCode));
+            }
+            open(code.verifyUrl);
+        });
+        new Thread(() -> {
+            int wait = Math.max(5, code.intervalSeconds);
+            long until = System.currentTimeMillis() + code.expiresSeconds * 1000L;
+            String why = null, token = null;
+            while (signingIn && System.currentTimeMillis() < until) {
+                try {
+                    Thread.sleep(wait * 1000L);
+                    if (!signingIn) {
+                        return;
+                    }
+                    ai.dvine.connect.GitHubLogin.Poll got = login.poll(code, wait);
+                    if (got.token != null) {
+                        token = got.token;
+                        break;
+                    }
+                    wait = Math.max(wait, got.waitSeconds);
+                } catch (InterruptedException e) {
+                    return;
+                } catch (java.io.IOException | RuntimeException e) {
+                    why = e.getMessage();
+                    break;
+                }
+            }
+            String user = "";
+            if (token != null) {
+                try {
+                    user = ai.dvine.connect.GitHubLogin.user(ai.dvine.connect.Connectors.https(), token);
+                } catch (java.io.IOException | RuntimeException ignored) {
+                    // signed in either way
+                }
+            }
+            final String t = token, u = user, problem = token == null && why == null ? "the code ran out" : why;
+            main.post(() -> {
+                signingIn = false;
+                if (dialog.isShowing()) {
+                    dialog.dismiss();
+                }
+                if (isFinishing()) {
+                    return;
+                }
+                if (t != null) {
+                    store.setToken(ConnectorStore.Kind.GITHUB, t);
+                    store.setGithubUser(u);
+                    store.setOn(ConnectorStore.Kind.GITHUB, true);
+                    android.widget.Toast.makeText(this, u.isEmpty() ? "Signed in to GitHub." : "Signed in as @" + u + ".",
+                            android.widget.Toast.LENGTH_LONG).show();
+                } else {
+                    android.widget.Toast.makeText(this, "Not signed in: " + problem + ".", android.widget.Toast.LENGTH_LONG).show();
+                }
+                fill();
+            });
+        }, "dvine-github-wait").start();
+    }
+
     private String status(ConnectorStore.Kind k) {
         if (!store.on(k)) {
             return "Off";
+        }
+        if (store.ready(k) && k == ConnectorStore.Kind.GITHUB && !store.githubUser().isEmpty()) {
+            return "Connected as @" + store.githubUser();
         }
         if (store.ready(k)) {
             return k == ConnectorStore.Kind.MCP ? "Connected: " + store.mcpTools().size() + " tools" : "Connected";
@@ -188,6 +381,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         switch (k) {
             case CALENDAR: return "Needs calendar permission";
             case MCP: return "Needs an address, then Test";
+            case GITHUB: return "Sign in, or paste a token";
             default: return "Needs a token";
         }
     }
