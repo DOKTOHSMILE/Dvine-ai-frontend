@@ -1627,9 +1627,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> askId,
                 line -> {
                     if (chatPane != null) {
-                        chatPane.activityStep(line);
+                        chatPane.activityStep(line); // with its detail, opened by a tap
                     }
-                    updateThoughtStatus(line, true);
+                    updateThoughtStatus(ai.dvine.agent.StepDetail.words(line), true);
                 }, () -> showIbikoMode(true));
         new Thread(() -> {
             final StringBuilder live = new StringBuilder();

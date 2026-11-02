@@ -60,6 +60,14 @@ public final class CodeAgent {
         /** A line of progress for the chat ("Read app.py"). */
         void step(String line);
 
+        /**
+         * A step the user can open: its detail is a diff (lines starting "+", "-", " ", "@") with counts, or what a
+         * command printed / a file holds (added and removed both -1). Shown as a plain step unless the host keeps it.
+         */
+        default void step(String line, String title, List<String> detail, int added, int removed) {
+            step(line);
+        }
+
         /** The user stopped the work. */
         boolean stopped();
     }
@@ -474,16 +482,17 @@ public final class CodeAgent {
         }
         switch (c.name) {
             case "list_files": {
-                host.step("Listed " + show(c.a("path")));
-                return listFiles(c.a("path").isEmpty() ? "." : c.a("path"));
+                String listed = listFiles(c.a("path").isEmpty() ? "." : c.a("path"));
+                host.step("Listed the files in " + show(c.a("path")), show(c.a("path")), lines(listed), -1, -1);
+                return listed;
             }
             case "read_file": {
                 File f = inside(c.a("path"));
                 if (!f.isFile()) {
                     return "No such file: " + c.a("path");
                 }
-                host.step("Read " + show(c.a("path")));
                 String text = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+                host.step("Read " + show(c.a("path")), c.a("path"), lines(clip(text, FILE_CHARS)), -1, -1);
                 return numbered(clip(text, FILE_CHARS));
             }
             case "write_file": {
@@ -493,10 +502,13 @@ public final class CodeAgent {
                     dir.mkdirs();
                 }
                 boolean existed = f.exists();
+                String before = existed ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8) : "";
                 Files.write(f.toPath(), c.body.getBytes(StandardCharsets.UTF_8));
                 note(c.a("path"));
                 int lines = c.body.isEmpty() ? 0 : c.body.split("\n", -1).length;
-                host.step((existed ? "Rewrote " : "Created ") + show(c.a("path")) + " (" + lines + (lines == 1 ? " line)" : " lines)"));
+                ai.dvine.connect.LineDiff.Result d = ai.dvine.connect.LineDiff.of(before, c.body);
+                host.step((existed ? "Rewrote " : "Created ") + show(c.a("path")) + " (" + lines + (lines == 1 ? " line)" : " lines)"),
+                        c.a("path"), d.lines, d.added, d.removed);
                 return "Wrote " + c.a("path") + ", " + lines + " lines.";
             }
             case "edit_file": {
@@ -517,9 +529,11 @@ public final class CodeAgent {
                 if (text.indexOf(old, at + 1) >= 0) {
                     return "The old text is in " + c.a("path") + " more than once. Include more lines so it is unique.";
                 }
-                Files.write(f.toPath(), (text.substring(0, at) + now + text.substring(at + old.length())).getBytes(StandardCharsets.UTF_8));
+                String after = text.substring(0, at) + now + text.substring(at + old.length());
+                Files.write(f.toPath(), after.getBytes(StandardCharsets.UTF_8));
                 note(c.a("path"));
-                host.step("Edited " + show(c.a("path")));
+                ai.dvine.connect.LineDiff.Result d = ai.dvine.connect.LineDiff.of(text, after);
+                host.step("Edited " + show(c.a("path")), c.a("path"), d.lines, d.added, d.removed);
                 return "Edited " + c.a("path") + ".";
             }
             case "search": {
@@ -535,8 +549,12 @@ public final class CodeAgent {
                     host.step("Not run: " + clip(cmd, 60));
                     return "The user didn't allow this command. Find another way, or ask them in your final answer.";
                 }
-                host.step("Ran `" + clip(cmd, 60) + "`");
-                return host.run(cmd, workspace);
+                String out = host.run(cmd, workspace);
+                List<String> shown = new ArrayList<String>();
+                shown.add("$ " + cmd);
+                shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
+                host.step(CommandWords.describe(cmd), "$ " + clip(cmd, 80), shown, -1, -1); // the meaning in words; the command a tap away
+                return out;
             }
             case "fetch": {
                 String url = c.a("url");
@@ -684,6 +702,14 @@ public final class CodeAgent {
             }
         }
         return hits.isEmpty() ? "No matches." : String.join("\n", hits);
+    }
+
+    private static List<String> lines(String text) {
+        List<String> out = new ArrayList<String>();
+        for (String l : (text == null ? "" : text).split("\n", -1)) {
+            out.add(" " + l);
+        }
+        return out;
     }
 
     private static String numbered(String text) {
