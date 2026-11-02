@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
+
+      - name: Lint
+        run: ./gradlew --no-daemon :app:lintDebug
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvine-debug-apk
+          path: app/build/outputs/apk/debug/*.apk

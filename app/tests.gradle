@@ -8,6 +8,9 @@ android {
             systemProperty "robolectric.offline", "true"
             systemProperty "robolectric.dependency.dir", "${rootProject.buildDir}/robolectric"
             dependsOn ":app:robolectricJars"
+            // spread the 289 tests over the cores instead of one serial JVM
+            maxParallelForks = (Runtime.runtime.availableProcessors().intdiv(2)) ?: 1
+            forkEvery = 50
         }
     }
 }
