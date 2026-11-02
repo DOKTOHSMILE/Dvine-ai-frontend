@@ -90,6 +90,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 57 | Remove the word "brain" from the interface | P12 | Built | 0.52.0: screens, notifications and spoken lines say "model" |
 | 58 | DVINE learns from every interaction with the custom APIs to build its own | P12 | Built (JVM) | 0.52.0: requests, replies, models and Ibiko's steps kept on the phone; used as examples for the phone's model; exported as a fine-tuning file. Hidden reasoning isn't returned by providers, so it can't be kept |
 | 59 | Connect to GitHub: push, pull, commit | P12 | Built (JVM) | 0.52.0: Ibiko clones, shows status, pulls, commits and pushes, makes branches and opens pull requests, with the GitHub connector's token |
+| 60 | Fix the voice lag (streaming listening with quick end of speech, the model's words to the voice a sentence at a time) | P12 | Built (JVM) | 0.53.0: on-device recognizer, turn closed 0.85 s after the last word, no routing call for real work, the reply shown and spoken sentence by sentence as it is written. Not measured on a phone |
+| 61 | Fix the keyboard covering the fields | P12 | Built (Robolectric) | 0.53.0: the providers sheet and the other settings screens move up above the keyboard |
 
 ## Still open, in the order that matters
 

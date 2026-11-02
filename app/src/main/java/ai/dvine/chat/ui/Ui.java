@@ -29,6 +29,30 @@ final class Ui {
         TRACK = 0xFF3A3936;
     }
 
+    /**
+     * Keeps a screen clear of the status bar, the navigation bar, a camera cutout and the keyboard. Android 15 draws
+     * apps edge to edge and no longer shrinks them for the keyboard ("adjustResize" does nothing there), so without
+     * this the keyboard covers the fields being typed in. The focused field is scrolled back into view.
+     */
+    static void fitInsets(final android.view.View root) {
+        final int l = root.getPaddingLeft(), t = root.getPaddingTop(), r = root.getPaddingRight(), b = root.getPaddingBottom();
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            androidx.core.graphics.Insets in = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                    | androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                    | androidx.core.view.WindowInsetsCompat.Type.ime());
+            v.setPadding(l + in.left, t + in.top, r + in.right, b + in.bottom);
+            final android.view.View focus = v.findFocus();
+            if (focus != null && insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())) {
+                v.post(() -> {
+                    android.graphics.Rect box = new android.graphics.Rect(0, 0, focus.getWidth(), focus.getHeight());
+                    focus.requestRectangleOnScreen(box, false);
+                });
+            }
+            return androidx.core.view.WindowInsetsCompat.CONSUMED;
+        });
+        androidx.core.view.ViewCompat.requestApplyInsets(root);
+    }
+
     /** Reads the palette for the screen's current day or night mode. */
     static void init(Context c) {
         BG = c.getColor(ai.dvine.R.color.bg_main);

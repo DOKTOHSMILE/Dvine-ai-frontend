@@ -60,6 +60,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         scroll.addView(body);
         root.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         setContentView(root);
+        Ui.fitInsets(root);
         fill();
     }
 

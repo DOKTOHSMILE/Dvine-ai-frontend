@@ -69,6 +69,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private final java.util.concurrent.ExecutorService modelThread = java.util.concurrent.Executors
             .newSingleThreadExecutor();
     private boolean confirmModelDownload, confirmModelRemove, streamOpen;
+    /** The message came from the microphone: the reply is spoken too, sentence by sentence as it is written. */
+    private boolean voiceTurn;
+    /** Lines already read out while they were being written (not read again when shown). */
+    private final java.util.Set<TurnLine> spokenLive = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<TurnLine, Boolean>());
     private ai.dvine.llm.ModelHub hub;
     private ai.dvine.llm.DownloadStatus.Phase lastPhase = ai.dvine.llm.DownloadStatus.Phase.IDLE;
     private boolean downloadBarHidden;
@@ -700,6 +704,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         chatPane = new ai.dvine.stage.ChatPane(this, chats, new ai.dvine.stage.ChatPane.Host() {
             @Override
             public void onSend(String text) {
+                voiceTurn = false;
                 answer(text);
             }
 
@@ -943,6 +948,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void endThink() {
         thinkPace = null;
+        if (chatPane != null && streamOpen == false) {
+            chatPane.setLive(null);
+        }
         handler.removeCallbacks(thinkBeat);
         updateThoughtStatus("", false);
         setGenerating(false);
@@ -1074,6 +1082,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (model == null || !model.ready() || !prefs.getBoolean("llm_on", true)) {
             carryOut(agent, finalQuestion, null);
+            return;
+        }
+        if (ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG
+                && !ai.dvine.llm.TaskSize.mayNeedAction(finalQuestion)) {
+            // real work that isn't an order for the phone: straight to the answer, without a routing call first
+            askLocal(finalQuestion, null, false, 1500);
             return;
         }
         final int id = ++askId;
@@ -1681,6 +1695,70 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         });
     }
 
+    /**
+     * A reply while the model writes it: the words show in the chat as they come (a few times a second), and on a
+     * spoken turn each finished sentence is read out at once, so the voice starts after the first sentence instead of
+     * after the whole answer. {@link #piece} runs on the model's thread.
+     */
+    private final class LiveReply {
+        private final int id;
+        private final boolean ivie, speak;
+        private final StringBuilder text = new StringBuilder();
+        private final ai.dvine.voice.SentenceStream sentences = new ai.dvine.voice.SentenceStream();
+        private long shown;
+        private volatile boolean spoke;
+
+        LiveReply(int id, String agent, boolean speak) {
+            this.id = id;
+            this.ivie = "ivie".equals(agent);
+            this.speak = speak && talk != null;
+        }
+
+        void piece(String t) {
+            final String sofar;
+            synchronized (text) {
+                text.append(t);
+                sofar = text.toString();
+            }
+            final List<String> ready = speak ? sentences.add(t) : java.util.Collections.<String>emptyList();
+            long now = System.currentTimeMillis();
+            boolean show = now - shown > 90;
+            if (show) {
+                shown = now;
+            }
+            if (ready.isEmpty() && !show) {
+                return;
+            }
+            handler.post(() -> {
+                if (id != askId) {
+                    return;
+                }
+                for (String sentence : ready) {
+                    talk.queue(ivie, sentence);
+                    spoke = true;
+                }
+                if (show && chatPane != null) {
+                    chatPane.setLive(ai.dvine.llm.ActionTags.strip(sofar));
+                }
+            });
+        }
+
+        /** The model finished: the last sentences are read out; true when the reply was spoken this way. */
+        boolean end(String all) {
+            final List<String> rest = speak ? sentences.finish() : java.util.Collections.<String>emptyList();
+            boolean any = speak && (spoke || !rest.isEmpty());
+            handler.post(() -> {
+                if (id != askId) {
+                    return;
+                }
+                for (String sentence : rest) {
+                    talk.queue(ivie, sentence);
+                }
+            });
+            return any && all != null && !all.trim().isEmpty();
+        }
+    }
+
     private boolean askLocal(final String question, final BrainAnswer offline) {
         return askLocal(question, offline, false);
     }
@@ -1743,16 +1821,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             armThink("Thinking\u2026", "Thinking\u2026");
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
+            final LiveReply live = new LiveReply(id, agent, voiceTurn);
             final String all = model.reply(system, question, context, length, text -> {
                 if (!modelPiece(id, text)) {
                     return false;
                 }
                 if (text != null && !"\u0001".equals(text)) {
                     tags.add(text);
+                    live.piece(text);
                 }
                 return id == askId;
             });
             tags.flush();
+            final boolean spokeLive = live.end(all);
             final String switchTo = tags.switchTo();
             handler.post(() -> {
                 if (id != askId) {
@@ -1772,7 +1853,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     stream.add(new TurnLine(agent, "SAY",
                             said != null ? said : "I don't have a reply for that yet."));
                 } else {
-                    stream.add(new TurnLine(agent, "SAY", body));
+                    TurnLine said = new TurnLine(agent, "SAY", body);
+                    if (spokeLive) {
+                        spokenLive.add(said);
+                    }
+                    stream.add(said);
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     afterPlay = () -> switchFace(switchTo, true);
@@ -3173,6 +3258,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         stage.setSubtitle(all);
+        voiceTurn = true;
         answer(all);
     }
 
@@ -3256,6 +3342,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         stage.setListening(false);
         stage.setSubtitle(text);
+        voiceTurn = true;
         answer(text);
     }
 
@@ -3319,11 +3406,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             final Runnable done = after;
             if (done != null) {
-                handler.postDelayed(() -> {
+                // the microphone waits until the voice has finished, so it doesn't hear DVINE's own words
+                talk.whenQuiet(() -> handler.postDelayed(() -> {
                     if (token == playId) {
                         done.run();
                     }
-                }, 250);
+                }, 250));
             }
             return;
         }
@@ -3339,8 +3427,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 stage.setMode(StageMode.SPEAKING);
                 stage.setThought(null);
                 stage.setSubtitle(spokenLine(line.text));
+                if (chatPane != null) {
+                    chatPane.setLive(null);
+                }
                 if (chatPane != null && line.text != null && !line.text.isEmpty()) {
                     chatPane.assistant(who, spokenLine(line.text));
+                }
+                if (voiceTurn && talk != null && !spokenLive.remove(line) && line.text != null) {
+                    ai.dvine.voice.SentenceStream cut = new ai.dvine.voice.SentenceStream();
+                    boolean ivieVoice = "ivie".equals(who);
+                    for (String sentence : cut.add(spokenLine(line.text))) {
+                        talk.queue(ivieVoice, sentence);
+                    }
+                    for (String sentence : cut.finish()) {
+                        talk.queue(ivieVoice, sentence);
+                    }
                 }
                 handler.post(() -> step(token));
             } else if (line.text != null && line.text.length() > 0) {
