@@ -81,7 +81,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         boolean show = !downloadBarHidden && (st.active()
                 || phase != lastPhase && phase != ai.dvine.llm.DownloadStatus.Phase.IDLE);
         stage.setDownload(show || stage.downloadShown() && !downloadBarHidden,
-                "Downloading brain files", st.percent(),
+                "Downloading the model", st.percent(),
                 phase == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING, st.detail());
         if (phase == lastPhase) {
             return;
@@ -92,7 +92,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         switch (phase) {
             case DONE:
                 stage.activity("DOWNLOAD", "verified");
-                stage.setDownload(true, "Brain files downloaded", 100, false,
+                stage.setDownload(true, "Model downloaded", 100, false,
                         "verified, starting now");
                 handler.postDelayed(() -> stage.setDownload(false, "", 100, false, ""), 6000);
                 loadModel(true);
@@ -831,6 +831,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         brain.setGivenName(prefs.getString("given_name", null));
         hub = ai.dvine.llm.ModelHub.get(this);
         model = hub.model;
+        model.learning = ai.dvine.chat.ui.UsageActivity.learningOn(prefs) ? new ai.dvine.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null;
         model.usage.restore(prefs.getString("usage_today", null), System.currentTimeMillis());
         hub.addListener(onDownload);
         reportModel();
@@ -1115,16 +1116,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     && ai.dvine.llm.NativeLlm.available()) {
                 // no brain to read the words yet: say so, and offer it, instead of a flat refusal
                 if (model.state() == ai.dvine.llm.LocalModel.State.FAILED) {
-                    play(LocalTurn.speakAs(agent, "My brain couldn't start: " + model.problem() + "."), null);
+                    play(LocalTurn.speakAs(agent, "My model couldn't start: " + model.problem() + "."), null);
                 } else if (model.installed()) {
-                    play(LocalTurn.speakAs(agent, "My brain is still starting. Ask me again in a moment."), null);
+                    play(LocalTurn.speakAs(agent, "My model is still starting. Ask me again in a moment."), null);
                     if (model.state() != ai.dvine.llm.LocalModel.State.LOADING) {
                         loadModel(false);
                     }
                 } else if (model.state() == ai.dvine.llm.LocalModel.State.DOWNLOADING) {
-                    play(LocalTurn.speakAs(agent, "My brain is still downloading. I'll understand that once it's here."), null);
+                    play(LocalTurn.speakAs(agent, "My model is still downloading. I'll understand that once it's here."), null);
                 } else {
-                    play(LocalTurn.speakAs(agent, "I need a brain to understand that: download it, or add an API key."), null);
+                    play(LocalTurn.speakAs(agent, "I need a model to understand that: download one, or add an API key."), null);
                     startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SetupActivity.class));
                 }
                 return;
@@ -1284,6 +1285,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             ai.dvine.agent.CodeAgent agent = new ai.dvine.agent.CodeAgent(workspace,
                     (system, transcript) -> model.task(system, transcript, 2000, piece -> modelPiece(id, piece)), host, tools,
                     model.window() * 3);
+            agent.useGit(new ai.dvine.connect.ConnectorStore(this).git());
             final String answer = agent.run(task, earlier);
             handler.post(() -> {
                 model.coding = false;
@@ -1537,7 +1539,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         String agent = stage.agent();
         lines2.add(new TurnLine(agent, "SAY",
-                "By the way, I can answer questions like this much better once my brain files are on this phone."
+                "By the way, I can answer questions like this much better once my model is on this phone."
                         + " It runs on your phone, even offline, after a " + model.spec.sizeWords()
                         + " download. Shall I install it?"));
         confirmModelDownload = true;
@@ -1554,7 +1556,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         } else if (model.installed()) {
             line = "starting up";
         } else {
-            line = "not installed: say \"download your brain\"";
+            line = "not installed: AI providers in the menu";
         }
         stage.activity("MODEL", line);
     }
@@ -1991,7 +1993,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (edit.op == ai.dvine.render.field.PartEdit.Op.ADD) {
             if (model == null || !model.ready()) {
                 play(LocalTurn.speakAs(stage.agent(),
-                        "To add new parts I need my brain: download it, or add an API key, from AI providers in the menu."), null);
+                        "To add new parts I need a model: download it, or add an API key, from AI providers in the menu."), null);
                 return true;
             }
             final int id = ++askId;
@@ -2513,7 +2515,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!use.isEmpty()) {
             return providers.model(use.get(0)) + (use.size() > 1 ? " +" + (use.size() - 1) : "");
         }
-        return "DVINE brain";
+        return "DVINE model";
     }
 
     /** No brain on the phone and no API: the setup screen (download or API key) comes first. */
@@ -2555,14 +2557,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 if (tell) {
                     play(LocalTurn.speakAs(stage.agent(), ok
-                            ? "My brain is ready and in sync with DVINE. It knows Ivie, Obi and Ibiko, what this app can do"
+                            ? "My model is ready and in sync with DVINE. It knows Ivie, Obi and Ibiko, what this app can do"
                                     + (taught > 0
                                             ? ", and the "
                                                     + (taught == 1 ? "thing" : taught + " things")
                                                     + " you've taught me"
                                             : "")
                                     + ". Ask me anything, even offline."
-                            : "I couldn't start my brain: " + model.problem() + "."), null);
+                            : "I couldn't start my model: " + model.problem() + "."), null);
                 }
             });
         });
@@ -2589,7 +2591,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             confirmModelRemove = false;
             String line = !yes ? "Okay, I'll keep it."
                     : model.uninstall()
-                            ? "Done. My brain files are removed; I'm on my offline notes again."
+                            ? "Done. The model is removed; I'm on my offline notes again."
                             : "I couldn't delete the model file.";
             play(LocalTurn.speakAs(stage.agent(), line), null);
             return true;
@@ -2603,10 +2605,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 || said.matches("^(upgrade your brain|make yourself smarter|get smarter)$")) {
             if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
                 play(LocalTurn.speakAs(ivie,
-                        "My brain can't run on this phone: " + model.problem() + "."), null);
+                        "The model can't run on this phone: " + model.problem() + "."), null);
             } else if (model.installed()) {
                 play(LocalTurn.speakAs(ivie,
-                        model.localReady() ? "My brain is already installed and running."
+                        model.localReady() ? "The model is already installed and running."
                                 : "It's already installed. Starting it now."),
                         null);
                 if (!model.localReady()) {
@@ -2645,7 +2647,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 || said.matches("^(show|display)( me)? (the )?progress( bar)?$")) {
             downloadBarHidden = false;
             ai.dvine.llm.DownloadStatus st = hub.status;
-            stage.setDownload(true, "Downloading brain files",
+            stage.setDownload(true, "Downloading the model",
                     model.installed() ? 100 : st.percent(),
                     st.phase() == ai.dvine.llm.DownloadStatus.Phase.DOWNLOADING,
                     model.installed() ? "installed"
@@ -2653,7 +2655,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     ? "not started: AI providers in the menu"
                                     : st.detail());
             play(LocalTurn.speakAs(ivie,
-                    model.installed() ? "My brain files are already downloaded." : st.spoken()),
+                    model.installed() ? "The model is already downloaded." : st.spoken()),
                     null);
             return true;
         }
@@ -2667,17 +2669,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (said.matches(
                 "^(how('s| is) (the |my )?download( going)?|how far (is|along is) (the |my )?download|(what('s| is) the )?download (progress|status)|is (the |my )?download (done|finished|complete))$")) {
             play(LocalTurn.speakAs(ivie,
-                    model.installed() ? "The download is finished. My brain is installed."
+                    model.installed() ? "The download is finished. The model is installed."
                             : hub.status.spoken()),
                     null);
             return true;
         }
         if (said.matches("^(delete|remove|uninstall) " + thing + "$")) {
             if (!model.installed()) {
-                play(LocalTurn.speakAs(ivie, "My brain files aren't installed."), null);
+                play(LocalTurn.speakAs(ivie, "The model isn't installed."), null);
             } else {
                 confirmModelRemove = true;
-                play(LocalTurn.speakAs(ivie, "Remove my brain files and free "
+                play(LocalTurn.speakAs(ivie, "Remove the model and free "
                         + model.spec.sizeWords() + "? Say yes or no."), this::startListening);
             }
             return true;
@@ -2694,7 +2696,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             } else {
                 play(LocalTurn
                         .speakAs(ivie,
-                                model.localReady() || model.remoteOn() ? "My brain is on."
+                                model.localReady() || model.remoteOn() ? "My model is on."
                                         : "It isn't installed yet. Download it from AI providers in the menu."),
                         null);
             }
@@ -2705,7 +2707,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String line;
             switch (model.state()) {
                 case READY:
-                    line = "My brain is running on this phone, offline.";
+                    line = "The model is running on this phone, offline.";
                     break;
                 case LOADING:
                     line = "It's starting up now.";
@@ -2714,7 +2716,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     line = "It's downloading.";
                     break;
                 case INSTALLED:
-                    line = "It's installed but switched off. Say turn on your brain.";
+                    line = "It's installed but switched off. Say turn on the model.";
                     break;
                 case UNSUPPORTED:
                     line = "This phone can't run it: " + model.problem() + ".";

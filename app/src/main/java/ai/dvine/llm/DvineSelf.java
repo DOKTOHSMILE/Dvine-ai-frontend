@@ -35,13 +35,13 @@ public final class DvineSelf {
                 + " in Downloads, each part a joint, for Blender, Unity, Unreal or Godot.");
         s.append(" The user switches by saying switch to, talk to or bring Ivie, Obi or Ibiko"
                 + ". Speech recognition may write Ivie as Evie or Eva, and Obi as Obie: they mean the personas.");
-        s.append(" You are the on-phone brain: a small language model stored on this phone, working offline. The app's"
-                + " offline brain handles the time, maths, memory, corrections and commands before you.");
+        s.append(" You are the on-phone model: a small language model stored on this phone, working offline. The app's"
+                + " offline rules handle the time, maths, memory, corrections and commands before you.");
         s.append(" What DVINE can do: talk by voice (touch and hold anywhere to speak, let go to send; double-tap to type); hold debates between Obi and Ivie on any topic; remember what"
                 + " the user teaches and accept corrections; look things up online when allowed; draw a picture or build a"
                 + " thing in 3D above the pod and change it (bigger, smaller, spin it, a colour, clear it); design"
                 + " a building in 3D; open apps such as WhatsApp, Telegram or Instagram, copy and share text; change its"
-                + " voices; turn subtitles, thoughts and music on or off; give a status report; download or remove the brain.");
+                + " voices; turn subtitles, thoughts and music on or off; give a status report; download or remove the model.");
         s.append(" It cannot send messages, buy, delete or change anything on the phone by itself.");
         if (f.userName != null && !f.userName.trim().isEmpty()) {
             s.append(" The user is ").append(f.userName.trim()).append('.');

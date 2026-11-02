@@ -1178,6 +1178,30 @@ A big request whose routing order is only talk now goes to `askLocal` with room 
 
 **Attach** is a 24 dp paperclip on a 40 dp borderless target, matching the mic.
 
+## 41. No "brain" on screen, learning from the APIs, git with GitHub (app v0.52.0, built)
+
+**Wording.** Nothing the user sees or hears says "brain" any more: the header shows "DVINE model", setup is "Choose DVINE's model" with "Download the model", Usage has a "Model" section, the download notification says "DVINE's model is ready". Typed or spoken "download your brain" still works.
+
+**Learning from the API models.** `learn/LearningLog` keeps every answer an API model gives, one JSON line each, in `files/learning/interactions.jsonl`:
+- the instructions, the conversation, the request, the reply, the provider and model, and the tier (fast or strong);
+- Ibiko's steps, since each step is its own call;
+- never a key; nothing leaves the phone unless the user exports it; the file stops at 20 MB by dropping its oldest half.
+
+It is used two ways:
+1. **Now:** when the phone's own model answers (offline, or an API failed), the two closest past answers to the question are put in front of it as examples. Routing orders and tool steps are not used as examples.
+2. **Later:** Usage → Learning → Export writes `Downloads/DVINE/dvine-training-<date>.jsonl`, one `{"messages": [system, …, assistant]}` a line, the format fine-tuning tools read, to train DVINE's own model on a GPU.
+
+Usage → Learning also has the on/off switch (on by default) and Delete. Two limits, said on the screen and here: providers don't return their hidden reasoning, so only what they say is kept; and some providers' terms restrict training a competing model on their output, so check them before fine-tuning.
+
+**Git with GitHub.** The phone has no git program, so `connect/GitHubGit` works a repository through GitHub's Git Data API with the GitHub connector's token. Ibiko's `git` tool:
+- `clone` a repository's branch into a folder in the workspace, keeping `.dvine-git.json` (repository, branch, commit, tree, each file's blob id);
+- `status`: added, modified and deleted files, by git's own blob id;
+- `pull`: clean files are updated and deletions applied; a file the user edited is kept and the other side saved beside it as `.theirs`;
+- `push`: commit and push in one step (blobs, a tree on the old one, a commit, then the branch moved without force, or a new branch made). It is refused when the branch has newer commits (pull first) or a `.theirs` file is left;
+- `pr`: open a pull request from the folder's branch.
+
+Push and pull request ask first (Run / Always run / Don't run) unless Auto-accept is on. The token needs Contents read and write to push, and Pull requests to open them. Limits: 600 files and 1 MB a file per repository.
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

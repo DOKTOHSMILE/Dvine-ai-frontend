@@ -18,8 +18,8 @@ import ai.dvine.llm.Providers;
 import ai.dvine.llm.UsageLog;
 
 /**
- * Usage, laid out like Claude's: how full the brain's context window was on the last reply (the conversation, the
- * instructions, the new message, the reply, what was free), today's requests and tokens, which brain answers, and
+ * Usage, laid out like Claude's: how full the model's context window was on the last reply (the conversation, the
+ * instructions, the new message, the reply, what was free), today's requests and tokens, which model answers, and
  * what is stored on the phone. Counts the API reported are marked as measured; the rest are estimates and say so.
  */
 public final class UsageActivity extends AppCompatActivity {
@@ -111,29 +111,105 @@ public final class UsageActivity extends AppCompatActivity {
                 Ui.wide(this, 12));
         body.addView(today, Ui.wide(this, 8));
 
-        // ---- brain
-        section("Brain");
+        // ---- model
+        section("Model");
         LinearLayout brain = card();
         String answers = active.api() ? active.title + ": " + store.model(active) + (store.connected(active) ? "" : " (not tested yet)")
                 : "On this phone: " + ai.dvine.llm.ModelSpec.WEIGHTS;
         brain.addView(row("Chosen", answers));
         brain.addView(row("On this phone", phoneState(m)), Ui.wide(this, 8));
         brain.addView(row("Context window", tokens(active.api() ? store.window(active) : LocalModel.LOCAL_WINDOW) + " tokens"), Ui.wide(this, 8));
-        TextView change = Ui.text(this, "Change the brain", 15, Ui.ACCENT, false);
+        TextView change = Ui.text(this, "Change the model", 15, Ui.ACCENT, false);
         change.setPadding(0, Ui.dp(this, 14), 0, 0);
         change.setOnClickListener(v -> startActivity(new android.content.Intent(this, ProvidersActivity.class)));
         brain.addView(change);
         body.addView(brain, Ui.wide(this, 8));
 
+        // ---- learning
+        section("Learning");
+        LinearLayout learn = card();
+        final android.content.SharedPreferences prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        final ai.dvine.learn.LearningLog ll = new ai.dvine.learn.LearningLog(new File(getFilesDir(), "learning"));
+        LinearLayout sw = new LinearLayout(this);
+        sw.setGravity(Gravity.CENTER_VERTICAL);
+        sw.addView(Ui.text(this, "Learn from the API models", 16, Ui.TEXT, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        android.widget.Switch toggle = new android.widget.Switch(this);
+        toggle.setChecked(learningOn(prefs));
+        toggle.setTrackTintList(new android.content.res.ColorStateList(new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{Ui.CORAL, Ui.FIELD}));
+        toggle.setOnCheckedChangeListener((b, on) -> {
+            prefs.edit().putBoolean("learn_on", on).apply();
+            m.learning = on ? ll : null;
+        });
+        sw.addView(toggle);
+        learn.addView(sw);
+        learn.addView(row("Answers kept", String.valueOf(ll.count())), Ui.wide(this, 8));
+        learn.addView(row("Size", bytes(ll.bytes())), Ui.wide(this, 8));
+        learn.addView(Ui.text(this, "Each request, reply and Ibiko step from your API models is kept on this phone, never sent anywhere."
+                + " DVINE's own model uses the closest ones as examples when it answers offline, and Export saves them"
+                + " as a training file to fine-tune DVINE's model. Check your provider's terms before training a model on its replies.",
+                13, Ui.SUB, false), Ui.wide(this, 12));
+        LinearLayout buttons = new LinearLayout(this);
+        TextView export = Ui.text(this, "Export", 15, Ui.ACCENT, false);
+        export.setPadding(0, Ui.dp(this, 14), Ui.dp(this, 28), 0);
+        export.setOnClickListener(v -> exportLearning(ll));
+        buttons.addView(export);
+        TextView clear = Ui.text(this, "Delete", 15, Ui.ACCENT, false);
+        clear.setPadding(0, Ui.dp(this, 14), 0, 0);
+        clear.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
+                .setMessage("Delete everything DVINE has learned from the API models?")
+                .setPositiveButton("Delete", (d, w) -> {
+                    ll.clear();
+                    fill();
+                })
+                .setNegativeButton("Cancel", null)
+                .show());
+        buttons.addView(clear);
+        learn.addView(buttons);
+        body.addView(learn, Ui.wide(this, 8));
+
         // ---- storage
         section("On this phone");
         LinearLayout disk = card();
-        disk.addView(row("Brain file", m.installed() ? bytes(m.file().length()) : "not downloaded"));
+        disk.addView(row("Model file", m.installed() ? bytes(m.file().length()) : "not downloaded"));
         disk.addView(row("Chats", bytes(size(new File(getFilesDir(), "chats.json")))), Ui.wide(this, 8));
         disk.addView(row("Saved drawings", bytes(size(new File(getFilesDir(), "drawings")))), Ui.wide(this, 8));
         disk.addView(row("Everything else", bytes(Math.max(0, size(getFilesDir()) - size(new File(getFilesDir(), "drawings"))
                 - size(new File(getFilesDir(), "chats.json")) - (m.installed() ? m.file().length() : 0)))), Ui.wide(this, 8));
         body.addView(disk, Ui.wide(this, 8));
+    }
+
+    /** Whether DVINE learns from the API models (on unless the user turned it off). */
+    public static boolean learningOn(android.content.SharedPreferences prefs) {
+        return prefs.getBoolean("learn_on", true);
+    }
+
+    /** Saves the training file to Downloads/DVINE. */
+    private void exportLearning(ai.dvine.learn.LearningLog ll) {
+        if (ll.count() == 0) {
+            android.widget.Toast.makeText(this, "Nothing learned yet.", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String name = "dvine-training-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new java.util.Date()) + ".jsonl";
+        android.content.ContentValues v = new android.content.ContentValues();
+        v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
+        v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/jsonl");
+        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        String said;
+        try {
+            android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) {
+                throw new java.io.IOException("no Downloads folder");
+            }
+            int n;
+            try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
+                n = ll.exportForTraining(o);
+            }
+            said = "Saved " + n + " examples to Downloads/DVINE/" + name;
+        } catch (java.io.IOException | RuntimeException e) {
+            said = "Couldn't export: " + e.getMessage();
+        }
+        android.widget.Toast.makeText(this, said, android.widget.Toast.LENGTH_LONG).show();
     }
 
     private static String phoneState(LocalModel m) {

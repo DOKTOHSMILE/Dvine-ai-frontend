@@ -53,10 +53,10 @@ public final class SetupActivity extends AppCompatActivity {
         mark.setGravity(Gravity.CENTER);
         mark.setBackground(Ui.round(this, Ui.CORAL, 0, 20));
         page.addView(mark, new LinearLayout.LayoutParams(Ui.dp(this, 52), Ui.dp(this, 52)));
-        TextView title = Ui.text(this, "Give DVINE a brain", 28, Ui.TEXT, true);
+        TextView title = Ui.text(this, "Choose DVINE's model", 28, Ui.TEXT, true);
         title.setGravity(Gravity.CENTER);
         page.addView(title, Ui.wide(this, 24));
-        TextView lead = Ui.text(this, "Everything you say or type goes to a brain to be understood. Choose one to start.",
+        TextView lead = Ui.text(this, "Everything you say or type goes to an AI model to be understood. Choose one to start.",
                 16, Ui.SUB, false);
         lead.setGravity(Gravity.CENTER);
         lead.setLineSpacing(0, 1.2f);
@@ -64,7 +64,7 @@ public final class SetupActivity extends AppCompatActivity {
 
         // ---- download
         LinearLayout phone = card();
-        phone.addView(Ui.text(this, "Download the brain", 19, Ui.TEXT, true));
+        phone.addView(Ui.text(this, "Download the model", 19, Ui.TEXT, true));
         LocalModel m = hub.model;
         phone.addView(Ui.text(this, ai.dvine.llm.ModelSpec.WEIGHTS + " runs on this phone, private and offline. "
                 + m.spec.sizeWords() + ", best on Wi-Fi.", 14, Ui.SUB, false), Ui.wide(this, 6));

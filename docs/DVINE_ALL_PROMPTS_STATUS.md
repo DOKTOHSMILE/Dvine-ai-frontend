@@ -87,6 +87,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 54 | Ibiko as the Claude Code of DVINE, with that flexibility | P12 | Built (JVM) | 0.51.0: a step-by-step agent with files, search, shell commands (asked first, or Auto-accept), web pages and connectors, in its own folder |
 | 55 | A cheaper model for simple questions, a stronger one for big tasks, switched automatically | P12 | Built (JVM) | 0.51.0: a fast and a strong model per API; real work gets the strong one and a full answer |
 | 56 | Fix the attach icon | P12 | Built (rendered) | 0.51.0: a paperclip matching the mic |
+| 57 | Remove the word "brain" from the interface | P12 | Built | 0.52.0: screens, notifications and spoken lines say "model" |
+| 58 | DVINE learns from every interaction with the custom APIs to build its own | P12 | Built (JVM) | 0.52.0: requests, replies, models and Ibiko's steps kept on the phone; used as examples for the phone's model; exported as a fine-tuning file. Hidden reasoning isn't returned by providers, so it can't be kept |
+| 59 | Connect to GitHub: push, pull, commit | P12 | Built (JVM) | 0.52.0: Ibiko clones, shows status, pulls, commits and pushes, makes branches and opens pull requests, with the GitHub connector's token |
 
 ## Still open, in the order that matters
 

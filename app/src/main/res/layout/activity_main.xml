@@ -62,7 +62,7 @@
                     android:paddingStart="6dp"
                     android:paddingEnd="4dp"
                     android:singleLine="true"
-                    android:text="DVINE brain"
+                    android:text="DVINE model"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
             </LinearLayout>

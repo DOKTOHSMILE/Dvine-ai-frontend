@@ -134,4 +134,25 @@ public class CodeAgentTest {
         assertEquals(TaskSize.Tier.FAST, TaskSize.ofCall("write an essay", 48, false)); // a one-line order is fast
         assertEquals(TaskSize.Tier.STRONG, TaskSize.ofCall("x", 2000, false));
     }
+
+    @Test
+    public void gitToolClonesAndAsksBeforePushing() throws Exception {
+        ai.dvine.connect.GitHubGitTest.FakeHub hub = new ai.dvine.connect.GitHubGitTest.FakeHub();
+        java.util.Map<String, String> f = new java.util.TreeMap<String, String>();
+        f.put("app.py", "x = 1\n");
+        hub.refs.put("main", hub.commit(f, null, "first"));
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Phone phone = new Phone();
+        CodeAgent agent = new CodeAgent(ws, new Script(
+                "<tool name=\"git\" action=\"clone\" repo=\"me/app\"/>",
+                "<tool name=\"edit_file\" path=\"app/app.py\"><old>x = 1</old><new>x = 2</new></tool>",
+                "<tool name=\"git\" action=\"push\" path=\"app\" message=\"Set x to 2\"/>",
+                "Done."), phone, "", 20_000).useGit(new ai.dvine.connect.GitHubGit(hub, "tok"));
+        assertTrue(agent.system().contains("action=\"push\""));
+        phone.allow = false;
+        assertEquals("Done.", agent.run("bump x", ""));
+        assertEquals(1, phone.asked.size());
+        assertTrue(phone.asked.get(0), phone.asked.get(0).startsWith("git commit and push app"));
+        assertEquals("x = 1\n", hub.filesAt("main").get("app.py")); // not allowed: nothing pushed
+    }
 }

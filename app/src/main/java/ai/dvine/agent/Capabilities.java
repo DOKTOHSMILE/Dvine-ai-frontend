@@ -21,9 +21,9 @@ public final class Capabilities {
                 return lookupsAllowed ? null : "You asked me not to look things up online. Say you can look things up online, and I will.";
             case DRAW:
             case BUILD:
-                return brainReady || online ? null : "To draw that I need my brain files or the internet.";
+                return brainReady || online ? null : "To draw that I need my model or the internet.";
             case DEBATE:
-                return brainReady ? null : "For a debate we need a brain: download it, or add an API key, from AI providers in the menu.";
+                return brainReady ? null : "For a debate I need a model: download it, or add an API key, from AI providers in the menu.";
             case MOVE:
                 return bodyShown ? null : "There's no body to move yet. Ask me to build one in 3D first, like build me a robot.";
             case OTHER:

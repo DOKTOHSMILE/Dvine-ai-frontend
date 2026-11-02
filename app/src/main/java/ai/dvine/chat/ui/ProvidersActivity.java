@@ -322,7 +322,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         }
         card.addView(Ui.text(this, state, 14, Ui.TEXT, false), Ui.wide(this, 12));
         if (m.state() == LocalModel.State.NOT_INSTALLED) {
-            TextView get = Ui.button(this, "Download the brain", true);
+            TextView get = Ui.button(this, "Download the model", true);
             get.setOnClickListener(v -> {
                 hub.startDownload(this);
                 get.setText("Downloading in the background…");
@@ -331,7 +331,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             });
             card.addView(get, Ui.wide(this, 12));
         }
-        card.addView(Ui.text(this, "With an API chosen, the phone's brain still answers when there is no connection.", 13, Ui.SUB, false),
+        card.addView(Ui.text(this, "With an API chosen, the phone's model still answers when there is no connection.", 13, Ui.SUB, false),
                 Ui.wide(this, 12));
     }
 
