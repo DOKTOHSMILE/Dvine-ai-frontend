@@ -38,7 +38,8 @@ public final class ProvidersActivity extends AppCompatActivity {
 
     /** One card's fields. */
     private static final class Form {
-        EditText key, backup, address, model, fast, ca;
+        EditText key, backup, address, model, fast, ca, maxOut, timeout, extra, window;
+        final String[] vision = {"auto"}, reasoning = {"auto"};
     }
 
     @Override
@@ -280,6 +281,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             chipsScroll.addView(chips);
             card.addView(chipsScroll, Ui.wide(this, 8));
         }
+        advanced(card, p, f);
         f.ca = Ui.field(this, "CA certificate (optional)", store.certificate(p), false, true);
         card.addView(f.ca, Ui.wide(this, 12));
         card.addView(Ui.text(this, "Paste a CA certificate (PEM) only if the endpoint uses a private or regional CA not trusted by the"
@@ -411,9 +413,95 @@ public final class ProvidersActivity extends AppCompatActivity {
         return store.connected(p) ? "Connected" : store.hasKey(p) ? "Key saved" : null;
     }
 
+    /**
+     * Advanced, folded: everything about how this provider is asked, so nothing is fixed in the app: whether it sees
+     * images, whether it is a reasoning model, the most it may write, how long it may take, its context window, and
+     * extra request fields (JSON, sent as they are).
+     */
+    private void advanced(LinearLayout card, Providers p, final Form f) {
+        f.vision[0] = store.vision(p);
+        f.reasoning[0] = store.reasoning(p);
+        final LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setVisibility(View.GONE);
+        final TextView head = Ui.text(this, "Advanced \u203A", 15, Ui.ACCENT, false);
+        head.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 4));
+        head.setOnClickListener(v -> {
+            boolean open = box.getVisibility() == View.VISIBLE;
+            box.setVisibility(open ? View.GONE : View.VISIBLE);
+            head.setText(open ? "Advanced \u203A" : "Advanced \u2304");
+        });
+        card.addView(head);
+        box.addView(Ui.text(this, "Sees images (Auto: sends them, and stops if the model refuses)", 13, Ui.SUB, false), Ui.wide(this, 8));
+        box.addView(tri(f.vision), Ui.wide(this, 6));
+        box.addView(Ui.text(this, "Reasoning model (thinks before answering: more room, no temperature)", 13, Ui.SUB, false), Ui.wide(this, 10));
+        box.addView(tri(f.reasoning), Ui.wide(this, 6));
+        f.maxOut = Ui.field(this, "Most it may write, tokens (empty: DVINE decides)", store.maxOutput(p) > 0 ? String.valueOf(store.maxOutput(p)) : "",
+                false, false);
+        f.maxOut.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        box.addView(f.maxOut, Ui.wide(this, 10));
+        f.timeout = Ui.field(this, "Time a reply may take, seconds", String.valueOf(store.timeout(p)), false, false);
+        f.timeout.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        box.addView(f.timeout, Ui.wide(this, 8));
+        f.window = Ui.field(this, "Context window, tokens", String.valueOf(store.window(p)), false, false);
+        f.window.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        box.addView(f.window, Ui.wide(this, 8));
+        f.extra = Ui.field(this, "Extra request fields, JSON, e.g. {\"temperature\": 0.3}", store.extra(p), false, true);
+        box.addView(f.extra, Ui.wide(this, 8));
+        card.addView(box);
+    }
+
+    /** Auto / Yes / No. */
+    private View tri(final String[] value) {
+        final LinearLayout row = new LinearLayout(this);
+        row.setBackground(Ui.round(this, Ui.FIELD, 0, 14));
+        row.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
+        final String[] keys = {"auto", "on", "off"}, names = {"Auto", "Yes", "No"};
+        final Runnable[] paint = new Runnable[1];
+        paint[0] = () -> {
+            row.removeAllViews();
+            for (int i = 0; i < keys.length; i++) {
+                final String k = keys[i];
+                boolean on = k.equals(value[0]);
+                TextView t = Ui.text(this, names[i], 14, on ? Ui.ON_CORAL : Ui.TEXT, on);
+                t.setGravity(Gravity.CENTER);
+                t.setMinHeight(Ui.dp(this, 36));
+                if (on) {
+                    t.setBackground(Ui.round(this, Ui.CORAL, 0, 11));
+                }
+                t.setOnClickListener(v -> {
+                    value[0] = k;
+                    paint[0].run();
+                });
+                row.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            }
+        };
+        paint[0].run();
+        return row;
+    }
+
+    private static int number(EditText e, int fallback) {
+        try {
+            String t = e == null ? "" : e.getText().toString().trim();
+            return t.isEmpty() ? fallback : Integer.parseInt(t);
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
     private void saveAll() {
         for (Map.Entry<Providers, Form> e : forms.entrySet()) {
             Form f = e.getValue();
+            if (f.timeout != null) {
+                String extra = f.extra.getText().toString();
+                if (!RemoteBrain.validExtra(extra)) {
+                    android.widget.Toast.makeText(this, e.getKey().title + ": the extra request fields aren't JSON, so they weren't saved.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                    extra = store.extra(e.getKey());
+                }
+                store.saveAdvanced(e.getKey(), f.vision[0], f.reasoning[0], number(f.maxOut, 0), number(f.timeout, 180), extra,
+                        number(f.window, e.getKey().window));
+            }
             store.save(e.getKey(), f.address.getText().toString(), f.model.getText().toString(), f.key.getText().toString(),
                     f.backup.getText().toString(), f.ca.getText().toString());
             store.setFastModel(e.getKey(), f.fast.getText().toString());

@@ -475,7 +475,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 @Override
                 public void onTextChanged(CharSequence s, int start, int before, int count) {
                     if (!dictating() && count > 0 && attachments != null
-                            && ai.dvine.chat.Attachments.longPaste(s.subSequence(start, start + count))) {
+                            && ai.dvine.chat.Attachments.longPaste(s.subSequence(start, start + count), ai.dvine.chat.Tuning.PASTE_CHARS.get(prefs))) {
                         // a long paste becomes an attachment, as in Claude, instead of filling the box
                         final String pasted = s.subSequence(start, start + count).toString();
                         final int from = start, to = start + count;
@@ -592,7 +592,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             ai.dvine.chat.ui.ComposerAttachments.Item item;
             String why = null;
             try {
-                item = ai.dvine.chat.ui.AttachmentReader.read(this, uri);
+                item = ai.dvine.chat.ui.AttachmentReader.read(this, uri, ai.dvine.chat.Tuning.IMAGE_SIDE.get(prefs));
             } catch (java.io.IOException | RuntimeException e) {
                 item = null;
                 why = e.getMessage();
@@ -1263,12 +1263,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (ivieGraphics(finalQuestion)) {
             return; // Ivie draws, builds or changes it on her 3D canvas
         }
+        if (!"ibiko".equals(agent) && model != null && model.ready() && prefs.getBoolean("llm_on", true)
+                && aboutPhoneFiles(finalQuestion)) {
+            runAgent(finalQuestion, agent, true); // Obi or Ivie read the cloned files, with any model
+            return;
+        }
         if (ai.dvine.chat.Attachments.has(finalQuestion) && model != null && model.ready() && prefs.getBoolean("llm_on", true)) {
             // something is attached: the model reads it with the instructions (Ibiko works on it as a task)
             if ("ibiko".equals(agent)) {
                 runIbiko(finalQuestion);
             } else {
-                askLocal(finalQuestion, null, false, 1500);
+                askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
             }
             return;
         }
@@ -1294,7 +1299,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG
                 && !ai.dvine.llm.TaskSize.mayNeedAction(finalQuestion)) {
             // real work that isn't an order for the phone: straight to the answer, without a routing call first
-            askLocal(finalQuestion, null, false, 1500);
+            askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
             return;
         }
         final int id = ++askId;
@@ -1318,7 +1323,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 boolean talk = order == null || order.kind == ai.dvine.llm.BrainOrder.Kind.SAY;
                 if (talk && ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG) {
                     // real work, not small talk: the strong model writes the whole answer, not one line
-                    askLocal(finalQuestion, null, false, 1500);
+                    askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
                     return;
                 }
                 carryOut(agent, finalQuestion, order);
@@ -1424,10 +1429,42 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * step shows in the chat. The strong model does the work; the stop button stops it between steps.
      */
     private void runIbiko(final String task) {
+        runAgent(task, "ibiko", false);
+    }
+
+    /**
+     * The files on the phone (cloned repositories, Ibiko's projects) are the user's to ask about with any persona
+     * and any model, including ones that take no files (DeepSeek and others): the files reach the model as text
+     * through the agent's tools. True when the message is about them and there are some.
+     */
+    private boolean aboutPhoneFiles(String text) {
+        java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
+        String[] kids = ws.list();
+        if (kids == null || kids.length == 0) {
+            return false;
+        }
+        String t = text.toLowerCase(java.util.Locale.US);
+        if (t.matches("(?s).*\\b(repo|repos|repository|repositories|codebase|cloned|clone|workspace|project files?|source code|the code|this code)\\b.*")) {
+            return true;
+        }
+        for (String k : kids) {
+            if (k.length() > 2 && !k.startsWith(".") && t.contains(k.toLowerCase(java.util.Locale.US))) {
+                return true; // names a cloned folder
+            }
+        }
+        return t.matches("(?s).*\\b[\\w-]+\\.(java|kt|py|js|ts|tsx|jsx|md|json|xml|gradle|c|cpp|h|go|rs|rb|php|swift|html|css|ya?ml)\\b.*");
+    }
+
+    /**
+     * An agent at work on the phone's files: Ibiko with every tool (write, run, git), or Obi or Ivie only reading
+     * ({@code readOnly}). Each step shows in the chat; the stop button stops it between steps.
+     */
+    private void runAgent(final String task, final String persona, final boolean readOnly) {
         final int id = ++askId;
         stopPlay();
         stage.setMode(StageMode.THINKING);
-        armThink("Ibiko is working", "Ibiko is working");
+        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
+        armThink(readOnly ? who + " is reading the files" : who + " is working", who + " is working");
         final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
         final String earlier = chats == null ? "" : chats.transcript(1500);
@@ -1442,9 +1479,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }, () -> showIbikoMode(true));
         new Thread(() -> {
             ai.dvine.agent.CodeAgent agent = new ai.dvine.agent.CodeAgent(workspace,
-                    (system, transcript) -> model.task(system, transcript, 2000, piece -> modelPiece(id, piece)), host, tools,
+                    (system, transcript) -> model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), piece -> modelPiece(id, piece)), host, tools,
                     model.window() * 3);
-            agent.useGit(connectors.git());
+            agent.useGit(connectors.git()).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly);
             final String answer = agent.run(task, earlier);
             handler.post(() -> {
                 model.coding = false;
@@ -1452,9 +1489,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 endThink();
-                play(LocalTurn.speakAs("ibiko", answer), null);
+                play(LocalTurn.speakAs(persona, answer), null);
             });
-        }, "ibiko-agent").start();
+        }, "dvine-agent").start();
     }
 
     /** The Auto-accept pill under the persona switch: shown for Ibiko, coral when commands run without asking. */
@@ -1528,7 +1565,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (model != null && model.ready() && prefs.getBoolean("llm_on", true)) {
             // a model is here: it searches, reads the pages and writes the answer with its sources
-            askLocal(question, null, true, model.remoteOn() ? 1200 : 300);
+            askLocal(question, null, true, model.remoteOn() ? ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs) : 300);
             return;
         }
         stopPlay();
@@ -1715,7 +1752,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private boolean askLocal(final String question, final BrainAnswer offline,
             final boolean research) {
-        return askLocal(question, offline, research, 160);
+        return askLocal(question, offline, research, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
     }
 
     /** {@code length}: the most the reply may run to (tokens); a big task gets room for a full answer. */

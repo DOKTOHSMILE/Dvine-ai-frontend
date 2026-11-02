@@ -1,0 +1,51 @@
+package ai.dvine.chat;
+
+import android.content.SharedPreferences;
+
+/**
+ * The limits DVINE works within, as settings rather than numbers fixed in the code (Settings › Advanced). Each has a
+ * sensible default and a safe range; a value out of range is brought back into it.
+ */
+public final class Tuning {
+    /** One setting: its key, name, explanation, default and range. */
+    public static final class Knob {
+        public final String key, name, about;
+        public final int def, min, max;
+
+        Knob(String key, String name, String about, int def, int min, int max) {
+            this.key = key;
+            this.name = name;
+            this.about = about;
+            this.def = def;
+            this.min = min;
+            this.max = max;
+        }
+
+        public int get(SharedPreferences p) {
+            int v = p == null ? def : p.getInt(key, def);
+            return Math.max(min, Math.min(max, v));
+        }
+    }
+
+    public static final Knob CHAT_TOKENS = new Knob("adv_chat_tokens", "Everyday reply length, tokens",
+            "How long an ordinary answer may be (API models get at least 1,024).", 160, 64, 8000);
+    public static final Knob BIG_TOKENS = new Knob("adv_big_tokens", "Long reply length, tokens",
+            "For real work: writing, research, analysis.", 1500, 256, 32000);
+    public static final Knob AGENT_STEPS = new Knob("adv_agent_steps", "Agent steps per task",
+            "How many tool steps Ibiko (or a persona reading files) may take before reporting back.", 15, 3, 60);
+    public static final Knob AGENT_TOKENS = new Knob("adv_agent_tokens", "Agent step length, tokens",
+            "How much the model may write in one step (a whole file needs more).", 2000, 256, 32000);
+    public static final Knob PASTE_CHARS = new Knob("adv_paste_chars", "Paste becomes a file at, characters",
+            "A longer paste turns into an attachment card.", 1500, 200, 100000);
+    public static final Knob IMAGE_SIDE = new Knob("adv_image_side", "Image size sent, pixels",
+            "The long side of an attached photo.", 1568, 256, 4096);
+    public static final Knob WEB_RESULTS = new Knob("adv_web_results", "Web results per search",
+            "How many results a search lists.", 8, 1, 20);
+    public static final Knob WEB_PAGES = new Knob("adv_web_pages", "Pages read per search",
+            "How many of the results are opened and read.", 3, 0, 10);
+
+    public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES};
+
+    private Tuning() {
+    }
+}

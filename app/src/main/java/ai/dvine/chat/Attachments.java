@@ -56,6 +56,11 @@ public final class Attachments {
 
     /** A pasted block long enough to become an attachment instead of filling the box. */
     public static boolean longPaste(CharSequence inserted) {
+        return longPaste(inserted, 1500);
+    }
+
+    /** As above, with the length (Settings › Advanced) at which a paste becomes a file. */
+    public static boolean longPaste(CharSequence inserted, int chars) {
         if (inserted == null) {
             return false;
         }
@@ -65,7 +70,7 @@ public final class Attachments {
                 lines++;
             }
         }
-        return inserted.length() >= 1500 || (inserted.length() >= 400 && lines >= 25);
+        return inserted.length() >= chars || (inserted.length() >= Math.min(400, chars) && lines >= 25);
     }
 
     /** "120 lines" or "1 line". */

@@ -21,7 +21,11 @@ import java.util.regex.Pattern;
  * phone are behind {@link Brain} and {@link Host}.
  */
 public final class CodeAgent {
+    /** The default number of steps; Settings › Advanced changes it ({@link #steps}). */
     public static final int MAX_STEPS = 15;
+    private int maxSteps = MAX_STEPS;
+    private String persona = "Ibiko";
+    private boolean readOnly;
     static final int RESULT_CHARS = 6000, FILE_CHARS = 24_000;
 
     /** The model: the instructions and the work so far in, its next reply out (null when it failed). */
@@ -71,6 +75,22 @@ public final class CodeAgent {
         workspace.mkdirs();
     }
 
+    /** How many steps a task may take. */
+    public CodeAgent steps(int n) {
+        maxSteps = Math.max(1, n);
+        return this;
+    }
+
+    /**
+     * Who works, and whether only to read: Obi or Ivie reading the cloned files get list, read, search, fetch and
+     * the connectors, but no writing, commands or pushes (that is Ibiko's work).
+     */
+    public CodeAgent as(String persona, boolean readOnly) {
+        this.persona = persona == null || persona.isEmpty() ? "Ibiko" : persona;
+        this.readOnly = readOnly;
+        return this;
+    }
+
     /** Git with GitHub (the GitHub connector's token); null leaves the git tool out. */
     public CodeAgent useGit(ai.dvine.connect.GitHubGit git) {
         this.git = git;
@@ -83,18 +103,23 @@ public final class CodeAgent {
     }
 
     public String system() {
-        return "You are Ibiko, DVINE's coding agent, working like Claude Code on the user's phone. You have a project"
-                + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
-                + " then check it. Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
+        return (readOnly
+                ? "You are " + persona + ", reading the files on the user's phone (the workspace: cloned repositories and"
+                        + " projects) to answer them. Any model can do this: the files come to you as text through the tools."
+                        + " You only read here; changing files, running commands and pushing are Ibiko's work."
+                : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's phone. You have a project"
+                        + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
+                        + " then check it.")
+                + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
                 + "<tool name=\"read_file\" path=\"src/app.py\"/>\n"
-                + "<tool name=\"write_file\" path=\"src/app.py\">the whole new content</tool>\n"
-                + "<tool name=\"edit_file\" path=\"src/app.py\"><old>exact text now in the file</old><new>its replacement</new></tool>\n"
+                + (readOnly ? "" : "<tool name=\"write_file\" path=\"src/app.py\">the whole new content</tool>\n"
+                        + "<tool name=\"edit_file\" path=\"src/app.py\"><old>exact text now in the file</old><new>its replacement</new></tool>\n")
                 + "<tool name=\"search\" query=\"text to find\"/>\n"
-                + "<tool name=\"run\" command=\"one shell command (sh, toybox: ls cat grep sed find wc head tail mkdir cp mv rm)\"/>\n"
+                + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command (sh, toybox: ls cat grep sed find wc head tail mkdir cp mv rm)\"/>\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
-                + (git == null ? "" : "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
+                + (git == null || readOnly ? "" : "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
                         + "<tool name=\"git\" action=\"status|pull\" path=\"folder\"/>\n"
                         + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step)\n"
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
@@ -116,7 +141,7 @@ public final class CodeAgent {
             work.append("Earlier in this chat:\n").append(earlier.trim()).append("\n\n");
         }
         work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
-        for (int step = 1; step <= MAX_STEPS; step++) {
+        for (int step = 1; step <= maxSteps; step++) {
             if (host.stopped()) {
                 return "Stopped." + summary();
             }
@@ -133,7 +158,7 @@ public final class CodeAgent {
                             + " <tool name=\"…\" …/> (see the tools), on its own.\n</result>\n");
                     continue;
                 }
-                if (promise(answer) && nudges < 2 && step < MAX_STEPS) {
+                if (promise(answer) && nudges < 2 && step < maxSteps) {
                     nudges++; // "I'll research Google…" is a plan, not an answer: do it
                     work.append("\n").append(answer).append("\n<result>\nDo that now with the tools, then give the actual result"
                             + " as your final answer.\n</result>\n");
@@ -149,7 +174,7 @@ public final class CodeAgent {
             }
             work.append("\n").append(call.raw).append("\n<result>\n").append(clip(result, RESULT_CHARS)).append("\n</result>\n");
         }
-        return "I used all " + MAX_STEPS + " steps without finishing. Tell me to continue and I'll pick up from here." + summary();
+        return "I used all " + maxSteps + " steps without finishing. Tell me to continue and I'll pick up from here." + summary();
     }
 
     private int nudges;
@@ -366,6 +391,9 @@ public final class CodeAgent {
     }
 
     private String carryOut(Call c) throws IOException {
+        if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git"))) {
+            return "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
+        }
         switch (c.name) {
             case "list_files": {
                 host.step("Listed " + show(c.a("path")));

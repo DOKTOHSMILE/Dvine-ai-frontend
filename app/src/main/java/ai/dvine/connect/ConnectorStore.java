@@ -99,10 +99,13 @@ public final class ConnectorStore {
      * call off the main thread).
      */
     public String research(String question, int pages, int maxChars) {
+        // the user's numbers (Settings › Advanced): results listed, pages read (never more than asked for here)
+        int results = ai.dvine.chat.Tuning.WEB_RESULTS.get(app);
+        int read = Math.min(pages, ai.dvine.chat.Tuning.WEB_PAGES.get(app));
         return ai.dvine.net.WebSearch.research(question, Connectors.https(), webSearch(), url -> {
             ai.dvine.net.WebGet.Page p = ai.dvine.net.WebGet.page(url, 8000, 600_000);
             return p.body;
-        }, pages, maxChars);
+        }, results, read, maxChars);
     }
 
     public String mcpUrl() {

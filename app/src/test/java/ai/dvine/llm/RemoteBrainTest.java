@@ -289,4 +289,43 @@ public class RemoteBrainTest {
         assertTrue(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "openai/gpt-5-mini", "k", "", null).reasoning());
         assertTrue(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "deepseek/deepseek-r1", "k", "", null).reasoning());
     }
+
+    @Test
+    public void aModelThatCantSeeGetsTheSameRequestWithANoteInstead() throws Exception {
+        java.io.File img = java.io.File.createTempFile("pic", ".jpg");
+        java.nio.file.Files.write(img.toPath(), new byte[]{1, 2, 3});
+        Fake f = new Fake().reply(400, "{\"error\":{\"message\":\"unknown variant `image_url`\"}}").reply(200, OPENAI_STREAM);
+        RemoteBrain ds = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.deepseek.com/v1", "deepseek-chat", "k", "", f);
+        assertEquals("Hello there.", ds.chat("s", ask("What is this?\n\n" + ai.dvine.chat.Attachments.image(img.getPath())), 48, 0.7f, null));
+        assertTrue(f.bodies.get(0), f.bodies.get(0).contains("image_url") && f.bodies.get(0).contains("AQID"));
+        assertFalse(f.bodies.get(1).contains("image_url"));
+        assertTrue(f.bodies.get(1), f.bodies.get(1).contains("this model can't see images"));
+        // remembered: the next image goes as a note straight away
+        Fake g = new Fake().reply(200, OPENAI_STREAM);
+        RemoteBrain again = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.deepseek.com/v1", "deepseek-chat", "k", "", g);
+        again.chat("s", ask("And this?\n\n" + ai.dvine.chat.Attachments.image(img.getPath())), 48, 0.7f, null);
+        assertEquals(1, g.bodies.size());
+        assertFalse(g.bodies.get(0).contains("image_url"));
+        // a model that sees gets the image as an image (Anthropic form)
+        Fake h = new Fake().reply(200, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"A cat.\"}}\n\n");
+        RemoteBrain claude = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "k", "", h);
+        claude.chat("s", ask("What is this?\n\n" + ai.dvine.chat.Attachments.image(img.getPath())), 48, 0.7f, null);
+        assertTrue(h.bodies.get(0), h.bodies.get(0).contains("\"type\":\"image\"") && h.bodies.get(0).contains("\"media_type\":\"image/jpeg\""));
+    }
+
+    @Test
+    public void theProvidersOwnSettingsWin() {
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.deepseek.com/v1", "deepseek-reasoner", "k", "", null)
+                .options("off", "on", 4000, 60, "{\"temperature\": 0.3, \"top_p\": 0.9}");
+        assertTrue(b.reasoning());
+        String body = new String(b.body("s", ask("hi"), 48, 0.7f, 2), StandardCharsets.UTF_8);
+        assertTrue(body, body.contains("\"max_completion_tokens\":4000") && body.contains("\"top_p\":0.9"));
+        assertFalse(body, body.contains("temperature")); // the reasoning form refuses it
+        RemoteBrain plain = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5", "k", "", null)
+                .options("auto", "off", 0, 180, "{\"temperature\": 0.2}");
+        assertFalse(plain.reasoning()); // the user said it isn't one
+        String b0 = new String(plain.body("s", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8);
+        assertTrue(b0, b0.contains("\"temperature\":0.2"));
+        assertTrue(RemoteBrain.validExtra("{\"a\":1}") && RemoteBrain.validExtra("") && !RemoteBrain.validExtra("temperature=1"));
+    }
 }
