@@ -373,7 +373,7 @@ public final class RemoteBrain {
                     r = transport.post(url(), headers(keys[k], form), body(system, turns, maxTokens, temperature, form), timeoutMs);
                 } catch (IOException e) {
                     problem = "I couldn't reach " + host() + (e.getMessage() == null ? "" : " (" + e.getMessage() + ")");
-                    transientFailure = true;
+                    transientFailure = PromptFit.retryReach(e.getMessage());
                     return null;
                 }
                 try (InputStream in = r.body) {
@@ -807,7 +807,7 @@ public final class RemoteBrain {
             }
             c.setRequestMethod("POST");
             c.setDoOutput(true);
-            c.setConnectTimeout(15_000);
+            c.setConnectTimeout(6_000);
             c.setReadTimeout(timeoutMs);
             for (Map.Entry<String, String> h : headers.entrySet()) {
                 c.setRequestProperty(h.getKey(), h.getValue());

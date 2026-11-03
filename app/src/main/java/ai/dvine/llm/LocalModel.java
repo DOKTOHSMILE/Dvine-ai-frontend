@@ -410,8 +410,8 @@ public final class LocalModel {
             return null;
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
-        final int room = Math.min(maxTokens, Math.max(256, localWindow() / 4));
-        asked = fit(asked, (localWindow() - room) * CHARS_PER_TOKEN - (system == null ? 0 : system.length()) - 600);
+        final int room = PromptFit.localReplyTokens(localWindow(), maxTokens, false);
+        asked = fit(asked, PromptFit.localPromptChars(localWindow(), room, system == null ? 0 : system.length()));
         ai.dvine.learn.LearningLog l = learning;
         String learned = l == null ? "" : l.examplesFor(question, 2, 1400);
         step("Answering with the model on this phone");
@@ -445,8 +445,8 @@ public final class LocalModel {
             String local = NativeLlm.nError(handle);
             problem = apiProblem == null ? local
                     : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
-            if (local == null || !local.contains("too long")) {
-                return null;
+            if (local == null || !local.contains("too long") || pieces[0] > 0) {
+                return null; // a reply that already started is not "too long"; that error can be left over
             }
             if (history.isEmpty()) {
                 if (asked.length() <= 400) {
@@ -473,20 +473,32 @@ public final class LocalModel {
      * working in parallel online). Null when no API is on or it failed; the caller falls back to {@link #task}.
      */
     public String remoteTask(String system, String prompt, int maxTokens) {
+        return remoteTask(system, prompt, maxTokens, null);
+    }
+
+    /** As {@link #remoteTask(String, String, int)}, but the caller picks the fast or the strong model. */
+    public String remoteTask(String system, String prompt, int maxTokens, TaskSize.Tier tier) {
         if (!remoteOn()) {
             return null;
         }
         List<String[]> turns = new ArrayList<String[]>();
         turns.add(new String[]{"user", prompt});
-        String answer = askRemote(system, turns, maxTokens, 0.35f, null, TaskSize.ofCall(prompt, maxTokens, coding));
+        TaskSize.Tier use = tier != null ? tier : TaskSize.ofCall(prompt, maxTokens, coding);
+        String answer = askRemote(system, turns, maxTokens, 0.35f, null, use);
         return answer == null ? null : answer.trim();
     }
 
     public synchronized String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink) {
+        return task(system, prompt, maxTokens, sink, null);
+    }
+
+    /** As {@link #task(String, String, int, NativeLlm.Sink)}. {@code tier} null lets the words decide the model. */
+    public synchronized String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink, TaskSize.Tier tier) {
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>();
             turns.add(new String[]{"user", prompt});
-            String answer = askRemote(system, turns, maxTokens, 0.35f, sink, TaskSize.ofCall(prompt, maxTokens, coding));
+            String answer = askRemote(system, turns, maxTokens, 0.35f, sink,
+                    tier != null ? tier : TaskSize.ofCall(prompt, maxTokens, coding));
             if (answer != null) {
                 return answer.trim();
             }
@@ -501,8 +513,9 @@ public final class LocalModel {
         // the phone's own model takes over with what fits its memory: the start of the task and the latest work
         // characters per token is only an estimate (code and paths take more tokens): when the model says it is
         // still too long, the same work is cut down further and tried again, never just refused
-        int reply = Math.min(maxTokens, Math.max(256, localWindow() / 4));
-        int budget = (localWindow() - reply) * CHARS_PER_TOKEN - system.length() - 200;
+        boolean report = maxTokens >= 8000;
+        int reply = PromptFit.localReplyTokens(localWindow(), maxTokens, report);
+        int budget = PromptFit.localPromptChars(localWindow(), reply, system == null ? 0 : system.length());
         String local = null;
         raisePriority();
         String sys = system;
@@ -528,8 +541,8 @@ public final class LocalModel {
                 sys = sys + " /no_think";
                 continue;
             }
-            if (local == null || !local.contains("too long")) {
-                break;
+            if (local == null || !local.contains("too long") || pieces[0] > 0) {
+                break; // it wrote tokens: the memory error is from an earlier try, not this one
             }
             budget = budget * 55 / 100;
             reply = Math.max(128, reply * 3 / 4);
@@ -618,12 +631,13 @@ public final class LocalModel {
             final Slot sl = (Slot) attempt[0];
             final RemoteBrain r = (RemoteBrain) attempt[1];
             current = r;
+            final List<String[]> fitted = PromptFit.remoteTurns(turns, sl.window, maxTokens);
             // no "Asking <provider>" step: it repeated between every real step (the model shows in the header)
             final int ticket = epoch.get();
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
             problem = null;
-            String answer = withTimeout(counting(sink, pieces), wrapped -> r.chat(system, turns, maxTokens, temperature, wrapped));
+            String answer = withTimeout(counting(sink, pieces), wrapped -> r.chat(system, fitted, maxTokens, temperature, wrapped));
             boolean timedOut = problem != null && problem.startsWith("the reply");
             if (ticket != epoch.get() && !timedOut) {
                 problem = "stopped"; // the user stopped it: nothing more is asked
@@ -633,7 +647,7 @@ public final class LocalModel {
                 if (failedName != null) {
                     switchNote = failedName + " didn't answer (" + firstFailure + "), so " + sl.name + " did.";
                 }
-                record(sl, r, system, turns, answer, pieces[0], began);
+                record(sl, r, system, fitted, answer, pieces[0], began);
                 ai.dvine.learn.LearningLog l = learning;
                 if (l != null) {
                     l.record(system, turns, answer, sl.name + " (" + r.model + ")", tier.name(), System.currentTimeMillis());

@@ -1812,20 +1812,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final ai.dvine.agent.CodeAgent.Brain brain = new ai.dvine.agent.CodeAgent.Brain() {
                         @Override
                         public String ask(String system, String transcript) {
-                            return asked(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
+                            // a step is a tool call or a short note: the fast model. The report uses the strong one.
+                            return asked(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), ai.dvine.llm.TaskSize.Tier.FAST);
                         }
 
                         @Override
                         public String askLong(String system, String transcript) {
-                            // the final report: room to write all of it
-                            return asked(system, transcript, Math.max(12000, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs) * 3));
+                            // the final report: room to write all of it, on the strong model
+                            return asked(system, transcript, Math.max(12000, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs) * 3),
+                                    ai.dvine.llm.TaskSize.Tier.STRONG);
                         }
 
                         /**
                          * One step, its words streamed into the chat as they are written (as ChatGPT does), unless
                          * they turn out to be a tool call, which only shows in the steps.
                          */
-                        private String asked(String system, String transcript, int tokens) {
+                        private String asked(String system, String transcript, int tokens, ai.dvine.llm.TaskSize.Tier tier) {
                             synchronized (live) {
                                 live.setLength(0);
                             }
@@ -1865,7 +1867,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     });
                                 }
                                 return id == askId;
-                            });
+                            }, tier);
                         }
 
                         @Override
@@ -1878,7 +1880,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             // every agent (Ibiko changing things, Obi or Ivie reading files) except a plan being drawn up
             final boolean rounds = !planning && prefs.getBoolean("ibiko_keep_going", true);
             final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,
-                    model.window() * 3).useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)))
+                    model.window() * 3 > 48_000 ? 48_000 : model.window() * 3).useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)))
                     .steps(rounds ? Math.min(ROUND_STEPS, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
                     .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> saveAgentWork(persona, w))
                     .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
@@ -1905,8 +1907,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     final ai.dvine.agent.CodeAgent.Brain online = new ai.dvine.agent.CodeAgent.Brain() {
                         @Override
                         public String ask(String system, String transcript) {
-                            String r = model.remoteTask(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
-                            return r != null ? r : model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), null);
+                            String r = model.remoteTask(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), ai.dvine.llm.TaskSize.Tier.FAST);
+                            return r != null ? r : model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), null,
+                                    ai.dvine.llm.TaskSize.Tier.FAST);
                         }
 
                         @Override
@@ -1917,7 +1920,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     crew = ai.dvine.agent.Crew.run(brain::ask, (part, brief) -> {
                                 String helper = ai.dvine.agent.AgentBoard.start(who + " \u00B7 mini agent", part);
                                 try {
-                                    ai.dvine.agent.CodeAgent mini = side ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools, model.window() * 3)
+                                    ai.dvine.agent.CodeAgent mini = side ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
+                                            model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
                                             .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ROUND_STEPS)
                                             .as(who, readOnly).keepGoing(rounds) : make.get();
                                     return mini.run(part, brief + (earlier.isEmpty() ? ""

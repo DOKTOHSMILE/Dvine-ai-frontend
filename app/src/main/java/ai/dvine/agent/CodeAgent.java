@@ -296,12 +296,12 @@ public final class CodeAgent {
             String reply = brain.ask(system(), trimmed(work.toString()));
             String text = reply == null ? "" : reply.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
             if (text.isEmpty()) {
-                if (!retried && !host.stopped()) {
+                String failed = brain.why();
+                if (!retried && !host.stopped() && repeatable(failed)) {
                     retried = true; // a dropped connection or an empty reply: once more before giving up
                     step--;
                     continue;
                 }
-                String failed = brain.why();
                 if (pending != null && (failed == null || failed.isEmpty())) {
                     String answer = pending; // asked whether it was done, it had nothing to add: that text was the answer
                     pending = null;
@@ -447,6 +447,17 @@ public final class CodeAgent {
 
     private StringBuilder work;
     private String resume;
+
+    /** A failure that will not change if the same request is sent again. */
+    static boolean repeatable(String why) {
+        if (why == null || why.isEmpty()) {
+            return true;
+        }
+        String w = why.toLowerCase(Locale.US);
+        return !(w.contains("too long") || w.contains("too much for") || w.contains("no address")
+                || w.contains("unable to resolve") || w.contains("unknown host") || w.contains("couldn't be loaded")
+                || w.contains("(401") || w.contains("(403") || w.contains("(402"));
+    }
 
     /** Carries on from an earlier run's work ({@link #work()}): "continue", "give me the result". */
     public CodeAgent resume(String priorWork) {
