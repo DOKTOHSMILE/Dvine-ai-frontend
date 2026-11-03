@@ -21,12 +21,26 @@ public final class ReplyText {
         s = s.replaceAll("(?s)<tool\\b[^>]*>.*?</tool>", "");
         s = s.replaceAll("(?s)<tool\\b[^>]*/>", "");
         s = s.replaceAll("(?s)</?final>", "");
+        s = MessageParts.normalizeFences(s);
         String[] lines = s.split("\n", -1);
         StringBuilder out = new StringBuilder();
         int blanks = 0;
+        boolean inCode = false;
         for (String line : lines) {
-            String t = line.replaceAll("[\\t ]+", " ").trim();
-            if (t.isEmpty()) {
+            boolean fence = line.trim().startsWith("```");
+            if (inCode && !fence) {
+                // inside a code block every line is kept as written: indentation is the code's own
+                out.append(out.length() == 0 ? "" : "\n").append(line.replace("\t", "    ").replaceAll("\\s+$", ""));
+                continue;
+            }
+            if (fence) {
+                inCode = !inCode;
+            }
+            // outside code, spaces are tightened; a line that looks like code keeps its indentation
+            String t = CodeLanguage.codeLine(line) && !fence
+                    ? line.replace("\t", "    ").replaceAll("\\s+$", "")
+                    : line.replaceAll("[\\t ]+", " ").trim();
+            if (t.trim().isEmpty()) {
                 blanks++;
                 continue;
             }
@@ -36,6 +50,6 @@ public final class ReplyText {
             blanks = 0;
             out.append(t);
         }
-        return out.toString().trim();
+        return out.toString().replaceAll("^\\s*\\n", "").replaceAll("\\s+$", "");
     }
 }

@@ -126,7 +126,7 @@ public final class ChatPane extends LinearLayout {
             thread.addView(thinkingRow);
         }
         if (liveText != null) {
-            liveRow = liveView(liveText);
+            liveRow = liveView(liveText.substring(0, Math.max(0, Math.min(liveShown, liveText.length()))));
             thread.addView(liveRow);
         }
         boolean noMessages = cur.messages.isEmpty() && !working() && liveText == null;
@@ -428,14 +428,56 @@ public final class ChatPane extends LinearLayout {
      */
     public void setLive(String text) {
         String t = text == null || text.trim().isEmpty() ? null : text.trim();
+        if (t == null) {
+            removeCallbacks(typeLive);
+            liveText = null;
+            liveShown = 0;
+            renderLive(null);
+            return;
+        }
+        if (liveText == null || !t.startsWith(liveText.substring(0, Math.min(liveShown, liveText.length())))) {
+            liveShown = 0; // another reply: typed from the start
+        }
         liveText = t;
+        removeCallbacks(typeLive);
+        post(typeLive);
+    }
+
+    /** How much of the live reply is typed out so far. */
+    private int liveShown;
+
+    /**
+     * The fast typewriter: the live reply is typed out a few characters at a time, catching up quicker the further
+     * behind it is, so it reads as writing without ever lagging behind the model.
+     */
+    private final Runnable typeLive = new Runnable() {
+        @Override
+        public void run() {
+            String t = liveText;
+            if (t == null) {
+                return;
+            }
+            int behind = t.length() - liveShown;
+            if (behind > 0) {
+                liveShown = Math.min(t.length(), liveShown + Math.max(LIVE_CHARS_PER_TICK, behind / 5));
+                renderLive(t.substring(0, liveShown));
+            }
+            if (liveShown < t.length()) {
+                postDelayed(this, LIVE_TICK_MS);
+            }
+        }
+    };
+    static final int LIVE_CHARS_PER_TICK = 3;
+    static final long LIVE_TICK_MS = 16;
+
+    private void renderLive(String shown) {
         int at = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
         if (at >= 0) {
             thread.removeViewAt(at);
         }
         liveRow = null;
-        if (t != null) {
-            liveRow = liveView(t);
+        if (shown != null) {
+            liveRow = liveView(shown);
             if (at >= 0) {
                 thread.addView(liveRow, at);
             } else {
@@ -450,9 +492,19 @@ public final class ChatPane extends LinearLayout {
         }
     }
 
+    /**
+     * The reply as it is written, laid out as it will be kept: prose as text, code (fenced, badly fenced, or not
+     * fenced at all) in the code viewer with its language named.
+     */
     private View liveView(String text) {
         try {
-            return bubble(new ChatBook.Message("assistant", "text", text, book.current().persona));
+            LinearLayout box = new LinearLayout(getContext());
+            box.setOrientation(VERTICAL);
+            String persona = book.current().persona;
+            for (ai.dvine.chat.MessageParts.Part part : ai.dvine.chat.MessageParts.split(ai.dvine.chat.ReplyText.prepare(text))) {
+                box.addView(bubble(new ChatBook.Message("assistant", part.kind, part.body, persona, part.language)));
+            }
+            return box;
         } catch (RuntimeException e) {
             return plain(text);
         }

@@ -167,6 +167,16 @@ public class ScreenshotTest {
             ob.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o);
         }
         opened.dismiss();
+        // a reply being written with code in it (the screenshot's one-backtick fence): the code viewer, typed out
+        pane.setLive("I can explain the activity_chat.xml file.\n\nHere's what it says:\n\n`xml\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                + "<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n    android:id=\"@+id/chatScreenRoot\"\n"
+                + "    android:layout_width=\"match_parent\"\n    android:orientation=\"vertical\">\n\n    <!-- Compact conversation header -->\n"
+                + "    <LinearLayout\n        android:id=\"@+id/chatHeader\"");
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS); // the typewriter catches up
+        java.util.ArrayList<android.view.View> lang = new java.util.ArrayList<android.view.View>();
+        c.get().getWindow().getDecorView().findViewsWithText(lang, "xml", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertFalse("the code viewer names the language", lang.isEmpty());
+        shoot(c.get(), "19_live_code_night");
         pane.activityEnd();
         pane.setLive(null);
         pane.assistant("obi", "Lagos has about 16 million people in its metropolitan area.");

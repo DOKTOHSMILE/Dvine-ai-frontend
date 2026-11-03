@@ -32,6 +32,7 @@ public final class Meaning {
         AUTO_OFF("turn auto-accept off", false, "make Ibiko ask before running commands, pushes and pull requests"),
         CLEAR_WORKSPACE("clear Ibiko's workspace", false, "delete the cloned repositories, the sandbox and the files in Ibiko's workspace on the phone"),
         OPEN_SETTINGS("open Settings", false, "open the app's settings"),
+        RETRY("ask again", false, "send the user's previous message again (the last reply failed or they want another try)"),
         NONE("", false, "anything else: a question, a request, chat, a new task");
 
         /** Carried out by DVINE's own action ({@code act}), not by running {@link #canonical} as a message. */

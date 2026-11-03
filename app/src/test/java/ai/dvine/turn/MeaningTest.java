@@ -33,6 +33,8 @@ public class MeaningTest {
             assertTrue(c.name(), Meaning.prompt(false).contains(c.name().toLowerCase(java.util.Locale.US) + ":"));
         }
         assertFalse(Meaning.Command.RESULT.direct() || Meaning.Command.REMOVE_MODEL.direct() || Meaning.Command.NONE.direct());
+        assertEquals(Meaning.Command.RETRY, Meaning.read("COMMAND: retry"));
+        assertTrue(Meaning.Command.RETRY.direct());
     }
 
     @Test

@@ -64,8 +64,11 @@ public final class BrainOrder {
             String why = line.length() > 6 ? line.substring(6).trim() : "";
             return new BrainOrder(Kind.CANNOT, "", why);
         }
-        if (upper.startsWith("SAY ")) {
-            return new BrainOrder(Kind.SAY, "", line.substring(4).trim());
+        if (upper.matches("^SAY\\b.*")) {
+            // "SAY hello", "SAY: hello"; a bare "SAY" is the order word with nothing said (a small model's slip),
+            // never the answer itself: no order, so the reply is asked for plainly instead
+            String said = line.substring(3).replaceFirst("^[\\s:.,-]+", "").trim();
+            return said.isEmpty() ? null : new BrainOrder(Kind.SAY, "", said);
         }
         if (upper.startsWith("DO ")) {
             String rest = line.substring(3).trim();

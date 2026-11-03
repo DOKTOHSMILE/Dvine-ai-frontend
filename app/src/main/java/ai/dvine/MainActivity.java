@@ -1442,7 +1442,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 new android.content.Intent(this, ai.dvine.chat.ui.HistoryActivity.class), HISTORY);
     }
 
+    /** The last question asked, whole (with any file it carried), for "retry". */
+    private String lastAsked;
+
     private void askTheBrain(String question) {
+        lastAsked = question;
         String bare = question.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
         boolean agentGoesOn = carriesOn(question) && !agentWork(stage.agent()).isEmpty();
         if (agentGoesOn && model != null && model.ready()) {
@@ -1526,6 +1530,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 endThink();
                 ai.dvine.llm.BrainOrder order = ai.dvine.llm.BrainOrder.decide(finalQuestion, all);
+                if (order == null && all != null && !all.trim().isEmpty()) {
+                    // the model wrote no usable order (a bare "SAY"): it is asked for a plain answer instead
+                    askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
+                    return;
+                }
                 boolean talk = order == null || order.kind == ai.dvine.llm.BrainOrder.Kind.SAY;
                 if (talk && ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG) {
                     // real work, not small talk: the strong model writes the whole answer, not one line
@@ -1980,6 +1989,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             stage.setMode(StageMode.LISTENING);
             return;
         }
+        if (control.matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
+            retryLast();
+            return;
+        }
         if (control.matches("^(resume|continue|go on|carry on)( please)?$") && paused != null) {
             List<TurnLine> rest = paused;
             paused = null;
@@ -2115,12 +2128,49 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             case CLEAR_WORKSPACE:
                 clearWorkspace();
                 break;
+            case RETRY:
+                retryLast();
+                break;
             case OPEN_SETTINGS:
                 startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
                 break;
             default:
                 break;
         }
+    }
+
+    /**
+     * "Retry", "try again": the user's last message before this one is asked again, as it was (with any file it
+     * carried), instead of being read as a new request.
+     */
+    private void retryLast() {
+        if (lastAsked != null && !lastAsked.trim().isEmpty()) {
+            String shown = ai.dvine.chat.Attachments.withoutImages(lastAsked).replaceAll("(?s)<attachment.*?</attachment>", "").trim();
+            note("Asking again: \u201c" + (shown.length() > 60 ? shown.substring(0, 60) + "\u2026" : shown) + "\u201d");
+            askTheBrain(lastAsked); // the whole question, with the file it carried
+            return;
+        }
+        java.util.List<ai.dvine.chat.ChatBook.Message> msgs = chats == null ? new java.util.ArrayList<ai.dvine.chat.ChatBook.Message>()
+                : chats.current().messages;
+        boolean skippedThis = false;
+        for (int i = msgs.size() - 1; i >= 0; i--) {
+            ai.dvine.chat.ChatBook.Message m = msgs.get(i);
+            if (!"user".equals(m.role) || !"text".equals(m.kind) || m.body == null) {
+                continue;
+            }
+            String t = m.body.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+            if (!skippedThis && t.matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
+                skippedThis = true; // the "retry" itself
+                continue;
+            }
+            if (ai.dvine.turn.Meaning.Command.RETRY == meanings().get(m.body)) {
+                continue;
+            }
+            note("Asking again: \u201c" + (m.body.length() > 60 ? m.body.substring(0, 60) + "\u2026" : m.body) + "\u201d");
+            askTheBrain(m.body);
+            return;
+        }
+        play(LocalTurn.speakAs(stage.agent(), "There's nothing earlier in this chat to ask again."), null);
     }
 
     /** Clears Ibiko's workspace (clones, sandbox, files) and its kept work, after a yes: it can't be undone. */
@@ -2327,8 +2377,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             said = spokenLine(line.text);
                         }
                     }
-                    stream.add(new TurnLine(agent, "SAY",
-                            said != null ? said : "I don't have a reply for that yet."));
+                    String why = model == null ? null : model.problem();
+                    stream.add(new TurnLine(agent, "SAY", said != null ? said
+                            : why != null && !why.isEmpty() && !"stopped".equals(why)
+                                    ? "My reply stopped: " + why + ". Say \u201cretry\u201d to ask again."
+                                    : "I don't have a reply for that yet. Say \u201cretry\u201d to ask again."));
                 } else {
                     TurnLine said = new TurnLine(agent, "SAY", body);
                     if (spokeLive) {
