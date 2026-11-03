@@ -59,7 +59,7 @@ public final class ObjectStore {
         }
         j.put("hidden", hidden);
         j.put("deleted", deleted);
-        j.put("backend", "procedural");
+        j.put("backend", "measured design");
         j.put("measured", Boolean.FALSE);
         j.put("assetId", existingAssetId(new File(dir, name(m.spec.category) + ".json")));
         File f = new File(dir, name(m.spec.category) + ".json");
@@ -70,8 +70,9 @@ public final class ObjectStore {
     /** The latest saved design of a category ("house"), or of any kind ("design"), rebuilt; null when none. */
     public ObjectModel open(String what) throws IOException {
         File f = null;
-        if (ProceduralModelingEngine.supports(what)) {
-            f = new File(dir, name(what) + ".json");
+        File named = new File(dir, name(what) + ".json");
+        if (named.isFile()) {
+            f = named;
         } else {
             File[] all = dir.listFiles((d, n) -> n.endsWith(".json"));
             if (all != null) {
@@ -94,7 +95,7 @@ public final class ObjectStore {
             prov.add(new Provenance(MiniJson.str(e.get("kind"), "default"), MiniJson.str(e.get("source"), ""),
                     (long) MiniJson.num(e.get("retrievedAt"), 0), MiniJson.str(e.get("license"), "unknown"), MiniJson.str(e.get("note"), "")));
         }
-        ObjectModel built = ProceduralModelingEngine.build(spec, version, prov);
+        ObjectModel built = MeasuredBuilder.build(spec, version, prov);
         for (String name : MiniJson.strings(j.get("hidden"))) {
             Component c = named(built, name);
             if (c != null) {

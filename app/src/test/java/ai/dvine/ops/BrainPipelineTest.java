@@ -19,7 +19,6 @@ import ai.dvine.ops.pipe.CapabilityRegistry;
 import ai.dvine.ops.pipe.RequestGateway;
 import ai.dvine.ops.pipe.SemanticGraph;
 import ai.dvine.ops.pipe.StructuredActionPlan;
-import ai.dvine.ops.recon.AssetGenerationService;
 import ai.dvine.ops.recon.EditableScene;
 import ai.dvine.ops.recon.MultiViewReconstructionManager;
 import ai.dvine.ops.task.TaskControl;
@@ -138,32 +137,7 @@ public class BrainPipelineTest {
         assertTrue(new CapabilityRegistry().get("photogrammetry").available);
         assertTrue(new CapabilityRegistry().get("photogrammetry").honest.toLowerCase().contains("not a dense"));
         assertFalse(new CapabilityRegistry().get("ocr").available);
-        assertTrue(new CapabilityRegistry().get("rig").available);
-        assertTrue(new CapabilityRegistry().get("rig").honest.toLowerCase().contains("not a scanned"));
         assertTrue(new CapabilityRegistry().get("image-generation").available);
-    }
-
-    @Test
-    public void textAndVoiceShareOnePlanAndDoNotInventAPart() throws Exception {
-        EditableScene scene = new AssetGenerationService().procedural("motorcycle");
-        RequestGateway gateway = new RequestGateway();
-        StructuredActionPlan typed = gateway.accept("Remove the front tyre but keep it.", scene);
-        StructuredActionPlan spoken = gateway.accept("Remove the front tyre but keep it.", scene);
-        assertEquals(StructuredActionPlan.Operation.DETACH, typed.operation);
-        assertEquals(spoken.operation, typed.operation);
-        assertEquals("front_tyre", typed.targetId);
-        assertTrue(typed.reversible);
-        assertFalse(typed.requestId.equals(spoken.requestId));
-        assertNull(typed.problem());
-        StructuredActionPlan missing = gateway.accept("Remove the spoiler but keep it.", scene);
-        assertEquals("", missing.targetId);
-        assertTrue(missing.needsClarification);
-        StructuredActionPlan empty = gateway.accept("  ", scene);
-        assertNotNull(empty.problem());
-        AssistantCore core = AssistantCore.offline(OpsPipelineTest.dir());
-        core.hear("what model are you using", 1);
-        assertEquals(StructuredActionPlan.Operation.MODEL, core.lastPlan().operation);
-        assertNull(core.lastPlan().problem());
     }
 
     @Test

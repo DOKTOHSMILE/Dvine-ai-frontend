@@ -222,29 +222,6 @@ public class OpsPipelineTest {
     }
 
     @Test
-    public void reconstructionIsAnApproximationAndCanDropTheFrontWheel() throws Exception {
-        File root = dir();
-        File image = new File(root, "garage-motorcycle.png");
-        Files.write(image.toPath(), png(32, 32));
-        AssistantCore core = AssistantCore.offline(dir());
-        core.orchestrator().setAuthorizedRoot(root);
-        core.hear("Find the motorcycle image in my project folder and show it to me.", 1);
-        Outcome built = core.hear("Use that motorcycle image to build an editable 3D model.", 1);
-        assertTrue(built.speech.toLowerCase(Locale.US).contains("approximation") || built.speech.toLowerCase(Locale.US).contains("picture"));
-        assertTrue(built.solidText.contains("front wheel"));
-        EditableScene scene = core.orchestrator().scene();
-        assertNotNull(scene.byId("front_fork"));
-        Outcome edit = core.hear("Remove the front wheel, but leave the fork, brake and rest of the motorcycle untouched.", 1);
-        assertTrue(edit.speech.toLowerCase(Locale.US).contains("front wheel"));
-        assertTrue(scene.byId("front_wheel").removed);
-        assertFalse(scene.byId("front_fork").removed);
-        assertFalse(scene.byId("front_brake").removed);
-        assertFalse(scene.byId("engine").removed);
-        assertTrue(scene.undo());
-        assertFalse(scene.byId("front_wheel").removed);
-    }
-
-    @Test
     public void aDestructiveServerCommandWaitsForYes() throws Exception {
         MemorySsh ssh = new MemorySsh();
         AssistantCore core = withSsh(ssh);
@@ -260,16 +237,6 @@ public class OpsPipelineTest {
         Outcome yes = core.hear("yes", 1);
         assertEquals(1, ssh.execs);
         assertFalse(yes.speech.toLowerCase(Locale.US).contains("have not done it"));
-    }
-
-    @Test
-    public void negationKeepsTheWindows() throws Exception {
-        AssistantCore core = AssistantCore.offline(dir());
-        core.demoCar();
-        Outcome o = core.hear("Remove the roof, but do not touch the windows.", 1);
-        assertTrue(o.handled);
-        assertTrue(core.orchestrator().scene().byId("roof").removed);
-        assertFalse(core.orchestrator().scene().byId("windows").removed);
     }
 
     @Test
@@ -402,17 +369,6 @@ public class OpsPipelineTest {
     }
 
     @Test
-    public void pluralTyresLeaveTheRestOfTheCar() throws Exception {
-        AssistantCore core = AssistantCore.offline(dir());
-        core.demoCar();
-        core.hear("Remove its tyres.", 1);
-        assertTrue(core.orchestrator().scene().byId("front_left_tyre").removed);
-        assertFalse(core.orchestrator().scene().byId("body").removed);
-        assertFalse(core.orchestrator().scene().byId("windows").removed);
-        assertFalse(core.orchestrator().scene().byId("roof").removed);
-    }
-
-    @Test
     public void brainContradictionIsRejected() {
         NaturalLanguageActionEngine engine = new NaturalLanguageActionEngine();
         NaturalLanguageActionEngine.Read read = engine.read("Do not delete the original.", 1, null, decomposition -> {
@@ -423,31 +379,6 @@ public class OpsPipelineTest {
             return bad;
         });
         assertEquals("reject", read.intent);
-    }
-
-    @Test
-    public void correctionIsContextual() throws Exception {
-        AssistantCore core = AssistantCore.offline(dir());
-        core.demoMotorcycle();
-        core.rememberCorrection("No, that is the wheel rim. The tyre is the rubber surrounding it.");
-        assertEquals("front_tyre", core.memory().correction("motorcycle", "tyre"));
-        core.hear("Remove the front tyre, but leave the rim and fork intact.", 1);
-        assertTrue(core.orchestrator().scene().byId("front_tyre").removed);
-        assertFalse(core.orchestrator().scene().byId("front_rim").removed);
-        assertFalse(core.orchestrator().scene().byId("front_fork").removed);
-        assertNull(core.memory().correction("food", "tyre"));
-    }
-
-    @Test
-    public void remoteImageIsNotTreatedAsAModel() throws Exception {
-        MemorySsh ssh = new MemorySsh();
-        ssh.files.add(new SshTransport.RemoteFile("/models/vehicle.png", 10, 50, false));
-        ssh.downloads.put("/models/vehicle.png", png(8, 8));
-        AssistantCore core = withSsh(ssh);
-        core.orchestrator().setSshAccount("dev.example", 22, "ada", "pw".toCharArray(), true);
-        Outcome o = core.hear("Find the latest vehicle model on my configured server, download it, inspect it and open it on the 3D board.", 1);
-        assertTrue(o.speech.toLowerCase(Locale.US).contains("image"));
-        assertNotNull(core.orchestrator().scene());
     }
 
     @Test

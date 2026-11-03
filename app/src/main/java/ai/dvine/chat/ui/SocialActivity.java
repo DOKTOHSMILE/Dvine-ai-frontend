@@ -84,7 +84,7 @@ public final class SocialActivity extends AppCompatActivity {
                         : !a.signedIn ? "Signed out: tap Add account to sign in again"
                         : (a.inUse ? "In use · " : "Tap to use · ") + limits.used(a.id, SocialLimits.Kind.READ, now)
                                 + " of " + limits.cap(p, SocialLimits.Kind.READ, true) + " reads today";
-                LinearLayout row = row(a.label, a.inUse, state, () -> remove(a));
+                LinearLayout row = row(a.label, a.inUse, state, () -> remove(a), () -> rename(a));
                 row.setOnClickListener(v -> {
                     if (!a.inUse) {
                         boolean ok = SocialWeb.switchTo(this, a.id);
@@ -148,6 +148,24 @@ public final class SocialActivity extends AppCompatActivity {
         safe.addView(only);
     }
 
+    /** A new name for the account ("Work", "Shop page"): how it shows here, in Connectors and in replies. */
+    private void rename(final SocialAccounts.Account a) {
+        final android.widget.EditText field = Ui.field(this, "Name", a.label, false, false);
+        LinearLayout box = new LinearLayout(this);
+        int p = Ui.dp(this, 20);
+        box.setPadding(p, Ui.dp(this, 8), p, 0);
+        box.addView(field, new LinearLayout.LayoutParams(-1, -2));
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Rename " + a.platform.shown + " account")
+                .setView(box)
+                .setPositiveButton("Save", (d, w) -> {
+                    SocialWeb.accounts(this).rename(a.id, field.getText().toString());
+                    fill();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
     private void remove(final SocialAccounts.Account a) {
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setMessage("Remove " + a.label + " (" + a.platform.shown + ") from DVINE? Its sign-in on this phone is deleted.")
@@ -172,7 +190,7 @@ public final class SocialActivity extends AppCompatActivity {
         return card;
     }
 
-    private LinearLayout row(String what, boolean inUse, String under, final Runnable remove) {
+    private LinearLayout row(String what, boolean inUse, String under, final Runnable remove, final Runnable rename) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setMinimumHeight(Ui.dp(this, 52));
@@ -194,6 +212,14 @@ public final class SocialActivity extends AppCompatActivity {
         words.addView(name);
         words.addView(Ui.text(this, under, 13, Ui.SUB, false));
         r.addView(words, new LinearLayout.LayoutParams(0, -2, 1f));
+        ImageView edit = new ImageView(this);
+        edit.setImageResource(ai.dvine.R.drawable.ic_edit);
+        edit.setColorFilter(Ui.SUB);
+        int ep = Ui.dp(this, 12);
+        edit.setPadding(ep, ep, ep, ep);
+        edit.setContentDescription("Rename " + what);
+        edit.setOnClickListener(v -> rename.run());
+        r.addView(edit, new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44)));
         ImageView x = new ImageView(this);
         x.setImageResource(ai.dvine.R.drawable.ic_close);
         x.setColorFilter(Ui.SUB);

@@ -703,12 +703,110 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         lastSendAt = now;
         field.setText("");
         voiceTurn = dictation != null && dictation.takeDraft();
+        if (busy()) {
+            // work is running: the message waits its turn instead of cutting the work off (Stop still stops it)
+            final String words = text;
+            hold(words, attached ? () -> sendWithAttachments(words) : () -> answer(words));
+            field.requestFocus();
+            return;
+        }
         if (attached) {
             sendWithAttachments(text);
         } else {
             answer(text);
         }
         field.requestFocus(); // the keyboard keeps typing into the box after Send
+    }
+
+    /** Messages sent while work was running, in order, waiting for it to finish (with what they say, and since when). */
+    private final java.util.ArrayDeque<Runnable> waiting = new java.util.ArrayDeque<Runnable>();
+    private final java.util.ArrayDeque<String> waitingWords = new java.util.ArrayDeque<String>();
+    private long waitingSince;
+    private int idleBeats;
+
+    /** Something is being worked on or still being written out: a reply, an agent's run, a build. */
+    private boolean busy() {
+        return generating || streamOpen || index < lines.size();
+    }
+
+    private void hold(String words, Runnable send) {
+        if (waiting.isEmpty()) {
+            waitingSince = System.currentTimeMillis();
+        }
+        waiting.add(send);
+        waitingWords.add(words.isEmpty() ? "your files" : words);
+        idleBeats = 0;
+        handler.removeCallbacks(releaseBeat);
+        handler.post(releaseBeat);
+    }
+
+    /**
+     * Every half second while messages wait: the waiting line shows them and how long they've waited, and once the
+     * work has finished (and stayed finished a moment, so a reply that runs in two steps isn't cut between them) the
+     * first goes, then the next after its own work.
+     */
+    private final Runnable releaseBeat = new Runnable() {
+        @Override
+        public void run() {
+            android.widget.TextView line = findViewById(R.id.composer_note);
+            if (waiting.isEmpty()) {
+                if (line != null && line.getTag() == waiting) {
+                    line.setTag(null);
+                    line.setOnClickListener(null);
+                    line.setVisibility(android.view.View.GONE);
+                }
+                return;
+            }
+            if (!busy()) {
+                idleBeats++;
+            } else {
+                idleBeats = 0;
+            }
+            if (idleBeats >= 2) {
+                idleBeats = 0;
+                Runnable next = waiting.poll();
+                waitingWords.poll();
+                waitingSince = System.currentTimeMillis();
+                if (next != null) {
+                    next.run();
+                }
+            }
+            if (line != null && !waiting.isEmpty()) {
+                long secs = (System.currentTimeMillis() - waitingSince) / 1000;
+                String first = waitingWords.peek();
+                first = first == null ? "" : first.length() > 40 ? first.substring(0, 40) + "\u2026" : first;
+                line.setText("Waiting to send" + (waiting.size() > 1 ? " (" + waiting.size() + ")" : "") + ": \u201c" + first + "\u201d \u00b7 "
+                        + ai.dvine.stage.ChatPane.duration(secs) + " \u00b7 sends when this finishes \u00b7 tap to edit");
+                line.setTag(waiting);
+                line.setVisibility(android.view.View.VISIBLE);
+                handler.removeCallbacks(hideNote);
+                line.setOnClickListener(v -> unhold());
+            }
+            handler.postDelayed(this, 500);
+        }
+    };
+
+    /** The waiting line tapped: the messages come back into the box to change, and nothing more waits. */
+    private void unhold() {
+        android.widget.EditText field = findViewById(R.id.et_message);
+        StringBuilder b = new StringBuilder();
+        for (String w : waitingWords) {
+            if (!"your files".equals(w)) {
+                b.append(b.length() == 0 ? "" : "\n").append(w);
+            }
+        }
+        waiting.clear();
+        waitingWords.clear();
+        if (field != null) {
+            field.setText(b.toString());
+            field.setSelection(field.getText().length());
+        }
+        android.widget.TextView line = findViewById(R.id.composer_note);
+        if (line != null) {
+            line.setOnClickListener(null);
+            line.setTag(null);
+            line.setVisibility(android.view.View.GONE);
+        }
     }
 
     /**
@@ -1538,8 +1636,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (send == null) {
             return;
         }
-        send.setImageResource(on ? R.drawable.ic_stop : R.drawable.ic_send);
-        send.setContentDescription(on ? "Stop" : "Send");
         refreshSend();
     }
 
@@ -1551,7 +1647,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         boolean words = field != null && field.getText() != null && field.getText().toString().trim().length() > 0;
-        send.setEnabled(generating || words || (attachments != null && !attachments.isEmpty()));
+        boolean files = attachments != null && !attachments.isEmpty();
+        send.setEnabled(generating || words || files);
+        // while work runs, an empty box shows Stop; anything typed shows Send (it waits its turn)
+        boolean stop = generating && !words && !files;
+        if (send instanceof android.widget.ImageButton) {
+            ((android.widget.ImageButton) send).setImageResource(stop ? R.drawable.ic_stop : R.drawable.ic_send);
+        }
+        send.setContentDescription(stop ? "Stop" : generating ? "Send when this finishes" : "Send");
     }
 
     private void openHistory() {
@@ -2517,7 +2620,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final int id = ++askId;
         stopPlay();
-        armThink("Using " + c[0], "Writing the answer");
+        armThink("Using " + c[0], "Replying");
         stage.activity("TOOL", c[0] + (c[1].isEmpty() ? "" : " " + clip(c[1])));
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
         final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
@@ -2626,7 +2729,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             } else {
                 if (!writingShown) {
                     writingShown = true;
-                    activity("Writing the answer");
+                    activity("Replying");
                 }
                 pace.phase(thinkWrite);
                 pace.addText(text);
@@ -2727,6 +2830,34 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * sign-in), within the limits that keep them safe, and answered from what people posted, labelled as their claims.
      */
     private boolean socialSearch(String text) {
+        ai.dvine.social.Platform link = ai.dvine.social.SocialAsk.connect(text);
+        if (link != null) {
+            // "connect my Facebook": its sign-in page, inside the app (or the accounts, when already signed in)
+            boolean has = ai.dvine.social.SocialWeb.accounts(this).inUse(link) != null;
+            play(LocalTurn.speakAs(stage.agent(), has ? "You're already signed in to " + link.shown + ". Here are your accounts: add another,"
+                    + " rename one, or switch it off in Connectors." : "Sign in to " + link.shown + " on the page I'm opening. Your password"
+                    + " goes only to " + link.shown + "; I keep the sign-in on this phone, encrypted."), null);
+            startActivity(has ? new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class)
+                    : new android.content.Intent(this, ai.dvine.chat.ui.SocialLoginActivity.class)
+                            .putExtra(ai.dvine.chat.ui.SocialLoginActivity.EXTRA_PLATFORM, link.name()));
+            return true;
+        }
+        if (ai.dvine.social.SocialAsk.help(text)) {
+            play(LocalTurn.speakAs(stage.agent(), "Sign in to your accounts first: menu, Connectors, then Facebook, X, Instagram or Reddit"
+                    + " (or say \u201cconnect my Facebook\u201d). Then ask me: \u201csearch X for the fuel price\u201d, \u201cwhat are people"
+                    + " saying on Reddit about Flutter\u201d, \u201ccheck trending posts on X\u201d, or \u201cwrite a post for Facebook about"
+                    + " our sale\u201d, then \u201cpost it on Facebook\u201d to open Facebook with it ready. I also check facts against what people post."), null);
+            return true;
+        }
+        String[] compose = ai.dvine.social.SocialAsk.compose(text);
+        if (compose != null) {
+            // the model writes the post; "post it on Facebook" then opens the app with it ready (posting for you comes next)
+            askLocal("Write one ready-to-post " + compose[0] + " post" + (compose[1].isEmpty() ? "" : " about " + compose[1])
+                    + ": the post text only, natural and engaging, the right length for " + compose[0] + ", with a few hashtags if"
+                    + " they suit it. Then one short line: say \u201cpost it on " + compose[0] + "\u201d and I'll open " + compose[0] + " with it ready.",
+                    null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
+            return true;
+        }
         final ai.dvine.social.SocialAsk ask = ai.dvine.social.SocialAsk.parse(text);
         if (ask == null) {
             return false;
@@ -3937,14 +4068,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             openReconstructionPicker();
             return true;
         }
+        // there are no built-in objects: the model designs each thing with its measurements, and changes them
+        creation.setDesigner(modelOn() ? (system, prompt, max) -> model.task(system, prompt, max, null) : null,
+                ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
         boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
+                || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE;
         if (!slow) {
-            armThink(
-                    r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.POSE ? "Posing the body"
-                            : "Updating the model",
-                    "Updating the model");
+            armThink("Updating the model", "Updating the model");
             applyCreation(creation.perform(r));
             endThink();
             return true;
@@ -3953,7 +4085,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stopPlay();
         String phase = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE
                 ? "Drawing the picture"
-                : creation.researchAvailable() ? "Researching it" : "Designing the geometry";
+                : r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY ? "Changing the measurements"
+                : creation.researchAvailable() ? "Researching it and working out the measurements" : "Working out the measurements";
         armThink(phase, phase);
         buildThread.execute(() -> {
             final ai.dvine.create.CreationDirector.Outcome o = creation.perform(r);

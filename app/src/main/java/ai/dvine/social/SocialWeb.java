@@ -47,7 +47,21 @@ public final class SocialWeb {
         if (accounts == null) {
             accounts = new SocialAccounts(new File(new File(c.getFilesDir(), "social"), "accounts.txt"));
         }
+        SharedPreferences prefs = prefs(c);
+        for (Platform p : Platform.values()) {
+            accounts.setOn(p, on(prefs, p)); // the switches in Connectors
+        }
         return accounts;
+    }
+
+    /** The network's switch in Connectors (on unless switched off). */
+    public static boolean on(SharedPreferences prefs, Platform p) {
+        return prefs.getBoolean("social_on_" + p.name(), true);
+    }
+
+    public static void setOn(Context c, Platform p, boolean on) {
+        prefs(c).edit().putBoolean("social_on_" + p.name(), on).apply();
+        accounts(c);
     }
 
     public static synchronized SocialLimits limits(Context c) {
@@ -263,6 +277,9 @@ public final class SocialWeb {
         SocialAccounts.Account a = all.inUse(p);
         if (a == null) {
             return p.shown + ": no account on this phone. The user can add one: menu → Social accounts.";
+        }
+        if (!all.on(p, true)) {
+            return p.shown + " is switched off in Connectors, so it wasn't read.";
         }
         SocialLimits lim = limits(c);
         synchronized (READING) {

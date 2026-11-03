@@ -92,6 +92,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         ai.dvine.social.SocialAccounts.Account inUse = ai.dvine.social.SocialWeb.accounts(this).inUse(p);
         String paused = inUse == null ? null : ai.dvine.social.SocialWeb.limits(this).pausedWhy(inUse.id, System.currentTimeMillis());
         boolean ready = inUse != null && inUse.signedIn && paused == null;
+        String status;
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(Ui.round(this, Ui.CARD, Ui.BORDER, 18));
@@ -106,16 +107,46 @@ public final class ConnectorsActivity extends AppCompatActivity {
         words.setOrientation(LinearLayout.VERTICAL);
         words.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 8), 0);
         words.addView(Ui.text(this, p.shown, 16, Ui.TEXT, true));
-        String status = on.isEmpty() ? "Not signed in: tap to sign in on " + p.shown
+        status = on.isEmpty() ? "Not signed in: tap to sign in on " + p.shown
                 : paused != null ? "Paused: " + paused
                 : inUse == null || !inUse.signedIn ? "Signed out: tap to sign in again"
                 : "Connected as " + inUse.label + (on.size() > 1 ? " \u00b7 " + on.size() + " accounts" : "");
-        words.addView(Ui.text(this, status, 12, ready ? Ui.CORAL : Ui.SUB, false));
+        boolean switchedOn = ai.dvine.social.SocialWeb.on(getSharedPreferences("dvine", MODE_PRIVATE), p);
+        if (!switchedOn && !on.isEmpty()) {
+            status = "Off \u00b7 " + (inUse == null ? "" : inUse.label + " stays signed in");
+            ready = false;
+        }
+        LinearLayout state = new LinearLayout(this);
+        state.setGravity(Gravity.CENTER_VERTICAL);
+        if (ready) {
+            android.widget.ImageView check = new android.widget.ImageView(this); // the standard check: connected
+            check.setImageResource(ai.dvine.R.drawable.ic_check);
+            check.setColorFilter(Ui.CORAL);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, 14), Ui.dp(this, 14));
+            lp.rightMargin = Ui.dp(this, 4);
+            state.addView(check, lp);
+        }
+        state.addView(Ui.text(this, status, 12, ready ? Ui.CORAL : Ui.SUB, false));
+        words.addView(state);
         row.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        android.widget.ImageView go = new android.widget.ImageView(this);
-        go.setImageResource(ai.dvine.R.drawable.ic_chevron_right);
-        go.setColorFilter(Ui.SUB);
-        row.addView(go, new LinearLayout.LayoutParams(Ui.dp(this, 18), Ui.dp(this, 18)));
+        if (on.isEmpty()) {
+            android.widget.ImageView go = new android.widget.ImageView(this);
+            go.setImageResource(ai.dvine.R.drawable.ic_chevron_right);
+            go.setColorFilter(Ui.SUB);
+            row.addView(go, new LinearLayout.LayoutParams(Ui.dp(this, 18), Ui.dp(this, 18)));
+        } else {
+            // the switch, like the other connectors: off keeps the account signed in but DVINE doesn't use it
+            android.widget.Switch toggle = new android.widget.Switch(this);
+            toggle.setChecked(switchedOn);
+            toggle.setContentDescription(p.shown + " on or off");
+            toggle.setTrackTintList(new android.content.res.ColorStateList(new int[][]{{android.R.attr.state_checked}, {}},
+                    new int[]{Ui.CORAL, Ui.FIELD}));
+            toggle.setOnCheckedChangeListener((b, isOn) -> {
+                ai.dvine.social.SocialWeb.setOn(this, p, isOn);
+                fill();
+            });
+            row.addView(toggle);
+        }
         card.addView(row);
         card.setContentDescription(p.shown + ", " + status);
         card.setOnClickListener(v -> startActivity(on.isEmpty()

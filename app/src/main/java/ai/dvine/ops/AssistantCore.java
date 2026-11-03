@@ -8,7 +8,6 @@ import ai.dvine.ops.mind.LanguageInferenceOptimizer;
 import ai.dvine.ops.mind.ModelRuntimeManager;
 import ai.dvine.ops.pipe.SemanticKnowledgeRepository;
 import ai.dvine.ops.recon.EditableScene;
-import ai.dvine.ops.recon.ProceduralGeometryBuilder;
 import ai.dvine.ops.ssh.SshConnectionManager;
 import ai.dvine.ops.ssh.SshCredentialStore;
 import ai.dvine.ops.ssh.SshHostKeyVerifier;
@@ -245,18 +244,6 @@ public final class AssistantCore {
         if (n.contains("take out") && n.contains("not permanently")) {
             orchestrator.memory().learn("3d-edit", "take out", "detach");
         }
-    }
-
-    public EditableScene demoMotorcycle() {
-        EditableScene scene = new ProceduralGeometryBuilder().motorcycle();
-        orchestrator.setScene(scene);
-        return scene;
-    }
-
-    public EditableScene demoCar() {
-        EditableScene scene = new ProceduralGeometryBuilder().car();
-        orchestrator.setScene(scene);
-        return scene;
     }
 
     public SshCredentialStore.Seal testSeal() {

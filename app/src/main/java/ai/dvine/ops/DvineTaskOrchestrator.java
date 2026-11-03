@@ -671,12 +671,6 @@ public final class DvineTaskOrchestrator {
         return o;
     }
 
-    public void learnTyreRim() {
-        memory.learn("motorcycle", "tyre", "front_tyre");
-        memory.learn("motorcycle", "rim", "front_rim");
-        memory.learn("3d-edit", "take out", "detach");
-    }
-
     private static String explain(NaturalLanguageActionEngine.Read read) {
         if (read.decomposition.original.toLowerCase(Locale.US).contains("deleted")) {
             return "If that file were deleted, it would be gone from the folder. I have not deleted it.";

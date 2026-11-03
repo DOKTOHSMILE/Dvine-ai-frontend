@@ -53,8 +53,8 @@ public final class CreationRouter {
         }
         if (n.matches(".*(build|make|design|create|model|editable).*(motorcycle|motorbike|3d|model).*")
                 || n.matches(".*(motorcycle|motorbike).*(build|editable|3d).*")) {
-            return new Route(Capability.THREE_D_GENERATION, true, "CREATE", "motorcycle",
-                    "A procedural concept model with separate parts. Not a measurement and not a rig.");
+            return new Route(Capability.THREE_D_GENERATION, true, "CREATE", "design",
+                    "Designed by the model with its measurements, then built from them.");
         }
         return new Route(Capability.CHAT, true, "CHAT", "", "No creation tool runs.");
     }

@@ -41,6 +41,36 @@ public final class SocialAsk {
                     + "(?:\\s+(?:for me|please))?[.?!]*$"),
     };
 
+    /** "connect my Facebook", "sign in to X", "log into Instagram", "add my Reddit account": the network, or null. */
+    public static Platform connect(String message) {
+        if (message == null) {
+            return null;
+        }
+        Matcher m = Pattern.compile("(?i)^(?:please |can you |could you |help me )?(?:connect|link|add|sign in to|sign into|log in to|log into|login to|set up)"
+                + "\\s+(?:my |the |a )?" + NET + "(?:\\s+account)?(?:\\s+(?:to|with|on) (?:dvine|you|the app|here))?[.!?]*$").matcher(message.trim());
+        return m.matches() && !m.group(1).toLowerCase(java.util.Locale.ROOT).startsWith("social") ? Platform.named(m.group(1)) : null;
+    }
+
+    /** "how do I access social media", "what can you do with my social accounts": the user wants to know how. */
+    public static boolean help(String message) {
+        return message != null && message.trim().matches("(?i)^(?:how (?:do|can) i (?:access|use|get to|open|connect)|what can you do (?:with|on)|"
+                + "how do you (?:use|access)|where (?:are|is))\\s+(?:my |the )?(?:social media|socials|social accounts?|social media (?:functions|features|accounts))\\b.*");
+    }
+
+    /** "generate a new post for Facebook about our sale": the network and what the post is about (may be empty). */
+    public static String[] compose(String message) {
+        if (message == null) {
+            return null;
+        }
+        Matcher m = Pattern.compile("(?i)^(?:please |can you |could you )?(?:generate|write|create|make|draft|compose|give me)\\s+(?:me\\s+)?(?:a |an )?(?:new |short |good )?"
+                + "(?:post|tweet|caption|status|update)\\s+(?:for|on|to) (?:my )?" + NET + "(?:\\s+(?:about|on|for|announcing|saying) (.+?))?[.!?]*$").matcher(message.trim());
+        if (!m.matches()) {
+            return null;
+        }
+        Platform p = Platform.named(m.group(1));
+        return new String[]{p == null ? "social media" : p.shown, m.group(2) == null ? "" : m.group(2).trim()};
+    }
+
     /** The request, or null when the message isn't one. */
     public static SocialAsk parse(String message) {
         if (message == null) {

@@ -34,7 +34,6 @@ public final class CapabilityRegistry {
         all.add(new Item("news", false, "I do not make up the news."));
         all.add(new Item("image-generation", true, "I can paint a picture with the local drawing model. It is not a diffusion model and not a photograph."));
         all.add(new Item("procedural-mesh", true, "I can build a motorcycle as separate parts and detach one without deleting it. It is a concept model, not a measurement."));
-        all.add(new Item("rig", true, "I can build a person and raise an arm on a procedural skeleton. It is not a scanned person and not a face rig."));
         all.add(new Item("fact-check", true, "When online I can compare a Wikipedia page with Wikidata. One source is not called verified. I have no dense scan, no COLMAP, and no diffusion model."));
         return Collections.unmodifiableList(all);
     }

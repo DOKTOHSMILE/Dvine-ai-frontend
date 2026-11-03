@@ -270,7 +270,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     /** A rigged body is on show only when the model actually has a skeleton and it is visible. */
     public boolean bodyShown() {
-        return objectShown() && ai.dvine.create.BodyRig.shown(objects.model());
+        return false; // there is no built-in body to pose
     }
 
     public void setOnline(boolean value) {

@@ -47,7 +47,7 @@ public final class BottomSheet {
         final Dialog d = new Dialog(a);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout sheet = frame(a, d, title);
-        android.widget.ScrollView sv = new android.widget.ScrollView(a);
+        final DragScroll sv = new DragScroll(a);
         sv.addView(content);
         sheet.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         place(a, d, sheet);
@@ -56,48 +56,154 @@ public final class BottomSheet {
             final int screen = a.getResources().getDisplayMetrics().heightPixels;
             final int half = screen / 2, full = (int) (screen * 0.94f);
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, half);
-            View.OnTouchListener drag = new View.OnTouchListener() {
+            final Resizer resize = new Resizer() {
                 float y0;
                 int h0;
                 boolean moved;
 
+                int height() {
+                    return w.getAttributes().height > 0 ? w.getAttributes().height : half;
+                }
+
                 @Override
-                public boolean onTouch(View v, android.view.MotionEvent e) {
-                    int h = w.getAttributes().height > 0 ? w.getAttributes().height : half;
-                    switch (e.getActionMasked()) {
-                        case android.view.MotionEvent.ACTION_DOWN:
-                            y0 = e.getRawY();
-                            h0 = h;
-                            moved = false;
-                            return true;
-                        case android.view.MotionEvent.ACTION_MOVE:
-                            int to = Math.max(screen / 5, Math.min(full, h0 - (int) (e.getRawY() - y0)));
-                            if (Math.abs(e.getRawY() - y0) > Ui.dp(a, 6)) {
-                                moved = true;
-                            }
-                            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, to);
-                            return true;
-                        case android.view.MotionEvent.ACTION_UP:
-                        case android.view.MotionEvent.ACTION_CANCEL:
-                            if (!moved) {
-                                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, h >= full - Ui.dp(a, 8) ? half : full); // a tap
-                            } else if (h < screen * 0.33f) {
-                                d.dismiss(); // pulled down: closed
-                            } else {
-                                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, h > screen * 0.7f ? full : half);
-                            }
-                            return true;
-                        default:
-                            return false;
+                public boolean canGrow() {
+                    return height() < full - Ui.dp(a, 8);
+                }
+
+                @Override
+                public void down(float y) {
+                    y0 = y;
+                    h0 = height();
+                    moved = false;
+                }
+
+                @Override
+                public void move(float y) {
+                    int to = Math.max(screen / 5, Math.min(full, h0 - (int) (y - y0)));
+                    if (Math.abs(y - y0) > Ui.dp(a, 6)) {
+                        moved = true;
                     }
+                    w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, to);
+                }
+
+                @Override
+                public void up(boolean tapAllowed) {
+                    int h = height();
+                    if (!moved) {
+                        if (tapAllowed) {
+                            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, h >= full - Ui.dp(a, 8) ? half : full); // a tap
+                        }
+                    } else if (h < screen * 0.33f) {
+                        d.dismiss(); // pulled down: closed
+                    } else {
+                        w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, h > screen * 0.7f ? full : half);
+                    }
+                }
+            };
+            View.OnTouchListener drag = (v, e) -> {
+                switch (e.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        resize.down(e.getRawY());
+                        return true;
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        resize.move(e.getRawY());
+                        return true;
+                    case android.view.MotionEvent.ACTION_UP:
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        resize.up(true);
+                        return true;
+                    default:
+                        return false;
                 }
             };
             for (int i = 0; i < Math.min(2, sheet.getChildCount() - 1); i++) {
                 sheet.getChildAt(i).setOnTouchListener(drag); // the grip and the title
             }
+            sv.resizer = resize; // and the body: a pull down at the top, or up while it isn't full, moves the sheet
             sheet.getChildAt(0).setContentDescription("Drag up for full screen, down to close");
         }
         return d;
+    }
+
+    /** Moves the sheet: where a drag started, where it is, and where it let go. */
+    interface Resizer {
+        boolean canGrow();
+
+        void down(float rawY);
+
+        void move(float rawY);
+
+        void up(boolean tapAllowed);
+    }
+
+    /**
+     * The sheet's body: it scrolls what it holds, and a vertical drag that the list can't use moves the sheet instead
+     * (pulling down while the list is at its top, or up while the sheet isn't full), so the whole sheet can be dragged,
+     * not only its grip. Taps still reach the rows.
+     */
+    static final class DragScroll extends android.widget.ScrollView {
+        Resizer resizer;
+        private float downY;
+        private boolean sheetDrag;
+        private final int slop;
+
+        DragScroll(android.content.Context c) {
+            super(c);
+            slop = android.view.ViewConfiguration.get(c).getScaledTouchSlop();
+        }
+
+        @Override
+        public boolean onInterceptTouchEvent(android.view.MotionEvent e) {
+            if (resizer != null) {
+                switch (e.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        downY = e.getRawY();
+                        sheetDrag = false;
+                        resizer.down(downY);
+                        break;
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        float dy = e.getRawY() - downY;
+                        if (Math.abs(dy) > slop && ((dy > 0 && getScrollY() == 0) || (dy < 0 && resizer.canGrow()))) {
+                            sheetDrag = true;
+                            return true;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return super.onInterceptTouchEvent(e);
+        }
+
+        @Override
+        public boolean onTouchEvent(android.view.MotionEvent e) {
+            if (resizer != null && sheetDrag) {
+                switch (e.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        resizer.move(e.getRawY());
+                        return true;
+                    case android.view.MotionEvent.ACTION_UP:
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        sheetDrag = false;
+                        resizer.up(false);
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+            if (resizer != null && e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+                downY = e.getRawY();
+                resizer.down(downY);
+            }
+            float dy = e.getRawY() - downY;
+            if (resizer != null && e.getActionMasked() == android.view.MotionEvent.ACTION_MOVE
+                    && ((dy > slop && !canScrollVertically(-1)) || (dy < -slop && resizer.canGrow()))) {
+                sheetDrag = true; // a short list that can't scroll: the drag is the sheet's
+                resizer.move(e.getRawY());
+                return true;
+            }
+            return super.onTouchEvent(e);
+        }
     }
 
     /** The sheet's height now (pixels), for tests. */

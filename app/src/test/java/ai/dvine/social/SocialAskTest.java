@@ -33,6 +33,24 @@ public class SocialAskTest {
     }
 
     @Test
+    public void connectHelpAndWritingAPost() {
+        assertEquals(Platform.FACEBOOK, SocialAsk.connect("Connect my Facebook"));
+        assertEquals(Platform.X, SocialAsk.connect("sign in to twitter"));
+        assertEquals(Platform.INSTAGRAM, SocialAsk.connect("add my Instagram account"));
+        assertNull(SocialAsk.connect("connect the dots"));
+        org.junit.Assert.assertTrue(SocialAsk.help("How can I access social media"));
+        org.junit.Assert.assertTrue(SocialAsk.help("How do I access my social media functions?"));
+        org.junit.Assert.assertFalse(SocialAsk.help("How do I make friends"));
+        String[] c = SocialAsk.compose("Generate a new post for Facebook");
+        assertEquals("Facebook", c[0]);
+        assertEquals("", c[1]);
+        c = SocialAsk.compose("write a tweet for X about our weekend sale");
+        assertEquals("X", c[0]);
+        assertEquals("our weekend sale", c[1]);
+        assertNull(SocialAsk.compose("write a post about cats"));
+    }
+
+    @Test
     public void ordinaryQuestionsAreNot() {
         assertNull(SocialAsk.parse("what are people saying about inflation"));
         assertNull(SocialAsk.parse("search for the best laptop"));
