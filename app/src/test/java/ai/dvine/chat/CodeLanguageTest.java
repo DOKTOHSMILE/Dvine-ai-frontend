@@ -54,4 +54,16 @@ public class CodeLanguageTest {
         assertEquals("Hello there.", ai.dvine.llm.BrainOrder.read("SAY Hello there.").speech);
         assertEquals("Hello there.", ai.dvine.llm.BrainOrder.read("SAY: Hello there.").speech);
     }
+
+    @Test
+    public void oneWordIsNotAPhotoSearch() {
+        // the screenshot: "Retry" came back as a photograph of a retry screen
+        for (String word : new String[]{"Retry", "car", "anything", "Explain"}) {
+            ai.dvine.llm.BrainOrder o = ai.dvine.llm.BrainOrder.decide(word, null);
+            org.junit.Assert.assertTrue(word, o == null || o.kind != ai.dvine.llm.BrainOrder.Kind.PHOTO);
+        }
+        // asking for a picture still finds one
+        assertEquals(ai.dvine.llm.BrainOrder.Kind.PHOTO, ai.dvine.llm.BrainOrder.decide("show me a red car", null).kind);
+        assertEquals(ai.dvine.llm.BrainOrder.Kind.PHOTO, ai.dvine.llm.BrainOrder.decide("a photo of a lion", null).kind);
+    }
 }

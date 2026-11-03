@@ -428,6 +428,48 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void theChatNameCanBeChanged() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        chats.add("user", "text", "Plan my week", chats.current().persona);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ((ai.dvine.stage.ChatPane) pf.get(c.get())).show();
+        android.widget.TextView title = c.get().findViewById(ai.dvine.R.id.tv_header_title);
+        org.junit.Assert.assertEquals("Plan my week", title.getText().toString()); // named from the first message
+        title.performClick(); // tap the name to rename it
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        androidx.appcompat.app.AlertDialog d = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.widget.EditText field = (android.widget.EditText) find(d.getWindow().getDecorView(), android.widget.EditText.class);
+        field.setText("Weekly plan");
+        d.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("Weekly plan", chats.current().title);
+        org.junit.Assert.assertEquals("Weekly plan", title.getText().toString());
+        chats.add("user", "text", "Add gym on Monday", chats.current().persona);
+        org.junit.Assert.assertEquals("Weekly plan", chats.current().title); // the user's name stays
+        c.pause().stop().destroy();
+    }
+
+    private static android.view.View find(android.view.View v, Class<?> kind) {
+        if (kind.isInstance(v)) {
+            return v;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            for (int i = 0; i < ((android.view.ViewGroup) v).getChildCount(); i++) {
+                android.view.View f = find(((android.view.ViewGroup) v).getChildAt(i), kind);
+                if (f != null) {
+                    return f;
+                }
+            }
+        }
+        return null;
+    }
+
     /** Taps the row of a bottom sheet whose name is {@code name}. */
     private static void tapRow(android.app.Dialog sheet, String name) {
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();

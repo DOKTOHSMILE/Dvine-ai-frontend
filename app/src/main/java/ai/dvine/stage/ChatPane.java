@@ -569,6 +569,10 @@ public final class ChatPane extends LinearLayout {
             row.setPadding(dp(10), 0, dp(10), 0);
             row.setBackgroundResource(R.drawable.bg_drawer_row);
             row.setSelected(on);
+            row.setOnLongClickListener(v -> { // hold a chat to rename it
+                rename(s.id);
+                return true;
+            });
             row.setOnClickListener(v -> {
                 book.use(s.id);
                 host.onSection(book.current());
@@ -842,10 +846,44 @@ public final class ChatPane extends LinearLayout {
             return;
         }
         String name = cur.title == null || cur.title.trim().isEmpty() || cur.title.matches("(?i)^chat$") ? "New chat" : cur.title;
-        if (cur.messages.isEmpty()) {
+        if (cur.messages.isEmpty() && (cur.title == null || cur.title.matches("(?i)^(chat|new chat|obi|ivie|ibiko|ibiko code)$"))) {
             name = "DVINE";
         }
         t.setText(name);
+        t.setContentDescription("Chat name: " + name + ". Tap to rename.");
+        t.setOnClickListener(v -> rename(cur.id));
+    }
+
+    /** Asks for a new name for a chat, with the current one ready to edit. */
+    public void rename(final String id) {
+        ChatBook.Section s = null;
+        for (ChatBook.Section x : book.sections()) {
+            if (x.id.equals(id)) {
+                s = x;
+            }
+        }
+        if (s == null) {
+            return;
+        }
+        final android.widget.EditText field = new android.widget.EditText(getContext());
+        field.setSingleLine(true);
+        field.setText(s.title == null || s.title.matches("(?i)^chat$") ? "" : s.title);
+        field.setSelectAllOnFocus(true);
+        field.setHint("Chat name");
+        android.widget.FrameLayout pad = new android.widget.FrameLayout(getContext());
+        pad.setPadding(dp(20), dp(8), dp(20), 0);
+        pad.addView(field);
+        new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setTitle("Rename chat")
+                .setView(pad)
+                .setPositiveButton("Rename", (d, w) -> {
+                    if (book.rename(id, field.getText().toString())) {
+                        show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+        field.requestFocus();
     }
 
     /** "Good evening, Valentine" by the phone's clock, with the name DVINE was told. */
