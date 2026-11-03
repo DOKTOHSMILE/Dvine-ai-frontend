@@ -1,0 +1,1606 @@
+# DVINE — Master Build Handbook v1 (archived)
+
+> Archived on 2026-11-03 at app 0.89 (in progress). This is the full v1 handbook as it stood at 0.68.1, kept for history: the wireframe and 3D human bodies, faces, hair, clothes, ANBA, ACMS and SVRE blueprints described here were retired when the pod stage replaced the bodies (0.26.0). The live handbook is `docs/DVINE_MASTER_BUILD_HANDBOOK.md`.
+
+Version 1.1 · the playbook we build from. It merges the Master Specification v1.0, the Implementation-Ready Engineering Plan v5.0, the v5.1 face note, and every decision from the planning conversation. When two sources disagree, this file names the winner and why.
+
+Names: **O-bìì** (Obi, said "O-bìì") and **Ēèvié** (Ivie, said "Eè-vi-eh"). Product: **DVINE** (D-V-I-N-E).
+
+---
+
+## 0. How to use this handbook
+
+1. Work one stage at a time, in order. A stage is done only when its **exit gate** passes and the evidence is written in `docs/BUILD_STATUS.md`.
+2. Every stage lists: goal, files, contracts, tests, exit gate. Do not start coding a stage until its contracts are written.
+3. Status words are fixed: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `VERIFIED`. A checkbox is never evidence.
+4. Two tracks run in parallel:
+   - **Track M (mobile)** — this repository, `Dvine-ai-frontend`. Built and tested offline first.
+   - **Track S (server)** — `Dvine-ai-backend`, owned by the project lead.
+   The tracks meet only through the contracts in §6. Either track can be tested without the other.
+
+---
+
+## 1. Product in one page
+
+DVINE is a voice-first, face-first assistant with two personas who reason together and answer as one.
+
+| | O-bìì (Obi) | Ēèvié (Ivie) |
+|---|---|---|
+| Role | Wise stoic strategist, structural anchor | Royal visionary, diplomat, human impact |
+| Colour | Cyber cyan `#00E5FF` | Warm gold `#FFB300` |
+| Voice | pitch 0.84–0.92, rate 0.94 | pitch 1.05, rate 0.98 |
+| Face | Hairless wireframe head and neck, strong brow, steady | Wireframe face with long flowing wireframe hair, softer contour |
+| Checks | assumptions, feasibility, risk, verification | intent, feelings, fairness, alternatives |
+
+Shared character rules (all stages):
+- Grace and Necessity (John 1:14): truth without harshness, mercy without dishonesty.
+- Seek the long-term good of people (the "does humanity gain or lose" check) before short-term wins.
+- They converse in real turns, agree when they agree (with dry warm humour), disagree only on substance, and close with one answer.
+- Sad news: they slow down, soften, and stay present. Solved problems: brief gratitude and a light joke.
+- They never pretend: unknown is said as unknown; offline limits are said plainly.
+
+---
+
+## 2. Decisions that settle conflicts between sources
+
+| Topic | Decision | Reason |
+|---|---|---|
+| Ivie's hair | **Ivie has light swept-back wireframe hair** (approved art: Obi angular flat-top bust, Ivie profile with hair streaming behind). Remove it if it gets too busy. | The owner's preferred image is newer than v5.0's "hairless". Obi stays hairless. |
+| Face rendering | **Procedural wireframe on Android Canvas.** No hand-typed vertex tables, no OpenGL overlay in the MVP. | The old hard-coded mesh plus a GL surface layered over the Canvas was the main source of visual errors and was impossible to adjust. A generated mesh is small, testable on the JVM, and changes by editing numbers. |
+| One face or two | **One face on screen at a time**, switching as each persona speaks. | Keeps the face large (55–65% of height) on a phone. |
+| Offline brain | **Rule-and-retrieval engine on a downloadable knowledge pack**, not an on-device LLM, for v1. | Works on every phone, starts instantly, testable, no model licensing. An on-device small model is a later, optional module (Stage M9). |
+| "Learning" | **Local learning journal → consented upload → server review → next pack.** No automatic self-training. | Matches v5.0 safety rules: learning is controlled, inspectable, and reversible. |
+| Secrets | **No provider key, token or secret ever in the APK or the pack.** | v5.0 non-negotiable. |
+| Termux, Web3 wallet, social posting, regional sleep, fine-tuning | **Deferred** to optional modules with their own review. | High risk; not needed to prove the core path. |
+
+---
+
+## 3. System map
+
+```
+                         ┌─────────────────────────────── ANDROID (Track M) ───────────────────────────────┐
+ user voice / text ───▶  │ Voice in (SpeechRecognizer) ─┐                                                   │
+                         │ Keyboard fallback ───────────┤                                                   │
+                         │                              ▼                                                   │
+                         │                       Turn Router ──────────▶ Face Stage (Canvas wireframe)       │
+                         │                       (who speaks, when)        • Obi / Ivie procedural heads     │
+                         │                              │                  • status, one card, input row     │
+                         │              ┌───────────────┴───────────────┐                                   │
+                         │              ▼                               ▼                                   │
+                         │      OFFLINE BRAIN                    ONLINE CLIENT                              │
+                         │  • Knowledge Pack (JSON asset)    • REST commands + task events                  │
+                         │  • Calculator, dates, units       • (later) WSS stream                           │
+                         │  • Definitions, facts, small talk                                                │
+                         │  • Persona phrasing (Obi / Ivie)                                                 │
+                         │  • Learning Journal (local file)                                                 │
+                         │              │                               │                                   │
+                         │      Connectivity Monitor ── decides route ──┘                                   │
+                         │      Sync Worker: upload journal / download newer pack                           │
+                         └───────────────────────────────────────┬──────────────────────────────────────────┘
+                                                                 │ HTTPS (TLS) only
+                         ┌──────────────────────────── SPRING BOOT (Track S) ─────────────────────────────┐
+                         │ Auth / sessions ─ Desk Rooms (owner-scoped) ─ Task lifecycle + events            │
+                         │ Agent orchestrator ─ Obi/Ivie bounded deliberation ─ Model gateway (keys here)   │
+                         │ Knowledge Pack service (versioned, hashed) ─ Learning intake (review queue)      │
+                         │ PostgreSQL (+ pgvector later) ─ Audit                                            │
+                         └──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+Route rule (Turn Router):
+1. Persona switch words ("Obi switch", "Ivie switch") → switch only.
+2. If **online and a desk is configured** → send to server; meanwhile show THINKING.
+3. Else → **Offline Brain**. If the brain is confident, answer. If not, answer with the fixed line:
+   > "I'm unable to connect to my database to get more information. Please connect to the internet and ask me again."
+   Ivie may add one gentle line; Obi may say what he *can* do offline.
+4. Consequential asks (send, pay, delete, post, shell…) are never executed offline; they are refused out loud.
+
+---
+
+## 4. Track M — Android build stages
+
+Package root `ai.dvine`. Java 17, compileSdk 35, minSdk 34, AGP 8.7.3, Gradle 8.9. No third-party runtime libraries in v1 (only the Android SDK), JUnit 4 for JVM tests.
+
+### Module and file map (target)
+
+```
+app/src/main/java/ai/dvine/
+  MainActivity.java            wires everything; no business logic
+  face/
+    FaceMode.java              face states
+    Spring1D.java              damped spring
+    FaceRig.java               expressions (blink, brow, jaw, smile, look, glow)
+    WireHead.java              PURE JAVA procedural head mesh + hair + deform + projection
+    WirePainter.java           draws a WireHead on a Canvas (two-pass glow)
+    MatrixStageView.java       the single screen: brand, link badge, face, status, card, input row
+    StageListener.java, FaceEvents.java
+  brain/                       PURE JAVA (no android.* imports) — fully unit-tested
+    MiniJson.java              tiny JSON reader/writer
+    KnowledgePack.java         parsed pack: intents, facts, words, persona phrases
+    Calculator.java            safe arithmetic parser (no eval)
+    OfflineBrain.java          answers from the pack; returns BrainAnswer
+    BrainAnswer.java           text lines + confidence + needsOnline flag
+    LearningJournal.java       append-only local journal of learned items
+  net/
+    Connectivity.java          ConnectivityManager callback → online/offline
+    SyncWorker.java            upload journal, fetch newer pack (only when api_base set)
+  turn/                        TurnLine, TurnRoute, LocalTurn (persona turn rules)
+  voice/                       ListenBridge, TalkBridge
+app/src/main/assets/knowledge/base_knowledge.json   the first-install pack
+app/src/test/java/ai/dvine/...                     JVM tests
+```
+
+### Stage M0 — Baseline and toolchain · gate: clean build
+- Install SDK 35 + build-tools; `gradle assembleDebug` passes; record warnings.
+- Exit: build log in BUILD_STATUS.
+
+### Stage M1 — Brand and logo · gate: icon shows on launcher
+- Logo: white halftone sphere (dot grid warped onto a sphere, square dot field behind) on black, word **DVINE** across the equator in rounded bold letters, black fill, white outline, soft grey shadow — derived from the provided sample with AJOO replaced.
+- Generated by `tools/make_logo.py` (reproducible). Outputs: `docs/brand/dvine_logo_2048.png`, launcher `mipmap-*/ic_launcher.png` and `ic_launcher_round.png`.
+- Exit: manifest references `@mipmap/ic_launcher`; build passes.
+
+### Stage M2 — Procedural wireframe faces · gate: faces render, tests pass
+Geometry (all in `WireHead`, unit head height ≈ 2):
+- Head = stacked rings from crown (y=+1) to chin (y≈−1.05), then neck rings to y≈−1.9 (Obi) / −1.55 (Ivie).
+- Each ring is a super-ellipse; width and depth come from profile curves (skull, temple, cheek, jaw, chin).
+- Feature field adds depth on the front: brow ridge, eye sockets (inset), nose bridge and tip, nostrils, cheekbones, lips, chin; Obi's is angular (stronger brow, jaw, flatter crown), Ivie's is softer (rounder cheeks, fuller lips, narrower chin).
+- Ring vertices are joined into triangles with alternating diagonals → the low-poly wire look in the reference art.
+- Ears: small loops at the sides. Eyes: three nested almond loops each. Lips: upper and lower curves + centre line.
+- Ivie hair: strand columns from a centre parting, over the scalp, down past the shoulders with waves; neighbouring strands cross-linked into triangles; tips sway with time.
+- Expressions: jaw opens lower face and lower lip; smile lifts lip corners and cheeks; brows lift; blink closes eye loops; gaze shifts irises.
+- Projection: yaw/pitch/roll + perspective. Edges fade by depth so the back of the head is ghosted.
+- Painter: glow pass (wide, faint) + line pass (thin, bright) + vertex dots (Ivie). Alpha bucketed so a frame is a few `drawLines` calls.
+- Budget: ≤ ~3,500 edges per frame; 60 fps target on a mid phone.
+- Tests: mesh is non-empty, all indices valid, no NaN after deform, head is left/right symmetric, Ivie has hair and Obi has none, jaw open moves the chin down.
+
+### Stage M3 — Zero-screen stage and states · gate: device check
+- **There is no screen UI.** Pure black, the face, the hands, the drawing canvas and sparkles. No buttons, no input row, no cards, no menus. See §11.
+- A single faint subtitle line shows what is being said (accessibility; can be turned off by voice: "hide subtitles").
+- A tiny dot at the top edge shows online (persona colour) or offline (grey); no text badge.
+- States: CONTENT, LISTENING, THINKING, SPEAKING, APPROVAL, DONE, ERROR (see FaceRig).
+- Gestures: swipe = mic on/off; tap face = current persona speaks; drag face = turn head; tap input = keyboard.
+- Accessibility: content descriptions; colour never the only signal (status text always shown).
+
+### Stage M4 — Offline Brain v1 · gate: unit tests + airplane-mode demo
+Capabilities from the pack, no network:
+- Greetings, thanks, farewells, who-are-you, how-are-you, help.
+- Arithmetic: `+ − × ÷ ^ %`, brackets, decimals, "what is 12 times 7", "square root of 81", "15 percent of 200".
+- Time and date ("what time is it", "what day is today").
+- Unit conversions (km↔miles, kg↔lb, °C↔°F, m↔ft, litres↔gallons).
+- Definitions from the pack word list ("what does X mean", "define X").
+- Facts by keyword match with confidence (scored token overlap).
+- Wisdom lines (scripture-grounded encouragement, Myles Munroe purpose lines, stoic lines) for comfort/purpose requests.
+- Emotional tone: detects sad words → gentle reply; detects thanks/solved → gratitude + light humour.
+- Recall of things the user taught it ("remember that my brother's name is Tobi" → later "what is my brother's name").
+- Unknown or low confidence → the fixed offline line (§3).
+- Persona voice: every answer is phrased by the persona on screen; complex questions run the Obi→Ivie→close turn order.
+
+### Stage M5 — Learning journal · gate: survives restart, never uploads without consent
+- Journal file `files/learning/journal.jsonl`, one JSON object per line:
+  `{"id","kind":"TAUGHT_FACT|CORRECTION|UNANSWERED|FEEDBACK","text","answer","createdAt","uploaded":false}`
+- What is recorded: facts the user explicitly taught, corrections ("no, that's wrong, it's…"), questions the offline brain could not answer (so the server can fill gaps), thumbs feedback.
+- What is never recorded: passwords, card numbers, keys, tokens — filtered by a redaction rule before writing (digits ≥ 12 in a row, `password`, `pin`, `seed phrase`, `private key` lines are dropped).
+- Local recall uses TAUGHT_FACT immediately (this is the "learning while offline").
+- Consent: upload is off until the user says "share what you learned" or enables it in settings (stored flag).
+- User controls: "what have you learned", "forget that", "forget everything".
+
+### Stage M6 — Connectivity and sync · gate: airplane-mode on/off test
+- `Connectivity` listens for validated internet. Badge updates live.
+- When online **and** `api_base` set **and** a session exists **and** consent on → `SyncWorker` uploads un-uploaded journal entries in batches of ≤ 100 with an idempotency key per entry; marks them uploaded only on HTTP 2xx.
+- Pack update: GET manifest; if `version` is newer and `sha256` of the download matches, atomically replace `files/knowledge/base_knowledge.json`. The bundled asset is the fallback forever.
+- Never sync on metered networks if the user said so (later setting).
+
+### Stage M7 — Online client · gate: end-to-end with Track S
+- REST: create desk room, post command, poll/stream task events (contracts in backend `docs/API_CONTRACTS.md`).
+- Session token kept in memory; refresh credential in Android Keystore-backed storage only.
+- Map task events to face states with `FaceEvents`.
+
+### Stage M8 — Voice polish
+- TTS voices per persona, speech interruption, auto-listen after a question, partial transcript in the input row, mic always visibly on/off.
+
+### Stage M9 — Optional on-device model (later)
+- A small quantised model behind the same `OfflineBrain` interface, only if it fits memory/battery budgets on target phones. Separate review.
+
+---
+
+## 5. Track S — Server stages (owned by project lead)
+
+Matches v5.0 phases 1–11. The server already has: sessions, desk room, task lifecycle, bounded Obi/Ivie debate, mock model gateway (`d702926`). Next server items needed by Track M:
+
+1. **S-K Knowledge Pack service**
+   - `GET /api/v1/knowledge/manifest` → `{ "version": 3, "sha256": "...", "size": 123456, "url": "/api/v1/knowledge/pack/3" }`
+   - `GET /api/v1/knowledge/pack/{version}` → the JSON pack (same schema as §7).
+   - Public read is acceptable for the base pack (it contains no user data). Signed URLs later.
+2. **S-L Learning intake**
+   - `POST /api/v1/learning/sync` (authenticated). Body `{ "schemaVersion":1, "deviceId":"...", "entries":[ {id, kind, text, answer, createdAt} ] }`.
+   - Server stores entries **owner-scoped** in a review table (`learning_intake`), status `PENDING`.
+   - Response `{ "accepted":[ids], "rejected":[{id, reason}] }`. Duplicate ids are accepted idempotently.
+   - Nothing is promoted into a shared pack automatically. Promotion = reviewed, PII-scrubbed, de-identified, then added to the next pack version. Personal TAUGHT_FACTs stay in that user's private memory only.
+3. Then v5.0 phases 2 (real model gateway), 5 (research), 6 (staged actions), 7 (memory), 9 (deliberation upgrades), 10 (hardening).
+
+---
+
+## 6. Contracts between the tracks
+
+- All JSON, UTF-8, `schemaVersion` field, unknown fields ignored, unknown action types rejected.
+- Server derives the user from the session. The client never sends a userId.
+- Every upload has client-generated ids → safe retry.
+- Offline line text is part of the contract so the server can reuse it when its own database is unreachable.
+
+---
+
+## 7. Knowledge Pack format (v1)
+
+```json
+{
+  "schemaVersion": 1,
+  "version": 1,
+  "language": "en",
+  "offlineLine": "I'm unable to connect to my database to get more information. Please connect to the internet and ask me again.",
+  "intents": [ { "id": "greet", "patterns": ["hello","hi","good morning"], "obi": ["..."], "ivie": ["..."] } ],
+  "facts":   [ { "keys": ["capital","nigeria"], "answer": "Abuja is the capital of Nigeria." } ],
+  "words":   [ { "word": "steward", "meaning": "a person trusted to look after something that belongs to another." } ],
+  "wisdom":  [ { "tags": ["sad","grief"], "text": "...", "source": "Psalm 34:18" } ],
+  "units":   [ { "from": "km", "to": "mile", "factor": 0.621371 } ]
+}
+```
+Rules: answers are short and speakable; every scripture line carries its reference; no personal data; pack size target < 2 MB.
+
+---
+
+## 8. Security rules that apply from day one
+
+1. No secrets in source, assets, packs, logs.
+2. Offline brain never performs side effects. Consequential intents are refused.
+3. Journal redaction before write; consent before upload; user can view and delete.
+4. All network calls HTTPS; cleartext disabled in the manifest network config.
+5. Pack updates verified by sha256 and schema before swap; bad pack → keep the old one.
+6. Treat pack text and server text as data, never as commands.
+
+---
+
+## 9. Test plan per stage
+
+| Stage | Automated | Manual |
+|---|---|---|
+| M1 | build | launcher icon visible |
+| M2 | `WireHeadTest` | both faces, switch, drag, blink, speak |
+| M4 | `CalculatorTest`, `OfflineBrainTest`, `MiniJsonTest` | airplane mode Q&A |
+| M5 | `LearningJournalTest` (redaction, recall, forget) | teach → restart → recall |
+| M6 | unit tests for pack version/hash check | toggle airplane mode, badge flips, sync only with consent |
+| M7 | contract tests against backend | full voice → server → face loop |
+
+Command: `gradle testDebugUnitTest assembleDebug`.
+
+---
+
+## 10. Build order for this session
+
+1. This handbook (done when merged).
+2. M1 logo + launcher icons.
+3. M2 procedural faces replacing `LowPolyHead`, `LatticeControlMatrix`, `gl/*`.
+4. M3 layout: bigger face, real ONLINE/OFFLINE badge.
+5. M4 offline brain + pack asset + tests.
+6. M5 journal + tests.
+7. M6 connectivity + sync worker (inert until `api_base` is set).
+8. Update BUILD_STATUS with evidence.
+
+After this: Track S implements S-K and S-L; Track M does M7.
+
+
+---
+
+# Part II — v1.1 additions
+
+## 11. Zero-screen interaction (no UI, only voice)
+
+The phone shows only the persona. Everything else is spoken.
+
+| Gesture | Effect |
+|---|---|
+| Swipe anywhere | microphone on / off |
+| Tap the face | the persona on screen speaks to you |
+| Drag the face | turn the head |
+| Long-press (accessibility only) | system keyboard for silent typing |
+
+Rules:
+1. **The model asks, the user confirms.** Any action that leaves the app or touches data is first described out loud as a question ("Shall I open WhatsApp with this post…? Say yes to continue."). The mic opens by itself for the answer.
+2. **Yes** (yes, yeah, yep, go ahead, do it, send it, confirm, okay) runs it. **No** (no, cancel, stop, don't) cancels. Anything else keeps it pending. A pending action expires after 2 minutes.
+3. **Share / post** → Android `Intent.ACTION_SEND` with the text, aimed at the named app (WhatsApp, X, Facebook, Instagram, LinkedIn, Telegram) or the system chooser. The user lands on the post screen in that app and presses send **themselves**. DVINE reports "handed over", never "posted" (v5.0: a share-sheet handoff is not proof of publication).
+4. **Copy** → content is put on the clipboard, then the persona says "Copied. It's on your clipboard."
+5. Payments, transfers, deletion, shell, passwords: still refused out loud.
+
+Code: `brain/ActionPlanner.java` (pure, tested), executed by `act/Actions.java`.
+
+## 12. First run: the name
+
+On the first open, before anything else:
+1. Obi appears: "Welcome. I'm Obi, and with me is Ivie. Before we begin, what's your name?" The mic opens.
+2. The answer is parsed ("my name is Valentine", "I'm Val", "Valentine") by `brain/Onboarding.java`.
+3. Ivie confirms: "Welcome, Valentine. We'll remember that." The name is stored on the phone (`profile` prefs) and in memory as "my name".
+4. From then on greetings use the name. "Call me …" changes it.
+5. If the name isn't caught twice, they move on kindly and ask again next launch.
+
+## 13. Hands and gestures
+
+Both personas have wireframe hands (`face/WireHand.java`, procedural like the head: palm and three-segment fingers with per-finger curl, spread and wrist pose). Hands rise into view under the chin for a gesture, hold, then lower.
+
+Supported gestures (emoji key → pose): 👍 👎 👋 🤚 🖐 ✋ 🖖 👌 🤌 🤏 ✌ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 👇 ☝ 🫵 ✊ 👊 🤛 🤜 🫳 🫴 🫱 🫲 🫸 🫷 🙏 🙌 👐 🤲 🫶 🤝 ✍ 🤳 💅. 🖕 is deliberately not implemented.
+
+When they gesture:
+- greetings → 👋, thanks → 🙏 or 👍, agreement between Obi and Ivie → 🤝 / 🫶, comfort on sad news → 🤲, explanations → ☝ / 👉, a joke → 🤙, encouragement → 🙌.
+- The user can ask: "show me a thumbs up", or say/type the emoji.
+
+## 14. Explanation canvas (illustration mode)
+
+The black space around the face is a drawing canvas. When a drawing helps, the face moves up and small, and lines draw themselves in the persona colour while they speak, like a whiteboard video.
+
+- `face/Sketch.java` holds strokes (polylines in a −1..1 box), circles, arrows and short labels, each with a start time; `StageView` draws them progressively.
+- v1 drawings: basic shapes (circle, square, triangle, star, heart, arrow), addition as dot groups ("explain 3 plus 4"), fractions as a pie ("explain a half / a quarter"), the solar system, and a simple plan timeline ("draw steps").
+- Later the server can send sketch scripts with an answer (same JSON shape: `{"strokes":[{"kind":"line|circle|arrow|label","pts":[...],"text":"","t":0.0}]}`).
+
+## 15. Offline knowledge up to 1 GB
+
+| Tier | Size | How it arrives | Storage |
+|---|---|---|---|
+| Core pack | 1–5 MB | inside the APK (first install) | JSON asset |
+| Update pack | 1–5 MB | replaces core when newer, sha256-checked | `files/knowledge/base_knowledge.json` |
+| Shards | up to ~1 GB total | user agrees by voice ("download the full library"); Wi-Fi + charging by default; resumable | `files/knowledge/shards/*.json` now, SQLite FTS5 databases for shards > 20 MB |
+
+- Shard subjects: dictionary (English + Pidgin, Yoruba, Igbo, Hausa, French), Bible (public-domain KJV/WEB), encyclopedia summaries, maths/science explanations with sketches, health first aid, business basics, Nigeria/Africa civic and geography.
+- Before download: check free space ≥ 2× shard size, tell the user the size out loud, ask to confirm.
+- The brain searches core first, then shards; answers carry the shard name as their source.
+- Manifest grows to `{"version", "sha256", "url", "shards":[{"id","version","size","sha256","url"}]}`.
+- Today: `KnowledgeStore` merges any `shards/*.json` with the core pack. SQLite shards are Stage M10.
+
+## 16. Voices and ambience
+
+- **Voices:** prefer Nigerian English (`en-NG`) voices from the system TTS (Google TTS ships them), else African/British English. Obi takes the deeper voice, Ivie the warmer one. Speech is slow and gentle: Obi rate 0.86 / pitch 0.86, Ivie rate 0.90 / pitch 1.02. A custom neural Nigerian voice (server TTS) is a later upgrade behind the same `TalkBridge`.
+- **Background instrumental:** a soft, slow, low pad synthesised on the phone (`voice/AmbientPad.java`, no audio files), rising gently while they speak and fading in silence. Obi's chord sits lower and darker, Ivie's warmer and brighter. Volume stays far under the voice. "Music off" / "music on" by voice.
+
+## 16b. Skin, styles and self-redraw
+
+- Default: solid deep-brown skin (Obi a shade deeper than Ivie) on faces and hands, lit and depth-sorted, with the persona's glowing wires over it.
+- Three styles: **skin**, **wireframe**, **nano-dots** (≈5,000 tiny lit points per head; hair as dotted strands; features stay as lines).
+- **The AI redraws itself from the user's preferences** (`face/Look.java`): "make your skin darker/lighter", "dot mode", "wireframe mode", "skin mode", "bigger eyes", "smaller nose", "fuller lips", "stronger jaw", "slimmer face", "longer face", "remove your hair", "longer hair", "make Ivie's hair longer", "reset your look". Each persona has its own look, saved on the phone.
+- No lag: the mesh is rebuilt once when the look changes (milliseconds), never per frame.
+- Illustrations: on request the face moves up and the canvas draws and describes a picture: house, tree, sun, flower, person, car, fish, mountains, boat, moon, eye, plus the maths/science drawings in §14. Server-sent sketch scripts later extend this to any topic.
+
+## 17. Magic ✨
+
+- Sparkles drift up around the persona while thinking, burst softly when an answer is ready or a copy/share succeeds.
+- The face assembles from scattered points on wake and dissolves to points on switch.
+- Hands leave a faint light trail.
+- Everything stays restrained: the face is always the main thing on screen.
+
+## 18. Updated build order (v1.1)
+
+1. Playbook update (this part).
+2. ActionPlanner + Onboarding + gesture/sketch hints in the brain, with tests.
+3. WireHand + gesture table, with tests.
+4. Sketch engine + drawings.
+5. Face refinement: shaded triangle fill for 3D depth, stronger jaw and neck.
+6. New zero-screen `StageView` replacing `MatrixStageView`.
+7. Voices (en-NG preference) + AmbientPad.
+8. Shard merging in KnowledgeStore.
+9. Build, tests, previews, BUILD_STATUS.
+
+
+## 19. Basic knowledge, self-learning and inner thoughts (v1.2, built)
+
+**Basic knowledge (offline):**
+- Core pack v2 (`assets/knowledge/base_knowledge.json`, ~43 KB): 21 intents (including Pidgin greetings), 142 facts (Nigeria and Africa, world, science, health and first aid, maths formulas, money basics, Bible), 74 core words (with Pidgin, Yoruba, Igbo and Hausa words), 45 scripture and wisdom lines, each with its reference.
+- English dictionary shard (`assets/knowledge/shards/dictionary_en.json`, ~3.2 MB): 20,775 common words from WordNet 3.1 with part of speech, meaning, example and synonyms. Built by `tools/make_dictionary.py`; licence in `WORDNET_LICENSE.txt`. The core pack loads instantly; the dictionary loads in the background.
+- The rest of WordNet (~150k lemmas) and other libraries go in the downloadable shards (§15).
+
+**Fluid search (nearest meaning):** if the exact words find nothing, the brain stems the words (biggest → big) and tries their dictionary synonyms both ways (big → large → "largest planet"), saying so softly first.
+
+**Self-learning (on the phone, reviewed before sharing):**
+- "Remember that my sister is Ada" (personal) and "remember that the speed limit in town is 50" (general).
+- When it can't answer, it saves the question; "the answer is …" right after teaches it.
+- "No, it's …" corrects any answer, and learned answers win over the pack next time.
+- "What have you learned" lists the latest; "forget that" and "forget everything" delete.
+- Secrets are never stored; upload only after "share what you learned" (§5 S-L).
+
+**Inner thoughts:** before answering, the persona thinks aloud in a softer, lower, slower voice ("Let me check my dictionary.", "Let me look through what I know.", "That exact wording isn't in my notes. Let me try words that mean the same."). The face shows THINKING and the subtitle starts with "…". "Stop thinking aloud" and "think aloud" toggle it.
+
+
+## 20. Facing the user and voice tuning (v1.2.1)
+
+- Both faces rest looking straight at the user; only small living motion (breathing, blinks, a slight sway while thinking) moves the head.
+- Voices: `voice/VoiceTuning.java` ranks offline English voices (Nigerian English first, then other African English, then British, then any) and gives Obi and Ivie **different** voices, matching gender when the engine reports it. Defaults stay close to natural (Obi pitch 0.93, rate 0.90; Ivie pitch 1.04, rate 0.94), because big pitch shifts make TTS sound robotic.
+- Inner-thought voice: same voice as the persona, at 72% volume, about 4% lower and 8% slower.
+- Tune by voice, per persona, saved on the phone: "try a different voice", "speak slower", "speak faster", "deeper voice", "higher voice", "reset your voice" (add "Ivie" or "Obi" to choose who).
+- If the phone has no Nigerian English voice, install it: Settings → System → Languages → Text-to-speech → Google → Install voice data → English (Nigeria).
+
+
+## 21. Automatic backup of offline learning (v1.2.2)
+
+- What the phone learns offline (taught facts, corrections, unanswered questions) uploads to the user's DVINE account **automatically** whenever it is online: on reconnect, right after something new is learned, and on "upload what you learned". Sharing is on by default and announced at first run; "stop sharing" keeps everything on the phone, "share what you learned" turns it back on. Secrets are never stored or sent.
+- Sign-in without any secret in the app: the phone registers once (`POST /api/v1/devices/register`), keeps its device secret encrypted with an Android Keystore key (`net/DeviceVault`), and trades it for 12-hour session tokens (`POST /api/v1/sessions/device`) in `net/SessionClient`.
+- Server address: the build's `api_base`, or by voice "connect to server https://…". HTTPS only.
+- "Sync status" says how many items are waiting; a faint "Backed up N things I learned." subtitle confirms each upload.
+- Server side keeps every upload owner-scoped and PENDING review (§5 S-L).
+
+
+## 22. Nano-dot rendering (v1.4)
+
+**Everything on screen is nano dots on curved 3D surfaces.** Lines only ever show edges. Dots can sit anywhere on a surface, so cheeks, lips, skulls, limbs, spheres and tori are true curves. There is no suit, no armour and no HUD rings. The persona is a glowing being of dots.
+
+- **Swarm** (`face/nano/Swarm.java`): up to 10,000 particles, each springing to a target point from the current *form*. Changing the form makes the dots fly apart and reassemble: switching persona, face ↔ full body, poses, "redraw yourself", new looks.
+- **Sculpt** (`face/nano/Sculpt.java`): a small signed-distance sculpting kit. Ellipsoids, tapered capsules, rounded boxes and tori are melted together with a smooth union, and ellipsoids can be carved out. `sample()` spreads dots evenly over the melted surface: it throws candidates on each shape, pulls them onto the surface with Newton steps, then applies Poisson-disc thinning. It also returns normals for shading and curvature, so creases glow.
+- **Head** (`face/nano/DotHead.java`): sculpted from cranium, face, jaw, chin, cheekbones, brow ridge, eye sockets and eyeballs, nose bridge, tip and wings, lips, cupped ears and neck. Styled on the two reference heads.
+  - **Obi**: angular squared crown, square jaw and chin, and a neck ending in a V cut whose edge glows.
+  - **Ivie**: soft oval, a hair cap, and about 40 strands that sweep back from the hairline over the skull and stream out behind, rippling in a breeze.
+  - Shading: a soft key light and a bright silhouette, plus extra glow where the surface bends sharply (nose, lips, ears, brow). This gives the glowing-outline hologram look.
+  - Lids, brows, nostrils and lip lines are rows of dots seated on the skin by ray casting. Speech, blinks, smiles, brows and glances move the dots each frame; nothing is rebuilt.
+- **Body** (`face/nano/DotBody.java`): a holographic anatomy figure, like a 3D studio reference model.
+  - **Skin**: a smooth sculpted surface with a bright silhouette, including hands with fingers and thumbs, and feet. It rests in an A-pose.
+  - **Inside**: a faint skeleton of spine, ribs, breastbone, collarbones, pelvis, long bones and kneecaps, plus a heart glow.
+  - **Rig**: 17 bones with linear-blend skinning at the joints.
+  - **Poses** blend in half a second: stand, T-pose, arms up, wave, point, squat, sit cross-legged, kneel, run, walk, bow, dance and handstand.
+  - **Motion**: the lowest point always rests on the floor. The body slowly turns, and "turn around" orbits it a full circle.
+  - **Head**: the persona's living head rides the head bone.
+  - **Scale**: the body is handed to the camera at 0.4 scale so its perspective matches the face view.
+- **Drawings** (`Forms.Drawing`): every sketch from §14 is built in 3D. Lines become round tubes of dots, and closed outlines (heart, star, house, fish, moon, polygons) become cushioned solids with a curved front and back. Circles become rings, and balls (tree canopy, sun, planets, flower centre, clouds) become shaded spheres. The drawing sways gently so the depth shows; labels stay as glowing text.
+- **Objects** (`Forms.Object3D`): solid, shaded and slowly turning: globe, rounded cube, pyramid with filled faces, torus, cone, cylinder, a 3D heart, DNA (tube strands and base pairs) and an atom (nucleus of spheres, orbits, electrons).
+- **Painter** (`face/nano/NanoPainter.java`): every dot gets a soft glow pass and a bright core with a faint shimmer, bucketed by brightness and dimmed with depth. The scene is a Blender-like dotted grid floor with red X and green depth axes.
+- **Performance**: heads and bodies are sculpted once per look on a background thread (about 0.1–0.2 s each on a desktop). Each frame only moves dots. Budget: about 5–8.5k dots for a head, about 8k for a body, and up to 3.9k for a drawing. Frame rate on a mid-range phone is still to be measured (Stage M2 gate).
+- **Voice**:
+  - Views and redrawing: "show your full body", "show your face", "redraw yourself", "turn around".
+  - Poses: "do a T-pose", "arms up", "squat", "sit cross-legged", "kneel", "run", "walk", "bow", "dance", "do a handstand", "stand up". In body mode, 👋 and 👉 become wave and point poses.
+  - Objects: "draw the globe / a cube / a pyramid / a torus / a cone / a cylinder / DNA / an atom / a sphere / a 3D heart".
+  - Drawings: every drawing from §14. Shape requests (eyes, nose, lips, jaw, face width and height, hair) re-sculpt the head.
+
+## 23. The living body: zoom, exercise, narration, scenes and touch (v1.5, built)
+
+- **Head first.** The app always opens on the face. The full body appears only when the user asks for it ("show your full body", any pose, exercise or scene). The camera then **zooms out** from the face to the whole body, keeping the head in place while it pulls back, and the dots fly from the head into the body (`StageView` zoom spring, `Swarm.remap`). "Show your face" zooms back in. A drawing or 3D object always returns to the face view.
+- **Exercises and stunts** (`DotBody`, looping until another pose is asked for):
+  - Exercises: push-ups, plank, sit-ups, jumping jacks, squats, lunges, stretch, boxing, kick.
+  - Stunts: cartwheel (side to side), backflip (crouch, tucked flip, soft landing) and spin, plus the earlier poses.
+  - Root movement: two extra channels, travel and lift, give hops, jumps and travelling stunts. The floor rule lifts the body instantly but settles it gently, so nothing sinks through the floor.
+- **Narrating body.** While the persona speaks in body mode, a standing body explains with its hands. Arms open and turn, there are shrugs, nods and small weight shifts (the "talk" layer, `DotBody.setTalking`). A body already in a pose or exercise carries on.
+- **Scenes** (`brain/Scenes`): each beat pairs a narrated line with a pose, and each pose holds about as long as its line takes to say slowly.
+  - Scenes: "The hare and the tortoise", a morning workout, "The warrior" (drama), and a stunt show.
+  - Voice: "act a scene" (plays the next scene in turn), "act out the tortoise and the hare", "let's do a workout", "show me some stunts", "tell me a story with your body".
+  - The scene ends standing.
+- **Touch on the body.** In body view, a tap finds the dot nearest the finger, preferring the nearer surface. It names the body part: hips, belly, chest, neck, head or face, and left/right arm, forearm, hand, thigh, knee and foot. The persona answers ("You found my left knee."), and a tapped hand waves back. A tap on the face works as before.
+- **Joint limits.** Every joint is clamped to anatomical limits before posing (`DotBody.LIMITS`, `limit()`), so a request can never bend a knee backwards or turn a neck round. The hips are the root and turn freely, so the body can lie down, flip and cartwheel. `MotionTest` checks every pose at many moments in time against the limits.
+- Voice examples: "do 10 push-ups", "do a plank", "jumping jacks", "do squats", "lunges", "sit-ups", "stretch", "box", "kick", "do a cartwheel", "do a backflip", "spin".
+
+---
+
+# Part III — Blueprints for the embodied DVINE (v1.5)
+
+The project lead supplied three blueprints: the artificial brain, the skeletal system, and self-vision plus touch. They are kept here in condensed form, with every part represented, and mapped onto what DVINE already has. Each chapter ends with its build order. **Rule for all three:** these systems give DVINE functional self-representation, coordinated behaviour and simulated reactions. They do not prove consciousness, real feelings or felt touch, and DVINE must never claim them.
+
+## 24. ANBA — the Artificial Neural Body Architecture
+
+**Vision.** One integrated artificial human whose cognition, memory, perception, face and body share one consistent state and coordinate continuously. It is not a chatbot with an avatar attached. Example: when someone calls its name, DVINE should be able to:
+1. Hear the name and recognise that it is being addressed.
+2. Shift its attention to the speaker.
+3. Recall the person, within its memory permissions.
+4. Read the speaker's tone.
+5. Decide how to respond.
+6. Turn its head and eyes towards the speaker.
+7. Show a fitting expression.
+8. Speak, with its lips in sync.
+9. Remember the interaction if it is useful, and learn from it.
+
+**Principle.** Reproduce the brain's *capabilities and coordination*, not a literal copy of each structure. The mappings below are functional approximations, and the regions overlap.
+
+### 24.1 Brain regions → engineering functions
+
+| Biological part | Function | DVINE equivalent | DVINE today |
+|---|---|---|---|
+| Cerebral cortex | perception, reasoning, planning | cognitive network | `OfflineBrain` rules + retrieval; server LLM later (M7) |
+| Prefrontal cortex | planning, working memory, inhibition | executive intelligence (goal manager) | `ActionPlanner` (confirm-to-act), `PendingAction` |
+| Motor / premotor cortex | movement commands, sequencing | motor command generator, action planner | `DotBody` poses, `Scenes` beats |
+| Somatosensory cortex | touch, body position | tactile + body-state processor | body-tap part lookup (§23) |
+| Visual cortex | vision | visual perception network | not yet (camera is out of scope for now) |
+| Auditory cortex, temporal lobe | sound, language, recognition | auditory + language networks | Android speech recognizer, `TalkBridge` |
+| Hippocampus | episodic memory, space | episodic + spatial memory | `LearningJournal` (JSONL), sync to server |
+| Amygdala | emotional salience | appraisal | feelings intents in the brain |
+| Basal ganglia | action selection, habits | action-selection network | brain routing order (`beforeGate`), action gate |
+| Cerebellum | coordination, timing, motor learning | movement coordination + correction | `Swarm` springs, pose blending, floor rule |
+| Thalamus | routing, attention | attention router | stage modes (listening/thinking/speaking) |
+| Hypothalamus, brainstem, autonomic | drives, homeostasis, automatic functions | internal-state + background controller | idle breathing, blinking, `FaceRig` micro-motion |
+| Spinal cord, peripheral nerves | fast relay, reflexes | digital spinal cord (low-latency control) | per-frame `StageView` loop |
+
+### 24.2 Cortex networks (Part 2)
+
+- **Frontal: executive intelligence.** It understands the objective, breaks it into steps, weighs actions, resolves conflicts, monitors progress, replans, and asks permission where needed. It delegates execution to movement controllers.
+- **Working memory** has limited capacity, explicit expiry and priorities. It is not an archive.
+- **Planning and prediction** consider positions, joint limits, smoothness, and whether the torso should help.
+- **Inhibitory control** knows when *not* to act: stop inappropriate or obsolete actions, prevent contradictory commands, respect restricted actions, and interrupt on a safety violation. Build it as a goal service with priorities, deadlines, cancellation tokens, permissions and task states.
+- **Parietal: body, space and sensorimotor integration.** It knows where every body part is, keeps a map of objects, people and paths, and closes the see → act → check → adjust loop.
+- **Occipital: visual intelligence.** Detect objects, faces (when authorised), pose, hands and gestures; segment the scene; estimate depth; track motion. A beautiful face is not the same as visual intelligence: they are separate capabilities.
+- **Temporal: hearing and language.** Speech and voice-activity detection, sound classification, prosody, speech-to-text, intent, context, ambiguity, response planning, text-to-speech and speaking style, all connected to the rest of the brain ("I'm cold" means empathy, not just text).
+
+### 24.3 Memory (Part 3)
+
+Use separate stores by purpose, never one giant chat history:
+
+| Memory | Holds | Suggested store |
+|---|---|---|
+| Sensory | the last frames, audio and body readings | short ring buffers |
+| Working | the current task, topic, targets, next step | in-memory state |
+| Episodic | events (id, time, context, action, outcome, confidence, importance, retention) | relational/document DB |
+| Semantic | facts and concepts, with calibrated confidence and evidence | knowledge graph / documents (the knowledge pack today) |
+| Procedural | skills as parameterised routines with preconditions and completion checks | versioned skill registry (`DotBody` poses and scenes today) |
+| Emotional/social | preferences and context, with access control and deletion | profile with permissions |
+| Spatial | where things were last seen versus where they are now | scene graph |
+| Prospective | future intentions, with expiry and cancellation | durable scheduler |
+
+- **Consolidation pipeline:** experience → encoding → evaluation (useful? reliable? duplicate? contradicted? sensitive? expiring?) → consolidation → retrieval → revision.
+- Repetition does not make a claim true.
+- Storage, retrieval, evaluation, updating and skill improvement are separate mechanisms.
+- Plausible answers are not memory, and memory is not learning.
+
+### 24.4 Limbic system: emotion, motivation, social (Part 4)
+
+- **Appraisal:** what an event means in context. Criticism is not hostility by default.
+- **Internal affect state** (engineering variables, not feelings): valence, arousal, confidence, engagement, frustration, curiosity and urgency. These drive the expression: a smile, a subdued face, a head tilt with a clarifying question, more direct speech, a pause to replan, or attention.
+- Never infer a person's emotion from one cue.
+- **Goals** carry priority, a completion condition, a deadline, resources, preconditions, failure conditions and cancellation. Safety goals come first.
+- **Regulation** sits between appraisal and expression so reactions stay proportionate. Emotion may colour expression and voice. It never overrides facts, permissions or safety.
+
+### 24.5 Basal ganglia: action selection (Part 5)
+
+One action manager scores candidates as `S(a) = w_g·G + w_c·C + w_r·R − w_k·K` (goal progress, context, benefit, cost/risk), after filtering out prohibited and impossible actions. This stops modules from fighting over the body (head left vs head right, smile vs speech, a gesture cut in half).
+
+### 24.6 Cerebellum: natural movement (Part 6)
+
+- **Motor planning** sets targets, chooses a limb, checks reachability and sets duration. Inverse kinematics (IK) turns a hand or foot target into joint angles within limits, and handles unreachable targets gracefully. Forward kinematics (FK) turns joint angles into body-part positions.
+- **Proprioception:** the body state is read from the rig, never invented by the language model.
+- **Error correction** uses `e = target − actual` with smoothing and tolerances, so the body does not jitter.
+- **Motor learning** comes from recorded outcomes and is evaluated offline before deployment.
+- **Hierarchy:** strategic → tactical → trajectory → coordination → joints → feedback → safety.
+
+### 24.7 Locomotion (Part 7)
+
+- Gait generation covers the legs, hips, knees, ankles, feet, arm swing, torso and head stabilisation.
+- Locomotion states: IDLE, STANDING, STARTING_WALK, WALKING, TURNING, STOPPING, RUNNING, SITTING, STANDING_UP, REACHING, RECOVERING_BALANCE, FALLING and RECOVERY.
+- Balance uses contact, centre of mass, support polygon, root motion and IK.
+- Navigation uses a nav mesh or A*, producing goals for the gait controller.
+- Reflexes run near the body: stop on collision, cancel a reach, cancel a step. High-level reasoning sets the objective; a real-time controller manages the movement.
+
+### 24.8 Nervous system, attention, background control (Parts 8–10)
+
+- **Central network:** reasoning, memory, goals, appraisal, selection. It is not responsible for every frame.
+- **Digital spinal cord:** low-latency command distribution, transitions, constraints, interruption and feedback. Commands look like `{action: turn_head_toward, target_id, priority, speed, interruptible}`.
+- **Peripheral layer:** cameras, microphone, joint feedback, collisions, completion events, all normalised into one representation.
+- **Reflex/safety controller:** stop on collision, cancel invalid targets, reject joint-limit breaches, recover from inconsistent states, obey high-priority stops.
+- **Attention (thalamus):** priority `A = w1·relevance + w2·novelty + w3·urgency + w4·safety`, with explicit safety overrides. Attention is shared state that moves gaze, head, torso and listening.
+- **Background (brainstem/autonomic):** idle breathing, blinks, posture shifts, gaze drift and a return to neutral, all subordinate to active tasks. Runtime health (frame rate, latency, memory, failures) can lower animation detail under load. Simulated states are never claimed as real tiredness.
+
+### 24.9 Face and body connection (Parts 11–12)
+
+- **Face rig:** eyes, lids, brows, mouth, lips, jaw, cheeks, nose, and head pitch, yaw and roll. Blendshapes follow `M = M0 + Σ wᵢ·ΔMᵢ`.
+- **Expressions** are recipes: attentive, happy, confused. They blend with `w_t = w_{t-1} + α(w* − w_{t-1})`.
+- **Lip sync** follows audio, phoneme/viseme timing, mouth shapes and expression compositing. Speech articulation and expression must be composited by priority and never overwrite each other.
+- **Shared embodied state model:** body (root, locomotion state, hands, head), attention, interaction (listening/speaking), expression and task. Every module reads the same state.
+- In DVINE, `FaceRig` and `WireHead.Pose` drive `DotHead`, and `DotBody` carries the same pose.
+
+### 24.10 Nine networks, one loop (Parts 13–14)
+
+- **The nine networks:** cognitive core, perception core, memory core, executive/behaviour core, affect/social core, motor core, face and voice core, world model, and safety/runtime core. The safety core may reject commands from any of the others.
+- **Loop:** sensory input → perception → world model → attention → cognition → decision → action planning → motor execution → feedback → learning and memory. Safety checks run throughout.
+- The "someone says hello" walk-through (perceive → model → attend → recall → interpret → select → orient → express → speak → sync → verify → remember) must feel like one behaviour.
+
+### 24.11 Stack, control speeds, learning, protocol (Parts 15–18)
+
+- **Stack.** The 3D engine handles rendering, skeleton, blendshapes and IK. Java handles orchestration: sessions, memory, goals, API, validation, events and monitoring. ML inference runs in a suitable runtime.
+  - DVINE today is pure Java on Android Canvas with a Spring Boot server. Keep it that way until a native engine is needed.
+- **Three control speeds:**
+  - A: body control at 30–120 Hz (the DVINE frame loop).
+  - B: behaviour coordination at 5–30 Hz (gaze, gestures, scene beats).
+  - C: cognition, event-driven, from hundreds of milliseconds to seconds (brain and server).
+  - Never let a slow model drive frames.
+- **Learning.** Collect experience (states, action, expected vs actual outcome, feedback, model version), with permission. Evaluate success, quality and safety separately.
+  - Optimise skills with supervised, imitation or simulated reinforcement learning, or with tuning.
+  - Deploy only after simulation tests, safety checks, comparison and a rollback path.
+  - Memory learning, skill learning and reasoning improvement are different things.
+- **Typed command protocol:** `{command_id, source, target, action, target_object, priority, deadline_ms, interruptible, preconditions}` → `{command_id, status, result}`. It needs versioning, timeouts, retries, de-duplication, cancellation, error codes, telemetry, and stale-command rejection using timestamps.
+
+### 24.12 World simulator, self-monitoring, reliability (Parts 19–21)
+
+- **World simulator:** predict `ŝ(t+1) = f(s_t, a_t)` and compare candidate actions before committing. Start from the engine's scene graph and collisions.
+- **Self-monitoring** (operational, not subjective): the active task, evidence, progress, which action failed, service health, and whether to ask for clarification. Report only what can actually be inspected.
+- **Reliability:**
+  - One owner per joint group, with priorities and interruptible states.
+  - Deterministic blending and safe cancellation.
+  - Timeouts, watchdogs and dependency tracking against deadlocks.
+  - Observations carry timestamps and freshness. Keep current observation, last known value, inference, stored knowledge and assumption separate.
+  - Every action has an id, start time, expected result, status, outcome and error code.
+
+### 24.13 Roadmap (Part 22) mapped to DVINE
+
+| ANBA phase | Goal | DVINE status |
+|---|---|---|
+| 1 Digital body foundation | controllable head, face and body rig, neutral and idle | **done in dots**: `DotHead`, `DotBody`, 17 bones, idle |
+| 2 Digital nervous system | typed commands, motor controller, state machine, IK, cancel, feedback, safety | partly: brain commands → stage; joint limits; **next** typed command objects with status, and IK |
+| 3 Facial intelligence | expressions, gaze, blinking, smoothing, lip sync, head gestures, compositing | partly: `FaceRig` springs, blink, smile, jaw from speech; **next** viseme timing |
+| 4 Perception | audio, speech recognition, vision, attention, confidence | audio and speech-to-text done; vision not started |
+| 5 Cognitive integration | understanding, planning, goals, selection, replanning | offline brain and planner; server LLM in M7 |
+| 6 Persistent memory | working, episodic, semantic, procedural, privacy, deletion | journal + pack + sync; **next** episodic records and deletion by voice |
+| 7 Locomotion | gait, reach, balance, navigation | walk, run and stunts in place; **next** foot planting, travel paths |
+| 8 Learning | experience, evaluation, simulation, rollback | journal sync; skill learning not started |
+| 9 Integrated intelligence | everything coordinated | ongoing |
+
+### 24.14 The final blueprint, advanced features, reality check (Parts 23–25)
+
+- **Layers** (a functional diagram, not a list of separate programs): sensory network and cognitive core → perception and attention → goal manager → world model → memory and learning → action selection → behaviour planner → motor command network → body and face controllers → 3D body → feedback → updated world model → learning loop. Safety spans every layer.
+- **Later additions:** predictive perception, shared attention, goal-conditioned skills, adaptive animation, body schema, a skill library, counterfactual planning, memory-guided behaviour, multimodal context, self-diagnostics, natural micro-behaviours, and controlled skill improvement.
+- **Three levels of achievement:** humanlike *appearance* (graphics) ≠ humanlike *behaviour* (this architecture) ≠ human-level *general intelligence* (research). Measure, test and improve.
+- **First three builds:**
+  1. A controllable face and body with gaze, IK and state feedback.
+  2. A digital nervous system with validated, interruptible commands.
+  3. A cognitive and memory core linked to action selection.
+
+## 25. ACMS — the Anatomically Constrained Motion System
+
+**Governing principle:** *the AI may request any movement; the biomechanical controller decides what is anatomically plausible, feasible, safe for the rig and smooth enough to execute.* Without it you get backwards elbows and knees, wrists over-twisted, a jaw through the skull, a head through the torso, fingers bent wrong, sliding feet, detached shoulders and snapping transitions.
+
+### 25.1 Skeleton foundations (Parts 1–2)
+
+- About 206 bones, but the *relationships* matter more than the count.
+- **Bones** are rigid segments, **joints** define how neighbours move, and **constraints** define what is permitted. A rig hierarchy alone does not know that a knee bent backwards is wrong.
+- **Hierarchy:** root → pelvis → spine (lower, middle) → chest → neck → head (jaw, eyes). The chest also carries the clavicle → shoulder → upper arm → elbow → forearm → wrist → hand → fingers. The pelvis carries hip → thigh → knee → shin → ankle → foot.
+- Every joint has a parent, a local position and orientation, axes, a rest pose, limits, state and a control policy. Limits live in the joint's *local* frame; world positions come from FK. Keep world position, root orientation, local joint orientation and world bone orientation separate.
+- **DVINE:** `DotBody` has 17 bones (pelvis, spine, chest, neck, head; arm, forearm and hand ×2; thigh, shin and foot ×2) with local Euler angles, FK and linear-blend skinning.
+
+### 25.2 Joint rule engine and joint types (Parts 3–4)
+
+- **Per-joint profile:** id, type, parent/child, rest angle, permitted range, velocity, acceleration and jerk limits, coupling rules, collision rules, solver priority, failure behaviour and calibration. Units must be consistent: degrees in config, radians inside.
+- **Hinge-like** (elbow, finger joints, knee as a first approximation): one axis with `θmin ≤ θ ≤ θmax`. The real knee also rotates and slides with flexion.
+- **Ball-and-socket** (shoulder, hip): several axes, limited by cones or calibrated ellipses. The shoulder's range depends on the scapula and clavicle.
+- **Pivot** (forearm pronation/supination): separate from elbow flexion, spread along a twist chain.
+- **Gliding and compound** (wrist, foot, TMJ, vertebrae): small translations as well as rotation.
+
+### 25.3 Region rules (Parts 5–12)
+
+- **Jaw (TMJ):** elevation, depression, protrusion, retrusion and lateral excursion. State is `[θopen, d_forward, d_lateral]`.
+  - Limits: opening, backward travel (never through the skull), protrusion and lateral movement.
+  - Couple rotation with translation, keep the jaw attached, keep the teeth from passing through each other, and coordinate with lips and cheeks.
+  - Follow speech within the movement envelope, and blend competing smile and speech commands by priority.
+  - First build: a calibrated hinge with limited translation. Later: a coupled two-joint TMJ.
+  - DVINE today: jaw opening clamped 0..1 in `DotHead.pose`, with a lower lip and chin that follow.
+- **Neck and head:** a chain of segments. Limit flexion, extension, rotation and tilt. Prevent big sudden changes and keep the head out of the chest. For large turns, use the eyes first, then the neck, then the torso. "Look behind you" turns the body; it never forces the neck. Recover from interrupted poses.
+- **Spine and torso:** distribute flexion, extension, lateral bend and axial twist across segments, with per-region limits plus a *global* posture limit. Keep the pelvis–chest relationship plausible, re-balance when leaning, and avoid over-twisting with planted feet. Breathing is a small expressive layer, not permission to break limits.
+- **Shoulder:** flexion, extension, abduction, adduction and internal/external rotation, combined. Never through the chest or head, never detached, never an instant flip. Solve reaches across the whole chain: torso → clavicle → upper arm → elbow → forearm → wrist → hand.
+- **Elbow and forearm:** a local-frame flexion axis with a preferred bending direction, plus separate pronation/supination that keeps the wrist attached and avoids extreme twist.
+- **Wrist, hand and fingers:**
+  - The wrist has flexion, extension and radial/ulnar deviation. It is not a free ball joint.
+  - Each finger has a bending axis, limits and a collision envelope. The thumb is special.
+  - Choose hand shapes (open, relaxed, point, fist, pinch, power or precision grasp) rather than inventing individual finger angles.
+  - Prevent fingers passing through each other or the palm.
+- **Hip, knee and ankle:**
+  - Hip: multiaxial, never through the pelvis.
+  - Knee: never backwards, limited side movement and twist, no leg-on-leg collision.
+  - Ankle and foot: dorsiflexion and plantarflexion, inversion and eversion, plus foot roll.
+  - A planted foot stays put (no skating). Track contact point, stance and swing.
+- **Walking and turning:**
+  - Gait covers speed, step length and frequency, clearance, pelvis, sway, arm swing, head stabilisation and contact.
+  - Turns shift weight and reposition the feet.
+  - "Stop" is a transition, not a velocity set to zero.
+
+### 25.4 Four constraint layers, solver, motion rates (Parts 13–15)
+
+1. **Local joint limits.**
+2. **Coupled-joint constraints:** shoulder with scapula, jaw rotation with translation, knee with foot, bend spread along the spine.
+3. **Whole-body constraints:** hand not through the chest, head not through the shoulder, thigh not through the pelvis, fingers not through the face.
+4. **Temporal constraints:** velocity, acceleration and jerk limits, no snapping, graceful interruption.
+
+- **Solver:** `q* = argmin ‖q − q_AI‖²_W + λ·E_smooth`, subject to `q ∈ Q_valid`. A valid pose is not automatically a natural one, so motion quality needs separate evaluation.
+- **Rates:** `ω ≈ Δθ/Δt`, `α ≈ Δω/Δt`, `j ≈ Δα/Δt`, using quaternion distance for 3D joints. Limits are set per skill: a quick glance, a slow reach and a step each have their own.
+- **Trajectory:** validate → permit → smooth trajectory → execute → read back → correct → confirm.
+
+### 25.5 Intention vs execution, face, muscles, registry (Parts 16–19)
+
+- **Pipeline:** AI intention (`{action: look_at, target, style, priority, interruptible}`) → action interpreter → movement planner → anatomical constraint solver → collision and posture check → trajectory generator → motor controller → skeleton → actual pose → validation and correction. The AI cannot bypass it, and the safety layer can interrupt.
+- **Face:** limits on the jaw, eyes (range, neutral, convergence, both eyes together, head follow), lids, brows and lips. No tooth collision, and smooth transitions. Composite speech with expression, gaze and blinking. Validate the final facial pose. A controller cannot repair a poorly built facial mesh.
+- **Muscles:** option A is a kinematic character (predictable and cheap; this is DVINE now). Option B is a physics-driven humanoid (forces, contacts, harder). Recommendation: a hybrid kinematic system first, with physics only where it pays off.
+- **Biomechanical Constraint Registry:** one source of truth per rig. It holds joint type, local frame, rest pose, constraint profiles, motion limits per skill, collision groups and a failure policy ("reject_and_replan"). It separates the **anatomy profile** (what the body can do) from the **behaviour profile** (how it chooses to move). It is versioned and tested.
+- **DVINE today:** `DotBody.LIMITS` is the first registry (local limits per bone), and `MotionTest` proves every built-in pose respects it.
+
+### 25.6 Solver stack, failure recovery, tests, governance (Parts 20–24)
+
+- **Solvers:** local joint → kinematic (IK) → whole-body pose → collision → temporal → balance → feedback. They share joint definitions, coordinate conventions and state.
+- **Priority order:** hard limits, then safety and collision, then contacts, then targets, then preferred posture, then style.
+- **Impossible requests** ("hand behind your head" when unreachable): parse → target → reachability test → try a valid configuration → collision check → adjust the shoulder, elbow, wrist and torso → nearest alternative → execute. Report `{status: partially_completed, reason, recovery, final_state_valid: true}`. *Never an uncontrolled deformation.*
+- **Test suite:**
+  - A, joint range: neutral, min, max, near the limits, outside them.
+  - B, parent–child integrity.
+  - C, collisions: hand–chest, arm–head, knee–knee, jaw–skull, finger–finger.
+  - D, temporal continuity across frame rates.
+  - E, combined movements: overhead reach, bend and pick up, turning while walking, sit and stand, cross-body reach, look behind, speak while turning, stop near an obstacle.
+  - F, failure recovery: invalid targets, missing objects, interruptions, delays, solver failure, lost tracking.
+- **Java hinge example:** `HingeConstraint(min, max)` with `clamp()` and `isValid()`, rejecting non-finite values. It only clamps. IK, collision, trajectories, compound joints and balance belong to the wider controller.
+- **Governance rules:**
+  1. Anatomical authority: no override from ordinary requests.
+  2. Connected hierarchy.
+  3. Local-frame correctness.
+  4. Coupled movement.
+  5. Global posture validity.
+  6. Collision prevention.
+  7. Smooth transitions.
+  8. Contact awareness.
+  9. Feedback-driven control.
+  10. Controlled failure.
+  11. Coordinated face.
+  12. Learning only inside fixed limits.
+  13. Versioned anatomy.
+  14. No unvalidated online widening of limits.
+  15. Deterministic safety checks, never left to a probabilistic model alone.
+
+### 25.7 Subsystems and build order (Parts 25–26)
+
+- **Subsystems:** skeleton registry, constraint registry, joint solver, whole-body kinematics, IK engine, trajectory planner, collision monitor, balance controller, facial constraint engine, body-state estimator, movement supervisor, and biomechanical test harness. All share one skeleton definition.
+- **Build order:**
+  1. Hierarchy (**done**).
+  2. Constraint database (**first version done**).
+  3. Local limits (**done**).
+  4. IK and whole-body solving (**next**).
+  5. Trajectories and rate limits (pose blending done; jerk limits next).
+  6. Collision and foot contact (floor rule done; foot planting and self-collision next).
+  7. Facial constraint engine, jaw and eyes (jaw clamp done; TMJ translation and eye limits next).
+  8. Body-state feedback.
+  9. Structured AI commands.
+  10. Controlled movement learning, after the tests pass.
+
+## 26. SVRE + WDTAS — self-vision, self-redraw and whole-body touch
+
+### 26.1 Self-Visual Reconstruction Engine (SVRE)
+
+- **Self-image awareness:** an internal body model of the head and face parts, skin, every body part, skeleton and joints, proportions, current expression and pose, clothing and customisations. It can answer "what does my face look like / where is my left hand / what expression am I showing / what is moving / has my appearance changed / is my pose consistent".
+  - DVINE today: `Look` (shape parameters), the sculpt recipe, `DotBody` joint state and `FaceRig` expression.
+- **Reconstruction pipeline:** body model → renderer → rendered image → visual analyser → difference detector → reconstruction planner → updated geometry and materials → validation → renderer. The approved original stays as the trusted reference, and one odd frame never overwrites it.
+- **Regeneration modules:** face mesh, eyes, mouth, body mesh, skeleton, materials, expression system and render system. Three modes: **normal** (pose and expression only), **repair** (one component), **reconstruction** (a larger rebuild after validation). Never regenerate everything every frame. Preserve the approved face as the master identity.
+  - DVINE today: "redraw yourself" scatters and reassembles the dots, and a new look re-sculpts once in the background.
+- **Appearance evolution:** identity-preserving improvements; user-approved customisation (hair, shape: `Look.apply`); experimental changes shown as a preview first. Visual generation can never change movement constraints, security or the hierarchy without independent validation.
+
+### 26.2 Whole-Body Digital Touch and Awareness System (WDTAS)
+
+- **Interaction identity per body part:**
+  - Head and face: `head.forehead`, `face.cheek.left/right`, `face.nose`, `face.lips`, `face.chin`.
+  - Shoulders and arms: `body.shoulder.left/right`, `arm.upper.*`, `arm.forearm.*`.
+  - Hands: `hand.palm.*`, `hand.finger.*`.
+  - Torso: `body.chest`, `body.back`.
+  - Legs: `leg.thigh.*`, `leg.knee.*`, `foot.*`.
+  - Every interactive region must be registered.
+  - DVINE today: 17 parts plus the face. **Next:** split the face (forehead, cheeks, nose, lips, chin) and hands (palm, fingers).
+- **Tap detection:** screen point → camera ray → surface hit → part id, contact point, normal, screen point, timestamp, duration, intensity (only where the device really reports it) and the current pose. Pipeline: tap → ray → intersection → part → classification → body-state update → AI response → animation.
+  - A normal screen cannot measure force; never pretend it can.
+  - DVINE today: nearest projected dot with a depth preference, which works like a ray hit on a dot cloud.
+- **Digital somatosensory map:** per region, `{bodyPartId, interactionEnabled, touchSensitivity, responseProfile, visualReactionEnabled, audioReactionEnabled, hapticOutputEnabled, cooldownMs, minimumEventConfidence}`. Input sensitivity is separate from reaction intensity, and each part has its own behaviour.
+- **Body-state awareness:** joint state, pose, part locations, contact, gaze, face, animation, balance, confidence and visual consistency, fed by the skeleton, movement, face, renderer and touch. For example, a tap on a waving hand knows the hand was moving.
+- **Anatomically consistent reactions:** detect → interpret → select response → motion plan (through the constraint solver) → animate (blended with the current action) → feedback. A touch never overrides the skeleton directly. Priority rules decide whether to blend, delay or ignore.
+  - DVINE today: a tapped hand waves through the normal pose system, and the reply is spoken.
+- **Visual body inspection mode:** compare the reference model, skeleton, skinned surface, render and touch map. Detect hand/skeleton misalignment, finger–palm clipping, jaw clipping, misaligned eyes, bad shoulder deformation, wrong touch mapping or render/pose mismatch. Then repair and validate, e.g. jaw clipping → inspect the jaw and mesh → verify limits → correct → re-render → validate. Never widen limits to hide a defect.
+
+### 26.3 Architecture, touch kinds, loop, roadmap
+
+- **Proposed Java packages and their DVINE homes:**
+  - brain → `ai.dvine.brain`
+  - body, anatomy → `ai.dvine.face.nano` (`DotBody`, `LIMITS`)
+  - vision → future `ai.dvine.vision`
+  - touch → `StageView.partAt` and `StageListener.onBodyTap`
+  - reaction → `MainActivity.onBodyTap` and `Scenes`
+  - face → `FaceRig`, `DotHead`
+  - rendering → `NanoPainter`
+  - validation → the unit tests
+  - The renderer stays separate from the touch logic. The `TouchEvent` model is `{bodyPartId, x, y, z, timestampMs, confidence, durationMs}` with validation.
+- **Two kinds of touch:** A, the user taps the on-screen character (now). B, a future physical robot with pressure, force, joint, motion, proximity and temperature sensors on the same part registry. A screen avatar does not feel pressure, heat or pain.
+- **Body awareness loop:** brain → body-awareness engine (touch, self-vision, body-state estimator) → action supervisor → anatomical constraints → movement/IK → face → renderer → displayed body → visual validation → feedback to the brain. Touch is handled promptly, animation runs at frame rate, and reconstruction is asynchronous. Higher-priority events can cancel safely.
+- **Roadmap:**
+
+| Phase | Feature | DVINE status |
+|---|---|---|
+| 1 | Body-part registry | **done** (17 + face) |
+| 2 | 3D touch detection | **done** (nearest dot, depth-preferred) |
+| 3 | Spatial contact mapping (contact point in body space) | next |
+| 4 | Basic reaction engine | **done** (spoken reply, hand waves back) |
+| 5 | Body-state awareness to the brain | next (send part, pose and mode with each event) |
+| 6 | Reaction blending with current motion | partly (pose blend) |
+| 7 | Self-visual inspection | not started |
+| 8 | Controlled reconstruction | partly (re-sculpt from `Look`, redraw) |
+| 9 | Adaptive interaction | not started |
+| 10 | Advanced embodiment (sensors) | out of scope for the phone |
+
+- **Final rule:** *the brain decides what an interaction means; body awareness determines what happened; the anatomical controller decides what movement is valid; the visual engine maintains and renders the body; validation confirms the result.* A repair is only "done" once it has been validated against the mesh, skeleton, reference and touch map.
+
+## 27. The on-device engine, and what the server does instead (v1.6, built)
+
+**Rule:** the brain-and-body control engine lives on the phone. Everything DVINE needs to listen, think simply, move, react and stay safe works offline and in real time. The server takes only **secondary** jobs: ones that need the whole history, heavy compute or the internet. Their results flow back as hints the phone may ignore. If the server is gone, DVINE loses nothing it needs in the moment.
+
+| Function (ANBA network) | Where | Code |
+|---|---|---|
+| Hearing, speech-to-text, speaking | phone | `ListenBridge`, `TalkBridge` |
+| Routing and simple reasoning (rules + knowledge pack) | phone | `OfflineBrain` |
+| Executive: validated commands, action selection, one owner per channel, priorities, queues, stale-command expiry, stop | phone | `engine/Supervisor`, `Command`, `Skills` |
+| Motor control, joint limits, floor contact, face rig | phone | `DotBody`, `DotHead`, `FaceRig`, `StageView` (60 Hz) |
+| Behaviour loop | phone, 10 Hz | `Engine.tick` (timed commands, mood drift, expression) |
+| Appraisal and affect (regulated expression bias) | phone | `engine/Affect` → `FaceRig.setMood` |
+| Working memory (7 items, priorities, expiry) | phone | `engine/WorkingMemory` |
+| Embodied state model and self-monitoring ("what are you doing?") | phone | `Engine.state`, `Engine.selfReport` |
+| Touch on the body and reactions | phone | `StageView.partAt` → `Engine.onTouch` |
+| Short episodic buffer (≤300 kept, uploaded ones dropped after 3 days, never the user's words) | phone | `engine/Episodes` |
+| Learning journal (taught facts, corrections, unanswered) | phone, then server | `LearningJournal` → S-L |
+| **Long-term episodic archive** | **server** | `POST /api/v1/episodes/sync` (owner-scoped, idempotent, secrets rejected) |
+| **Memory consolidation into favourites** (poses, scenes, objects, touches, persona; 90 days) | **server** | `GET /api/v1/episodes/profile` → `Engine.applyProfile` ("what do I like?") |
+| **Knowledge pack builds and updates** | **server** | S-K |
+| **Review of shared learning** | **server** | S-L review queue |
+| **Open-ended reasoning with a large model** | **server** (M7) | later |
+| Skill-usage analytics and controlled skill learning | server (later) | from the episode archive |
+
+- **Command path:** brain answer → `Engine.perform` → typed `Command` (action, value, priority, deadline) → `Supervisor` (validate against the skill registry → expire if stale → preempt, queue or reject) → `BodyPort` (the stage) → result reported back (COMPLETED, PREEMPTED, REJECTED with a reason, EXPIRED, CANCELLED). Failures the user asked for become FAILURE episodes and show up in the self-report.
+- **Priorities:** stop (100) > user request (60) > touch reaction (30) > idle (10). A scene finishes unless the user asks for something else. A touch never interrupts what the user asked for. Switching view, redrawing and turning round are momentary overlays: they don't take over the body.
+- **Privacy:** episodes carry generated summaries and tags ("pose:pushups", "touch:left hand"), never what the user said. They upload only while sharing is on ("stop sharing" turns it off). The server keeps them per owner.
+- **Voice:** "stop" / "that's enough" (cancel everything and stand), "what are you doing" / "status report" (self-report from real state), "what do I like" (favourites consolidated by the server, or an honest "not yet").
+
+## 28. The anatomical 3D wireframe human (v1.7, built)
+
+> Superseded in part by §30 (v0.11): the body and head now come from the MakeHuman base mesh, and the renderer draws a particle hologram, not lines. The rig, touch, inspection and command rules below still apply.
+
+Obi and Ivie are now real 3D meshes: closed, skinned, rigged triangle surfaces drawn as a glowing wireframe with vertex dots on black. Obi is cyan, Ivie amber-gold. It replaces the nano-dot swarm as the default look ("dot mode" still brings the swarm back; "wireframe" returns).
+
+**Architecture**
+
+| Layer | Package | What it does |
+|---|---|---|
+| Mesh core | `human/mesh` | `SurfaceNets` (signed-distance field → surface), `MeshClean` (weld), `Decimator` (quadric simplification, importance-weighted: detail on face and hands, no flips, link condition), `MeshValidator` (closed 2-manifold, winding, positive volume, skin, regions), `TriMesh` (edges sorted by importance for LOD) |
+| Anatomy | `human/bake/Anatomy` | sculpted head (cranium, brow ridge, eye sockets, cheekbones, nose bridge/tip/wings, lips, jaw, chin, ears, neck; male squared jaw and larynx, female finer jaw and hair shell), body (rib cage, trapezius, pecs or breasts, collarbones, abdomen, pelvis, glutes, deltoids, biceps/triceps, forearms, quadriceps/hamstrings, kneecaps, calves, ankles, heels, toes), hands with five separate two-segment fingers and a thumb |
+| Assets | `human/bake/AssetBuilder`, `AssetTool`; `human/HumanAsset` | builds each variant, adds eyeballs with iris rings, two rows of teeth, feature lines (eyelids, brows, nostrils, lip line), 46 swaying hair strands for Ivie, 15 blend shapes, 18 landmarks; binary `.dvhm` with a CRC32. Shipped: `assets/human/obi.dvhm` (3,400 triangles), `ivie.dvhm` (3,600 triangles), a deliberately low-poly mesh so each line reads clearly |
+| Skeleton and rig | `human/rig` | 37 bones (17 body + 2 segments × 5 fingers × 2 hands), A-pose bind; the existing pose library (`DotBody.POSES`) drives it; joint limits and a 600°/s rate limit; finger shapes per pose (fist, point, open); analytic two-bone IK for reaching and foot planting; gaze shared by eyes (±12°), neck and head; capsule collision keeps hands out of the body; `validate()` checks bone lengths, limits, finite values and collisions |
+| Skinning | `human/HumanInstance` | two-bone linear blend skinning; weights diffused over the surface (8 passes body, 4 hands) so joints bend over a band; blend shapes, eye turn and hair sway applied before skinning; feet settle on the floor (never sink) |
+| Face | `human/face` | `FaceShapes` (jawOpen, smile/frown L/R, brows, blink, wide eyes, lip round/wide/press), `FaceDrive` (expressions smile, frown, surprise, attention, sad, angry; spring-driven blinks and glances; speech wins on the mouth), `Visemes` (per-word mouth shapes from TTS word timing). Identity is fixed: shapes only move features, never the proportions |
+| Touch | `human/touch`; `HumanInstance.pick` | screen ray → front-facing triangle → one of 45 named body parts, contact point in world and bone-local space, timestamp, duration; `TouchClassifier` turns presses into TAP, REPEAT (with count) or HOLD and drops duplicates. No pressure is claimed (a phone screen has none) |
+| Self-inspection | `human/inspect/Inspector` | NORMAL (check), LOCAL_REPAIR (blend shapes off, stand, re-check), RECONSTRUCTION (rebuild from the recipe off the UI thread; accepted only if valid and the face keeps its landmark ratios within 4%, unless the user asked for a new look). The approved asset is never overwritten |
+| Renderer | `render/` | OpenGL ES 3 (`HumanView`, a `GLSurfaceView` under the transparent stage): dark fill with polygon offset (hidden lines removed), additive glow + core line passes (lines are screen-space quads fetched from float textures), rim light, vertex dots, dotted floor grid, LOD by edge importance in body view, both personas in one view for the demo. Context loss rebuilds every GL object; detach frees them; `FrameStats` keeps average and 95th-percentile frame time |
+
+**Rules the AI cannot bypass:** every movement goes `Engine` → `Supervisor` (validated command) → `StageView` → `HumanStage` → rig. The rig clamps joints to anatomical limits, rate-limits them, resolves collisions and keeps feet on the floor whatever the pose asks for.
+
+**Voice:** "show both of you" / "demo" (both personas side by side), "smile", "look surprised", "frown"…, "self check" or "status report" (the self-report includes the inspector), "wireframe" / "dot mode".
+
+**Build and regenerate**
+
+```
+gradle testDebugUnitTest assembleDebug     # tests + APK
+gradle :app:generateHumanAssets            # rebuild obi.dvhm / ivie.dvhm (~6 s each, deterministic)
+```
+
+Inspection sheets (software render of the shipped assets): `docs/brand/human_{obi,ivie}_{views,face,poses}.png` (front, 3/4, side, rear; face expressions; poses).
+
+**Tests (§10 of the spec):** `HumanTest` (assets valid and reject corruption; the head is genuinely 3D; landmarks aligned from every view; the mouth opens without flipping triangles; the head joins the neck; every pose of both variants deforms without tears, everyday poses stretch skin < 2.6×; touch finds nose, chin, knee and chest and misses empty space; touch classification; reconstruction keeps identity and refuses unapproved changes; IK reach, planted feet, hands out of the body; expressions and visemes); `WireRendererTest` (fake GL: no leaks after dispose, recovery after context loss, no GL errors over 120 frames; camera rays pass through projected points).
+
+**Known limits**
+- Not yet run on a phone: frame rate, the GL shaders on real drivers and touch feel are unverified.
+- Linear skinning: at the deepest hip bends (sit, squat, kneel) a few crotch edges stretch up to ~3.7×; corrective shapes would fix it.
+- Visemes come from word text and timing, not from the audio, so lip sync is approximate.
+- The mouth has teeth and a groove but no tongue or inner mouth surface.
+- Touch knows where and how long, not how hard.
+
+### 28.1 Clarity, thoughts, more moves, and drawing with the body (v1.8)
+
+- **Clearer wireframe:** about 60% fewer triangles (head 1,100, body 1,500, 200 per hand), so the polygons read as clean facets. Body view uses thinner lines and smaller dots and drops the feature-line glow.
+- **Thought bubble:** while a persona thinks, a cloud bubble rises above the head with three trailing puffs, tracking the head's crown on screen. Inner thoughts appear inside it; otherwise three dots pulse. It fades out when they speak (`StageView.setThought`, `drawThought`).
+- **Moves by everyday request:** "can you run?", "can you walk?", "jump", "sit down", "dance", "roll over", "do a flip", "lie down", "start running", "keep dancing", "show me how you walk". Questions get "Yes, I can." first. New poses: `jump` (crouch, leap, land), `roll` (log roll on the floor), `lie` (on the back, one knee up). "Can you walk me through…" and "can you run the numbers" are not moves.
+- **Drawing with the body (wire look):** on a draw request, the GL body hides and its vertices become nano dots in the same screen spots. They burst apart and glow as drifting dust for a few seconds, then fly into the drawing as it is drawn. When the drawing ends, the same dots fly back to where the body's vertices are, and the body fades back in (`StageView.scatterBody`, `dotsHome`).
+- **Advanced drawings:** spiral galaxy, black hole (accretion disk, photon ring, lensed far side), tesseract (a 4D hypercube turning in two planes, re-projected every frame), Lorenz attractor (draws itself as it unfolds), 3D fractal tree, rocket, butterfly (wings from the polar butterfly curve, flapping), Eiffel Tower (curved lattice legs, platforms, cross-bracing), brain (folded hemispheres, cerebellum, brain stem), Möbius strip, Saturn (with the Cassini division), spreading ripples. Each has a spoken explanation. Sheets: `docs/brand/drawings_advanced_{1,2}.png`, `draw_scatter_{obi,ivie}.png`.
+
+## 29. The online client (M7, v1.9, built)
+
+When the offline brain can't answer and the phone has validated internet and an https server is set, the question goes to the server's desk instead of the apology:
+
+1. The thought bubble shows "Checking with the desk…" (Obi) or "Let me ask the desk…" (Ivie).
+2. `DeskClient` (off the main thread) gets a session token (`SessionClient`: device sign-in, no secret in the app), creates or reuses the user's desk room, and posts `POST /api/v1/desk-rooms/{id}/commands` with a fresh request id and the face on screen.
+3. It reads the task's events and plays them: `THINK` lines go in the bubble (whispered), `SAY` lines are spoken by the persona named on the line, `STATUS` events stay silent. The server's "Obi is thinking" placeholder shows as the bubble's dots.
+4. On `401` it signs in again once; on `404` it makes a new room once; on anything else (offline, timeout, `429`, `5xx`) the offline answer plays. A newer question makes an older desk answer stale; it is dropped.
+
+Safety stays on the phone: consequential requests are still gated locally (GATE) and never sent as actions. Only https servers are used.
+
+Server side: each user may send 20 new questions a minute (`dvine.commands-per-minute`), replays are free. The desk's words still come from the mock gateway until a model provider is chosen (Track S Phase 2).
+
+## 30. The standard human body and the hologram renderer (app v0.11, built)
+
+**Body.** Obi and Ivie are built from the MakeHuman base mesh hm08 and its macro targets (CC0 1.0). `tools/make_standard_body.py` fetches the source files with pinned SHA-256 sums and bakes `app/src/main/resources/ai/dvine/human/standard_body.bin`: one closed surface (body and head together), per-persona shapes (male muscle 0.45 and ideal proportions 1.0; female 0.8), MakeHuman's joints, its default skin weights folded into DVINE's 37 bones, and its jaw weights. `human/bake/` (formerly `human/build/`; a folder named `build` was hidden by build-output rules) turns that into each asset:
+
+| Step | Class | What it does |
+|---|---|---|
+| Retarget | `StandardBody` | aligns the floor and neck, warps the torso at hip, shoulder and neck heights, and moves each limb, hand and finger segment onto the DVINE skeleton |
+| Head frame | `HeadFrame` | fitted from the eyeballs, lip line and chin; face code works in head units, mapped in two pieces that meet at the lip line |
+| Likeness | `FaceSculpt` | Obi: squared flat crown, strong jaw and chin, cheekbones, brow ridge; Ivie: oval face, refined slightly upturned nose; fuller lips for both; the user's Look on top. Faded under the chin and around the eyes |
+| Simplify | `Decimator` | 16,000 triangles (head 4,000, body 6,000, hands 2,800 each); fingers and lips simplify only within their own groups, finger webs are locked |
+| Weights | `AssetBuilder` | MakeHuman's weights with a geodesic blur, hips from DVINE's own blend, a crotch and neck settle, hand weights by distance along each finger |
+| Proportions | `BodyFit` | the ANRE profile (§ BUILD_STATUS); the head is scaled to the 0.135 head ratio |
+| Face shapes | `FaceShapes` | the 15 blend shapes in head units; jawOpen uses MakeHuman's jaw weights |
+
+Shipped: `obi.dvhm` (8,114 vertices), `ivie.dvhm` (10,904 vertices, with 90 hair strands), 16,000 triangles each. `gradle :app:generateHumanAssets` rebuilds them in about a second each.
+
+**Renderer** (`render/WireRenderer`, OpenGL ES 3): a dark fill with a fresnel rim (depth-written, so it hides what is behind), a thin halo pushed out along the normals (thinner in the face close-up), and surface particles (ANRE, §ANRE in BUILD_STATUS) on top. Eyeballs carry their rest facing per vertex, so the fill draws soft whites, a bright iris ring and a dark pupil that turn with the gaze.
+
+**Camera** (`render/Camera`): the eye sits level with the pivot. The face close-up frames the real head (chin to crown, `HumanStage.headCameraY`); the body view shows head to feet.
+
+**Checking the GPU path without a phone.** The JVM tests use a fake GL that compiles nothing, which once let a shader with an undeclared variable ship (0.11.0–0.11.1 showed only the dot head on phones).
+- `node tools/check_shaders.js` compiles and links every program with Chromium's WebGL2 (GLSL ES 3.00).
+- `GlCapture` (a test that runs only when `GLCAP_OUT` is set) records the real renderer's GL calls; `tools/gl_replay` replays them in WebGL2 and screenshots what a phone would draw (see its README). The first replay matched a phone screenshot pixel for pixel.
+
+**Fixes found this way (0.11.2–0.11.3):** the particle shader compiles; the face camera no longer looks up from the hips; eyes are visible; `Spring1D` sub-steps (blinks diverged on 50 ms frames and held the eyes shut); Obi's lower lids no longer crease; touch picking tolerates a ray through a shared triangle corner. When the 3D body can't load or the GPU keeps failing, the subtitle says so once and "status report" names the error.
+
+**Known limits:** no self-intersection check; skin stretch is tested with a 5 mm rest-length floor; Ivie's hair is sparse; the hologram is the only look (no realistic skin mode yet); visemes are text-timed; not measured on a phone (frame rate).
+
+## 32. The on-device language model (app v0.20.0, built)
+
+**Choice.** Qwen3 1.7B (Apache 2.0, Alibaba's Qwen team), 4-bit Q4_K_M GGUF, 1.1 GB, run by llama.cpp (MIT) on the phone's CPU. Chosen for the best English and reasoning at a size a phone holds in memory, a permissive licence, and a no-thinking mode fast enough for speech (2 to 5 seconds per short answer on a desktop CPU; slower on a phone).
+
+**Source.** llama.cpp is vendored at `app/src/main/cpp/llama.cpp` (commit `0c8c59ef`, 27 Oct 2026): the library, ggml and its CPU backend only (no GPU backends, tools, tests or downloads). One change: `vendor/CMakeLists.txt` is emptied, because its helpers serve llama.cpp's tools and multimodal parts, which DVINE does not build. `app/src/main/cpp/CMakeLists.txt` builds it with OpenMP and KleidiAI off, so it also compiles offline in CodeAssist's native build; arm64 only, optimised in every build type, targeting ARMv8.2 with dot-product (phones from about 2018); the app checks `/proc/cpuinfo` for `asimddp` before loading it.
+
+**Bridge.** `dvine_llm.cpp` (plain C++: load, reply with the persona's system prompt cached between turns, streaming, stop, a filter that drops Qwen3's `<think>` block) and `dvine_llm_jni.cpp` (whole UTF-8 characters only, converted to UTF-16). Java: `ai.dvine.llm` — `NativeLlm`, `LocalModel` (state, load, the last six exchanges), `ModelDownloader` (resumable, SHA-256 checked before the file is kept), `ModelSpec` (pinned Hugging Face revision and checksum), `PersonaPrompt` (spoken, brief, honest, in Obi's or Ivie's manner), `SpeechChunker` (the reply spoken sentence by sentence as it is written).
+
+**Voice.** "Download your brain" (asks first: 1.1 GB, best on Wi-Fi) · "cancel the download" (resumes later) · "remove your brain" (asks first) · "turn off / turn on your brain" · "is your brain installed". Once ready (0.20.1), knowledge and conversation go to the model, offline (dictionary, packed facts, wisdom, comfort and unknown questions); commands, maths, time, memory and what the user taught stay with the offline brain; the persona thinks, then speaks the answer as it streams; anything new the user says stops it. The offline brain's own answers (commands, maths, facts, actions) still come first.
+
+**Download in the background (0.21.0).** `ModelDownloadService`, a data-sync foreground service, runs the download so it continues when the app is minimised or the screen is off (a partial wake lock and a Wi-Fi lock are held only while it runs). Its notification shows a progress bar, the percent, size, speed and time left, and a Pause button; when it ends, a notification says it is ready (or paused or stopped). `ModelHub` holds the one model and `DownloadStatus` for the process, so a reopened app shows where the download is. On screen, a download card (title, percent, a glowing bar with a shimmer, size · speed · time left) sits under the state pill. By voice: "show me the download progress", "hide the download bar", "how's the download going", "pause the download", "continue the download".
+
+**The engine ships ready-built (0.24.1).** CodeAssist on the phone does not run the C++ build, so its APKs had no engine and the brain could not start ("isn't in this build"). The compiled engine (`libdvine_llm.so`, arm64, 6.5 MB, needs only Android's own libraries) is kept in `app/src/main/jniLibs/arm64-v8a/`; every build packages it, and a full build that also compiles `src/main/cpp` keeps one copy (`pickFirst`). After changing the C++, refresh it in separate runs: `gradle :app:assembleDebug`, then `gradle :app:refreshNativeEngine` (it strips the C++ build's own library into `jniLibs`), then build again. `PrebuiltEngineTest` compares build IDs and fails while the copy is stale (0.68.1: the old task copied the packaged library, which already prefers the shipped copy, so it never refreshed anything).
+
+**Touch (0.24.1).** Touch and hold anywhere to speak; double-tap anywhere to type; a tap on the body or face still reacts (after a brief wait, so a double tap is never read as two taps). Swiping no longer starts the microphone: it fought the phone's own swipe to minimise.
+
+**Names as heard (0.24.2).** Speech recognition often writes Ivie as "Evie", "Ivy" or "Eevee", and Obi as "Obie" or "obey". `turn/Names.normalize` rewrites these before routing or the brain, so the brain never meets an unknown "Evie" ("obey" becomes Obi only where it is used as a name). `Names.switchTarget` reads "switch to / talk to / communicate with / bring / call / let me talk to X", with up to four words after the name ("… your other half"), and switches persona; "talk to Ivie about …" still goes to the conversation. With the character-sheet look the start-up particle assembly is skipped: the fitted body appears directly.
+
+**Ask, don't guess (0.25.0).** `Names.hear` also catches words that only *sound* like a name, but only in a name's place (the start, after a greeting or a switch, after a comma). It uses a sound key (vowels collapse; f/v and b/p merge) and a spelling distance of one. The app then asks "Did you mean Ivie? I heard \"Eva\"." and listens. A yes teaches that spelling as the name; a no marks it as not a name. Both are kept in `name_aliases`, and the user's own name is never questioned. The persona prompt now tells the model to read each message in the light of the conversation, and to ask one short, specific question (offering the likely meaning) when a request is ambiguous, a word looks misheard or it doesn't follow. It may ask one natural follow-up when the user shares something about themselves, but doesn't ask when the meaning is clear. Each question carries a `Situation:` line from `PersonaPrompt.situation`: persona on screen, last topic, what is on show, time of day, online. Offline answers are added to the model's conversation (`LocalModel.note`). Any reply ending in a question opens the microphone. Offline, a short statement the brain doesn't follow is answered with "What do you mean by …?" rather than the database line.
+
+**Checks.** `LocalModelTest` (sentences, prompt, resume, checksum, stop, CPU check, memory of six exchanges); `NativeBridgeTest` runs the real model through the real JNI bridge on a desktop build (env `DVINE_NATIVE_LIB`, `DVINE_MODEL`): it answers as Obi, streams, follows up with context, keeps "café" intact, stops when told.
+
+**Limits.** A 1.7B model can be wrong on facts (in a test it reversed which colours scatter in the sky), so checked offline facts stay first; no phone timing yet; the dual-persona discussion still uses the offline brain. From 0.22.0 it also plans drawings (§33).
+
+## 33. The full-body stage and the nano-particle display (app v0.22.0, built)
+
+**Main screen.** The line-mask screen is gone (`LineFace`, its rings, name, waveform, state pill, activity panel, input bar and the 2D download card). The app opens on the whole persona in the 3D stage, drawn in the Ghibli-style cartoon look (`look_version` 5 moves every saved look there; a stored `LINE` look reads as the cartoon). "Show me your face" still brings the camera to the head; long-press still types; swipe still speaks.
+
+**Everything else is particles.** `render/field`:
+- `ParticleField`: a pool of particles, each on a damped spring (stiffness 38, damping 9.5) to its place in the current picture and fading to its colour, with a faint shimmer; a new picture forms out of the old one, unused particles fade where they are.
+- `Shape.fromPixels`: any picture's lit pixels as points (thinned on a staggered grid to a budget, centred, a thin depth by brightness).
+- `Raster` (Android canvas, off screen): text, the download bar (title, percent, framed track, bright leading edge, size · speed · time left), a `DrawSpec` drawing, or any bitmap (a photo's edge fades in an oval).
+- `ParticleDisplay`: four layers placed every frame from the persona's crown and chin, so they follow the persona and the camera: the download bar at the feet (toward the viewer), the thought just above the head, a picture in the open space above that (40 s), captions in screen space along the bottom. Each is re-drawn only when its content changes (the bar on each percent, its detail line every few seconds).
+- `WireRenderer`: a `FIELD` program (soft glowing points, additive, depth-tested in the stage without writing depth, sized by distance and screen density), four dynamic buffers made and freed with the other GL objects.
+The flat 2D captions, bubble and card remain only for the dots look, which has no 3D stage.
+
+**"Draw me anything."** Built-in forms and sketches still come first. Otherwise ("draw me a lighthouse", "sketch a red bicycle", "show me a picture of an owl"):
+1. Online: `PictureFinder` searches Wikipedia for the subject and takes its article's lead image (only from `upload.wikimedia.org`; only the subject is sent; 7 s timeouts; 3 MB cap), and the particles form that picture.
+2. Otherwise, with the language model ready: `DrawPrompt` asks it to list the subject's parts in words (`part | shape | colour | where | size`, where = "above the body", "on the head"…), and `PartSpec` lays them out on a 100 × 100 canvas (a small model places parts far better in words than in coordinates; it also still reads plain shape lines). One task outside the conversation, at temperature 0.35, about 5 s on a desktop CPU.
+"Clear the drawing" removes it.
+
+**Checks.** `ParticleDisplayTest` (sampling, forming and fading, thinning into the pool, the shape language); `DrawPromptTest` (requests, part layout, the Wikipedia reply); `RasterTest` (the bar, text, a drawing and a photo on Android's real canvas, Robolectric native graphics); `NativeBridgeTest.drawsAPictureInShapes` (six subjects through the real model). Replay with `GLCAP_FIELDS`, `GLCAP_DRAWING`, `GLCAP_THOUGHT`: `docs/brand/particle_display.png`.
+
+**Limits.** The model's own drawings are rough (a 1.7B model knows a snowman's parts but not always where they go; its thinking mode drew better but took about two minutes, too slow on a phone), so online pictures come first. The Wikipedia lookup was not run from the build machine (its shared address is rate-limited); phones call it directly. A photo keeps its background inside the oval. Not yet checked on a phone.
+
+## 34. Learning that sticks, 3D shapes on request, clear text (app v0.23.0, built)
+
+**Corrections win.** `brain/FactCorrection` reads the ways people set a fact straight: "no, the president of Nigeria is Bola Tinubu", "that's wrong, it's 2026" (about the last question), "the capital is now Abuja", "the new … is …", "actually Tinubu became president in 2023", "remember that the meeting moved to Friday"; "that's wrong" alone gets "What's right?" and the next answer is kept. Kept in the learning journal as corrections, answered from memory ahead of the language model, and the model's conversation is cleared so its old answer doesn't linger. Personal facts ("my sister is …") keep their own memory.
+
+**The model knows it is old.** Its persona prompt carries today's date, says its training ended in 2024, and tells it to trust the user's facts and any reference over its memory and never to argue with a correction. With each question it is handed (outside the cached persona) up to six taught facts that bear on it plus the newest corrections. Online, a question about the world also gets the opening of the best Wikipedia article (`FreshFacts`; only the question is sent, never questions about the user; "don't look things up online" turns it off). Checked with the real model: "Who is the president of the United States?" → "Joe Biden." before; "Donald Trump" once taught; "What year is it?" → 2026. If the conversation grows too long for its memory, the oldest exchanges are dropped and it tries again.
+
+**3D shapes.** For "build me a lion", "form a star", "turn into a dragon", "draw a car in 3D" and anything the creation engine can't model, the language model lists the subject's parts as solids in words (`part | solid | colour | where | size`: sphere, oval, box, cylinder, cone, pyramid, ring, disc; above, below, left of, in front of, behind, around, on; both sides). `SolidSpec` places them in a 100-unit cube and fills their surfaces with lit points; the stage turns it slowly above the persona. `ShapeCommand`: "make it bigger / smaller", "spin it", "stop spinning", "turn it around", "move it left / right / up / down", "make it red", "scatter it", "put it back together", "reset it", "clear it". "Draw me X" online still prefers a real picture.
+
+**Clear text.** Words are held still with a steady brightness and switch in place when they change (the download bar no longer re-forms on each percent), drawn with crisp round dots, sampled on a fractional grid as densely as the budget allows (captions 12,000 points, four lines), with no depth offset. The spoken lines no longer talk about particles or dots.
+
+**The studio.** The cartoon backdrop follows the character sheets: deep slate to teal, an emerald glow behind the figure and a warm amber light from the left, a slowly drifting haze and a faint hexagon lattice; the floor dark and glossy, melting into the wall at the horizon, with a glowing ring around the persona's feet and soft contact shadows. `docs/brand/studio_0_23.png`.
+
+**Limits.** The model's own 3D plans are rough (it may add a stand, or misplace parts); offline it says so. The Wikipedia lookups are untested from the build machine (rate-limited address). Not yet checked on a phone.
+
+## 35. The bodies built from the character sheets (app v0.24.0, built)
+
+**The pictures.** The project lead's cut-outs of Obi and Ivie (front, side, back, face close-up; transparent backgrounds) are kept in `tools/sheets/source/`. `tools/sheets/atlas.py` packs each persona's views into one look picture (`assets/looks/<who>_atlas.webp`) and paints out the logo on the chest and the back. `assets/looks/<who>.json` gives each view's box and its landmarks (crown, eyes, nose, mouth, chin, ears, shoulders, elbows, wrists, fingertips, hips, knees, ankles, toes).
+
+**At start-up the app builds each body from its picture.**
+1. *Shape* (`human/wrap/SheetFit`): the outline of every view is read from the picture's transparency. Row by row up the body, each part (head, torso, each arm, each leg) is widened or narrowed and moved until its outline in the front view matches the picture, and deepened or flattened until its profile matches the side view. The mesh moves to the picture; the picture is never distorted. Rows where two parts touch on the picture are skipped and take the shape of their neighbours; widths are measured over a window of rows, smoothed, and kept within 0.72 to 1.45 times. The joints move with the parts, so the rig still fits; the eyes turn about their new centres.
+2. *Paint* (`human/wrap/SheetWrap`): each view is warped onto the shaped body by its landmarks (a thin-plate spline per view). Every vertex gets where it lands in each view and how much of each it takes: the face close-up for the front of the head, the profile for its sides, the back view behind, the front view for the body. The skin shader paints from the picture itself, per pixel; a sample from a clear (off-figure) part of the picture drops out and the other views fill in. The hair is part of the picture: Obi's head is shaped to his hair's outline. The paint rides the vertices, so it stays put as the body moves.
+
+The looks are now the sheets': Obi with his short curly afro, Ivie bald, both in the black and teal suit and trainers, no logo (`look_version` 6). The 3D wire, skin and dots modes remain on request.
+
+**Also in 0.24.0.** The on-device model is called the brain everywhere the user sees or hears it ("Downloading brain files"); the model's name is never shown or said. `ModelSpec.MIRRORS`: the project's own copies of the brain file are tried before the original download, each checked against the same SHA-256.
+
+**Checks.** The whole suite (159 tests); GL replay `docs/brand/sheet_bodies_0_24.png` (both bodies, full view and face).
+
+**Limits.** The eye corners and the jaw show small smears where the mesh's own eye and jaw shapes differ from the picture; the hands are painted from the front and back views only. Not yet checked on a phone (start-up adds the shaping and painting, a fraction of a second on a desktop).
+
+## 36. The pod, the agent, and drawings you can take apart (app v0.26.0, built)
+
+**No faces.** At the project lead's request every face is gone: the hologram heads, the 3D bodies, the nano-dot head and body, the wireframe human, and their assets, tools and tests. The screen is the pod floating in space (`render/pod`): stars, meteors, a glow under it, a beam of rising dots. The persona speaking is a voice and a tint on the pod (Obi cyan, Ivie violet, Ibiko green). The pod pulses with each spoken word, brightens while listening and swirls while thinking. The movement engine stays (`motion/Motions`: 17 bones, named poses, joint limits, the BODY channel), ready for a body the user has DVINE design later.
+
+**Above the pod.** Everything drawn appears above the pod in 3D. One finger turns it, two fingers pinch to zoom and move it, and a tap on the pod talks. Hold anywhere to speak and release to send. Double-tap for a text field drawn in glowing dots, with a SEND button.
+
+**The agent.** For anything the offline brain can't do exactly, the downloaded brain reads the words first. It writes five lines: INTENT (question, request, prompt or chat), MEANS, TASK, TARGET and INTERNET. DVINE checks whether it can do the task here (`Capabilities`) and says honestly why not when it can't. It then carries the task out: it acts, or looks up, or answers. It keeps the phrase and the command it led to (`LearnedIntents`, on the phone only), so next time it needs no brain. A reading whose target has nothing to do with the words is not acted on. Each step is written at the top of the screen in small text, and older lines fade and blur away like smoke. "Debate X" has Obi argue for and Ivie against, over six turns.
+
+**Drawings that are right.** "Draw a cat" once drew a building: the small brain's plan was wrong and the reply used it. Now:
+- Nothing is built in (0.26.1): no item has a stored plan. The brain writes every plan itself from what it finds online.
+- The brain plans the parts. When online and allowed, it first reads the thing's Wikipedia description (`PictureFinder.describe`). The plan is checked (`DrawPrompt.usable`: at least three parts, two different names, no walls and roof for something that isn't a building), with one stricter retry.
+- The reply names what the user asked for, never what the brain wrote.
+
+**Turning it, in any words (0.26.1).** `ShapeCommand.view` reads stop / freeze / hold it still, spin horizontally or side to side or to the left, rotate vertically, up to down, top to bottom or tumble, faster / slower, turn or tilt by degrees ("a quarter", "a bit", "upside down"), and views (top, bottom, left, right, back, front, reset the view). Words it doesn't know go to the brain with DVINE's list of commands (`agent/ViewIntent`); the one it picks is checked against the list, carried out, and remembered for next time.
+
+**Part by part.** A 3D drawing is kept as its parts. `PartEdit` understands:
+- take out / remove / hide
+- show only
+- put back
+- make the X colour
+- make the X bigger / smaller / wider / taller
+- add …
+- undo
+
+Parts are found:
+1. by the whole phrase ("front legs")
+2. by the word ("ears")
+3. by everyday names for the kind (a tyre is a wheel, with its hubcap)
+4. by place: left / right, front / back, top / bottom
+
+When nothing matches, the brain is given the list of parts and asked which ones the word means. Adding asks the brain for new part lines placed against the parts already there (`SolidSpec.extend`). The drawing keeps the frame it was first drawn in, so taking parts out doesn't make the rest jump or grow. It re-forms in place, keeping the user's turn and zoom.
+
+**For games.** "Export it" saves `<name>.glb` (glTF 2.0) to Downloads (`render/field/Gltf`). Each part is a node with its own mesh and material, named as drawn. Each part is a child of the part it was placed against (an ear under the head, the head under the body), so each part is a joint about its own centre. The file uses metres, y up, 1 m across, standing on the ground. It opens in Blender, Unity, Unreal and Godot.
+
+**Saved drawings (0.26.2).** `library/DrawingLibrary` keeps each drawing on the phone under the name the user gives it. It stores what the user said about the drawing and DVINE's own note of it (the thing, its parts, its colours). The parts are stored exactly (`SolidSpec.save` / `load`), joints included.
+
+Finding a drawing: by its exact name; by the name's words; or by enough of the user's words appearing in the name, the thing, the description and the note.
+- When several match, DVINE names them and asks which.
+- A name already in use is never overwritten silently. DVINE says what the name is used for and when it was saved, then asks for another name or a description, or "replace it".
+
+**3D files (0.26.2).** `MeshExport` writes to Downloads/DVINE:
+- .glb (glTF 2.0): the default.
+- .obj + .mtl
+- binary .stl in millimetres, z up, for slicers
+- binary .ply with vertex colours
+
+The format comes from the words ("for 3D printing" means STL).
+
+**Any screen (0.26.2).** The activity follows the phone's rotation (`fullUser`, the user's rotation lock respected) and handles the change itself, so nothing restarts. `PodLayout` has an on-its-side layout. A stage unit is 38% of the height, at most 32% of the width. The drawing sits 38% down and the pod 80% down, at most half the width wide. The text field and subtitles keep a readable width on tablets.
+
+**Limits.** Parts are simple solids (spheres, boxes, cylinders, cones, rings, discs), so organic shapes are approximate. Building a mesh from photos of every side of a thing needs a GPU server; it can't be done on a phone today. Candidate models: TripoSR, Hunyuan3D, Stable Fast 3D. Splitting a mesh into parts would also need a server: SAMPart3D and SAM 3D.
+
+## 37. Your own brain: AI providers, and Usage (app v0.48.0, built)
+
+**AI providers.** The drawer's "AI providers", or a tap on the model under the chat title, opens a sheet like a coding app's. There is one card per brain:
+- On this phone (the downloaded model)
+- Anthropic (Claude)
+- OpenAI
+- Google Gemini (through Google's OpenAI-compatible endpoint)
+- OpenRouter
+- Custom gateway (any OpenAI-compatible address: LiteLLM, a self-hosted server)
+
+The chosen card holds:
+- the key, hidden with Show / Hide
+- an optional backup key, tried when the first is refused or out of credit
+- the address and the model, with suggestions
+- an optional CA certificate (PEM) for a gateway on a private CA. It is trusted in addition to the phone's own authorities, and the chain is still verified.
+
+**Test** makes one tiny call and marks the card Connected. Keys stay on the phone, encrypted with an AES-GCM key in the Android Keystore; if the Keystore fails, the key isn't kept. Only https addresses are accepted. Error messages never repeat a key.
+
+**How it answers.** `LocalModel` stays the one door to the brain. While the phone is online, `reply()` and `task()` go to the chosen API (`llm/RemoteBrain`) with the same conversation memory, the same quiet and total time limits, and the same cancel. When the API fails or the phone is offline, the phone's own brain answers if it is installed.
+
+`RemoteBrain` details:
+- **Anthropic.** It speaks the Messages API: `x-api-key`, `anthropic-version: 2026-10-21`, so no `temperature`. Thinking blocks are skipped and only text is spoken. A refusal is reported as one. Anthropic's server-side refusal fallback (`fallbacks: "default"`) is on for Claude Opus 5.5, Opus 5, Sonnet 5.5 and Fable 5.1. Short calls (the one-line order) ask for low effort.
+- **OpenAI-compatible.** It speaks chat completions. A field a server refuses is asked again in a plainer form: without the usage option, then the reasoning-model form (`max_completion_tokens`, no temperature).
+- **Token floor.** A remote call never asks for fewer than 1024 tokens, because a thinking model spends part of its allowance before it writes.
+- **Raw HTTP.** It uses raw https rather than a provider SDK: the Anthropic Java SDK would bring OkHttp, Kotlin and Jackson into a build that must stay plain for CodeAssist and already had a Kotlin clash.
+
+**Usage.** For the last reply, the screen shows how the context window was filled: the conversation, the system prompt, this message, the reply, and the free space. Counts come from the API where it reports them; otherwise they are estimated at about four characters a token, and labelled as estimates. It also shows:
+- today's requests, tokens sent and written, speed and failures (reset at midnight, kept across restarts)
+- the chosen brain
+- what is stored on the phone
+
+Spending and plan limits belong to each provider's own dashboard; the app has no view of them, so it doesn't show any.
+
+## 38. Brain setup, the Claude-style chat, and switching between APIs (app v0.49.0, built)
+
+**A brain first.** Every word goes to a brain to be understood. With no brain on the phone and no API set up, the first screen (`chat/ui/SetupActivity`) is "Give DVINE a brain", with two buttons:
+- **Download.** The download runs in the background and its progress shows on this screen; the chat can be opened while it downloads.
+- **Add an API key.** This opens the AI providers sheet.
+
+The screen comes back until one is chosen, and Back on it closes the app. On a phone that can't run the downloaded brain, only the API is offered. "Download your brain" now opens this screen; it is a button, not a spoken yes.
+
+**The chat, after Claude.** One palette for every screen: warm near-black (`#1F1E1D`), surfaces `#2A2927`, a coral accent `#D97757`.
+- **Header (56 dp):** menu and new-chat icons with 48 dp targets, the chat's title, and the model (tap it for AI providers).
+- **Persona switch:** a segmented control for Ivie, Obi and Ibiko.
+- **Messages:** your messages sit in rounded bubbles on the right. Replies are plain text, with Copy and Listen once at the end of each reply. Copy takes the whole reply including code; Listen skips the code.
+- **Code blocks:** a header with the language, Open and Copy; long lines scroll sideways instead of wrapping.
+- **Composer:** the words sit above a row with plus (attach), mic and a coral send button that greys out until there is something to send (it is a stop square while a reply is written).
+- **Empty chat:** a greeting by the time of day, with your name when DVINE knows it.
+- **Drawer (304 dp, over a scrim):** search, New chat, Recents as single lines with the open chat highlighted, then AI providers and Usage at the foot.
+
+`ScreenshotTest` renders the screens with real pixels (Robolectric native graphics) into `build/screens`; the 0.49.0 set is in `docs/brand/chat_0_49/`.
+
+**Three APIs that take over from each other.** On the AI providers sheet each API card has **Use as: Primary, Backup, Off**, and a **Switch automatically** toggle sits at the top. The order holds at most three: the primary, then up to two backups.
+
+`LocalModel.askRemote` asks them in order:
+- **Failure before any words:** an API that fails (error, refused key, out of credit, rate limit) or goes quiet for 12 seconds before saying anything rests, and the next is asked.
+- **Resting times:** 1 minute, or 5 when the failure was credit or rate limits. A resting API is still tried last if every other one fails too.
+- **No mid-sentence switch:** a reply that has already started is never switched, so nothing is said twice.
+- **Your stop** stops everything and is not counted as a failure.
+- **A note** above the message box says which took over ("Anthropic (Claude) didn't answer (…), so OpenAI did.").
+- **Fallback:** if every API fails, or the phone is offline, the phone's own brain answers when it is installed.
+
+## 39. Day and night, connectors, and a quiet start (app v0.50.0, built)
+
+**Day and night.** The light palette (warm off-white `#FAF9F5`, text `#1F1E1D`, coral `#C96442`) lives in `values/colors.xml`, and the dark one (`#1F1E1D`, coral `#D97757`) in `values-night/colors.xml`.
+- **Theme:** `Theme.AppCompat.DayNight`, with status- and navigation-bar icons that are dark by day and light by night.
+- **Named colours everywhere:** every drawable uses named colours, and the code-built screens read them through `Ui.init`.
+- **Appearance** in the drawer offers Match the phone (the default), Light or Dark; `MainActivity.applyTheme` applies it before the screen is built. The activity no longer handles `uiMode` itself, so a change redraws it in the new colours. Chats are kept on disk and the brain in `ModelHub`, so nothing is lost.
+
+**Icons.** 24 dp in the header and composer, 20 dp for the reply actions and in the drawer, with 36–48 dp touch targets. The code block's Open and Copy are icons.
+
+**Connectors** (`connect/`, drawer → Connectors). These are services the brain may use when it answers:
+- **Web search:** the built-in cited lookup, with its old switch.
+- **Phone calendar:** the next 7 days, through `CalendarContract.Instances`, with calendar permission asked for only when it is switched on.
+- **GitHub:** a personal access token; tools `github.repos`, `github.search`, `github.issues`, `github.file`.
+- **Notion:** an integration token; `notion.search`.
+- **Custom MCP server:** the Model Context Protocol over Streamable HTTP, at an https address with an optional bearer token. On Test, DVINE runs initialize then tools/list, and keeps the tools under a short prefix such as `tasks.add_task`. Calls go through tools/call, keep the server's session id, and accept JSON or SSE replies.
+
+Tokens are encrypted on the phone like the API keys.
+
+How a tool is used:
+1. The brain's instructions list only the tools that are on and ready.
+2. It asks for one in its one-line order: `DO TOOL github.issues owner/repo`.
+3. DVINE runs it (results cut to 3,500 characters).
+4. The brain writes the answer from the result. It is told the result is data, not instructions, so a page or a tool can't steer it.
+
+**A quiet start.** The app no longer asks for the user's name when it opens; "call me …" sets one at any time.
+
+## 40. Ibiko the coding agent, and fast and strong models (app v0.51.0, built)
+
+**Ibiko works like Claude Code.** On Ibiko's tab, a task (anything but a greeting) goes to `agent/CodeAgent`. The work happens in Ibiko's own project folder (`files/ibiko`), in steps:
+1. Each step the brain replies with exactly one tool call, or with its final answer.
+2. DVINE carries the call out and hands back the result. A result is data, not instructions.
+3. This repeats up to 15 steps, then the final answer comes in the chat with code in fenced blocks and a list of the files changed. "Continue" picks the work up again.
+
+The tools:
+- `list_files`, `read_file` (with line numbers), `write_file`, `edit_file` (an exact, unique replacement), `search`
+- `run`: one shell command through the phone's own `sh`/toybox, in the folder, as the app, with a 30-second limit and output cut to 8,000 characters
+- `fetch`: an https page as text
+- `connector`: GitHub, Notion, MCP, web search
+
+Boundaries:
+- **Workspace:** paths are resolved inside the workspace; anything that climbs out is refused.
+- **Commands:** they ask first (Run / Always run / Don't run). The **Auto-accept** pill under the persona switch, shown on Ibiko's tab, turns asking off.
+- **Progress and stopping:** every step shows in the chat as a small grey line, and the stop button stops between steps.
+- **Model:** Ibiko always uses the strong model.
+
+**Fast and strong models.** Each API on the providers sheet has a model for real work and a fast one for simple questions. The defaults:
+
+| Provider | Strong | Fast |
+|---|---|---|
+| Anthropic | `claude-opus-5-5` | `claude-haiku-5-5` |
+| OpenAI | `gpt-5` | `gpt-5-mini` |
+| Gemini | `gemini-2.5-pro` | `gemini-2.5-flash` |
+| OpenRouter | `openai/gpt-5` | `openai/gpt-5-mini` |
+
+`llm/TaskSize` picks the tier from the words:
+- **Strong:** writing, building, coding, debugging, analysing, planning, research, long or many-part messages, code in the message, and anything for Ibiko.
+- **Fast:** everything else, and every one-line routing order.
+
+A big request whose routing order is only talk now goes to `askLocal` with room for 1,500 tokens on the strong model, so it gets a whole answer, not one sentence. If the fast model fails before saying anything, the same provider's strong model answers before the next provider is tried. "Fast model for simple questions" on the sheet turns this off.
+
+**Attach** is a 24 dp paperclip on a 40 dp borderless target, matching the mic.
+
+## 41. No "brain" on screen, learning from the APIs, git with GitHub (app v0.52.0, built)
+
+**Wording.** Nothing the user sees or hears says "brain" any more: the header shows "DVINE model", setup is "Choose DVINE's model" with "Download the model", Usage has a "Model" section, the download notification says "DVINE's model is ready". Typed or spoken "download your brain" still works.
+
+**Learning from the API models.** `learn/LearningLog` keeps every answer an API model gives, one JSON line each, in `files/learning/interactions.jsonl`:
+- the instructions, the conversation, the request, the reply, the provider and model, and the tier (fast or strong);
+- Ibiko's steps, since each step is its own call;
+- never a key; nothing leaves the phone unless the user exports it; the file stops at 20 MB by dropping its oldest half.
+
+It is used two ways:
+1. **Now:** when the phone's own model answers (offline, or an API failed), the two closest past answers to the question are put in front of it as examples. Routing orders and tool steps are not used as examples.
+2. **Later:** Usage → Learning → Export writes `Downloads/DVINE/dvine-training-<date>.jsonl`, one `{"messages": [system, …, assistant]}` a line, the format fine-tuning tools read, to train DVINE's own model on a GPU.
+
+Usage → Learning also has the on/off switch (on by default) and Delete. Two limits, said on the screen and here: providers don't return their hidden reasoning, so only what they say is kept; and some providers' terms restrict training a competing model on their output, so check them before fine-tuning.
+
+**Git with GitHub.** The phone has no git program, so `connect/GitHubGit` works a repository through GitHub's Git Data API with the GitHub connector's token. Ibiko's `git` tool:
+- `clone` a repository's branch into a folder in the workspace, keeping `.dvine-git.json` (repository, branch, commit, tree, each file's blob id);
+- `status`: added, modified and deleted files, by git's own blob id;
+- `pull`: clean files are updated and deletions applied; a file the user edited is kept and the other side saved beside it as `.theirs`;
+- `push`: commit and push in one step (blobs, a tree on the old one, a commit, then the branch moved without force, or a new branch made). It is refused when the branch has newer commits (pull first) or a `.theirs` file is left;
+- `pr`: open a pull request from the folder's branch.
+
+Push and pull request ask first (Run / Always run / Don't run) unless Auto-accept is on. The token needs Contents read and write to push, and Pull requests to open them. Limits: 600 files and 1 MB a file per repository.
+
+## 42. Voice lag and the keyboard (app v0.53.0, built)
+
+**Where the time went.** A spoken question waited on four things in a row:
+1. the recognizer deciding the user had stopped (often 1.5 to 3 seconds of silence, and a server round trip);
+2. a one-line routing call to the model;
+3. for real work, a second call that had to finish completely;
+4. nothing on screen or aloud until the last word. Spoken replies weren't read out at all since the chat redesign.
+
+**What changed:**
+- **Listening** (`voice/ListenBridge`): the on-device recognizer when the phone has one (no network; it falls back to the usual recognizer if the language pack is missing, and remembers that); a 0.7 s end-of-speech silence asked for; and DVINE ends the turn itself 0.85 s after the words stop changing (`SETTLE_MS`). If the final words haven't come 0.7 s later, the partial words are used. If the recognizer stumbles after hearing words, those words are used instead of "I didn't catch that". Holding the mic is unchanged.
+- **One call, not two:** real work (`TaskSize` STRONG) that isn't an order for the phone (`TaskSize.mayNeedAction`: search, photo, file, run, GitHub, calendar, and so on) goes straight to the full answer.
+- **Words as they come:** `ChatPane.setLive` shows the reply while it is written, in place of the "Thinking…" line.
+- **Voice as it comes:** on a spoken turn, `voice/SentenceStream` cuts the streaming reply into sentences (not at "e.g.", "Dr." or "3.5"; short ones join the next after the first) and `TalkBridge.queue` reads each as soon as it is complete. Code blocks aren't read ("The code is on the screen."); markdown, links and action tags are cleaned. The mic reopens only after the voice has finished (`TalkBridge.whenQuiet`). Typed messages stay silent; Listen still reads any reply.
+
+The full speech-to-text, model and voice on one machine (a server with streaming recognition and a voice model) is the next step if this is still not quick enough; it belongs with the backend on the VPS.
+
+**Keyboard.** Android 15 (target SDK 35) draws apps edge to edge and ignores `adjustResize`, so the keyboard covered the providers sheet's fields. `Ui.fitInsets` pads the providers sheet, Connectors, Setup and Usage for the keyboard and the system bars and scrolls the focused field into view; the providers sheet's two switches now scroll with the cards, so the list keeps its room.
+
+## 43. Focus, dictation, live steps, Settings, colours, GitHub sign-in (app v0.54.0, built)
+
+**The keyboard typing into nothing.** `ChatPane` kept the list at the bottom with `ScrollView.fullScroll(FOCUS_DOWN)`, which also moves the focus to the list. It ran after Send and on every thinking update, so the message box lost the keyboard while DVINE worked. It now uses `scrollTo`, the list blocks focus (`FOCUS_BLOCK_DESCENDANTS`), and `sendComposer` gives the focus back to the box.
+
+**The mic writes, you send.** The mic button (and Speak in the Add sheet) starts dictation: partial words appear in the box after whatever was typed, the final words replace them, the box gets the focus and the keyboard, and you edit and send. Tap the mic again to stop early. The holo stage's hold-to-talk and the auto-listen after a question still send directly.
+
+**Read aloud.** Settings → Voice: Always (default), After the mic, Never. Replies are read sentence by sentence as they are written (§42).
+
+**What DVINE is doing.** The chat shows a live panel instead of "Thinking":
+- a pulsing status line with a timer;
+- each step as it happens: reading your message; searching the web for …; a source read; "Asking OpenAI (gpt-5-mini), the fast model"; a provider that didn't answer; reasoning; writing the answer; Ibiko's tool steps; the on-phone model and recalled answers (`LocalModel.onStep`, `MainActivity.activity`).
+
+When the turn ends it folds into "Worked for 6s · 5 steps ›" above the reply (kept in the chat as an `activity` message, left out of what the model reads), which opens to show the steps. The reply streams under the panel.
+
+**Settings** (drawer, replacing Appearance): the on-phone model (state, a live progress bar with the download detail, Download / Pause / Resume, Remove with a confirmation), Read replies aloud, Appearance (System, Light, Dark), and links to AI providers, Connectors and Usage and learning.
+
+**Add** opens a bottom sheet (`chat/ui/BottomSheet`) with a 24 dp outline icon per choice: Speak, Photo, Video, Audio, File, Several photos of one object.
+
+**Colours.** DVINE's own palette: night `#121218` with violet `#8B7CFF`, day `#F7F7FB` with `#5B4BDB`; cool neutrals instead of warm ones.
+
+**GitHub sign-in** (`connect/GitHubLogin`). GitHub stopped accepting passwords from apps in 2021, so the ways in are:
+1. **Sign in with GitHub:** GitHub's device sign-in. DVINE shows a short code, opens github.com/login/device, the user signs in there with email or username and password (and two-factor), types the code and approves; the token arrives by itself. It needs the client ID of an OAuth app the user makes once (Settings → Developer settings → OAuth Apps, "Enable Device Flow"); the client ID is public, not a secret, and is asked for the first time only.
+2. **Create a token on GitHub:** opens the token page filled in (`repo`, `read:user`, named DVINE), then paste.
+3. **Paste a token.**
+
+The card then says "Connected as @user" and offers Sign out.
+
+## 44. Ibiko with any model, real search, attachments, Settings, three personas (app v0.55.0, built)
+
+**What went wrong with a custom API (GPT-5), and the fixes:**
+1. **Tool calls shown as text.** Models write tool calls in the forms they were trained on: `<tool_call><function=git action="clone" …/></function></tool_call>`, `<function=fetch><parameter=url>…</parameter></function>`, `<invoke name="…"><parameter name="…">`, or JSON `{"name", "arguments"}`. `CodeAgent.parse` only knew `<tool name=…>`, so the clone never ran and the workspace stayed empty. `CodeAgent.foreign` now reads all of them and maps common names (web_search → web.search, bash → run, read → read_file, ls → list_files). A reply with a tool call it still can't read, or a short promise ("I'll research Google…"), is answered once with "do that now with the tools" instead of ending the task.
+2. **"The model didn't answer."** Reasoning models (GPT-5, the o-series, R1, "thinking" models) spend hidden reasoning tokens from the reply's limit; with 2,000 the visible answer came back empty. `RemoteBrain.reasoning()` sends them `max_completion_tokens` of 8,000 to 32,000 and `reasoning_effort` low (medium for long work) on the first request, without the two refused forms first, and the read timeout is 180 s.
+3. **"It stopped at 16 percent. Say continue the download."** A failed model download posted into the chat, which also cut off the current reply. It is now a short note pointing to Settings.
+
+**Web search** (`net/WebSearch`). The free search was effectively Wikipedia: DuckDuckGo's instant-answer API returns Wikipedia abstracts. Search engines' own result pages refuse automated queries and are not scraped. So:
+- with the user's key (Connectors › Web search): Brave Search (free plan), Tavily, or Google Programmable Search (key and engine ID);
+- without one: Wikipedia's search API, several articles;
+- then the best pages are read (`WebGet.page`: a browser-like client, big pages cut not dropped, failures explained) and the model answers from the numbered results with the sources. Persona answers, "look it up" and Ibiko's `web.search` all use it.
+
+**Repositories on the phone.** Clone downloads the branch as one zip (up to 300 MB) and unpacks it with each file's git blob id, instead of one API call per file (and a 600-file limit). The clone stays in Ibiko's workspace, usable offline: the models read and edit it through Ibiko, and push when online. Public repositories clone and pull without signing in. Editing on GitHub without a clone is still open.
+
+**Attachments** (`chat/Attachments`, `chat/ui/ComposerAttachments`, `chat/ui/AttachmentReader`):
+- A paste of 1,500+ characters or 25+ lines becomes a "Pasted text · N lines" card.
+- A picked photo becomes a thumbnail (shrunk to 1,568 px). A text or code file is read as text (up to 300 kB). A PDF, video or sound is attached by name.
+- Nothing is sent until Send. The chat then shows the photos and cards with the words.
+- The model gets each image as a real image (`[[image:path]]` → OpenAI `image_url` / Anthropic `image` parts) and each text as `<attachment>` data.
+- The phone's own model and the remembered history see "[an image]".
+
+**Settings:** profile (your name, the persona to start with), chat (Enter sends; show the working steps), voice (read aloud; speaking speed), models (AI providers; the on-phone model with live progress, pause, resume, remove), web and services, Ibiko (auto-accept; clear the workspace), appearance, data and privacy (learning; export chats; delete all chats), about.
+
+**The three personas:**
+- **Ivie** is images, drawings and 3D. On her tab a drawing, a build, an edit of what is shown, a view, undo, save, open or export goes to the creation engine (`CreationDirector`). The result shows on her 3D canvas above the chat: the GL scene and stage, with ✕ to hide it. It is shown on her tab only.
+- **Obi** is conversation, questions and research.
+- **Ibiko** is code, files and GitHub.
+
+Each persona's instructions say this.
+
+**Clean-up:**
+- `MainActivity` went from 4,040 to 3,180 lines. 25 unreachable methods (old debate, part editing, export, desk, name and view paths) and 6 unused fields were removed.
+- Ibiko's phone host moved to `agent/PhoneHost`, the streaming reply to `chat/LiveReply`, and dictation to `voice/Dictation`.
+- The unused `create/Materials` class was removed.
+- Classes now used only by tests are kept for Ivie's tools to come: `MeshExport`, `PartEdit`, `ObjImporter`, `PhotoFrame`, `Debate`, `ViewIntent`, `AnswerGate`, `SpeechChunker`, `WorldLookup`, `ResponseStreamingManager`, `CreationRouter`, `MachinePlan`, `SemanticGraph`, `ReconstructionJob`.
+
+## 45. Any model, the phone's files, and open settings (app v0.56.0, built)
+
+**Models that take no images or files.** DeepSeek and many others are text only.
+- A pasted text or text file is already text inside the message (`<attachment>`), so every model reads it.
+- An image is sent as an image. If the provider refuses the request (400 or 422), `RemoteBrain` sends the same request again with a note in the image's place ("an image is attached, but this model can't see images"). It then remembers that model, so later requests go straight to notes.
+- AI providers › Advanced › Sees images can be set to Yes or No instead of Auto.
+- DeepSeek is a provider preset: `https://api.deepseek.com/v1`, deepseek-reasoner for real work, deepseek-chat for quick questions.
+
+**The phone's files, for any persona and any model.**
+- The agent's tools are plain text, not a provider's function-calling, so any model can use them.
+- On Obi's or Ivie's tab, a question about the cloned repositories runs the agent read-only (`CodeAgent.as("Obi", true)`). That means the word repo, codebase or cloned, a cloned folder's name, or a file name.
+- The read-only agent can list, read, search, fetch pages and use the connectors. Writing, commands and git are refused and left to Ibiko.
+- The answer comes back from that persona.
+
+**Settings instead of fixed numbers.**
+
+Per provider (AI providers › a provider › Advanced):
+
+| Setting | Values |
+|---|---|
+| Sees images | Auto, Yes, No |
+| Reasoning model | Auto, Yes, No (Auto goes by the model's name) |
+| Most it may write | tokens; empty means DVINE decides |
+| Time a reply may take | seconds (180) |
+| Context window | tokens |
+| Extra request fields | JSON sent as given, e.g. `{"temperature": 0.3}`, `top_p`, OpenRouter's `provider` routing; checked to be JSON |
+
+App-wide (Settings › Advanced, `chat/Tuning`). Each has a range and "Back to the defaults":
+
+| Setting | Default |
+|---|---|
+| Everyday reply length | 160 |
+| Long reply length | 1,500 |
+| Agent steps | 15 |
+| Agent step length | 2,000 |
+| Paste becomes a file at | 1,500 characters |
+| Image size | 1,568 px |
+| Web results | 8 |
+| Pages read | 3 |
+
+## 46. Ivie's studio, files to the API, Ibiko's results and chips (app v0.57.0, built)
+
+**Ivie's studio** (`create/IvieStudio`). On Ivie's tab:
+- "draw me a dragon" (anything the creation engine doesn't build itself) has the model plan it as named parts: one line each, `part | solid | colour | where | size` (`DrawPrompt`). The app builds the parts (`SolidSpec`) and shows them on her canvas.
+- Then the thing is worked on by its parts (`PartEdit`): "take out the tyres" (a tyre is a wheel), "show only the engine", "make the wheels black", "make the roof bigger", "add a spoiler" (the model writes the new part lines), "put the tyres back", "undo", "redo". The model is asked which parts a word means when the names don't say.
+- "Export it" saves it with `MeshExport` in Downloads/DVINE, and the note above the box shares it:
+
+| Format | Opens in |
+|---|---|
+| GLB | Blender, Unity, Unreal, Godot |
+| OBJ + MTL | Blender, Maya, 3ds Max, SketchUp |
+| STL | 3D printing |
+| PLY | MeshLab |
+
+Any model can do this: it only writes lines of words.
+
+**Any file to the API.** A picked file is kept whole and sent as itself where the provider takes it:
+
+| Provider form | Sent as |
+|---|---|
+| Claude | `document` blocks for PDFs and plain text |
+| OpenAI form (OpenAI, OpenRouter, gateways) | `file` parts for any type; sounds (mp3, wav) as `input_audio` |
+
+When a model refuses, the same request goes again with what the phone took out of the file (`chat/FileText`, `AttachmentReader`):
+- the text of Word, Excel (cells by row), PowerPoint (by slide), OpenDocument and EPUB files;
+- a zip's listing;
+- a PDF's first 6 pages as pictures;
+- 4 frames of a video as pictures.
+
+A text-only model gets the text. Otherwise it gets a note to ask for the part that matters.
+
+**Ibiko's full results.**
+- A short progress line ("Auditing your codebase now — mapping structure…") for an audit, review, research, report or similar is sent back with "write the complete result". A promise ("I'll…") is sent back to act.
+- The next turn sees earlier messages whole (up to 6,000 characters each), and an API model's replies are remembered whole.
+- "The model didn't answer" now gives the provider's reason. The step length is 4,000 tokens by default.
+
+**Ibiko's chips** (`chat/ui/WorkChips`, Ibiko's tab only, as in Claude Code):
+- **Diff +a −r:** what changed in the cloned repositories since the clone, pull or push. It is compared with copies kept in each clone's `.git/dvine-base` (`connect/LineDiff`, three lines of context). Tap it for every file, line by line, green and red.
+- **Pull requests · n:** the ones Ibiko opened. Tap one to open it on GitHub.
+- **Artifacts · n:** files Ibiko made outside the clones, and models exported on Ivie's tab. Tap to open, hold to share.
+
+## 47. Full reports, continue, and steps that open (app v0.58.0, built)
+
+**A big task ends with its report.** Recognising status lines by their words ("now auditing", "mapping…") missed every new phrasing. So for an audit, review, research, analysis, summary, report, plan or comparison (`CodeAgent.bigTask`):
+- A reply under 1,500 characters is never the end. It gets one more round: "write the complete final report: findings with file names and line numbers, problems ranked, the fix for each; use a tool first if you must." That round has room for it (`Brain.askLong`, 12,000 tokens or more).
+- When the steps run out (30 by default), the report is written from what was found, ending "say continue to keep going".
+- A promise ("I'll…") still gets the short "do it now" first.
+
+**Streaming.** Each step's words show in the chat as they are written, as in ChatGPT, unless they turn out to be a tool call, which shows only as a step.
+
+**Continue.** Each persona's agent work is kept on the phone (`files/agent-<persona>.txt`): the task, every tool call and every result. "continue", "go on", "give me the result", "what did you find" go on from it with nothing read again. They are no longer swapped for the last question.
+
+**Steps in words** (`agent/CommandWords`):
+- `ls -la; echo ---; ls app` is "Listed the files in the workspace, then listed the files in app".
+- `grep -rn TODO app` is "Searched for "TODO" in app"; `cat a.py b.py` is "Read a.py and b.py"; `find src -name '*.java'` is "Looked for files named "*.java" in src".
+
+Every command and every file is named, none counted away, and every step is listed in the panel.
+
+**Steps that open** (`agent/StepDetail`, `chat/ui/DetailSheet`). A step with a detail shows "+3 −1 ›" and opens with a tap, live or later from "Worked for…":
+- **A file written or edited:** its diff with line numbers, added lines in green and removed in red.
+- **A command:** the command and what it printed.
+- **A file read, or a listing:** its text.
+
+The detail is kept in `files/steps/<id>`, and the step line carries the id.
+
+## 48. The agent works until it hands in its answer (app v0.59.0, built)
+
+Recognising "status lines" by their words kept missing new phrasings, so the rule itself changed, as in coding agents like Claude Code. Each reply of the model is one of four things:
+1. **A tool call:** it runs, and the work goes on.
+2. **`<final>…</final>`:** the work is done and that is the answer. For a big task (audit, review, research, report…) a very short final gets one round to be written in full.
+3. **A progress note or a request for leave** (`CodeAgent.status`, `asksPermission`, `promise`): never the end. It is shown as a step, and the model is told to carry on: "don't describe it, do it", or "don't ask, they asked for the whole job". After three notes, or two requests for leave, the report is written from everything read so far (`report`, a 12,000-token allowance).
+4. **Anything else:** an answer. For a plain request it ends the work ("hello", "capital of France?"). For a big task it ends the work if it is a whole report (1,500+ characters). Otherwise it gets one round to be written in full.
+
+Also:
+- An empty reply is asked again once.
+- A dropped connection (`IOException`, a broken stream before any words) is tried twice more after 1.5 and 4 seconds (`RemoteBrain.chat`). A server error goes to the next model through `LocalModel`'s switching instead.
+- The system prompt tells the model to finish with `<final>` and never to stop to ask or narrate.
+- The live text shows the final answer as it is written.
+
+## 49. Pills under the reply, controls where the thumb is (app v0.60.0, built)
+
+The chat screen follows Claude Code's layout:
+- **Header:** menu · chat title over the model · Ibiko's **Auto** pill · new chat. The pill shows on Ibiko's tab only. It reads "Auto" when commands run without asking and "Ask" when they wait, and a tap switches it.
+- **Composer row:** attach · **Ivie / Obi / Ibiko** · mic · send. The persona tabs left the space under the header and keep their ids (`tabIvie`, `tabObi`, `tabIbiko`).
+- **Pills under the reply that produced them.** Diff, Pull requests and Artifacts moved from above the message box into the reply (`item_message_assistant.xml`: `reply_work_scroll` / `reply_work_row`).
+  - When a run ends (`MainActivity.attachWork`), `WorkChips.capture` keeps what that run did in `files/work/<id>.json`:
+    - the diffs of the files it changed inside cloned repositories;
+    - the pull requests and artifacts logged since it started.
+  - A `work` message with that id goes into the chat. It is kept with the chat and never sent to the model.
+  - `ChatPane.show` draws the pills inside the turn's last text row, or in a strip of their own. Each reply keeps its own pills and scrolls with them. A reply that produced nothing shows none. An Ivie export puts its model file under her reply the same way.
+
+The agent's rules, from the user's screenshots:
+- A short line that opens with a work verb ("Fixing your build errors — digging into the failing sources.", "Inspecting the layouts…") is a progress note (`CodeAgent.GERUND_NOTE`), not the answer. Short real answers ("Fixed it — missing import added.") stay answers.
+- An empty `<final></final>` is sent back once or twice for the actual answer, so a "Continue" never shows an empty reply.
+
+## 50. The model decides when it is done; steps in a sheet (app v0.61.0, built)
+
+**No trigger words.** The agent no longer reads the model's wording to guess whether a reply is progress or the answer. The lists `status`, `promise`, `asksPermission` and `GERUND_NOTE` are removed. The work ends by structure:
+1. **A tool call:** it runs, and the work goes on.
+2. **`<final>…</final>`:** that is the answer.
+3. **Text with neither** (the model stopped writing): DVINE asks once, in the same words whatever was written (`DONE_OR_GO_ON`: "finished? put it in `<final>`; anything left? call the next tool"). What the model does next decides:
+   - a tool call: the work goes on;
+   - `<final>`, the same text again, or nothing more: the work is done, and the text is the answer.
+
+   A whole report (1,500+ characters) needs no asking. A short answer to a big task still gets one round to be written in full.
+
+**Written until it ends by itself.** `RemoteBrain` reads the server's own stop reason: `finish_reason: "length"` (OpenAI form) or `stop_reason: "max_tokens"` (Anthropic). When the allowance cut a reply off, the model is asked to continue exactly where it stopped, up to 4 times, and the pieces are joined into one reply. A reply that ended by itself is never extended.
+
+**Steps in a bottom sheet.** While the work runs, the chat keeps one line: a pulsing dot, then the current step typed out like a typewriter (18 ms a character), then the time and the step count with a ›. A tap opens a bottom sheet (`BottomSheet.showView`) listing every step, and the sheet grows while it is open. A step with a file change still opens its green/red diff. The reply comes underneath as plain text. Afterwards, "Worked for 6s · 4 steps ›" opens the same sheet instead of expanding in the chat.
+
+**Composer.**
+- Send ignores taps for 900 ms after a send, so a double tap neither cancels the reply nor sends twice.
+- The persona tabs have icons: graphics for Ivie (triangle, square, circle), a chat bubble for Obi and a wrench for Ibiko. The chosen tab also shows its name.
+- "Files" in the attach sheet picks several files of any kinds at once (`EXTRA_ALLOW_MULTIPLE`, `*/*`). Each one waits in the box for the instructions.
+
+## 51. Copy on a tap, check icons, git and a sandbox taught (app v0.62.0, built)
+
+- **Your message's copy icon** is hidden until you tap the message. A second tap hides it, opening another message's icon closes the first, and every redraw (a new message) starts with it hidden. A long press still selects text.
+- **Steps** show a standard check icon (`ic_check`) when done and a chevron (`ic_chevron_right`, accent) for the one happening now, instead of the ✓ and › characters.
+- **Ibiko is taught git and a sandbox** (`CodeAgent.GIT_WAY`, `CodeAgent.SANDBOX`, in the system prompt for the working personas):
+  1. Clone once, and pull before working on an existing clone.
+  2. Check `git status` before pushing.
+  3. Push to a new `ibiko/<what-it-does>` branch and open a pull request, unless the user asked for the main branch.
+  4. When a push is refused because GitHub has newer commits, pull and push again.
+  5. Merge each `.theirs` conflict copy into its file, then delete the copy.
+  6. Never claim a push or a pull request the tool didn't report.
+  7. Scratch work (a new project, a test script, notes, a report) goes in `sandbox/<short-name>/` in the workspace, never inside a clone. It stays on the phone and shows as artifacts.
+- **The clone limit is a setting:** Settings › Advanced › Most files in a clone (`Tuning.CLONE_FILES`, default 5,000, 100–50,000) replaces the fixed 600 that refused the user's repository. The refusal names the number and the setting.
+
+## 52. A choice of offline model, in families and sizes (app v0.63.0, built)
+
+Settings › Models › **Change the offline model** opens a bottom sheet of families, then the chosen family's sizes, as Claude comes as Haiku, Sonnet and Opus: smaller is faster and lighter, bigger answers better and needs more memory. Every one is a 4-bit GGUF (Q4_K_M) for the app's own llama.cpp, pinned to a Hugging Face revision and checked against its SHA-256 (sizes and hashes read from Hugging Face's API on 2026-11-02):
+
+| Family | Size | File size | Memory it wants | Licence |
+|---|---|---|---|---|
+| Qwen3 | 0.6B | 0.40 GB | 2 GB | Apache 2.0 |
+| Qwen3 | 1.7B (default) | 1.11 GB | 4 GB | Apache 2.0 |
+| Qwen3 | 4B | 2.50 GB | 6 GB | Apache 2.0 |
+| Qwen3 | 8B | 5.03 GB | 10 GB | Apache 2.0 |
+| Llama 3.2 | 1B | 0.81 GB | 3 GB | Llama 3.2 Community Licence |
+| Llama 3.2 | 3B | 2.02 GB | 6 GB | Llama 3.2 Community Licence |
+| Gemma 3 | 1B | 0.81 GB | 3 GB | Gemma Terms of Use |
+| Gemma 3 | 4B | 2.49 GB | 6 GB | Gemma Terms of Use |
+| Phi-4 | mini | 2.49 GB | 6 GB | MIT |
+
+Choosing a model:
+- `ModelSpec.ALL` lists the models. `families()` and `sizes(family)` group them for the sheets.
+- A model has its family, size, a line about it, the memory it wants, and whether it understands Qwen3's "/no_think" (`ModelSpec.prompt` removes the words for the others).
+- The choice is kept in the `offline_model` preference (`ModelHub.chosen`). An unknown file falls back to the default.
+- `LocalModel.switchTo` frees the loaded model, forgets the conversation and points at the new file. The API chain, usage and learning stay as they were.
+- The sheets mark the model in use and the ones already on the phone. They warn when the phone has less memory than a model wants.
+- Switching away from a downloaded model asks whether to keep it (to switch back without downloading again) or delete it.
+- Switching is refused during a download. Pause it first.
+- Back in the chat, the new model loads if it is on the phone (`ModelHub.generation`). Otherwise the card shows Download.
+
+Switching from the chat, at any time:
+- The model under the chat title opens a sheet. It offers the offline models already on the phone (one tap switches and loads, with no download), "All offline models" (Settings) and "AI providers".
+- The header names the offline model in use ("Qwen3 4B") when no API answers.
+
+Freeing space:
+- Settings › Models lists every model on the phone, whole or part-downloaded, with its size and a **Delete** (`LocalModel.onPhone`, `LocalModel.delete`).
+- Deleting the model in use frees it too, and answers then need an API until another is downloaded.
+
+Engine:
+- The chat template comes from each file (`llama_chat_apply_template`).
+- The vendored llama.cpp supports the Qwen3, Llama, Phi-3/4 and Gemma 3 architectures and the gpt-4o tokenizer.
+- The models have not been run on a phone from this cloud session.
+
+## 53. More memory for the offline model, slowness advice, DVINE's own online model (app v0.64.0, built)
+
+**Offline model memory.** Settings › Advanced › Offline model memory, tokens (`Tuning.OFFLINE_CONTEXT`) sets the phone's own model's context window. The default is 8,192, and it can be set from 1,024 to 32,768. It used to be fixed at 2,048.
+- A change takes effect on return to the chat. The loaded model is freed and loaded again (`LocalModel.context`).
+- When there isn't enough memory for the size asked, the model starts with 2,048 and the user is told why and where to change it (`takeMemoryNote`).
+- The Usage screen and the agent's transcript allowance follow the real window.
+
+**Slowness advice.** `LocalModel.noteSpeed` keeps the speed of the last three local replies (16+ pieces). When their average is under Settings › Advanced › "Offline model is slow below, tokens a second" (`Tuning.SLOW_SPEED`, default 4), DVINE says once in the chat, per model and memory size (`slowAdvice`), what would make it faster:
+- the next smaller size of the same family;
+- 4,096 tokens of memory instead of more;
+- or an API model.
+
+**DVINE's own online model.** The DVINE server provider in AI providers (`Providers.DVINE_SERVER`) uses the server's model, for example Qwen3 14B.
+- The address is the app's server plus `/api/v1/llm`. The model name defaults to `qwen3-14b`.
+- There is no key. `ProviderStore.serverSession`, the phone's 12-hour session from `SessionClient`, is fetched at every request through `RemoteBrain.keySource`, so a renewed token is used at once.
+- When the phone can't sign in, the reply says so and no request is sent.
+- The backend relays the request to llama-server (backend `docs/SERVER_MODEL.md`).
+
+**GPU (not built).** Building llama.cpp's Vulkan backend needs its upstream source plus the Khronos Vulkan and SPIR-V headers built in the build machine. That was refused in the cloud session, so the engine stays CPU-only.
+
+## 54. The brain reads what a message means (app v0.65.0, built)
+
+DVINE carries out a few things itself, and each has one wording its code knows:
+- carry on: "continue"
+- hand in the result: "give me the result"
+- get the model: "download the model"
+- remove it: "delete the model"
+- the download's progress
+- the model on or off
+
+People say these in endless ways: "are you done?", "where are we with that", "keep at it", "free up the model's space". Matching words missed every new phrasing, so the meaning is read instead (`turn/Meaning`):
+
+1. **The fixed wordings still act at once.** That means pause and resume, the model commands, and `carriesOn`.
+2. **Every other short message is read for its meaning** (one line, up to 160 characters, no code). `Meaning.prompt` lists the commands with what each means. Carrying on and the result are offered only while there is work under way: an agent's kept work, or a paused reply. The brain (the fast model when one is set) names one command or none, in up to 24 tokens.
+3. **DVINE acts on that command's own wording.** It shows "Understood as “give me the result”" above the message box. The user's words stay in the chat. A message that means none goes on as it was written.
+4. **Each phrasing is remembered.** `Meaning.Memory` keeps up to 300 in the `meanings` preference, punctuation and case aside. The next time, it is understood at once, even offline, with no model call. A phrasing that meant none is remembered too, so it isn't read again.
+5. **Nothing to read with means no reading.** With no model at all, the message goes on as written.
+
+Longer messages are tasks or questions, and they go to the brain whole.
+
+In app v0.66.0 the list grew by nine commands. DVINE carries each out with the same action as its button (`Command.direct()`, `MainActivity.command`):
+- start a new chat
+- switch to Ivie, Obi or Ibiko (only when the message is just about switching; "ask Obi about X" stays a message to Obi)
+- stop
+- turn auto-accept on or off
+- clear Ibiko's workspace (clones, sandbox, files and the kept agent work; it asks first, since it can't be undone)
+- open Settings
+
+## 55. Obi first, clean new chats, a model that can't stop the app, speed you can measure (app v0.67.0, built)
+
+**Obi first.** The persona switch reads Obi · Ivie · Ibiko. The app opens on an empty chat with Obi, not the last conversation (the chats so far are in the menu). New chat also opens on Obi.
+- `ChatBook.fresh` reuses the latest empty chat, so blank chats don't pile up.
+- A new chat starts clean: work still running is stopped, and its steps are dropped (`ChatPane.activityDrop`), not written into the new chat.
+
+**The model can't stop the app.**
+1. *Startup freeze:* since 0.64, `onResume` set the offline memory size through a method that waited for the model's lock, and a model being loaded holds that lock for the whole load. With a big Qwen3 the screen froze while it loaded, for good if the phone stopped the load. `LocalModel.context` no longer takes the lock; `load()` applies a new size itself.
+2. *Switching and removing* the model run on one model thread (`ModelHub.worker`), in order with loads, never on the screen's thread. Screens show the chosen model at once (`ModelHub.chosen`).
+3. *Too strong for the phone* (`ModelGuard`):
+   - Before a load, a model that wants more memory than the phone has is set aside.
+   - A marker is written while a model loads. Found at the next start, it means the phone stopped the app during that load, so that model is set aside too.
+   - A load that fails for lack of memory sets the model aside as well.
+   - Each time, DVINE starts the strongest model already on the phone that fits, and says which.
+   - Choosing a model again in Settings clears its mark.
+
+**Foreground.** Every piece of model work holds the foreground service: a reply, a load, the reading of a message, the speed test.
+- `ReplyService.hold`/`release` count the holders, so one piece finishing can't drop it while another runs.
+- The phone doesn't throttle or stop the model when the app leaves the screen.
+- The model's threads run at foreground priority (`LocalModel.raisePriority`).
+
+**Speed you can measure.** Settings › Models › Test the speed (`LocalModel.speedTest`) runs the same question on the phone's own model, never an API. It reports the start-up time, the time to the first word, and tokens a second.
+
+Desktop numbers (`OfflineSpeedTest`, the app's own engine built for x86, 4 threads, 8,192 tokens of memory; a phone is several times slower):
+
+| Model | Writing speed |
+|---|---|
+| Gemma 3 1B | about 24 tokens a second |
+| Qwen3 1.7B | about 19 tokens a second |
+| Qwen3 4B | about 9 tokens a second |
+
+**Real models found two more faults**, both fixed (`OfflineIbikoTest` with Qwen3 4B on the desktop engine):
+- *Thinking used up the whole allowance.* Qwen3 thinks before answering, and Ibiko's instructions don't turn that off. On a long step the thinking took the whole allowance and nothing was written. Now `LocalModel.task` tries once more with thinking off. After that, Qwen3 4B lists the files and describes the project, and searches for what it was asked.
+- *Reading counted as writing.* The 3-minute reply cap counted from the request, so it included the time spent reading a long question. A big model on a phone can take minutes to read before its first word. The cap now counts from the first word (`ReplyWatch`), and reading may take up to 10 minutes; past that, the message names the model and what would be quicker.
+
+**Every control tapped** (`UiTourTest`): every screen is opened and every button, switch, tab, row and link is tapped in turn, including the side menu (reopened before each item) and the sheets they open. A yes/no is always answered no, so nothing is deleted. 150 taps across 11 screens, 0 failures. Each tap is listed as a `UITOUR` line.
+
+**On the phone's cores (v0.67.1).**
+- The model uses the phone's fast cores only (`LocalModel.fastCores`): the fastest clusters until there are at least two, at most four. On a phone with 2 fast and 6 slow cores, 4 threads put two on slow cores, and llama.cpp waits for its slowest thread.
+- Settings › Advanced › Offline model threads overrides it, and the speed test shows the thread count.
+- Offline, the meaning step makes no model call; only remembered phrasings apply. On a phone that call cost about as much as a reply, and it pushed the persona's instructions out of the model's memory, so they were read again for every message.
+- The screen gives the phone's model 10 minutes to its first word instead of 3. When that runs out, the message names what would be quicker.
+
+**Ibiko's instructions** no longer show a made-up example path (`src/app.py`, which Qwen3 4B went looking for): the examples read `FOLDER/FILE`, "a real path from the workspace list".
+
+## 31. Open work, in order
+
+The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.
+
+| # | Work | Scope of the first version | Depends on |
+|---|---|---|---|
+| 1 | **Both personas in one scene** (Dual-AI step 1) — built in v0.12.0 (`human/scene/DualScene`; say "stand side by side", "walk to each other", "walk together", "just one of you") | `DualHumanSceneController`: each persona has its own root position and facing in the same world; the second walks in from an entrance point (no teleport), slows, stops at a talking distance and both turn to face each other; side by side on request; a camera that keeps both bodies head to feet in frame; feet on the floor; bodies never overlap | §30 |
+| 2 | **Turn-taking between the two** (Dual-AI step 2) — built in v0.13.0 (`turn/DualAgentCoordinator`; say "both of you discuss …", "debate …", "what do you both think about …", "explain … together", "pause", "resume") | `DualAgentCoordinator` with the states IDLE, QUESTION_RECEIVED, AGENT_A_THINKING, AGENT_A_SPEAKING, AGENT_B_ANALYZING, AGENT_B_SPEAKING, DEBATE_CONTINUING, CONSENSUS, FINAL_SUMMARY, CANCELLED, ERROR; each persona answers through its own brain session (offline brain, or its own desk room online); a turn limit and repeat detection; interrupt, pause, resume; the listener looks at the speaker, the speaker's lips follow only its own voice | 1 |
+| 3 | **FACS face** | blend shapes from the reference sheet: brow raise and lower, blink, inner squint, cheek raiser, nose wrinkle, corner puller, mouth stretch, pucker, funnel, lips forward, chin raiser, jaw open, neck stretch; driven by speech and emotion; each checked in a GL replay | §30 |
+| 4 | **Dialogue body language** | `DialogueAnimationController`: gestures chosen by dialogue intent (explain, ask, agree, disagree, think, laugh, conclude), with variation; listening nods and blinks | 2, 3 |
+| 5 | **Coordinated interactions** | `InteractionChoreographyController`: wave, handshake, pointing at a shared object, celebrate, comfort, hug; each with preconditions, start positions, IK contact points, collision checks, a hold and a return to idle | 1, 4 |
+| 6 | **Dual-AI controls and camera views** | compact panel (ask both, ask one, debate, joint explanation, pause, resume, interrupt, replay, camera view, end); full-body, conversation, speaker, user-facing and close-up views; portrait and landscape | 2 |
+| 7 | **Ibiko, the coding robot** (third persona, from the project lead's sheet: a small white robot with a dark visor face of glowing teal eyes and smile, audio-ear headphones and two antennae, emerald and mint accents) | a cute coding companion for many languages (Kotlin, Java, Python, JavaScript/TypeScript, C/C++, Go, Rust, shell, SQL, HTML/CSS) and for Termux, Linux and SSH work; his own body (helmet, visor expressions: happy, wink, excited, thinking, surprised, sad), voice and manner; a coding workspace (Code / Files / Terminal / Tests / Preview), the server's sandboxed workspace (Track S) and the phone's own SSH client: inspect, edit, run and test, a bounded repair loop, and a report that says only what actually ran; asks before anything destructive, verifies SSH host keys, keeps no passwords | Track S workspace runner, SSH client |
+| 8 | **Language understanding** — first part built in v0.19.0, an on-device language model in v0.20.0 (§32) (`brain/ContextExaminer`: whole-sentence reading, addressee, negation, references, corrections, several requests, asking back) | broader intent parsing for everyday phrasing (moves, looks, questions, commands to a named persona); next: corrections into the learning journal, the silent dictionary and word senses | — |
+| 9 | **Ground and walking** | a visible floor the body walks on (root travel follows the stride, feet planted, nothing sinks) | 1 |
+| 10 | **Realistic skin mode** — built in v0.14.0 with everyday clothes (default look; "hologram mode" / "skin mode", "make your skin darker/lighter"). v0.18.0 adds the hair library (afro puffs, fade, short afro, cornrows, bantu knots, bald) and the studio look from the user's render reference (charcoal backdrop, teal ring floor, contact shadows, key/rim light, glossier skin, shoes on a smooth last). Next: draped clothes, higher-poly silhouettes, twists/locs | a lit skin look (tone from Look, wrap-light subsurface approximation) beside the hologram, with a mode switch | §30 |
+| 11 | On-phone Linux, terminal UX | proot + Alpine rootfs; terminal, runs and web fetch on the phone | — |
+| 12 | M8 voice polish | — | — |
