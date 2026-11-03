@@ -203,6 +203,19 @@ public final class TalkBridge extends UtteranceProgressListener {
         return tuning[ivie ? 1 : 0].apply(command, ivie, ranked, other);
     }
 
+    /**
+     * Ibiko's voice is Obi's pitch and pace shifted by the robot constants in {@link VoiceTuning}: a little
+     * brighter, a little slower — the bright little robot next to Obi's baritone, without the sharp, hurried
+     * edge the system voice used to have.
+     */
+    private static float bright(boolean ivie) {
+        return robot && !ivie ? VoiceTuning.ROBOT_BRIGHT : 1f;
+    }
+
+    private static float quick(boolean ivie) {
+        return robot && !ivie ? VoiceTuning.ROBOT_QUICK : 1f;
+    }
+
     private volatile boolean robot;
     private volatile float rateScale = 1f;
 
@@ -250,8 +263,8 @@ public final class TalkBridge extends UtteranceProgressListener {
         }
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
         float pitch = t.pitchFor(ivie, g);
-        float bright = robot && !ivie ? 1.25f : 1f, quick = robot && !ivie ? 1.06f : 1f;
-        tts.setPitch((thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch) * bright);
+        float bright = bright(ivie), quick = quick(ivie);
+        tts.setPitch(VoiceTuning.warm((thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch) * bright));
         tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick * rateScale);
         speaking = text;
         sayText = text;
@@ -291,8 +304,8 @@ public final class TalkBridge extends UtteranceProgressListener {
             tts.setVoice(v);
         }
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
-        float bright = robot && !ivie ? 1.25f : 1f, quick = robot && !ivie ? 1.06f : 1f;
-        tts.setPitch(t.pitchFor(ivie, g) * bright);
+        float bright = bright(ivie), quick = quick(ivie);
+        tts.setPitch(VoiceTuning.warm(t.pitchFor(ivie, g) * bright));
         tts.setSpeechRate(t.rate * quick * rateScale);
         speaking = text;
         queued++;

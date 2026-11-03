@@ -39,3 +39,29 @@ Steps:
 - [x] git: review `git status`, commit, push on a branch, open a PR.
       Committed as `6fb84ae` on branch `ibiko/localmodel-fixes`, PR #91:
       https://github.com/DOKTOHSMILE/Dvine-ai-frontend/pull/91
+
+## Round 2 (audit: behaviour that doesn't match what the app says it does)
+
+- [x] MainActivity.offerTermux(): gate the message on actually opening the Ibiko tab (`fromTap`), and fix the
+      wording — it claimed "I won't open another app", which is false (apps open after a spoken yes), and it never
+      named the tools that do exist here. Now: "My file tools live here: ask me to find a zip, unzip it, or run a
+      command in this chat. If a task needs another app I'll ask you first." Read back the edited hunk.
+- [ ] run_terminal_cmd tool doc vs what the shell actually does (working directory, limits, denial wording).
+- [ ] Interpretation.java `command()` bridge: does the classifier's promise match ActionPlanner's behaviour
+      (yes/no confirmation, last-said fallback, app list).
+- [ ] SocialAsk: network patterns vs the social.* connector calls actually implemented.
+- [ ] Re-read each change, then commit + push on a branch and open a PR.
+
+## Round 3 (user issue: voice → text auto-stops; voice sounds sharp/robotic)
+
+- [x] Dictation keeps recording until the record button is pressed again (no auto-stop on silence/end of speech).
+      `ai/dvine/voice/Dictation.java` rewritten as a hold-to-continue session; MainActivity only stops it from
+      `toggle()` (read back; the hold-to-talk `startListening(hold)` path is separate and untouched).
+- [ ] Voice pitch: soften the sharp, bright, robotic edge so it sounds more human.
+      - Read `VoiceTuning.java` (pitch/rate defaults, `pitchFor`, thought variant) and `TalkBridge.java` say/queue.
+      - Findings so far: `TalkBridge.say()` applies `bright = robot && !ivie ? 1.25f : 1f` on top of the persona
+        pitch and `quick = 1.06f` on rate — that 25 % lift is the sharp edge; defaults are Obi 0.84 / Ivie 1.05.
+      - Next: lower the brightening, add a gentle anti-sharp shaping in `VoiceTuning` (slightly lower default
+        pitch + a hair slower rate for a warmer tone), keep the user's VOICE_HIGHER/VOICE_LOWER tuning working.
+- [ ] Test: any JVM/unit tests for voice exist? run them; otherwise verify by reading back and note here.
+- [ ] Re-read each change, then commit + push on a branch and open a PR.
