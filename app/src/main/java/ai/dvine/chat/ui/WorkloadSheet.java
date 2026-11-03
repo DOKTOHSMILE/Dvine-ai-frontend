@@ -18,11 +18,14 @@ import ai.dvine.llm.UsageLog;
 /**
  * The workload ring's sheet: how full the model's working memory is (the context window, as in Claude's Usage), what
  * fills it, how hot that is and when it clears itself, the agents at work now with their code names, and today's
- * use. Live: it refreshes every second while open.
+ * use. Live: it refreshes every 5 seconds while open.
  */
 public final class WorkloadSheet {
     private WorkloadSheet() {
     }
+
+    /** The sheet refreshes this often while open. */
+    static final long REFRESH_MS = 5000;
 
     public static Dialog show(final Activity a, final LocalModel model) {
         Ui.init(a);
@@ -38,10 +41,10 @@ public final class WorkloadSheet {
                     return;
                 }
                 fill(a, body, model);
-                body.postDelayed(this, 1000);
+                body.postDelayed(this, REFRESH_MS);
             }
         };
-        body.postDelayed(tick, 1000);
+        body.postDelayed(tick, REFRESH_MS);
         return d;
     }
 

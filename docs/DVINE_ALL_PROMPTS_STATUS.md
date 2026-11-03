@@ -153,6 +153,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 120 | Model workload counter like an overheating indicator; auto-clear when too full, as the master plan says | P12 | Built (Robolectric) | 0.79.0 |
 | 121 | Can the offline model create files in multiple formats (PDF etc.)? If not, build it into DVINE; the counter goes down when the system releases stress | P12 | Built (Robolectric) | 0.80.0 |
 | 122 | Obi/Ivie refer Ibiko's tasks with a button that moves it to a new Ibiko chat; mini agents offline, online and API for maximum performance; other files and zip/unzip; the stress indicator's tap shows stress data and the agents working with code names | P12 | Built (Robolectric) | 0.81.0 |
+| 123 | Obi makes plans, Ivie matches them with real-world behaviour and works on UI/UX, Ibiko executes when it is about building something; refresh every 5 s | P12 | Built (JVM) | 0.81.1 |
 
 ## Still open, in the order that matters
 

@@ -30,13 +30,14 @@ public class CouncilTest {
         assertTrue(r.answer.startsWith("Start the business on the side first"));
         assertTrue(r.secondRound);
         assertEquals(5, systems.size());
-        assertTrue(systems.get(0).startsWith("You are Obi, the stoic strategist"));
-        assertTrue(systems.get(1).startsWith("You are Ivie") && prompts.get(1).contains("Obi's analysis"));
-        assertTrue(systems.get(2).startsWith("You are Obi. Ivie disagrees") && prompts.get(2).contains("a side launch first"));
-        assertTrue(systems.get(3).startsWith("You are Ibiko"));
-        assertTrue(systems.get(4).contains("never invent agreement") && prompts.get(4).contains("Ibiko (how to do it)"));
-        assertEquals(Arrays.asList("Obi: Obi analysed the structure and risks", "Ivie: Ivie reviewed it and disagrees on one point",
-                "Obi: Obi rechecked Ivie's point", "Ibiko: Ibiko worked out the practical steps"), steps);
+        assertTrue(systems.get(0).startsWith("You are Obi, the planner") && systems.get(0).contains("numbered"));
+        assertTrue(systems.get(1).startsWith("You are Ivie") && systems.get(1).contains("real") && systems.get(1).contains("UI/UX")
+                && prompts.get(1).contains("Obi's plan"));
+        assertTrue(systems.get(2).startsWith("You are Obi, the planner. Ivie checked") && prompts.get(2).contains("a side launch first"));
+        assertTrue(systems.get(3).startsWith("You are Ibiko, the builder") && systems.get(3).contains("carry the plan out"));
+        assertTrue(systems.get(4).contains("never invent agreement") && prompts.get(4).contains("Ibiko (how to build it)"));
+        assertEquals(Arrays.asList("Obi: Obi made the plan", "Ivie: Ivie checked it against the real world and disagrees on one point",
+                "Obi: Obi revised the plan on Ivie's point", "Ibiko: Ibiko worked out how to build it"), steps);
         // agreement: no second round
         List<String> calm = new ArrayList<String>(Arrays.asList("Plan A.", "Fine. VERDICT: AGREE", "Steps.",
                 "Answer.\nObi checked \u2026; Ivie considered \u2026; Ibiko worked out \u2026.")); // a copied template line goes
@@ -46,6 +47,14 @@ public class CouncilTest {
         assertEquals("Answer.", easy.answer);
         // stopped: nothing
         assertNull(Council.run((sys, p) -> "x", "Should I move to Abuja for work?", "", "obi", (l, w, s) -> { }, () -> true));
+    }
+
+    @Test
+    public void buildingQuestionsGoOnToIbiko() {
+        assertTrue(Council.building("Plan how to build a savings app for market traders"));
+        assertTrue(Council.building("Should we launch a website for the shop?"));
+        assertFalse(Council.building("Should I quit my job to start a business?"));
+        assertFalse(Council.building("Compare two holiday destinations for December"));
     }
 
     @Test

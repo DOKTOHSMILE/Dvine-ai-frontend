@@ -2100,6 +2100,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 model.note(question, done.answer);
                 play(LocalTurn.speakAs(speaker, done.answer), null);
+                if (ai.dvine.agent.Council.building(question) && !"ibiko".equals(speaker) && chats != null && chatPane != null) {
+                    // something to build: Ibiko is offered the agreed plan to carry out, in a chat of his own
+                    String plan = question + "\n\nThe council's plan (Obi, checked by Ivie):\n" + done.obi
+                            + "\n\nIvie's real-world and UI/UX notes:\n" + done.ivie
+                            + (done.ibiko.isEmpty() ? "" : "\n\nHow you said you'd build it:\n" + done.ibiko);
+                    chatPane.postDelayed(() -> {
+                        chats.add("assistant", "handoff", "ibiko\n" + plan, speaker);
+                        chatPane.show();
+                    }, 400);
+                }
             });
         });
     }
