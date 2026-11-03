@@ -36,17 +36,6 @@ public final class ListenBridge implements RecognitionListener {
     private boolean heardSomething, onDevice, delivered;
     private int strikes;
     private final Runnable late = () -> usePartial();
-    private final Runnable settle = () -> {
-        if (this.listening && partial.length() > 0 && (continuous || !this.hold)) {
-            // close this stretch; the final words (or `late`, if they are slow) deliver what was heard
-            if (recognizer != null) {
-                recognizer.stopListening();
-            }
-            main.postDelayed(late, FINAL_WAIT_MS);
-        }
-    };
-    /** The restart after a stretch of quiet or a hiccup: a beat first, so it never becomes a tight loop. */
-    private final Runnable again = () -> resume();
     private final Context context;
     private SpeechRecognizer recognizer;
     private boolean listening;
@@ -65,6 +54,18 @@ public final class ListenBridge implements RecognitionListener {
 
     /** Listening while the user holds a finger down: pauses don't end it (they let go to end it). */
     private boolean hold;
+    /* Declared after the fields they read: a field initializer may not name one declared below it. */
+    private final Runnable settle = () -> {
+        if (this.listening && partial.length() > 0 && (continuous || !this.hold)) {
+            // close this stretch; the final words (or `late`, if they are slow) deliver what was heard
+            if (recognizer != null) {
+                recognizer.stopListening();
+            }
+            main.postDelayed(late, FINAL_WAIT_MS);
+        }
+    };
+    /** The restart after a stretch of quiet or a hiccup: a beat first, so it never becomes a tight loop. */
+    private final Runnable again = () -> resume();
 
     public void start(final ListenCallback callback) {
         start(callback, false);
