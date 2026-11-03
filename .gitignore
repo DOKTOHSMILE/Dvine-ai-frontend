@@ -11,6 +11,9 @@ captures/
 *.jks
 *.keystore
 .env
-!releases/*.apk
 .platform/
+.dvine-git.json
+docs/brand/
+releases/
+!releases/README.md
 app/.cxx/
