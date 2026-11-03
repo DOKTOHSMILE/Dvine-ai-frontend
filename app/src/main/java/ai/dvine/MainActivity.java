@@ -1360,6 +1360,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (chatPane != null) {
             chatPane.activityEnd();
         }
+        handler.post(this::checkWorkload); // after the reply: the gauge, and a clear-out when it is nearly full
         final String slow = model == null ? null : model.slowAdvice(ai.dvine.chat.Tuning.SLOW_SPEED.get(prefs));
         if (slow != null && chatPane != null) {
             // the phone's own model has been slow for three replies: say once what would make it faster (posted on the
@@ -2083,6 +2084,56 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             handler.post(() -> {
                 if (chatPane != null && !isFinishing()) {
                     chatPane.assistant(persona, correction);
+                }
+            });
+        });
+    }
+
+    /** A clear-out of the working memory is under way (one at a time). */
+    private boolean compacting;
+
+    static final String SUM_UP = "Sum up the conversation below for your own memory, in under 150 words: the facts the"
+            + " user gave, what was decided, what is being worked on, and open questions. Plain lines, no greeting. /no_think";
+
+    /**
+     * The master specification's self-audit: the gauge shows how full the model's working memory is; when it is
+     * nearly full (and no long work is running), the conversation is summed up, the memory cleared down to that
+     * summary, and the user told in one line, so replies stay quick and nothing fails for want of room.
+     */
+    private void checkWorkload() {
+        final ai.dvine.stage.WorkloadGauge g = findViewById(R.id.workload);
+        if (model == null) {
+            return;
+        }
+        final float load = model.workload();
+        if (g != null) {
+            g.set(load);
+            g.setOnClickListener(v -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.UsageActivity.class)));
+        }
+        if (load < ai.dvine.stage.WorkloadGauge.HOT || compacting || model.coding || !prefs.getBoolean("auto_clear", true)) {
+            return;
+        }
+        compacting = true;
+        final String persona = stage.agent();
+        hub.worker.execute(() -> { // on the model's worker: its lock is never waited on by the screen
+            final String said = model.historyText();
+            if (said.split("\n").length < 4) {
+                handler.post(() -> compacting = false); // too little to sum up
+                return;
+            }
+            String summary = model.task(SUM_UP, said.length() > 20000 ? said.substring(said.length() - 20000) : said, 400, null);
+            summary = summary == null ? "" : summary.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
+            model.compact(summary);
+            final boolean kept = !summary.isEmpty();
+            handler.post(() -> {
+                compacting = false;
+                if (g != null) {
+                    g.set(0.1f); // the memory is nearly empty again; the next reply measures it
+                }
+                if (chatPane != null) {
+                    chatPane.assistant(persona, "My working memory was " + Math.round(load * 100) + "% full, so I "
+                            + (kept ? "summed up our conversation and cleared the rest" : "cleared it")
+                            + " to stay quick. The chat itself is all still here.");
                 }
             });
         });

@@ -659,6 +659,40 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void theWorkloadRingShowsAndANearlyFullMemoryIsClearedWithANote() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        ai.dvine.stage.WorkloadGauge g = c.get().findViewById(ai.dvine.R.id.workload);
+        assertNotNull("the ring in the header", g);
+        java.lang.reflect.Field mf = MainActivity.class.getDeclaredField("model");
+        mf.setAccessible(true);
+        ai.dvine.llm.LocalModel model = (ai.dvine.llm.LocalModel) mf.get(c.get());
+        model.note("Plan a trip to Abuja", "Sure: flights, hotels, the weekend.");
+        model.note("Book for Friday", "Friday it is.");
+        java.lang.reflect.Constructor<ai.dvine.llm.UsageLog.Call> k = ai.dvine.llm.UsageLog.Call.class.getDeclaredConstructor(String.class,
+                int.class, int.class, int.class, int.class, int.class, boolean.class, long.class, long.class);
+        k.setAccessible(true);
+        model.usage.record(k.newInstance("test", 4096, 600, 2900, 100, 120, false, 1000L, System.currentTimeMillis()));
+        java.lang.reflect.Method check = MainActivity.class.getDeclaredMethod("checkWorkload");
+        check.setAccessible(true);
+        check.invoke(c.get());
+        org.junit.Assert.assertTrue(String.valueOf(g.getContentDescription()), g.getContentDescription().toString().contains("nearly full"));
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        boolean told = false;
+        for (int i = 0; i < 50 && !told; i++) { // the clear-out runs on the model's worker
+            Thread.sleep(100);
+            ShadowLooper.idleMainLooper();
+            for (ai.dvine.chat.ChatBook.Message m : chats.current().messages) {
+                told |= m.body != null && m.body.startsWith("My working memory was");
+            }
+        }
+        org.junit.Assert.assertTrue("told about the clear-out", told);
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;

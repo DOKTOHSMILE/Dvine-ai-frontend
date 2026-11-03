@@ -90,6 +90,8 @@ public final class SettingsActivity extends AppCompatActivity {
         chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: Obi, Ivie and Ibiko each"
                 + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",
                 "think_together", true, null));
+        chat.addView(toggle("Clear working memory when full", "The ring at the top shows how full the model's memory is. Past 85%,"
+                + " the conversation is summed up and the rest cleared, so replies stay quick.", "auto_clear", true, null));
         chat.addView(toggle("Fact-check answers", "Online: names, numbers and dates in a factual answer are looked up after it is"
                 + " shown; a correction follows only if something was wrong.", "fact_check", true, null));
         chat.addView(toggle("Show the working steps", "What DVINE is doing while it answers: searches, sources, models.", "show_steps", true, null),
