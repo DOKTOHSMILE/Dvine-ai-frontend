@@ -2562,7 +2562,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (id != askId || chatPane == null || note == null || note.trim().isEmpty()) {
             return;
         }
-        chatPane.activityStep("Progress note " + round + " posted");
         chatPane.assistant(persona, note.trim());
     }
 

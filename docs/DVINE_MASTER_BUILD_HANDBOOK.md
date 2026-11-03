@@ -1,6 +1,6 @@
 # DVINE — Master Build Handbook
 
-Version 2.0 · rewritten on 2026-11-03 for app 0.88.0, with 0.89 in progress on `main`. This is the plan we build from now. It describes the app as it is and where it is heading.
+Version 2.0 · rewritten on 2026-11-03 for app 0.89.0. This is the plan we build from now. It describes the app as it is and where it is heading.
 
 Earlier versions planned a face-first app with 3D human bodies. That design was retired at 0.26.0. Its full text, including the ANBA, ACMS and SVRE blueprints, is kept in `docs/archive/HANDBOOK_v1_history.md`. Old references such as "handbook §28" in `BUILD_STATUS.md` point to that file.
 
@@ -199,7 +199,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 ## 7. Testing and release
 
-- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (418 tests at 0.89 in progress). **Build:** `gradle :app:assembleDebug`.
+- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (422 tests at 0.89.0). **Build:** `gradle :app:assembleDebug`.
 - **Real model on a desktop:** set `DVINE_NATIVE_LIB` and `DVINE_MODEL` to run tests against a real model (for example Qwen3 1.7B) through the real JNI bridge.
 - **Robolectric frame trap.** Under Robolectric, the stage's Choreographer frames never settle once a drawing is on stage. Tests that start a build must call `StageView.stopFrames()` before idling the looper. Otherwise the test hangs (fixed in `LaunchTest` at 0.89).
 - **Not run in the cloud:** `lintDebug` (dependency download is rate-limited) and anything on a phone. The phone checks are listed as "phone pending" in `BUILD_STATUS.md`.
@@ -231,8 +231,8 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 | # | Work | State |
 |---|---|---|
-| 1 | **0.89 release.** One route for builds and social jobs, measurements asked, the API design prompt, the studio, full-screen canvas, the thinking star, the LaunchTest fix. | Code is on `main` and green. Still to do: version bump, APK, docs rows. |
-| 2 | **Replies in short parts between the steps.** Like Claude Code: a short paragraph, then the step rows, then the next paragraph, each paragraph with its own copy and play so it can be listened to on its own. | NOT STARTED (asked 2026-11-03) |
+| 1 | **0.89.0** — released: one route for builds and social jobs, measurements asked, the API design brief, the studio, full-screen canvas, the glancing star, replies in parts between the steps. | VERIFIED (JVM + Robolectric) / phone pending |
+| 2 | **Replies in short parts** — built in 0.89.0 (each part with its own Copy and Listen; steps kept as rows between the notes). Next: the model writing short notes between its tool steps on its own. | IN PROGRESS |
 | 3 | **Social actions and automations** (part 2/3): post, reply and schedule on your own request; Ask/Auto; logs; limits per network. | NOT STARTED |
 | 4 | **Phone speed.** Time 0.84 against 0.85 (KleidiAI); build variants that use i8mm and dotprod. | Waiting on the user's phone |
 | 5 | **Split `MainActivity`.** Move the gateway routes, `carryOut`, the canvas and the social flow into their own classes. | NOT STARTED |
@@ -264,6 +264,6 @@ Retired and not coming back unless asked: faces (line-art, wireframe, hologram, 
 | 0.86 | One gateway for every message, with checked results. |
 | 0.87 | The 21 built-in shapes deleted. |
 | 0.88 | Every built-in 3D sample deleted; 3D only from measurements; messages queue while busy; social switches and names; the sheet drags by its body. |
-| 0.89 (in progress) | One route for builds and social jobs, measurements asked, the API design prompt, the studio, the full-screen canvas, the thinking star that glances like an eye, the voice compile fix. |
+| 0.89 | One route for builds and social jobs, measurements asked, the API design prompt, the studio, the full-screen canvas, the thinking star that glances like an eye, replies in short parts between the steps with voice on each, the voice compile fix. |
 
 The full evidence for every version is in `docs/BUILD_STATUS.md`.

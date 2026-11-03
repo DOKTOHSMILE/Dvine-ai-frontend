@@ -160,13 +160,44 @@ public class LaunchTest {
         sheet.dismiss();
         pane.activityEnd();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        android.view.View worked = described(root, "Worked for 1s \u00B7 3 steps, open the steps");
+        // the kept work: a row per step (or group), between the notes and the reply, like Claude Code's
+        android.view.View worked = described(root, "Cloned me/app, open the steps");
         assertNotNull(worked);
         worked.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         org.robolectric.shadows.ShadowDialog.getLatestDialog().getWindow().getDecorView().findViewsWithText(
                 found = new java.util.ArrayList<android.view.View>(), "Cloned me/app", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertEquals(1, found.size());
+        c.pause().stop().destroy();
+    }
+
+    @Test
+    public void aNoteDuringTheWorkSitsBetweenItsSteps() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        java.lang.reflect.Field bf = ai.dvine.stage.ChatPane.class.getDeclaredField("book");
+        bf.setAccessible(true);
+        ai.dvine.chat.ChatBook book = (ai.dvine.chat.ChatBook) bf.get(pane);
+        int before = book.current().messages.size();
+        pane.activityStep("Cloned me/app");
+        pane.assistant("ibiko", "The repo is cloned; reading the main file next.");
+        pane.activityStep("Read app/Main.java");
+        pane.activityEnd();
+        pane.assistant("ibiko", "The loop never ends.\n\nI fixed it.");
+        java.util.List<ai.dvine.chat.ChatBook.Message> m = book.current().messages.subList(before, book.current().messages.size());
+        java.util.List<String> kinds = new java.util.ArrayList<String>();
+        for (ai.dvine.chat.ChatBook.Message x : m) {
+            kinds.add(x.kind);
+        }
+        org.junit.Assert.assertEquals(java.util.Arrays.asList("activity", "text", "activity", "text"), kinds);
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.view.View root = c.get().getWindow().getDecorView();
+        java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+        root.findViewsWithText(found, "Read aloud", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        org.junit.Assert.assertTrue("each part has its own Listen: the note and both paragraphs", found.size() >= 3);
         c.pause().stop().destroy();
     }
 
