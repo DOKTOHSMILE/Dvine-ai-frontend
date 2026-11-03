@@ -485,10 +485,6 @@ public final class LocalModel {
     }
 
     /**
-     * One task outside the conversation (a drawing to describe): its own instructions, no history, nothing
-     * remembered; a lower temperature so the shapes come out well formed. Null when not ready or it failed.
-     */
-    /**
      * A task for an API model only, without the phone model's lock, so several can run side by side (mini agents
      * working in parallel online). Null when no API is on or it failed; the caller falls back to {@link #task}.
      */
@@ -584,8 +580,10 @@ public final class LocalModel {
     }
 
     /**
-     * Cancels a reply that has gone quiet for 12 seconds, or that is still running after 90.
-     * A token resets the quiet timer, so a slow but live answer is not cut off at 25 seconds.
+     * Runs one reply under a watch: it is stopped when it goes quiet for {@link #IDLE_MS}, has been writing for
+     * 3 minutes, or has spent {@link #READ_MS} reading the question without saying anything. A token resets the
+     * quiet timer, so a slow but live answer is not cut off. The reason it stopped is kept in {@link #problem}
+     * (a stop from elsewhere stays "stopped").
      */
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
         final int mine = replies.open();
@@ -792,7 +790,6 @@ public final class LocalModel {
         }
     }
 
-    /** Forgets the conversation (a new topic, or the user asked). */
     /**
      * Reads instructions into the phone model's memory ahead of time (after loading, or when the persona changes), so
      * the first question doesn't wait for a thousand tokens of instructions to be read. Nothing when an API answers or
@@ -812,6 +809,7 @@ public final class LocalModel {
         return NativeLlm.warmIfPossible(handle, spec.prompt(system));
     }
 
+    /** Forgets the conversation (a new topic, or the user asked). */
     public synchronized void forget() {
         history.clear();
     }
