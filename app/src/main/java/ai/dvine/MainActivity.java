@@ -2427,6 +2427,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (stagedAction(text)) {
             return; // a post, a share or a copy: shown first, carried out on a yes (or at once when auto-approve is on)
         }
+        if (makeDocument(text)) {
+            return; // "make a PDF of that", "write a Word document about …": the model writes, DVINE makes the file
+        }
         if (!interpreted && !carriesOn(text) && ai.dvine.turn.Meaning.worthReading(text)) {
             understand(text); // the words didn't match a command's wording: the brain reads what they mean
             return;
@@ -2483,6 +2486,86 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         showStaged(p);
         play(LocalTurn.speakAs(stage.agent(), ai.dvine.brain.ActionPlanner.question(p)), null);
+        return true;
+    }
+
+    /** "make a PDF of that", "save this as a Word document", "write a spreadsheet of …": a file to make. */
+    public static boolean asksForFile(String text) {
+        String t = text == null ? "" : text.trim().toLowerCase(java.util.Locale.US);
+        return t.matches("(?s)^(please |can you |could you )?(make|create|save|export|turn|convert|put|write|generate|give me|produce)\\b.*"
+                + "\\b(pdf|word (document|file|doc)|docx|excel|spreadsheet|xlsx|html (file|page)|web page|csv|markdown|text file|json file)\\b.*")
+                && !t.matches("(?s).*\\b(parser|reader|library|code|class|function|script|app|program|converter)\\b.*");
+    }
+
+    static final String WRITE_DOC = "Write the document the user asks for, in Markdown: a # title, ## sections, short"
+            + " paragraphs, - lists, and | tables | where they help. Write the whole document and nothing else (no"
+            + " greeting, no note about the file). /no_think";
+
+    /**
+     * Makes a real file (PDF, Word, Excel, HTML, CSV, Markdown, JSON, text) from the last reply, the whole chat, or a
+     * document the model writes on the spot; saved in Downloads/DVINE and shown under the reply. Works offline.
+     */
+    private boolean makeDocument(final String text) {
+        if (!asksForFile(text)) {
+            return false;
+        }
+        final ai.dvine.act.FileMaker.Format fmt = ai.dvine.act.FileMaker.of(text);
+        final String lower = text.toLowerCase(java.util.Locale.US);
+        final boolean ofChat = lower.matches("(?s).*\\b(our|this|the whole) (chat|conversation)\\b.*");
+        final boolean ofThat = lower.matches("(?s).*\\b(of|from|as|into|turn|convert|save|export|put) (that|this|it|the above|your (answer|reply))\\b.*")
+                || lower.matches("(?s).*\\b(that|this|it) (as|into|to) (a |an )?(pdf|word|docx|excel|spreadsheet|html|csv|markdown|text|json)\\b.*");
+        final String persona = stage.agent();
+        final int id = ++askId;
+        final long since = System.currentTimeMillis();
+        stopPlay();
+        armThink("Writing the document", "Making the " + fmt.extension.toUpperCase(java.util.Locale.US));
+        final String source = ofChat && chats != null ? chats.transcript(60000) : ofThat ? lastReply() : null;
+        hub.worker.execute(() -> {
+            String content = source;
+            if (content == null || content.trim().isEmpty()) {
+                if (model == null || !model.ready() && !model.remoteOn()) {
+                    handler.post(() -> {
+                        endThink();
+                        play(LocalTurn.speakAs(persona, "I need a model to write that document. Ask me after it has loaded."), null);
+                    });
+                    return;
+                }
+                content = model.task(WRITE_DOC, text, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs), piece -> id == askId);
+                content = content == null ? "" : content.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
+            }
+            final String body = content;
+            String title = "DVINE document";
+            java.util.regex.Matcher h = java.util.regex.Pattern.compile("(?m)^#\\s+(.+)$").matcher(body);
+            if (h.find()) {
+                title = h.group(1).trim();
+            } else if (ofChat) {
+                title = chats.current().title;
+            }
+            String name = title.replaceAll("[^A-Za-z0-9 _-]", "").trim().replaceAll("\\s+", "-");
+            name = (name.isEmpty() ? "document" : name.length() > 40 ? name.substring(0, 40) : name) + "." + fmt.extension;
+            String said;
+            try {
+                if (body.isEmpty()) {
+                    throw new java.io.IOException("nothing was written");
+                }
+                byte[] bytes = ai.dvine.act.FileMaker.any(fmt, title, body);
+                android.net.Uri uri = ai.dvine.chat.ui.Downloads.save(this, name, fmt.mime, bytes);
+                new ai.dvine.chat.WorkLog(this).artifact(name, uri.toString(), fmt.name() + " \u00B7 "
+                        + (bytes.length < 1024 ? bytes.length + " B" : bytes.length / 1024 + " KB"), fmt.mime);
+                said = "Made " + name + " and saved it in Downloads/DVINE. Tap it below to open or share it.";
+            } catch (java.io.IOException | RuntimeException e) {
+                said = "I couldn't make the file: " + e.getMessage() + ".";
+            }
+            final String reply = said;
+            handler.post(() -> {
+                if (id != askId) {
+                    return;
+                }
+                endThink();
+                attachWork(null, since); // the file, as a pill under this reply
+                play(LocalTurn.speakAs(persona, reply), null);
+            });
+        });
         return true;
     }
 

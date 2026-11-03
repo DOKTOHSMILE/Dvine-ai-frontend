@@ -70,6 +70,18 @@ public final class CodeAgent {
 
         /** The user stopped the work. */
         boolean stopped();
+
+        /**
+         * Makes a real file of the format its name asks for (.pdf, .docx, .xlsx, .html, .csv, .md, .txt) from the
+         * Markdown the model wrote; what was made. The phone draws PDFs; elsewhere a PDF is kept as its text.
+         */
+        default String makeFile(File f, String markdown) throws java.io.IOException {
+            ai.dvine.act.FileMaker.Format fmt = ai.dvine.act.FileMaker.of(f.getName());
+            byte[] bytes = fmt == ai.dvine.act.FileMaker.Format.PDF ? markdown.getBytes(StandardCharsets.UTF_8)
+                    : ai.dvine.act.FileMaker.make(fmt, f.getName(), markdown);
+            Files.write(f.toPath(), bytes);
+            return fmt.name() + ", " + bytes.length + " bytes";
+        }
     }
 
     private final File workspace;
@@ -192,6 +204,8 @@ public final class CodeAgent {
                 + "<tool name=\"read_file\" path=\"FOLDER/FILE\"/>\n"
                 + (readOnly ? "" : "<tool name=\"write_file\" path=\"FOLDER/FILE\">the whole new content</tool>\n"
                         + "<tool name=\"edit_file\" path=\"FOLDER/FILE\"><old>exact text now in the file</old><new>its replacement</new></tool>\n")
+                + (readOnly ? "" : "<tool name=\"make_file\" path=\"FOLDER/report.pdf\">the document in Markdown</tool> (a real PDF,"
+                        + " Word .docx, Excel .xlsx from a | table |, .html, .csv or .md, by the name's ending)\n")
                 + "<tool name=\"search\" query=\"text to find\"/>\n"
                 + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command (sh, toybox: ls cat grep sed find wc head tail mkdir cp mv rm)\"/>\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
@@ -537,7 +551,7 @@ public final class CodeAgent {
     private static final Pattern JSON_CALL = Pattern.compile("<tool_call>\\s*(\\{.*?\\})\\s*</tool_call>", Pattern.DOTALL);
 
     private static final Pattern NAMED = Pattern.compile(
-            "<(list_files|read_file|write_file|edit_file|search|run|fetch|connector|git)((?:\\s+\\w+\\s*=\\s*\"(?:[^\"\\\\]|\\\\.)*\")*)\\s*(/?)>",
+            "<(list_files|read_file|write_file|edit_file|make_file|search|run|fetch|connector|git)((?:\\s+\\w+\\s*=\\s*\"(?:[^\"\\\\]|\\\\.)*\")*)\\s*(/?)>",
             Pattern.DOTALL);
 
     /**
@@ -692,7 +706,8 @@ public final class CodeAgent {
     }
 
     private String carryOut(Call c) throws IOException {
-        if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git"))) {
+        if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
+                || c.name.equals("make_file"))) {
             return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."
                     : "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
         }
@@ -751,6 +766,17 @@ public final class CodeAgent {
                 ai.dvine.connect.LineDiff.Result d = ai.dvine.connect.LineDiff.of(text, after);
                 host.step("Edited " + show(c.a("path")), c.a("path"), d.lines, d.added, d.removed);
                 return "Edited " + c.a("path") + ".";
+            }
+            case "make_file": {
+                File f = inside(c.a("path"));
+                File dir = f.getParentFile();
+                if (dir != null) {
+                    dir.mkdirs();
+                }
+                String made = host.makeFile(f, c.body);
+                note(c.a("path"));
+                host.step("Made " + show(c.a("path")) + " (" + made + ")");
+                return "Made " + c.a("path") + ": " + made + ".";
             }
             case "search": {
                 host.step("Searched for \u201c" + clip(c.a("query"), 40) + "\u201d");

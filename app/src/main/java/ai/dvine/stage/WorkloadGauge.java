@@ -33,9 +33,31 @@ public final class WorkloadGauge extends View {
         set(0f);
     }
 
-    /** 0..1 of the window in use. */
+    private android.animation.ValueAnimator easing;
+
+    /**
+     * 0..1 of the window in use. A big drop (the memory just cleared) slides down over a second, so the release is
+     * seen; anything else shows at once.
+     */
     public void set(float used) {
-        load = Math.max(0f, Math.min(1f, used));
+        final float to = Math.max(0f, Math.min(1f, used));
+        if (easing != null) {
+            easing.cancel();
+            easing = null;
+        }
+        if (load - to > 0.2f && isAttachedToWindow()) {
+            easing = android.animation.ValueAnimator.ofFloat(load, to);
+            easing.setDuration(1100);
+            easing.addUpdateListener(a -> show((float) a.getAnimatedValue()));
+            easing.start();
+            setContentDescription("Model workload " + Math.round(to * 100) + " percent, memory cleared");
+            return;
+        }
+        show(to);
+    }
+
+    private void show(float used) {
+        load = used;
         int colour = colour(load);
         arc.setColor(colour);
         label.setColor(colour);
