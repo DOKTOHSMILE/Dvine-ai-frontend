@@ -1043,6 +1043,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     talk.speak("ivie".equals(stage.agent()), text, null);
                 }
             }
+
+            @Override
+            public void onEdit(String before, String edited) {
+                // the old message and its replies are gone from the chat; the model forgets them too, then the
+                // edited message is sent like a new one (a reply still being written to the old one is stopped)
+                if (model != null && hub != null) {
+                    // on the model's own worker: it waits for a reply being written to end (sending stops it), and
+                    // runs before the edited message is answered, which is queued after it
+                    final ai.dvine.llm.LocalModel m = model;
+                    hub.worker.execute(() -> m.rewindTo(before));
+                }
+                lastAsked = null;
+                voiceTurn = false;
+                answer(edited);
+            }
         });
 
         if (chatPaneHost != null) {
