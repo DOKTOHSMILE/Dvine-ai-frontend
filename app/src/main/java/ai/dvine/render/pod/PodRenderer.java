@@ -415,7 +415,7 @@ public final class PodRenderer {
         if (!created) {
             return;
         }
-        for (int p : new int[]{skyProg, starProg, meteorProg, podProg, glowProg, beamProg, dotProg}) {
+        for (int p : new int[]{skyProg, studioProg, starProg, meteorProg, podProg, glowProg, beamProg, dotProg}) {
             gl.deleteProgram(p);
         }
         for (int b : new int[]{quadVbo, starVbo, dustVbo, meteorVbo, podVbo, podIbo, beamVbo, dotVbo}) {

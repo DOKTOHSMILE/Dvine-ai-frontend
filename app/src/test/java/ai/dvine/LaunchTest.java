@@ -308,9 +308,15 @@ public class LaunchTest {
         java.util.List<ai.dvine.gate.BrainGateway.Decision> d = g.recent();
         org.junit.Assert.assertEquals("brain \u2192 a known order", d.get(d.size() - 2).toString());
         ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        // the build lights up the stage; without a GPU its frames would keep the looper busy forever
+        java.lang.reflect.Field st = MainActivity.class.getDeclaredField("stage");
+        st.setAccessible(true);
+        java.lang.reflect.Method stop = ai.dvine.stage.StageView.class.getDeclaredMethod("stopFrames");
+        stop.setAccessible(true);
         field.setText("you choose");
         c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
-        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        stop.invoke(st.get(c.get()));
+        ShadowLooper.idleMainLooper();
         org.junit.Assert.assertEquals("the answer goes to the build waiting for it", "message \u2192 measurements for the build", g.last().toString());
         org.junit.Assert.assertNull(pb.get(c.get()));
         c.pause().stop().destroy();
