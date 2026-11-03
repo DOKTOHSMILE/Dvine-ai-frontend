@@ -292,6 +292,29 @@ public class LaunchTest {
     }
 
     @Test
+    public void everyMessageTakesOneRecordedWayThroughTheGateway() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        field.setText("Check trending post on x");
+        c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Method gate = MainActivity.class.getDeclaredMethod("messageGate");
+        gate.setAccessible(true);
+        ai.dvine.gate.BrainGateway g = (ai.dvine.gate.BrainGateway) gate.invoke(c.get());
+        org.junit.Assert.assertEquals("message \u2192 social search", g.last().toString());
+        field.setText("Explain how compound interest works in a few sentences");
+        c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        // an ordinary question: the brain reads what it means (as before the gateway), recorded like any other
+        org.junit.Assert.assertEquals("message \u2192 read the meaning", g.last().toString());
+        org.junit.Assert.assertEquals("Explain how compound interest works in a few sentences", g.last().text);
+        org.junit.Assert.assertEquals("pause", g.order().get(0));
+        org.junit.Assert.assertEquals("brain", g.order().get(g.order().size() - 1));
+        c.pause().stop().destroy();
+    }
+
+    @Test
     public void rephrasedAppCommandsRunTheirOwnActions() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
