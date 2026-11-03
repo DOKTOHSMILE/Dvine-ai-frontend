@@ -46,4 +46,17 @@ public class ReplyPartsTest {
         List<String> t1 = Arrays.asList("$ git status -sb");
         assertEquals("Ran git status -sb", ChatPane.rows(StepGroups.fold(one, t1, Arrays.asList(1L)), one, t1).get(0).label);
     }
+
+    @Test
+    public void aLongChatDrawsOnlyItsLatestMessages() {
+        List<ai.dvine.chat.ChatBook.Message> m = new ArrayList<ai.dvine.chat.ChatBook.Message>();
+        for (int i = 0; i < 100; i++) {
+            m.add(new ai.dvine.chat.ChatBook.Message(i % 3 == 0 ? "user" : "assistant", "text", "m" + i, "obi", null));
+        }
+        assertEquals("a short chat is drawn whole", 0, ChatPane.firstShown(m.subList(0, 20), ChatPane.WINDOW));
+        int from = ChatPane.firstShown(m, ChatPane.WINDOW);
+        assertTrue(from >= 100 - ChatPane.WINDOW && from < 100 - ChatPane.WINDOW + 8);
+        assertEquals("it starts at a question, never mid-turn", "user", m.get(from).role);
+        assertEquals("Show earlier adds more", 0, ChatPane.firstShown(m, ChatPane.WINDOW * 4));
+    }
 }

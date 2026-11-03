@@ -101,7 +101,15 @@ public final class ChatPane extends LinearLayout {
         StringBuilder reply = new StringBuilder(); // the whole of the assistant's turn, for its Copy and Listen
         int parts = 0; // how many parts of the turn have their own Copy and Listen
         String work = null; // this reply's Diff, Pull requests and Artifacts, shown under it
-        for (int i = 0; i < cur.messages.size(); i++) {
+        if (!cur.id.equals(windowChat)) {
+            windowChat = cur.id; // another chat: it opens at its latest messages again
+            extraShown = 0;
+        }
+        final int from = firstShown(cur.messages, WINDOW + extraShown);
+        if (from > 0) {
+            thread.addView(earlier(from));
+        }
+        for (int i = from; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
             View shown = null;
             if ("work".equals(m.kind)) {
@@ -180,6 +188,49 @@ public final class ChatPane extends LinearLayout {
         }
         setVisibility(noMessages ? GONE : VISIBLE);
         followBottom();
+    }
+
+    /**
+     * How many of a chat's latest messages are drawn. The chat is rebuilt on every change (a sent message, a note,
+     * a reply), on the screen's thread, so a long chat drawn whole froze the app (Android's "not responding" after 5
+     * seconds on a phone). Older messages are a tap away ({@link #earlier}).
+     */
+    static final int WINDOW = 30;
+    /** More messages the user asked to see in this chat ("Show earlier messages"), on top of {@link #WINDOW}. */
+    private int extraShown;
+    private String windowChat;
+
+    /**
+     * Where drawing starts so that at most {@code most} messages show: at the start of a turn (the user's message)
+     * when there is one near, so a reply is never shown without its question. 0 when the chat is short.
+     */
+    static int firstShown(List<ChatBook.Message> messages, int most) {
+        int n = messages.size();
+        if (n <= most) {
+            return 0;
+        }
+        int from = n - most;
+        for (int i = from; i < n && i < from + 8; i++) {
+            if ("user".equals(messages.get(i).role)) {
+                return i;
+            }
+        }
+        return from;
+    }
+
+    /** "Show earlier messages (42)": draws another {@link #WINDOW} of them. */
+    private View earlier(int hidden) {
+        TextView more = plain("Show earlier messages (" + hidden + ")");
+        more.setTextColor(color(R.color.text_secondary));
+        more.setTextSize(13f);
+        more.setGravity(Gravity.CENTER);
+        more.setPadding(0, dp(10), 0, dp(10));
+        more.setContentDescription("Show earlier messages");
+        more.setOnClickListener(v -> {
+            extraShown += WINDOW;
+            show();
+        });
+        return more;
     }
 
     // ------------------------------------------------------------ what DVINE is doing, step by step
