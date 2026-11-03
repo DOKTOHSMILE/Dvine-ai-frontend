@@ -22,11 +22,47 @@ public class PrebuiltEngineTest {
         assertEquals('E', head[1]);
         assertEquals(2, head[4]);           // 64-bit
         assertEquals(183, (head[18] & 0xff) | (head[19] & 0xff) << 8); // EM_AARCH64
-        File built = new File("build/intermediates/stripped_native_libs/debug/stripDebugDebugSymbols/out/lib/arm64-v8a/libdvine_llm.so");
-        if (built.isFile()) {
-            // after a full build, the shipped copy must be the library the C++ makes now (refreshNativeEngine)
-            assertTrue("refresh the ready-built engine: gradle :app:refreshNativeEngine",
-                    java.util.Arrays.equals(Files.readAllBytes(built.toPath()), head));
+        File built = newest(new File("build/intermediates/cxx/Release"));
+        if (built != null) {
+            // after a full build, the shipped copy must be the library the C++ makes now: the same build ID
+            // (stripping keeps it). Packaging prefers the shipped copy, so a stale one would reach the phone.
+            assertEquals("refresh the ready-built engine: gradle :app:refreshNativeEngine",
+                    buildId(Files.readAllBytes(built.toPath())), buildId(head));
         }
+    }
+
+    /** The C++ build's newest arm64 library, or null before a full build. */
+    private static File newest(File dir) {
+        File[] runs = dir.listFiles();
+        File best = null;
+        if (runs != null) {
+            for (File r : runs) {
+                File so = new File(r, "obj/arm64-v8a/libdvine_llm.so");
+                if (so.isFile() && (best == null || so.lastModified() > best.lastModified())) {
+                    best = so;
+                }
+            }
+        }
+        return best;
+    }
+
+    /** The GNU build ID note's bytes, as hex ("" when there is none). */
+    static String buildId(byte[] elf) {
+        for (int i = 0; i + 16 < elf.length; i++) {
+            // note header: name size 4, descriptor size, type 3 (NT_GNU_BUILD_ID), then "GNU\0"
+            if (elf[i] == 4 && elf[i + 1] == 0 && elf[i + 2] == 0 && elf[i + 3] == 0 && elf[i + 8] == 3 && elf[i + 9] == 0
+                    && elf[i + 10] == 0 && elf[i + 11] == 0 && elf[i + 12] == 'G' && elf[i + 13] == 'N' && elf[i + 14] == 'U' && elf[i + 15] == 0) {
+                int n = (elf[i + 4] & 0xff) | (elf[i + 5] & 0xff) << 8;
+                if (n < 4 || n > 64 || i + 16 + n > elf.length) {
+                    continue;
+                }
+                StringBuilder b = new StringBuilder();
+                for (int k = 0; k < n; k++) {
+                    b.append(String.format("%02x", elf[i + 16 + k] & 0xff));
+                }
+                return b.toString();
+            }
+        }
+        return "";
     }
 }

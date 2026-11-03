@@ -139,6 +139,7 @@ public class RemoteBrainTest {
         assertEquals("default", req.get("fallbacks")); // the refusal fallback, on for this model
         assertEquals("server-side-fallback-2026-07-01", h.get("anthropic-beta"));
         assertEquals("low", MiniJson.obj(req.get("output_config")).get("effort")); // a one-line order: little thinking
+        assertEquals("ephemeral", MiniJson.obj(req.get("cache_control")).get("type")); // what repeats is read from the cache
         assertEquals(120, b.used().promptTokens);
         assertEquals(9, b.used().outputTokens);
     }
@@ -150,6 +151,7 @@ public class RemoteBrainTest {
         assertNotNull(b.chat("s", ask("hi"), 48, 0.7f, null));
         assertFalse(f.bodies.get(0).contains("fallbacks"));
         assertFalse(f.bodies.get(1).contains("output_config"));
+        assertFalse(f.bodies.get(1).contains("cache_control")); // the plain form, for a server that refuses extras
     }
 
     @Test

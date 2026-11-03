@@ -466,6 +466,13 @@ public final class RemoteBrain {
             if (form == 0 && model.matches(FALLBACK_MODELS)) {
                 req.put("fallbacks", "default");
             }
+            if (form == 0) {
+                // prompt caching: what repeats from the last request (instructions, the chat so far, an agent's work)
+                // is read from Anthropic's cache instead of again; a server that refuses it gets the plain form
+                Map<String, Object> cache = new LinkedHashMap<String, Object>();
+                cache.put("type", "ephemeral");
+                req.put("cache_control", cache);
+            }
         } else {
             if (!sys.isEmpty()) {
                 messages.add(message("system", sys));
@@ -703,6 +710,10 @@ public final class RemoteBrain {
             if (type.equals("message_start")) {
                 Map<String, Object> u = MiniJson.obj(MiniJson.obj(o.get("message")).get("usage"));
                 input = (int) MiniJson.num(u.get("input_tokens"), -1);
+                if (input >= 0) {
+                    // with caching, the cached part is counted apart: the prompt is all three
+                    input += (int) MiniJson.num(u.get("cache_read_input_tokens"), 0) + (int) MiniJson.num(u.get("cache_creation_input_tokens"), 0);
+                }
             } else if (type.equals("content_block_delta")) {
                 Map<String, Object> d = MiniJson.obj(o.get("delta"));
                 if ("text_delta".equals(MiniJson.str(d.get("type"), ""))) {
