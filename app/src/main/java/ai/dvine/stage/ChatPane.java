@@ -545,7 +545,7 @@ public final class ChatPane extends LinearLayout {
         }
         LinearLayout list = (LinearLayout) found;
         list.removeAllViews();
-        for (ChatBook.Section s : book.sections()) {
+        for (ChatBook.Section s : book.pinnedFirst()) {
             boolean on = s.id.equals(book.current().id);
             String preview = "";
             for (int i = s.messages.size() - 1; i >= 0; i--) {
@@ -569,8 +569,18 @@ public final class ChatPane extends LinearLayout {
             row.setPadding(dp(10), 0, dp(10), 0);
             row.setBackgroundResource(R.drawable.bg_drawer_row);
             row.setSelected(on);
-            row.setOnLongClickListener(v -> { // hold a chat to rename it
-                rename(s.id);
+            if (s.pinned) {
+                android.graphics.drawable.Drawable pin = getContext().getDrawable(R.drawable.ic_pin);
+                if (pin != null) {
+                    pin.setTint(color(R.color.icon));
+                    pin.setBounds(0, 0, dp(16), dp(16));
+                    row.setCompoundDrawablesRelative(pin, null, null, null);
+                    row.setCompoundDrawablePadding(dp(8));
+                }
+            }
+            row.setContentDescription(named + (s.pinned ? ", pinned" : "") + ". Hold for rename, pin and delete.");
+            row.setOnLongClickListener(v -> { // hold a chat: rename, pin, delete
+                chatMenu(s.id);
                 return true;
             });
             row.setOnClickListener(v -> {
@@ -852,6 +862,58 @@ public final class ChatPane extends LinearLayout {
         t.setText(name);
         t.setContentDescription("Chat name: " + name + ". Tap to rename.");
         t.setOnClickListener(v -> rename(cur.id));
+    }
+
+    /** What can be done to a chat: rename it, pin or unpin it, delete it. */
+    public void chatMenu(final String id) {
+        ChatBook.Section s = find(id);
+        if (s == null) {
+            return;
+        }
+        final boolean pinned = s.pinned;
+        String[] items = {"Rename", pinned ? "Unpin" : "Pin to top", "Delete"};
+        new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setItems(items, (d, which) -> {
+                    if (which == 0) {
+                        rename(id);
+                    } else if (which == 1) {
+                        book.pin(id, !pinned);
+                        fillSections();
+                    } else {
+                        delete(id);
+                    }
+                })
+                .show();
+    }
+
+    /** Asks first, then deletes the chat; what DVINE learned from it stays ({@link ChatBook#delete}). */
+    public void delete(final String id) {
+        if (find(id) == null) {
+            return;
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setTitle("Delete this chat?")
+                .setMessage("Its messages are removed. What DVINE learned from it is kept.")
+                .setPositiveButton("Delete", (d, w) -> {
+                    boolean wasOpen = id.equals(book.current().id);
+                    if (book.delete(id)) {
+                        if (wasOpen) {
+                            host.onSection(book.current());
+                        }
+                        show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private ChatBook.Section find(String id) {
+        for (ChatBook.Section x : book.sections()) {
+            if (x.id.equals(id)) {
+                return x;
+            }
+        }
+        return null;
     }
 
     /** Asks for a new name for a chat, with the current one ready to edit. */

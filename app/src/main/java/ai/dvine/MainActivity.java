@@ -1089,8 +1089,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 .getInsetsController(window, root);
         if (bars != null) {
             bars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-            bars.setAppearanceLightStatusBars(false);
-            bars.setAppearanceLightNavigationBars(false);
+            // dark icons and text on the light theme's bars, light ones on the dark theme's
+            boolean light = getResources().getBoolean(R.bool.light_bars);
+            bars.setAppearanceLightStatusBars(light);
+            bars.setAppearanceLightNavigationBars(light);
         }
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
