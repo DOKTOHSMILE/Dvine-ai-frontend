@@ -18,12 +18,19 @@ set(LLAMA_OPENSSL OFF CACHE BOOL "" FORCE)
 set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
-set(GGML_CPU_KLEIDIAI OFF CACHE BOOL "" FORCE)
+# Arm's KleidiAI matrix kernels (MIT/Apache-2.0, vendored under third_party/kleidiai, v1.32.0): picked at run time by
+# what the phone's CPU has (dot product, int8 matrix multiply, SME), so newer phones get their faster instructions
+# while this library still runs on every arm64 phone with dot product. Checked in an emulator on a Cortex-A76 and on a
+# CPU with every feature: the same answers as without it.
+set(GGML_CPU_KLEIDIAI OFF CACHE BOOL "" FORCE) # on for the phone, below
+set(FETCHCONTENT_SOURCE_DIR_KLEIDIAI "${CMAKE_CURRENT_SOURCE_DIR}/third_party/kleidiai" CACHE PATH "" FORCE)
+set(KLEIDIAI_BUILD_EXPERIMENTAL_OPS OFF CACHE BOOL "" FORCE)
 set(GGML_BACKEND_DL OFF CACHE BOOL "" FORCE)
 set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
 if(ANDROID_ABI STREQUAL "arm64-v8a")
     # dot-product instructions (2018+ phones); the app checks the CPU for them before loading this library
     set(GGML_CPU_ARM_ARCH "armv8.2-a+dotprod+fp16" CACHE STRING "" FORCE)
+    set(GGML_CPU_KLEIDIAI ON CACHE BOOL "" FORCE)
 endif()
 
 add_subdirectory(llama.cpp)
