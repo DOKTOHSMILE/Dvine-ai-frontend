@@ -146,6 +146,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 113 | Models plan, build and test in continuous work that may take hours, online and offline; minimising doesn't kill it; drop replies bit by bit while processing | P12 | Built (JVM) | 0.72.0: rounds with progress notes, PLAN.md, 8-hour run |
 | 114 | Add projects and workspace to the drawer (samples: Claude, Grok, Gemini, Meta AI, ChatGPT, DeepSeek) | P12 | Built (Robolectric) | 0.73.0 |
 | 115 | Drop replies bit by bit while processing; a professional live thinking icon; the voice must not read format characters; a live backup so a crash doesn't restart a long process | P12 | Built (Robolectric) | 0.74.0 |
+| 116 | The 3 think tanks all processing together for better output (spec item 1, extended) | P12 | Built (JVM + desktop model) | 0.75.0 |
 
 ## Still open, in the order that matters
 
