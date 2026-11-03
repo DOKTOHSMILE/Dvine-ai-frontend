@@ -59,6 +59,43 @@ public final class ChatBook {
     private String currentId;
     private int next = 1;
 
+    private static final java.util.Map<String, ChatBook> OPEN = new java.util.HashMap<String, ChatBook>();
+
+    /**
+     * The one book for this file in this process: the chat screen and the memory screen share it, so a forget on one
+     * is not written back by the other.
+     */
+    public static synchronized ChatBook open(File file) {
+        String k = file.getAbsolutePath();
+        ChatBook b = OPEN.get(k);
+        if (b == null) {
+            b = new ChatBook(file);
+            OPEN.put(k, b);
+        }
+        return b;
+    }
+
+    /** The shared notes every chat sees (taught with "remember …", or kept from a deleted chat), oldest first. */
+    public synchronized List<String> notes() {
+        return new ArrayList<String>(shared);
+    }
+
+    /** Forgets one shared note; false when it wasn't there. */
+    public synchronized boolean forgetNote(String note) {
+        boolean gone = shared.remove(note);
+        if (gone) {
+            save();
+        }
+        return gone;
+    }
+
+    public synchronized void forgetAllNotes() {
+        if (!shared.isEmpty()) {
+            shared.clear();
+            save();
+        }
+    }
+
     public ChatBook(File file) {
         this.file = file;
         load();

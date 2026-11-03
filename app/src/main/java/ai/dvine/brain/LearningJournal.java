@@ -67,6 +67,46 @@ public final class LearningJournal {
     private final List<Entry> entries = new ArrayList<Entry>();
     private boolean consent;
 
+    private static final java.util.Map<String, LearningJournal> OPEN = new java.util.HashMap<String, LearningJournal>();
+
+    /** The one journal for this folder in this process (the chat and the memory screen share it). */
+    public static synchronized LearningJournal open(File dir) {
+        String k = dir.getAbsolutePath();
+        LearningJournal j = OPEN.get(k);
+        if (j == null) {
+            j = new LearningJournal(dir);
+            OPEN.put(k, j);
+        }
+        return j;
+    }
+
+    /** Forgets one entry; false when there is none with this id. */
+    public synchronized boolean forget(String id) {
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).id.equals(id)) {
+                entries.remove(i);
+                rewrite();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Forgets every taught fact and correction (the rest of the journal stays). */
+    public synchronized void forgetTaught() {
+        boolean changed = false;
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            String kind = entries.get(i).kind;
+            if (TAUGHT_FACT.equals(kind) || CORRECTION.equals(kind)) {
+                entries.remove(i);
+                changed = true;
+            }
+        }
+        if (changed) {
+            rewrite();
+        }
+    }
+
     public LearningJournal(File dir) {
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IllegalStateException("cannot create " + dir);

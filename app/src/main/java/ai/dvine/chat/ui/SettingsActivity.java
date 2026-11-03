@@ -193,6 +193,8 @@ public final class SettingsActivity extends AppCompatActivity {
         LinearLayout data = card();
         data.addView(toggle("Learn from the API models", "Their answers are kept on this phone to teach DVINE's own model.",
                 "learn_on", true, on -> hub.model.learning = on ? new ai.dvine.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null));
+        data.addView(link("What DVINE remembers", "Notes, facts you taught, how it reads your words: forget any of them",
+                MemoryActivity.class), Ui.wide(this, 10));
         data.addView(link("Usage and learning", "Context, tokens today, what was learned, export", UsageActivity.class), Ui.wide(this, 10));
         data.addView(action("Export chats", "Saves all chats to Downloads/DVINE.", this::exportChats), Ui.wide(this, 6));
         data.addView(action("Delete all chats", "Every chat and attached image on this phone.",

@@ -88,6 +88,10 @@
             android:name=".chat.ui.UsageActivity"
             android:exported="false"
             android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.MemoryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="ai.dvine.files"

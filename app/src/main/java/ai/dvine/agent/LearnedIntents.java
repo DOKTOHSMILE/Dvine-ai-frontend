@@ -18,6 +18,41 @@ public final class LearnedIntents {
     private final File file;
     private final Map<String, String> learned = new LinkedHashMap<String, String>(16, 0.75f, true);
 
+    private static final Map<String, LearnedIntents> OPEN = new java.util.HashMap<String, LearnedIntents>();
+
+    /** The one store for this file in this process (the chat and the memory screen share it). */
+    public static synchronized LearnedIntents open(File file) {
+        String k = file.getAbsolutePath();
+        LearnedIntents l = OPEN.get(k);
+        if (l == null) {
+            l = new LearnedIntents(file);
+            OPEN.put(k, l);
+        }
+        return l;
+    }
+
+    /** What was learned: the words, then the command they meant, oldest first. */
+    public synchronized java.util.List<String[]> entries() {
+        java.util.List<String[]> out = new java.util.ArrayList<String[]>();
+        for (Map.Entry<String, String> e : learned.entrySet()) {
+            out.add(new String[]{e.getKey(), e.getValue()});
+        }
+        return out;
+    }
+
+    public synchronized boolean forget(String words) {
+        boolean gone = learned.remove(key(words)) != null;
+        if (gone) {
+            save();
+        }
+        return gone;
+    }
+
+    public synchronized void forgetAll() {
+        learned.clear();
+        save();
+    }
+
     public LearnedIntents(File file) {
         this.file = file;
         try {
