@@ -580,6 +580,34 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void eachStepShowsItsOwnTimeInTheSheetAndKeepsIt() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        pane.activityStep("Read app/Main.java");
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(3));
+        pane.activityStep("Ran the tests");
+        java.util.List<String> timed = pane.timedSteps(System.currentTimeMillis() + 65_000);
+        org.junit.Assert.assertTrue(timed.toString(), timed.get(0).startsWith("Read app/Main.java\t"));
+        org.junit.Assert.assertTrue(timed.toString(), Long.parseLong(timed.get(1).split("\t")[1]) >= 60); // the running step counts up
+        pane.activityEnd();
+        ai.dvine.chat.ChatBook.Message kept = null;
+        for (ai.dvine.chat.ChatBook.Message m : chats.current().messages) {
+            if ("activity".equals(m.kind)) {
+                kept = m;
+            }
+        }
+        assertNotNull(kept);
+        org.junit.Assert.assertTrue(kept.body, kept.body.contains("Read app/Main.java\t") && kept.body.contains("Ran the tests\t"));
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;

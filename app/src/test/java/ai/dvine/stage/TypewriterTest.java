@@ -49,4 +49,11 @@ public class TypewriterTest {
         assertTrue(tail.startsWith("\u2026 ("));
         assertTrue(report.endsWith(tail.substring(tail.indexOf("\n\n") + 2)));
     }
+
+    @Test
+    public void stepTimesReadAsHoursMinutesAndSeconds() {
+        assertEquals("45s", ChatPane.duration(45));
+        assertEquals("3m 05s", ChatPane.duration(185));
+        assertEquals("1h 02m", ChatPane.duration(3720));
+    }
 }
