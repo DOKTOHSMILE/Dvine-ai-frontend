@@ -219,6 +219,12 @@ public class CodeAgentTest {
         Script searching = new Script("<search query=\"car\"/>", "No file mentions a car.");
         assertEquals("No file mentions a car.", new CodeAgent(ws, searching, new Phone(), "", 20_000).compact(true).run("Search me a car", ""));
         assertTrue(searching.seen.get(1), searching.seen.get(1).contains("<result>"));
+        // it writes a <result> itself (imitating the work log): told once, and no tag ever reaches the user
+        Script faking = new Script("<result> Files listed: - a.java </result>", "Yes, I can read code: tell me which file.");
+        assertEquals("Yes, I can read code: tell me which file.", new CodeAgent(ws, faking, new Phone(), "", 20_000).compact(true).run("Can you read code?", ""));
+        assertTrue(faking.seen.get(1), faking.seen.get(1).contains("Don't write <result> yourself"));
+        Script stubborn = new Script("<result>I can read code.</result>", "<result>I can read code.</result>", "<result>I can read code.</result>");
+        assertEquals("I can read code.", new CodeAgent(ws, stubborn, new Phone(), "", 20_000).compact(true).run("Can you read code?", ""));
         assertEquals("Hi", CodeAgent.unlabel("**Ibiko**: Hi"));
         assertEquals("Obi said yes", CodeAgent.unlabel("Obi said yes")); // only a leading label
     }

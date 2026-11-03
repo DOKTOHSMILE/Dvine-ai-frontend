@@ -11,7 +11,7 @@ public class TypewriterTest {
     public void typesWholeWordsFastAndCatchesUp() {
         String t = "The capital of France is Paris, a city of light.";
         int at = ChatPane.nextStop(t, 0);
-        assertTrue(at, at >= ChatPane.LIVE_CHARS_PER_TICK);
+        assertTrue("stop " + at, at >= ChatPane.LIVE_CHARS_PER_TICK);
         assertTrue("stops at the end of a word: " + t.substring(0, at), at == t.length() || t.charAt(at) == ' ');
         // a reply far ahead of what is shown is caught up quickly: under 20 frames for 4,000 characters
         StringBuilder b = new StringBuilder();

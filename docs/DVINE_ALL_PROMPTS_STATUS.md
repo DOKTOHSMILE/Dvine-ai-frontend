@@ -139,6 +139,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 106 | Add these functions (Claude Code's Select mode: Auto, Accept edits, Plan) | P12 | Built (Robolectric) | 0.68.0: Ibiko's mode sheet; Plan reads, plans, then asks to carry it out |
 | 107 | Does the model cache? To prevent reading long threads of replies over and over again | P12 | Built (desktop engine measured) | 0.68.1: the engine reuses everything already read; Claude prompt caching on; shipped engine refreshed |
 | 108 | Back to the original first build files: apply what still fits (personas' character, wisdom framework, languages, voices) | P12 | Built (JVM) | 0.69.0: spec temperament, John 1:14 / Stoic / Frankl / Kahneman / Munroe, Pidgin-French-Yoruba, spec voice values |
+| 109 | Fix this (Ibiko stuck 209 s with an 'ibiko:' step); make the typewriter faster like ChatGPT; memory review from the first build files | P12 | Built (Robolectric + desktop model) | 0.70.0: What DVINE remembers; small-model answers land at once; ~500 chars/s word typewriter |
 
 ## Still open, in the order that matters
 

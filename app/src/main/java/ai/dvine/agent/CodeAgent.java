@@ -288,6 +288,15 @@ public final class CodeAgent {
             // No tool call and no <final>: the model stopped writing. Whether it is done is not guessed from its words:
             // it is asked once, and it answers by what it does next (a tool call: the work goes on; <final> or plain
             // text again: that is the answer). A whole report (1,500+ characters) needs no asking.
+            if (text.startsWith("<result>") && nudges < 2) {
+                nudges++; // a small model writing the tool's result itself, as it sees them in the work log
+                work.append("\n<result>\n").append(OWN_RESULT).append("\n</result>\n");
+                continue;
+            }
+            text = text.replaceAll("</?result>", "").trim(); // never shown to the user as a tag
+            if (text.isEmpty()) {
+                continue;
+            }
             if (compact && !text.startsWith("<")) {
                 // a small model (the short instructions): asking it again whether it is done costs minutes on a phone
                 // and it can't tell the difference anyway; its plain answer is the answer
@@ -315,6 +324,10 @@ public final class CodeAgent {
         }
         return "I used all " + maxSteps + " steps without finishing. Say \u201ccontinue\u201d and I'll pick up from here." + summary();
     }
+
+    /** The model wrote a <result> itself: results come only from the tools. */
+    static final String OWN_RESULT = "Don't write <result> yourself: results come back only from a tool you call. Call a"
+            + " tool now, or give your answer to the user inside <final>\u2026</final>.";
 
     /** Text without a tool call or <final>: the model is asked, once, which it is. */
     static final String DONE_OR_GO_ON = "You wrote text without a tool call. If the task is finished, give your complete answer"

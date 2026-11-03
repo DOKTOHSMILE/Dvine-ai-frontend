@@ -39,12 +39,15 @@ public class OfflineIbikoTest {
                 ai.dvine.chat.Tuning.CHAT_TOKENS.get(null), null);
         System.out.println("OFFLINE obi: " + hello + " (problem " + m.problem() + ")");
         assertTrue("Obi said nothing: " + m.problem(), hello != null && !hello.trim().isEmpty());
-        for (String task : new String[]{"Can you read code?", "Search me a car"}) {
+        String only = System.getenv("DVINE_TASK"); // one task, for a quicker run
+        for (String task : only != null ? new String[]{only} : new String[]{"Can you read code?", "Search me a car"}) {
             ai.dvine.agent.CodeAgent agent = new ai.dvine.agent.CodeAgent(ws, new ai.dvine.agent.CodeAgent.Brain() {
                 @Override
                 public String ask(String system, String transcript) {
                     System.out.println("OFFLINE step: system " + system.length() + " chars, transcript " + transcript.length() + " chars");
-                    return m.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(null), null);
+                    String said = m.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(null), null);
+                    System.out.println("OFFLINE   said: " + (said == null ? "null" : said.replace('\n', ' ').substring(0, Math.min(200, said.length()))));
+                    return said;
                 }
 
                 @Override
