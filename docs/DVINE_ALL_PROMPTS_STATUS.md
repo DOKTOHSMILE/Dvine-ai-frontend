@@ -151,6 +151,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 118 | Fact-check pass on factual answers (spec item 5) | P12 | Built (JVM + desktop model) | 0.77.0 |
 | 119 | Multiple mini agents for heavy tasks, possible offline | P12 | Built (JVM + desktop model) | 0.78.0 |
 | 120 | Model workload counter like an overheating indicator; auto-clear when too full, as the master plan says | P12 | Built (Robolectric) | 0.79.0 |
+| 121 | Can the offline model create files in multiple formats (PDF etc.)? If not, build it into DVINE; the counter goes down when the system releases stress | P12 | Built (Robolectric) | 0.80.0 |
 
 ## Still open, in the order that matters
 

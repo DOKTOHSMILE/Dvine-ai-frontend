@@ -198,6 +198,21 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void ibikoMakesRealFilesFromMarkdown() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Script brain = new Script("<tool name=\"make_file\" path=\"out/report.docx\"># Report\n\nAll good.</tool>", "<final>Made it.</final>");
+        Phone phone = new Phone();
+        CodeAgent a = new CodeAgent(ws, brain, phone, "", 20_000);
+        assertTrue(a.system().contains("make_file"));
+        assertEquals("Made it.", a.run("make a word report", ""));
+        File made = new File(ws, "out/report.docx");
+        assertTrue(made.isFile());
+        assertEquals('P', (char) Files.readAllBytes(made.toPath())[0]); // a zip (PK…): a real .docx
+        assertTrue(a.changed().contains("out/report.docx"));
+        assertFalse(new CodeAgent(ws, brain, phone, "", 20_000).as("Obi", true).system().contains("make_file")); // reading only
+    }
+
+    @Test
     public void everyStepIsSavedAsItHappensSoACrashLosesNothing() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         Script brain = new Script("<tool name=\"list_files\" path=\".\"/>", "<tool name=\"search\" query=\"main\"/>",

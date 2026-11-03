@@ -80,6 +80,15 @@ public final class PhoneHost implements CodeAgent.Host {
         return ok[0];
     }
 
+    /** The real file, PDF included (drawn with Android's PdfDocument). */
+    @Override
+    public String makeFile(File f, String markdown) throws java.io.IOException {
+        ai.dvine.act.FileMaker.Format fmt = ai.dvine.act.FileMaker.of(f.getName());
+        byte[] bytes = ai.dvine.act.FileMaker.any(fmt, f.getName().replaceAll("\\.[^.]+$", ""), markdown);
+        java.nio.file.Files.write(f.toPath(), bytes);
+        return fmt.name() + ", " + (bytes.length < 1024 ? bytes.length + " bytes" : bytes.length / 1024 + " KB");
+    }
+
     @Override
     public String run(String command, File dir) {
         return SandboxShell.run(command, dir, 30_000, 8000);
