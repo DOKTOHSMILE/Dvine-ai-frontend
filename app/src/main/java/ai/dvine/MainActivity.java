@@ -397,24 +397,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private boolean awaitingName;
 
-    /** Saves any crash to files/crash.txt, then lets Android close the app as usual. */
+    /**
+     * The crash catcher ({@link CrashLog}): every crash is saved to files/crash.txt and to Download/DVINE. The app
+     * class installs it at start; this covers a start without it (tests).
+     */
     private void installCrashReporter() {
-        final Thread.UncaughtExceptionHandler previous = Thread
-                .getDefaultUncaughtExceptionHandler();
-        final File out = new File(getFilesDir(), "crash.txt");
-        Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
-            try (java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(out))) {
-                w.println("DVINE " + BuildConfigInfo.version(this) + " on Android "
-                        + android.os.Build.VERSION.RELEASE + " (" + android.os.Build.MANUFACTURER
-                        + " " + android.os.Build.MODEL + ")");
-                error.printStackTrace(w);
-            } catch (java.io.IOException ignored) {
-                // nothing more we can do
-            }
-            if (previous != null) {
-                previous.uncaughtException(thread, error);
-            }
-        });
+        CrashLog.install(this);
     }
 
     private String takeCrashReport() {
@@ -990,7 +978,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         String report = freshCrash();
-        banner.setVisibility(android.view.View.GONE);
+        // shown once after a crash: the report is in Download/DVINE, and Copy puts it on the clipboard
+        banner.setVisibility(report != null ? android.view.View.VISIBLE : android.view.View.GONE);
+        android.widget.TextView detail = findViewById(R.id.tv_crash_detail);
+        if (detail != null && report != null) {
+            String first = report.split("\n\n", 3).length > 1 ? report.split("\n\n", 3)[1].split("\n")[0] : "";
+            detail.setText("Saved in Download/DVINE" + (first.isEmpty() ? "" : " (" + first + ")") + ". Tap Copy to copy it.");
+        }
         android.view.View copy = findViewById(R.id.btn_copy_crash);
         if (copy != null) {
             copy.setOnClickListener(v -> {

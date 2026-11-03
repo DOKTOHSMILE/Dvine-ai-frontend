@@ -163,6 +163,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 130 | Delete every built-in 3D sample; the model designs with full measurements, DVINE builds; hold messages while work runs; social switch, editable names, standard check, how-to; drag the sheet by its body; rename 'Writing the answer' | P12 | Built (desktop model measured) | 0.88.0 |
 | 131 | Measurements asked or standard sizes; the brain turns plain words into commands; API models get a full design brief with coordinates; one route for social and builds; full-screen Blender-style design space; remove "I'm here…"; fix VoiceTuning.parse; the thinking star glances like an eye; replies in short parts between the steps with voice on each; handbook v2 | P12 | Built (API design untested without a key) | 0.89.0 |
 | 132 | Notes between the steps written by the model itself (continue of "format my message like this, broken by processes") | P12 | Built | 0.89.1 |
+| 133 | The app is crashing: a debug catcher that saves crash logs to the Downloads folder to copy | P12 | Built (cause pending the first report) | 0.89.2 |
 
 ## Still open, in the order that matters
 
