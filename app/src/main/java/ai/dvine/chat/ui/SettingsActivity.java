@@ -94,6 +94,9 @@ public final class SettingsActivity extends AppCompatActivity {
                 + " the conversation is summed up and the rest cleared, so replies stay quick.", "auto_clear", true, null));
         chat.addView(toggle("Fact-check answers", "Online: names, numbers and dates in a factual answer are looked up after it is"
                 + " shown; a correction follows only if something was wrong.", "fact_check", true, null));
+        chat.addView(toggle("Interpreter for Pidgin, Yoruba and French", "A message in Pidgin, Yoruba or French is put into"
+                + " English for the model, and the answer put back into your language. Models think best in English; it takes"
+                + " a little longer.", "interpreter", true, null));
         chat.addView(toggle("Show the working steps", "What DVINE is doing while it answers: searches, sources, models.", "show_steps", true, null),
                 Ui.wide(this, 10));
         body.addView(chat, Ui.wide(this, 8));
