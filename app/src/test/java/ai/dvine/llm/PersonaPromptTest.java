@@ -37,9 +37,10 @@ public class PersonaPromptTest {
             assertTrue(s.endsWith("/no_think"));
         }
         ai.dvine.voice.VoiceTuning o = ai.dvine.voice.VoiceTuning.defaults(false), i = ai.dvine.voice.VoiceTuning.defaults(true);
-        org.junit.Assert.assertEquals(0.84f, o.pitch, 1e-6);
-        org.junit.Assert.assertEquals(0.94f, o.rate, 1e-6);
-        org.junit.Assert.assertEquals(1.05f, i.pitch, 1e-6);
-        org.junit.Assert.assertEquals(0.98f, i.rate, 1e-6);
+        // Warm side of neutral: pushed-up system voices turn thin and sharp, so Ivie sits at 1.0 and Obi below it.
+        org.junit.Assert.assertEquals(0.80f, o.pitch, 1e-6);
+        org.junit.Assert.assertEquals(0.92f, o.rate, 1e-6);
+        org.junit.Assert.assertEquals(1.00f, i.pitch, 1e-6);
+        org.junit.Assert.assertEquals(0.96f, i.rate, 1e-6);
     }
 }

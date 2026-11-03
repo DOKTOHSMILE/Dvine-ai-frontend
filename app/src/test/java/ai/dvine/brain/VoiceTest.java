@@ -59,6 +59,34 @@ public class VoiceTest {
     }
 
     @Test
+    public void sharpPitchIsCompressedButLoweredPitchIsNot() {
+        // at or below neutral the pitch passes through untouched, so Obi stays deep
+        assertEquals(0.80f, VoiceTuning.warm(VoiceTuning.defaults(false).pitch), 0.0001f);
+        assertEquals(0.97f, VoiceTuning.warm(VoiceTuning.defaults(true).pitch), 0.0001f);
+        assertEquals(1.00f, VoiceTuning.warm(1.00f), 0.0001f);
+        // above neutral the lift is softened, never reaching the sharp zone
+        assertTrue(VoiceTuning.warm(1.10f) > 1.00f);
+        assertTrue(VoiceTuning.warm(1.10f) < 1.10f);
+        assertTrue(VoiceTuning.warm(1.60f) <= 1.08f);
+        // monotonic: a higher request still sounds higher, just compressed
+        assertTrue(VoiceTuning.warm(1.30f) > VoiceTuning.warm(1.15f));
+        // and even the deepest request keeps a sane floor
+        assertTrue(VoiceTuning.warm(0.40f) >= 0.40f);
+    }
+
+    @Test
+    public void higherVoiceCommandStaysUnderTheSharpCeiling() {
+        VoiceTuning t = VoiceTuning.defaults(true);
+        for (int i = 0; i < 6; i++) {
+            t.apply("VOICE_HIGHER", true, voices(), null);
+        }
+        // the user's tuning is honoured …
+        assertTrue(t.pitch > VoiceTuning.defaults(true).pitch);
+        // … but what reaches the engine can still not whine
+        assertTrue(VoiceTuning.warm(t.pitch) <= 1.08f);
+    }
+
+    @Test
     public void brainRoutesVoiceCommands() throws Exception {
         OfflineBrain b = TestPack.brain(TestPack.tempDir());
         BrainAnswer a = b.respond("Ivie, try a different voice", "obi");

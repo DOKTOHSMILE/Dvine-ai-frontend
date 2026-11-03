@@ -11,8 +11,9 @@ import java.util.function.Consumer;
 
 /**
  * The mic button writes what you say into the message box, after anything already typed, so you can read and edit
- * it before sending: the words appear as you speak, the box gets the keyboard back at the end. Tap the mic again to
- * stop; it also stops by itself after a pause. Nothing is sent.
+ * it before sending: the words appear as you speak, the box gets the keyboard back at the end. The session runs
+ * until you tap the mic again — a stretch of silence only ends that stretch, and the next one begins straight
+ * away, so it never stops by itself in the middle of a conversation. Nothing is sent.
  */
 public final class Dictation implements ListenCallback {
     private final EditText field;
@@ -51,7 +52,8 @@ public final class Dictation implements ListenCallback {
         before = field.getText() == null ? "" : field.getText().toString();
         active = true;
         show(true);
-        listen.start(this, true);
+        // continuous: the session keeps restarting until finish() — silence never ends it by itself
+        listen.start(this, false, true);
     }
 
     @Override
@@ -59,11 +61,13 @@ public final class Dictation implements ListenCallback {
         put(text, false);
     }
 
+    /** A finished stretch: the words go in, but the session carries on — the button stays lit. */
     @Override
     public void onResult(String text) {
-        put(text, true);
+        put(text, false);
     }
 
+    /** Listening itself failed: end the session, because nothing more will be heard. */
     @Override
     public void onError(String message) {
         put("", true);
