@@ -32,9 +32,9 @@ public final class VoiceTuning {
 
     public static VoiceTuning defaults(boolean ivie) {
         VoiceTuning t = new VoiceTuning();
-        // close to natural: big pitch shifts make TTS sound robotic
-        t.pitch = ivie ? 1.04f : 0.93f;
-        t.rate = ivie ? 0.94f : 0.90f;
+        // the master specification's voices: Obi a deep, measured baritone; Ivie poised (tunable by voice after)
+        t.pitch = ivie ? 1.05f : 0.84f;
+        t.rate = ivie ? 0.98f : 0.94f;
         return t;
     }
 
