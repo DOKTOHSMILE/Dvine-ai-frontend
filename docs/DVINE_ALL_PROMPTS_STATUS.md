@@ -137,6 +137,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 104 | Chat title editable; cancel the one-word photo search, let it go to the model with the chat context | P12 | Built (Robolectric) | 0.67.4: tap the title or hold a chat to rename; single words go to the model |
 | 105 | Chat delete (knowledge kept), chat pin, status-bar text dark in light mode and vice versa | P12 | Built (Robolectric) | 0.67.5: hold a chat for Rename / Pin / Delete; bar icons follow the theme |
 | 106 | Add these functions (Claude Code's Select mode: Auto, Accept edits, Plan) | P12 | Built (Robolectric) | 0.68.0: Ibiko's mode sheet; Plan reads, plans, then asks to carry it out |
+| 107 | Does the model cache? To prevent reading long threads of replies over and over again | P12 | Built (desktop engine measured) | 0.68.1: the engine reuses everything already read; Claude prompt caching on; shipped engine refreshed |
 
 ## Still open, in the order that matters
 

@@ -32,9 +32,18 @@ tasks.register("robolectricJars", Copy) {
 // Pure Java: runs on the compiled app classes, no device needed.
 
 
-// After changing the engine's C++ (src/main/cpp), refresh the ready-built copy that builds without the NDK ship:
-// gradle :app:assembleDebug :app:refreshNativeEngine
-tasks.register('refreshNativeEngine', Copy) {
-    from "$buildDir/intermediates/stripped_native_libs/debug/stripDebugDebugSymbols/out/lib/arm64-v8a/libdvine_llm.so"
-    into "$projectDir/src/main/jniLibs/arm64-v8a"
+// After changing the engine's C++ (src/main/cpp), refresh the ready-built copy that builds without the NDK ship.
+// Run it after a build, on its own: gradle :app:assembleDebug, then gradle :app:refreshNativeEngine, then build again.
+// It strips the library the C++ build just made (not the packaged one: packaging prefers the ready-built copy, so
+// copying that back would keep the old engine).
+tasks.register('refreshNativeEngine', Exec) {
+    doFirst {
+        def built = fileTree("$buildDir/intermediates/cxx/Release") { include '*/obj/arm64-v8a/libdvine_llm.so' }.files
+                .max { it.lastModified() }
+        if (built == null) {
+            throw new GradleException("Build the C++ first: gradle :app:assembleDebug")
+        }
+        def strip = new File(android.ndkDirectory, "toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip")
+        commandLine strip.path, '--strip-unneeded', '-o', "$projectDir/src/main/jniLibs/arm64-v8a/libdvine_llm.so", built.path
+    }
 }

@@ -44,6 +44,7 @@ bool Engine::load(const std::string & path, int n_ctx, int n_threads) {
         return false;
     }
     batch_ = llama_batch_ext_init(ctx_);
+    cached_.clear(); // a new context starts with nothing in memory
     return true;
 }
 
@@ -129,30 +130,41 @@ std::string Engine::reply(const std::string & system, const std::vector<Turn> & 
             full += "<think>\n\n</think>\n\n";
         }
     }
-    if (cached_system_ != sys_text) {
-        llama_memory_clear(mem, true);
-        std::vector<int> sys_tokens = tokenize(sys_text, true);
-        if (!decode(sys_tokens, 0)) {
-            cached_system_.clear();
-            error_ = "the model could not read the persona";
-            return std::string();
-        }
-        cached_system_ = sys_text;
-        cached_tokens_ = (int) sys_tokens.size();
-    }
-    llama_memory_seq_rm(mem, 0, cached_tokens_, -1);
+    // Everything already in the model's memory from the last reply (the persona, the chat so far, the reply it
+    // wrote) is kept: only the part of the prompt after the longest shared beginning is read again. A long chat or
+    // an agent's growing work is read once, not on every reply.
+    std::vector<int> tokens = tokenize(sys_text, true);
     std::vector<int> rest = tokenize(full.substr(sys_text.size()), false);
+    tokens.insert(tokens.end(), rest.begin(), rest.end());
     const int n_ctx = (int) llama_n_ctx(ctx_);
-    if (cached_tokens_ + (int) rest.size() + max_tokens > n_ctx) {
+    if ((int) tokens.size() + max_tokens > n_ctx) {
         error_ = "the conversation is too long for the model's memory";
         return std::string();
     }
-    if (!decode(rest, cached_tokens_)) {
-        error_ = "the model could not read the question";
+    size_t keep = 0;
+    while (keep < cached_.size() && keep < tokens.size() && cached_[keep] == tokens[keep]) {
+        ++keep;
+    }
+    if (keep == tokens.size() && keep > 0) {
+        --keep; // the last token is read again so there is something to answer from
+    }
+    if (!llama_memory_seq_rm(mem, 0, (llama_pos) keep, -1)) {
+        llama_memory_clear(mem, true); // this model's memory can't be cut part-way: read it all
+        keep = 0;
+    }
+    cached_.resize(keep);
+    last_reused_ = (int) keep;
+    last_read_ = (int) (tokens.size() - keep);
+    std::vector<int> fresh(tokens.begin() + keep, tokens.end());
+    if (!decode(fresh, (int) keep) || stop_) {
+        llama_memory_clear(mem, true); // part-read (or stopped while reading): start clean next time
+        cached_.clear();
+        if (!stop_) error_ = "the model could not read the question";
         return std::string();
     }
+    cached_ = tokens;
     const llama_vocab * vocab = llama_model_get_vocab(model_);
-    int pos = cached_tokens_ + (int) rest.size();
+    int pos = (int) tokens.size();
     ThinkFilter filter;
     std::string out, bytes;
     for (int i = 0; i < max_tokens && !stop_; ++i) {
@@ -178,8 +190,11 @@ std::string Engine::reply(const std::string & system, const std::vector<Turn> & 
         }
         std::vector<int> one{tok};
         if (!decode(one, pos++)) {
+            llama_memory_clear(mem, true);
+            cached_.clear();
             break;
         }
+        cached_.push_back(tok); // the reply stays in memory too: the next turn starts with it
     }
     return out;
 }

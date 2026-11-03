@@ -36,6 +36,9 @@ public:
     void cancel() { stop_ = true; }
 
     const std::string & error() const { return error_; }
+    // From the last reply: how many prompt tokens were already in memory, and how many had to be read.
+    int last_reused() const { return last_reused_; }
+    int last_read() const { return last_read_; }
     bool loaded() const { return ctx_ != nullptr; }
 
 private:
@@ -48,9 +51,10 @@ private:
     llama_sampler * sampler_ = nullptr;
     llama_batch_ext * batch_ = nullptr;
     float sampler_temp_ = -1.f;
-    // the system prompt already in the model's memory, kept between replies so it is not processed again
-    std::string cached_system_;
-    int cached_tokens_ = 0;
+    // the tokens in the model's memory (the last prompt and the reply it wrote), kept between replies so a prompt
+    // that starts the same way is not read again
+    std::vector<int> cached_;
+    int last_reused_ = 0, last_read_ = 0;
     std::atomic<bool> stop_{false};
     std::string error_;
 };
