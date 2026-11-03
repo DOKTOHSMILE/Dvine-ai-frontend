@@ -3924,8 +3924,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private static boolean plain(BrainAnswer a) {
-        return a.action == null && a.command == null && !a.listenAfter && a.sketch == null
-                && a.object3d == null;
+        return a.action == null && a.command == null && !a.listenAfter && a.sketch == null;
     }
 
     private boolean create(final String text) {

@@ -88,10 +88,6 @@ public final class Engine implements Supervisor.Listener {
             submit(c);
             episodes.record("ACTION", "sketch:" + a.sketch.title, "drew " + a.sketch.title, 0.3f, now);
         }
-        if (a.object3d != null) {
-            submit(new Command("draw.object", a.object3d, Command.PRIORITY_USER, now));
-            episodes.record("ACTION", "object:" + a.object3d, "built " + a.object3d, 0.3f, now);
-        }
         String source = a.source == null ? "" : a.source.toLowerCase(Locale.US);
         if (a.needsOnline || source.equals("offline")) {
             affect.appraise("unknown");

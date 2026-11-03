@@ -12,8 +12,6 @@ public final class BrainAnswer {
     public final boolean needsOnline;
     /** Short label for the activity card, e.g. "CALC" or "PACK". */
     public final String source;
-    /** 3D object the nano swarm builds (globe, cube, pyramid, torus, dna, atom, sphere), or null. */
-    public String object3d;
     /** Drawing to show while speaking, or null. */
     public ai.dvine.stage.Sketch sketch;
     /** Confirmed action to run before speaking, or null. */

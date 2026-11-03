@@ -267,7 +267,7 @@ public final class OfflineBrain {
             a.command = "FAVOURITES";
             return a;
         }
-        String object = ai.dvine.render.forms.Forms.objectFor(text);
+        String object = photoSubject(text);
         if (object != null) {
             BrainAnswer a = one(speaker, "I'll look up photographs of " + object + ". I will not draw it from stored shapes.", "PHOTO");
             a.command = "LOOKUP_PHOTO";
@@ -389,6 +389,30 @@ public final class OfflineBrain {
             case "ripples": return "Ripples spreading on water: waves carry energy outward, getting smaller as they spread.";
             default: return "A sphere: every point on its surface is the same distance from the centre.";
         }
+    }
+
+    /**
+     * A named thing to show ("draw the globe", "show me a black hole"): without a model, real photographs of it are
+     * looked up (there are no stored 3D shapes to draw it from). Null when the request names none of these.
+     */
+    static String photoSubject(String lower) {
+        if (lower == null) {
+            return null;
+        }
+        String t = lower.toLowerCase(java.util.Locale.US).replaceAll("\\?+$", "")
+                .replaceAll("^((please|can you|could you|will you|would you|now|go ahead and|i want you to) )+", "");
+        if (!(t.startsWith("draw") || t.startsWith("show") || t.startsWith("explain") || t.startsWith("make") || t.startsWith("build"))) {
+            return null;
+        }
+        String[][] names = {{"black hole", "black hole"}, {"galaxy", "galaxy"}, {"milky way", "galaxy"}, {"tesseract", "tesseract"},
+                {"rocket", "rocket"}, {"butterfly", "butterfly"}, {"eiffel", "eiffel tower"}, {"brain", "brain"}, {"saturn", "saturn"},
+                {"globe", "globe"}, {"earth", "globe"}, {"pyramid", "pyramid"}, {"dna", "dna"}, {"helix", "dna"}, {"atom", "atom"}};
+        for (String[] n : names) {
+            if (t.contains(n[0])) {
+                return n[1];
+            }
+        }
+        return null;
     }
 
     private static boolean objectSketch(String title) {

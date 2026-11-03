@@ -1,7 +1,6 @@
 package ai.dvine.engine;
 
 import ai.dvine.motion.Motions;
-import ai.dvine.render.forms.Forms;
 
 /**
  * The skill registry: every action the stage knows (drawings, and the movement engine's moves), its channel, whether it
@@ -24,7 +23,6 @@ public final class Skills {
             case "body.stop":
                 return Command.Channel.BODY;
             case "draw.sketch":
-            case "draw.object":
             case "draw.clear":
                 return Command.Channel.DRAW;
             default:
@@ -50,8 +48,6 @@ public final class Skills {
                     }
                 }
                 return null;
-            case "draw.object":
-                return known(Forms.OBJECTS, c.value) ? null : "unknown object";
             case "draw.sketch":
                 return c.payload instanceof ai.dvine.stage.Sketch ? null : "no sketch";
             default:
@@ -77,8 +73,6 @@ public final class Skills {
                 }
                 return (long) (s * 1000f);
             }
-            case "draw.object":
-                return 22000L;
             case "draw.sketch":
                 return (long) ((((ai.dvine.stage.Sketch) c.payload).length + 18f) * 1000f);
             default:

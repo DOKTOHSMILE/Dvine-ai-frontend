@@ -453,12 +453,6 @@ public final class StageView extends View implements Choreographer.FrameCallback
         display.apply(ai.dvine.render.field.ShapeCommand.parse("turn it around"));
     }
 
-    /** A turning 3D object (globe, cube, pyramid, torus, dna, atom, sphere…) above the pod. */
-    @Override
-    public void showObject(String kind) {
-        showSolid(ObjectPoints.of(new ai.dvine.render.forms.Forms.Object3D(kind), ai.dvine.render.field.ParticleDisplay.DRAWING_POINTS), kind);
-    }
-
     @Override
     public void showSketch(Sketch s) {
         if (s != null) {
