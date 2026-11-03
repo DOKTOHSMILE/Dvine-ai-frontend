@@ -45,7 +45,10 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            // shrink the shipped APK: R8 strips unused code/resources once tests prove the paths
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 

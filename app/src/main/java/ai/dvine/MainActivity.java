@@ -506,10 +506,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             mark.setText(persona.substring(0, 1).toUpperCase());
         }
         showIbikoMode("ibiko".equals(persona));
-        if (fromTap && "ibiko".equals(persona)) {
-            offerTermux();
-        }
         if (fromTap) {
+            if ("ibiko".equals(persona)) {
+                offerTermux();
+            }
             warmModel(); // the new persona's instructions read ahead, beside the others
         }
     }
@@ -524,9 +524,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         prefs.edit().putBoolean(key, true).apply();
+        // only when the coding chat is opened, and only once; the wording matches what the tools really do here
         play(LocalTurn.speakAs("ibiko", installed
-                ? "This is the coding chat. Ask me to find a zip or unzip it and I'll do it here. I won't open another app."
-                : "This is the coding chat. Ask me to find a zip or unzip it and I'll do it here, in this chat. I won't open another app."),
+                ? "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."
+                : "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."),
                 null);
     }
 
@@ -4609,7 +4610,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (talk != null) {
             talk.stop();
         }
-        if (listen != null && listen.isListening()) {
+        // an active dictation session is the user's recording: it ends only on its own button, never with the playback
+        if (listen != null && listen.isListening() && !dictating()) {
             listen.stop();
             stage.setListening(false);
         }
