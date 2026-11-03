@@ -33,8 +33,13 @@ public class CodeAgentTest {
     }
 
     private static final class Phone implements CodeAgent.Host {
-        final List<String> steps = new ArrayList<String>(), asked = new ArrayList<String>();
+        final List<String> steps = new ArrayList<String>(), asked = new ArrayList<String>(), notes = new ArrayList<String>();
         boolean allow;
+
+        @Override
+        public void note(String text) {
+            notes.add(text);
+        }
 
         @Override
         public boolean allowRun(String command) {
@@ -154,6 +159,26 @@ public class CodeAgentTest {
         assertEquals(1, phone.asked.size());
         assertTrue(phone.asked.get(0), phone.asked.get(0).startsWith("git commit and push app"));
         assertEquals("x = 1\n", hub.filesAt("main").get("app.py")); // not allowed: nothing pushed
+    }
+
+    @Test
+    public void theModelsWordsBeforeAStepReachTheChatAsANote() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Phone phone = new Phone();
+        CodeAgent agent = new CodeAgent(ws, new Script(
+                "<think>where is it</think>The freeze must be in Save; listing the files first.\n<tool name=\"list_files\" path=\".\"/>",
+                "The freeze must be in Save; listing the files first.\n<tool name=\"list_files\" path=\".\"/>",
+                "<tool name=\"list_files\" path=\".\"/>",
+                "<final>Found it.</final>"), phone, "", 20_000);
+        assertTrue(agent.system().contains("one short sentence for the user"));
+        assertEquals("Found it.", agent.run("why does it freeze", ""));
+        assertEquals("the thinking is left out and the same words show once",
+                Arrays.asList("The freeze must be in Save; listing the files first."), phone.notes);
+        // too long, code, or nothing before the call: no note
+        CodeAgent.Call call = CodeAgent.parse("<tool name=\"list_files\" path=\".\"/>");
+        assertEquals(null, CodeAgent.noteBefore(call.raw, call));
+        assertEquals(null, CodeAgent.noteBefore("x".repeat(400) + call.raw, call));
+        assertEquals(null, CodeAgent.noteBefore("```\nls\n```" + call.raw, call));
     }
 
     @Test
