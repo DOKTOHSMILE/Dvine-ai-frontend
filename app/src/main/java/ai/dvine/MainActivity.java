@@ -1045,6 +1045,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public boolean onReadAloudToggle(String text) {
+                return toggleReading(text);
+            }
+
+            @Override
             public void onEdit(String before, String edited) {
                 // the old message and its replies are gone from the chat; the model forgets them too, then the
                 // edited message is sent like a new one (a reply still being written to the old one is stopped)
@@ -1415,6 +1420,60 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (talk != null) {
             talk.stop();
         }
+    }
+
+    /** The reply being read aloud by its Listen button, its sentences, and the one it is on. */
+    private String readingText;
+    private java.util.List<String> readingSentences = new java.util.ArrayList<String>();
+    private int readingAt;
+    private boolean readingOn;
+
+    /**
+     * Listen: reads the reply sentence by sentence; tapped while reading, it pauses (the phone's voice can't stop
+     * mid-word and carry on, so it stops and remembers the sentence); tapped again, it carries on from that
+     * sentence. True when it is reading now.
+     */
+    private boolean toggleReading(String text) {
+        if (talk == null || stage == null || text == null || text.trim().isEmpty()) {
+            return false;
+        }
+        if (readingOn && text.equals(readingText)) {
+            readingOn = false;
+            talk.stop();
+            return false;
+        }
+        if (!text.equals(readingText)) {
+            readingText = text;
+            readingSentences = ai.dvine.voice.SentenceStream.split(text);
+            readingAt = 0;
+        }
+        if (readingAt >= readingSentences.size()) {
+            readingAt = 0; // finished last time: from the start
+        }
+        readingOn = true;
+        readNext(stage.agent());
+        return true;
+    }
+
+    private void readNext(final String persona) {
+        if (!readingOn) {
+            return;
+        }
+        if (readingAt >= readingSentences.size()) {
+            readingOn = false;
+            readingAt = 0;
+            if (chatPane != null) {
+                chatPane.readingStopped();
+            }
+            return;
+        }
+        talk.speak("ivie".equals(persona), readingSentences.get(readingAt), () -> {
+            if (!readingOn) {
+                return;
+            }
+            readingAt++;
+            readNext(persona);
+        });
     }
 
     private void stopGeneration() {
@@ -2034,6 +2093,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void answer(String text, boolean interpreted) {
         interruptReply();
+        if (readingOn) {
+            readingOn = false; // a new message ends reading an old reply aloud
+            if (chatPane != null) {
+                chatPane.readingStopped();
+            }
+        }
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;

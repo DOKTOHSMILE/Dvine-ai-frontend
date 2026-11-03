@@ -15,6 +15,20 @@ public final class SentenceStream {
     private final StringBuilder held = new StringBuilder();
     private boolean inCode, first = true, saidCode;
 
+    /** A whole reply as the sentences to read aloud (code left out, markdown cleaned), for Listen. */
+    public static List<String> split(String text) {
+        SentenceStream s = new SentenceStream();
+        List<String> out = new ArrayList<String>(s.add(text));
+        out.addAll(s.finish());
+        List<String> spoken = new ArrayList<String>();
+        for (String t : out) {
+            if (t != null && !t.trim().isEmpty()) {
+                spoken.add(t.trim());
+            }
+        }
+        return spoken;
+    }
+
     /** Adds what the model just wrote; returns the sentences now complete (often none). */
     public List<String> add(String piece) {
         List<String> out = new ArrayList<String>();
