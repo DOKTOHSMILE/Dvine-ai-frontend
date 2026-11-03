@@ -212,21 +212,50 @@ public final class SettingsActivity extends AppCompatActivity {
         adv.addView(Ui.text(this, "The numbers DVINE works with. Each provider's own settings (images, reasoning, length, time,"
                 + " extra request fields) are under AI providers \u203A a provider \u203A Advanced.", 13, Ui.SUB, false));
         for (final ai.dvine.chat.Tuning.Knob k : ai.dvine.chat.Tuning.ALL) {
-            adv.addView(Ui.text(this, k.name, 15, Ui.TEXT, false), Ui.wide(this, 14));
-            adv.addView(Ui.text(this, k.about + " (" + k.min + " to " + k.max + ", default " + k.def + ")", 12, Ui.SUB, false));
-            final android.widget.EditText v = Ui.field(this, String.valueOf(k.def), String.valueOf(k.get(prefs)), false, false);
-            v.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-            v.setOnFocusChangeListener((view, focused) -> {
-                if (!focused) {
-                    save(k, v);
+            // a slider for each number: its name with the value beside it, what it does, and the range under it
+            LinearLayout head = new LinearLayout(this);
+            head.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            head.addView(Ui.text(this, k.name.replace(" (0 = automatic)", ""), 15, Ui.TEXT, false),
+                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            final TextView value = Ui.text(this, k.shown(k.get(prefs)), 15, Ui.ACCENT, true);
+            head.addView(value);
+            adv.addView(head, Ui.wide(this, 16));
+            adv.addView(Ui.text(this, k.about, 12, Ui.SUB, false));
+            final int[] stops = k.stops();
+            final android.widget.SeekBar bar = new android.widget.SeekBar(this);
+            bar.setMax(stops.length - 1);
+            bar.setProgress(k.stopFor(k.get(prefs)));
+            bar.setContentDescription(k.name);
+            bar.setProgressTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
+            bar.setThumbTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
+            bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(android.widget.SeekBar b, int at, boolean byUser) {
+                    int v = stops[Math.max(0, Math.min(stops.length - 1, at))];
+                    value.setText(k.shown(v));
+                    if (byUser) {
+                        prefs.edit().putInt(k.key, v).apply(); // kept as it moves
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(android.widget.SeekBar b) {
+                }
+
+                @Override
+                public void onStopTrackingTouch(android.widget.SeekBar b) {
+                    prefs.edit().putInt(k.key, stops[b.getProgress()]).apply();
                 }
             });
-            v.setOnEditorActionListener((view, action, e) -> {
-                save(k, v);
-                return false;
-            });
-            knobs.put(k, v);
-            adv.addView(v, Ui.wide(this, 6));
+            knobs.put(k, bar);
+            adv.addView(bar, Ui.wide(this, 6));
+            LinearLayout ends = new LinearLayout(this);
+            ends.addView(Ui.text(this, k.shown(k.min), 11, Ui.SUB, false), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            ends.addView(Ui.text(this, "default " + k.shown(k.def), 11, Ui.SUB, false));
+            TextView hi = Ui.text(this, k.shown(k.max), 11, Ui.SUB, false);
+            hi.setGravity(android.view.Gravity.END);
+            ends.addView(hi, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            adv.addView(ends);
         }
         TextView reset = Ui.text(this, "Back to the defaults", 15, Ui.ACCENT, false);
         reset.setPadding(0, Ui.dp(this, 14), 0, 0);
@@ -250,23 +279,10 @@ public final class SettingsActivity extends AppCompatActivity {
         body.addView(about, Ui.wide(this, 8));
     }
 
-    private final java.util.Map<ai.dvine.chat.Tuning.Knob, android.widget.EditText> knobs =
-            new java.util.LinkedHashMap<ai.dvine.chat.Tuning.Knob, android.widget.EditText>();
+    private final java.util.Map<ai.dvine.chat.Tuning.Knob, android.widget.SeekBar> knobs =
+            new java.util.LinkedHashMap<ai.dvine.chat.Tuning.Knob, android.widget.SeekBar>();
 
     /** Keeps a number, brought into its range (the field shows what was kept). */
-    private void save(ai.dvine.chat.Tuning.Knob k, android.widget.EditText v) {
-        try {
-            int n = Integer.parseInt(v.getText().toString().trim());
-            prefs.edit().putInt(k.key, Math.max(k.min, Math.min(k.max, n))).apply();
-        } catch (NumberFormatException e) {
-            prefs.edit().remove(k.key).apply();
-        }
-        String kept = String.valueOf(k.get(prefs));
-        if (!kept.equals(v.getText().toString())) {
-            v.setText(kept);
-        }
-    }
-
     /** A switch row kept in the preferences; {@code changed} also runs when it flips. */
     private View toggle(String title, String about, final String key, boolean def, final java.util.function.Consumer<Boolean> changed) {
         LinearLayout r = new LinearLayout(this);
@@ -594,9 +610,6 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         hub.removeListener(onChange);
-        for (java.util.Map.Entry<ai.dvine.chat.Tuning.Knob, android.widget.EditText> e : knobs.entrySet()) {
-            save(e.getKey(), e.getValue()); // a number still being typed is kept too
-        }
         super.onPause();
     }
 
