@@ -470,6 +470,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (fromTap && "ibiko".equals(persona)) {
             offerTermux();
         }
+        if (fromTap) {
+            warmModel(); // the new persona's instructions read ahead, beside the others
+        }
     }
 
     private void offerTermux() {
@@ -1161,6 +1164,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             ambient.setPersona(ivie);
             ambient.setLevel(speaking ? 1f : 0f);
         });
+        // reading aloud shows in the notification panel, with Pause and Stop, so it can be controlled outside the app
+        talk.setStateListener((reading, paused, text, ivie) -> {
+            String who = ivie ? "Ivie" : "ibiko".equals(stage.agent()) ? "Ibiko" : "Obi";
+            ai.dvine.voice.ReadAloudNotice.show(this, reading && !isDestroyed(), paused, text, who, MainActivity.class);
+        });
+        android.content.IntentFilter readControls = new android.content.IntentFilter();
+        readControls.addAction(ai.dvine.voice.ReadAloudNotice.PAUSE);
+        readControls.addAction(ai.dvine.voice.ReadAloudNotice.RESUME);
+        readControls.addAction(ai.dvine.voice.ReadAloudNotice.STOP);
+        registerReceiver(readControl, readControls, android.content.Context.RECEIVER_NOT_EXPORTED);
 
         KnowledgeStore store = new KnowledgeStore(this);
         journal = LearningJournal.open(new File(getFilesDir(), "learning"));
@@ -1658,6 +1671,23 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 carryOut(agent, finalQuestion, order);
             });
+        });
+    }
+
+    /**
+     * The phone's model reads its instructions ahead of the first question: the routing call's, then the persona's
+     * (kept side by side in its memory), so a question is answered without first reading them. Off the main thread.
+     */
+    private void warmModel() {
+        if (model == null || !model.localReady() || model.remoteOn() || stage == null || isFinishing()) {
+            return;
+        }
+        final String router = ai.dvine.llm.BrainOrder.prompt(connectorTools());
+        final String persona = ai.dvine.llm.PersonaPrompt.system(stage.agent(), brain.userName(),
+                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet());
+        hub.worker.execute(() -> {
+            model.warm(router);
+            model.warm(persona);
         });
     }
 
@@ -2638,7 +2668,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(stage.agent(), "I need the network to read " + where + "."), null);
             return true;
         }
-        useConnector(text, "social.search " + (ask.platform == null ? "" : ask.platform.name().toLowerCase(java.util.Locale.ROOT) + ": ") + ask.query);
+        String net = ask.platform == null ? "" : ask.platform.name().toLowerCase(java.util.Locale.ROOT);
+        useConnector(text, ask.trending ? "social.trending " + net : "social.search " + (net.isEmpty() ? "" : net + ": ") + ask.query);
         return true;
     }
 
@@ -2908,7 +2939,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void retryLast() {
         if (lastAsked != null && !lastAsked.trim().isEmpty()) {
             String shown = ai.dvine.chat.Attachments.withoutImages(lastAsked).replaceAll("(?s)<attachment.*?</attachment>", "").trim();
-            note("Asking again: \u201c" + (shown.length() > 60 ? shown.substring(0, 60) + "\u2026" : shown) + "\u201d");
             askTheBrain(lastAsked); // the whole question, with the file it carried
             return;
         }
@@ -2928,7 +2958,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (ai.dvine.turn.Meaning.Command.RETRY == meanings().get(m.body)) {
                 continue;
             }
-            note("Asking again: \u201c" + (m.body.length() > 60 ? m.body.substring(0, 60) + "\u2026" : m.body) + "\u201d");
             askTheBrain(m.body);
             return;
         }
@@ -3567,6 +3596,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 ai.dvine.llm.ReplyService.release(this);
             }
             guard.loaded();
+            if (ok) {
+                handler.post(this::warmModel); // the instructions read now, not when the first question comes
+            }
             if (!ok && model.state() == ai.dvine.llm.LocalModel.State.FAILED) {
                 // it didn't fit in memory: set it aside and start the strongest model that does, instead of nothing
                 guard.markTooStrong(file);
@@ -4665,9 +4697,40 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
+    /** Pause, Resume and Stop from the reading-aloud notification. */
+    private final android.content.BroadcastReceiver readControl = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context c, android.content.Intent i) {
+            if (talk == null || i == null || i.getAction() == null) {
+                return;
+            }
+            switch (i.getAction()) {
+                case ai.dvine.voice.ReadAloudNotice.PAUSE:
+                    talk.pause();
+                    break;
+                case ai.dvine.voice.ReadAloudNotice.RESUME:
+                    talk.resume();
+                    break;
+                default:
+                    readingOn = false;
+                    talk.stop();
+                    if (chatPane != null) {
+                        chatPane.readingStopped();
+                    }
+                    ai.dvine.voice.ReadAloudNotice.show(MainActivity.this, false, false, null, "", MainActivity.class);
+            }
+        }
+    };
+
     @Override
     protected void onDestroy() {
         handler.removeCallbacks(thinkBeat);
+        try {
+            unregisterReceiver(readControl);
+        } catch (IllegalArgumentException notRegistered) {
+            // created without it
+        }
+        ai.dvine.voice.ReadAloudNotice.show(this, false, false, null, "", MainActivity.class);
         handler.removeCallbacks(taskBeat);
         handler.removeCallbacks(engineTick);
         talk.shutdown();

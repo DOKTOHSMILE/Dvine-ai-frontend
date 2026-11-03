@@ -19,6 +19,20 @@ public class SocialAskTest {
     }
 
     @Test
+    public void trendingOpensTheTrendingPage() {
+        for (String said : new String[]{"Check trending post on x", "what's trending on twitter?", "show me trending posts on X",
+                "Popular on Reddit today", "X trends", "check the trending topics on x right now"}) {
+            SocialAsk a = SocialAsk.parse(said);
+            assertNotNull(said, a);
+            org.junit.Assert.assertTrue(said, a.trending);
+        }
+        assertEquals(Platform.X, SocialAsk.parse("Check trending post on x").platform);
+        assertEquals(Platform.REDDIT, SocialAsk.parse("Popular on Reddit today").platform);
+        org.junit.Assert.assertFalse(SocialAsk.parse("search X for trending sneakers").trending);
+        assertEquals("https://x.com/explore/tabs/trending", Platform.X.trendingUrl());
+    }
+
+    @Test
     public void ordinaryQuestionsAreNot() {
         assertNull(SocialAsk.parse("what are people saying about inflation"));
         assertNull(SocialAsk.parse("search for the best laptop"));

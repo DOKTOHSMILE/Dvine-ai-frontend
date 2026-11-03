@@ -43,6 +43,127 @@ public final class TalkBridge extends UtteranceProgressListener {
         this.listener = listener;
     }
 
+    /** Told when reading starts, pauses, carries on or ends (for the notification with Pause and Stop). */
+    public interface StateListener {
+        /** {@code reading}: something is being read or is paused; {@code text}: the sentence it is on. */
+        void onState(boolean reading, boolean paused, String text, boolean ivie);
+    }
+
+    private StateListener state;
+
+    public void setStateListener(StateListener l) {
+        state = l;
+    }
+
+    /** A sentence waiting in the queue, or being read: kept so a pause can carry on from it. */
+    private static final class Line {
+        final boolean ivie;
+        final String text, id;
+
+        Line(boolean ivie, String text, String id) {
+            this.ivie = ivie;
+            this.text = text;
+            this.id = id;
+        }
+    }
+
+    private final List<Line> lines = new ArrayList<Line>();
+    /** What {@link #speak} is reading (one sentence with its callback), for a pause. */
+    private boolean sayIvie, sayThought;
+    private String sayText;
+    /** Paused: what to read again on {@link #resume}. */
+    private boolean paused;
+    private List<Line> pausedLines = new ArrayList<Line>();
+    private String pausedSay;
+    private boolean pausedSayIvie, pausedSayThought;
+    private TalkDone pausedDone;
+    private Runnable pausedQuiet;
+    private boolean lastIvie;
+
+    public boolean paused() {
+        return paused;
+    }
+
+    /** Whether something is being read (or waits, paused). */
+    public boolean reading() {
+        return paused || queued > 0 || pending != null;
+    }
+
+    /**
+     * Pauses reading: the phone's voice can't stop mid-word and carry on, so it stops and keeps the sentence it was
+     * on and those after it; {@link #resume} reads them from that sentence. False when nothing was being read.
+     */
+    public boolean pause() {
+        if (paused || !(queued > 0 || pending != null)) {
+            return false;
+        }
+        pausedLines = new ArrayList<Line>(lines);
+        pausedSay = pending != null ? sayText : null;
+        pausedSayIvie = sayIvie;
+        pausedSayThought = sayThought;
+        pausedDone = pending;
+        pausedQuiet = whenQuiet;
+        generation++;
+        pending = null;
+        queued = 0;
+        whenQuiet = null;
+        lines.clear();
+        if (tts != null) {
+            tts.stop();
+        }
+        paused = true;
+        tell(true, true, pausedSay != null ? pausedSay : pausedLines.isEmpty() ? "" : pausedLines.get(0).text, lastIvie);
+        return true;
+    }
+
+    /** Carries on from the sentence it was paused on. */
+    public boolean resume() {
+        if (!paused) {
+            return false;
+        }
+        paused = false;
+        List<Line> again = pausedLines;
+        Runnable quiet = pausedQuiet;
+        pausedLines = new ArrayList<Line>();
+        pausedQuiet = null;
+        if (pausedSay != null) {
+            String t = pausedSay;
+            pausedSay = null;
+            TalkDone d = pausedDone;
+            pausedDone = null;
+            say(pausedSayIvie, t, d, pausedSayThought, true);
+        }
+        for (Line l : again) {
+            queue(l.ivie, l.text, true);
+        }
+        if (quiet != null) {
+            whenQuiet(quiet);
+        }
+        if (pausedSay == null && again.isEmpty() && quiet == null) {
+            tell(false, false, "", lastIvie);
+        }
+        return true;
+    }
+
+    private void tell(final boolean reading, final boolean isPaused, final String text, final boolean ivie) {
+        final StateListener l = state;
+        if (l != null) {
+            main.post(() -> l.onState(reading, isPaused, text, ivie));
+        }
+    }
+
+    /** Nothing left to read: told after a moment, so the gap between two sentences doesn't count as the end. */
+    private final Runnable endCheck = () -> {
+        if (!reading()) {
+            tell(false, false, "", lastIvie);
+        }
+    };
+
+    private void maybeEnded() {
+        main.removeCallbacks(endCheck);
+        main.postDelayed(endCheck, 1200);
+    }
+
     /** Told each word as the voice starts saying it (drives the mouth shapes). */
     public interface WordListener {
         void onWord(String word);
@@ -105,7 +226,15 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     private void say(boolean ivie, String text, TalkDone done, boolean thought) {
+        say(ivie, text, done, thought, false);
+    }
+
+    private void say(boolean ivie, String text, TalkDone done, boolean thought, boolean again) {
+        if (!again) {
+            dropPause(); // something new to read: what was paused is let go
+        }
         text = SentenceStream.clean(text); // the words only: no **, <, " or other symbols read out
+        lines.clear();
         final int token = ++generation;
         pending = done;
         queued = 0; // a flush drops the queued sentences
@@ -125,6 +254,10 @@ public final class TalkBridge extends UtteranceProgressListener {
         tts.setPitch((thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch) * bright);
         tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick * rateScale);
         speaking = text;
+        sayText = text;
+        sayIvie = ivie;
+        sayThought = thought;
+        lastIvie = ivie;
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, thought ? VoiceTuning.THOUGHT_VOLUME : 1f);
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, (ivie ? "IVIE-" : "OBI-") + token);
@@ -132,6 +265,7 @@ public final class TalkBridge extends UtteranceProgressListener {
 
     /** Sentences queued by {@link #queue} that haven't finished being spoken. */
     private int queued;
+    private int serial;
     private Runnable whenQuiet;
 
     /**
@@ -139,6 +273,14 @@ public final class TalkBridge extends UtteranceProgressListener {
      * sentence while the model is still writing the rest.
      */
     public void queue(boolean ivie, String text) {
+        queue(ivie, text, false);
+    }
+
+    private void queue(boolean ivie, String text, boolean again) {
+        if (!again && paused) {
+            pausedLines.add(new Line(ivie, SentenceStream.clean(text), "")); // a reply still coming in: kept for Resume
+            return;
+        }
         text = SentenceStream.clean(text);
         if (!ready || text == null || text.trim().isEmpty()) {
             return;
@@ -154,9 +296,12 @@ public final class TalkBridge extends UtteranceProgressListener {
         tts.setSpeechRate(t.rate * quick * rateScale);
         speaking = text;
         queued++;
+        lastIvie = ivie;
+        String id = (ivie ? "IVIE-Q" : "OBI-Q") + generation + "x" + queued + "n" + (++serial);
+        lines.add(new Line(ivie, text, id));
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f);
-        tts.speak(text, TextToSpeech.QUEUE_ADD, params, (ivie ? "IVIE-Q" : "OBI-Q") + generation + "x" + queued);
+        tts.speak(text, TextToSpeech.QUEUE_ADD, params, id);
     }
 
     /** Whether queued sentences are still being read. */
@@ -179,7 +324,16 @@ public final class TalkBridge extends UtteranceProgressListener {
             if (!gen.equals(String.valueOf(generation)) || queued <= 0) {
                 return;
             }
+            for (int i = 0; i < lines.size(); i++) {
+                if (lines.get(i).id.equals(utteranceId)) {
+                    lines.remove(i);
+                    break;
+                }
+            }
             queued--;
+            if (queued == 0) {
+                maybeEnded();
+            }
             if (queued == 0 && whenQuiet != null) {
                 Runnable r = whenQuiet;
                 whenQuiet = null;
@@ -193,9 +347,24 @@ public final class TalkBridge extends UtteranceProgressListener {
         pending = null;
         queued = 0;
         whenQuiet = null;
+        lines.clear();
+        boolean was = paused;
+        dropPause();
         if (tts != null) {
             tts.stop();
         }
+        if (was) {
+            tell(false, false, "", lastIvie);
+        }
+        maybeEnded();
+    }
+
+    private void dropPause() {
+        paused = false;
+        pausedLines = new ArrayList<Line>();
+        pausedSay = null;
+        pausedDone = null;
+        pausedQuiet = null;
     }
 
     public void shutdown() {
@@ -258,6 +427,9 @@ public final class TalkBridge extends UtteranceProgressListener {
 
     @Override
     public void onStart(String utteranceId) {
+        if (utteranceId != null) {
+            tell(true, false, speakingFor(utteranceId), utteranceId.startsWith("IVIE"));
+        }
         if (listener != null && utteranceId != null) {
             final boolean ivie = utteranceId.startsWith("IVIE");
             main.post(() -> listener.onSpeaking(ivie, true));
@@ -315,5 +487,25 @@ public final class TalkBridge extends UtteranceProgressListener {
         TalkDone done = pending;
         pending = null;
         done.onDone();
+        maybeEnded();
+    }
+
+    /** The sentence an utterance reads (onStart comes on the engine's thread: a copy is read). */
+    private String speakingFor(String utteranceId) {
+        if (utteranceId.contains("-Q")) {
+            List<Line> copy;
+            try {
+                copy = new ArrayList<Line>(lines); // written on the main thread; a copy taken mid-change is skipped
+            } catch (RuntimeException busy) {
+                copy = new ArrayList<Line>();
+            }
+            for (Line l : copy) {
+                if (l.id.equals(utteranceId)) {
+                    return l.text;
+                }
+            }
+        }
+        String t = sayText;
+        return t == null ? speaking : t;
     }
 }
