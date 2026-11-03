@@ -191,6 +191,41 @@ public class RemoteBrainTest {
         assertEquals(2, f.urls.size());
     }
 
+    @Test(timeout = 20000)
+    public void aCallCancelledWhileWaitingForTheModelNeverRuns() throws Exception {
+        LocalModel m = new LocalModel(java.nio.file.Files.createTempDirectory("models").toFile(), ModelSpec.QWEN3_1_7B, true);
+        final java.util.concurrent.CountDownLatch inFirst = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        RemoteBrain.Transport slow = (url, headers, body, timeoutMs) -> {
+            calls.incrementAndGet();
+            inFirst.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return new RemoteBrain.Response(200, new java.io.ByteArrayInputStream(OPENAI_STREAM.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        };
+        m.useRemote(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "k", "", slow), 400_000, () -> true);
+        Thread first = new Thread(() -> m.reply("sys", "first", 48, null));
+        first.start();
+        inFirst.await(); // the first call holds the model
+        final String[] second = {"not run"};
+        Thread waiting = new Thread(() -> second[0] = m.reply("sys", "second", 48, null));
+        waiting.start();
+        while (waiting.getState() != Thread.State.BLOCKED) {
+            Thread.sleep(5); // the second call waits for the model
+        }
+        m.cancel(); // the user moved on
+        release.countDown();
+        first.join();
+        waiting.join();
+        assertNull("a call cancelled while it waited returns nothing", second[0]);
+        assertEquals("and never reaches the model", 1, calls.get());
+        assertEquals("Hello there.", m.reply("sys", "third", 48, null)); // a call after the cancel runs
+    }
+
     private static List<String> names(String... n) {
         return java.util.Arrays.asList(n);
     }

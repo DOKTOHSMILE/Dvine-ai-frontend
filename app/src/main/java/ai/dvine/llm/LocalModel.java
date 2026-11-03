@@ -382,8 +382,21 @@ public final class LocalModel {
      * Answers as a persona: its system prompt, the recent conversation and the new question; the reply streams to
      * {@code sink} as it is written. Returns the whole reply, or null when the model isn't ready or failed.
      */
-    public synchronized String reply(String system, String question, int maxTokens, NativeLlm.Sink sink) {
+    public String reply(String system, String question, int maxTokens, NativeLlm.Sink sink) {
         return reply(system, question, null, maxTokens, sink);
+    }
+
+    /**
+     * Whether a call made at {@code asked} (the epoch then) was cancelled while it waited for the model: a call waits
+     * here while the one before it finishes, and a cancel in that time must stop it too, before it reads a long
+     * prompt nobody wants any more (the engine's own stop flag is reset when a reply starts, so it can't see it).
+     */
+    private boolean cancelledWhileWaiting(int asked) {
+        if (asked != epoch.get()) {
+            problem = "stopped";
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -391,7 +404,14 @@ public final class LocalModel {
      * given alongside this question only: it is not remembered as part of the conversation. If the conversation
      * has grown too long for the model's memory, the oldest exchanges are dropped and it tries again.
      */
-    public synchronized String reply(String system, String question, String context, int maxTokens, NativeLlm.Sink sink) {
+    public String reply(String system, String question, String context, int maxTokens, NativeLlm.Sink sink) {
+        final int asked = epoch.get();
+        synchronized (this) {
+            return cancelledWhileWaiting(asked) ? null : replyNow(system, question, context, maxTokens, sink);
+        }
+    }
+
+    private synchronized String replyNow(String system, String question, String context, int maxTokens, NativeLlm.Sink sink) {
         String asked = context == null ? question : context + "\n\nThe user says: " + question;
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>(history);
@@ -488,12 +508,19 @@ public final class LocalModel {
         return answer == null ? null : answer.trim();
     }
 
-    public synchronized String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink) {
+    public String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink) {
         return task(system, prompt, maxTokens, sink, null);
     }
 
     /** As {@link #task(String, String, int, NativeLlm.Sink)}. {@code tier} null lets the words decide the model. */
-    public synchronized String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink, TaskSize.Tier tier) {
+    public String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink, TaskSize.Tier tier) {
+        final int asked = epoch.get();
+        synchronized (this) {
+            return cancelledWhileWaiting(asked) ? null : taskNow(system, prompt, maxTokens, sink, tier);
+        }
+    }
+
+    private synchronized String taskNow(String system, String prompt, int maxTokens, NativeLlm.Sink sink, TaskSize.Tier tier) {
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>();
             turns.add(new String[]{"user", prompt});
@@ -771,7 +798,14 @@ public final class LocalModel {
      * the first question doesn't wait for a thousand tokens of instructions to be read. Nothing when an API answers or
      * the model isn't loaded.
      */
-    public synchronized boolean warm(String system) {
+    public boolean warm(String system) {
+        final int asked = epoch.get();
+        synchronized (this) {
+            return !cancelledWhileWaiting(asked) && warmNow(system);
+        }
+    }
+
+    private synchronized boolean warmNow(String system) {
         if (state != State.READY || handle == 0 || system == null) {
             return false;
         }
