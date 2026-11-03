@@ -53,8 +53,7 @@ public final class CreationDirector {
     /**
      * Is this a creation request? Fast; call on the UI thread. {@code objectShown}
      * says whether the particles are an object right now (edits and views only
-     * apply then). Drawing and the built-in 3D figures ("draw a galaxy", "show
-     * me a cube") stay with the drawing engine.
+     * apply then). Drawing stays with the drawing engine.
      */
     public ObjectRequestInterpreter.Request parse(String text, boolean objectShown) {
         String lower = ObjectRequestInterpreter.clean(text);
@@ -63,9 +62,6 @@ public final class CreationDirector {
         }
         ObjectRequestInterpreter.Request r = ObjectRequestInterpreter.interpret(text,
                 objectShown && session.model() != null ? session.model().spec : null);
-        if (r != null && r.kind == ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT && ai.dvine.render.forms.Forms.objectFor(lower) != null) {
-            return null; // "build a cube", "show me an atom": the built-in figures
-        }
         return r;
     }
 

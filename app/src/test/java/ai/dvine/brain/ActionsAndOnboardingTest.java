@@ -97,7 +97,6 @@ public class ActionsAndOnboardingTest {
         // a named picture is a photograph lookup, not a stored shape
         assertEquals("LOOKUP_PHOTO", brain.respond("draw the globe", "obi").command);
         assertEquals("globe", brain.respond("draw the globe", "obi").commandValue);
-        assertEquals(null, brain.respond("show me dna", "obi").object3d);
         assertEquals(null, brain.respond("can you draw a galaxy?", "obi").sketch);
         assertEquals("LOOKUP_PHOTO", brain.respond("draw a black hole", "ivie").command);
         assertEquals("LOOKUP_PHOTO", brain.respond("please draw the eiffel tower", "obi").command);

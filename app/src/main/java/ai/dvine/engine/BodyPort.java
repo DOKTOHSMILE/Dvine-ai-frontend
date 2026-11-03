@@ -18,8 +18,6 @@ public interface BodyPort {
 
     void showSketch(Sketch sketch);
 
-    void showObject(String kind);
-
     void clearSketch();
 
     /** The mood from the affect state (smile, brow, tilt); the pod's light may follow it. */

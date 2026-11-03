@@ -150,9 +150,6 @@ public final class Supervisor {
             case "draw.sketch":
                 port.showSketch((ai.dvine.stage.Sketch) c.payload);
                 break;
-            case "draw.object":
-                port.showObject(c.value);
-                break;
             case "draw.clear":
                 port.clearSketch();
                 break;

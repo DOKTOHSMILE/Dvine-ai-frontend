@@ -30,7 +30,6 @@ public class EngineTest {
         public void playScene(String[] poses, float[] seconds) { calls.add("scene " + Arrays.toString(poses)); }
         public void turnAround() { calls.add("turn"); }
         public void showSketch(Sketch sketch) { calls.add("sketch " + sketch.title); }
-        public void showObject(String kind) { calls.add("object " + kind); }
         public void clearSketch() { calls.add("clear"); }
         public void setMood(float s, float brow, float tilt) { smile = s; }
 
