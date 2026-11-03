@@ -9,8 +9,9 @@ import android.view.View;
 import android.view.animation.LinearInterpolator;
 
 /**
- * The live "working" mark beside what DVINE is doing now: a four-point spark in the accent colour that turns slowly
- * and breathes (grows a little and fades a little), with a faint ring of light behind it, while the work goes on.
+ * The live "working" mark beside what DVINE is doing now: a four-point star in the accent colour that looks left and
+ * right like an eye thinking. It rolls to one side (turning as it goes, like a ball), rests, rolls across to the
+ * other side, rests, and comes back, inside a faint still glow like an eye's socket, while the work goes on.
  * Drawn, not an image, so it stays sharp at any size. It stops animating when it leaves the screen, and stands still
  * when the phone's "remove animations" setting is on.
  */
@@ -19,6 +20,8 @@ public final class ThinkingMark extends View {
     private final Path spark = new Path();
     private ValueAnimator spin;
     private float phase;
+    /** One full look: centre, left, rest, right, rest, centre. */
+    static final long GLANCE_MS = 3200;
 
     public ThinkingMark(Context c, int colour) {
         super(c);
@@ -38,7 +41,7 @@ public final class ThinkingMark extends View {
             return; // animations off: a still mark
         }
         spin = ValueAnimator.ofFloat(0f, 1f);
-        spin.setDuration(2400);
+        spin.setDuration(GLANCE_MS);
         spin.setRepeatCount(ValueAnimator.INFINITE);
         spin.setInterpolator(new LinearInterpolator());
         spin.addUpdateListener(a -> {
@@ -57,21 +60,40 @@ public final class ThinkingMark extends View {
         super.onDetachedFromWindow();
     }
 
+    /**
+     * Where the star looks at {@code t} (0..1 of a glance), -1 far left to 1 far right: quick eased moves with rests
+     * between, the way eyes glance rather than slide.
+     */
+    static float look(float t) {
+        if (t < 0.12f) return -ease(t / 0.12f);                 // centre to left
+        if (t < 0.38f) return -1f;                              // rest on the left
+        if (t < 0.56f) return -1f + 2f * ease((t - 0.38f) / 0.18f); // across to the right
+        if (t < 0.82f) return 1f;                               // rest on the right
+        if (t < 0.94f) return 1f - ease((t - 0.82f) / 0.12f);   // back to centre
+        return 0f;                                              // a short rest in the middle
+    }
+
+    private static float ease(float x) {
+        x = Math.max(0f, Math.min(1f, x));
+        return x * x * (3f - 2f * x);
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         float w = getWidth(), h = getHeight(), cx = w / 2f, cy = h / 2f;
         float r = Math.min(w, h) / 2f;
-        double beat = Math.sin(phase * 2 * Math.PI); // one breath a turn
-        // the faint ring of light behind
-        glow.setAlpha((int) (40 + 30 * beat));
-        canvas.drawCircle(cx, cy, r * (0.78f + 0.12f * (float) beat), glow);
-        // the spark: four points, slim waist, turning a quarter turn per breath
-        float outer = r * (0.82f + 0.08f * (float) beat), inner = outer * 0.26f;
+        // the faint socket of light stays still
+        glow.setAlpha(50);
+        canvas.drawCircle(cx, cy, r * 0.9f, glow);
+        // the star rolls inside it: moving sideways turns it as a ball would turn (angle = distance / radius)
+        float outer = r * 0.6f, inner = outer * 0.28f, reach = r * 0.32f;
+        float x0 = cx + look(phase) * reach;
+        float turn = (float) Math.toDegrees((x0 - cx) / outer);
         spark.reset();
         for (int i = 0; i < 8; i++) {
             double a = Math.PI / 4 * i - Math.PI / 2;
             float len = i % 2 == 0 ? outer : inner;
-            float x = cx + (float) (Math.cos(a) * len), y = cy + (float) (Math.sin(a) * len);
+            float x = x0 + (float) (Math.cos(a) * len), y = cy + (float) (Math.sin(a) * len);
             if (i == 0) {
                 spark.moveTo(x, y);
             } else {
@@ -79,9 +101,9 @@ public final class ThinkingMark extends View {
             }
         }
         spark.close();
-        fill.setAlpha((int) (210 + 45 * beat));
+        fill.setAlpha(240);
         canvas.save();
-        canvas.rotate(phase * 90f, cx, cy);
+        canvas.rotate(turn, x0, cy);
         canvas.drawPath(spark, fill);
         canvas.restore();
     }
