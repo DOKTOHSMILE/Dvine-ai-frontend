@@ -64,6 +64,9 @@ public final class LocalModel {
         }
     }
 
+    /** The longest pause between words before a reply counts as stuck. */
+    static final long IDLE_MS = 60_000;
+
     /** The longest the phone's model may spend reading a question before its first word. */
     static final long READ_MS = 600_000;
 
@@ -529,8 +532,9 @@ public final class LocalModel {
      */
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
         final int mine = replies.open();
-        // 12 s of silence while writing, 3 minutes of writing, and up to 10 minutes reading a long question first
-        final ReplyWatch watch = new ReplyWatch(12_000, 180_000, READ_MS, System.currentTimeMillis());
+        // a minute of silence while writing (a slow phone with the app out of view can pause that long between words),
+        // 3 minutes of writing, and up to 10 minutes reading a long question first
+        final ReplyWatch watch = new ReplyWatch(IDLE_MS, 180_000, READ_MS, System.currentTimeMillis());
         final int ticket = epoch.get();
         NativeLlm.Sink wrapped = text -> {
             if (ticket != epoch.get()) {

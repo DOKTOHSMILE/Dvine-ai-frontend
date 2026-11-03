@@ -24,11 +24,34 @@ public final class MessageParts {
     private MessageParts() {
     }
 
+    /**
+     * Repairs the fences small models get wrong, so the code still lands in the code viewer: one or two backticks
+     * with a language (`` `xml ``, ``` ``java ```) open a block, a line of one or two backticks closes it.
+     */
+    public static String normalizeFences(String text) {
+        if (text == null || text.indexOf('`') < 0) {
+            return text;
+        }
+        String[] lines = text.split("\n", -1);
+        StringBuilder b = new StringBuilder(text.length() + 8);
+        for (int i = 0; i < lines.length; i++) {
+            String t = lines[i].trim();
+            if (t.matches("`{1,2}[A-Za-z][A-Za-z0-9_+#.-]{0,19}")) {
+                lines[i] = "```" + t.replaceFirst("^`+", "");
+            } else if (t.matches("`{1,2}")) {
+                lines[i] = "```";
+            }
+            b.append(i == 0 ? "" : "\n").append(lines[i]);
+        }
+        return b.toString();
+    }
+
     public static List<Part> split(String text) {
         List<Part> out = new ArrayList<Part>();
         if (text == null || text.trim().isEmpty()) {
             return out;
         }
+        text = normalizeFences(text);
         int i = 0;
         while (i < text.length()) {
             int fence = text.indexOf("```", i);
@@ -52,10 +75,10 @@ public final class MessageParts {
                 lang = raw.trim().toLowerCase(Locale.US);
                 code = "";
             }
-            code = code.trim();
+            code = trimBlankLines(code);
             if (!code.isEmpty()) {
                 String kind = htmlLanguage(lang) || looksLikeDocument(code) ? "html" : "code";
-                out.add(new Part(kind, code, lang));
+                out.add(new Part(kind, code, CodeLanguage.of(lang, code))); // named, or read from the code itself
             }
             if (close < 0) {
                 break;
@@ -82,10 +105,21 @@ public final class MessageParts {
         if (n.equals("c++") || n.equals("cc")) {
             return "cpp";
         }
-        if (n.equals("sh")) {
+        if (n.equals("sh") || n.equals("shell") || n.equals("zsh") || n.equals("console") || n.equals("terminal")) {
             return "bash";
         }
-        return n;
+        switch (n) {
+            case "kt": case "kts": return "kotlin";
+            case "ts": return "typescript";
+            case "yml": return "yaml";
+            case "rb": return "ruby";
+            case "rs": return "rust";
+            case "cs": case "c#": return "csharp";
+            case "golang": return "go";
+            case "py3": case "python3": return "python";
+            case "jsonc": return "json";
+            default: return n;
+        }
     }
 
     private static void addProse(List<Part> out, String text) {
@@ -95,9 +129,52 @@ public final class MessageParts {
         }
         if (looksLikeDocument(rest)) {
             out.add(new Part("html", rest, "html"));
-        } else {
-            out.add(new Part("text", rest, ""));
+            return;
         }
+        // code written without fences: a run of at least three code-looking lines becomes a code block
+        String[] lines = text.split("\n", -1);
+        int i = 0;
+        StringBuilder prose = new StringBuilder();
+        while (i < lines.length) {
+            int j = i;
+            int code = 0;
+            while (j < lines.length && (CodeLanguage.codeLine(lines[j]) || (lines[j].trim().isEmpty() && code > 0))) {
+                if (CodeLanguage.codeLine(lines[j])) {
+                    code++;
+                }
+                j++;
+            }
+            if (code >= MIN_CODE_LINES) {
+                flushProse(out, prose);
+                StringBuilder block = new StringBuilder();
+                for (int k = i; k < j; k++) {
+                    block.append(k == i ? "" : "\n").append(lines[k]);
+                }
+                String body = trimBlankLines(block.toString());
+                out.add(new Part("code", body, CodeLanguage.of("", body)));
+                i = j;
+            } else {
+                prose.append(prose.length() == 0 ? "" : "\n").append(lines[i]);
+                i++;
+            }
+        }
+        flushProse(out, prose);
+    }
+
+    /** Lines of code in a row, unfenced, that make a code block. */
+    static final int MIN_CODE_LINES = 3;
+
+    private static void flushProse(List<Part> out, StringBuilder prose) {
+        String t = prose.toString().trim();
+        if (!t.isEmpty()) {
+            out.add(new Part("text", t, ""));
+        }
+        prose.setLength(0);
+    }
+
+    /** Blank lines off both ends, the indentation of the first line kept. */
+    static String trimBlankLines(String s) {
+        return s.replaceAll("^(\\s*\\n)+", "").replaceAll("\\s+$", "");
     }
 
     private static boolean htmlLanguage(String lang) {
