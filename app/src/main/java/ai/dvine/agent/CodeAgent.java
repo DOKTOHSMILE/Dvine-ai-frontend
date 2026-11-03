@@ -61,6 +61,13 @@ public final class CodeAgent {
         void step(String line);
 
         /**
+         * A short note for the user that the model wrote before a step ("The freeze is in Save; reading it next."):
+         * shown in the chat between the steps, so the work reads as it went.
+         */
+        default void note(String text) {
+        }
+
+        /**
          * A step the user can open: its detail is a diff (lines starting "+", "-", " ", "@") with counts, or what a
          * command printed / a file holds (added and removed both -1). Shown as a plain step unless the host keeps it.
          */
@@ -221,6 +228,7 @@ public final class CodeAgent {
                         + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step)\n"
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
                 + (connectorTools.trim().isEmpty() ? "" : "<tool name=\"connector\" call=\"name argument\"/> with one of:" + connectorTools + "\n")
+                + (compact ? "" : NOTE_WAY)
                 + "Use exactly this <tool …> form, nothing else (no <tool_call>, no JSON), and stop right after the tool call:"
                 + " its result comes back in the next message. Never write a tool call into your final answer.\n"
                 + (readOnly || compact ? "" : SANDBOX + (git == null ? "" : GIT_WAY))
@@ -338,6 +346,11 @@ public final class CodeAgent {
             }
             Call call = parse(text);
             if (call != null) {
+                String said = noteBefore(text, call);
+                if (said != null && !said.equals(lastNote)) {
+                    lastNote = said;
+                    host.note(said); // what it is doing and why, between the steps in the chat
+                }
                 pending = null; // it carried on: whatever it wrote before was not the answer
                 String result;
                 try {
@@ -500,6 +513,40 @@ public final class CodeAgent {
         }
         int keep = budgetChars - head.length() - 40;
         return head + "\n…(earlier steps left out)…\n" + all.substring(all.length() - Math.max(0, keep));
+    }
+
+    /** How the model tells the user what it is doing as it works, like a person narrating their work. */
+    static final String NOTE_WAY = "Before a tool call you may write one short sentence for the user (under 30 words):"
+            + " what you found or what you are doing next and why, e.g. \"The freeze comes from Save; reading it next.\""
+            + " Plain words, no tool names. Not before every call: when you learn something or change course.\n";
+
+    /** The last note shown, so the same words don't show twice in a row. */
+    private String lastNote;
+
+    /** Longest note shown: anything longer before a call is the model thinking, not a note. */
+    static final int NOTE_CHARS = 280;
+
+    /**
+     * The short sentence the model wrote before {@code call}, cleaned up (no thinking, no tags), or null when there is
+     * none worth showing.
+     */
+    static String noteBefore(String reply, Call call) {
+        if (reply == null || call == null || call.raw == null) {
+            return null;
+        }
+        int at = reply.indexOf(call.raw);
+        if (at <= 0) {
+            return null;
+        }
+        String t = reply.substring(0, at)
+                .replaceAll("(?s)<think>.*?</think>", "")
+                .replaceAll("(?s)<think>.*", "")
+                .replaceAll("</?(tool_call|final|result)>", "")
+                .trim();
+        if (t.length() < 8 || t.length() > NOTE_CHARS || t.contains("<") || t.contains("```")) {
+            return null;
+        }
+        return t;
     }
 
     // ------------------------------------------------------------ tool calls

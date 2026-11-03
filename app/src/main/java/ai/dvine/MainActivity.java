@@ -2105,7 +2105,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         chatPane.activityStep(line); // with its detail, opened by a tap
                     }
                     updateThoughtStatus(ai.dvine.agent.StepDetail.words(line), true);
-                }, () -> showIbikoMode(true));
+                }, () -> showIbikoMode(true)).onNote(note -> {
+                    if (chatPane != null) {
+                        chatPane.assistant(persona, note); // between the steps, with its own Copy and Listen
+                    }
+                });
         new Thread(() -> {
             final StringBuilder live = new StringBuilder();
             final long[] shown = {0};

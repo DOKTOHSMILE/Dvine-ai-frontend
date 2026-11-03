@@ -129,6 +129,23 @@ public final class PhoneHost implements CodeAgent.Host {
         step(keep == null ? line : line + StepDetail.mark(keep));
     }
 
+    private Consumer<String> onNote;
+
+    /** Where the model's notes between the steps go (the chat); without it they are dropped. */
+    public PhoneHost onNote(Consumer<String> to) {
+        onNote = to;
+        return this;
+    }
+
+    @Override
+    public void note(String text) {
+        main.post(() -> {
+            if (!stopped() && onNote != null) {
+                onNote.accept(text);
+            }
+        });
+    }
+
     @Override
     public boolean stopped() {
         return id != current.getAsInt();
