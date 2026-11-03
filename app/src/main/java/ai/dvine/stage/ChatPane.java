@@ -31,6 +31,15 @@ public final class ChatPane extends LinearLayout {
         void onReadAloud(String text);
 
         /**
+         * Listen tapped: reads the reply aloud, or pauses it when it is being read (a second tap carries on from the
+         * sentence it stopped at). True when it is now reading.
+         */
+        default boolean onReadAloudToggle(String text) {
+            onReadAloud(text);
+            return false;
+        }
+
+        /**
          * The user edited their message at {@code index} of the open chat: it and everything after it are already
          * removed; the edited text is to be sent as a new message.
          */
@@ -94,8 +103,17 @@ public final class ChatPane extends LinearLayout {
                 work = m.body;
             } else {
                 try {
-                    shown = bubble(m);
-                    thread.addView(shown);
+                    if (!"user".equals(m.role) && "text".equals(m.kind) && m.body != null && m.body.length() > CHUNK) {
+                        // a long report as several text blocks (paragraphs together), not one huge block that is
+                        // slow to lay out and scroll
+                        for (String piece : chunks(m.body, CHUNK)) {
+                            shown = bubble(new ChatBook.Message(m.role, m.kind, piece, m.persona, m.language));
+                            thread.addView(shown);
+                        }
+                    } else {
+                        shown = bubble(m);
+                        thread.addView(shown);
+                    }
                 } catch (RuntimeException failed) {
                     thread.addView(plain("That message could not be shown."));
                 }
@@ -345,9 +363,20 @@ public final class ChatPane extends LinearLayout {
         stepsSheet = ai.dvine.chat.ui.BottomSheet.showView((Activity) getContext(), title, stepsList);
     }
 
-    private void fillSteps(List<String> list, boolean allDone) {
+    /** "Asking Custom gateway (gpt-5-mini)": which API was asked, kept in older chats' steps; not shown. */
+    static boolean providerLine(String step) {
+        return step != null && ai.dvine.agent.StepDetail.words(step).matches("^Asking .+\\(.+\\).*");
+    }
+
+    private void fillSteps(List<String> all, boolean allDone) {
         if (stepsList == null) {
             return;
+        }
+        List<String> list = new java.util.ArrayList<String>();
+        for (String step : all) {
+            if (!providerLine(step)) {
+                list.add(step);
+            }
         }
         stepsList.removeAllViews();
         if (list.isEmpty()) {
@@ -357,6 +386,16 @@ public final class ChatPane extends LinearLayout {
         }
         for (int i = 0; i < list.size(); i++) {
             boolean last = i == list.size() - 1;
+            if (i > 0) {
+                // a thin line between steps, so each process reads on its own
+                View line = new View(getContext());
+                line.setBackgroundColor(color(R.color.line));
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, Math.max(1, dp(1) / 2));
+                lp.topMargin = dp(8);
+                lp.bottomMargin = dp(8);
+                lp.setMarginStart(dp(30)); // under the text, not the check mark
+                stepsList.addView(line, lp);
+            }
             stepsList.addView(stepLine(list.get(i), allDone || !last, !allDone && last));
         }
     }
@@ -465,6 +504,19 @@ public final class ChatPane extends LinearLayout {
             if (t == null) {
                 return;
             }
+            if (t.length() > LONG_LIVE) {
+                // a long report: no typing, and redrawn at most a few times a second, only its end (re-reading and
+                // re-formatting the whole of it every frame froze the phone after a long audit)
+                long now = android.os.SystemClock.uptimeMillis();
+                if (now - liveDrawnAt < LONG_LIVE_MS) {
+                    postDelayed(this, LONG_LIVE_MS - (now - liveDrawnAt));
+                    return;
+                }
+                liveDrawnAt = now;
+                liveShown = t.length();
+                renderLive(liveTail(t));
+                return;
+            }
             int behind = t.length() - liveShown;
             if (behind > 0) {
                 liveShown = nextStop(t, liveShown);
@@ -475,6 +527,63 @@ public final class ChatPane extends LinearLayout {
             }
         }
     };
+    /** A text block holds about this many characters at most; a longer one is split at paragraphs. */
+    static final int CHUNK = 2500;
+
+    /** Splits long text at blank lines (or, for one very long paragraph, at line ends) into pieces of about {@code most}. */
+    static List<String> chunks(String text, int most) {
+        List<String> out = new java.util.ArrayList<String>();
+        StringBuilder cur = new StringBuilder();
+        for (String para : text.split("\n\n")) {
+            if (cur.length() > 0 && cur.length() + para.length() + 2 > most) {
+                out.add(cur.toString());
+                cur.setLength(0);
+            }
+            if (para.length() > most) {
+                for (String line : para.split("\n")) {
+                    if (cur.length() > 0 && cur.length() + line.length() + 1 > most) {
+                        out.add(cur.toString());
+                        cur.setLength(0);
+                    }
+                    cur.append(cur.length() == 0 ? "" : "\n").append(line);
+                }
+                continue;
+            }
+            cur.append(cur.length() == 0 ? "" : "\n\n").append(para);
+        }
+        if (cur.length() > 0) {
+            out.add(cur.toString());
+        }
+        return out;
+    }
+
+    /** Above this many characters the live reply is not typed out but shown as it comes, a few times a second. */
+    static final int LONG_LIVE = 4000;
+    static final long LONG_LIVE_MS = 400;
+    /** While writing, a long reply shows only its last part (all of it when it is finished). */
+    static final int LIVE_TAIL = 3000;
+    private long liveDrawnAt;
+
+    /** The end of a long reply while it is being written, from a paragraph start, with a note that more is above. */
+    static String liveTail(String t) {
+        if (t.length() <= LIVE_TAIL) {
+            return t;
+        }
+        int from = t.length() - LIVE_TAIL;
+        int para = t.indexOf("\n\n", from);
+        if (para > 0 && para < t.length() - 200) {
+            from = para + 2;
+        }
+        String tail = t.substring(from);
+        // don't start inside a code block: an odd number of fences before the cut means one is open
+        int fences = 0;
+        for (int i = t.indexOf("```"); i >= 0 && i < from; i = t.indexOf("```", i + 3)) {
+            fences++;
+        }
+        return "\u2026 (" + (from / 1000) + "k characters above; all of it shows when the reply is finished)\n\n"
+                + (fences % 2 == 1 ? "```\n" : "") + tail;
+    }
+
     /** At least this many characters a frame (about 500 a second at 60 frames), in whole words, as ChatGPT streams. */
     static final int LIVE_CHARS_PER_TICK = 8;
     static final long LIVE_TICK_MS = 16;
@@ -854,8 +963,30 @@ public final class ChatPane extends LinearLayout {
             copyText(all);
             android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
         }));
-        bar.addView(icon(R.drawable.ic_speaker, "Read aloud", v -> host.onReadAloud(spoken)));
+        final android.widget.ImageButton listen = (android.widget.ImageButton) icon(R.drawable.ic_speaker, "Read aloud", null);
+        listen.setOnClickListener(v -> {
+            if (readingButton != null && readingButton != listen) {
+                readingStopped(); // another reply's button goes back to Listen
+            }
+            boolean on = host.onReadAloudToggle(spoken);
+            listen.setImageResource(on ? R.drawable.ic_pause : R.drawable.ic_speaker);
+            listen.setContentDescription(on ? "Pause reading" : "Read aloud");
+            readingButton = on ? listen : null;
+        });
+        bar.addView(listen);
         return bar;
+    }
+
+    /** The Listen button of the reply being read aloud (showing pause); null when nothing is being read. */
+    private android.widget.ImageButton readingButton;
+
+    /** Reading aloud ended or was paused elsewhere: its button shows Listen again. */
+    public void readingStopped() {
+        if (readingButton != null) {
+            readingButton.setImageResource(R.drawable.ic_speaker);
+            readingButton.setContentDescription("Read aloud");
+            readingButton = null;
+        }
     }
 
     /** Copy under the user's own message, on its side (right), as under a reply. */
@@ -933,7 +1064,10 @@ public final class ChatPane extends LinearLayout {
         getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true);
         b.setBackgroundResource(ripple.resourceId);
         b.setOnClickListener(click);
-        LayoutParams lp = new LayoutParams(dp(40), dp(36));
+        // small, like ChatGPT's: a 16 dp icon in a 36 by 32 dp target
+        b.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        b.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LayoutParams lp = new LayoutParams(dp(36), dp(32));
         b.setLayoutParams(lp);
         return b;
     }

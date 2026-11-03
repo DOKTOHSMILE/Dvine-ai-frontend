@@ -431,7 +431,9 @@ public final class LocalModel {
             }
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
-            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), roles, texts, room, 0.7f, wrapped));
+            // the phone's small model may write the user's next turn itself and loop: stopped and cut where that starts
+            String answer = FakeTurn.cut(withTimeout(counting(FakeTurn.guard(sink), pieces),
+                    wrapped -> NativeLlm.nReply(handle, spec.prompt(system), roles, texts, room, 0.7f, wrapped)));
             if (ticket != epoch.get()) {
                 return null;
             }
@@ -497,8 +499,9 @@ public final class LocalModel {
             final String asSystem = sys;
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
-            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(asSystem), new String[]{"user"},
+            String answer = withTimeout(counting(FakeTurn.guard(sink), pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(asSystem), new String[]{"user"},
                     new String[]{ai.dvine.chat.Attachments.withoutImages(fitted)}, room, 0.35f, wrapped));
+            answer = FakeTurn.cut(answer);
             recordLocal(system, java.util.Collections.<String[]>emptyList(), fitted, answer, pieces[0], began);
             if (answer != null && !answer.trim().isEmpty()) {
                 return answer.trim();
@@ -601,7 +604,7 @@ public final class LocalModel {
             final Slot sl = (Slot) attempt[0];
             final RemoteBrain r = (RemoteBrain) attempt[1];
             current = r;
-            step("Asking " + sl.name + " (" + r.model + ")" + (sl.fast != null ? (r == sl.fast ? ", the fast model" : ", the strong model") : ""));
+            // no "Asking <provider>" step: it repeated between every real step (the model shows in the header)
             final int ticket = epoch.get();
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
