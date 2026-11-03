@@ -1874,7 +1874,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (carriesOn(task)) {
                     agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
                 }
-                result = agent.run(task, earlier);
+                String crew = null;
+                if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
+                    // a heavy job: mini agents, one part each, their findings posted as they come, then one answer
+                    handler.post(() -> {
+                        if (id == askId && chatPane != null) {
+                            chatPane.activityStep("Splitting the job between mini agents");
+                        }
+                    });
+                    crew = ai.dvine.agent.Crew.run(brain::ask, (part, brief) -> make.get().run(part, brief + (earlier.isEmpty() ? ""
+                                    : "\n\nEarlier in this chat (its end):\n" + earlier.substring(Math.max(0, earlier.length() - 800)))),
+                            task, (n, of, part, found) -> handler.post(() -> progressNote(id, persona, n,
+                                    "Part " + n + " of " + of + " done: " + part + "\n\n" + found)),
+                            host::stopped);
+                }
+                result = crew != null ? crew : agent.run(task, earlier);
                 long began = System.currentTimeMillis();
                 int round = 1;
                 while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS
