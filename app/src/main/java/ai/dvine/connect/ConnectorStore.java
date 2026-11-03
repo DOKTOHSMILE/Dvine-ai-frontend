@@ -193,6 +193,17 @@ public final class ConnectorStore {
         if (ready(Kind.MCP)) {
             t.addAll(mcpTools());
         }
+        List<ai.dvine.social.Platform> social = ai.dvine.social.SocialWeb.accounts(context).ready();
+        if (!social.isEmpty()) {
+            StringBuilder names = new StringBuilder();
+            for (ai.dvine.social.Platform p : social) {
+                names.append(names.length() == 0 ? "" : ", ").append(p.shown);
+            }
+            t.add(new Connectors.Tool("social.search", "the newest posts about something on the user's signed-in social accounts ("
+                    + names + "): what people say, not checked facts", "network: words (x: lagos flood), or words for all"));
+            t.add(new Connectors.Tool("social.open", "read one Facebook, X, Instagram or Reddit page (a post or profile link)"
+                    + " with the user's account", "link"));
+        }
         return t;
     }
 
@@ -208,6 +219,21 @@ public final class ConnectorStore {
                     found = web.apply(arg);
                 }
                 return found == null || found.trim().isEmpty() ? "Nothing reliable was found." : Connectors.clip(found);
+            }
+            if (tool.equals("social.search")) {
+                String q = arg == null ? "" : arg.trim();
+                ai.dvine.social.Platform p = null;
+                int colon = q.indexOf(':');
+                if (colon > 0 && colon < 14) {
+                    p = ai.dvine.social.Platform.named(q.substring(0, colon));
+                    if (p != null) {
+                        q = q.substring(colon + 1).trim();
+                    }
+                }
+                return q.isEmpty() ? "Say what to look for." : ai.dvine.social.SocialWeb.search(context, p, q, 6000);
+            }
+            if (tool.equals("social.open")) {
+                return ai.dvine.social.SocialWeb.open(context, arg == null ? "" : arg.trim(), 6000);
             }
             if (tool.equals("calendar.week")) {
                 return calendarWeek();

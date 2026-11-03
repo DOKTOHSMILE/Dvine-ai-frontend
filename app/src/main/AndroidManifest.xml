@@ -96,6 +96,15 @@
             android:name=".chat.ui.WorkspaceActivity"
             android:exported="false"
             android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SocialActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SocialLoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine"
+            android:windowSoftInputMode="adjustResize" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="ai.dvine.files"

@@ -555,6 +555,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 closeDrawer();
                 startActivity(new android.content.Intent(this, ai.dvine.chat.ui.WorkspaceActivity.class));
             });
+        android.view.View socialRow = findViewById(R.id.btnDrawerSocial);
+        if (socialRow != null)
+            socialRow.setOnClickListener(v -> {
+                closeDrawer();
+                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class));
+            });
         android.view.View providers = findViewById(R.id.btnProviders);
         if (providers != null)
             providers.setOnClickListener(v -> {
@@ -2136,8 +2142,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final String checker = ai.dvine.agent.AgentBoard.start("Fact checker", question);
             ai.dvine.llm.FactCheck.Result r;
             try {
-                r = ai.dvine.llm.FactCheck.run((system, prompt) -> model.task(system, prompt, 300, null),
-                        claim -> web.research(claim, 1, 3000), question, answer, () -> id != askId);
+                // the web first; with signed-in social accounts (and the setting on), what people post on one of them
+                final java.util.List<ai.dvine.social.Platform> social = prefs.getBoolean("social_factcheck", true)
+                        ? ai.dvine.social.SocialWeb.accounts(this).ready() : new java.util.ArrayList<ai.dvine.social.Platform>();
+                r = ai.dvine.llm.FactCheck.run((system, prompt) -> model.task(system, prompt, 300, null), claim -> {
+                    String found = web.research(claim, 1, 3000);
+                    if (social.isEmpty() || id != askId) {
+                        return found;
+                    }
+                    String posts = ai.dvine.social.SocialWeb.search(this, social.get(0), claim, 1500);
+                    return (found == null ? "" : found + "\n\n") + posts;
+                }, question, answer, () -> id != askId);
             } finally {
                 ai.dvine.agent.AgentBoard.end(checker);
             }
@@ -2528,6 +2543,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (makeDocument(text)) {
             return; // "make a PDF of that", "write a Word document about …": the model writes, DVINE makes the file
         }
+        if (socialSearch(text)) {
+            return;
+        }
         if (!interpreted && !carriesOn(text) && ai.dvine.turn.Meaning.worthReading(text)) {
             understand(text); // the words didn't match a command's wording: the brain reads what they mean
             return;
@@ -2598,6 +2616,31 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     static final String WRITE_DOC = "Write the document the user asks for, in Markdown: a # title, ## sections, short"
             + " paragraphs, - lists, and | tables | where they help. Write the whole document and nothing else (no"
             + " greeting, no note about the file). /no_think";
+
+    /**
+     * "Search X for …", "what are people saying on Reddit about …": read with the user's own accounts (the in-app
+     * sign-in), within the limits that keep them safe, and answered from what people posted, labelled as their claims.
+     */
+    private boolean socialSearch(String text) {
+        final ai.dvine.social.SocialAsk ask = ai.dvine.social.SocialAsk.parse(text);
+        if (ask == null) {
+            return false;
+        }
+        String where = ask.platform == null ? "social media" : ask.platform.shown;
+        ai.dvine.social.SocialAccounts accounts = ai.dvine.social.SocialWeb.accounts(this);
+        boolean none = ask.platform == null ? accounts.ready().isEmpty() : accounts.inUse(ask.platform) == null;
+        if (none) {
+            play(LocalTurn.speakAs(stage.agent(), "I need you signed in to " + where + " first: open the menu, then Social"
+                    + " accounts, and sign in there. Your password goes only to the site."), null);
+            return true;
+        }
+        if (connectivity != null && !connectivity.isOnline()) {
+            play(LocalTurn.speakAs(stage.agent(), "I need the network to read " + where + "."), null);
+            return true;
+        }
+        useConnector(text, "social.search " + (ask.platform == null ? "" : ask.platform.name().toLowerCase(java.util.Locale.ROOT) + ": ") + ask.query);
+        return true;
+    }
 
     /**
      * Makes a real file (PDF, Word, Excel, HTML, CSV, Markdown, JSON, text) from the last reply, the whole chat, or a
