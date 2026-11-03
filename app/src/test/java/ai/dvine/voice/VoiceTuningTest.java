@@ -37,8 +37,9 @@ public class VoiceTuningTest {
     public void warmKeepsADeliberateVoiceDeep() {
         // at or below neutral the pitch passes through (bar the floor), so Obi stays deep
         assertEquals(0.80f, VoiceTuning.warm(0.80f), 1e-4f);
-        assertEquals(0.60f, VoiceTuning.warm(0.60f), 1e-4f);
-        // but the buzzy bottom is lifted to the floor
+        assertEquals(0.85f, VoiceTuning.warm(0.85f), 1e-4f);
+        // anything in the buzzy bottom is lifted to the floor
+        assertEquals(0.78f, VoiceTuning.warm(0.60f), 1e-4f);
         assertEquals(0.78f, VoiceTuning.warm(0.40f), 1e-4f);
         assertEquals(0.78f, VoiceTuning.warm(0.78f), 1e-4f);
     }

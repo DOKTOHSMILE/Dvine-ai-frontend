@@ -208,11 +208,11 @@ public final class TalkBridge extends UtteranceProgressListener {
      * brighter, a little slower — the bright little robot next to Obi's baritone, without the sharp, hurried
      * edge the system voice used to have.
      */
-    private static float bright(boolean ivie) {
+    private float bright(boolean ivie) {
         return robot && !ivie ? VoiceTuning.ROBOT_BRIGHT : 1f;
     }
 
-    private static float quick(boolean ivie) {
+    private float quick(boolean ivie) {
         return robot && !ivie ? VoiceTuning.ROBOT_QUICK : 1f;
     }
 
@@ -224,7 +224,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         rateScale = Math.max(0.5f, Math.min(2f, scale));
     }
 
-    /** Ibiko's voice: the male voice, brighter and a little quicker. */
+    /** Ibiko's voice: Obi's voice made a touch brighter and a touch slower ({@link VoiceTuning#ROBOT_BRIGHT}). */
     public void setRobot(boolean on) {
         robot = on;
     }
