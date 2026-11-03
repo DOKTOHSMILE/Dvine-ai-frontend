@@ -172,6 +172,8 @@ public final class ChatPane extends LinearLayout {
 
     /** The steps of the current turn ("Searching the web for …", "Asking OpenAI (gpt-5-mini)"), oldest first. */
     private final List<String> steps = new ArrayList<String>();
+    /** When each step started (milliseconds), beside {@link #steps}: each step's time in the sheet. */
+    private final List<Long> stepAt = new ArrayList<Long>();
     private long workStarted;
 
     private boolean working() {
@@ -204,6 +206,7 @@ public final class ChatPane extends LinearLayout {
             workStarted = System.currentTimeMillis();
         }
         steps.add(l);
+        stepAt.add(System.currentTimeMillis());
         refreshActivity();
     }
 
@@ -214,6 +217,7 @@ public final class ChatPane extends LinearLayout {
     /** Drops the work in progress without keeping it in the chat (a new chat starts clean). */
     public void activityDrop() {
         steps.clear();
+        stepAt.clear();
         workStarted = 0;
         thinkingText = null;
         liveText = null;
@@ -227,16 +231,18 @@ public final class ChatPane extends LinearLayout {
         if (!steps.isEmpty()) {
             long secs = Math.max(1, (System.currentTimeMillis() - workStarted + 500) / 1000);
             StringBuilder body = new StringBuilder(secs + "\n");
-            for (String st : steps) {
-                body.append(st.replace('\n', ' ')).append('\n');
+            for (String st : timedSteps(System.currentTimeMillis())) {
+                body.append(st.replace('\n', ' ')).append('\n'); // each with its time after a tab
             }
             book.add("assistant", "activity", body.toString().trim(), book.current().persona);
         }
         if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
-            fillSteps(steps, true); // an open sheet stays, every step now ticked
+            fillSteps(timedSteps(System.currentTimeMillis()), true); // an open sheet stays, every step now ticked
             stepsLive = false;
         }
+        removeCallbacks(stepsTick);
         steps.clear();
+        stepAt.clear();
         workStarted = 0;
         thinkingText = null;
         removeCallbacks(typeNext);
@@ -298,7 +304,7 @@ public final class ChatPane extends LinearLayout {
             liveMeta.setTextSize(13f);
             liveMeta.setPadding(dp(8), 0, 0, 0);
             liveBlock.addView(liveMeta);
-            liveBlock.setOnClickListener(v -> openSteps("Working", steps, true));
+            liveBlock.setOnClickListener(v -> openSteps("Working", timedSteps(System.currentTimeMillis()), true));
             liveBlock.setContentDescription("What is happening now; tap for every step");
         }
         if (liveBlock.getParent() instanceof android.view.ViewGroup) {
@@ -308,10 +314,10 @@ public final class ChatPane extends LinearLayout {
                 : thinkingText != null ? stripTimer(thinkingText) : "Working";
         type(now);
         long secs = workStarted == 0 ? 0 : (System.currentTimeMillis() - workStarted) / 1000;
-        liveMeta.setText((secs > 0 ? secs + "s" : "") + (steps.isEmpty() ? "" : (secs > 0 ? " \u00B7 " : "") + steps.size()
+        liveMeta.setText((secs > 0 ? duration(secs) : "") + (steps.isEmpty() ? "" : (secs > 0 ? " \u00B7 " : "") + steps.size()
                 + " step" + (steps.size() == 1 ? "" : "s")) + "  \u203A");
         if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
-            fillSteps(steps, false);
+            fillSteps(timedSteps(System.currentTimeMillis()), false);
         }
         return liveBlock;
     }
@@ -361,11 +367,52 @@ public final class ChatPane extends LinearLayout {
         stepsList.setPadding(dp(20), 0, dp(20), dp(8));
         fillSteps(list, !live);
         stepsSheet = ai.dvine.chat.ui.BottomSheet.showView((Activity) getContext(), title, stepsList);
+        if (live) {
+            removeCallbacks(stepsTick);
+            postDelayed(stepsTick, 1000); // the step running now counts up, second by second
+        }
+    }
+
+    /** While the live steps sheet is open: every second, the running step's time moves on. */
+    private final Runnable stepsTick = new Runnable() {
+        @Override
+        public void run() {
+            if (stepsSheet == null || !stepsSheet.isShowing() || !stepsLive) {
+                return;
+            }
+            fillSteps(timedSteps(System.currentTimeMillis()), false);
+            postDelayed(this, 1000);
+        }
+    };
+
+    /**
+     * The steps, each followed by a tab and its seconds: from its start to the next step's (the last one: to
+     * {@code now}, still running).
+     */
+    public List<String> timedSteps(long now) {
+        List<String> out = new ArrayList<String>();
+        for (int i = 0; i < steps.size(); i++) {
+            long from = i < stepAt.size() ? stepAt.get(i) : now;
+            long to = i + 1 < stepAt.size() ? stepAt.get(i + 1) : now;
+            out.add(steps.get(i) + "\t" + Math.max(0, (to - from) / 1000));
+        }
+        return out;
+    }
+
+    /** 45 → "45s", 185 → "3m 05s", 3720 → "1h 02m". */
+    static String duration(long secs) {
+        if (secs < 60) {
+            return secs + "s";
+        }
+        if (secs < 3600) {
+            return secs / 60 + "m " + String.format(java.util.Locale.US, "%02ds", secs % 60);
+        }
+        return secs / 3600 + "h " + String.format(java.util.Locale.US, "%02dm", secs % 3600 / 60);
     }
 
     /** "Asking Custom gateway (gpt-5-mini)": which API was asked, kept in older chats' steps; not shown. */
     static boolean providerLine(String step) {
-        return step != null && ai.dvine.agent.StepDetail.words(step).matches("^Asking .+\\(.+\\).*");
+        return step != null && ai.dvine.agent.StepDetail.words(step.split("\t")[0]).matches("^Asking .+\\(.+\\).*");
     }
 
     private void fillSteps(List<String> all, boolean allDone) {
@@ -396,8 +443,35 @@ public final class ChatPane extends LinearLayout {
                 lp.setMarginStart(dp(30)); // under the text, not the check mark
                 stepsList.addView(line, lp);
             }
-            stepsList.addView(stepLine(list.get(i), allDone || !last, !allDone && last));
+            String[] parts = list.get(i).split("\t");
+            long secs = -1;
+            if (parts.length > 1) {
+                try {
+                    secs = Long.parseLong(parts[1].trim());
+                } catch (NumberFormatException ignored) {
+                    // a step kept before steps had times
+                }
+            }
+            stepsList.addView(timedRow(stepLine(parts[0], allDone || !last, !allDone && last), secs, !allDone && last));
         }
+    }
+
+    /** A step with its time at the right ("12s"; the running step's in the accent colour); no time for old steps. */
+    private View timedRow(TextView step, long secs, boolean running) {
+        if (secs < 0) {
+            return step;
+        }
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(step, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        TextView time = plain(duration(secs));
+        time.setTextSize(12f);
+        time.setTextColor(color(running ? R.color.accent : R.color.text_secondary));
+        time.setPadding(dp(10), 0, 0, 0);
+        time.setContentDescription((running ? "running for " : "took ") + duration(secs));
+        row.addView(time);
+        return row;
     }
 
     /**
@@ -455,7 +529,13 @@ public final class ChatPane extends LinearLayout {
                 kept.add(lines[i].trim());
             }
         }
-        final String label = "Worked for " + secs + "s \u00B7 " + kept.size() + " step" + (kept.size() == 1 ? "" : "s");
+        String took = secs;
+        try {
+            took = duration(Long.parseLong(secs));
+        } catch (NumberFormatException ignored) {
+            took = secs + "s";
+        }
+        final String label = "Worked for " + took + " \u00B7 " + kept.size() + " step" + (kept.size() == 1 ? "" : "s");
         final TextView head = plain(label + "  \u203A");
         head.setTextColor(color(R.color.text_secondary));
         head.setTextSize(13f);

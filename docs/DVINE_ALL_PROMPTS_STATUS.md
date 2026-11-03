@@ -142,6 +142,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 109 | Fix this (Ibiko stuck 209 s with an 'ibiko:' step); make the typewriter faster like ChatGPT; memory review from the first build files | P12 | Built (Robolectric + desktop model) | 0.70.0: What DVINE remembers; small-model answers land at once; ~500 chars/s word typewriter |
 | 110 | Add edit to a user message: edit it, the system retries the new edit and removes the former response | P12 | Built (Robolectric) | 0.70.1: Edit beside Copy; the old message, its replies and the model's memory of them go; the edit is sent |
 | 111 | Smaller copy/edit/play icons; Listen pauses and resumes; it keeps repeating (screenshot); remove 'Asking custom gateway' and add separators; crash printing a long audit report | P12 | Built (Robolectric) | 0.70.2 |
+| 112 | Each process shows its timer by its side in the bottom sheet, synced with the work; the process bottom sheet opens at the middle and can be rolled to full screen | P12 | Built (Robolectric) | 0.71.0 |
 
 ## Still open, in the order that matters
 

@@ -38,25 +38,71 @@ public final class BottomSheet {
     }
 
     /**
-     * A sheet holding any view under its title (the steps of a piece of work, say), scrolling when it is long and
-     * never taller than about three quarters of the screen.
+     * A sheet holding any view under its title (the steps of a piece of work, say). It opens at half the screen;
+     * dragging its grip or title up takes it to nearly full screen, down closes it, and a tap on the grip switches
+     * between half and full. What it holds scrolls inside.
      */
     public static Dialog showView(Activity a, String title, View content) {
         Ui.init(a);
         final Dialog d = new Dialog(a);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout sheet = frame(a, d, title);
-        android.widget.ScrollView sv = new android.widget.ScrollView(a) {
-            @Override
-            protected void onMeasure(int w, int h) {
-                int most = (int) (a.getResources().getDisplayMetrics().heightPixels * 0.72f);
-                super.onMeasure(w, MeasureSpec.makeMeasureSpec(most, MeasureSpec.AT_MOST));
-            }
-        };
+        android.widget.ScrollView sv = new android.widget.ScrollView(a);
         sv.addView(content);
-        sheet.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        sheet.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         place(a, d, sheet);
+        final Window w = d.getWindow();
+        if (w != null) {
+            final int screen = a.getResources().getDisplayMetrics().heightPixels;
+            final int half = screen / 2, full = (int) (screen * 0.94f);
+            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, half);
+            View.OnTouchListener drag = new View.OnTouchListener() {
+                float y0;
+                int h0;
+                boolean moved;
+
+                @Override
+                public boolean onTouch(View v, android.view.MotionEvent e) {
+                    int h = w.getAttributes().height > 0 ? w.getAttributes().height : half;
+                    switch (e.getActionMasked()) {
+                        case android.view.MotionEvent.ACTION_DOWN:
+                            y0 = e.getRawY();
+                            h0 = h;
+                            moved = false;
+                            return true;
+                        case android.view.MotionEvent.ACTION_MOVE:
+                            int to = Math.max(screen / 5, Math.min(full, h0 - (int) (e.getRawY() - y0)));
+                            if (Math.abs(e.getRawY() - y0) > Ui.dp(a, 6)) {
+                                moved = true;
+                            }
+                            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, to);
+                            return true;
+                        case android.view.MotionEvent.ACTION_UP:
+                        case android.view.MotionEvent.ACTION_CANCEL:
+                            if (!moved) {
+                                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, h >= full - Ui.dp(a, 8) ? half : full); // a tap
+                            } else if (h < screen * 0.33f) {
+                                d.dismiss(); // pulled down: closed
+                            } else {
+                                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, h > screen * 0.7f ? full : half);
+                            }
+                            return true;
+                        default:
+                            return false;
+                    }
+                }
+            };
+            for (int i = 0; i < Math.min(2, sheet.getChildCount() - 1); i++) {
+                sheet.getChildAt(i).setOnTouchListener(drag); // the grip and the title
+            }
+            sheet.getChildAt(0).setContentDescription("Drag up for full screen, down to close");
+        }
         return d;
+    }
+
+    /** The sheet's height now (pixels), for tests. */
+    static int heightOf(Dialog d) {
+        return d.getWindow() == null ? 0 : d.getWindow().getAttributes().height;
     }
 
     /** The sheet's rounded body with its grip and title. */
@@ -68,13 +114,15 @@ public final class BottomSheet {
         float r = Ui.dp(a, 24);
         bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         sheet.setBackground(bg);
-        sheet.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 16));
+        sheet.setPadding(0, Ui.dp(a, 2), 0, Ui.dp(a, 16));
+        // the grip: a 4 dp bar in a 24 dp strip the full width, easy to take hold of
+        android.widget.FrameLayout strip = new android.widget.FrameLayout(a);
         View grip = new View(a);
         grip.setBackground(Ui.round(a, Ui.LINE, 0, 3));
-        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(Ui.dp(a, 36), Ui.dp(a, 4));
-        gp.gravity = Gravity.CENTER_HORIZONTAL;
-        gp.bottomMargin = Ui.dp(a, 10);
-        sheet.addView(grip, gp);
+        android.widget.FrameLayout.LayoutParams gp = new android.widget.FrameLayout.LayoutParams(Ui.dp(a, 36), Ui.dp(a, 4));
+        gp.gravity = Gravity.CENTER;
+        strip.addView(grip, gp);
+        sheet.addView(strip, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(a, 24)));
         if (title != null) {
             TextView t = Ui.text(a, title, 17, Ui.TEXT, true);
             t.setPadding(Ui.dp(a, 24), Ui.dp(a, 4), Ui.dp(a, 24), Ui.dp(a, 8));
@@ -96,7 +144,7 @@ public final class BottomSheet {
             w.getAttributes().windowAnimations = android.R.style.Animation_InputMethod; // slides up from the bottom
             androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(sheet, (v, insets) -> {
                 int nav = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars()).bottom;
-                v.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 16) + nav);
+                v.setPadding(0, Ui.dp(a, 2), 0, Ui.dp(a, 16) + nav);
                 return insets;
             });
         }
