@@ -156,6 +156,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 123 | Obi makes plans, Ivie matches them with real-world behaviour and works on UI/UX, Ibiko executes when it is about building something; refresh every 5 s | P12 | Built (JVM) | 0.81.1 |
 | 124 | Interpreter: non-English (Pidgin, Yoruba, French) put into English for the model and the answer back into the user's language, online and offline | P12 | Built (JVM + desktop model) | 0.82.0 |
 | 125 | SMM part 1: sign in to Facebook, X, Instagram and Reddit in the app, several accounts each, limits against bans, the model searches with the accounts, social posts in fact checks | P12 | Built (Robolectric) | 0.83.0 |
+| 126 | Read-aloud in the notification with pause; steps like Claude Code; standard check icons; remove 'Asking again'; optimise the bridge to the downloaded model; trending posts on X; social accounts in Connectors | P12 | Built (desktop engine measured) | 0.84.0 |
 
 ## Still open, in the order that matters
 

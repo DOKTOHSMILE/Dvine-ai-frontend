@@ -69,6 +69,59 @@ public final class ConnectorsActivity extends AppCompatActivity {
         for (ConnectorStore.Kind k : ConnectorStore.Kind.values()) {
             body.addView(card(k), Ui.wide(this, 12));
         }
+        // the social networks, signed in on the sites themselves: a tap signs in, or opens Social accounts
+        TextView social = Ui.text(this, "Social accounts", 15, Ui.SUB, false);
+        social.setPadding(Ui.dp(this, 6), Ui.dp(this, 22), Ui.dp(this, 6), 0);
+        body.addView(social);
+        for (ai.dvine.social.Platform p : ai.dvine.social.Platform.values()) {
+            body.addView(socialCard(p), Ui.wide(this, 12));
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (body != null) {
+            fill(); // back from signing in
+        }
+    }
+
+    /** A social network as a connector: who is signed in, and a tap to sign in or manage the accounts. */
+    private View socialCard(final ai.dvine.social.Platform p) {
+        java.util.List<ai.dvine.social.SocialAccounts.Account> on = ai.dvine.social.SocialWeb.accounts(this).on(p);
+        ai.dvine.social.SocialAccounts.Account inUse = ai.dvine.social.SocialWeb.accounts(this).inUse(p);
+        String paused = inUse == null ? null : ai.dvine.social.SocialWeb.limits(this).pausedWhy(inUse.id, System.currentTimeMillis());
+        boolean ready = inUse != null && inUse.signedIn && paused == null;
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(Ui.round(this, Ui.CARD, Ui.BORDER, 18));
+        card.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), Ui.dp(this, 16), Ui.dp(this, 12));
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView mark = Ui.text(this, p.shown.substring(0, 1), 15, Ui.ON_CORAL, true);
+        mark.setGravity(Gravity.CENTER);
+        mark.setBackground(Ui.round(this, Ui.CORAL, 0, 9));
+        row.addView(mark, new LinearLayout.LayoutParams(Ui.dp(this, 32), Ui.dp(this, 32)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 8), 0);
+        words.addView(Ui.text(this, p.shown, 16, Ui.TEXT, true));
+        String status = on.isEmpty() ? "Not signed in: tap to sign in on " + p.shown
+                : paused != null ? "Paused: " + paused
+                : inUse == null || !inUse.signedIn ? "Signed out: tap to sign in again"
+                : "Connected as " + inUse.label + (on.size() > 1 ? " \u00b7 " + on.size() + " accounts" : "");
+        words.addView(Ui.text(this, status, 12, ready ? Ui.CORAL : Ui.SUB, false));
+        row.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        android.widget.ImageView go = new android.widget.ImageView(this);
+        go.setImageResource(ai.dvine.R.drawable.ic_chevron_right);
+        go.setColorFilter(Ui.SUB);
+        row.addView(go, new LinearLayout.LayoutParams(Ui.dp(this, 18), Ui.dp(this, 18)));
+        card.addView(row);
+        card.setContentDescription(p.shown + ", " + status);
+        card.setOnClickListener(v -> startActivity(on.isEmpty()
+                ? new android.content.Intent(this, SocialLoginActivity.class).putExtra(SocialLoginActivity.EXTRA_PLATFORM, p.name())
+                : new android.content.Intent(this, SocialActivity.class)));
+        return card;
     }
 
     private View card(final ConnectorStore.Kind k) {
