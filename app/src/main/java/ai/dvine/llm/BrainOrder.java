@@ -183,9 +183,8 @@ public final class BrainOrder {
         if (search.matches()) {
             return tidyPicture(search.group(1));
         }
-        if (t.matches("[\\p{L}]{3,24}")) {
-            return t;
-        }
+        // a single word ("retry", "car") is not a photo search: it goes to the model with the chat so far, which
+        // knows what it refers to
         return null;
     }
 
