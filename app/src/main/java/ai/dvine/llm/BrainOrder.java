@@ -5,7 +5,7 @@ package ai.dvine.llm;
  */
 public final class BrainOrder {
     public enum Kind {
-        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, CANNOT
+        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, BUILD, SOCIAL, CANNOT
     }
 
     public final Kind kind;
@@ -41,7 +41,11 @@ public final class BrainOrder {
                 + " Read their words and reply with exactly one line."
                 + " If they want a job this phone can do, reply DO and one code:"
                 + " DO PHOTO <subject>, DO UNZIP, DO FINDZIP, DO NAME <call me>,"
-                + " DO GREET, DO TIME, DO SHELL <one command>."
+                + " DO GREET, DO TIME, DO SHELL <one command>,"
+                + " DO BUILD <the thing to build in 3D, with every size they said> (a house, a car, a chair: anything to model),"
+                + " DO SOCIAL SEARCH <network>: <words> (what people post), DO SOCIAL TRENDING <network>,"
+                + " DO SOCIAL CONNECT <network> (sign in), DO SOCIAL POST <network>: <what about> (write a post),"
+                + " DO SOCIAL HELP (how to use their social accounts). Networks: facebook, x, instagram, reddit."
                 + " The app is DVINE. It is not a person. The three personas are Ivie, Obi, and Ibiko."
                 + " Ivie is gentle and looks at people. Obi is calm and looks at structure. Ibiko writes code and runs commands."
                 + " If they ask who they are talking to, reply SAY and that persona's own name, never DVINE."
@@ -99,6 +103,13 @@ public final class BrainOrder {
             if ("TOOL".equals(code) && !arg.isEmpty()) {
                 return new BrainOrder(Kind.TOOL, arg, "");
             }
+            if ("BUILD".equals(code) && !arg.isEmpty()) {
+                return new BrainOrder(Kind.BUILD, arg, "");
+            }
+            if ("SOCIAL".equals(code) && !arg.isEmpty()) {
+                return new BrainOrder(Kind.SOCIAL, arg.replaceFirst("^(?i)(search|trending|connect|post|help)\\b", "$1").toLowerCase(java.util.Locale.US)
+                        .replaceFirst("^(search|post)\\s+(\\w+)\\s*:?\\s*", "$1 $2: ").trim(), "");
+            }
             return new BrainOrder(Kind.CANNOT, code, "That isn't a function I have.");
         }
         return new BrainOrder(Kind.SAY, "", ActionTags.strip(raw).trim());
@@ -127,6 +138,15 @@ public final class BrainOrder {
         if (t.contains("what time") || t.contains("what's the time")) {
             return read("DO TIME");
         }
+        // the same orders the model gives, recognised at once when the words leave no doubt
+        BrainOrder social = socialOrder(said);
+        if (social != null) {
+            return social;
+        }
+        ai.dvine.create.ObjectRequestInterpreter.Request build = ai.dvine.create.ObjectRequestInterpreter.interpret(said, null);
+        if (build != null && build.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE) {
+            return new BrainOrder(Kind.BUILD, said, "");
+        }
         String photo = pictureOf(said);
         if (photo != null) {
             return new BrainOrder(Kind.PHOTO, photo, "");
@@ -135,6 +155,27 @@ public final class BrainOrder {
             return new BrainOrder(Kind.SEARCH, said, "");
         }
         return order;
+    }
+
+    /** A social request in plain words, as the order the model would give for it; null when it isn't one. */
+    static BrainOrder socialOrder(String said) {
+        ai.dvine.social.Platform link = ai.dvine.social.SocialAsk.connect(said);
+        if (link != null) {
+            return new BrainOrder(Kind.SOCIAL, "connect " + link.name().toLowerCase(java.util.Locale.US), "");
+        }
+        if (ai.dvine.social.SocialAsk.help(said)) {
+            return new BrainOrder(Kind.SOCIAL, "help", "");
+        }
+        String[] post = ai.dvine.social.SocialAsk.compose(said);
+        if (post != null) {
+            return new BrainOrder(Kind.SOCIAL, "post " + post[0].toLowerCase(java.util.Locale.US).replace(" ", "") + ": " + post[1], "");
+        }
+        ai.dvine.social.SocialAsk ask = ai.dvine.social.SocialAsk.parse(said);
+        if (ask != null) {
+            String net = ask.platform == null ? "all" : ask.platform.name().toLowerCase(java.util.Locale.US);
+            return new BrainOrder(Kind.SOCIAL, ask.trending ? "trending " + net : "search " + net + ": " + ask.query, "");
+        }
+        return null;
     }
 
     /** A real question, not a name, the time, or a picture. */

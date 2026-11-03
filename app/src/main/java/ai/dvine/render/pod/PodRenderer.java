@@ -29,6 +29,9 @@ public final class PodRenderer {
     public volatile int quality = 2;
     private float px = 2.5f;
 
+    /** The design space's backdrop: a modelling studio (grey, a floor grid, the axes) instead of space and the pod. */
+    public volatile boolean studio = true;
+    private int studioProg;
     private int skyProg, starProg, meteorProg, podProg, glowProg, beamProg, dotProg;
     private int quadVbo, starVbo, dustVbo, meteorVbo, podVbo, podIbo, podCount, beamVbo, dotVbo;
     private boolean created;
@@ -73,6 +76,7 @@ public final class PodRenderer {
         created = false;
         glObjects = 0;
         skyProg = prog(SKY_VS, SKY_FS);
+        studioProg = prog(SKY_VS, STUDIO_FS);
         starProg = prog(STAR_VS, STAR_FS);
         meteorProg = prog(METEOR_VS, METEOR_FS);
         podProg = prog(POD_VS, POD_FS);
@@ -126,6 +130,17 @@ public final class PodRenderer {
         gl.disable(GlApi.CULL_FACE);
         gl.disable(GlApi.BLEND);
         float[] centre = ndc(l, 0f, 0f, 0f);
+        if (studio) {
+            // the modelling studio: a grey viewport with a floor grid and the red and green axes, as in Blender
+            gl.useProgram(studioProg);
+            gl.uniform2f(gl.uniform(studioProg, "uRes"), width, height);
+            gl.uniform1f(gl.uniform(studioProg, "uHorizon"), centre[1] - 0.05f);
+            attrib(quadVbo, 0, 2, 8, 0);
+            gl.drawArrays(GlApi.TRIANGLES, 0, 3);
+            off(1);
+            gl.depthMask(true);
+            return;
+        }
         // 1. dark space
         gl.useProgram(skyProg);
         gl.uniform2f(gl.uniform(skyProg, "uRes"), width, height);
@@ -452,6 +467,33 @@ public final class PodRenderer {
             + "  vec2 hq=vec2((p.x-uHead.x)*asp,p.y-uHead.y)/max(uHead.z,0.01);\n"
             + "  col+=vec3(0.22,0.36,0.75)*exp(-dot(hq,hq)*0.9)*0.10;\n"
             + "  col*=1.0-0.45*uHead.w;\n"
+            + "  o=vec4(col,1.0);\n"
+            + "}\n";
+
+    /** A modelling studio's viewport: grey gradient, a floor grid in perspective that fades away, the X (red) and Y (green) axes. */
+    static final String STUDIO_FS = "#version 300 es\n"
+            + "precision highp float;\n"
+            + "uniform vec2 uRes; uniform float uHorizon;\n"
+            + "out vec4 o;\n"
+            + "void main(){\n"
+            + "  vec2 p=gl_FragCoord.xy/uRes*2.0-1.0; float asp=uRes.x/uRes.y;\n"
+            + "  vec3 col=mix(vec3(0.150,0.152,0.158),vec3(0.245,0.247,0.255),clamp(0.5+0.5*p.y,0.0,1.0));\n"
+            + "  float dy=uHorizon-p.y;\n"
+            + "  if(dy>0.002){\n"
+            + "    float dist=1.4/dy;\n"
+            + "    vec2 w=vec2(p.x*asp*dist*0.75,dist);\n"
+            + "    vec2 c=w*0.5; vec2 fw=max(fwidth(c),vec2(1e-4));\n"
+            + "    vec2 g=abs(fract(c-0.5)-0.5)/fw; float minor=1.0-min(min(g.x,g.y),1.0);\n"
+            + "    vec2 c5=w*0.1; vec2 fw5=max(fwidth(c5),vec2(1e-4));\n"
+            + "    vec2 g5=abs(fract(c5-0.5)-0.5)/fw5; float major=1.0-min(min(g5.x,g5.y),1.0);\n"
+            + "    float fade=exp(-dist*0.045)*smoothstep(0.0,0.05,dy);\n"
+            + "    col=mix(col,vec3(0.29,0.29,0.30),minor*0.55*fade);\n"
+            + "    col=mix(col,vec3(0.34,0.34,0.35),major*0.7*fade);\n"
+            + "    float z0=1.4/0.35; float ax=abs(w.y-z0)/max(fwidth(w.y),1e-4); float ay=abs(w.x)/max(fwidth(w.x),1e-4);\n"
+            + "    col=mix(col,vec3(0.66,0.22,0.24),(1.0-min(ax*0.6,1.0))*fade);\n"
+            + "    col=mix(col,vec3(0.45,0.64,0.20),(1.0-min(ay*0.6,1.0))*fade);\n"
+            + "  }\n"
+            + "  float v=length(p*vec2(0.9,1.0)); col*=1.0-0.18*smoothstep(0.6,1.5,v);\n"
             + "  o=vec4(col,1.0);\n"
             + "}\n";
 

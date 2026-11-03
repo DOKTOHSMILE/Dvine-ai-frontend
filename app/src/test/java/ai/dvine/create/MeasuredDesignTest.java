@@ -151,4 +151,25 @@ public class MeasuredDesignTest {
         assertEquals("window", MeasuredDesign.kind("front window 3"));
         assertEquals("tyre", MeasuredDesign.kind("rear tire"));
     }
+
+    @Test
+    public void anApiModelGetsTheFullDesignRequest() {
+        final List<String> systems = new ArrayList<String>();
+        final List<String> prompts = new ArrayList<String>();
+        MeasuredDesign.Designed d = MeasuredDesign.design((s, p, n) -> {
+            systems.add(s);
+            prompts.add(p);
+            if (s.startsWith("You are DVINE's design director")) return "A TV stand for a 65 inch TV: 180 cm wide, 50 cm high, 45 cm deep; 2 doors; 4 legs.";
+            if (s.startsWith("You are DVINE's designer")) return "Cabinet 180 x 45 x 45 cm\nLegs 4, 5 cm high";
+            return "UNITS: cm\nleg | box | black | 5 x 5 x 5 | at -85, 0, -18 | repeat 2 every 170 along x\n"
+                    + "cabinet | box | oak | 180 x 45 x 45 | at 0, 5, 0\ndoor | box | oak | 60 x 40 x 2 | in the front of cabinet | repeat 2\n";
+        }, "design a TV stand", null, 4000, true);
+        assertEquals(3, systems.size());
+        assertTrue("first the simple words become a full specification", systems.get(0).startsWith("You are DVINE's design director"));
+        assertTrue(prompts.get(0).contains("The user asks: design a TV stand"));
+        assertTrue("the brief is written from that specification", prompts.get(1).contains("A TV stand for a 65 inch TV"));
+        assertTrue("then exact coordinates for every part", systems.get(2).contains("Work the coordinates out exactly"));
+        assertTrue(d.read.errors.toString(), d.read.ok());
+        assertEquals(5, d.read.parts.size());
+    }
 }

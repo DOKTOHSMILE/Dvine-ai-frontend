@@ -105,6 +105,22 @@ public final class ObjectRequestInterpreter {
         return new Request(Kind.CREATE, ObjectSpec.of(category(title)).with("title", title, true).with("request", said.trim(), true), null);
     }
 
+    /**
+     * A build from any words (the brain's DO BUILD order: "a family house for five people, 2 storeys"): the model
+     * designs it. There are no built-in objects.
+     */
+    public static Request build(String request) {
+        String r = request == null ? "" : request.trim();
+        String what = r.replaceFirst("(?i)^(please |can you |could you |i want (you to )?|i need |make me |build me |design me )+", "")
+                .replaceFirst("(?i)^(design|create|build|make|model|construct|generate)\\s+(me |us )?", "")
+                .replaceFirst("(?i)^(a|an|the)\\s+", "").replaceAll("(?i)\\b(3d|3-d|three[- ]d)\\s*", "").trim();
+        String title = what.replaceAll("(?i)[.;:]\\s.*$", "").replaceAll("(?i)\\s+(with|that|which|where|on|of|for)\\b.*$", "").trim();
+        if (title.isEmpty()) {
+            title = "design";
+        }
+        return new Request(Kind.CREATE, ObjectSpec.of(category(title.toLowerCase(Locale.US))).with("title", title, true).with("request", r, true), null);
+    }
+
     /** One word for the kind of thing ("two-storey building" → "building"), for saving and opening it. */
     static String category(String title) {
         Matcher m = Pattern.compile("\\b(" + THINGS + ")s?\\b").matcher(title);

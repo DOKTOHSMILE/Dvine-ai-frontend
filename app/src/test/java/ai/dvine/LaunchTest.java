@@ -292,6 +292,31 @@ public class LaunchTest {
     }
 
     @Test
+    public void aBuildWithoutMeasurementsAsksForThemFirst() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        field.setText("build a house for my family");
+        c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
+        ShadowLooper.idleMainLooper(3, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pb = MainActivity.class.getDeclaredField("pendingBuild");
+        pb.setAccessible(true);
+        org.junit.Assert.assertEquals("build a house for my family", pb.get(c.get()));
+        java.lang.reflect.Method gate = MainActivity.class.getDeclaredMethod("messageGate");
+        gate.setAccessible(true);
+        ai.dvine.gate.BrainGateway g = (ai.dvine.gate.BrainGateway) gate.invoke(c.get());
+        java.util.List<ai.dvine.gate.BrainGateway.Decision> d = g.recent();
+        org.junit.Assert.assertEquals("brain \u2192 a known order", d.get(d.size() - 2).toString());
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        field.setText("you choose");
+        c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("the answer goes to the build waiting for it", "message \u2192 measurements for the build", g.last().toString());
+        org.junit.Assert.assertNull(pb.get(c.get()));
+        c.pause().stop().destroy();
+    }
+
+    @Test
     public void aMessageSentDuringWorkWaitsForItInsteadOfCuttingItOff() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
@@ -333,7 +358,9 @@ public class LaunchTest {
         java.lang.reflect.Method gate = MainActivity.class.getDeclaredMethod("messageGate");
         gate.setAccessible(true);
         ai.dvine.gate.BrainGateway g = (ai.dvine.gate.BrainGateway) gate.invoke(c.get());
-        org.junit.Assert.assertEquals("message \u2192 social search", g.last().toString());
+        // one route: the brain stage gives the order (here at once, the words leave no doubt) and DVINE carries it out
+        org.junit.Assert.assertEquals("message \u2192 brain", g.last().toString());
+        org.junit.Assert.assertEquals("brain \u2192 a known order", g.recent().get(g.recent().size() - 2).toString());
         field.setText("Explain how compound interest works in a few sentences");
         c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);

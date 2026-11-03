@@ -59,8 +59,16 @@ public final class CreationDirector {
      * long its brief and its part lines may be.
      */
     public void setDesigner(MeasuredDesign.Brain brain, int tokens) {
+        setDesigner(brain, tokens, false);
+    }
+
+    private volatile boolean capable;
+
+    /** {@code capable}: an API model, given the full design request (an expanded specification, exact coordinates). */
+    public void setDesigner(MeasuredDesign.Brain brain, int tokens, boolean capable) {
         designer = brain;
         designTokens = Math.max(600, tokens);
+        this.capable = capable;
     }
 
     public boolean canDesign() {
@@ -204,7 +212,7 @@ public final class CreationDirector {
                 facts = found.summary;
             }
         }
-        MeasuredDesign.Designed d = MeasuredDesign.design(brain, request, facts, designTokens);
+        MeasuredDesign.Designed d = MeasuredDesign.design(brain, request, facts, designTokens, capable);
         if (d == null || !d.read.ok()) {
             Outcome o = new Outcome(Action.NONE, session.model());
             o.lines.add(d == null ? "The model didn't write a design. Try again, or give me the main measurements."

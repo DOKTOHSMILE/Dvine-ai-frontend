@@ -17,9 +17,9 @@ public final class LocalTurn {
     public static List<TurnLine> call(boolean ivie) {
         List<TurnLine> lines = new ArrayList<TurnLine>();
         if (ivie) {
-            lines.add(new TurnLine("ivie", "SAY", "I'm here. Tell me what you want, and I'll stay with you."));
+            lines.add(new TurnLine("ivie", "SAY", "What would you like to make?"));
         } else {
-            lines.add(new TurnLine("obi", "SAY", "I'm here. Give me the goal and the constraint."));
+            lines.add(new TurnLine("obi", "SAY", "How can I help?"));
         }
         return lines;
     }
@@ -146,8 +146,8 @@ public final class LocalTurn {
             String agent = askIvie ? "ivie" : askObi ? "obi" : (onScreen == null ? "obi" : onScreen);
             lines.add(new TurnLine(agent, "THINK", null));
             lines.add(new TurnLine(agent, "SAY", "ivie".equals(agent)
-                    ? "I'm here. Tell me what you want, and I'll stay with you."
-                    : "I'm here. Give me the goal and the constraint."));
+                    ? "What would you like to make?"
+                    : "How can I help?"));
             return lines;
         }
         boolean ivieOpens = askIvie && !askObi;
