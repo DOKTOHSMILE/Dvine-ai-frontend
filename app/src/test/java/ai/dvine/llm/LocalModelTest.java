@@ -134,6 +134,11 @@ public class LocalModelTest {
             m.remember("q" + i, "a" + i);
         }
         assertEquals(12, m.historySize());
+        // an edited message: the model's memory goes back to just before it (q7 and the exchanges after it go)
+        m.rewindTo("q7");
+        assertEquals(6, m.historySize()); // q4..q6 remain
+        m.rewindTo("never asked");
+        assertEquals(6, m.historySize()); // a message it doesn't remember changes nothing
         assertTrue(ModelSpec.QWEN3_1_7B.url.startsWith("https://huggingface.co/") && ModelSpec.QWEN3_1_7B.sha256.length() == 64);
         assertEquals("1.1 gigabytes", ModelSpec.QWEN3_1_7B.sizeWords());
     }

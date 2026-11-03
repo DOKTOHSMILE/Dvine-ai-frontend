@@ -29,6 +29,14 @@ public final class ChatPane extends LinearLayout {
         void onSection(ChatBook.Section section);
 
         void onReadAloud(String text);
+
+        /**
+         * The user edited their message at {@code index} of the open chat: it and everything after it are already
+         * removed; the edited text is to be sent as a new message.
+         */
+        default void onEdit(String before, String edited) {
+            onSend(edited);
+        }
     }
 
     private final ChatBook book;
@@ -97,7 +105,7 @@ public final class ChatPane extends LinearLayout {
                 if (shown != null && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
                     // the user's own message: its copy icon shows on a tap and hides on the next one (or when the
                     // chat moves on: every redraw starts with it hidden)
-                    View actions = userActions(m.body);
+                    View actions = userActions(m.body, i);
                     actions.setVisibility(GONE);
                     thread.addView(actions);
                     tapToggles(shown, actions);
@@ -871,11 +879,12 @@ public final class ChatPane extends LinearLayout {
         (text != null ? text : message).setOnClickListener(v -> toggle.run()); // a long press still selects text
     }
 
-    private View userActions(final String text) {
+    private View userActions(final String text, final int index) {
         LinearLayout bar = new LinearLayout(getContext());
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.END);
         bar.setPadding(0, 0, 0, dp(4));
+        bar.addView(icon(R.drawable.ic_edit, "Edit your message", v -> edit(text, index)));
         bar.addView(icon(R.drawable.ic_copy, "Copy your message", v -> {
             copyText(text);
             android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
@@ -883,6 +892,37 @@ public final class ChatPane extends LinearLayout {
         LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         bar.setLayoutParams(lp);
         return bar;
+    }
+
+    /**
+     * Edits one of the user's messages, as in ChatGPT: the text opens ready to change; Send removes that message and
+     * everything after it in this chat (the old reply too) and sends the edited message in its place.
+     */
+    public void edit(final String before, final int index) {
+        final android.widget.EditText field = new android.widget.EditText(getContext());
+        field.setText(before);
+        field.setSelection(before.length());
+        field.setMinLines(2);
+        field.setMaxLines(8);
+        field.setHint("Your message");
+        android.widget.FrameLayout pad = new android.widget.FrameLayout(getContext());
+        pad.setPadding(dp(20), dp(8), dp(20), 0);
+        pad.addView(field);
+        new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setTitle("Edit message")
+                .setView(pad)
+                .setPositiveButton("Send", (d, w) -> {
+                    String now = field.getText().toString().trim();
+                    if (now.isEmpty() || !book.cutFrom(book.current().id, index)) {
+                        return;
+                    }
+                    openActions = null;
+                    show();
+                    host.onEdit(before, now);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+        field.requestFocus();
     }
 
     private View icon(int drawable, String label, View.OnClickListener click) {

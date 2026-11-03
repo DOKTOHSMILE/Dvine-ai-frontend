@@ -537,6 +537,49 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void aMessageCanBeEditedAndIsAskedAgainWithoutTheOldReply() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        String persona = chats.current().persona;
+        chats.add("user", "text", "What is the capital of Ghana?", persona);
+        chats.add("assistant", "text", "Accra.", persona);
+        chats.add("user", "text", "And its population?", persona);
+        chats.add("assistant", "text", "About 2.5 million.", persona);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        pane.show();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        // tap the first message: its edit button shows, with copy
+        android.view.View first = find(pane, "What is the capital of Ghana?"); // in the chat (the header has the chat's name too)
+        assertNotNull(first);
+        first.performClick();
+        android.view.View edit = described(pane, "Edit your message");
+        assertNotNull("edit button", edit);
+        org.junit.Assert.assertEquals(android.view.View.VISIBLE, ((android.view.View) edit.getParent()).getVisibility());
+        edit.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        androidx.appcompat.app.AlertDialog d = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.widget.EditText field = (android.widget.EditText) find(d.getWindow().getDecorView(), android.widget.EditText.class);
+        org.junit.Assert.assertEquals("What is the capital of Ghana?", field.getText().toString());
+        field.setText("What is the capital of Kenya?");
+        d.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        java.util.List<String> said = new java.util.ArrayList<String>();
+        for (ai.dvine.chat.ChatBook.Message m : chats.current().messages) {
+            said.add(m.role + ": " + m.body);
+        }
+        org.junit.Assert.assertEquals(said.toString(), "user: What is the capital of Kenya?", said.get(0));
+        for (String gone : new String[]{"Ghana", "Accra", "population", "2.5 million"}) {
+            org.junit.Assert.assertFalse(said.toString(), said.toString().contains(gone)); // the old message and every reply after it
+        }
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;

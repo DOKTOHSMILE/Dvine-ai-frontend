@@ -357,6 +357,26 @@ public final class ChatBook {
         return false;
     }
 
+    /**
+     * Removes the message at {@code index} of a chat and everything after it (an edited message is sent again in its
+     * place, and the replies to the old one go); false when there is no such message.
+     */
+    public synchronized boolean cutFrom(String id, int index) {
+        for (Section s : sections) {
+            if (s.id.equals(id)) {
+                if (index < 0 || index >= s.messages.size()) {
+                    return false;
+                }
+                while (s.messages.size() > index) {
+                    s.messages.remove(s.messages.size() - 1);
+                }
+                save();
+                return true;
+            }
+        }
+        return false;
+    }
+
     public synchronized boolean pin(String id, boolean on) {
         for (Section s : sections) {
             if (s.id.equals(id)) {

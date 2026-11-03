@@ -759,6 +759,23 @@ public final class LocalModel {
         }
     }
 
+    /**
+     * The user edited an earlier message: the conversation the model remembers goes back to just before it (that
+     * question and every exchange after it are dropped), so the edited message is answered as if the old one had
+     * never been asked. When the message isn't remembered (too old, or never sent to the model), nothing changes.
+     */
+    public synchronized void rewindTo(String question) {
+        String q = question == null ? "" : ai.dvine.chat.Attachments.withoutImages(question).trim();
+        for (int i = history.size() - 1; i >= 0; i--) {
+            if ("user".equals(history.get(i)[0]) && history.get(i)[1] != null && history.get(i)[1].trim().equals(q)) {
+                while (history.size() > i) {
+                    history.remove(history.size() - 1);
+                }
+                return;
+            }
+        }
+    }
+
     synchronized int historySize() {
         return history.size();
     }
