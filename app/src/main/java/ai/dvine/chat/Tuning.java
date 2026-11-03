@@ -21,6 +21,55 @@ public final class Tuning {
             this.max = max;
         }
 
+        /**
+         * The values a slider stops at: every whole number for a short range (up to 100 apart), otherwise round
+         * numbers (1, 1.5, 2, 3, 4, 5, 6, 8 times a power of ten) so a small value is as easy to pick as a big one,
+         * with the lowest, the default and the highest always among them.
+         */
+        public int[] stops() {
+            java.util.TreeSet<Integer> out = new java.util.TreeSet<Integer>();
+            if (max - min <= 100) {
+                for (int v = min; v <= max; v++) {
+                    out.add(v);
+                }
+            } else {
+                for (long p = 1; p <= max; p *= 10) {
+                    for (double f : new double[]{1, 1.5, 2, 3, 4, 5, 6, 8}) {
+                        long v = Math.round(f * p);
+                        if (v >= min && v <= max) {
+                            out.add((int) v);
+                        }
+                    }
+                }
+                out.add(min);
+                out.add(def);
+                out.add(max);
+            }
+            int[] a = new int[out.size()];
+            int i = 0;
+            for (int v : out) {
+                a[i++] = v;
+            }
+            return a;
+        }
+
+        /** The stop nearest {@code value}. */
+        public int stopFor(int value) {
+            int[] st = stops();
+            int best = 0;
+            for (int i = 1; i < st.length; i++) {
+                if (Math.abs(st[i] - value) < Math.abs(st[best] - value)) {
+                    best = i;
+                }
+            }
+            return best;
+        }
+
+        /** The value as shown beside its slider ("8,192", "Automatic" for a 0 that means automatic). */
+        public String shown(int value) {
+            return value == 0 && name.contains("0 = automatic") ? "Automatic" : String.format(java.util.Locale.US, "%,d", value);
+        }
+
         public int get(SharedPreferences p) {
             int v = p == null ? def : p.getInt(key, def);
             return Math.max(min, Math.min(max, v));

@@ -99,6 +99,23 @@ public class ScreenshotTest {
         ActivityController<ai.dvine.chat.ui.SettingsActivity> st = Robolectric.buildActivity(ai.dvine.chat.ui.SettingsActivity.class)
                 .create().start().resume().visible();
         shoot(st.get(), "9_settings_night");
+        // the Advanced numbers, each a slider
+        java.util.ArrayList<android.view.View> bars = new java.util.ArrayList<android.view.View>();
+        st.get().getWindow().getDecorView().findViewsWithText(bars, ai.dvine.chat.Tuning.CHAT_TOKENS.name,
+                android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        if (!bars.isEmpty()) {
+            android.view.View v = bars.get(0);
+            int y = 0;
+            android.view.View p = v;
+            while (p.getParent() instanceof android.view.View && !(p.getParent() instanceof android.widget.ScrollView)) {
+                y += p.getTop();
+                p = (android.view.View) p.getParent();
+            }
+            if (p.getParent() instanceof android.widget.ScrollView) {
+                ((android.widget.ScrollView) p.getParent()).scrollTo(0, Math.max(0, y + p.getTop() - 500));
+            }
+            shoot(st.get(), "18_advanced_sliders_night");
+        }
         st.pause().stop().destroy();
 
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
