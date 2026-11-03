@@ -483,13 +483,15 @@ public final class SettingsActivity extends AppCompatActivity {
             ai.dvine.llm.ReplyService.hold(this);
             LocalModel.Speed s;
             try {
-                s = hub.model.speedTest(LocalModel.threads(Runtime.getRuntime().availableProcessors()), 96);
+                s = hub.model.speedTest(ai.dvine.chat.Tuning.modelThreads(getSharedPreferences("dvine", MODE_PRIVATE)), 96);
             } finally {
                 ai.dvine.llm.ReplyService.release(this);
             }
             guard.loaded();
             runOnUiThread(() -> {
-                speed.setText(s == null ? "The test couldn't run: " + hub.model.problem() : s.words());
+                speed.setText(s == null ? "The test couldn't run: " + hub.model.problem()
+                        : s.words() + " " + ai.dvine.chat.Tuning.modelThreads(getSharedPreferences("dvine", MODE_PRIVATE))
+                        + " threads (Settings \u203A Advanced \u203A Offline model threads).");
                 refreshModel();
             });
         }, "dvine-speed-test").start();

@@ -54,8 +54,18 @@ public final class Tuning {
     public static final Knob SLOW_SPEED = new Knob("adv_slow_speed", "Offline model is slow below, tokens a second",
             "When the phone's own model writes slower than this, DVINE suggests a smaller size or less memory.", 4, 1, 50);
 
+    public static final Knob MODEL_THREADS = new Knob("adv_model_threads", "Offline model threads (0 = automatic)",
+            "How many of the phone's cores the offline model uses. Automatic takes the fast cores only (more threads on slow"
+                    + " cores makes it slower). Compare with Settings \u203A Test the speed.", 0, 0, 8);
+
     public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES,
-            CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED};
+            CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED, MODEL_THREADS};
+
+    /** The threads for the phone's own model: the setting, or the fast cores when it is automatic. */
+    public static int modelThreads(android.content.SharedPreferences p) {
+        int set = MODEL_THREADS.get(p);
+        return set > 0 ? set : ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors());
+    }
 
     private Tuning() {
     }

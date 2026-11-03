@@ -131,6 +131,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 98 | Screenshot: offline Gemma 3 1B keeps saying "too long for the model's memory" | P12 | Built (JVM) | 0.66.1: cut down further and retried until it fits; compact instructions for small memories; a plain message when nothing fits |
 | 99 | Obi says nothing to "Hello, how are you?" on Gemma (the mediator); pictures to the sender's side; image viewer broken | P12 | Built (Robolectric + real model on desktop) | 0.66.2: the reading waits at most 4 s, then the message goes on; pictures right-aligned at their own shape; the viewer fits, zooms and pans |
 | 100 | New chat shouldn't load the old chat; Obi first and the default; models in the foreground; safe fallback when a model is too strong (app stuck at start with Qwen3); how to measure speed | P12 | Built (Robolectric + real models on desktop) | 0.67.0: empty Obi chat on open and New chat; startup freeze fixed; ModelGuard falls back; counted foreground service; Settings › Test the speed |
+| 101 | Screenshot: Gemma 3 1B takes 237 s for a greeting; "I couldn't finish that on this phone" | P12 | Built (JVM) | 0.67.1: fast cores only (setting too), no reading call offline, 10 minutes to the first word with a clear message |
 
 ## Still open, in the order that matters
 

@@ -151,6 +151,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
         }
     };
+    /** How long the phone's own model may take to its first word (reading a long question on a slow phone). */
+    static final long PHONE_FIRST_WORD_MS = 600_000L;
+
     private final Runnable thinkBeat = new Runnable() {
         public void run() {
             ai.dvine.llm.ThinkPace pace = thinkPace;
@@ -159,7 +162,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             pace.tick(System.currentTimeMillis());
             if (inFront && pace.wordCount() == 0
-                    && System.currentTimeMillis() - thinkStartedMs > 180_000L) {
+                    && System.currentTimeMillis() - thinkStartedMs > (model != null && !model.remoteOn() ? PHONE_FIRST_WORD_MS : 180_000L)) {
                 handler.post(() -> {
                     if (thinkPace == null) {
                         return;
@@ -170,8 +173,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (noted != null && noted.answered && plain(noted)) {
                         play(noted.lines, null);
                     } else {
-                        play(LocalTurn.speakAs(stage.agent(),
-                                "I couldn't finish that on this phone."), null);
+                        play(LocalTurn.speakAs(stage.agent(), model != null && !model.remoteOn()
+                                ? model.spec.weights + " didn't start answering in " + PHONE_FIRST_WORD_MS / 60_000 + " minutes on this phone. A"
+                                        + " smaller model, fewer threads or less memory (Settings \u203A Test the speed shows which is"
+                                        + " quicker), or an API, would answer sooner."
+                                : "I couldn't finish that on this phone."), null);
                     }
                 });
                 return;
@@ -2022,8 +2028,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             act(text, known, work);
             return;
         }
-        if (model == null || !model.ready() || !prefs.getBoolean("llm_on", true) && !model.remoteOn()) {
-            askTheBrain(text); // nothing to read it with: it goes on as written
+        if (model == null || !model.remoteOn()) {
+            // only the phone's own model: no reading call. On a phone it costs as much as a reply and pushes the
+            // persona's instructions out of the model's memory, so every reply would read them again. Phrasings
+            // understood before (remembered above) still work offline
+            askTheBrain(text);
             return;
         }
         final int token = ++meaningToken;
@@ -2707,7 +2716,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             ai.dvine.llm.ReplyService.hold(this); // loading runs in the foreground: full speed, not stopped off screen
             final boolean ok;
             try {
-                ok = model.load(ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors()));
+                ok = model.load(ai.dvine.chat.Tuning.modelThreads(prefs)); // the fast cores, or the user's setting
             } finally {
                 ai.dvine.llm.ReplyService.release(this);
             }

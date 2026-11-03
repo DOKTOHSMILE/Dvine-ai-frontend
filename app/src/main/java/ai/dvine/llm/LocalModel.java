@@ -262,8 +262,8 @@ public final class LocalModel {
         return handle != 0 && askedAtLoad != t;
     }
 
-    /** The memory asked for when the loaded model was loaded (it may have settled for less). */
-    private volatile int askedAtLoad;
+    /** The memory asked for when the loaded model was loaded (it may have settled for less), and its threads. */
+    private volatile int askedAtLoad, loadedThreads;
 
     /** What to tell the user once after a load that had to settle for less memory; null when there is nothing. */
     public String takeMemoryNote() {
@@ -329,7 +329,7 @@ public final class LocalModel {
 
     /** Loads the installed model into memory (blocking, a few seconds). */
     public synchronized boolean load(int threads) {
-        if (state == State.READY && askedAtLoad == contextTokens) {
+        if (state == State.READY && askedAtLoad == contextTokens && loadedThreads == threads) {
             return true;
         }
         if (handle != 0) {
@@ -352,6 +352,7 @@ public final class LocalModel {
         state = State.LOADING;
         int want = contextTokens;
         askedAtLoad = want;
+        loadedThreads = threads;
         raisePriority();
         handle = NativeLlm.nLoad(file.getPath(), want, threads);
         if (handle == 0 && want > LOCAL_WINDOW) {
@@ -899,6 +900,54 @@ public final class LocalModel {
 
     /** How many threads to answer with: the phone's big cores, between 2 and 4. */
     public static int threads(int cores) {
-        return Math.max(2, Math.min(4, cores / 2));
+        int fast = fastCores(clusters());
+        return fast > 0 ? Math.max(2, Math.min(4, fast)) : Math.max(2, Math.min(4, cores / 2));
+    }
+
+    /**
+     * How many of the phone's fast cores to use, from each core's top speed (kHz). A phone has clusters: on a Tecno
+     * with 2 fast and 6 slow cores, using 4 threads puts two on slow cores, and llama.cpp waits for the slowest, so
+     * the whole model runs at their pace. The fastest clusters are taken until there are at least two cores (one
+     * prime core plus the next cluster), at most four. 0 when the speeds can't be read.
+     */
+    static int fastCores(long[] maxKhz) {
+        if (maxKhz == null || maxKhz.length == 0) {
+            return 0;
+        }
+        java.util.TreeMap<Long, Integer> byspeed = new java.util.TreeMap<Long, Integer>(java.util.Collections.reverseOrder());
+        for (long k : maxKhz) {
+            if (k > 0) {
+                byspeed.merge(k, 1, Integer::sum);
+            }
+        }
+        int n = 0;
+        for (int count : byspeed.values()) {
+            n += count;
+            if (n >= 2) {
+                break;
+            }
+        }
+        return Math.min(4, n);
+    }
+
+    /** Each core's top speed (kHz) from the system; empty when it can't be read (not a phone). */
+    static long[] clusters() {
+        java.util.List<Long> out = new java.util.ArrayList<Long>();
+        for (int i = 0; i < 16; i++) {
+            File f = new File("/sys/devices/system/cpu/cpu" + i + "/cpufreq/cpuinfo_max_freq");
+            if (!f.isFile()) {
+                break;
+            }
+            try {
+                out.add(Long.parseLong(new String(java.nio.file.Files.readAllBytes(f.toPath())).trim()));
+            } catch (java.io.IOException | RuntimeException e) {
+                return new long[0];
+            }
+        }
+        long[] a = new long[out.size()];
+        for (int i = 0; i < a.length; i++) {
+            a[i] = out.get(i);
+        }
+        return a;
     }
 }
