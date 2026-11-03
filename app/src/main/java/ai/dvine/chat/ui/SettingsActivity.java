@@ -167,6 +167,13 @@ public final class SettingsActivity extends AppCompatActivity {
         web.addView(link("Connectors", "Web search provider, GitHub, calendar, Notion, MCP servers", ConnectorsActivity.class), Ui.wide(this, 10));
         body.addView(web, Ui.wide(this, 8));
 
+        // ---- actions on the user's behalf
+        section("Actions");
+        LinearLayout acts = card();
+        acts.addView(toggle("Auto-approve actions", "Posts, shares and copies go ahead without asking first. Off: each one is"
+                + " shown with its exact text and where it goes, and waits for your yes.", "actions_auto", false, null));
+        body.addView(acts, Ui.wide(this, 8));
+
         // ---- ibiko
         section("Ibiko (coding)");
         LinearLayout ibiko = card();

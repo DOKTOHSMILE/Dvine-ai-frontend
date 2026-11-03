@@ -628,6 +628,37 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void aPostIsShownFirstAndHandedOffOnlyOnAYes() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Method answer = MainActivity.class.getDeclaredMethod("answer", String.class);
+        answer.setAccessible(true);
+        while (org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity() != null) {
+            // the first-run setup screen and the like, opened at start
+        }
+        org.junit.Assert.assertFalse(MainActivity.looksLikeAction("share your thoughts on AI")); // a question, not a post
+        org.junit.Assert.assertTrue(MainActivity.looksLikeAction("post on X: Big news today"));
+        answer.invoke(c.get(), "post on X: Big news today");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        androidx.appcompat.app.AlertDialog card = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.widget.TextView msg = card.findViewById(android.R.id.message);
+        org.junit.Assert.assertTrue(String.valueOf(msg.getText()), msg.getText().toString().startsWith("Big news today")
+                && msg.getText().toString().contains("To: X"));
+        org.junit.Assert.assertNull("nothing opened before the yes", org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity());
+        answer.invoke(c.get(), "send it"); // the spoken yes
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.util.List<String> log = ai.dvine.act.ActionLog.read(c.get().getFilesDir());
+        org.junit.Assert.assertTrue(log.toString(), log.get(0).contains("share\tX\tapproved") && log.get(0).endsWith("Big news today"));
+        // auto-approve: no card, straight to the app, logged as such
+        c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).edit().putBoolean("actions_auto", true).commit();
+        answer.invoke(c.get(), "copy: the meeting is at 5");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        log = ai.dvine.act.ActionLog.read(c.get().getFilesDir());
+        org.junit.Assert.assertTrue(log.toString(), log.get(0).contains("copy\tyour share menu\tauto-approved\tdone"));
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;

@@ -2330,12 +2330,125 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (modelCommand(control)) {
             return;
         }
+        if (stagedAction(text)) {
+            return; // a post, a share or a copy: shown first, carried out on a yes (or at once when auto-approve is on)
+        }
         if (!interpreted && !carriesOn(text) && ai.dvine.turn.Meaning.worthReading(text)) {
             understand(text); // the words didn't match a command's wording: the brain reads what they mean
             return;
         }
         askTheBrain(text);
         return;
+    }
+
+    /** Posts, shares and copies waiting for a yes (the spec's staged actions). */
+    private final ai.dvine.brain.ActionPlanner stager = new ai.dvine.brain.ActionPlanner();
+    private android.app.Dialog stagedCard;
+
+    /**
+     * A message that asks to post, share or copy something counts only when it names an app, says "that", "this" or
+     * "it", or gives the text after a colon or "saying": "share your thoughts on AI" is a question, not a post.
+     */
+    static boolean looksLikeAction(String text) {
+        String t = text == null ? "" : text.trim();
+        return t.matches("(?is)^(please )?(post|share|tweet|publish|copy)\\b.*")
+                && (t.matches("(?is).*\\b(on|to|via|in) (whatsapp|whats app|x|twitter|facebook|fb|instagram|ig|linkedin|linked in|telegram)\\b.*")
+                || t.matches("(?is)^(please )?(post|share|tweet|publish|copy) (this|that|it)\\b.*")
+                || t.contains(":") || t.matches("(?is).*\\bsaying\\b.*"));
+    }
+
+    /**
+     * Staged actions: something that leaves the app (a post, a share, a copy) is shown with its exact text and where
+     * it goes, and happens only on a yes ("send it", "yes", Send it), or at once when the user turned auto-approve on.
+     * A post is handed to the app, where the user presses send: DVINE says so, never that it was posted.
+     */
+    private boolean stagedAction(String text) {
+        long now = System.currentTimeMillis();
+        String lower = text.trim().toLowerCase(java.util.Locale.US);
+        ai.dvine.brain.ActionPlanner.Reply r = stager.reply(lower, now);
+        if (r == ai.dvine.brain.ActionPlanner.Reply.CONFIRMED) {
+            doAction(stager.take(), false);
+            return true;
+        }
+        if (r == ai.dvine.brain.ActionPlanner.Reply.CANCELLED) {
+            closeStaged();
+            play(LocalTurn.speakAs(stage.agent(), "Cancelled. Nothing was sent."), null);
+            return true;
+        }
+        if (!looksLikeAction(text)) {
+            return false;
+        }
+        PendingAction p = stager.plan(text.trim(), lastReply(), now);
+        if (p == null) {
+            return false;
+        }
+        if (prefs.getBoolean("actions_auto", false)) {
+            stager.take();
+            doAction(p, true); // the user chose auto-approve
+            return true;
+        }
+        showStaged(p);
+        play(LocalTurn.speakAs(stage.agent(), ai.dvine.brain.ActionPlanner.question(p)), null);
+        return true;
+    }
+
+    /** The last reply in this chat (what "post that" means). */
+    private String lastReply() {
+        if (chats == null) {
+            return null;
+        }
+        java.util.List<ai.dvine.chat.ChatBook.Message> ms = chats.current().messages;
+        for (int i = ms.size() - 1; i >= 0; i--) {
+            ai.dvine.chat.ChatBook.Message m = ms.get(i);
+            if ("assistant".equals(m.role) && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
+                return m.body.trim();
+            }
+        }
+        return null;
+    }
+
+    /** The staged action's card: the exact text, where it goes, Send it or Cancel. */
+    private void showStaged(final PendingAction p) {
+        closeStaged();
+        String where = p.kind == PendingAction.Kind.COPY ? "To: your clipboard"
+                : "To: " + p.appName() + " (it opens with this text; you press send there)";
+        stagedCard = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(p.kind == PendingAction.Kind.COPY ? "Copy this?" : "Post on " + p.appName() + "?")
+                .setMessage(p.content + "\n\n" + where)
+                .setPositiveButton(p.kind == PendingAction.Kind.COPY ? "Copy" : "Send it", (d, w) -> {
+                    PendingAction now = stager.take();
+                    if (now != null) {
+                        doAction(now, false);
+                    }
+                })
+                .setNegativeButton("Cancel", (d, w) -> {
+                    if (stager.take() != null) {
+                        play(LocalTurn.speakAs(stage.agent(), "Cancelled. Nothing was sent."), null);
+                    }
+                })
+                .show();
+    }
+
+    private void closeStaged() {
+        if (stagedCard != null && stagedCard.isShowing()) {
+            stagedCard.dismiss();
+        }
+        stagedCard = null;
+    }
+
+    /** Carries out an approved (or auto-approved) action and logs it; says what really happened. */
+    private void doAction(PendingAction p, boolean auto) {
+        closeStaged();
+        if (p == null) {
+            return;
+        }
+        boolean ok = p.kind == PendingAction.Kind.COPY ? ai.dvine.act.Actions.copy(this, p.content) : ai.dvine.act.Actions.share(this, p);
+        ai.dvine.act.ActionLog.add(getFilesDir(), p.kind.name().toLowerCase(java.util.Locale.US), p.appName(), auto ? "auto-approved" : "approved",
+                ok ? (p.kind == PendingAction.Kind.COPY ? "done" : "handed off") : "failed", p.content);
+        String said = !ok ? "I couldn't open " + p.appName() + ". Nothing was sent."
+                : p.kind == PendingAction.Kind.COPY ? "Copied to your clipboard."
+                : "Handed to " + p.appName() + " with your post. Press send there; I can't see whether it went out.";
+        play(LocalTurn.speakAs(stage.agent(), said), null);
     }
 
     /** The phrasings already understood ("are you done?" → give me the result), kept on the phone. */
