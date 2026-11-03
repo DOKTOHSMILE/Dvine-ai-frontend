@@ -455,6 +455,59 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void aChatCanBePinnedAndDeletedAndWhatItTaughtIsKept() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        chats.add("user", "text", "My sister is called Ada", chats.current().persona);
+        String first = chats.current().id;
+        chats.fresh(ai.dvine.stage.StageView.OBI);
+        chats.add("user", "text", "Plan dinner", chats.current().persona);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+
+        pane.chatMenu(first); // hold the chat: Rename, Pin to top, Delete
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        androidx.appcompat.app.AlertDialog menu = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        menu.getListView().performItemClick(menu.getListView().getChildAt(1), 1, 1); // Pin to top
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals(first, chats.pinnedFirst().get(0).id);
+        android.widget.LinearLayout list = c.get().findViewById(ai.dvine.R.id.historyList);
+        org.junit.Assert.assertTrue(String.valueOf(list.getChildAt(0).getContentDescription()).contains("pinned"));
+
+        pane.delete(first);
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        androidx.appcompat.app.AlertDialog ask = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        ask.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        for (ai.dvine.chat.ChatBook.Section s : chats.sections()) {
+            org.junit.Assert.assertNotEquals(first, s.id); // the chat is gone
+        }
+        org.junit.Assert.assertTrue(chats.memoryForPrompt(6), chats.memoryForPrompt(6).contains("My sister is called Ada")); // its knowledge stays
+        c.pause().stop().destroy();
+    }
+
+    @Test
+    public void theLightThemeHasDarkBarIcons() {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        android.view.Window w = c.get().getWindow();
+        org.junit.Assert.assertTrue(androidx.core.view.WindowCompat.getInsetsController(w, w.getDecorView()).isAppearanceLightStatusBars());
+        c.pause().stop().destroy();
+    }
+
+    @Test
+    @Config(qualifiers = "night")
+    public void theDarkThemeHasLightBarIcons() {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        android.view.Window w = c.get().getWindow();
+        org.junit.Assert.assertFalse(androidx.core.view.WindowCompat.getInsetsController(w, w.getDecorView()).isAppearanceLightStatusBars());
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;

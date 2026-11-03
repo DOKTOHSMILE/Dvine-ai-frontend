@@ -217,7 +217,7 @@ public final class ChatBook {
             return false;
         }
         shared.add(t);
-        if (shared.size() > 40) {
+        if (shared.size() > 80) {
             shared.remove(0);
         }
         save();
@@ -340,6 +340,57 @@ public final class ChatBook {
             }
         }
         return false;
+    }
+
+    /**
+     * Deletes a chat but keeps what was learned in it: the gist of what the user said there (its name and their
+     * latest lines) becomes a shared note every chat can still see ({@link #memoryForPrompt}). Notes, learned
+     * phrasings and corrections kept elsewhere are not touched. The last remaining chat is cleared instead.
+     */
+    public synchronized boolean delete(String id) {
+        for (Section s : sections) {
+            if (s.id.equals(id)) {
+                String gist = gist(s);
+                if (gist != null) {
+                    remember(gist);
+                }
+                return remove(id);
+            }
+        }
+        return false;
+    }
+
+    /** "From the chat “Trip plans”: book a flight to Lagos; …", or null when the user said nothing there. */
+    static String gist(Section s) {
+        List<String> said = new ArrayList<String>();
+        for (int i = s.messages.size() - 1; i >= 0 && said.size() < 4; i--) {
+            Message m = s.messages.get(i);
+            if ("user".equals(m.role) && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
+                String t = m.body.replace('\n', ' ').trim();
+                said.add(0, t.length() > 120 ? t.substring(0, 120) + "…" : t);
+            }
+        }
+        if (said.isEmpty()) {
+            return null;
+        }
+        String name = s.title == null || s.title.trim().isEmpty() || s.title.matches("(?i)^(chat|new chat)$") ? "" : " “" + s.title.trim() + "”";
+        return "From the deleted chat" + name + ", the user said: " + String.join("; ", said);
+    }
+
+    /** Pinned chats first, the rest after, each group in its own order. */
+    public synchronized List<Section> pinnedFirst() {
+        List<Section> out = new ArrayList<Section>();
+        for (Section s : sections) {
+            if (s.pinned) {
+                out.add(s);
+            }
+        }
+        for (Section s : sections) {
+            if (!s.pinned) {
+                out.add(s);
+            }
+        }
+        return out;
     }
 
     /** Removes a chat. The last remaining chat is cleared instead, so the book is never empty. */
