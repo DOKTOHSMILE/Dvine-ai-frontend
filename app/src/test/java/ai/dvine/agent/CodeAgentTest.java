@@ -198,6 +198,32 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void longWorkGoesInRoundsWithAProgressNoteBetween() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Script brain = new Script(
+                "<tool name=\"write_file\" path=\"app/PLAN.md\">- [ ] build\n- [ ] test</tool>",
+                "<tool name=\"list_files\" path=\".\"/>",
+                "Planned the work in app/PLAN.md; next I build the first item.", // the note when the round's steps are used
+                "<final>Built and tested: both items ticked.</final>");
+        Phone phone = new Phone();
+        CodeAgent first = new CodeAgent(ws, brain, phone, "", 20_000).steps(2).keepGoing(true);
+        assertTrue(first.system().contains("PLAN.md") && first.system().contains("plan, build, test"));
+        String note = first.run("Build me a notes app", "");
+        assertTrue(first.outOfSteps());
+        assertEquals("Planned the work in app/PLAN.md; next I build the first item.", note);
+        assertTrue(brain.seen.get(2), brain.seen.get(2).contains("Write a short progress note"));
+        assertTrue(new File(ws, "app/PLAN.md").isFile());
+        // the next round goes on from the same work
+        CodeAgent next = new CodeAgent(ws, brain, phone, "", 20_000).steps(2).keepGoing(true);
+        next.resume(first.work());
+        assertEquals("Built and tested: both items ticked.", next.run("Carry on", ""));
+        assertFalse(next.outOfSteps());
+        assertTrue(brain.seen.get(3), brain.seen.get(3).contains("Planned the work in app/PLAN.md"));
+        // without rounds, the old way: a report and "continue"
+        assertFalse(new CodeAgent(ws, new Script(), phone, "", 20_000).system().contains("PLAN.md"));
+    }
+
+    @Test
     public void aSmallModelsPlainAnswerIsTheAnswerWithoutItsNameLabel() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         Script brain = new Script("ibiko: The next step is to review activity_chat.xml, then add the tabs.", "never asked");
