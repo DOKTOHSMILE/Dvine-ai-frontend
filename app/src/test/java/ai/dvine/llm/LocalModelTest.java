@@ -116,8 +116,13 @@ public class LocalModelTest {
         assertTrue(LocalModel.cpuSupported(new String[]{"arm64-v8a", "armeabi-v7a"}, cpu));
         assertFalse(LocalModel.cpuSupported(new String[]{"arm64-v8a"}, "Features\t: fp asimd aes\n"));
         assertFalse(LocalModel.cpuSupported(new String[]{"x86_64"}, cpu));
-        assertEquals(4, LocalModel.threads(8));
-        assertEquals(2, LocalModel.threads(2));
+        int t = LocalModel.threads(8);
+        assertTrue(t >= 2 && t <= 4);
+        // the fast cores only: a phone's clusters, by each core's top speed (kHz)
+        assertEquals(2, LocalModel.fastCores(new long[]{2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2200000, 2200000})); // Helio G99: 2 fast + 6 slow
+        assertEquals(4, LocalModel.fastCores(new long[]{1800000, 1800000, 1800000, 1800000, 2600000, 2600000, 2600000, 3000000})); // 1 prime + 3 big + 4 small
+        assertEquals(4, LocalModel.fastCores(new long[]{2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000})); // all alike: at most 4
+        assertEquals(0, LocalModel.fastCores(new long[0])); // unknown: the old rule decides
         File dir = Files.createTempDirectory("dvine-model").toFile();
         LocalModel m = new LocalModel(dir, ModelSpec.QWEN3_1_7B, true);
         assertEquals(LocalModel.State.NOT_INSTALLED, m.state());

@@ -1576,6 +1576,12 @@ Desktop numbers (`OfflineSpeedTest`, the app's own engine built for x86, 4 threa
 
 **Every control tapped** (`UiTourTest`): every screen is opened and every button, switch, tab, row and link is tapped in turn, including the side menu (reopened before each item) and the sheets they open. A yes/no is always answered no, so nothing is deleted. 150 taps across 11 screens, 0 failures. Each tap is listed as a `UITOUR` line.
 
+**On the phone's cores (v0.67.1).**
+- The model uses the phone's fast cores only (`LocalModel.fastCores`): the fastest clusters until there are at least two, at most four. On a phone with 2 fast and 6 slow cores, 4 threads put two on slow cores, and llama.cpp waits for its slowest thread.
+- Settings › Advanced › Offline model threads overrides it, and the speed test shows the thread count.
+- Offline, the meaning step makes no model call; only remembered phrasings apply. On a phone that call cost about as much as a reply, and it pushed the persona's instructions out of the model's memory, so they were read again for every message.
+- The screen gives the phone's model 10 minutes to its first word instead of 3. When that runs out, the message names what would be quicker.
+
 **Ibiko's instructions** no longer show a made-up example path (`src/app.py`, which Qwen3 4B went looking for): the examples read `FOLDER/FILE`, "a real path from the workspace list".
 
 ## 31. Open work, in order
