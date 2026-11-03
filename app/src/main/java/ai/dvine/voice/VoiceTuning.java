@@ -114,7 +114,8 @@ public final class VoiceTuning {
 
     /** How a spoken thought sounds: lower, slower and softer than a reply. */
     public float thoughtPitch() {
-        return pitch * THOUGHT_PITCH;
+        // lower than the reply, but never down into the buzzy bottom
+        return Math.max(pitch * THOUGHT_PITCH, Math.min(0.78f, pitch - 0.01f));
     }
 
     /** How a spoken thought sounds: lower, slower and softer than a reply. */
@@ -343,6 +344,30 @@ public final class VoiceTuning {
         if ("GH".equals(country) || "KE".equals(country) || "ZA".equals(country) || "TZ".equals(country)) return 1;
         if ("GB".equals(country)) return 2;
         return 3;
+    }
+
+    /** Saved form "voice;pitch;rate", kept so stored voice settings survive updates. */
+    public String serialize() {
+        return String.format(Locale.US, "%s;%.2f;%.2f", voice == null ? "" : voice, pitch, rate);
+    }
+
+    public static VoiceTuning parse(String s, boolean ivie) {
+        VoiceTuning t = defaults(ivie);
+        if (s == null) {
+            return t;
+        }
+        String[] p = s.split(";", -1);
+        if (p.length != 3) {
+            return t;
+        }
+        try {
+            t.voice = p[0].isEmpty() ? null : p[0];
+            t.pitch = clamp(Float.parseFloat(p[1]), 0.7f, 1.3f);
+            t.rate = clamp(Float.parseFloat(p[2]), 0.6f, 1.4f);
+        } catch (NumberFormatException bad) {
+            return defaults(ivie);
+        }
+        return t;
     }
 
     private static float clamp(float v, float lo, float hi) {

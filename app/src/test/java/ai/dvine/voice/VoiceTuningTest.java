@@ -101,8 +101,9 @@ public class VoiceTuningTest {
         float rate = t.rate;
         assertTrue(t.apply("slower", false, ranked(), ""));
         assertTrue(t.rate < rate);
+        float slow = t.rate;
         assertTrue(t.apply("faster", false, ranked(), ""));
-        assertTrue(t.rate > rate);
+        assertTrue(t.rate > slow);
 
         // a command that isn't a voice command changes nothing
         assertFalse(t.apply("what is the weather", false, ranked(), ""));
