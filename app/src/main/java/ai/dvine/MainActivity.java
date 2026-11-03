@@ -1852,13 +1852,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     };
             // long work (Ibiko changing things): rounds of steps, a progress note in the chat after each, until it is
             // done, stopped, or the time limit; the phone's foreground service keeps it going while minimised
-            final boolean rounds = !readOnly && "ibiko".equals(persona) && prefs.getBoolean("ibiko_keep_going", true);
+            // every agent (Ibiko changing things, Obi or Ivie reading files) except a plan being drawn up
+            final boolean rounds = !planning && prefs.getBoolean("ibiko_keep_going", true);
             final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,
                     model.window() * 3).useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)))
                     .steps(rounds ? Math.min(ROUND_STEPS, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
-                    .as(who, readOnly).planning(planning).keepGoing(rounds)
+                    .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> saveAgentWork(persona, w))
                     .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             ai.dvine.llm.ReplyService.hold(this);
+            markRunning(persona, task); // if the app is closed or crashes, the next start offers to carry on
             final java.util.List<String> changed = new java.util.ArrayList<String>();
             ai.dvine.agent.CodeAgent agent = make.get();
             String result;
@@ -1890,6 +1892,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             } finally {
                 ai.dvine.llm.ReplyService.release(this);
             }
+            markRunning(null, null); // finished (or stopped): nothing to carry on after a restart
             final String answer = result;
             changed.addAll(agent.changed());
             saveAgentWork(persona, agent.work());
@@ -1911,8 +1914,87 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }, "dvine-agent").start();
     }
 
+    /**
+     * The work under way, kept in the settings while it runs: its persona, chat and task (null clears it). A start
+     * that finds it means the app was closed or crashed mid-work ({@link #offerToCarryOn}).
+     */
+    private void markRunning(String persona, String task) {
+        if (prefs == null) {
+            return;
+        }
+        if (persona == null) {
+            prefs.edit().remove("running_persona").remove("running_task").remove("running_chat").apply();
+            return;
+        }
+        prefs.edit().putString("running_persona", persona).putString("running_task", task)
+                .putString("running_chat", chats == null ? "" : chats.current().id).apply();
+    }
+
+    /**
+     * At start: work that was under way when the app closed or crashed. Its steps were saved one by one, so it can
+     * carry on from the last one instead of starting again; a reply cut off mid-way is put back in its chat.
+     */
+    private void offerToCarryOn() {
+        if (prefs == null || chats == null) {
+            return;
+        }
+        String partial = prefs.getString("partial_reply", null), partialChat = prefs.getString("partial_chat", null);
+        if (partial != null && !partial.trim().isEmpty()) {
+            prefs.edit().remove("partial_reply").remove("partial_chat").apply();
+            String back = chats.current().id;
+            if (partialChat != null && chats.use(partialChat)) {
+                chats.add("assistant", "text", partial.trim() + "\n\n(Cut off when DVINE closed. Say \u201cretry\u201d to ask again.)",
+                        chats.current().persona);
+                chats.use(back);
+            }
+        }
+        final String persona = prefs.getString("running_persona", null), task = prefs.getString("running_task", null),
+                chat = prefs.getString("running_chat", null);
+        if (persona == null || task == null) {
+            return;
+        }
+        markRunning(null, null);
+        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
+        String shown = task.length() > 80 ? task.substring(0, 80) + "\u2026" : task;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Carry on where it stopped?")
+                .setMessage(who + " was working on \u201c" + shown + "\u201d when DVINE closed. Its work so far is saved,"
+                        + " step by step.")
+                .setPositiveButton("Carry on", (d, w) -> {
+                    if (chat != null && chats.use(chat)) {
+                        chatPane.show();
+                    }
+                    selectPersona(persona);
+                    noteUser("continue");
+                    runAgent("continue", persona, !"ibiko".equals(persona));
+                })
+                .setNegativeButton("Not now", null)
+                .show();
+    }
+
+    private boolean carryOnOffered;
+
+    /** The reply being written, backed up every few seconds so a crash doesn't lose it. */
+    private long partialSavedAt;
+
+    private void backupPartial(String soFar) {
+        long now = System.currentTimeMillis();
+        if (prefs == null || chats == null || soFar == null || now - partialSavedAt < 2000) {
+            return;
+        }
+        partialSavedAt = now;
+        prefs.edit().putString("partial_reply", soFar.length() > 60_000 ? soFar.substring(soFar.length() - 60_000) : soFar)
+                .putString("partial_chat", chats.current().id).apply();
+    }
+
+    private void clearPartial() {
+        if (prefs != null) {
+            prefs.edit().remove("partial_reply").remove("partial_chat").apply();
+        }
+    }
+
     /** Steps in one round of long work: a progress note in the chat after each. */
-    static final int ROUND_STEPS = 12;
+    static final int ROUND_STEPS = 8;
     /** Long work stops (and says how to go on) after this long, or this many rounds. */
     static final long MAX_WORK_MS = 8L * 3_600_000;
     static final int MAX_ROUNDS = 400;
@@ -2544,6 +2626,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             if (chatPane != null) {
                                 chatPane.setLive(ai.dvine.llm.ActionTags.strip(soFar));
                             }
+                            backupPartial(ai.dvine.llm.ActionTags.strip(soFar)); // a crash doesn't lose what was written
                         }
                     });
             final String all = model.reply(system, question, context, length, text -> {
@@ -2557,6 +2640,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return id == askId;
             });
             tags.flush();
+            handler.post(this::clearPartial); // the reply is complete: no backup needed
             final boolean spokeLive = live.end(all);
             final String switchTo = tags.switchTo();
             handler.post(() -> {
@@ -4043,6 +4127,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         applyProvider(); // back from the AI providers sheet: the brain the user chose answers
         applySettings(); // back from Settings: name, voice speed, Enter key, deleted chats
         meanings = null; // back from "What DVINE remembers": phrasings it forgot are read again from the phone
+        if (!carryOnOffered) {
+            carryOnOffered = true; // once a start: work cut off by a crash or a close can carry on
+            handler.postDelayed(this::offerToCarryOn, 600);
+        }
         if (model != null && model.context(ai.dvine.chat.Tuning.OFFLINE_CONTEXT.get(prefs)) && prefs.getBoolean("llm_on", true)) {
             loadModel(false); // the offline model's memory was changed in Settings: it starts again with the new size
         }

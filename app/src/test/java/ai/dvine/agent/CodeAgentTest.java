@@ -198,6 +198,17 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void everyStepIsSavedAsItHappensSoACrashLosesNothing() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Script brain = new Script("<tool name=\"list_files\" path=\".\"/>", "<tool name=\"search\" query=\"main\"/>",
+                "<final>Done.</final>");
+        List<String> saves = new ArrayList<String>();
+        new CodeAgent(ws, brain, new Phone(), "", 20_000).checkpoint(saves::add).run("look around", "");
+        assertEquals(2, saves.size()); // after each tool's result
+        assertTrue(saves.get(1).length() > saves.get(0).length() && saves.get(1).contains("search"));
+    }
+
+    @Test
     public void longWorkGoesInRoundsWithAProgressNoteBetween() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         Script brain = new Script(

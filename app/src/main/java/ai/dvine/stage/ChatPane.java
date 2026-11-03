@@ -282,16 +282,11 @@ public final class ChatPane extends LinearLayout {
             liveBlock.setGravity(Gravity.CENTER_VERTICAL);
             liveBlock.setPadding(0, dp(8), 0, dp(8));
             liveBlock.setMinimumHeight(dp(40));
-            TextView dot = plain("\u25CF");
-            dot.setTextColor(color(R.color.accent));
-            dot.setTextSize(12f);
-            dot.setPadding(0, 0, dp(8), 0);
-            android.view.animation.AlphaAnimation pulse = new android.view.animation.AlphaAnimation(1f, 0.35f);
-            pulse.setDuration(700);
-            pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
-            pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
-            dot.startAnimation(pulse);
-            liveBlock.addView(dot);
+            // the live mark: a turning, breathing spark while the work goes on
+            ThinkingMark mark = new ThinkingMark(getContext(), color(R.color.accent));
+            LayoutParams mp = new LayoutParams(dp(18), dp(18));
+            mp.setMarginEnd(dp(10));
+            liveBlock.addView(mark, mp);
             liveNow = plain("");
             liveNow.setTextColor(color(R.color.text_primary));
             liveNow.setTextSize(14f);

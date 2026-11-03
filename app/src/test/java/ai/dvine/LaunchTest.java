@@ -609,6 +609,25 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void workCutOffByACrashIsOfferedToCarryOnAndAPartialReplyIsKept() throws Exception {
+        android.content.SharedPreferences prefs = RuntimeEnvironment.getApplication().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        prefs.edit().putString("running_persona", "ibiko").putString("running_task", "Audit the Harvana repo")
+                .putString("partial_reply", "The audit found three problems so far: the wallet").commit();
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        androidx.appcompat.app.AlertDialog d = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        assertNotNull("the carry-on question", d);
+        android.widget.TextView msg = d.findViewById(android.R.id.message);
+        org.junit.Assert.assertTrue(String.valueOf(msg.getText()), msg.getText().toString().contains("Audit the Harvana repo"));
+        org.junit.Assert.assertNull(prefs.getString("running_task", null)); // asked once only
+        d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).performClick();
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;
