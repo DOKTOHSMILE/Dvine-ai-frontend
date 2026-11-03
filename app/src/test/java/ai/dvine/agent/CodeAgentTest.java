@@ -198,6 +198,32 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void aSmallModelsPlainAnswerIsTheAnswerWithoutItsNameLabel() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Script brain = new Script("ibiko: The next step is to review activity_chat.xml, then add the tabs.", "never asked");
+        Phone phone = new Phone();
+        String out = new CodeAgent(ws, brain, phone, "", 20_000).compact(true).run("What's the next step?", "");
+        assertEquals("The next step is to review activity_chat.xml, then add the tabs.", out);
+        assertEquals(1, brain.seen.size()); // not asked a second time whether it is done (minutes on a phone)
+        assertTrue(phone.steps.isEmpty()); // and the answer is not shown as a step
+        // a full-size model is still asked once; the step says so, the answer itself goes to the chat
+        Script big = new Script("I'll read the files next.", "<final>Done: nothing to change.</final>");
+        Phone p2 = new Phone();
+        assertEquals("Done: nothing to change.", new CodeAgent(ws, big, p2, "", 20_000).run("check it", ""));
+        assertEquals(Arrays.asList("Checking that the answer is complete"), p2.steps);
+        // a small model's own-tag call (<search query="car"/>) is carried out, not shown as the answer
+        CodeAgent.Call c = CodeAgent.parse("<search query=\"car\"/>");
+        assertEquals("search", c.name);
+        assertEquals("car", c.a("query"));
+        assertEquals("app/Main.java", CodeAgent.parse("<read_file path=\"app/Main.java\"/>").a("path"));
+        Script searching = new Script("<search query=\"car\"/>", "No file mentions a car.");
+        assertEquals("No file mentions a car.", new CodeAgent(ws, searching, new Phone(), "", 20_000).compact(true).run("Search me a car", ""));
+        assertTrue(searching.seen.get(1), searching.seen.get(1).contains("<result>"));
+        assertEquals("Hi", CodeAgent.unlabel("**Ibiko**: Hi"));
+        assertEquals("Obi said yes", CodeAgent.unlabel("Obi said yes")); // only a leading label
+    }
+
+    @Test
     public void planModeReadsAndHandsInAPlanWithoutChangingAnything() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         File repo = new File(ws, "app");
@@ -344,7 +370,7 @@ public class CodeAgentTest {
         Phone phone = new Phone();
         assertEquals("Done: 3 files, all fine.", new CodeAgent(ws, asking, phone, "", 20_000).run("check the files", ""));
         assertTrue(asking.seen.get(1), asking.seen.get(1).contains("don't describe it and don't ask"));
-        assertTrue(phone.steps.toString(), phone.steps.toString().contains("I listed the files. Shall I proceed?"));
+        assertTrue(phone.steps.toString(), phone.steps.contains("Checking that the answer is complete")); // the held text itself is not a step
         // no word lists: whatever the wording, text without a tool call is asked about once; what the model does
         // next decides. A tool call: the work goes on. Plain text again: that is the answer.
         Script narrating = new Script("Fixing your build errors \u2014 digging into the failing sources.",

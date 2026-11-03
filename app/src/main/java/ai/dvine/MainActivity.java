@@ -1021,7 +1021,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thoughtStatus = findViewById(R.id.thoughtStatus);
         updateThoughtStatus("Thinking…", false);
 
-        chats = new ai.dvine.chat.ChatBook(new File(getFilesDir(), "chats.json"));
+        chats = ai.dvine.chat.ChatBook.open(new File(getFilesDir(), "chats.json"));
         chatPane = new ai.dvine.stage.ChatPane(this, chats, new ai.dvine.stage.ChatPane.Host() {
             @Override
             public void onSend(String text) {
@@ -1112,8 +1112,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         });
 
         KnowledgeStore store = new KnowledgeStore(this);
-        journal = new LearningJournal(new File(getFilesDir(), "learning"));
-        learned = new ai.dvine.agent.LearnedIntents(new File(getFilesDir(), "learned_intents.txt"));
+        journal = LearningJournal.open(new File(getFilesDir(), "learning"));
+        learned = ai.dvine.agent.LearnedIntents.open(new File(getFilesDir(), "learned_intents.txt"));
         library = new ai.dvine.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
         assistant = new ai.dvine.ops.AssistantCore(new File(getFilesDir(), "ops"),
                 new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
@@ -1737,7 +1737,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     live.append(piece);
                                     sofar = live.toString();
                                 }
-                                String t = sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim(); // the answer shows as it is written
+                                String t = ai.dvine.agent.CodeAgent.unlabel(sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim()); // the answer shows as it is written
                                 boolean tool = t.startsWith("<") || t.contains("<tool") || t.contains("<function") || t.contains("<invoke");
                                 long now = System.currentTimeMillis();
                                 if (!tool && t.length() > 0 && now - shown[0] > 120) {
@@ -3895,6 +3895,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         connectivity.start();
         applyProvider(); // back from the AI providers sheet: the brain the user chose answers
         applySettings(); // back from Settings: name, voice speed, Enter key, deleted chats
+        meanings = null; // back from "What DVINE remembers": phrasings it forgot are read again from the phone
         if (model != null && model.context(ai.dvine.chat.Tuning.OFFLINE_CONTEXT.get(prefs)) && prefs.getBoolean("llm_on", true)) {
             loadModel(false); // the offline model's memory was changed in Settings: it starts again with the new size
         }

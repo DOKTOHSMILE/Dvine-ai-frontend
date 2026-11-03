@@ -200,8 +200,17 @@ public final class CodeAgent {
             + " (Settings \u203A Advanced \u203A Most files in a clone); don't work around it.\n"
             + "Never claim you pushed or opened a pull request unless the tool's result says so; quote the commit or the link.\n";
 
-    /** Works on the task; the final answer for the user. */
+    /** Works on the task; the final answer for the user (without a "Ibiko:" label a small model copies from the chat). */
     public String run(String task, String earlier) {
+        return unlabel(work(task, earlier));
+    }
+
+    /** "ibiko: The next step is…" → "The next step is…": the chat's name labels, copied by a small model. */
+    public static String unlabel(String text) {
+        return text == null ? null : text.replaceFirst("^\\s*(?i:\\**(ibiko|obi|ivie|assistant)\\**)\\s*:\\s*", "");
+    }
+
+    private String work(String task, String earlier) {
         StringBuilder work = new StringBuilder();
         if (resume != null && !resume.trim().isEmpty()) {
             // "continue", "give me the result": the same work goes on, with everything already read
@@ -279,9 +288,14 @@ public final class CodeAgent {
             // No tool call and no <final>: the model stopped writing. Whether it is done is not guessed from its words:
             // it is asked once, and it answers by what it does next (a tool call: the work goes on; <final> or plain
             // text again: that is the answer). A whole report (1,500+ characters) needs no asking.
+            if (compact && !text.startsWith("<")) {
+                // a small model (the short instructions): asking it again whether it is done costs minutes on a phone
+                // and it can't tell the difference anyway; its plain answer is the answer
+                return text;
+            }
             if (pending == null && text.length() < REPORT_CHARS) {
                 pending = text;
-                host.step(clip(text.replaceAll("\\s+", " "), 160).replace("\n\u2026(cut short)", "\u2026"));
+                host.step("Checking that the answer is complete"); // the answer itself shows in the chat, not as a step
                 work.append("\n").append(text).append("\n<result>\n").append(DONE_OR_GO_ON).append("\n</result>\n");
                 continue;
             }
@@ -413,7 +427,8 @@ public final class CodeAgent {
         String r = reply.replaceAll("(?s)<think>.*?</think>", "");
         Matcher m = OPEN.matcher(r);
         if (!m.find()) {
-            return foreign(r);
+            Call f = foreign(r);
+            return f != null ? f : named(r);
         }
         Map<String, String> attrs = new LinkedHashMap<String, String>();
         Matcher a = ATTR.matcher(m.group(1));
@@ -443,6 +458,40 @@ public final class CodeAgent {
     private static final Pattern PARAM = Pattern.compile(
             "<parameter(?:\\s*=\\s*\"?([\\w.-]+)\"?|\\s+name\\s*=\\s*\"([\\w.-]+)\")\\s*>\\n?(.*?)\\n?</parameter>", Pattern.DOTALL);
     private static final Pattern JSON_CALL = Pattern.compile("<tool_call>\\s*(\\{.*?\\})\\s*</tool_call>", Pattern.DOTALL);
+
+    private static final Pattern NAMED = Pattern.compile(
+            "<(list_files|read_file|write_file|edit_file|search|run|fetch|connector|git)((?:\\s+\\w+\\s*=\\s*\"(?:[^\"\\\\]|\\\\.)*\")*)\\s*(/?)>",
+            Pattern.DOTALL);
+
+    /**
+     * A tool written as its own tag, as small models do: {@code <search query="car"/>} for
+     * {@code <tool name="search" query="car"/>}; null when there is none.
+     */
+    static Call named(String r) {
+        Matcher m = NAMED.matcher(r);
+        if (!m.find()) {
+            return null;
+        }
+        String name = m.group(1);
+        Map<String, String> attrs = new LinkedHashMap<String, String>();
+        Matcher a = ATTR.matcher(m.group(2));
+        while (a.find()) {
+            attrs.put(a.group(1).toLowerCase(Locale.US), a.group(2).replace("\\\"", "\"").replace("\\\\", "\\"));
+        }
+        attrs.put("name", name);
+        String body = "";
+        int end = m.end();
+        if (m.group(3).isEmpty()) {
+            String closeTag = "</" + name + ">";
+            int close = r.indexOf(closeTag, end);
+            body = close < 0 ? r.substring(end) : r.substring(end, close);
+            end = close < 0 ? r.length() : close + closeTag.length();
+            if (body.startsWith("\n")) {
+                body = body.substring(1);
+            }
+        }
+        return new Call(name, attrs, body, r.substring(m.start(), end));
+    }
 
     /** A tool call in one of the other common forms, turned into DVINE's; null when there is none. */
     static Call foreign(String r) {

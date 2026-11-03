@@ -459,7 +459,7 @@ public final class ChatPane extends LinearLayout {
             }
             int behind = t.length() - liveShown;
             if (behind > 0) {
-                liveShown = Math.min(t.length(), liveShown + Math.max(LIVE_CHARS_PER_TICK, behind / 5));
+                liveShown = nextStop(t, liveShown);
                 renderLive(t.substring(0, liveShown));
             }
             if (liveShown < t.length()) {
@@ -467,10 +467,61 @@ public final class ChatPane extends LinearLayout {
             }
         }
     };
-    static final int LIVE_CHARS_PER_TICK = 3;
+    /** At least this many characters a frame (about 500 a second at 60 frames), in whole words, as ChatGPT streams. */
+    static final int LIVE_CHARS_PER_TICK = 8;
     static final long LIVE_TICK_MS = 16;
 
+    /**
+     * Where the typewriter stops next: a few characters on, more the further behind it is (a third of the gap a
+     * frame), then on to the end of the word, so whole words appear and it never trails the model.
+     */
+    static int nextStop(String t, int shown) {
+        int behind = t.length() - shown;
+        int at = Math.min(t.length(), shown + Math.max(LIVE_CHARS_PER_TICK, behind / 3));
+        int limit = Math.min(t.length(), at + 16);
+        while (at < limit && !Character.isWhitespace(t.charAt(at))) {
+            at++;
+        }
+        return at;
+    }
+
+    /** The kinds of the live reply's parts as shown ("text", "code"…), to redraw only the part being written. */
+    private final java.util.List<String> liveKinds = new java.util.ArrayList<String>();
+
+    /**
+     * Redraws only the last part of the live reply when the parts before it are unchanged (the usual case: text is
+     * added at the end), instead of the whole reply every frame; false when it must be built again.
+     */
+    private boolean growLive(String shown) {
+        if (!(liveRow instanceof LinearLayout) || liveRow.getParent() != thread || liveKinds.isEmpty()) {
+            return false;
+        }
+        java.util.List<ai.dvine.chat.MessageParts.Part> parts;
+        try {
+            parts = ai.dvine.chat.MessageParts.split(ai.dvine.chat.ReplyText.prepare(shown));
+        } catch (RuntimeException e) {
+            return false;
+        }
+        LinearLayout box = (LinearLayout) liveRow;
+        if (parts.size() != liveKinds.size() || box.getChildCount() != parts.size()) {
+            return false;
+        }
+        for (int i = 0; i < parts.size(); i++) {
+            if (!parts.get(i).kind.equals(liveKinds.get(i))) {
+                return false;
+            }
+        }
+        ai.dvine.chat.MessageParts.Part last = parts.get(parts.size() - 1);
+        box.removeViewAt(box.getChildCount() - 1);
+        box.addView(bubble(new ChatBook.Message("assistant", last.kind, last.body, book.current().persona, last.language)));
+        followBottom();
+        return true;
+    }
+
     private void renderLive(String shown) {
+        if (shown != null && growLive(shown)) {
+            return;
+        }
         int at = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
         if (at >= 0) {
             thread.removeViewAt(at);
@@ -497,15 +548,18 @@ public final class ChatPane extends LinearLayout {
      * fenced at all) in the code viewer with its language named.
      */
     private View liveView(String text) {
+        liveKinds.clear();
         try {
             LinearLayout box = new LinearLayout(getContext());
             box.setOrientation(VERTICAL);
             String persona = book.current().persona;
             for (ai.dvine.chat.MessageParts.Part part : ai.dvine.chat.MessageParts.split(ai.dvine.chat.ReplyText.prepare(text))) {
                 box.addView(bubble(new ChatBook.Message("assistant", part.kind, part.body, persona, part.language)));
+                liveKinds.add(part.kind);
             }
             return box;
         } catch (RuntimeException e) {
+            liveKinds.clear();
             return plain(text);
         }
     }

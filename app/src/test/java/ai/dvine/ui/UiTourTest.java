@@ -41,7 +41,7 @@ public class UiTourTest {
     public void everyControlOnEveryScreenCanBeTapped() {
         tour(MainActivity.class, null);
         for (Class<? extends Activity> screen : new Class[]{ai.dvine.chat.ui.SettingsActivity.class, ai.dvine.chat.ui.ProvidersActivity.class,
-                ai.dvine.chat.ui.ConnectorsActivity.class, ai.dvine.chat.ui.UsageActivity.class, ai.dvine.chat.ui.HistoryActivity.class,
+                ai.dvine.chat.ui.ConnectorsActivity.class, ai.dvine.chat.ui.UsageActivity.class, ai.dvine.chat.ui.MemoryActivity.class, ai.dvine.chat.ui.HistoryActivity.class,
                 ai.dvine.chat.ui.SetupActivity.class}) {
             tour(screen, null);
         }

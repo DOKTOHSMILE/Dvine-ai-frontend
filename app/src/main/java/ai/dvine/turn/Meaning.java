@@ -123,6 +123,23 @@ public final class Meaning {
             }
         }
 
+        /** The phrasings understood (lower case, as remembered) and what each meant, oldest first. */
+        public synchronized java.util.List<String[]> entries() {
+            java.util.List<String[]> out = new java.util.ArrayList<String[]>();
+            for (Map.Entry<String, Command> e : known.entrySet()) {
+                out.add(new String[]{e.getKey(), e.getValue().name()});
+            }
+            return out;
+        }
+
+        public synchronized boolean forget(String text) {
+            return known.remove(key(text)) != null;
+        }
+
+        public synchronized void forgetAll() {
+            known.clear();
+        }
+
         /** As "phrase\tCOMMAND" lines, for saving. */
         public synchronized String write() {
             StringBuilder b = new StringBuilder();

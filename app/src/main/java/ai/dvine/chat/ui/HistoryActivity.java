@@ -23,7 +23,7 @@ public final class HistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
-        book = new ChatBook(new File(getFilesDir(), "chats.json"));
+        book = ChatBook.open(new File(getFilesDir(), "chats.json"));
         TextView back = findViewById(R.id.history_back);
         if (back != null) {
             back.setOnClickListener(v -> finish());
