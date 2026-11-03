@@ -13,7 +13,7 @@ public final class SceneInventory {
             return "There's no model on show.";
         }
         StringBuilder b = new StringBuilder();
-        b.append(model.title).append(", a procedural concept model, not a measurement.\n");
+        b.append(model.title).append(", built from the measurements in its design.\n");
         for (Component c : model.components) {
             b.append("- ").append(c.name).append(" (").append(SceneCommands.stableId(c)).append(", part of ")
                     .append(SceneCommands.parentId(c)).append(")");

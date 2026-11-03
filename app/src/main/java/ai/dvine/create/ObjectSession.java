@@ -42,7 +42,7 @@ public final class ObjectSession {
 
     /** Builds and validates a new object. Returns it, or null (and keeps whatever was there) when invalid. */
     public ObjectModel create(ObjectSpec spec, List<Provenance> sources) {
-        ObjectModel m = ProceduralModelingEngine.build(spec, 1, sources == null ? new ArrayList<Provenance>() : sources);
+        ObjectModel m = MeasuredBuilder.build(spec, 1, sources == null ? new ArrayList<Provenance>() : sources);
         if (!m.valid()) {
             lastProblems = m.problems;
             return null;
@@ -120,7 +120,7 @@ public final class ObjectSession {
         if (model == null) {
             return null;
         }
-        ObjectModel m = ProceduralModelingEngine.build(spec, version + 1, provenance);
+        ObjectModel m = MeasuredBuilder.build(spec, version + 1, provenance);
         if (!m.valid()) {
             lastProblems = m.problems;
             return null; // the last valid version stays
@@ -143,7 +143,7 @@ public final class ObjectSession {
         redo.push(model.spec);
         clearParts();
         version++;
-        model = ProceduralModelingEngine.build(undo.pop(), version, provenance);
+        model = MeasuredBuilder.build(undo.pop(), version, provenance);
         applyView();
         return model;
     }
@@ -155,7 +155,7 @@ public final class ObjectSession {
         undo.push(model.spec);
         clearParts();
         version++;
-        model = ProceduralModelingEngine.build(redo.pop(), version, provenance);
+        model = MeasuredBuilder.build(redo.pop(), version, provenance);
         applyView();
         return model;
     }

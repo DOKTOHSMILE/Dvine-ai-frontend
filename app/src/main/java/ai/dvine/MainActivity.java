@@ -2517,7 +2517,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final int id = ++askId;
         stopPlay();
-        armThink("Using " + c[0], "Writing the answer");
+        armThink("Using " + c[0], "Replying");
         stage.activity("TOOL", c[0] + (c[1].isEmpty() ? "" : " " + clip(c[1])));
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
         final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
@@ -2626,7 +2626,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             } else {
                 if (!writingShown) {
                     writingShown = true;
-                    activity("Writing the answer");
+                    activity("Replying");
                 }
                 pace.phase(thinkWrite);
                 pace.addText(text);
@@ -3937,14 +3937,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             openReconstructionPicker();
             return true;
         }
+        // there are no built-in objects: the model designs each thing with its measurements, and changes them
+        creation.setDesigner(modelOn() ? (system, prompt, max) -> model.task(system, prompt, max, null) : null,
+                ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
         boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
+                || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE;
         if (!slow) {
-            armThink(
-                    r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.POSE ? "Posing the body"
-                            : "Updating the model",
-                    "Updating the model");
+            armThink("Updating the model", "Updating the model");
             applyCreation(creation.perform(r));
             endThink();
             return true;
@@ -3953,7 +3954,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stopPlay();
         String phase = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE
                 ? "Drawing the picture"
-                : creation.researchAvailable() ? "Researching it" : "Designing the geometry";
+                : r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY ? "Changing the measurements"
+                : creation.researchAvailable() ? "Researching it and working out the measurements" : "Working out the measurements";
         armThink(phase, phase);
         buildThread.execute(() -> {
             final ai.dvine.create.CreationDirector.Outcome o = creation.perform(r);

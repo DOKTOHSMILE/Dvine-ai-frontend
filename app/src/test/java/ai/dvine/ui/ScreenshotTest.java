@@ -130,12 +130,12 @@ public class ScreenshotTest {
         java.lang.reflect.Field f = MainActivity.class.getDeclaredField("chatPane");
         f.setAccessible(true);
         ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) f.get(c.get());
-        pane.setThinking("Writing the answer");
+        pane.setThinking("Replying");
         pane.activityStep("Reading your message");
         pane.activityStep("Searching the web for \u201cLagos population 2026\u201d");
         pane.activityStep("Read a source: Wikipedia, Lagos");
         pane.activityStep("Asking OpenAI (gpt-5-mini), the fast model");
-        pane.activityStep("Writing the answer");
+        pane.activityStep("Replying");
         String diffId = ai.dvine.agent.StepDetail.save(c.get().getFilesDir(), "app/Main.java", java.util.Arrays.asList("@ line 1",
                 " class Main {", "-    void old() {}", "+    void hello() {", "+        System.out.println(\"hi\");", "+    }", " }"), 3, 1);
         pane.activityStep("Edited app/Main.java" + ai.dvine.agent.StepDetail.mark(diffId));

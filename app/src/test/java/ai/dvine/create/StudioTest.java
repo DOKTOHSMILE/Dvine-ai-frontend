@@ -89,67 +89,21 @@ public class StudioTest {
     }
 
     @Test
-    public void raisingTheLeftArmMovesTheForearmAndUndoPutsItBack() {
-        ObjectSession session = new ObjectSession();
-        CreationDirector director = new CreationDirector(session, new java.io.File(System.getProperty("java.io.tmpdir")));
-        CreationDirector.Outcome built = director.perform(ObjectRequestInterpreter.interpret("build a person", null));
-        assertEquals(CreationDirector.Action.BECOME, built.action);
-        ObjectModel m = session.model();
-        assertNotNull(m);
-        assertTrue(m.problems.toString(), m.valid());
-        assertTrue(BodyRig.shown(m));
-        Component arm = part(m, "left forearm");
-        float restY = SceneCommands.centroid(arm)[1];
-        float hipY = SceneCommands.centroid(part(m, "hips"))[1];
-        for (int i = 0; i < arm.mesh.weight0.length; i++) {
-            assertEquals(1f, arm.mesh.weight0[i], 0f);
-        }
-        CreationDirector.Outcome posed = director.perform(ObjectRequestInterpreter.interpret("raise the left arm", m.spec));
-        assertEquals(CreationDirector.Action.CHANGED, posed.action);
-        assertTrue(posed.lines.get(0).toLowerCase().contains("not a scanned"));
-        assertTrue(SceneCommands.centroid(arm)[1] > restY + 0.08f);
-        assertEquals(hipY, SceneCommands.centroid(part(m, "hips"))[1], 0.02f);
-        director.perform(ObjectRequestInterpreter.interpret("undo", m.spec));
-        assertEquals(restY, SceneCommands.centroid(arm)[1], 0.02f);
-    }
-
-    @Test
     public void aNewBuildKeepsThePreviousObjectOneStepBack() {
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, new java.io.File(System.getProperty("java.io.tmpdir")));
-        director.perform(ObjectRequestInterpreter.interpret("build a motorcycle", null));
+        session.create(Designs.motorcycle(), null);
         assertEquals("motorcycle", session.model().spec.category);
-        director.perform(ObjectRequestInterpreter.interpret("build a person", null));
-        assertEquals("person", session.model().spec.category);
+        session.create(Designs.car(), null);
+        assertEquals("car", session.model().spec.category);
         CreationDirector.Outcome back = director.perform(ObjectRequestInterpreter.interpret("undo", session.model().spec));
         assertEquals(CreationDirector.Action.CHANGED, back.action);
         assertEquals("motorcycle", session.model().spec.category);
     }
 
     @Test
-    public void bothArmsWaveAndLookUpAreRealPoses() {
-        ObjectSession session = new ObjectSession();
-        CreationDirector director = new CreationDirector(session, new java.io.File(System.getProperty("java.io.tmpdir")));
-        director.perform(ObjectRequestInterpreter.interpret("build a person", null));
-        ObjectModel m = session.model();
-        float left = SceneCommands.centroid(part(m, "left forearm"))[1];
-        float right = SceneCommands.centroid(part(m, "right forearm"))[1];
-        CreationDirector.Outcome up = director.perform(ObjectRequestInterpreter.interpret("raise both arms", m.spec));
-        assertTrue(up.lines.get(0).toLowerCase().contains("both arms"));
-        assertTrue(SceneCommands.centroid(part(m, "left forearm"))[1] > left + 0.05f);
-        assertTrue(SceneCommands.centroid(part(m, "right forearm"))[1] > right + 0.05f);
-        CreationDirector.Outcome down = director.perform(ObjectRequestInterpreter.interpret("put your arms down", m.spec));
-        assertTrue(down.lines.get(0).toLowerCase().contains("arms down"));
-        CreationDirector.Outcome wave = director.perform(ObjectRequestInterpreter.interpret("wave", m.spec));
-        assertTrue(wave.lines.get(0).toLowerCase().contains("wave"));
-        assertTrue(wave.lines.get(0).toLowerCase().contains("not a scanned"));
-        CreationDirector.Outcome look = director.perform(ObjectRequestInterpreter.interpret("look up", m.spec));
-        assertTrue(look.lines.get(0).toLowerCase().contains("head"));
-    }
-
-    @Test
     public void thePartTreeCollapsesAndATapNamesTheFrontTyre() {
-        ObjectModel m = ProceduralModelingEngine.build(ObjectRequestInterpreter.defaults("motorcycle"), 1, new ArrayList<Provenance>());
+        ObjectModel m = Designs.build(Designs.motorcycle());
         Component tyre = part(m, "front tyre");
         PartTree open = PartTree.layout(m, -1, new HashSet<String>(), 10, 20, 160, 18);
         PartTree.Row tyreRow = null;
@@ -213,7 +167,7 @@ public class StudioTest {
         assertTrue(dir.mkdirs());
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, dir);
-        session.create(ObjectRequestInterpreter.interpret("build a motorcycle", null).spec, null);
+        session.create(Designs.motorcycle(), null);
         assertNotNull(session.showReconstruction(built.model));
         assertEquals("reconstruction", session.model().spec.category);
         CreationDirector.Outcome saved = director.perform(ObjectRequestInterpreter.interpret("save it", session.model().spec));
@@ -222,7 +176,7 @@ public class StudioTest {
         assertEquals("motorcycle", session.model().spec.category);
         assertNotNull(part(session.model(), "front tyre"));
 
-        session.create(ObjectRequestInterpreter.interpret("build a motorcycle", null).spec, null);
+        session.create(Designs.motorcycle(), null);
         director.perform(ObjectRequestInterpreter.interpret("save it", session.model().spec));
         CreationDirector.Outcome list = director.perform(ObjectRequestInterpreter.interpret("what have I saved", null));
         assertTrue(list.lines.get(0).toLowerCase().contains("motorcycle"));

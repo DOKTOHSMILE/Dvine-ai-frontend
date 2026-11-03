@@ -18,13 +18,10 @@ import ai.dvine.ops.pipe.CreationRouter;
 import ai.dvine.ops.recon.ReconstructionJob;
 import ai.dvine.stage.SolidSurface;
 
-/** Detach and restore a real part. The motorcycle is procedural, not a measurement. */
+/** Detach and restore a real part of a measured design (a motorcycle the model described). */
 public class SceneEditTest {
     private static ObjectModel motorcycle() {
-        ObjectRequestInterpreter.Request r = ObjectRequestInterpreter.interpret("build a motorcycle", null);
-        assertNotNull(r);
-        assertEquals(ObjectRequestInterpreter.Kind.CREATE, r.kind);
-        ObjectModel m = ProceduralModelingEngine.build(r.spec, 1, new ArrayList<Provenance>());
+        ObjectModel m = MeasuredBuilder.build(Designs.motorcycle(), 1, new ArrayList<Provenance>());
         assertTrue(m.problems.toString(), m.valid());
         return m;
     }
@@ -50,7 +47,7 @@ public class SceneEditTest {
         assertTrue(dir.mkdirs());
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, dir);
-        assertNotNull(session.create(ObjectRequestInterpreter.interpret("build a motorcycle", null).spec, null));
+        assertNotNull(session.create(Designs.motorcycle(), null));
         ObjectModel m = session.model();
         Component tyre = part(m, "front tyre");
         assertEquals("tyre-front-1", SceneCommands.stableId(tyre));
@@ -127,7 +124,7 @@ public class SceneEditTest {
     public void selectingTheFrontTyreTintsItAndLeavesTheMeshWhereItIs() {
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, new File(System.getProperty("java.io.tmpdir")));
-        session.create(ObjectRequestInterpreter.interpret("build a motorcycle", null).spec, null);
+        session.create(Designs.motorcycle(), null);
         ObjectModel m = session.model();
         Component tyre = part(m, "front tyre");
         float[] pose = SceneCommands.centroid(tyre);
@@ -157,7 +154,7 @@ public class SceneEditTest {
         assertEquals(pose[0], SceneCommands.centroid(tyre)[0], 1e-4);
         String list = SceneInventory.text(m, session.selected());
         assertTrue(list.contains("front tyre (tyre-front-1, part of wheel-front), selected"));
-        assertTrue(list.contains("not a measurement"));
+        assertTrue(list.contains("built from the measurements in its design"));
         CreationDirector.Outcome detach = director.perform(ObjectRequestInterpreter.interpret("remove the front tyre but keep it", m.spec));
         assertTrue(detach.lines.get(0).contains("not deleted"));
         assertTrue(part(m, "rear tyre").visible);
@@ -170,7 +167,7 @@ public class SceneEditTest {
         assertTrue(dir.mkdirs());
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, dir);
-        session.create(ObjectRequestInterpreter.interpret("build a red motorcycle", null).spec, null);
+        session.create(Designs.motorcycle(), null);
         float[] pose = SceneCommands.centroid(part(session.model(), "front tyre"));
         director.perform(ObjectRequestInterpreter.interpret("take off the front tyre but keep it", session.model().spec));
         director.perform(ObjectRequestInterpreter.interpret("save it", session.model().spec));
@@ -212,7 +209,7 @@ public class SceneEditTest {
         CreationRouter.Route model = router.classify("build an editable motorcycle");
         assertEquals(CreationRouter.Capability.THREE_D_GENERATION, model.capability);
         assertTrue(model.available);
-        assertTrue(model.note.toLowerCase().contains("not a measurement"));
+        assertTrue(model.note.toLowerCase().contains("measurements"));
         ReconstructionJob none = ReconstructionJob.fromImages(null);
         assertEquals(ReconstructionJob.State.EMPTY, none.state);
         assertFalse(none.measured);

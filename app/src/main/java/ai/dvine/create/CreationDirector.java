@@ -8,9 +8,10 @@ import java.util.Locale;
 
 /**
  * The 3D creation conversation: understands a request, researches when it
- * can, builds and validates the geometry, and tells the stage what the
- * particles should do, with honest words (what was assumed, that it is a
- * concept model, where references came from). Android-free; the slow part
+ * can, has the model design the thing with every measurement, builds and
+ * checks the geometry from those numbers ({@link MeasuredDesign},
+ * {@link MeasuredBuilder}), and tells the stage what the particles should do.
+ * There are no built-in objects. Android-free; the slow part
  * ({@link #perform} with research) belongs off the UI thread.
  */
 public final class CreationDirector {
@@ -50,6 +51,22 @@ public final class CreationDirector {
         return fetcher != null;
     }
 
+    private volatile MeasuredDesign.Brain designer;
+    private volatile int designTokens = 1500;
+
+    /**
+     * The model that designs things: there are no built-in objects, so without it nothing is built. {@code tokens}: how
+     * long its brief and its part lines may be.
+     */
+    public void setDesigner(MeasuredDesign.Brain brain, int tokens) {
+        designer = brain;
+        designTokens = Math.max(600, tokens);
+    }
+
+    public boolean canDesign() {
+        return designer != null;
+    }
+
     /**
      * Is this a creation request? Fast; call on the UI thread. {@code objectShown}
      * says whether the particles are an object right now (edits and views only
@@ -83,13 +100,6 @@ public final class CreationDirector {
                     back.lines.add("The sparse reconstruction is off the board. What was showing before is back.");
                     return back;
                 }
-                if (r.kind == ObjectRequestInterpreter.Kind.UNDO && session.model() != null && session.model().rig != null
-                        && session.model().rig.undo()) {
-                    session.model().rig.skin(session.model());
-                    Outcome posed = new Outcome(Action.CHANGED, session.model());
-                    posed.lines.add("Undone. The pose is as it was. The skeleton is still a procedural rig, not a scan.");
-                    return posed;
-                }
                 boolean parts = r.kind == ObjectRequestInterpreter.Kind.UNDO ? session.undoParts() : session.redoParts();
                 ObjectModel m = parts ? session.model() : r.kind == ObjectRequestInterpreter.Kind.UNDO ? session.undo() : session.redo();
                 Outcome o = new Outcome(m == null ? Action.NONE : Action.CHANGED, m);
@@ -116,8 +126,6 @@ public final class CreationDirector {
                 o.lines.add("Choose two or more overlapping photographs. I will triangulate the pixels you pick. I will not invent a mesh from this sentence. One photo is not a reconstruction, and this is not a dense scan.");
                 return o;
             }
-            case POSE:
-                return pose(r.detail);
             case LIBRARY: {
                 Outcome o = new Outcome(Action.NONE, session.model());
                 o.lines.add(store.catalogue());
@@ -167,69 +175,73 @@ public final class CreationDirector {
             case UNKNOWN_OBJECT:
             default: {
                 Outcome o = new Outcome(Action.NONE, null);
-                String what = r.detail == null ? "that" : r.detail;
-                o.lines.add("I can't model " + what + " properly yet. I can build houses, cars, motorcycles, tables, chairs, sofas, beds, shelves, lamps, mugs, "
-                        + "bottles, laptops, phones, trees, bicycles and a person, or something made of shapes: say build a " + firstWord(what)
-                        + " from a box and a sphere.");
+                o.lines.add("Tell me what to build and its measurements, or let me work them out: say build a two-storey house"
+                        + " with a 20 foot roof.");
                 return o;
             }
         }
     }
 
+    /**
+     * A new thing, designed from its measurements: research (when online) and the model's design brief with every
+     * measurement, its part lines, then DVINE builds and checks the geometry, and one fix when it doesn't hold together.
+     */
     private Outcome create(ObjectSpec spec) {
+        MeasuredDesign.Brain brain = designer;
+        String request = spec.str("request", spec.str("title", spec.category));
+        if (brain == null) {
+            Outcome o = new Outcome(Action.NONE, null);
+            o.lines.add("I need the model to design it: there are no ready-made 3D objects. Ask me again when the model has loaded.");
+            return o;
+        }
         List<Provenance> sources = new ArrayList<Provenance>();
-        String summary = null;
+        String facts = null;
         ReferenceResearch.Fetcher f = fetcher;
         if (f != null) {
-            ReferenceResearch.Findings found = ReferenceResearch.research(spec.category, f, System.currentTimeMillis());
+            ReferenceResearch.Findings found = ReferenceResearch.research(spec.str("title", spec.category), f, System.currentTimeMillis());
             if (found != null) {
                 sources.addAll(found.sources);
-                summary = found.summary;
+                facts = found.summary;
             }
         }
-        ObjectModel m = session.create(spec, sources);
+        MeasuredDesign.Designed d = MeasuredDesign.design(brain, request, facts, designTokens);
+        if (d == null || !d.read.ok()) {
+            Outcome o = new Outcome(Action.NONE, session.model());
+            o.lines.add(d == null ? "The model didn't write a design. Try again, or give me the main measurements."
+                    : "The design's measurements didn't add up: " + String.join("; ", d.read.errors.subList(0, Math.min(3, d.read.errors.size())))
+                    + ". Give me the main measurements and I'll build it.");
+            return o;
+        }
+        ObjectSpec designed = spec.with("design", d.lines, false).with("brief", d.brief, false);
+        ObjectModel m = session.create(designed, sources);
         if (m == null) {
-            Outcome o = new Outcome(Action.NONE, null);
-            o.lines.add("I couldn't build a valid model of that: " + first(session.lastProblems()) + ".");
+            // the geometry didn't hold together: the model corrects the lines once, with what was wrong
+            MeasuredDesign.Designed fixed = MeasuredDesign.fix(brain, d.lines, session.lastProblems(), designTokens);
+            if (fixed != null && fixed.read.ok()) {
+                designed = designed.with("design", fixed.lines, false);
+                m = session.create(designed, sources);
+                d = new MeasuredDesign.Designed(d.brief, fixed.lines, fixed.read);
+            }
+        }
+        if (m == null) {
+            Outcome o = new Outcome(Action.NONE, session.model());
+            o.lines.add("I couldn't build a valid model from the design: " + first(session.lastProblems()) + ".");
             return o;
         }
         Outcome o = new Outcome(Action.BECOME, m);
-        o.lines.add("Building a " + m.title + ": " + parts(m) + ".");
-        List<String> assumed = assumptions(spec);
-        if (!assumed.isEmpty()) {
-            o.lines.add("I assumed " + String.join(", ", assumed) + ". Tell me to change anything.");
+        boolean feet = MeasuredDesign.inFeet(request, d.lines);
+        o.lines.add("Designed and built the " + m.title + " from its measurements: " + MeasuredDesign.summary(d.read, feet));
+        List<String> brief = MeasuredDesign.keyLines(d.brief, 6);
+        if (!brief.isEmpty()) {
+            o.lines.add("The measurements: " + String.join("; ", brief) + ".");
         }
-        if (summary != null) {
-            o.lines.add("From my reading: " + summary);
-        } else if (spec.category.matches("house|car|bicycle|motorcycle")) {
-            o.lines.add("I couldn't look up references just now, so this uses typical proportions.");
+        if (!d.read.warnings.isEmpty()) {
+            o.lines.add("To check: " + String.join("; ", d.read.warnings.subList(0, Math.min(3, d.read.warnings.size()))) + ".");
         }
-        if (spec.category.equals("house")) {
-            o.lines.add("It's a visual concept, not a structural design.");
-        } else if (spec.category.equals("car")) {
-            o.lines.add("It's a visual model, not an engineering design.");
-        } else if (spec.category.equals("motorcycle")) {
-            o.lines.add("It's a procedural concept model with separate parts, not a measurement and not a rig.");
-        } else if (spec.category.equals("person")) {
-            o.lines.add("It's a procedural skeleton with linear blend skinning. Not a scanned person and not a face rig.");
+        if (!sources.isEmpty()) {
+            o.lines.add("I read " + sources.size() + (sources.size() == 1 ? " reference" : " references") + " for the sizes.");
         }
-        return o;
-    }
-
-    private Outcome pose(String phrase) {
-        ObjectModel m = session.model();
-        if (m == null || m.rig == null) {
-            Outcome o = new Outcome(Action.NONE, m);
-            o.lines.add("There's no rigged body on show. Say build a person. I did not invent a pose.");
-            return o;
-        }
-        m.rig.remember();
-        boolean moved = m.rig.pose(m, phrase);
-        if (!moved) {
-            m.rig.dropLast();
-        }
-        Outcome o = new Outcome(moved ? Action.CHANGED : Action.NONE, m);
-        o.lines.add(BodyRig.describe(phrase, moved));
+        o.lines.add("Tell me any measurement to change (“make the roof 25 feet”), or say show me the parts.");
         return o;
     }
 
@@ -257,44 +269,32 @@ public final class CreationDirector {
         return o;
     }
 
+    /** A change to the design's measurements, made by the model, then built again (the last valid version stays). */
     private Outcome modify(ObjectSpec spec, String said) {
-        ObjectModel m = session.modify(spec);
+        MeasuredDesign.Brain brain = designer;
+        ObjectModel now = session.model();
+        if (brain == null || now == null || !now.spec.has("design")) {
+            Outcome o = new Outcome(Action.NONE, now);
+            o.lines.add(brain == null ? "I need the model to change the design. Ask me again when it has loaded." : "There's no designed model on show to change.");
+            return o;
+        }
+        String change = spec.str("change", said == null ? "" : said);
+        MeasuredDesign.Designed d = MeasuredDesign.change(brain, now.spec.str("design", ""), change, designTokens);
+        if (d == null || !d.read.ok()) {
+            Outcome o = new Outcome(Action.NONE, now);
+            o.lines.add("I couldn't make that change to the measurements" + (d == null || d.read.errors.isEmpty() ? "" : ": " + d.read.errors.get(0))
+                    + ". I kept version " + now.version + ".");
+            return o;
+        }
+        ObjectModel m = session.modify(now.spec.with("design", d.lines, false).with("change", change, false));
         if (m == null) {
             Outcome o = new Outcome(Action.NONE, session.model());
-            o.lines.add("That change wouldn't make a valid model (" + first(session.lastProblems()) + "), so I kept version "
-                    + (session.model() == null ? 1 : session.model().version) + ".");
+            o.lines.add("That change wouldn't make a valid model (" + first(session.lastProblems()) + "), so I kept version " + now.version + ".");
             return o;
         }
         Outcome o = new Outcome(Action.CHANGED, m);
-        o.lines.add("Done. Version " + m.version + ": " + m.title + ".");
+        o.lines.add("Done. Version " + m.version + ": " + MeasuredDesign.summary(d.read, MeasuredDesign.inFeet(change, d.lines)));
         return o;
-    }
-
-    /** The defaults used, in words: "2 floors, modern style, 12 metres wide, a flat roof". */
-    static List<String> assumptions(ObjectSpec s) {
-        List<String> out = new ArrayList<String>();
-        if (s.category.equals("shapes") || s.category.equals("progress")) {
-            return out;
-        }
-        for (String key : s.params().keySet()) {
-            if (s.isExplicit(key) || out.size() == 5) {
-                continue;
-            }
-            String v = s.str(key, "");
-            switch (key) {
-                case "floors": out.add(v + (v.equals("1") ? " floor" : " floors")); break;
-                case "style": out.add(v + " style"); break;
-                case "roof": out.add("a " + v + " roof"); break;
-                case "width": out.add(size(s.num(key, 0f)) + " wide"); break;
-                case "depth": out.add(size(s.num(key, 0f)) + " deep"); break;
-                case "length": out.add(size(s.num(key, 0f)) + " long"); break;
-                case "height": out.add(size(s.num(key, 0f)) + " high"); break;
-                case "color": out.add(v); break;
-                case "shape": out.add("a " + v + " shape"); break;
-                default: break;
-            }
-        }
-        return out;
     }
 
     /** "That's the front left wheel: 66 centimetres across." */
@@ -341,10 +341,5 @@ public final class CreationDirector {
 
     private static String first(List<String> l) {
         return l == null || l.isEmpty() ? "it didn't validate" : l.get(0);
-    }
-
-    private static String firstWord(String s) {
-        String[] w = s.trim().split(" ");
-        return w.length == 0 ? "thing" : w[w.length - 1];
     }
 }

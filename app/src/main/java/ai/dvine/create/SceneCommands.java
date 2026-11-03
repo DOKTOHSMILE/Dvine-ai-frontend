@@ -81,7 +81,7 @@ public final class SceneCommands {
             return new Report(true, false, true, part.id, id, parent, centroid(part),
                     "Target hidden. Geometry retained. Other parts unchanged.",
                     "I detached the " + part.name + " and kept it. It is not deleted. Say put the " + part.name
-                            + " back to restore it. This is a procedural model, not a measurement.");
+                            + " back to restore it.");
         }
         if ("restore".equals(op)) {
             if (!part.retained) {
@@ -195,11 +195,14 @@ public final class SceneCommands {
                 hits.add(c);
             }
         }
-        if (!hits.isEmpty() || !(p.equals("tyre") || p.equals("rim") || p.equals("wheel"))) {
+        if (!hits.isEmpty()) {
             return hits;
         }
+        // a part's name as the model wrote it ("front window 2"), its kind ("windows"), or the words in its name
+        String one = p.replaceAll("(?<=[a-z])(es|s)$", "");
         for (Component c : model.components) {
-            if (c.name.contains(p)) {
+            String n = c.name.toLowerCase(Locale.US);
+            if (n.contains(p) || n.replaceAll("\\s+\\d+$", "").equals(one) || n.contains(one) && one.length() > 2 || one.equals(c.kind)) {
                 hits.add(c);
             }
         }
