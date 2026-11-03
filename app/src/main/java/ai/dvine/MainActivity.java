@@ -1575,6 +1575,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(finalQuestion, null);
         if ("ibiko".equals(agent) && model != null && model.ready() && prefs.getBoolean("llm_on", true)
+                && !ai.dvine.agent.Council.wanted(finalQuestion, false) // "think together" in Ibiko's chat: the council
                 && !finalQuestion.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
             boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
                     || known.kind == ai.dvine.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.dvine.llm.BrainOrder.Kind.TIME
@@ -1590,6 +1591,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (model == null || !model.ready() || !prefs.getBoolean("llm_on", true)) {
             carryOut(agent, finalQuestion, null);
+            return;
+        }
+        if (ai.dvine.agent.Council.wanted(finalQuestion, prefs.getBoolean("think_together", true))
+                && !ai.dvine.llm.TaskSize.mayNeedAction(finalQuestion)) {
+            thinkTogether(finalQuestion, agent); // a weighty question: Obi, Ivie and Ibiko work on it, one answer
             return;
         }
         if (ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG
@@ -1991,6 +1997,52 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (prefs != null) {
             prefs.edit().remove("partial_reply").remove("partial_chat").apply();
         }
+    }
+
+    /**
+     * The three think tanks on one question ({@link ai.dvine.agent.Council}): Obi's structure, Ivie's review, one more
+     * round if she disagrees, Ibiko's practical steps, then one answer from the persona on screen. Each tank's view is
+     * a step a tap opens; the answer is remembered in the conversation like any other.
+     */
+    private void thinkTogether(final String question, final String speaker) {
+        final int id = ++askId;
+        stopPlay();
+        stage.setMode(StageMode.THINKING);
+        armThink("Thinking together", "Writing one answer");
+        final String context = chats == null ? "" : chats.transcript(model.remoteOn() ? 6000 : 1500, model.remoteOn() ? 1500 : 300);
+        hub.worker.execute(() -> {
+            ai.dvine.llm.ReplyService.hold(this);
+            ai.dvine.agent.Council.Result r;
+            try {
+                r = ai.dvine.agent.Council.run((system, prompt) -> model.task(system, prompt,
+                        ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs) * 2, piece -> modelPiece(id, piece) && id == askId),
+                        question, context, speaker, (line, who, said) -> {
+                            String detail = ai.dvine.agent.StepDetail.save(getFilesDir(), who + "'s view",
+                                    java.util.Arrays.asList(said.split("\n")), -1, -1);
+                            handler.post(() -> {
+                                if (id == askId && chatPane != null) {
+                                    chatPane.activityStep(line + ai.dvine.agent.StepDetail.mark(detail));
+                                }
+                            });
+                        }, () -> id != askId);
+            } finally {
+                ai.dvine.llm.ReplyService.release(this);
+            }
+            final ai.dvine.agent.Council.Result done = r;
+            handler.post(() -> {
+                if (id != askId || isFinishing()) {
+                    return;
+                }
+                endThink();
+                if (done == null) {
+                    // the council couldn't finish (the model failed): the usual single answer instead
+                    askLocal(question, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
+                    return;
+                }
+                model.note(question, done.answer);
+                play(LocalTurn.speakAs(speaker, done.answer), null);
+            });
+        });
     }
 
     /** Steps in one round of long work: a progress note in the chat after each. */
