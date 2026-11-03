@@ -335,6 +335,36 @@ public class ScreenshotTest {
         c.pause().stop().destroy();
     }
 
+    @Test(timeout = 180000)
+    public void rendersAReplyInPartsBetweenItsSteps() throws Exception {
+        OUT.mkdirs();
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        java.lang.reflect.Field chatsF = MainActivity.class.getDeclaredField("chats");
+        chatsF.setAccessible(true);
+        ((ai.dvine.chat.ChatBook) chatsF.get(c.get())).add("user", "text", "Why does my app freeze when I tap Save?", "ibiko");
+        File files = c.get().getFilesDir();
+        pane.activityStep("Checked the branch" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "$ git status -sb", java.util.Arrays.asList("## main"), -1, -1)));
+        pane.activityStep("Searched for \u201csave(\u201d");
+        pane.activityStep("Read app/Save.java" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "app/Save.java", java.util.Arrays.asList("void save() {"), -1, -1)));
+        pane.assistant("ibiko", "Save writes the whole file on the screen thread, so I'm moving that write to a background thread.");
+        pane.activityStep("Edited app/Save.java" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "app/Save.java", java.util.Arrays.asList("@ line 12", "-    write(all);", "+    io.execute(() -> write(all));"), 1, 1)));
+        pane.activityStep("Ran the tests" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "$ gradle test", java.util.Arrays.asList("BUILD SUCCESSFUL"), -1, -1)));
+        pane.activityEnd();
+        pane.assistant("ibiko", "The freeze came from writing the file on the screen thread.\n\nThe write now runs in the background, "
+                + "and the tests pass.\n\nTap Save again: the screen stays smooth.");
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        shoot(c.get(), "8_reply_in_parts");
+        c.pause().stop().destroy();
+    }
+
     private static void shoot(android.app.Activity a, String name) throws Exception {
         android.view.View root = a.getWindow().getDecorView();
         int w = 1080, h = 2340;

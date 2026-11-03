@@ -99,6 +99,7 @@ public final class ChatPane extends LinearLayout {
         openActions = null;
         ChatBook.Section cur = book.current();
         StringBuilder reply = new StringBuilder(); // the whole of the assistant's turn, for its Copy and Listen
+        int parts = 0; // how many parts of the turn have their own Copy and Listen
         String work = null; // this reply's Diff, Pull requests and Artifacts, shown under it
         for (int i = 0; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
@@ -107,12 +108,16 @@ public final class ChatPane extends LinearLayout {
                 work = m.body;
             } else {
                 try {
-                    if (!"user".equals(m.role) && "text".equals(m.kind) && m.body != null && m.body.length() > CHUNK) {
-                        // a long report as several text blocks (paragraphs together), not one huge block that is
-                        // slow to lay out and scroll
-                        for (String piece : chunks(m.body, CHUNK)) {
-                            shown = bubble(new ChatBook.Message(m.role, m.kind, piece, m.persona, m.language));
-                            thread.addView(shown);
+                    if (!"user".equals(m.role) && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
+                        // the reply in short parts, each with its own Copy and Listen, so any one part can be heard
+                        // on its own (and a long report is never one huge block that is slow to lay out)
+                        for (String para : paragraphs(m.body)) {
+                            for (String piece : para.length() > CHUNK ? chunks(para, CHUNK) : java.util.Collections.singletonList(para)) {
+                                shown = bubble(new ChatBook.Message(m.role, m.kind, piece, m.persona, m.language));
+                                thread.addView(shown);
+                                thread.addView(partActions(piece));
+                                parts++;
+                            }
                         }
                     } else {
                         shown = bubble(m);
@@ -124,6 +129,7 @@ public final class ChatPane extends LinearLayout {
             }
             if ("user".equals(m.role)) {
                 reply.setLength(0);
+                parts = 0;
                 if (shown != null && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
                     // the user's own message: its copy icon shows on a tap and hides on the next one (or when the
                     // chat moves on: every redraw starts with it hidden)
@@ -144,8 +150,12 @@ public final class ChatPane extends LinearLayout {
                 work = null;
             }
             if (lastOfTurn && reply.length() > 0) {
-                thread.addView(actions(reply.toString(), stripCode(reply.toString())));
+                if (parts != 1 || reply.indexOf("```") >= 0) {
+                    // several parts (or code): the whole turn can still be copied or heard in one go
+                    thread.addView(wholeActions(reply.toString(), stripCode(reply.toString())));
+                }
                 reply.setLength(0);
+                parts = 0;
             }
         }
         title(cur);
@@ -179,6 +189,8 @@ public final class ChatPane extends LinearLayout {
     /** When each step started (milliseconds), beside {@link #steps}: each step's time in the sheet. */
     private final List<Long> stepAt = new ArrayList<Long>();
     private long workStarted;
+    /** How many of {@link #steps} are already kept in the chat (above a note posted during the work). */
+    private int kept;
 
     private boolean working() {
         return thinkingText != null || !steps.isEmpty();
@@ -220,6 +232,7 @@ public final class ChatPane extends LinearLayout {
      */
     /** Drops the work in progress without keeping it in the chat (a new chat starts clean). */
     public void activityDrop() {
+        kept = 0;
         steps.clear();
         stepAt.clear();
         workStarted = 0;
@@ -232,14 +245,8 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void activityEnd() {
-        if (!steps.isEmpty()) {
-            long secs = Math.max(1, (System.currentTimeMillis() - workStarted + 500) / 1000);
-            StringBuilder body = new StringBuilder(secs + "\n");
-            for (String st : timedSteps(System.currentTimeMillis())) {
-                body.append(st.replace('\n', ' ')).append('\n'); // each with its time after a tab
-            }
-            book.add("assistant", "activity", body.toString().trim(), book.current().persona);
-        }
+        keepSteps();
+        kept = 0;
         if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
             fillSteps(timedSteps(System.currentTimeMillis()), true); // an open sheet stays, every step now ticked
             stepsLive = false;
@@ -253,6 +260,26 @@ public final class ChatPane extends LinearLayout {
         typing = "";
         typed = 0;
         show();
+    }
+
+    /**
+     * Keeps the steps not yet in the chat as one record there: at the end of the turn, and before a note written
+     * during the work, so the chat reads like the work went: steps, a note, more steps, the reply.
+     */
+    private void keepSteps() {
+        if (steps.size() <= kept) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long from = kept < stepAt.size() ? stepAt.get(kept) : workStarted;
+        long secs = Math.max(1, (now - from + 500) / 1000);
+        StringBuilder body = new StringBuilder(secs + "\n");
+        List<String> timed = timedSteps(now);
+        for (int i = kept; i < timed.size(); i++) {
+            body.append(timed.get(i).replace('\n', ' ')).append('\n'); // each with its time after a tab
+        }
+        book.add("assistant", "activity", body.toString().trim(), book.current().persona);
+        kept = steps.size();
     }
 
     private void refreshActivity() {
@@ -722,30 +749,124 @@ public final class ChatPane extends LinearLayout {
         b.setSpan(new android.text.style.ForegroundColorSpan(colour), at, b.length(), android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
 
-    /** A kept activity line: folded to "Worked for 6s · 4 steps ›", a tap opens the steps. */
+    /**
+     * A kept stretch of work, as rows like Claude Code's: "Ran 2 commands  ›", "Explored 3 files  ›", "Edited
+     * Main.java  ›", or a step in its own words; a tap opens that row's steps. Many plain steps in a row fold into one
+     * "N steps" row so the chat stays short.
+     */
     private View activityRecord(ChatBook.Message m) {
         String[] lines = (m.body == null ? "" : m.body).split("\n");
-        String secs = lines.length > 0 ? lines[0].trim() : "";
         final List<String> kept = new ArrayList<String>();
         for (int i = 1; i < lines.length; i++) {
-            if (!lines[i].trim().isEmpty()) {
+            if (!lines[i].trim().isEmpty() && !providerLine(lines[i].trim())) {
                 kept.add(lines[i].trim());
             }
         }
-        String took = secs;
-        try {
-            took = duration(Long.parseLong(secs));
-        } catch (NumberFormatException ignored) {
-            took = secs + "s";
+        LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(VERTICAL);
+        box.setPadding(0, dp(4), 0, dp(4));
+        if (kept.isEmpty()) {
+            return box;
         }
-        final String label = "Worked for " + took + " \u00B7 " + kept.size() + " step" + (kept.size() == 1 ? "" : "s");
-        final TextView head = plain(label + "  \u203A");
-        head.setTextColor(color(R.color.text_secondary));
-        head.setTextSize(13f);
-        head.setPadding(0, dp(8), 0, dp(6));
-        head.setContentDescription(label + ", open the steps");
-        head.setOnClickListener(v -> openSteps(label, kept, false));
-        return head;
+        List<String> words = new ArrayList<String>(), titles = new ArrayList<String>();
+        List<Long> secs = new ArrayList<Long>();
+        for (String step : kept) {
+            String[] parts = step.split("\t");
+            long t = -1;
+            if (parts.length > 1) {
+                try {
+                    t = Long.parseLong(parts[1].trim());
+                } catch (NumberFormatException ignored) {
+                    // kept before steps had times
+                }
+            }
+            String id = ai.dvine.agent.StepDetail.id(parts[0]);
+            ai.dvine.agent.StepDetail.Detail d = id == null ? null : ai.dvine.agent.StepDetail.load(getContext().getFilesDir(), id);
+            words.add(ai.dvine.agent.StepDetail.words(parts[0]));
+            titles.add(d == null ? null : d.title);
+            secs.add(t);
+        }
+        for (Row r : rows(ai.dvine.agent.StepGroups.fold(words, titles, secs), words, titles)) {
+            final List<String> mine = new ArrayList<String>(kept.subList(r.from, r.to));
+            final String label = r.label;
+            TextView row = plain("");
+            android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+            int sp = label.indexOf(' ');
+            if (r.grouped && sp > 0) {
+                appendColoured(b, label.substring(0, sp), color(R.color.text_secondary)); // "Ran", dim
+                appendColoured(b, label.substring(sp), color(R.color.text_primary));
+            } else {
+                appendColoured(b, label, color(R.color.text_secondary));
+            }
+            appendColoured(b, "  \u203A", color(R.color.text_secondary));
+            row.setText(b);
+            row.setTextSize(14f);
+            row.setMaxLines(1);
+            row.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.setPadding(0, dp(9), 0, dp(9));
+            row.setContentDescription(label + ", open the steps");
+            final String title = r.grouped ? label : "Steps";
+            row.setOnClickListener(v -> openSteps(title, mine, false));
+            box.addView(row);
+        }
+        return box;
+    }
+
+    /** One row of kept work: its words and which of the kept steps it covers ({@code from} to {@code to}). */
+    static final class Row {
+        final String label;
+        final int from, to;
+        final boolean grouped;
+
+        Row(String label, int from, int to, boolean grouped) {
+            this.label = label;
+            this.from = from;
+            this.to = to;
+            this.grouped = grouped;
+        }
+    }
+
+    /** More plain steps than this in a row fold into one "N steps" row. */
+    static final int PLAIN_RUN = 3;
+
+    /** The rows for folded steps: each group of commands, reads or edits one row; plain steps their own rows. */
+    static List<Row> rows(List<ai.dvine.agent.StepGroups.Group> groups, List<String> words, List<String> titles) {
+        List<Row> out = new ArrayList<Row>();
+        int g = 0;
+        while (g < groups.size()) {
+            ai.dvine.agent.StepGroups.Group group = groups.get(g);
+            int from = group.items.get(0).index;
+            if (group.kind != ai.dvine.agent.StepGroups.Kind.OTHER) {
+                String label = group.label;
+                String title = titles == null || from >= titles.size() ? null : titles.get(from);
+                if (group.kind == ai.dvine.agent.StepGroups.Kind.COMMAND && group.items.size() == 1 && title != null
+                        && title.startsWith("$ ")) {
+                    label = "Ran " + title.substring(2).replace('\n', ' '); // one command: the command itself
+                } else if (group.kind == ai.dvine.agent.StepGroups.Kind.EDIT && label.endsWith(" 1 file")) {
+                    String f = group.items.get(0).target; // one file: named, as "Edited Main.java"
+                    label = group.items.get(0).verb.replace(" file", "") + " " + f.substring(f.lastIndexOf('/') + 1);
+                }
+                out.add(new Row(label, from, group.items.get(group.items.size() - 1).index + 1, true));
+                g++;
+                continue;
+            }
+            int end = g;
+            while (end < groups.size() && groups.get(end).kind == ai.dvine.agent.StepGroups.Kind.OTHER) {
+                end++;
+            }
+            int n = end - g;
+            if (n > PLAIN_RUN) {
+                int to = groups.get(end - 1).items.get(0).index + 1;
+                out.add(new Row(words.get(from) + " and " + (n - 1) + " more steps", from, to, false));
+            } else {
+                for (int k = g; k < end; k++) {
+                    int i = groups.get(k).items.get(0).index;
+                    out.add(new Row(words.get(i), i, i + 1, false));
+                }
+            }
+            g = end;
+        }
+        return out;
     }
 
     private static String stripTimer(String line) {
@@ -1243,6 +1364,9 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void assistant(String persona, String text) {
+        if (working()) {
+            keepSteps(); // a note during the work goes after the steps that led to it
+        }
         int before = book.current().messages.size();
         book.reply(persona, text);
         if (book.current().messages.size() != before) {
@@ -1447,6 +1571,79 @@ public final class ChatPane extends LinearLayout {
             }
         }
         return row;
+    }
+
+    /**
+     * A reply's parts: its paragraphs (split at blank lines), a heading kept with the paragraph under it, code fences
+     * kept whole.
+     */
+    static List<String> paragraphs(String body) {
+        List<String> out = new ArrayList<String>();
+        StringBuilder cur = new StringBuilder();
+        boolean fence = false;
+        String heading = null;
+        for (String line : (body == null ? "" : body).split("\n", -1)) {
+            if (line.trim().startsWith("```")) {
+                fence = !fence;
+            }
+            if (!fence && line.trim().isEmpty() && !line.trim().startsWith("```")) {
+                if (cur.length() > 0) {
+                    String para = cur.toString().trim();
+                    if (isHeading(para)) {
+                        heading = heading == null ? para : heading + "\n" + para;
+                    } else {
+                        out.add(heading == null ? para : heading + "\n" + para);
+                        heading = null;
+                    }
+                    cur.setLength(0);
+                }
+                continue;
+            }
+            cur.append(cur.length() == 0 ? "" : "\n").append(line);
+        }
+        if (cur.length() > 0 || heading != null) {
+            String para = cur.toString().trim();
+            out.add(heading == null ? para : para.isEmpty() ? heading : heading + "\n" + para);
+        }
+        out.removeIf(String::isEmpty);
+        return out;
+    }
+
+    /** "## Results", "**Steps:**": a line that only names what follows. */
+    private static boolean isHeading(String para) {
+        return !para.contains("\n") && (para.startsWith("#") || para.matches("^\\*\\*[^*]{1,60}\\*\\*:?$"));
+    }
+
+    /** Copy and Listen under one part of a reply: that part alone is copied or read aloud. */
+    private View partActions(String piece) {
+        View bar = actions(piece, stripCode(piece));
+        bar.setPadding(0, 0, 0, dp(6));
+        return bar;
+    }
+
+    /** Under a reply of several parts: "Copy all" and "Listen to all", as small words. */
+    private View wholeActions(final String all, final String spoken) {
+        LinearLayout bar = new LinearLayout(getContext());
+        bar.setOrientation(HORIZONTAL);
+        bar.setPadding(0, 0, 0, dp(10));
+        TextView copy = plain("Copy all");
+        TextView listen = plain("Listen to all");
+        for (TextView t : new TextView[]{copy, listen}) {
+            t.setTextSize(12.5f);
+            t.setTextColor(color(R.color.text_secondary));
+            t.setPadding(dp(4), dp(8), dp(14), dp(8));
+            bar.addView(t);
+        }
+        copy.setOnClickListener(v -> {
+            copyText(all);
+            android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
+        });
+        listen.setOnClickListener(v -> {
+            readingStopped();
+            boolean on = host.onReadAloudToggle(spoken);
+            listen.setText(on ? "Pause" : "Listen to all");
+        });
+        return bar;
     }
 
     /** Copy and Listen, once, under the whole of a reply: small icons with 40 dp targets. */

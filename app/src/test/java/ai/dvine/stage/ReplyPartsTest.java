@@ -1,0 +1,49 @@
+package ai.dvine.stage;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.junit.Test;
+
+import ai.dvine.agent.StepGroups;
+
+public class ReplyPartsTest {
+    @Test
+    public void aReplyComesInShortPartsEachHeardOnItsOwn() {
+        List<String> p = ChatPane.paragraphs("First I read the file.\n\n## What I found\n\nThe loop never ends.\n- one\n- two\n\n"
+                + "```java\nint a = 1;\n\nint b = 2;\n```\n\nDone.");
+        assertEquals(4, p.size());
+        assertEquals("First I read the file.", p.get(0));
+        assertEquals("a heading stays with what it names", "## What I found\nThe loop never ends.\n- one\n- two", p.get(1));
+        assertTrue("code stays whole", p.get(2).startsWith("```java") && p.get(2).contains("int b = 2;") && p.get(2).endsWith("```"));
+        assertEquals("Done.", p.get(3));
+        assertEquals(Arrays.asList("One line."), ChatPane.paragraphs("One line."));
+        assertTrue(ChatPane.paragraphs("\n\n").isEmpty());
+    }
+
+    @Test
+    public void stepsBecomeRowsLikeClaudeCode() {
+        List<String> words = Arrays.asList("ls -la", "git status", "Edited app/Main.java", "Searching the web for x",
+                "a", "b", "c", "d");
+        List<String> titles = Arrays.asList("$ ls -la", "$ git status", null, null, null, null, null, null);
+        List<Long> secs = new ArrayList<Long>(Arrays.asList(1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L));
+        List<ChatPane.Row> rows = ChatPane.rows(StepGroups.fold(words, titles, secs), words, titles);
+        assertEquals("Ran 2 commands", rows.get(0).label);
+        assertEquals(0, rows.get(0).from);
+        assertEquals(2, rows.get(0).to);
+        assertEquals("one file edited is named", "Edited Main.java", rows.get(1).label);
+        // five plain steps in a row fold into one row
+        assertEquals("Searching the web for x and 4 more steps", rows.get(2).label);
+        assertEquals(3, rows.get(2).from);
+        assertEquals(8, rows.get(2).to);
+        assertEquals(3, rows.size());
+        // one command alone shows the command
+        List<String> one = Arrays.asList("Checked the branch");
+        List<String> t1 = Arrays.asList("$ git status -sb");
+        assertEquals("Ran git status -sb", ChatPane.rows(StepGroups.fold(one, t1, Arrays.asList(1L)), one, t1).get(0).label);
+    }
+}
