@@ -72,6 +72,10 @@ public final class WorkloadGauge extends View {
     /** Above this, the working memory is summed up and cleared. */
     public static final float HOT = 0.85f;
 
+    public static int colourOf(float load) {
+        return colour(load);
+    }
+
     static int colour(float load) {
         return load >= HOT ? 0xFFE5484D : load >= 0.6f ? 0xFFF5A524 : 0xFF3DD68C;
     }

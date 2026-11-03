@@ -46,6 +46,10 @@ public final class ChatPane extends LinearLayout {
         default void onEdit(String before, String edited) {
             onSend(edited);
         }
+
+        /** The hand-off button was tapped: the task goes to {@code persona} in a new chat of theirs. */
+        default void onHandoff(String persona, String task) {
+        }
     }
 
     private final ChatBook book;
@@ -395,7 +399,7 @@ public final class ChatPane extends LinearLayout {
     }
 
     /** 45 → "45s", 185 → "3m 05s", 3720 → "1h 02m". */
-    static String duration(long secs) {
+    public static String duration(long secs) {
         if (secs < 60) {
             return secs + "s";
         }
@@ -1123,6 +1127,30 @@ public final class ChatPane extends LinearLayout {
         }
         if ("activity".equals(m.kind)) {
             return activityRecord(m);
+        }
+        if ("handoff".equals(m.kind)) {
+            // "Hand to Ibiko": the task goes to him, in a new chat of his
+            String[] parts = (m.body == null ? "" : m.body).split("\n", 2);
+            final String to = parts[0], task = parts.length > 1 ? parts[1] : "";
+            final String name = to.isEmpty() ? "Ibiko" : to.substring(0, 1).toUpperCase(java.util.Locale.US) + to.substring(1);
+            TextView b = plain("Hand to " + name + "  \u203A");
+            b.setTextColor(color(R.color.text_primary));
+            b.setTextSize(14f);
+            b.setBackgroundResource(R.drawable.bg_mode_pill);
+            b.setPadding(dp(16), dp(10), dp(16), dp(10));
+            android.graphics.drawable.Drawable icon = getContext().getDrawable(R.drawable.ic_mode_edits);
+            if (icon != null) {
+                icon = icon.mutate();
+                icon.setBounds(0, 0, dp(16), dp(16));
+                b.setCompoundDrawablesRelative(icon, null, null, null);
+                b.setCompoundDrawablePadding(dp(8));
+            }
+            b.setContentDescription("Hand this task to " + name + ": a new chat of his, where he starts on it");
+            b.setOnClickListener(v -> host.onHandoff(to, task));
+            LinearLayout wrap = new LinearLayout(getContext());
+            wrap.setPadding(0, dp(4), 0, dp(10));
+            wrap.addView(b, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            return wrap;
         }
         if ("file".equals(m.kind)) {
             // an attached file or long paste: a small card on the user's side
