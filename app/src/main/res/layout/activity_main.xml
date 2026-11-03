@@ -67,7 +67,7 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
-            <!-- Ibiko only: whether commands run without asking (Claude Code's auto-accept); tap to switch -->
+            <!-- Ibiko only: its mode (Auto, Accept edits, Plan) as in Claude Code; tap to choose -->
             <TextView
                 android:id="@+id/ibikoMode"
                 android:layout_width="wrap_content"
@@ -77,7 +77,7 @@
                 android:gravity="center"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
-                android:text="Ask"
+                android:text="Accept edits"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp"
                 android:visibility="gone" />

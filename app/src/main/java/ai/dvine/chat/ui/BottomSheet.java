@@ -105,6 +105,14 @@ public final class BottomSheet {
     }
 
     public static Dialog show(Activity a, String title, Item[] items, final Pick pick) {
+        return show(a, title, null, items, -1, pick);
+    }
+
+    /**
+     * A choice of one: a line under the title, and the chosen row ({@code selected}) in the accent colour with a
+     * check mark ({@code -1}: none).
+     */
+    public static Dialog show(Activity a, String title, String subtitle, Item[] items, int selected, final Pick pick) {
         Ui.init(a);
         final Dialog d = new Dialog(a);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -128,6 +136,11 @@ public final class BottomSheet {
             t.setPadding(Ui.dp(a, 24), Ui.dp(a, 4), Ui.dp(a, 24), Ui.dp(a, 8));
             sheet.addView(t);
         }
+        if (subtitle != null) {
+            TextView st = Ui.text(a, subtitle, 13, Ui.SUB, false);
+            st.setPadding(Ui.dp(a, 24), 0, Ui.dp(a, 24), Ui.dp(a, 8));
+            sheet.addView(st);
+        }
         for (int i = 0; i < items.length; i++) {
             final int which = i;
             Item it = items[i];
@@ -144,11 +157,20 @@ public final class BottomSheet {
             LinearLayout words = new LinearLayout(a);
             words.setOrientation(LinearLayout.VERTICAL);
             words.setPadding(Ui.dp(a, 20), 0, 0, 0);
-            words.addView(Ui.text(a, it.name, 16, Ui.TEXT, false));
+            boolean on = i == selected;
+            words.addView(Ui.text(a, it.name, 16, on ? Ui.ACCENT : Ui.TEXT, false));
             if (it.about != null && !it.about.isEmpty()) {
-                words.addView(Ui.text(a, it.about, 13, Ui.SUB, false));
+                words.addView(Ui.text(a, it.about, 13, on ? Ui.ACCENT : Ui.SUB, false));
             }
             row.addView(words, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            if (on) {
+                ImageView check = new ImageView(a);
+                check.setImageResource(ai.dvine.R.drawable.ic_check);
+                check.setColorFilter(Ui.ACCENT);
+                row.addView(check, new LinearLayout.LayoutParams(Ui.dp(a, 22), Ui.dp(a, 22)));
+                row.setSelected(true);
+            }
+            row.setContentDescription(it.name + (on ? ", chosen" : "") + (it.about == null ? "" : ". " + it.about));
             row.setOnClickListener(v -> {
                 d.dismiss();
                 pick.picked(which);

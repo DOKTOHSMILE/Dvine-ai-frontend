@@ -543,10 +543,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             });
         android.view.View ibikoMode = findViewById(R.id.ibikoMode);
         if (ibikoMode != null)
-            ibikoMode.setOnClickListener(v -> {
-                prefs.edit().putBoolean("auto_accept", !prefs.getBoolean("auto_accept", false)).apply();
-                showIbikoMode(true);
-            });
+            ibikoMode.setOnClickListener(v -> chooseIbikoMode());
         android.view.View connectors = findViewById(R.id.btnConnectors);
         if (connectors != null)
             connectors.setOnClickListener(v -> {
@@ -1676,13 +1673,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * An agent at work on the phone's files: Ibiko with every tool (write, run, git), or Obi or Ivie only reading
      * ({@code readOnly}). Each step shows in the chat; the stop button stops it between steps.
      */
-    private void runAgent(final String task, final String persona, final boolean readOnly) {
+    private void runAgent(final String task, final String persona, final boolean onlyReading) {
+        // Ibiko in Plan mode reads and hands in a plan; "continue" carries on with the same planning
+        final boolean planning = !onlyReading && "ibiko".equals(persona) && ai.dvine.agent.IbikoMode.of(prefs) == ai.dvine.agent.IbikoMode.PLAN;
+        final boolean readOnly = onlyReading || planning;
         final int id = ++askId;
         final long since = System.currentTimeMillis(); // what this reply opens or makes is shown under it
         stopPlay();
         stage.setMode(StageMode.THINKING);
         String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
-        armThink(readOnly ? who + " is reading the files" : who + " is working", who + " is working");
+        armThink(planning ? who + " is planning" : readOnly ? who + " is reading the files" : who + " is working", who + " is working");
         final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
         final String earlier = chats == null ? "" : chats.transcript(model.remoteOn() ? 12000 : Math.max(1500, model.window()),
@@ -1766,7 +1766,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }, host, tools,
                     model.window() * 3);
             agent.useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly)
-                    .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
+                    .planning(planning).compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             if (carriesOn(task)) {
                 agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
             }
@@ -1783,6 +1783,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 endThink();
                 attachWork(readOnly ? null : agent.changed(), since); // the diff, pull requests and files, under this reply
                 play(LocalTurn.speakAs(persona, answer), null);
+                if (planning && answer != null && !answer.trim().isEmpty() && !host.stopped()) {
+                    approvePlan(task, answer);
+                }
             });
         }, "dvine-agent").start();
     }
@@ -1818,19 +1821,58 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** The Auto pill in the header: shown for Ibiko, filled when commands run without asking ("Ask" when they wait). */
+    /** The mode pill in the header, for Ibiko: Auto (filled), Accept edits or Plan; a tap opens the choice. */
     private void showIbikoMode(boolean visible) {
         android.widget.TextView mode = findViewById(R.id.ibikoMode);
         if (mode == null) {
             return;
         }
         mode.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
-        boolean auto = prefs != null && prefs.getBoolean("auto_accept", false);
-        mode.setText(auto ? "Auto" : "Ask");
-        mode.setContentDescription(auto ? "Auto-accept on: commands run without asking. Tap to switch."
-                : "Ask before commands. Tap to switch to auto-accept.");
+        ai.dvine.agent.IbikoMode m = ai.dvine.agent.IbikoMode.of(prefs);
+        boolean auto = m == ai.dvine.agent.IbikoMode.AUTO;
+        mode.setText(m.label);
+        mode.setContentDescription("Ibiko's mode: " + m.label + ". " + m.about + ". Tap to choose.");
         mode.setSelected(auto);
         mode.setTextColor(getColor(auto ? R.color.on_accent : R.color.text_secondary));
+    }
+
+    /** "Select mode": Auto, Accept edits or Plan, the current one checked, as in Claude Code. */
+    private void chooseIbikoMode() {
+        final ai.dvine.agent.IbikoMode[] all = ai.dvine.agent.IbikoMode.values();
+        int[] icons = {R.drawable.ic_mode_auto, R.drawable.ic_mode_edits, R.drawable.ic_mode_plan};
+        ai.dvine.chat.ui.BottomSheet.Item[] items = new ai.dvine.chat.ui.BottomSheet.Item[all.length];
+        for (int i = 0; i < all.length; i++) {
+            items[i] = new ai.dvine.chat.ui.BottomSheet.Item(icons[i], all[i].label, all[i].about);
+        }
+        ai.dvine.chat.ui.BottomSheet.show(this, "Select mode", "Choose how Ibiko should work", items,
+                ai.dvine.agent.IbikoMode.of(prefs).ordinal(), which -> {
+                    ai.dvine.agent.IbikoMode.set(prefs, all[which]);
+                    showIbikoMode("ibiko".equals(stage.agent()));
+                });
+    }
+
+    /**
+     * Plan mode handed in a plan: the user carries it out (with Auto or Accept edits) or keeps planning. Carrying it
+     * out runs Ibiko on the plan with every tool.
+     */
+    private void approvePlan(final String task, final String plan) {
+        ai.dvine.chat.ui.BottomSheet.Item[] items = {
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mode_edits, "Yes, accept edits", "Changes files; asks before commands and pushes"),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mode_auto, "Yes, auto", "Runs everything without asking"),
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mode_plan, "No, keep planning", "Tell Ibiko what to change in the plan")};
+        ai.dvine.chat.ui.BottomSheet.show(this, "Carry out Ibiko's plan?", null, items, -1, which -> {
+            if (which == 2) {
+                return;
+            }
+            ai.dvine.agent.IbikoMode.set(prefs, which == 0 ? ai.dvine.agent.IbikoMode.EDITS : ai.dvine.agent.IbikoMode.AUTO);
+            showIbikoMode(true);
+            String go = "Carry out this plan now, step by step, and check it works.\n\nThe task: " + task + "\n\nThe plan:\n" + plan;
+            if (chatPane != null && chats != null) {
+                chats.add("user", "text", which == 0 ? "Carry out the plan (accept edits)" : "Carry out the plan (auto)", "ibiko");
+                chatPane.show();
+            }
+            runAgent(go, "ibiko", false);
+        });
     }
 
     /** The connectors' tools, as lines for the brain (empty when none is on). */
@@ -2119,9 +2161,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             case STOP:
                 stopGeneration();
                 break;
+            case MODE_PLAN:
+                ai.dvine.agent.IbikoMode.set(prefs, ai.dvine.agent.IbikoMode.PLAN);
+                showIbikoMode("ibiko".equals(stage.agent()));
+                play(LocalTurn.speakAs(stage.agent(), "Plan mode is on: Ibiko reads and makes a plan, and asks before changing anything."), null);
+                break;
             case AUTO_ON:
             case AUTO_OFF:
-                prefs.edit().putBoolean("auto_accept", c == ai.dvine.turn.Meaning.Command.AUTO_ON).apply();
+                ai.dvine.agent.IbikoMode.set(prefs, c == ai.dvine.turn.Meaning.Command.AUTO_ON ? ai.dvine.agent.IbikoMode.AUTO
+                        : ai.dvine.agent.IbikoMode.EDITS);
                 showIbikoMode("ibiko".equals(stage.agent()));
                 play(LocalTurn.speakAs(stage.agent(), c == ai.dvine.turn.Meaning.Command.AUTO_ON
                         ? "Auto-accept is on: Ibiko runs commands, pushes and pull requests without asking."

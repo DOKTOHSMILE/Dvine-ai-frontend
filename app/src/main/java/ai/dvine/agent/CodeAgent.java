@@ -120,14 +120,26 @@ public final class CodeAgent {
         return changed;
     }
 
+    private boolean planning;
+
+    /** Plan mode: Ibiko only reads, then hands in a plan for the user to approve ({@link IbikoMode#PLAN}). */
+    public CodeAgent planning(boolean on) {
+        planning = on;
+        if (on) {
+            readOnly = true;
+        }
+        return this;
+    }
+
     public String system() {
-        return (readOnly
+        return (planning ? "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's phone. "
+                + IbikoMode.PLAN_RULES + "\n" : "") + (planning ? "" : (readOnly
                 ? "You are " + persona + ", reading the files on the user's phone (the workspace: cloned repositories and"
                         + " projects) to answer them. Any model can do this: the files come to you as text through the tools."
                         + " You only read here; changing files, running commands and pushing are Ibiko's work."
                 : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's phone. You have a project"
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
-                        + " then check it.")
+                        + " then check it."))
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
@@ -555,7 +567,8 @@ public final class CodeAgent {
 
     private String carryOut(Call c) throws IOException {
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git"))) {
-            return "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
+            return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."
+                    : "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
         }
         switch (c.name) {
             case "list_files": {

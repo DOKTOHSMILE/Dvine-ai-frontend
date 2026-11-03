@@ -508,6 +508,35 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void ibikosModeIsChosenFromASheetLikeClaudeCode() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        android.widget.TextView pill = c.get().findViewById(ai.dvine.R.id.ibikoMode);
+        pill.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        for (String row : new String[]{"Select mode", "Choose how Ibiko should work", "Auto", "Accept edits", "Plan"}) {
+            org.junit.Assert.assertNotNull(row, find(sheet.getWindow().getDecorView(), row));
+        }
+        tapRow(sheet, "Plan");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals(ai.dvine.agent.IbikoMode.PLAN, ai.dvine.agent.IbikoMode.of(prefs));
+        org.junit.Assert.assertEquals("Plan", pill.getText().toString());
+        pill.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        tapRow(org.robolectric.shadows.ShadowDialog.getLatestDialog(), "Auto");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals(ai.dvine.agent.IbikoMode.AUTO, ai.dvine.agent.IbikoMode.of(prefs));
+        org.junit.Assert.assertTrue(prefs.getBoolean("auto_accept", false)); // the older switch means the same
+        ai.dvine.agent.IbikoMode.set(prefs, ai.dvine.agent.IbikoMode.PLAN);
+        org.junit.Assert.assertTrue(prefs.getBoolean("auto_accept", false)); // plan keeps the choice for carrying it out
+        ai.dvine.agent.IbikoMode.set(prefs, ai.dvine.agent.IbikoMode.EDITS);
+        org.junit.Assert.assertFalse(prefs.getBoolean("auto_accept", true));
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;
