@@ -184,6 +184,9 @@ public final class SettingsActivity extends AppCompatActivity {
         ibiko.addView(toggle("Keep working until done", "Long jobs run for hours if needed: plan, build, test, with a short progress"
                 + " note in the chat every few steps. Off: Ibiko stops after one batch of steps.", "ibiko_keep_going", true, null),
                 Ui.wide(this, 10));
+        ibiko.addView(toggle("Mini agents for heavy jobs", "Audits, research and whole-repo reviews are split into parts; a fresh"
+                + " helper takes each in turn (on the phone's model too) and its findings come as it finishes.", "mini_agents", true, null),
+                Ui.wide(this, 10));
         final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
         ibiko.addView(action("Clear Ibiko's workspace", "Deletes the cloned repositories and files on this phone (" + bytes(size(ws)) + ").",
                 () -> confirm("Delete everything in Ibiko's workspace? Unpushed changes are lost.", () -> {
