@@ -64,8 +64,23 @@ public final class LocalModel {
         }
     }
 
+    /** The longest the phone's model may spend reading a question before its first word. */
+    static final long READ_MS = 600_000;
+
     /** How many times a reply that is still too long is cut down further and tried again. */
     static final int FIT_TRIES = 4;
+
+    /**
+     * The model's work runs at foreground priority: its threads (llama.cpp's own are started from this one and take
+     * its priority) aren't pushed aside by the phone's background work, which made replies lag.
+     */
+    static void raisePriority() {
+        try {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND);
+        } catch (Throwable ignored) {
+            // not on a phone (desktop tests) or not allowed: the default priority still works
+        }
+    }
 
     /** A cautious count of characters per token, for fitting text into the phone's own model's memory. */
     static final int CHARS_PER_TOKEN = 3;
@@ -235,25 +250,20 @@ public final class LocalModel {
      * The memory to load the model with, in tokens. A loaded model with another size is freed (true: load it again
      * with {@link #load}); otherwise the size is used at the next load.
      */
-    public synchronized boolean context(int tokens) {
+    public boolean context(int tokens) {
+        // never takes the model's lock: it is called on the main thread, and a model being loaded (seconds, or much
+        // longer for a big one) holds the lock; the change is applied by the next load(), which frees and reloads
         int t = Math.max(LOCAL_WINDOW, tokens);
         if (t == contextTokens) {
             return false;
         }
         contextTokens = t;
         advisedFor = null;
-        if (handle != 0 && loadedContext != t) {
-            NativeLlm.nFree(handle);
-            handle = 0;
-            loadedContext = 0;
-            history.clear();
-            if (state == State.READY) {
-                state = State.INSTALLED;
-            }
-            return true;
-        }
-        return false;
+        return handle != 0 && askedAtLoad != t;
     }
+
+    /** The memory asked for when the loaded model was loaded (it may have settled for less). */
+    private volatile int askedAtLoad;
 
     /** What to tell the user once after a load that had to settle for less memory; null when there is nothing. */
     public String takeMemoryNote() {
@@ -319,8 +329,16 @@ public final class LocalModel {
 
     /** Loads the installed model into memory (blocking, a few seconds). */
     public synchronized boolean load(int threads) {
-        if (state == State.READY) {
+        if (state == State.READY && askedAtLoad == contextTokens) {
             return true;
+        }
+        if (handle != 0) {
+            // loaded with another memory size: freed, and loaded again below with the one asked for now
+            NativeLlm.nFree(handle);
+            handle = 0;
+            loadedContext = 0;
+            history.clear();
+            state = State.INSTALLED;
         }
         if (!installed()) {
             state = state == State.UNSUPPORTED ? state : State.NOT_INSTALLED;
@@ -333,6 +351,8 @@ public final class LocalModel {
         }
         state = State.LOADING;
         int want = contextTokens;
+        askedAtLoad = want;
+        raisePriority();
         handle = NativeLlm.nLoad(file.getPath(), want, threads);
         if (handle == 0 && want > LOCAL_WINDOW) {
             // not enough memory for that much: the smallest working memory still runs, and the user is told
@@ -396,6 +416,7 @@ public final class LocalModel {
             asked = learned + "\n\n" + (context == null ? "" : context + "\n\n") + "The user says: " + question;
         }
         final int ticket = epoch.get();
+        raisePriority();
         for (int attempt = 0; attempt < FIT_TRIES + 2; attempt++) {
             List<String[]> turns = new ArrayList<String[]>(history);
             turns.add(new String[]{"user", asked});
@@ -463,18 +484,29 @@ public final class LocalModel {
         int reply = Math.min(maxTokens, Math.max(256, localWindow() / 4));
         int budget = (localWindow() - reply) * CHARS_PER_TOKEN - system.length() - 200;
         String local = null;
-        for (int attempt = 0; attempt < FIT_TRIES; attempt++) {
+        raisePriority();
+        String sys = system;
+        boolean thoughtOut = false;
+        for (int attempt = 0; attempt < FIT_TRIES + 1; attempt++) {
             final String fitted = fit(prompt, budget);
             final int room = reply;
+            final String asSystem = sys;
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
-            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(system), new String[]{"user"},
+            String answer = withTimeout(counting(sink, pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(asSystem), new String[]{"user"},
                     new String[]{ai.dvine.chat.Attachments.withoutImages(fitted)}, room, 0.35f, wrapped));
             recordLocal(system, java.util.Collections.<String[]>emptyList(), fitted, answer, pieces[0], began);
             if (answer != null && !answer.trim().isEmpty()) {
                 return answer.trim();
             }
             local = NativeLlm.nError(handle);
+            if ((local == null || local.isEmpty()) && spec.thinks && !thoughtOut && !sys.contains("/no_think") && !"stopped".equals(problem)) {
+                // nothing written and no error: a thinking model (Qwen3) spent its whole allowance thinking. Once
+                // more, answering straight away
+                thoughtOut = true;
+                sys = sys + " /no_think";
+                continue;
+            }
             if (local == null || !local.contains("too long")) {
                 break;
             }
@@ -496,7 +528,8 @@ public final class LocalModel {
      */
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
         final int mine = replies.open();
-        final ReplyWatch watch = new ReplyWatch(12_000, 180_000, System.currentTimeMillis());
+        // 12 s of silence while writing, 3 minutes of writing, and up to 10 minutes reading a long question first
+        final ReplyWatch watch = new ReplyWatch(12_000, 180_000, READ_MS, System.currentTimeMillis());
         final int ticket = epoch.get();
         NativeLlm.Sink wrapped = text -> {
             if (ticket != epoch.get()) {
@@ -514,7 +547,9 @@ public final class LocalModel {
                 }
                 if (watch.expired(System.currentTimeMillis()) && replies.mine(mine)) {
                     String why = watch.reason(System.currentTimeMillis());
-                    problem = "cap".equals(why) ? "the reply took too long" : "the reply went quiet";
+                    problem = "cap".equals(why) ? "the reply took too long" : "reading".equals(why)
+                            ? spec.weights + " took over " + READ_MS / 60_000 + " minutes to read the question on this phone; a smaller model,"
+                            + " less memory (Settings \u203A Advanced) or an API would be quicker" : "the reply went quiet";
                     cancel();
                     return;
                 }
@@ -751,6 +786,69 @@ public final class LocalModel {
         if (state != State.UNSUPPORTED) {
             state = installed() ? State.INSTALLED : State.NOT_INSTALLED;
         }
+    }
+
+    /** One speed test of the phone's own model: how long it took to start, to say its first word, and to write. */
+    public static final class Speed {
+        public final String weights;
+        public final int window, pieces;
+        public final long loadMs, firstMs, totalMs;
+
+        Speed(String weights, int window, long loadMs, long firstMs, long totalMs, int pieces) {
+            this.weights = weights;
+            this.window = window;
+            this.loadMs = loadMs;
+            this.firstMs = firstMs;
+            this.totalMs = totalMs;
+            this.pieces = pieces;
+        }
+
+        /** Tokens written a second, once writing began (the reading of the question left out). */
+        public float writing() {
+            long ms = totalMs - firstMs;
+            return pieces <= 1 || ms <= 0 ? 0f : (pieces - 1) * 1000f / ms;
+        }
+
+        /** In words: "Gemma 3 1B: first word after 1.2 s, then 8.4 tokens a second (96 in 12.5 s); 8,192 tokens of memory." */
+        public String words() {
+            return String.format(java.util.Locale.US, "%s: %sfirst word after %.1f s, then %.1f tokens a second (%d in %.1f s); %,d tokens of memory.",
+                    weights, loadMs > 0 ? String.format(java.util.Locale.US, "started in %.1f s, ", loadMs / 1000f) : "",
+                    firstMs / 1000f, writing(), pieces, totalMs / 1000f, window);
+        }
+    }
+
+    /** The question the speed test asks: the same every time, so results can be compared. */
+    static final String SPEED_PROMPT = "Describe a busy market in Lagos in about eighty words.";
+
+    /**
+     * Measures the phone's own model (never an API): loads it if needed, then writes up to {@code tokens} tokens for
+     * the same question. Null when it can't run (not on the phone, or it failed).
+     */
+    public synchronized Speed speedTest(int threads, int tokens) {
+        long t0 = System.currentTimeMillis();
+        boolean wasLoaded = state == State.READY;
+        if (!load(threads)) {
+            return null;
+        }
+        long loadMs = wasLoaded ? 0 : System.currentTimeMillis() - t0;
+        final long[] first = {-1};
+        final int[] pieces = {0};
+        final long start = System.currentTimeMillis();
+        String out = NativeLlm.nReply(handle, spec.prompt("You are a helpful assistant. /no_think"), new String[]{"user"},
+                new String[]{SPEED_PROMPT}, tokens, 0.7f, text -> {
+                    if (first[0] < 0) {
+                        first[0] = System.currentTimeMillis() - start;
+                    }
+                    pieces[0]++;
+                    return true;
+                });
+        long total = System.currentTimeMillis() - start;
+        if (out == null || pieces[0] == 0) {
+            problem = NativeLlm.nError(handle);
+            return null;
+        }
+        noteSpeed(pieces[0], total);
+        return new Speed(spec.weights, localWindow(), loadMs, Math.max(0, first[0]), total, pieces[0]);
     }
 
     /** Whether {@code m}'s file is on the phone, whole. */

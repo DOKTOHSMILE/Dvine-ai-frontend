@@ -88,6 +88,23 @@ public final class ChatBook {
         return s;
     }
 
+    /**
+     * An empty chat for {@code persona} to start on (app opened, new chat): the latest one that has nothing in it yet,
+     * or a new one, so empty chats don't pile up in the list.
+     */
+    public synchronized Section fresh(String persona) {
+        String p = personaOf(persona);
+        for (int i = sections.size() - 1; i >= 0; i--) {
+            Section s = sections.get(i);
+            if (!s.archived && s.messages.isEmpty() && p.equals(s.persona)) {
+                currentId = s.id;
+                save();
+                return s;
+            }
+        }
+        return open("New chat", p);
+    }
+
     public synchronized boolean use(String id) {
         for (Section s : sections) {
             if (s.id.equals(id)) {

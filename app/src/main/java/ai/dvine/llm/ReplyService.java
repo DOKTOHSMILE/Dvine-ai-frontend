@@ -25,13 +25,49 @@ public final class ReplyService extends Service {
 
     private PowerManager.WakeLock wake;
 
+    /** How many pieces of model work hold the service (a reply, a model loading, a message being read…). */
+    private static int holders;
+
     public static void start(Context context) {
-        Intent intent = new Intent(context, ReplyService.class).setAction(ACTION_START);
-        context.startForegroundService(intent);
+        hold(context);
     }
 
     public static void stop(Context context) {
-        context.startService(new Intent(context, ReplyService.class).setAction(ACTION_STOP));
+        release(context);
+    }
+
+    /**
+     * Model work starts: the app is kept in the foreground (full speed, not throttled or stopped when it leaves the
+     * screen) until every piece of work that held it has let go.
+     */
+    public static synchronized void hold(Context context) {
+        if (holders++ == 0) {
+            try {
+                context.startForegroundService(new Intent(context, ReplyService.class).setAction(ACTION_START));
+            } catch (RuntimeException e) {
+                // not allowed to start now (rare): the work still runs, only without the foreground guarantee
+            }
+        }
+    }
+
+    /** One piece of model work is done; the service stops when none is left. */
+    public static synchronized void release(Context context) {
+        if (holders <= 0) {
+            holders = 0;
+            return;
+        }
+        if (--holders == 0) {
+            try {
+                context.startService(new Intent(context, ReplyService.class).setAction(ACTION_STOP));
+            } catch (RuntimeException ignored) {
+                // already stopped
+            }
+        }
+    }
+
+    /** Whether any model work holds the service now. */
+    public static synchronized boolean held() {
+        return holders > 0;
     }
 
     @Override

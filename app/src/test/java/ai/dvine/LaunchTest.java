@@ -229,6 +229,8 @@ public class LaunchTest {
             tapRow(sheet, "Phi-4");
             tapRow(org.robolectric.shadows.ShadowDialog.getLatestDialog(), "Phi-4 mini");
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+            org.junit.Assert.assertSame(ai.dvine.llm.ModelSpec.PHI_4_MINI, hub.chosen()); // shown at once
+            hub.worker.submit(() -> { }).get(5, java.util.concurrent.TimeUnit.SECONDS); // the switch itself, on the model's thread
             org.junit.Assert.assertSame(ai.dvine.llm.ModelSpec.PHI_4_MINI, hub.model.spec);
             c.get().getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "On this phone: Phi-4 mini",
                     android.view.View.FIND_VIEWS_WITH_TEXT);
@@ -251,6 +253,7 @@ public class LaunchTest {
             org.junit.Assert.assertFalse(kept.exists());
         } finally {
             hub.choose(c.get(), ai.dvine.llm.ModelSpec.QWEN3_1_7B, false);
+            hub.worker.submit(() -> { }).get(5, java.util.concurrent.TimeUnit.SECONDS);
             c.pause().stop().destroy();
         }
     }
@@ -387,6 +390,42 @@ public class LaunchTest {
         gone.get().getWindow().getDecorView().findViewsWithText(said, "This picture isn't on the phone any more.", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertEquals(1, said.size());
         gone.pause().stop().destroy();
+    }
+
+    @Test
+    public void theAppAndEveryNewChatOpenEmptyOnObi() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        // Obi first in the switch, chosen, on an empty chat
+        android.view.ViewGroup tabs = c.get().findViewById(ai.dvine.R.id.personaTabs);
+        org.junit.Assert.assertEquals(ai.dvine.R.id.tabObi, tabs.getChildAt(0).getId());
+        org.junit.Assert.assertEquals("Obi", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabObi)).getText().toString());
+        org.junit.Assert.assertEquals("obi", chats.current().persona);
+        org.junit.Assert.assertTrue(chats.current().messages.isEmpty());
+        // work going on in Ibiko's chat, then New chat: it starts clean, on Obi, nothing carried over
+        c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
+        chats.add("user", "text", "Audit my repo", "ibiko");
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        pane.activityStep("Cloned me/app");
+        int before = chats.sections().size();
+        c.get().findViewById(ai.dvine.R.id.btnNewChat).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("obi", chats.current().persona);
+        org.junit.Assert.assertTrue(chats.current().messages.isEmpty());
+        java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+        c.get().getWindow().getDecorView().findViewsWithText(found, "Cloned me/app", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertTrue(found.isEmpty());
+        // a second New chat reuses the empty one instead of piling up blank chats
+        int after = chats.sections().size();
+        c.get().findViewById(ai.dvine.R.id.btnNewChat).performClick();
+        org.junit.Assert.assertEquals(after, chats.sections().size());
+        org.junit.Assert.assertTrue(after <= before + 1);
+        c.pause().stop().destroy();
     }
 
     /** Taps the row of a bottom sheet whose name is {@code name}. */

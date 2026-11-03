@@ -129,11 +129,11 @@ public final class CodeAgent {
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it.")
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
-                + "Tools (use this exact form):\n"
+                + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
-                + "<tool name=\"read_file\" path=\"src/app.py\"/>\n"
-                + (readOnly ? "" : "<tool name=\"write_file\" path=\"src/app.py\">the whole new content</tool>\n"
-                        + "<tool name=\"edit_file\" path=\"src/app.py\"><old>exact text now in the file</old><new>its replacement</new></tool>\n")
+                + "<tool name=\"read_file\" path=\"FOLDER/FILE\"/>\n"
+                + (readOnly ? "" : "<tool name=\"write_file\" path=\"FOLDER/FILE\">the whole new content</tool>\n"
+                        + "<tool name=\"edit_file\" path=\"FOLDER/FILE\"><old>exact text now in the file</old><new>its replacement</new></tool>\n")
                 + "<tool name=\"search\" query=\"text to find\"/>\n"
                 + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command (sh, toybox: ls cat grep sed find wc head tail mkdir cp mv rm)\"/>\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
