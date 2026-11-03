@@ -146,6 +146,25 @@ public final class MemoryActivity extends AppCompatActivity {
             c.addView(row("“" + r[0] + "”", "does “" + r[1] + "”", () -> intents.forget(r[0])));
         }
 
+        // ---- what was done in the user's name (kept, not forgettable here: a record)
+        java.util.List<String> done = ai.dvine.act.ActionLog.read(getFilesDir());
+        LinearLayout a = section("Actions done in your name", 0, null, null);
+        if (done.isEmpty()) {
+            empty(a, "None yet. Posts, shares and copies DVINE carries out are listed here, with whether you approved them.");
+        }
+        for (int i = 0; i < Math.min(done.size(), 50); i++) {
+            String[] f = done.get(i).split("\t", 6);
+            if (f.length < 6) {
+                continue;
+            }
+            TextView what = Ui.text(this, f[5], 15, Ui.TEXT, false);
+            what.setPadding(0, Ui.dp(this, 8), 0, 0);
+            a.addView(what);
+            TextView sub = Ui.text(this, f[0] + " \u00B7 " + f[1] + " \u00B7 " + f[2] + " \u00B7 " + f[3] + " \u00B7 " + f[4], 12, Ui.SUB, false);
+            sub.setPadding(0, 0, 0, Ui.dp(this, 8));
+            a.addView(sub);
+        }
+
         TextView more = Ui.text(this, "Answers learned from the API models are under Usage and learning.", 13, Ui.SUB, false);
         more.setPadding(Ui.dp(this, 6), Ui.dp(this, 18), Ui.dp(this, 6), 0);
         body.addView(more);

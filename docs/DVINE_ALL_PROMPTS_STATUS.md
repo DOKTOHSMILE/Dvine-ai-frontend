@@ -147,6 +147,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 114 | Add projects and workspace to the drawer (samples: Claude, Grok, Gemini, Meta AI, ChatGPT, DeepSeek) | P12 | Built (Robolectric) | 0.73.0 |
 | 115 | Drop replies bit by bit while processing; a professional live thinking icon; the voice must not read format characters; a live backup so a crash doesn't restart a long process | P12 | Built (Robolectric) | 0.74.0 |
 | 116 | The 3 think tanks all processing together for better output (spec item 1, extended) | P12 | Built (JVM + desktop model) | 0.75.0 |
+| 117 | Social posting with approval; or on my account without asking via an auto-approve setting (staged actions first) | P12 | Built (Robolectric) | 0.76.0: staged actions, auto-approve, action log |
 
 ## Still open, in the order that matters
 
