@@ -1773,8 +1773,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         new Thread(() -> {
             final StringBuilder live = new StringBuilder();
             final long[] shown = {0};
-            ai.dvine.agent.CodeAgent agent = new ai.dvine.agent.CodeAgent(workspace,
-                    new ai.dvine.agent.CodeAgent.Brain() {
+            final ai.dvine.agent.CodeAgent.Brain brain = new ai.dvine.agent.CodeAgent.Brain() {
                         @Override
                         public String ask(String system, String transcript) {
                             return asked(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
@@ -1837,17 +1836,52 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         public String why() {
                             return model.problem(); // shown with "the model didn't answer", so the cause is visible
                         }
-                    }, host, tools,
-                    model.window() * 3);
-            agent.useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)).as(who, readOnly)
-                    .planning(planning).compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
-            if (carriesOn(task)) {
-                agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
+                    };
+            // long work (Ibiko changing things): rounds of steps, a progress note in the chat after each, until it is
+            // done, stopped, or the time limit; the phone's foreground service keeps it going while minimised
+            final boolean rounds = !readOnly && "ibiko".equals(persona) && prefs.getBoolean("ibiko_keep_going", true);
+            final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,
+                    model.window() * 3).useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)))
+                    .steps(rounds ? Math.min(ROUND_STEPS, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
+                    .as(who, readOnly).planning(planning).keepGoing(rounds)
+                    .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
+            ai.dvine.llm.ReplyService.hold(this);
+            final java.util.List<String> changed = new java.util.ArrayList<String>();
+            ai.dvine.agent.CodeAgent agent = make.get();
+            String result;
+            try {
+                if (carriesOn(task)) {
+                    agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
+                }
+                result = agent.run(task, earlier);
+                long began = System.currentTimeMillis();
+                int round = 1;
+                while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS
+                        && System.currentTimeMillis() - began < MAX_WORK_MS) {
+                    saveAgentWork(persona, agent.work());
+                    changed.addAll(agent.changed());
+                    final String note = result;
+                    final int r = round;
+                    handler.post(() -> progressNote(id, persona, r, note));
+                    String sofar = agent.work();
+                    agent = make.get();
+                    agent.resume(sofar);
+                    result = agent.run(CARRY_ON, "");
+                    round++;
+                }
+                if (rounds && agent.outOfSteps()) {
+                    result = result + "\n\n(" + (System.currentTimeMillis() - began >= MAX_WORK_MS ? "Stopped after "
+                            + MAX_WORK_MS / 3_600_000 + " hours" : "Paused after " + round + " rounds")
+                            + ". Say \u201ccontinue\u201d to keep going.)";
+                }
+            } finally {
+                ai.dvine.llm.ReplyService.release(this);
             }
-            final String answer = agent.run(task, earlier);
+            final String answer = result;
+            changed.addAll(agent.changed());
             saveAgentWork(persona, agent.work());
             if (!readOnly) {
-                recordIbikoFiles(workspace, agent.changed());
+                recordIbikoFiles(workspace, changed);
             }
             handler.post(() -> {
                 model.coding = false;
@@ -1855,13 +1889,33 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 endThink();
-                attachWork(readOnly ? null : agent.changed(), since); // the diff, pull requests and files, under this reply
+                attachWork(readOnly ? null : changed, since); // the diff, pull requests and files, under this reply
                 play(LocalTurn.speakAs(persona, answer), null);
                 if (planning && answer != null && !answer.trim().isEmpty() && !host.stopped()) {
                     approvePlan(task, answer);
                 }
             });
         }, "dvine-agent").start();
+    }
+
+    /** Steps in one round of long work: a progress note in the chat after each. */
+    static final int ROUND_STEPS = 12;
+    /** Long work stops (and says how to go on) after this long, or this many rounds. */
+    static final long MAX_WORK_MS = 8L * 3_600_000;
+    static final int MAX_ROUNDS = 400;
+    static final String CARRY_ON = "Carry on with the work from where you stopped. Read PLAN.md if there is one and go on with"
+            + " the next unticked item; test what you build.";
+
+    /**
+     * A round of long work ended: its progress note goes into the chat now, as a message of its own, so the user
+     * sees what is happening without waiting for the end; the work goes on underneath.
+     */
+    private void progressNote(int id, String persona, int round, String note) {
+        if (id != askId || chatPane == null || note == null || note.trim().isEmpty()) {
+            return;
+        }
+        chatPane.activityStep("Progress note " + round + " posted");
+        chatPane.assistant(persona, note.trim());
     }
 
     /** "continue", "go on", "give me the result", "what did you find": the last task goes on, not a new one. */
