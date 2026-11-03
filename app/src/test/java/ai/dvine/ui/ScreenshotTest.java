@@ -69,6 +69,13 @@ public class ScreenshotTest {
                 .create().start().resume().visible();
         shoot(us.get(), "5_usage");
         us.pause().stop().destroy();
+        android.content.Context app = org.robolectric.RuntimeEnvironment.getApplication();
+        ai.dvine.social.SocialWeb.accounts(app).add(ai.dvine.social.Platform.X, "Work", System.currentTimeMillis());
+        ai.dvine.social.SocialWeb.accounts(app).add(ai.dvine.social.Platform.X, "Personal", System.currentTimeMillis());
+        ActivityController<ai.dvine.chat.ui.SocialActivity> so = Robolectric.buildActivity(ai.dvine.chat.ui.SocialActivity.class)
+                .create().start().resume().visible();
+        shoot(so.get(), "6_social");
+        so.pause().stop().destroy();
         assertTrue(new File(OUT, "1_chat_empty.png").length() > 0);
     }
 

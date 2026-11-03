@@ -155,6 +155,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 122 | Obi/Ivie refer Ibiko's tasks with a button that moves it to a new Ibiko chat; mini agents offline, online and API for maximum performance; other files and zip/unzip; the stress indicator's tap shows stress data and the agents working with code names | P12 | Built (Robolectric) | 0.81.0 |
 | 123 | Obi makes plans, Ivie matches them with real-world behaviour and works on UI/UX, Ibiko executes when it is about building something; refresh every 5 s | P12 | Built (JVM) | 0.81.1 |
 | 124 | Interpreter: non-English (Pidgin, Yoruba, French) put into English for the model and the answer back into the user's language, online and offline | P12 | Built (JVM + desktop model) | 0.82.0 |
+| 125 | SMM part 1: sign in to Facebook, X, Instagram and Reddit in the app, several accounts each, limits against bans, the model searches with the accounts, social posts in fact checks | P12 | Built (Robolectric) | 0.83.0 |
 
 ## Still open, in the order that matters
 
