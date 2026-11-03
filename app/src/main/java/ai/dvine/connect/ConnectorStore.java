@@ -201,6 +201,8 @@ public final class ConnectorStore {
             }
             t.add(new Connectors.Tool("social.search", "the newest posts about something on the user's signed-in social accounts ("
                     + names + "): what people say, not checked facts", "network: words (x: lagos flood), or words for all"));
+            t.add(new Connectors.Tool("social.trending", "what is trending or popular now on the user's signed-in social"
+                    + " accounts", "network (x, reddit…), or nothing for all"));
             t.add(new Connectors.Tool("social.open", "read one Facebook, X, Instagram or Reddit page (a post or profile link)"
                     + " with the user's account", "link"));
         }
@@ -231,6 +233,9 @@ public final class ConnectorStore {
                     }
                 }
                 return q.isEmpty() ? "Say what to look for." : ai.dvine.social.SocialWeb.search(context, p, q, 6000);
+            }
+            if (tool.equals("social.trending")) {
+                return ai.dvine.social.SocialWeb.trending(context, ai.dvine.social.Platform.named(arg == null ? "" : arg.trim()), 6000);
             }
             if (tool.equals("social.open")) {
                 return ai.dvine.social.SocialWeb.open(context, arg == null ? "" : arg.trim(), 6000);

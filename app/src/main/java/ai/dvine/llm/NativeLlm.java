@@ -57,4 +57,16 @@ public final class NativeLlm {
     static native void nCancel(long handle);
 
     static native void nFree(long handle);
+
+    /** Reads the instructions into the model's memory ahead of the first question (null-safe: a build without it does nothing). */
+    static native boolean nWarm(long handle, String system);
+
+    /** {@link #nWarm}, or false when the native part is older and hasn't got it. */
+    static boolean warmIfPossible(long handle, String system) {
+        try {
+            return nWarm(handle, system);
+        } catch (UnsatisfiedLinkError older) {
+            return false;
+        }
+    }
 }

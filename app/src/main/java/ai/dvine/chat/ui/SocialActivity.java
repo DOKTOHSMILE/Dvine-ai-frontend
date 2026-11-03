@@ -84,7 +84,7 @@ public final class SocialActivity extends AppCompatActivity {
                         : !a.signedIn ? "Signed out: tap Add account to sign in again"
                         : (a.inUse ? "In use · " : "Tap to use · ") + limits.used(a.id, SocialLimits.Kind.READ, now)
                                 + " of " + limits.cap(p, SocialLimits.Kind.READ, true) + " reads today";
-                LinearLayout row = row(a.label + (a.inUse ? "  ✓" : ""), state, () -> remove(a));
+                LinearLayout row = row(a.label, a.inUse, state, () -> remove(a));
                 row.setOnClickListener(v -> {
                     if (!a.inUse) {
                         boolean ok = SocialWeb.switchTo(this, a.id);
@@ -172,14 +172,26 @@ public final class SocialActivity extends AppCompatActivity {
         return card;
     }
 
-    private LinearLayout row(String what, String under, final Runnable remove) {
+    private LinearLayout row(String what, boolean inUse, String under, final Runnable remove) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setMinimumHeight(Ui.dp(this, 52));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
         words.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
-        words.addView(Ui.text(this, what, 15, Ui.TEXT, false));
+        LinearLayout name = new LinearLayout(this);
+        name.setGravity(Gravity.CENTER_VERTICAL);
+        name.addView(Ui.text(this, what, 15, Ui.TEXT, false));
+        if (inUse) {
+            ImageView check = new ImageView(this); // the standard check mark: the account in use
+            check.setImageResource(ai.dvine.R.drawable.ic_check);
+            check.setColorFilter(Ui.ACCENT);
+            check.setContentDescription("In use");
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, 16), Ui.dp(this, 16));
+            lp.leftMargin = Ui.dp(this, 8);
+            name.addView(check, lp);
+        }
+        words.addView(name);
         words.addView(Ui.text(this, under, 13, Ui.SUB, false));
         r.addView(words, new LinearLayout.LayoutParams(0, -2, 1f));
         ImageView x = new ImageView(this);

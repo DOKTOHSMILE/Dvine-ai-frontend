@@ -65,6 +65,20 @@ public enum Platform {
         }
     }
 
+    /** What is trending or popular on the network now, as the site shows it to a signed-in person. */
+    public String trendingUrl() {
+        switch (this) {
+            case X:
+                return "https://x.com/explore/tabs/trending";
+            case REDDIT:
+                return "https://www.reddit.com/r/popular/";
+            case INSTAGRAM:
+                return "https://www.instagram.com/explore/";
+            default:
+                return "https://m.facebook.com/watch/";
+        }
+    }
+
     /** Whether a link belongs to this network (only its own pages are opened with the account). */
     public boolean owns(String url) {
         if (url == null) {

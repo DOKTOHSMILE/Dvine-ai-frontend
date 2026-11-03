@@ -278,6 +278,63 @@ public class ScreenshotTest {
         c.pause().stop().destroy();
     }
 
+    /** The steps sheet folded like Claude Code: commands, files explored, files edited, open to their code. */
+    @Test(timeout = 180000)
+    public void rendersTheGroupedSteps() throws Exception {
+        OUT.mkdirs();
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        File files = c.get().getFilesDir();
+        pane.activityStep("Auditing the model path");
+        pane.activityStep("Checked the branch and its version" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "$ git fetch origin main && git status -sb && grep -n versionName app/build.gradle",
+                java.util.Arrays.asList("## main...origin/main", "20:        versionName \"0.83.0\""), -1, -1)));
+        pane.activityStep("Listed the files in app/src/main/java/ai/dvine/llm" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "$ ls app/src/main/java/ai/dvine/llm", java.util.Arrays.asList("LocalModel.java", "NativeLlm.java"), -1, -1)));
+        pane.activityStep("Read llm/NativeLlm.java" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "llm/NativeLlm.java", java.util.Arrays.asList("package ai.dvine.llm;", "", "public final class NativeLlm {"), -1, -1)));
+        pane.activityStep("Searched for \u201cmaxTokens\u201d");
+        pane.activityStep("Edited llm/LocalModel.java" + ai.dvine.agent.StepDetail.mark(ai.dvine.agent.StepDetail.save(files,
+                "llm/LocalModel.java", java.util.Arrays.asList("@ line 412", "-        record(sl, r, system, turns, answer, pieces[0], began);",
+                        "+        record(sl, r, system, fitted, answer, pieces[0], began);"), 1, 1)));
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        android.view.View root = c.get().getWindow().getDecorView();
+        java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+        root.findViewsWithText(found, "What is happening now; tap for every step", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        found.get(0).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.view.View sv = sheet.getWindow().getDecorView();
+        for (String open : new String[]{"Ran 2 commands, open", "Explored 1 file, 1 search, open"}) {
+            found = new java.util.ArrayList<android.view.View>();
+            sv.findViewsWithText(found, open, android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+            assertTrue(open, !found.isEmpty());
+            found.get(0).performClick();
+        }
+        for (String show : new String[]{"Ran command Checked the branch and its version, show", "Edited file llm/LocalModel.java, show"}) {
+            found = new java.util.ArrayList<android.view.View>();
+            sv.findViewsWithText(found, show, android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+            assertTrue(show, !found.isEmpty());
+            found.get(0).performClick();
+        }
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        int w = 1080, h = 2340;
+        sv.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY));
+        sv.layout(0, 0, w, h);
+        android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+        bmp.eraseColor(0xFF000000);
+        sv.draw(new android.graphics.Canvas(bmp));
+        try (FileOutputStream o = new FileOutputStream(new File(OUT, "7_steps.png"))) {
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o);
+        }
+        sheet.dismiss();
+        c.pause().stop().destroy();
+    }
+
     private static void shoot(android.app.Activity a, String name) throws Exception {
         android.view.View root = a.getWindow().getDecorView();
         int w = 1080, h = 2340;

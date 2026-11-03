@@ -34,7 +34,8 @@ public class SocialActivityTest {
         View root = c.get().getWindow().getDecorView();
         assertNotNull(find(root, "Sign in to X"));
         assertNotNull(find(root, "Sign in to Facebook"));
-        assertNotNull(find(root, "Me  ✓"));
+        assertNotNull(find(root, "Me"));
+        assertNotNull("the account in use has the check icon", findDesc(root, "In use"));
         assertNotNull(find(root, "Resume Me"));
         assertNotNull(find(root, "Add account"));
         tapText(root, "Sign in to Instagram");
@@ -51,6 +52,21 @@ public class SocialActivityTest {
         View t = find(root, s);
         assertNotNull(s, t);
         t.performClick();
+    }
+
+    private static View findDesc(View v, String s) {
+        if (s.contentEquals(String.valueOf(v.getContentDescription()))) {
+            return v;
+        }
+        if (v instanceof ViewGroup) {
+            for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) {
+                View f = findDesc(((ViewGroup) v).getChildAt(i), s);
+                if (f != null) {
+                    return f;
+                }
+            }
+        }
+        return null;
     }
 
     private static View find(View v, String s) {

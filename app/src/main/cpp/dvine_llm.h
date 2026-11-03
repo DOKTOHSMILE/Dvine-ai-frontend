@@ -32,6 +32,10 @@ public:
     std::string reply(const std::string & system, const std::vector<Turn> & turns, int max_tokens, float temperature,
                       const std::function<bool(const std::string &)> & on_text);
 
+    // Reads the persona's instructions into memory ahead of the first question, so the first reply starts at once.
+    // Nothing is done when memory already starts with them. False when they couldn't be read.
+    bool warm(const std::string & system);
+
     // Stops a reply in progress at the next token (safe from any thread).
     void cancel() { stop_ = true; }
 
@@ -42,7 +46,12 @@ public:
     bool loaded() const { return ctx_ != nullptr; }
 
 private:
-    bool decode(const std::vector<int> & tokens, int pos0);
+    bool decode(const std::vector<int> & tokens, int pos0, int seq);
+    // Reads tokens into a slot; when memory is full, the other slots are let go and it is tried once more.
+    bool read_into(int slot, const std::vector<int> & tokens, size_t keep);
+    // The slot whose memory starts most like these tokens (or, if none shares the instructions, the one used longest ago).
+    int pick_slot(const std::vector<int> & tokens, size_t sys_len, size_t * shared);
+    void drop_slot(int slot);
     std::vector<int> tokenize(const std::string & text, bool add_special);
     std::string format(const std::string & system, const std::vector<Turn> & turns, bool add_assistant);
 
@@ -51,9 +60,14 @@ private:
     llama_sampler * sampler_ = nullptr;
     llama_batch_ext * batch_ = nullptr;
     float sampler_temp_ = -1.f;
-    // the tokens in the model's memory (the last prompt and the reply it wrote), kept between replies so a prompt
-    // that starts the same way is not read again
-    std::vector<int> cached_;
+    // The model's memory holds up to SLOTS conversations side by side (each a sequence): the tokens in each (its
+    // prompt and the reply written), kept between replies so a prompt that starts the same way is not read again.
+    // Two calls with different instructions (the routing call, then the persona's answer) each keep theirs, instead
+    // of pushing the other out and reading a thousand tokens of instructions again every time.
+    static const int SLOTS = 3;
+    std::vector<int> cached_[SLOTS];
+    unsigned long used_[SLOTS] = {0, 0, 0};
+    unsigned long clock_ = 0;
     int last_reused_ = 0, last_read_ = 0;
     std::atomic<bool> stop_{false};
     std::string error_;

@@ -766,6 +766,18 @@ public final class LocalModel {
     }
 
     /** Forgets the conversation (a new topic, or the user asked). */
+    /**
+     * Reads instructions into the phone model's memory ahead of time (after loading, or when the persona changes), so
+     * the first question doesn't wait for a thousand tokens of instructions to be read. Nothing when an API answers or
+     * the model isn't loaded.
+     */
+    public synchronized boolean warm(String system) {
+        if (state != State.READY || handle == 0 || system == null) {
+            return false;
+        }
+        return NativeLlm.warmIfPossible(handle, spec.prompt(system));
+    }
+
     public synchronized void forget() {
         history.clear();
     }

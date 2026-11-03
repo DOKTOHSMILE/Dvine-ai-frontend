@@ -364,6 +364,7 @@ public final class ChatPane extends LinearLayout {
         stepsList = new LinearLayout(getContext());
         stepsList.setOrientation(VERTICAL);
         stepsList.setPadding(dp(20), 0, dp(20), dp(8));
+        stepOpen.clear();
         fillSteps(list, !live);
         stepsSheet = ai.dvine.chat.ui.BottomSheet.showView((Activity) getContext(), title, stepsList);
         if (live) {
@@ -414,6 +415,14 @@ public final class ChatPane extends LinearLayout {
         return step != null && ai.dvine.agent.StepDetail.words(step.split("\t")[0]).matches("^Asking .+\\(.+\\).*");
     }
 
+    /** Which groups and steps the user opened or closed in the sheet ("g3", "c7"), kept while it refreshes. */
+    private final java.util.Map<String, Boolean> stepOpen = new java.util.HashMap<String, Boolean>();
+
+    /**
+     * The steps folded the way Claude Code shows them: "Ran 2 commands", "Explored 4 files, 2 searches", "Edited 3
+     * files", each opening to its steps, and each of those to its code (the command, or the changes in green and red);
+     * other steps one to a line with a check when done.
+     */
     private void fillSteps(List<String> all, boolean allDone) {
         if (stepsList == null) {
             return;
@@ -429,30 +438,225 @@ public final class ChatPane extends LinearLayout {
             TextView none = plain(thinkingText != null ? stripTimer(thinkingText) : "Nothing yet.");
             none.setTextColor(color(R.color.text_secondary));
             stepsList.addView(none);
+            return;
         }
-        for (int i = 0; i < list.size(); i++) {
-            boolean last = i == list.size() - 1;
-            if (i > 0) {
-                // a thin line between steps, so each process reads on its own
-                View line = new View(getContext());
-                line.setBackgroundColor(color(R.color.line));
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, Math.max(1, dp(1) / 2));
-                lp.topMargin = dp(8);
-                lp.bottomMargin = dp(8);
-                lp.setMarginStart(dp(30)); // under the text, not the check mark
-                stepsList.addView(line, lp);
-            }
-            String[] parts = list.get(i).split("\t");
-            long secs = -1;
+        final List<String> words = new ArrayList<String>();
+        final List<String> titles = new ArrayList<String>();
+        final List<Long> secs = new ArrayList<Long>();
+        final List<ai.dvine.agent.StepDetail.Detail> details = new ArrayList<ai.dvine.agent.StepDetail.Detail>();
+        for (String step : list) {
+            String[] parts = step.split("\t");
+            long t = -1;
             if (parts.length > 1) {
                 try {
-                    secs = Long.parseLong(parts[1].trim());
+                    t = Long.parseLong(parts[1].trim());
                 } catch (NumberFormatException ignored) {
                     // a step kept before steps had times
                 }
             }
-            stepsList.addView(timedRow(stepLine(parts[0], allDone || !last, !allDone && last), secs, !allDone && last));
+            String id = ai.dvine.agent.StepDetail.id(parts[0]);
+            ai.dvine.agent.StepDetail.Detail d = id == null ? null : ai.dvine.agent.StepDetail.load(getContext().getFilesDir(), id);
+            words.add(ai.dvine.agent.StepDetail.words(parts[0]));
+            titles.add(d == null ? null : d.title);
+            secs.add(t);
+            details.add(d);
         }
+        List<ai.dvine.agent.StepGroups.Group> groups = ai.dvine.agent.StepGroups.fold(words, titles, secs);
+        int lastIndex = list.size() - 1;
+        for (int g = 0; g < groups.size(); g++) {
+            final ai.dvine.agent.StepGroups.Group group = groups.get(g);
+            boolean holdsLast = group.items.get(group.items.size() - 1).index == lastIndex;
+            boolean running = !allDone && holdsLast;
+            if (group.kind == ai.dvine.agent.StepGroups.Kind.OTHER) {
+                ai.dvine.agent.StepGroups.Item it = group.items.get(0);
+                String raw = list.get(it.index).split("\t")[0];
+                stepsList.addView(timedRow(stepLine(raw, !running, running), it.secs, running));
+                continue;
+            }
+            final String key = "g" + g;
+            Boolean chosen = stepOpen.get(key);
+            final boolean open = chosen != null ? chosen : running; // the group being worked on is open
+            stepsList.addView(groupHead(group, open, running, () -> {
+                stepOpen.put(key, !open);
+                fillSteps(all, allDone);
+            }));
+            if (!open) {
+                continue;
+            }
+            for (final ai.dvine.agent.StepGroups.Item it : group.items) {
+                final ai.dvine.agent.StepDetail.Detail d = details.get(it.index);
+                final String ckey = "c" + it.index;
+                Boolean c = stepOpen.get(ckey);
+                final boolean childOpen = c != null && c;
+                stepsList.addView(childRow(it, d, childOpen, () -> {
+                    stepOpen.put(ckey, !childOpen);
+                    fillSteps(all, allDone);
+                }));
+                if (childOpen && d != null) {
+                    stepsList.addView(codeBlock(it, d, words.get(it.index)));
+                }
+            }
+        }
+    }
+
+    /** "Ran 2 commands  ›" with its icon and time; a tap opens or closes it. */
+    private View groupHead(ai.dvine.agent.StepGroups.Group group, boolean open, boolean running, final Runnable toggle) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(4), dp(8), 0, dp(8));
+        android.widget.ImageView icon = new android.widget.ImageView(getContext());
+        icon.setImageResource(group.kind == ai.dvine.agent.StepGroups.Kind.COMMAND ? R.drawable.ic_terminal
+                : group.kind == ai.dvine.agent.StepGroups.Kind.EDIT ? R.drawable.ic_edit : R.drawable.ic_search);
+        icon.setColorFilter(color(running ? R.color.accent : R.color.text_secondary));
+        row.addView(icon, new LayoutParams(dp(18), dp(18)));
+        TextView label = plain(group.label);
+        label.setTextSize(14f);
+        label.setTextColor(color(running ? R.color.text_primary : R.color.text_secondary));
+        label.setPadding(dp(10), 0, dp(6), 0);
+        row.addView(label, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        if (group.secs >= 0) {
+            TextView time = plain(duration(group.secs));
+            time.setTextSize(12f);
+            time.setTextColor(color(running ? R.color.accent : R.color.text_secondary));
+            time.setPadding(dp(6), 0, dp(6), 0);
+            row.addView(time);
+        }
+        android.widget.ImageView chev = new android.widget.ImageView(getContext());
+        chev.setImageResource(open ? R.drawable.ic_chevron_down : R.drawable.ic_chevron_right);
+        chev.setColorFilter(color(R.color.text_secondary));
+        row.addView(chev, new LayoutParams(dp(16), dp(16)));
+        row.setContentDescription(group.label + (open ? ", close" : ", open"));
+        row.setOnClickListener(v -> toggle.run());
+        return row;
+    }
+
+    /** "Ran command  Listed the files in src", the verb dim and the rest bright; a tap shows its code. */
+    private View childRow(ai.dvine.agent.StepGroups.Item it, ai.dvine.agent.StepDetail.Detail d, boolean open, final Runnable toggle) {
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        appendColoured(b, it.verb + "  ", color(R.color.text_secondary));
+        int at = b.length();
+        b.append(it.target);
+        b.setSpan(new android.text.style.ForegroundColorSpan(color(R.color.text_primary)), at, b.length(),
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        if (it.kind != ai.dvine.agent.StepGroups.Kind.COMMAND) {
+            b.setSpan(new android.text.style.TypefaceSpan("monospace"), at, b.length(), android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        if (d != null && d.diff()) {
+            appendColoured(b, "  +" + d.added, ai.dvine.chat.ui.DetailSheet.GREEN);
+            appendColoured(b, " \u2212" + d.removed, ai.dvine.chat.ui.DetailSheet.RED);
+        }
+        TextView t = plain("");
+        t.setText(b);
+        t.setTextSize(13f);
+        t.setMaxLines(open ? 4 : 1);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setPadding(dp(32), dp(5), 0, dp(5));
+        if (d != null) {
+            t.setContentDescription(it.verb + " " + it.target + (open ? ", hide" : ", show"));
+            t.setOnClickListener(v -> toggle.run());
+        }
+        return t;
+    }
+
+    static final int CODE_LINES = 24;
+
+    /**
+     * The code under a step, in the sheet: a command in a box headed "Bash" with a copy button and what it printed
+     * under it; a file's changes in green and red; a file read, its first lines. Long ones end with "Show all".
+     */
+    private View codeBlock(final ai.dvine.agent.StepGroups.Item it, final ai.dvine.agent.StepDetail.Detail d, final String words) {
+        LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(VERTICAL);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(color(R.color.code_bg));
+        bg.setCornerRadius(dp(14));
+        bg.setStroke(Math.max(1, dp(1) / 2), color(R.color.line));
+        box.setBackground(bg);
+        box.setClipToOutline(true);
+        LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        lp.setMarginStart(dp(30));
+        lp.topMargin = dp(4);
+        lp.bottomMargin = dp(8);
+        box.setLayoutParams(lp);
+        List<String> lines = d.lines;
+        if (it.kind == ai.dvine.agent.StepGroups.Kind.COMMAND && d.title != null && d.title.startsWith("$ ")) {
+            final String command = d.title.substring(2);
+            LinearLayout head = new LinearLayout(getContext());
+            head.setGravity(Gravity.CENTER_VERTICAL);
+            head.setBackgroundColor(color(R.color.code_header));
+            head.setPadding(dp(12), dp(6), dp(6), dp(6));
+            android.widget.ImageView term = new android.widget.ImageView(getContext());
+            term.setImageResource(R.drawable.ic_terminal);
+            term.setColorFilter(color(R.color.text_secondary));
+            head.addView(term, new LayoutParams(dp(16), dp(16)));
+            TextView name = plain("Bash");
+            name.setTextSize(13f);
+            name.setTextColor(color(R.color.text_secondary));
+            head.addView(name, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+            android.widget.ImageView copy = new android.widget.ImageView(getContext());
+            copy.setImageResource(R.drawable.ic_copy);
+            copy.setColorFilter(color(R.color.text_secondary));
+            copy.setPadding(dp(8), dp(4), dp(8), dp(4));
+            copy.setContentDescription("Copy the command");
+            copy.setOnClickListener(v -> {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("command", command));
+                }
+            });
+            head.addView(copy, new LayoutParams(dp(36), dp(28)));
+            box.addView(head);
+            TextView cmd = codeLine(command, color(R.color.code_text), 0);
+            cmd.setPadding(dp(12), dp(8), dp(12), dp(4));
+            cmd.setMaxLines(12);
+            box.addView(cmd);
+        }
+        int shown = 0;
+        for (String l : lines) {
+            if (shown >= CODE_LINES) {
+                break;
+            }
+            char k = l.isEmpty() ? ' ' : l.charAt(0);
+            String body = l.isEmpty() ? "" : l.substring(1);
+            TextView t;
+            if (d.diff()) {
+                if (k == '@') {
+                    t = codeLine("\u22EF " + body.trim(), color(R.color.text_secondary), 0);
+                } else {
+                    t = codeLine(body, k == '+' ? ai.dvine.chat.ui.DetailSheet.GREEN : k == '-' ? ai.dvine.chat.ui.DetailSheet.RED
+                            : color(R.color.code_text), k == '+' ? 0x333FB950 : k == '-' ? 0x33F85149 : 0);
+                }
+            } else {
+                t = codeLine(l, color(it.kind == ai.dvine.agent.StepGroups.Kind.COMMAND ? R.color.text_secondary : R.color.code_text), 0);
+            }
+            box.addView(t);
+            shown++;
+        }
+        if (lines.size() > CODE_LINES) {
+            TextView more = plain("Show all " + lines.size() + " lines  \u203A");
+            more.setTextSize(12f);
+            more.setTextColor(color(R.color.accent));
+            more.setPadding(dp(12), dp(6), dp(12), dp(8));
+            more.setOnClickListener(v -> ai.dvine.chat.ui.DetailSheet.show((Activity) getContext(), words, d));
+            box.addView(more);
+        } else {
+            box.addView(new View(getContext()), new LayoutParams(1, dp(6)));
+        }
+        return box;
+    }
+
+    private TextView codeLine(String text, int colour, int background) {
+        TextView t = new TextView(getContext());
+        t.setText(text);
+        t.setTextColor(colour);
+        t.setTextSize(12f);
+        t.setTypeface(android.graphics.Typeface.MONOSPACE);
+        t.setPadding(dp(12), 0, dp(12), 0);
+        if (background != 0) {
+            t.setBackgroundColor(background);
+        }
+        return t;
     }
 
     /** A step with its time at the right ("12s"; the running step's in the accent colour); no time for old steps. */

@@ -134,4 +134,10 @@ JNIEXPORT void JNICALL Java_ai_dvine_llm_NativeLlm_nFree(JNIEnv *, jclass, jlong
     delete (dvine::Engine *) handle;
 }
 
+JNIEXPORT jboolean JNICALL Java_ai_dvine_llm_NativeLlm_nWarm(JNIEnv * env, jclass, jlong handle, jstring system) {
+    auto * e = (dvine::Engine *) handle;
+    if (!e || !e->loaded()) return JNI_FALSE;
+    return e->warm(from_java(env, system)) ? JNI_TRUE : JNI_FALSE;
+}
+
 } // extern "C"

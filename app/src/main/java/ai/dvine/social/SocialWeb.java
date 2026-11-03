@@ -233,6 +233,20 @@ public final class SocialWeb {
         return out.toString().trim();
     }
 
+    /** What is trending on one network (or each signed-in one), as labelled text for the model. */
+    public static String trending(Context c, Platform only, int most) {
+        List<Platform> nets = only != null ? java.util.Collections.singletonList(only) : accounts(c).ready();
+        if (nets.isEmpty()) {
+            return "No social account is signed in on this phone. The user can add one: menu \u2192 Social accounts.";
+        }
+        StringBuilder out = new StringBuilder();
+        int each = Math.max(1500, most / nets.size());
+        for (Platform p : nets) {
+            out.append(read(c, p, p.trendingUrl(), "what is trending now", each)).append("\n\n");
+        }
+        return out.toString().trim();
+    }
+
     /** Opens one page of a network (a post, a profile) with the user's account. */
     public static String open(Context c, String url, int most) {
         for (Platform p : Platform.values()) {
