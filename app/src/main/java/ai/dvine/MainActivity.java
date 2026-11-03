@@ -2045,6 +2045,35 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         });
     }
 
+    /**
+     * The fact check of a factual answer (online, Settings › Chat): its claims are looked up and judged in the
+     * background after the answer is shown; a contradicted claim posts a correction with its source. Nothing is added
+     * when the answer holds up.
+     */
+    private void factCheck(final int id, final String persona, final String question, final String answer) {
+        if (!prefs.getBoolean("fact_check", true) || connectivity == null || !connectivity.isOnline() || model == null
+                || !ai.dvine.llm.FactCheck.worth(question, answer)) {
+            return;
+        }
+        final ai.dvine.connect.ConnectorStore web = new ai.dvine.connect.ConnectorStore(this);
+        hub.worker.execute(() -> {
+            if (id != askId) {
+                return; // a new question came first
+            }
+            ai.dvine.llm.FactCheck.Result r = ai.dvine.llm.FactCheck.run((system, prompt) -> model.task(system, prompt, 300, null),
+                    claim -> web.research(claim, 1, 3000), question, answer, () -> id != askId);
+            final String correction = r.correction();
+            if (correction == null) {
+                return;
+            }
+            handler.post(() -> {
+                if (chatPane != null && !isFinishing()) {
+                    chatPane.assistant(persona, correction);
+                }
+            });
+        });
+    }
+
     /** Steps in one round of long work: a progress note in the chat after each. */
     static final int ROUND_STEPS = 8;
     /** Long work stops (and says how to go on) after this long, or this many rounds. */
@@ -2834,6 +2863,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         spokenLive.add(said);
                     }
                     stream.add(said);
+                    factCheck(id, agent, question, body); // after it is shown: a correction follows only if one is needed
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     afterPlay = () -> switchFace(switchTo, true);
