@@ -105,6 +105,7 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     private void say(boolean ivie, String text, TalkDone done, boolean thought) {
+        text = SentenceStream.clean(text); // the words only: no **, <, " or other symbols read out
         final int token = ++generation;
         pending = done;
         queued = 0; // a flush drops the queued sentences
@@ -138,6 +139,7 @@ public final class TalkBridge extends UtteranceProgressListener {
      * sentence while the model is still writing the rest.
      */
     public void queue(boolean ivie, String text) {
+        text = SentenceStream.clean(text);
         if (!ready || text == null || text.trim().isEmpty()) {
             return;
         }

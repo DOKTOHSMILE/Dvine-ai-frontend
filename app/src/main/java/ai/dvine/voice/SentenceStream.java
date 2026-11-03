@@ -133,14 +133,24 @@ public final class SentenceStream {
         }
     }
 
-    /** What the voice should read: no markdown, links as their words, no action tags or stray symbols. */
-    static String clean(String s) {
+    /**
+     * What the voice should read: the words only. No markdown (** __ ` # > - |), no tags (<final>, <b>), no quotes,
+     * brackets or other symbols read out as "less than" or "quote"; links as their words, arrows as "to".
+     */
+    public static String clean(String s) {
+        if (s == null) {
+            return "";
+        }
         String t = s.replaceAll("\\[\\[[^\\]]{0,24}\\]\\]", "")
                 .replaceAll("!?\\[([^\\]]*)\\]\\([^)]*\\)", "$1")
                 .replaceAll("https?://\\S+", "the link")
                 .replaceAll("`([^`]*)`", "$1")
+                .replaceAll("</?[A-Za-z][\\w:-]*[^<>]*>", " ")
                 .replaceAll("(?m)^\\s*(#{1,6}|[-*+>]|\\d+[.)])\\s+", "")
-                .replaceAll("[*_~#|`]+", "")
+                .replaceAll("\\s*(->|=>|\\u2192)\\s*", " to ")
+                .replaceAll("[*_~#|`<>\"\\u201C\\u201D\\u00AB\\u00BB{}\\[\\]\\\\^=]+", " ")
+                .replaceAll("(?<=\\s|^)'+|'+(?=\\s|$)", "")
+                .replaceAll("\\s+([,.!?;:])", "$1")
                 .replaceAll("\\s+", " ")
                 .trim();
         return t.matches("[\\p{Punct}\\s]*") ? "" : t;

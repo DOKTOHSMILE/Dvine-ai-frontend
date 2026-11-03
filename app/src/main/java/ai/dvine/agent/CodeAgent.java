@@ -131,6 +131,27 @@ public final class CodeAgent {
         return this;
     }
 
+    private java.util.function.Consumer<String> checkpoint;
+
+    /**
+     * Called with the whole work so far after every step (a tool's result, a progress note), so it can be saved as it
+     * grows: after a crash the work carries on from the last step instead of starting again.
+     */
+    public CodeAgent checkpoint(java.util.function.Consumer<String> save) {
+        checkpoint = save;
+        return this;
+    }
+
+    private void saved() {
+        if (checkpoint != null && work != null) {
+            try {
+                checkpoint.accept(work.toString());
+            } catch (RuntimeException ignored) {
+                // a backup that fails mustn't stop the work
+            }
+        }
+    }
+
     /** The last run used all its steps without finishing (in rounds: the work goes on from {@link #work()}). */
     public boolean outOfSteps() {
         return outOfSteps;
@@ -304,6 +325,7 @@ public final class CodeAgent {
                     result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
                 }
                 work.append("\n").append(call.raw).append("\n<result>\n").append(clip(result, RESULT_CHARS)).append("\n</result>\n");
+                saved();
                 continue;
             }
             if (text.matches("(?s).*<(tool|tool_call|function|invoke)\\b.*") && nudges < 2) {
@@ -356,6 +378,7 @@ public final class CodeAgent {
                 note = "Still working: " + maxSteps + " more steps done." + summary();
             }
             work.append("\n").append(clip(note, 1200)).append('\n');
+            saved();
             return note;
         }
         // out of steps: never end empty-handed; the report from what was found, then "continue" goes on
