@@ -198,6 +198,28 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void planModeReadsAndHandsInAPlanWithoutChangingAnything() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        File repo = new File(ws, "app");
+        repo.mkdirs();
+        Files.write(new File(repo, "Main.java").toPath(), "class Main {}\n".getBytes(StandardCharsets.UTF_8));
+        Script brain = new Script("<tool name=\"read_file\" path=\"app/Main.java\"/>",
+                "<tool name=\"write_file\" path=\"app/Main.java\">gone</tool>",
+                "<tool name=\"run\" command=\"rm -r app\"/>",
+                "<final>1. Add a main method to app/Main.java.\n2. Run it.</final>");
+        Phone phone = new Phone();
+        phone.allow = true;
+        CodeAgent ibiko = new CodeAgent(ws, brain, phone, "", 20_000).as("Ibiko", false).planning(true);
+        assertTrue(ibiko.system(), ibiko.system().startsWith("You are Ibiko, DVINE's coding agent") && ibiko.system().contains("Plan mode"));
+        assertFalse(ibiko.system().contains("write_file") || ibiko.system().contains("name=\"run\""));
+        String plan = ibiko.run("Make Main runnable", "");
+        assertTrue(plan, plan.contains("1. Add a main method"));
+        assertTrue(brain.seen.get(2), brain.seen.get(2).contains("Plan mode: nothing is changed yet"));
+        assertTrue(phone.asked.isEmpty()); // nothing ran, nothing was even asked
+        assertEquals("class Main {}\n", new String(Files.readAllBytes(new File(repo, "Main.java").toPath()), StandardCharsets.UTF_8));
+    }
+
+    @Test
     public void obiOrIvieOnlyReadAndTheStepLimitIsTheUsers() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         File repo = new File(ws, "app");
