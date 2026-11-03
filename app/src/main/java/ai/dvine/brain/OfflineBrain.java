@@ -123,8 +123,8 @@ public final class OfflineBrain {
             return one(onScreen == null ? speaker : onScreen, named, "PACK");
         }
         if (text.length() == 0) {
-            return one(speaker, pick(speaker, "I'm here. Give me the goal and the constraint.",
-                    "I'm here. Tell me what you want, and I'll stay with you."), "PACK");
+            return one(speaker, pick(speaker, "How can I help?",
+                    "What would you like to make?"), "PACK");
         }
         BrainAnswer pre = beforeGate(raw, text, speaker);
         if (pre != null) {

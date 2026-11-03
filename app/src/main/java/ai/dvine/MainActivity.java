@@ -318,8 +318,46 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             close.setOnClickListener(v -> showIvieCanvas(false));
             int s = Math.round(36 * getResources().getDisplayMetrics().density);
             canvas.addView(close, new android.widget.FrameLayout.LayoutParams(s, s, android.view.Gravity.END | android.view.Gravity.TOP));
+            // full screen: the design space fills the screen between the title and the message box (tap again to shrink)
+            android.widget.ImageView full = new android.widget.ImageView(this);
+            full.setImageResource(R.drawable.ic_fullscreen);
+            full.setColorFilter(getColor(R.color.text_primary));
+            int pad = Math.round(8 * getResources().getDisplayMetrics().density);
+            full.setPadding(pad, pad, pad, pad);
+            full.setContentDescription("Full screen");
+            full.setOnClickListener(v -> designFullScreen(!designFull));
+            android.widget.FrameLayout.LayoutParams fl = new android.widget.FrameLayout.LayoutParams(s, s, android.view.Gravity.END | android.view.Gravity.TOP);
+            fl.rightMargin = s;
+            canvas.addView(full, fl);
+        }
+        if (!on && designFull) {
+            designFullScreen(false);
         }
         canvas.setVisibility(on ? android.view.View.VISIBLE : android.view.View.GONE);
+    }
+
+    private boolean designFull;
+
+    /** The design space full screen (between the title and the message box), or back to its card above the chat. */
+    private void designFullScreen(boolean on) {
+        android.widget.FrameLayout canvas = findViewById(R.id.ivieCanvas);
+        android.view.View chat = findViewById(R.id.chatPaneHost);
+        if (canvas == null || chat == null) {
+            return;
+        }
+        designFull = on;
+        android.widget.LinearLayout.LayoutParams lp = (android.widget.LinearLayout.LayoutParams) canvas.getLayoutParams();
+        lp.height = on ? 0 : Math.round(300 * getResources().getDisplayMetrics().density);
+        lp.weight = on ? 1f : 0f;
+        canvas.setLayoutParams(lp);
+        chat.setVisibility(on ? android.view.View.GONE : android.view.View.VISIBLE);
+        for (int i = 0; i < canvas.getChildCount(); i++) {
+            android.view.View c = canvas.getChildAt(i);
+            if ("Full screen".contentEquals(String.valueOf(c.getContentDescription())) || "Shrink".contentEquals(String.valueOf(c.getContentDescription()))) {
+                ((android.widget.ImageView) c).setImageResource(on ? R.drawable.ic_fullscreen_exit : R.drawable.ic_fullscreen);
+                c.setContentDescription(on ? "Shrink" : "Full screen");
+            }
+        }
     }
 
     /**
@@ -335,8 +373,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return true; // drawn by the model as parts: part edits, export, undo, or a new thing
         }
         ai.dvine.create.ObjectRequestInterpreter.Request r = creation.parse(text, stage.objectShown());
-        if (r == null || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT) {
-            return false;
+        if (r == null || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT
+                || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE) {
+            return false; // a new thing to build is the brain's order (DO BUILD), like every other job
         }
         showIvieCanvas(true);
         return create(text);
@@ -1728,12 +1767,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     // to it, pause / continue / show the download). Without it there is nothing to read the words.
                     return modelCommand(control(t));
                 })
+                .route("measurements for the build", this::measurementsGiven)
                 .route("post, share or copy", this::stagedAction) // shown first, carried out on a yes (or auto-approve)
                 .route("make a file", this::makeDocument) // "make a PDF of that": the model writes, DVINE makes the file
-                .route("social search", this::socialSearch)
                 .route("read the meaning", t -> {
-                    if (fromBrain || carriesOn(t) || !ai.dvine.turn.Meaning.worthReading(t)) {
-                        return false;
+                    ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
+                    if (fromBrain || carriesOn(t) || !ai.dvine.turn.Meaning.worthReading(t)
+                            || known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY && known.kind != ai.dvine.llm.BrainOrder.Kind.SEARCH) {
+                        return false; // the brain already knows the order from the words: no reading of the meaning first
                     }
                     understand(t); // the words didn't match a command's wording: the brain reads what they mean
                     return true;
@@ -1806,7 +1847,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
                     boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
                             || known.kind == ai.dvine.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.dvine.llm.BrainOrder.Kind.TIME
-                            || known.kind == ai.dvine.llm.BrainOrder.Kind.NAME);
+                            || known.kind == ai.dvine.llm.BrainOrder.Kind.NAME || known.kind == ai.dvine.llm.BrainOrder.Kind.SOCIAL
+                            || known.kind == ai.dvine.llm.BrainOrder.Kind.BUILD);
                     if (shortcut) {
                         return false;
                     }
@@ -1989,6 +2031,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             case TOOL:
                 useConnector(question, order.arg);
+                return;
+            case SOCIAL:
+                social(question, order.arg);
+                return;
+            case BUILD:
+                build(order.arg);
                 return;
             case CANNOT:
             default:
@@ -2827,58 +2875,125 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             + " greeting, no note about the file). /no_think";
 
     /**
-     * "Search X for …", "what are people saying on Reddit about …": read with the user's own accounts (the in-app
-     * sign-in), within the limits that keep them safe, and answered from what people posted, labelled as their claims.
+     * The brain's SOCIAL order, carried out: connect (the sign-in page), help (how to use the accounts), post (the
+     * model writes it; "post it on …" then opens the app with it), search and trending (read with the user's own
+     * accounts, within the limits that keep them safe, answered from what people posted, labelled as their claims).
+     * {@code arg}: "connect facebook", "help", "post facebook: our sale", "search x: fuel price", "trending reddit".
      */
-    private boolean socialSearch(String text) {
-        ai.dvine.social.Platform link = ai.dvine.social.SocialAsk.connect(text);
-        if (link != null) {
-            // "connect my Facebook": its sign-in page, inside the app (or the accounts, when already signed in)
-            boolean has = ai.dvine.social.SocialWeb.accounts(this).inUse(link) != null;
-            play(LocalTurn.speakAs(stage.agent(), has ? "You're already signed in to " + link.shown + ". Here are your accounts: add another,"
-                    + " rename one, or switch it off in Connectors." : "Sign in to " + link.shown + " on the page I'm opening. Your password"
-                    + " goes only to " + link.shown + "; I keep the sign-in on this phone, encrypted."), null);
-            startActivity(has ? new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class)
-                    : new android.content.Intent(this, ai.dvine.chat.ui.SocialLoginActivity.class)
-                            .putExtra(ai.dvine.chat.ui.SocialLoginActivity.EXTRA_PLATFORM, link.name()));
-            return true;
+    private void social(String question, String arg) {
+        String a = arg == null ? "" : arg.trim();
+        String verb = a.contains(" ") ? a.substring(0, a.indexOf(' ')) : a;
+        String rest = a.length() > verb.length() ? a.substring(verb.length()).trim() : "";
+        String net = rest.contains(":") ? rest.substring(0, rest.indexOf(':')).trim() : rest.split("\\s+")[0];
+        String words = rest.contains(":") ? rest.substring(rest.indexOf(':') + 1).trim() : "";
+        ai.dvine.social.Platform p = ai.dvine.social.Platform.named(net);
+        switch (verb) {
+            case "connect": {
+                if (p == null) {
+                    startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class));
+                    play(LocalTurn.speakAs(stage.agent(), "Here are your social accounts: sign in to any of them."), null);
+                    return;
+                }
+                boolean has = ai.dvine.social.SocialWeb.accounts(this).inUse(p) != null;
+                play(LocalTurn.speakAs(stage.agent(), has ? "You're already signed in to " + p.shown + ". Here are your accounts: add another,"
+                        + " rename one, or switch it off in Connectors." : "Sign in to " + p.shown + " on the page I'm opening. Your password"
+                        + " goes only to " + p.shown + "; I keep the sign-in on this phone, encrypted."), null);
+                startActivity(has ? new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class)
+                        : new android.content.Intent(this, ai.dvine.chat.ui.SocialLoginActivity.class)
+                                .putExtra(ai.dvine.chat.ui.SocialLoginActivity.EXTRA_PLATFORM, p.name()));
+                return;
+            }
+            case "help":
+                play(LocalTurn.speakAs(stage.agent(), "Sign in to your accounts first: menu, Connectors, then Facebook, X, Instagram or Reddit"
+                        + " (or say “connect my Facebook”). Then ask me: “search X for the fuel price”, “what are people"
+                        + " saying on Reddit about Flutter”, “check trending posts on X”, or “write a post for Facebook about"
+                        + " our sale”, then “post it on Facebook” to open Facebook with it ready. I also check facts against what people post."), null);
+                return;
+            case "post": {
+                String where = p == null ? "social media" : p.shown;
+                // the model writes the post; "post it on Facebook" then opens the app with it ready (posting for you comes next)
+                askLocal("Write one ready-to-post " + where + " post" + (words.isEmpty() ? "" : " about " + words)
+                        + ": the post text only, natural and engaging, the right length for " + where + ", with a few hashtags if"
+                        + " they suit it. Then one short line: say “post it on " + where + "” and I'll open " + where + " with it ready.",
+                        null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
+                return;
+            }
+            default: {
+                boolean trending = "trending".equals(verb);
+                String where = p == null ? "social media" : p.shown;
+                ai.dvine.social.SocialAccounts accounts = ai.dvine.social.SocialWeb.accounts(this);
+                boolean none = p == null ? accounts.ready().isEmpty() : accounts.inUse(p) == null;
+                if (none) {
+                    play(LocalTurn.speakAs(stage.agent(), "I need you signed in to " + where + " first: open the menu, then Connectors,"
+                            + " and sign in there. Your password goes only to the site."), null);
+                    return;
+                }
+                if (connectivity != null && !connectivity.isOnline()) {
+                    play(LocalTurn.speakAs(stage.agent(), "I need the network to read " + where + "."), null);
+                    return;
+                }
+                String n = p == null ? "" : p.name().toLowerCase(java.util.Locale.ROOT);
+                useConnector(question, trending ? "social.trending " + n
+                        : "social.search " + (n.isEmpty() ? "" : n + ": ") + (words.isEmpty() ? question : words));
+            }
         }
-        if (ai.dvine.social.SocialAsk.help(text)) {
-            play(LocalTurn.speakAs(stage.agent(), "Sign in to your accounts first: menu, Connectors, then Facebook, X, Instagram or Reddit"
-                    + " (or say \u201cconnect my Facebook\u201d). Then ask me: \u201csearch X for the fuel price\u201d, \u201cwhat are people"
-                    + " saying on Reddit about Flutter\u201d, \u201ccheck trending posts on X\u201d, or \u201cwrite a post for Facebook about"
-                    + " our sale\u201d, then \u201cpost it on Facebook\u201d to open Facebook with it ready. I also check facts against what people post."), null);
-            return true;
+    }
+
+    /** The build waiting for its measurements (asked once): the user's words, or null. */
+    private String pendingBuild;
+
+    /**
+     * The brain's BUILD order: Ivie designs it from its measurements and DVINE builds it. Without any numbers in the
+     * request, the user is asked once for the measurements they have; "you choose" (or not knowing) builds it with
+     * standard real-world sizes.
+     */
+    private void build(String request) {
+        if (creation == null) {
+            play(LocalTurn.speakAs(stage.agent(), "My 3D builder isn't ready yet."), null);
+            return;
         }
-        String[] compose = ai.dvine.social.SocialAsk.compose(text);
-        if (compose != null) {
-            // the model writes the post; "post it on Facebook" then opens the app with it ready (posting for you comes next)
-            askLocal("Write one ready-to-post " + compose[0] + " post" + (compose[1].isEmpty() ? "" : " about " + compose[1])
-                    + ": the post text only, natural and engaging, the right length for " + compose[0] + ", with a few hashtags if"
-                    + " they suit it. Then one short line: say \u201cpost it on " + compose[0] + "\u201d and I'll open " + compose[0] + " with it ready.",
-                    null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
-            return true;
+        if (!request.matches("(?s).*\\d.*") && !request.matches("(?is).*\\b(standard|you choose|any size|typical)\\b.*")) {
+            pendingBuild = request;
+            if (!"ivie".equals(stage.agent())) {
+                selectPersona("ivie"); // 3D is Ivie's work
+            }
+            play(LocalTurn.speakAs("ivie", "I'll design it. Do you have measurements: the overall size, how many floors or parts, any"
+                    + " heights? Tell me what you know, or say “you choose” and I'll use standard real-world sizes."), null);
+            return;
         }
-        final ai.dvine.social.SocialAsk ask = ai.dvine.social.SocialAsk.parse(text);
-        if (ask == null) {
+        buildNow(request);
+    }
+
+    private void buildNow(String request) {
+        pendingBuild = null;
+        if (!"ivie".equals(stage.agent())) {
+            selectPersona("ivie");
+        }
+        showIvieCanvas(true);
+        ai.dvine.create.ObjectRequestInterpreter.Request r = ai.dvine.create.ObjectRequestInterpreter.build(request);
+        runCreation(r);
+    }
+
+    /** The reply to "do you have measurements?": numbers are added to the request; "you choose", "no", "I don't know" build with standard sizes. */
+    private boolean measurementsGiven(String text) {
+        if (pendingBuild == null) {
             return false;
         }
-        String where = ask.platform == null ? "social media" : ask.platform.shown;
-        ai.dvine.social.SocialAccounts accounts = ai.dvine.social.SocialWeb.accounts(this);
-        boolean none = ask.platform == null ? accounts.ready().isEmpty() : accounts.inUse(ask.platform) == null;
-        if (none) {
-            play(LocalTurn.speakAs(stage.agent(), "I need you signed in to " + where + " first: open the menu, then Social"
-                    + " accounts, and sign in there. Your password goes only to the site."), null);
+        String t = text.trim().toLowerCase(java.util.Locale.US);
+        String asked = pendingBuild;
+        if (t.matches("(?s).*\\d.*")) {
+            buildNow(asked + ". Measurements: " + text.trim());
             return true;
         }
-        if (connectivity != null && !connectivity.isOnline()) {
-            play(LocalTurn.speakAs(stage.agent(), "I need the network to read " + where + "."), null);
+        if (t.matches("^(you choose|choose|you pick|your choice|any|anything|standard|default|go ahead|just build( it)?|build it|no|nope|i don'?t know|"
+                + "not sure|i don'?t have (any|them)|use (standard|typical|normal) (sizes|measurements)|surprise me|ok|okay|yes)\\b.*")) {
+            buildNow(asked + ". The user has no measurements: use accurate standard real-world measurements for every part.");
             return true;
         }
-        String net = ask.platform == null ? "" : ask.platform.name().toLowerCase(java.util.Locale.ROOT);
-        useConnector(text, ask.trending ? "social.trending " + net : "social.search " + (net.isEmpty() ? "" : net + ": ") + ask.query);
-        return true;
+        pendingBuild = null; // something else: the build is set aside, and this message goes its own way
+        return false;
     }
+
 
     /**
      * Makes a real file (PDF, Word, Excel, HTML, CSV, Markdown, JSON, text) from the last reply, the whole chat, or a
@@ -4065,13 +4180,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (r == null) {
             return false;
         }
+        return runCreation(r);
+    }
+
+    private boolean runCreation(final ai.dvine.create.ObjectRequestInterpreter.Request r) {
         if (r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.RECON) {
             openReconstructionPicker();
             return true;
         }
-        // there are no built-in objects: the model designs each thing with its measurements, and changes them
+        // there are no built-in objects: the model designs each thing with its measurements, and changes them; an API
+        // model is given the full design request (every part's exact coordinates), the phone's model the simpler one
+        boolean capable = model != null && model.remoteOn();
         creation.setDesigner(modelOn() ? (system, prompt, max) -> model.task(system, prompt, max, null) : null,
-                ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
+                capable ? ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs) : ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), capable);
         boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN
