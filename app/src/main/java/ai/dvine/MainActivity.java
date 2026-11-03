@@ -535,6 +535,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View drawerNew = findViewById(R.id.btnDrawerNew);
         if (drawerNew != null)
             drawerNew.setOnClickListener(v -> startNewChatSafely());
+        android.view.View projects = findViewById(R.id.btnDrawerProjects);
+        if (projects != null)
+            projects.setOnClickListener(v -> {
+                if (chatPane != null) {
+                    chatPane.openProjects();
+                }
+            });
+        android.view.View workspaceRow = findViewById(R.id.btnDrawerWorkspace);
+        if (workspaceRow != null)
+            workspaceRow.setOnClickListener(v -> {
+                closeDrawer();
+                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.WorkspaceActivity.class));
+            });
         android.view.View providers = findViewById(R.id.btnProviders);
         if (providers != null)
             providers.setOnClickListener(v -> {

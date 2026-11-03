@@ -61,4 +61,32 @@ public class ChatBookTest {
         assertTrue(book.transcript(700).contains("[a photograph file is in this chat]"));
         assertFalse(book.transcript(700).contains("not-a-real-photo"));
     }
+
+    @org.junit.Test
+    public void chatsGoIntoProjectsAndProjectsAreKept() throws Exception {
+        java.io.File f = java.nio.file.Files.createTempFile("chats", ".json").toFile();
+        f.delete();
+        ChatBook b = new ChatBook(f);
+        org.junit.Assert.assertTrue(b.addProject("Harvana app"));
+        org.junit.Assert.assertFalse(b.addProject("Harvana app")); // a name once
+        b.add("user", "text", "Audit the wallet", "ibiko");
+        String audit = b.current().id;
+        b.moveTo(audit, "Harvana app");
+        b.fresh("obi");
+        b.add("user", "text", "Plan my week", "obi");
+        b.moveTo(b.current().id, "Life admin"); // a project named here is made
+        ChatBook again = new ChatBook(f); // kept on the phone
+        org.junit.Assert.assertEquals(java.util.Arrays.asList("Harvana app", "Life admin"), again.projects());
+        org.junit.Assert.assertEquals(1, again.inProject("Harvana app").size());
+        org.junit.Assert.assertEquals(audit, again.inProject("Harvana app").get(0).id);
+        again.removeProject("Harvana app"); // its chats stay, outside any project
+        org.junit.Assert.assertEquals(java.util.Arrays.asList("Life admin"), again.projects());
+        boolean kept = false;
+        for (ChatBook.Section s : again.sections()) {
+            if (s.id.equals(audit)) {
+                kept = s.project == null;
+            }
+        }
+        org.junit.Assert.assertTrue(kept);
+    }
 }
