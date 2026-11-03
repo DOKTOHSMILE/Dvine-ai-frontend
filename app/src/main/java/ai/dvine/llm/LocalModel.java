@@ -468,6 +468,20 @@ public final class LocalModel {
      * One task outside the conversation (a drawing to describe): its own instructions, no history, nothing
      * remembered; a lower temperature so the shapes come out well formed. Null when not ready or it failed.
      */
+    /**
+     * A task for an API model only, without the phone model's lock, so several can run side by side (mini agents
+     * working in parallel online). Null when no API is on or it failed; the caller falls back to {@link #task}.
+     */
+    public String remoteTask(String system, String prompt, int maxTokens) {
+        if (!remoteOn()) {
+            return null;
+        }
+        List<String[]> turns = new ArrayList<String[]>();
+        turns.add(new String[]{"user", prompt});
+        String answer = askRemote(system, turns, maxTokens, 0.35f, null, TaskSize.ofCall(prompt, maxTokens, coding));
+        return answer == null ? null : answer.trim();
+    }
+
     public synchronized String task(String system, String prompt, int maxTokens, NativeLlm.Sink sink) {
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>();

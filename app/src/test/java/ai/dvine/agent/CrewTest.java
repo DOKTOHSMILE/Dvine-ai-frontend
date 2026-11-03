@@ -38,6 +38,26 @@ public class CrewTest {
     }
 
     @Test
+    public void onlineHelpersWorkSideBySideAndTheAnswerKeepsTheOrder() {
+        final java.util.concurrent.atomic.AtomicInteger busy = new java.util.concurrent.atomic.AtomicInteger(), most = new java.util.concurrent.atomic.AtomicInteger();
+        List<String> brainSaid = new ArrayList<String>(Arrays.asList("PART: one\nPART: two\nPART: three", null));
+        List<Integer> doneOrder = java.util.Collections.synchronizedList(new ArrayList<Integer>());
+        String r = Crew.run((sys, p) -> brainSaid.isEmpty() ? null : brainSaid.remove(0), (part, brief) -> {
+            int now = busy.incrementAndGet();
+            most.accumulateAndGet(now, Math::max);
+            try {
+                Thread.sleep("one".equals(part) ? 300 : 100);
+            } catch (InterruptedException ignored) {
+            }
+            busy.decrementAndGet();
+            return "found " + part;
+        }, "Deep audit", (n, of, part, found) -> doneOrder.add(n), () -> false, 3);
+        assertTrue("side by side: " + most.get(), most.get() >= 2);
+        assertEquals(3, doneOrder.size());
+        assertTrue(r, r.indexOf("Part 1: one") < r.indexOf("Part 2: two") && r.indexOf("Part 2: two") < r.indexOf("Part 3: three")); // writer failed: parts, in order
+    }
+
+    @Test
     public void onlyHeavyJobsGetHelpers() {
         assertTrue(Crew.heavy("Deep audit my Harvana app codebase in my GitHub repo"));
         assertTrue(Crew.heavy("Find all the bugs in the whole repository"));

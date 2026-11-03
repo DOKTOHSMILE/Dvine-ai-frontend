@@ -206,6 +206,8 @@ public final class CodeAgent {
                         + "<tool name=\"edit_file\" path=\"FOLDER/FILE\"><old>exact text now in the file</old><new>its replacement</new></tool>\n")
                 + (readOnly ? "" : "<tool name=\"make_file\" path=\"FOLDER/report.pdf\">the document in Markdown</tool> (a real PDF,"
                         + " Word .docx, Excel .xlsx from a | table |, .html, .csv or .md, by the name's ending)\n")
+                + (readOnly ? "" : "<tool name=\"zip\" path=\"FOLDER\" to=\"FOLDER.zip\"/> (a folder or file into a zip)\n"
+                        + "<tool name=\"unzip\" path=\"FILE.zip\" to=\"FOLDER\"/> (a zip into a folder)\n")
                 + "<tool name=\"search\" query=\"text to find\"/>\n"
                 + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command (sh, toybox: ls cat grep sed find wc head tail mkdir cp mv rm)\"/>\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
@@ -551,7 +553,7 @@ public final class CodeAgent {
     private static final Pattern JSON_CALL = Pattern.compile("<tool_call>\\s*(\\{.*?\\})\\s*</tool_call>", Pattern.DOTALL);
 
     private static final Pattern NAMED = Pattern.compile(
-            "<(list_files|read_file|write_file|edit_file|make_file|search|run|fetch|connector|git)((?:\\s+\\w+\\s*=\\s*\"(?:[^\"\\\\]|\\\\.)*\")*)\\s*(/?)>",
+            "<(list_files|read_file|write_file|edit_file|make_file|zip|unzip|search|run|fetch|connector|git)((?:\\s+\\w+\\s*=\\s*\"(?:[^\"\\\\]|\\\\.)*\")*)\\s*(/?)>",
             Pattern.DOTALL);
 
     /**
@@ -707,7 +709,7 @@ public final class CodeAgent {
 
     private String carryOut(Call c) throws IOException {
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
-                || c.name.equals("make_file"))) {
+                || c.name.equals("make_file") || c.name.equals("zip") || c.name.equals("unzip"))) {
             return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."
                     : "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
         }
@@ -777,6 +779,27 @@ public final class CodeAgent {
                 note(c.a("path"));
                 host.step("Made " + show(c.a("path")) + " (" + made + ")");
                 return "Made " + c.a("path") + ": " + made + ".";
+            }
+            case "zip": {
+                File from = inside(c.a("path"));
+                String to = c.a("to").isEmpty() ? c.a("path").replaceAll("/+$", "") + ".zip" : c.a("to");
+                if (!from.exists()) {
+                    return "No such file or folder: " + c.a("path");
+                }
+                int n = Zips.zip(from, inside(to));
+                note(to);
+                host.step("Zipped " + show(c.a("path")) + " into " + show(to) + " (" + n + " files)");
+                return "Zipped " + n + " files into " + to + ".";
+            }
+            case "unzip": {
+                File zip = inside(c.a("path"));
+                if (!zip.isFile()) {
+                    return "No such zip: " + c.a("path");
+                }
+                String to = c.a("to").isEmpty() ? c.a("path").replaceAll("\\.zip$", "") : c.a("to");
+                int n = Zips.unzip(zip, inside(to));
+                host.step("Unzipped " + show(c.a("path")) + " into " + show(to) + " (" + n + " files)");
+                return "Unzipped " + n + " files into " + to + ".";
             }
             case "search": {
                 host.step("Searched for \u201c" + clip(c.a("query"), 40) + "\u201d");

@@ -52,24 +52,58 @@ public final class Crew {
             + " problem with where it is and how to fix it (code where it helps), and anything a helper couldn't finish."
             + " Don't drop findings or invent new ones. /no_think";
 
-    /** Does the job with helpers; null when it couldn't be split (one agent does it then) or it was stopped. */
+    /** Does the job with helpers one after another (one model on the phone); see the other {@code run}. */
     public static String run(Brain brain, Helper helper, String task, Progress progress, BooleanSupplier stopped) {
-        List<String> parts = parts(brain.ask(PLAN, "The job: " + task));
+        return run(brain, helper, task, progress, stopped, 1);
+    }
+
+    /**
+     * Does the job with helpers; null when it couldn't be split (one agent does it then) or it was stopped. With
+     * {@code side} above 1 (an API model, which has no single phone to share), that many helpers work at once, each
+     * reporting as it finishes; the answer keeps the parts in their order.
+     */
+    public static String run(Brain brain, Helper helper, String task, Progress progress, BooleanSupplier stopped, int side) {
+        final List<String> parts = parts(brain.ask(PLAN, "The job: " + task));
         if (parts.size() < 2 || stopped.getAsBoolean()) {
+            return null;
+        }
+        final String[] results = new String[parts.size()];
+        if (side > 1) {
+            java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(Math.min(side, parts.size()));
+            List<java.util.concurrent.Future<?>> jobs = new ArrayList<java.util.concurrent.Future<?>>();
+            for (int i = 0; i < parts.size(); i++) {
+                final int n = i;
+                jobs.add(pool.submit(() -> {
+                    if (!stopped.getAsBoolean()) {
+                        results[n] = work(helper, parts, n, task);
+                        progress.done(n + 1, parts.size(), parts.get(n), results[n]);
+                    }
+                }));
+            }
+            for (java.util.concurrent.Future<?> j : jobs) {
+                try {
+                    j.get();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (java.util.concurrent.ExecutionException e) {
+                    // that helper failed: its part says so below
+                }
+            }
+            pool.shutdownNow();
+        } else {
+            for (int i = 0; i < parts.size() && !stopped.getAsBoolean(); i++) {
+                results[i] = work(helper, parts, i, task);
+                progress.done(i + 1, parts.size(), parts.get(i), results[i]);
+            }
+        }
+        if (stopped.getAsBoolean()) {
             return null;
         }
         StringBuilder found = new StringBuilder();
         for (int i = 0; i < parts.size(); i++) {
-            if (stopped.getAsBoolean()) {
-                return null;
-            }
-            String part = parts.get(i);
-            String brief = "You are helper " + (i + 1) + " of " + parts.size() + " on this job: " + task
-                    + "\nDo only your part; the others are covered by other helpers.";
-            String r = helper.work(part, brief);
-            r = r == null || r.trim().isEmpty() ? "(nothing found: the helper couldn't finish this part)" : r.trim();
-            progress.done(i + 1, parts.size(), part, r);
-            found.append("\n\nPart ").append(i + 1).append(": ").append(part).append("\n").append(r.length() > 6000 ? r.substring(0, 6000) : r);
+            String r = results[i] == null ? "(nothing found: the helper couldn't finish this part)" : results[i];
+            found.append("\n\nPart ").append(i + 1).append(": ").append(parts.get(i)).append("\n").append(r.length() > 6000 ? r.substring(0, 6000) : r);
         }
         if (stopped.getAsBoolean()) {
             return null;
@@ -78,6 +112,18 @@ public final class Crew {
         answer = answer == null ? "" : answer.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim();
         // the writer failed: the parts themselves are the answer
         return answer.isEmpty() ? found.toString().trim() : answer;
+    }
+
+    private static String work(Helper helper, List<String> parts, int i, String task) {
+        String brief = "You are helper " + (i + 1) + " of " + parts.size() + " on this job: " + task
+                + "\nDo only your part; the others are covered by other helpers.";
+        String r;
+        try {
+            r = helper.work(parts.get(i), brief);
+        } catch (RuntimeException e) {
+            r = null;
+        }
+        return r == null || r.trim().isEmpty() ? "(nothing found: the helper couldn't finish this part)" : r.trim();
     }
 
     /** The parts: each from its PART: marker to the next, lines joined (a model may write "What to look at" below it). */
@@ -90,7 +136,7 @@ public final class Crew {
         String[] blocks = t.split("(?im)^\\s*(?:[-*\\d.]+\\s*)?\\**PART\\s*\\d*\\**\\s*:");
         for (int i = 1; i < blocks.length && out.size() < MOST; i++) {
             String p = blocks[i].replaceAll("\\s+", " ").replace("**", "").trim();
-            if (p.length() > 3) {
+            if (p.length() >= 3) {
                 out.add(p);
             }
         }

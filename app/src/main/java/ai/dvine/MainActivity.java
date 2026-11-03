@@ -535,6 +535,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View drawerNew = findViewById(R.id.btnDrawerNew);
         if (drawerNew != null)
             drawerNew.setOnClickListener(v -> startNewChatSafely());
+        android.view.View workload = findViewById(R.id.workload);
+        if (workload != null)
+            workload.setOnClickListener(v -> {
+                if (model != null) {
+                    ai.dvine.chat.ui.WorkloadSheet.show(this, model); // the context window, the agents at work, today
+                }
+            });
         android.view.View projects = findViewById(R.id.btnDrawerProjects);
         if (projects != null)
             projects.setOnClickListener(v -> {
@@ -1063,6 +1070,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public void onHandoff(String persona, String task) {
+                handOff(persona, task);
+            }
+
+            @Override
             public void onEdit(String before, String edited) {
                 // the old message and its replies are gone from the chat; the model forgets them too, then the
                 // edited message is sent like a new one (a reply still being written to the old one is stopped)
@@ -1574,6 +1586,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             return;
         }
+        if (!"ibiko".equals(agent) && prefs.getBoolean("handoff", true) && ai.dvine.agent.Handoff.forIbiko(finalQuestion)) {
+            offerHandoff(agent, finalQuestion); // Ibiko's work: Obi or Ivie offer to hand it to him
+            return;
+        }
         ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(finalQuestion, null);
         if ("ibiko".equals(agent) && model != null && model.ready() && prefs.getBoolean("llm_on", true)
                 && !ai.dvine.agent.Council.wanted(finalQuestion, false) // "think together" in Ibiko's chat: the council
@@ -1868,6 +1884,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             ai.dvine.llm.ReplyService.hold(this);
             markRunning(persona, task); // if the app is closed or crashes, the next start offers to carry on
+            final String lead = ai.dvine.agent.AgentBoard.start(who + (planning ? " \u00B7 planner" : readOnly ? " \u00B7 reader" : " \u00B7 lead"), task);
             final java.util.List<String> changed = new java.util.ArrayList<String>();
             ai.dvine.agent.CodeAgent agent = make.get();
             String result;
@@ -1883,11 +1900,35 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             chatPane.activityStep("Splitting the job between mini agents");
                         }
                     });
-                    crew = ai.dvine.agent.Crew.run(brain::ask, (part, brief) -> make.get().run(part, brief + (earlier.isEmpty() ? ""
-                                    : "\n\nEarlier in this chat (its end):\n" + earlier.substring(Math.max(0, earlier.length() - 800)))),
+                    // online (an API): three helpers at once, each with its own calls; on the phone: one after another
+                    final boolean side = model.remoteOn();
+                    final ai.dvine.agent.CodeAgent.Brain online = new ai.dvine.agent.CodeAgent.Brain() {
+                        @Override
+                        public String ask(String system, String transcript) {
+                            String r = model.remoteTask(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs));
+                            return r != null ? r : model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), null);
+                        }
+
+                        @Override
+                        public String why() {
+                            return model.problem();
+                        }
+                    };
+                    crew = ai.dvine.agent.Crew.run(brain::ask, (part, brief) -> {
+                                String helper = ai.dvine.agent.AgentBoard.start(who + " \u00B7 mini agent", part);
+                                try {
+                                    ai.dvine.agent.CodeAgent mini = side ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools, model.window() * 3)
+                                            .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ROUND_STEPS)
+                                            .as(who, readOnly).keepGoing(rounds) : make.get();
+                                    return mini.run(part, brief + (earlier.isEmpty() ? ""
+                                            : "\n\nEarlier in this chat (its end):\n" + earlier.substring(Math.max(0, earlier.length() - 800))));
+                                } finally {
+                                    ai.dvine.agent.AgentBoard.end(helper);
+                                }
+                            },
                             task, (n, of, part, found) -> handler.post(() -> progressNote(id, persona, n,
                                     "Part " + n + " of " + of + " done: " + part + "\n\n" + found)),
-                            host::stopped);
+                            host::stopped, side ? 3 : 1);
                 }
                 result = crew != null ? crew : agent.run(task, earlier);
                 long began = System.currentTimeMillis();
@@ -1912,6 +1953,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
             } finally {
                 ai.dvine.llm.ReplyService.release(this);
+                ai.dvine.agent.AgentBoard.end(lead);
             }
             markRunning(null, null); // finished (or stopped): nothing to carry on after a restart
             final String answer = result;
@@ -2027,6 +2069,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String context = chats == null ? "" : chats.transcript(model.remoteOn() ? 6000 : 1500, model.remoteOn() ? 1500 : 300);
         hub.worker.execute(() -> {
             ai.dvine.llm.ReplyService.hold(this);
+            final String council = ai.dvine.agent.AgentBoard.start("Council \u00B7 Obi, Ivie, Ibiko", question);
             ai.dvine.agent.Council.Result r;
             try {
                 r = ai.dvine.agent.Council.run((system, prompt) -> model.task(system, prompt,
@@ -2042,6 +2085,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         }, () -> id != askId);
             } finally {
                 ai.dvine.llm.ReplyService.release(this);
+                ai.dvine.agent.AgentBoard.end(council);
             }
             final ai.dvine.agent.Council.Result done = r;
             handler.post(() -> {
@@ -2075,8 +2119,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (id != askId) {
                 return; // a new question came first
             }
-            ai.dvine.llm.FactCheck.Result r = ai.dvine.llm.FactCheck.run((system, prompt) -> model.task(system, prompt, 300, null),
-                    claim -> web.research(claim, 1, 3000), question, answer, () -> id != askId);
+            final String checker = ai.dvine.agent.AgentBoard.start("Fact checker", question);
+            ai.dvine.llm.FactCheck.Result r;
+            try {
+                r = ai.dvine.llm.FactCheck.run((system, prompt) -> model.task(system, prompt, 300, null),
+                        claim -> web.research(claim, 1, 3000), question, answer, () -> id != askId);
+            } finally {
+                ai.dvine.agent.AgentBoard.end(checker);
+            }
             final String correction = r.correction();
             if (correction == null) {
                 return;
@@ -2087,6 +2137,35 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
             });
         });
+    }
+
+    /** Obi or Ivie, given Ibiko's kind of work: they say so and leave a button that hands it to him. */
+    private void offerHandoff(String persona, String task) {
+        if (chatPane == null || chats == null) {
+            return;
+        }
+        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
+        chatPane.assistant(persona, "That's Ibiko's work: he writes, runs and tests code on this phone. Tap below and I'll hand it"
+                + " to him; he starts on it in a new chat of his." + (who.isEmpty() ? "" : ""));
+        chats.add("assistant", "handoff", "ibiko\n" + task, persona);
+        chatPane.show();
+    }
+
+    /** The hand-off button: a new chat under the persona, named after the task, where they start on it at once. */
+    private void handOff(String persona, String task) {
+        if (chats == null || task == null || task.trim().isEmpty()) {
+            return;
+        }
+        selectPersona(persona); // first: switching persona opens their latest chat
+        ai.dvine.chat.ChatBook.Section s = chats.fresh(persona);
+        chats.rename(s.id, ai.dvine.agent.Handoff.title(task));
+        chatPane.show();
+        noteUser(task);
+        if ("ibiko".equals(persona)) {
+            runIbiko(task);
+        } else {
+            askTheBrain(task);
+        }
     }
 
     /** A clear-out of the working memory is under way (one at a time). */
@@ -2108,7 +2187,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final float load = model.workload();
         if (g != null) {
             g.set(load);
-            g.setOnClickListener(v -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.UsageActivity.class)));
         }
         if (load < ai.dvine.stage.WorkloadGauge.HOT || compacting || model.coding || !prefs.getBoolean("auto_clear", true)) {
             return;
@@ -2121,7 +2199,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 handler.post(() -> compacting = false); // too little to sum up
                 return;
             }
-            String summary = model.task(SUM_UP, said.length() > 20000 ? said.substring(said.length() - 20000) : said, 400, null);
+            final String keeper = ai.dvine.agent.AgentBoard.start("Memory keeper", "summing up the conversation to clear memory");
+            String summary;
+            try {
+                summary = model.task(SUM_UP, said.length() > 20000 ? said.substring(said.length() - 20000) : said, 400, null);
+            } finally {
+                ai.dvine.agent.AgentBoard.end(keeper);
+            }
             summary = summary == null ? "" : summary.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
             model.compact(summary);
             final boolean kept = !summary.isEmpty();

@@ -693,6 +693,40 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    @Test
+    public void obiHandsIbikosWorkToHimInANewChatAndTheRingOpensTheWorkload() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        java.lang.reflect.Method offer = MainActivity.class.getDeclaredMethod("offerHandoff", String.class, String.class);
+        offer.setAccessible(true);
+        offer.invoke(c.get(), "obi", "Fix the login crash in my Android app");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        android.view.View button = described(pane, "Hand this task to Ibiko: a new chat of his, where he starts on it");
+        assertNotNull("the hand-off button", button);
+        String obiChat = chats.current().id;
+        button.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertNotEquals(obiChat, chats.current().id); // a new chat
+        org.junit.Assert.assertEquals("ibiko", chats.current().persona);
+        org.junit.Assert.assertEquals("Fix the login crash in my Android app", chats.current().title);
+        org.junit.Assert.assertEquals("Fix the login crash in my Android app", chats.current().messages.get(0).body);
+        // the ring: a tap opens the workload sheet
+        c.get().findViewById(ai.dvine.R.id.workload).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+        sheet.getWindow().getDecorView().findViewsWithText(found, "Agents working now", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertFalse("the workload sheet", found.isEmpty());
+        sheet.dismiss();
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;

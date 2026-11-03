@@ -220,7 +220,7 @@ public final class ChatBook {
         }
         if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
                 || "html".equals(kind) || "text".equals(kind) || "activity".equals(kind) || "step".equals(kind) || "file".equals(kind)
-                || "work".equals(kind)) {
+                || "work".equals(kind) || "handoff".equals(kind)) {
             s.messages.add(new Message(role, kind, body, persona));
         } else {
             s.messages.add(new Message(role, "text", body, persona));
