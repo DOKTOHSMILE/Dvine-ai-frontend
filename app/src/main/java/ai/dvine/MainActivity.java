@@ -1565,81 +1565,193 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void askTheBrain(String question) {
         lastAsked = question;
+        brainAsked = question; // as said: "carry on" is read as the agent's own work going on
         String bare = question.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
-        boolean agentGoesOn = carriesOn(question) && !agentWork(stage.agent()).isEmpty();
-        if (agentGoesOn && model != null && model.ready()) {
-            // Ibiko (or Obi or Ivie reading files) carries on with the same work, everything already read kept
-            runAgent(question, stage.agent(), !"ibiko".equals(stage.agent()));
-            return;
-        }
-        if (bare.matches("^(continue|go on|carry on|again|keep going)$") && activeQuestion != null
-                && !activeQuestion.equalsIgnoreCase(question)) {
-            question = activeQuestion;
-        } else if (!bare.matches("^(continue|go on|carry on|again|keep going)$")) {
-            activeQuestion = question;
-        }
-
-        // Create a final copy so it can be safely captured by lambdas and background threads
-        final String finalQuestion = question;
-        final String agent = stage.agent();
-        String who = ai.dvine.llm.PersonaPrompt.introduce(agent, finalQuestion);
-        if (who != null) {
-            play(LocalTurn.speakAs(agent, who), null);
-            return;
-        }
-
-        if (ivieGraphics(finalQuestion)) {
-            return; // Ivie draws, builds or changes it on her 3D canvas
-        }
-        if (!"ibiko".equals(agent) && model != null && model.ready() && prefs.getBoolean("llm_on", true)
-                && aboutPhoneFiles(finalQuestion)) {
-            runAgent(finalQuestion, agent, true); // Obi or Ivie read the cloned files, with any model
-            return;
-        }
-        if (ai.dvine.chat.Attachments.has(finalQuestion) && model != null && model.ready() && prefs.getBoolean("llm_on", true)) {
-            // something is attached: the model reads it with the instructions (Ibiko works on it as a task)
-            if ("ibiko".equals(agent)) {
-                runIbiko(finalQuestion);
-            } else {
-                askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
-            }
-            return;
-        }
-        if (!"ibiko".equals(agent) && prefs.getBoolean("handoff", true) && ai.dvine.agent.Handoff.forIbiko(finalQuestion)) {
-            offerHandoff(agent, finalQuestion); // Ibiko's work: Obi or Ivie offer to hand it to him
-            return;
-        }
-        ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(finalQuestion, null);
-        if ("ibiko".equals(agent) && model != null && model.ready() && prefs.getBoolean("llm_on", true)
-                && !ai.dvine.agent.Council.wanted(finalQuestion, false) // "think together" in Ibiko's chat: the council
-                && !finalQuestion.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
-            boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
-                    || known.kind == ai.dvine.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.dvine.llm.BrainOrder.Kind.TIME
-                    || known.kind == ai.dvine.llm.BrainOrder.Kind.NAME);
-            if (!shortcut) {
-                runIbiko(finalQuestion); // Ibiko codes: the agent works on it, step by step
-                return;
+        boolean carryOnWords = bare.matches("^(continue|go on|carry on|again|keep going)$");
+        if (!(carriesOn(question) && !agentWork(stage.agent()).isEmpty() && model != null && model.ready())) {
+            if (carryOnWords && activeQuestion != null && !activeQuestion.equalsIgnoreCase(question)) {
+                question = activeQuestion;
+            } else if (!carryOnWords) {
+                activeQuestion = question;
             }
         }
-        if (known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY) {
-            carryOut(agent, finalQuestion, known);
-            return;
+        brainGate().handle(question, System.currentTimeMillis());
+    }
+
+    /** The message as the user said it, before "continue" was read as the question it continues. */
+    private String brainAsked;
+    private ai.dvine.gate.BrainGateway messageGate, brainGate;
+
+    /**
+     * Every message's way through DVINE (the one gateway): first the "message" stage (controls, the model's own
+     * commands, posts, files, social searches, reading the meaning), then the "brain" stage (Ivie's canvas, the
+     * agents, the council, the model). Each route is asked in this order and the first that takes it handles it;
+     * which one is recorded ({@link ai.dvine.gate.BrainGateway#recent}).
+     */
+    private ai.dvine.gate.BrainGateway messageGate() {
+        if (messageGate != null) {
+            return messageGate;
         }
-        if (model == null || !model.ready() || !prefs.getBoolean("llm_on", true)) {
-            carryOut(agent, finalQuestion, null);
-            return;
+        messageGate = new ai.dvine.gate.BrainGateway("message")
+                .route("pause", t -> {
+                    if (!control(t).matches("^(pause|hold on|wait|hang on)( please)?$") || index >= lines.size()) {
+                        return false;
+                    }
+                    paused = new ArrayList<TurnLine>(lines.subList(Math.max(0, index - 1), lines.size()));
+                    stopPlay();
+                    stage.setMode(StageMode.LISTENING);
+                    return true;
+                })
+                .route("retry", t -> {
+                    if (!control(t).matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
+                        return false;
+                    }
+                    retryLast();
+                    return true;
+                })
+                .route("resume", t -> {
+                    if (!control(t).matches("^(resume|continue|go on|carry on)( please)?$") || paused == null) {
+                        return false;
+                    }
+                    List<TurnLine> rest = paused;
+                    paused = null;
+                    play(rest, null);
+                    return true;
+                })
+                .route("model command", t -> {
+                    paused = null; // anything else lets a paused reply go
+                    // the one thing that can't wait for the brain: getting the brain ("download your brain", the yes
+                    // to it, pause / continue / show the download). Without it there is nothing to read the words.
+                    return modelCommand(control(t));
+                })
+                .route("post, share or copy", this::stagedAction) // shown first, carried out on a yes (or auto-approve)
+                .route("make a file", this::makeDocument) // "make a PDF of that": the model writes, DVINE makes the file
+                .route("social search", this::socialSearch)
+                .route("read the meaning", t -> {
+                    if (fromBrain || carriesOn(t) || !ai.dvine.turn.Meaning.worthReading(t)) {
+                        return false;
+                    }
+                    understand(t); // the words didn't match a command's wording: the brain reads what they mean
+                    return true;
+                })
+                .route("brain", t -> {
+                    askTheBrain(t);
+                    return true;
+                });
+        return messageGate;
+    }
+
+    private static String control(String text) {
+        return text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+    }
+
+    private ai.dvine.gate.BrainGateway brainGate() {
+        if (brainGate != null) {
+            return brainGate;
         }
-        if (ai.dvine.agent.Council.wanted(finalQuestion, prefs.getBoolean("think_together", true))
-                && !ai.dvine.llm.TaskSize.mayNeedAction(finalQuestion)) {
-            thinkTogether(finalQuestion, agent); // a weighty question: Obi, Ivie and Ibiko work on it, one answer
-            return;
-        }
-        if (ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG
-                && !ai.dvine.llm.TaskSize.mayNeedAction(finalQuestion)) {
-            // real work that isn't an order for the phone: straight to the answer, without a routing call first
-            askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
-            return;
-        }
+        brainGate = new ai.dvine.gate.BrainGateway("brain", messageGate())
+                .route("agent carries on", t -> {
+                    String said = brainAsked == null ? t : brainAsked;
+                    if (!(carriesOn(said) && !agentWork(stage.agent()).isEmpty() && model != null && model.ready())) {
+                        return false;
+                    }
+                    // Ibiko (or Obi or Ivie reading files) carries on with the same work, everything already read kept
+                    runAgent(said, stage.agent(), !"ibiko".equals(stage.agent()));
+                    return true;
+                })
+                .route("who am I", t -> {
+                    String who = ai.dvine.llm.PersonaPrompt.introduce(stage.agent(), t);
+                    if (who == null) {
+                        return false;
+                    }
+                    play(LocalTurn.speakAs(stage.agent(), who), null);
+                    return true;
+                })
+                .route("Ivie's 3D canvas", this::ivieGraphics) // Ivie draws, builds or changes it on her canvas
+                .route("read the phone's files", t -> {
+                    if ("ibiko".equals(stage.agent()) || !modelOn() || !aboutPhoneFiles(t)) {
+                        return false;
+                    }
+                    runAgent(t, stage.agent(), true); // Obi or Ivie read the cloned files, with any model
+                    return true;
+                })
+                .route("attachment", t -> {
+                    if (!ai.dvine.chat.Attachments.has(t) || !modelOn()) {
+                        return false;
+                    }
+                    // something is attached: the model reads it with the instructions (Ibiko works on it as a task)
+                    if ("ibiko".equals(stage.agent())) {
+                        runIbiko(t);
+                    } else {
+                        askLocal(t, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
+                    }
+                    return true;
+                })
+                .route("hand to Ibiko", t -> {
+                    if ("ibiko".equals(stage.agent()) || !prefs.getBoolean("handoff", true) || !ai.dvine.agent.Handoff.forIbiko(t)) {
+                        return false;
+                    }
+                    offerHandoff(stage.agent(), t); // Ibiko's work: Obi or Ivie offer to hand it to him
+                    return true;
+                })
+                .route("Ibiko's coding agent", t -> {
+                    if (!"ibiko".equals(stage.agent()) || !modelOn() || ai.dvine.agent.Council.wanted(t, false)
+                            || t.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
+                        return false; // "think together" in Ibiko's chat: the council
+                    }
+                    ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
+                    boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
+                            || known.kind == ai.dvine.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.dvine.llm.BrainOrder.Kind.TIME
+                            || known.kind == ai.dvine.llm.BrainOrder.Kind.NAME);
+                    if (shortcut) {
+                        return false;
+                    }
+                    runIbiko(t); // Ibiko codes: the agent works on it, step by step
+                    return true;
+                })
+                .route("a known order", t -> {
+                    ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
+                    if (known == null || known.kind == ai.dvine.llm.BrainOrder.Kind.SAY) {
+                        return false;
+                    }
+                    carryOut(stage.agent(), t, known);
+                    return true;
+                })
+                .route("no model", t -> {
+                    if (modelOn()) {
+                        return false;
+                    }
+                    carryOut(stage.agent(), t, null);
+                    return true;
+                })
+                .route("think together", t -> {
+                    if (!ai.dvine.agent.Council.wanted(t, prefs.getBoolean("think_together", true)) || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
+                        return false;
+                    }
+                    thinkTogether(t, stage.agent()); // a weighty question: Obi, Ivie and Ibiko work on it, one answer
+                    return true;
+                })
+                .route("full answer", t -> {
+                    if (ai.dvine.llm.TaskSize.of(t, false) != ai.dvine.llm.TaskSize.Tier.STRONG || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
+                        return false;
+                    }
+                    // real work that isn't an order for the phone: straight to the answer, without a routing call first
+                    askLocal(t, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
+                    return true;
+                })
+                .route("the model decides", t -> {
+                    routeWithModel(t, stage.agent());
+                    return true;
+                });
+        return brainGate;
+    }
+
+    private boolean modelOn() {
+        return model != null && model.ready() && prefs.getBoolean("llm_on", true);
+    }
+
+    /** The model reads the message and says what to do with it (an order, or just talk). */
+    private void routeWithModel(final String finalQuestion, final String agent) {
         final int id = ++askId;
         stopPlay();
         stage.setMode(StageMode.THINKING);
@@ -2544,44 +2656,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!interpreted) {
             noteUser(text);
         }
-        String control = text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
-        if (control.matches("^(pause|hold on|wait|hang on)( please)?$") && index < lines.size()) {
-            paused = new ArrayList<TurnLine>(lines.subList(Math.max(0, index - 1), lines.size()));
-            stopPlay();
-            stage.setMode(StageMode.LISTENING);
-            return;
-        }
-        if (control.matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
-            retryLast();
-            return;
-        }
-        if (control.matches("^(resume|continue|go on|carry on)( please)?$") && paused != null) {
-            List<TurnLine> rest = paused;
-            paused = null;
-            play(rest, null);
-            return;
-        }
-        paused = null;
-        // the one thing that can't wait for the brain: getting the brain ("download your brain", the yes to it,
-        // pause / continue / show the download). Without it there is nothing to read the words.
-        if (modelCommand(control)) {
-            return;
-        }
-        if (stagedAction(text)) {
-            return; // a post, a share or a copy: shown first, carried out on a yes (or at once when auto-approve is on)
-        }
-        if (makeDocument(text)) {
-            return; // "make a PDF of that", "write a Word document about …": the model writes, DVINE makes the file
-        }
-        if (socialSearch(text)) {
-            return;
-        }
-        if (!interpreted && !carriesOn(text) && ai.dvine.turn.Meaning.worthReading(text)) {
-            understand(text); // the words didn't match a command's wording: the brain reads what they mean
-            return;
-        }
-        askTheBrain(text);
-        return;
+        messageGate().handle(text, System.currentTimeMillis()); // every message takes one way through DVINE
     }
 
     /** Posts, shares and copies waiting for a yes (the spec's staged actions). */
@@ -2722,6 +2797,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 byte[] bytes = ai.dvine.act.FileMaker.any(fmt, title, body);
                 android.net.Uri uri = ai.dvine.chat.ui.Downloads.save(this, name, fmt.mime, bytes);
+                // checked before it is said: the file is read back and must hold what was written
+                String wrong = ai.dvine.gate.Verify.saved(() -> getContentResolver().openInputStream(uri), bytes.length);
+                if (wrong != null) {
+                    throw new java.io.IOException(wrong);
+                }
                 new ai.dvine.chat.WorkLog(this).artifact(name, uri.toString(), fmt.name() + " \u00B7 "
                         + (bytes.length < 1024 ? bytes.length + " B" : bytes.length / 1024 + " KB"), fmt.mime);
                 said = "Made " + name + " and saved it in Downloads/DVINE. Tap it below to open or share it.";
@@ -3203,6 +3283,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     ? "My reply stopped: " + why + ". Say \u201cretry\u201d to ask again."
                                     : "I don't have a reply for that yet. Say \u201cretry\u201d to ask again."));
                 } else {
+                    // a reply that says it sent, saved or posted something when nothing was done says so plainly
+                    body = ai.dvine.gate.ClaimGuard.check(body, false);
                     TurnLine said = new TurnLine(agent, "SAY", body);
                     if (spokeLive) {
                         spokenLive.add(said);
