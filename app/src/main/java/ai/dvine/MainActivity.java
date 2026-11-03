@@ -3013,20 +3013,33 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         synchronized (brain) {
             taught = brain.taughtFor(question, 6);
         }
-        final boolean look = prefs.getBoolean("fresh_facts", true) && connectivity != null
-                && connectivity.isOnline()
-                && (research || ai.dvine.llm.FreshFacts.worthLooking(question));
+        // the interpreter: Pidgin, Yoruba or French is read in English, and the English reply put back
+        final ai.dvine.llm.Interpreter.Language lang = prefs.getBoolean("interpreter", true)
+                ? ai.dvine.llm.Interpreter.language(question) : null;
+        final boolean online = prefs.getBoolean("fresh_facts", true) && connectivity != null
+                && connectivity.isOnline();
         armThink("Thinking\u2026", "Thinking\u2026");
         final String around = situation(ivie);
-        if (look) {
-            activity("Searching the web for \u201c" + clip(question) + "\u201d");
-        }
         hub.worker.execute(() -> {
+            String asked = question;
+            if (lang != null && id == askId) {
+                activity("Reading your " + lang.shown + " in English");
+                String en = ai.dvine.llm.Interpreter.toEnglish((s, t, n) -> model.task(s, t, n, null), lang, question);
+                if (en != null) {
+                    asked = en;
+                    activity("Understood as: \u201c" + clip(en) + "\u201d");
+                }
+            }
+            final String english = asked;
+            final boolean look = online && (research || ai.dvine.llm.FreshFacts.worthLooking(english));
+            if (look) {
+                activity("Searching the web for \u201c" + clip(english) + "\u201d");
+            }
             // the web: search results and the best pages (a small model gets a shorter extract)
-            String found = look && id == askId ? new ai.dvine.connect.ConnectorStore(this).research(question,
+            String found = look && id == askId ? new ai.dvine.connect.ConnectorStore(this).research(english,
                     model.remoteOn() ? 3 : 1, model.remoteOn() ? 6000 : 1500) : null;
             if (found == null && look && id == askId) {
-                found = ai.dvine.ops.mind.CitedReference.collect(question, url -> {
+                found = ai.dvine.ops.mind.CitedReference.collect(english, url -> {
                     ai.dvine.net.WebGet.Page p = ai.dvine.net.WebGet.page(url, 6000, 400_000);
                     return p.body;
                 }, System.currentTimeMillis());
@@ -3045,7 +3058,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
             final boolean ivieVoice = "ivie".equals(agent);
-            final ai.dvine.chat.LiveReply live = new ai.dvine.chat.LiveReply(handler, speakReply() && talk != null,
+            // interpreted: the English isn't shown or spoken as it comes; the translation is, when it is done
+            final ai.dvine.chat.LiveReply live = new ai.dvine.chat.LiveReply(handler, lang == null && speakReply() && talk != null,
                     new ai.dvine.chat.LiveReply.Out() {
                         @Override
                         public boolean current() {
@@ -3065,17 +3079,30 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             backupPartial(ai.dvine.llm.ActionTags.strip(soFar)); // a crash doesn't lose what was written
                         }
                     });
-            final String all = model.reply(system, question, context, length, text -> {
+            final String raw = model.reply(system, english, context, length, text -> {
                 if (!modelPiece(id, text)) {
                     return false;
                 }
                 if (text != null && !"\u0001".equals(text)) {
                     tags.add(text);
-                    live.piece(text);
+                    if (lang == null) {
+                        live.piece(text);
+                    }
                 }
                 return id == askId;
             });
             tags.flush();
+            String back = null;
+            if (lang != null && raw != null && id == askId) {
+                activity("Putting the answer in " + lang.shown);
+                back = ai.dvine.llm.Interpreter.fromEnglish((s, t, n) -> model.task(s, t, n, null), lang,
+                        ai.dvine.llm.ActionTags.strip(raw));
+                if (back == null) {
+                    activity("Couldn't put it in " + lang.shown + "; here it is in English");
+                }
+            }
+            final String all = back != null ? back : raw;
+            final String englishBody = raw == null ? "" : ai.dvine.llm.ReplyLayout.join(ai.dvine.llm.ActionTags.strip(raw));
             handler.post(this::clearPartial); // the reply is complete: no backup needed
             final boolean spokeLive = live.end(all);
             final String switchTo = tags.switchTo();
@@ -3105,7 +3132,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         spokenLive.add(said);
                     }
                     stream.add(said);
-                    factCheck(id, agent, question, body); // after it is shown: a correction follows only if one is needed
+                    // after it is shown: a correction follows only if one is needed (checked in English)
+                    factCheck(id, agent, english, lang == null ? body : englishBody);
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     afterPlay = () -> switchFace(switchTo, true);
