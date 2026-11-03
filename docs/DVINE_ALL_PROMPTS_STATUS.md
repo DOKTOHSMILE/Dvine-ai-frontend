@@ -160,6 +160,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 127 | Deep audit (from another tool) of the Java–C++ bridge and the brain: checked; KleidiAI enabled for the phone, cancel race fixed, the rest reported with reasons; one-gateway brain left for the user's decision | P12 | Built (emulator-verified) | 0.85.0 |
 | 128 | Merge the two brains: one gateway every message goes through, Brain 2's ideas (checks before done) in it, its demo lanes left out with reasons | P12 | Built (Robolectric) | 0.86.0 |
 | 129 | Delete every built-in 3D shape (user chose the 21 built-in shapes); 3D built by the AI only | P12 | Built | 0.87.0 |
+| 130 | Delete every built-in 3D sample; the model designs with full measurements, DVINE builds; hold messages while work runs; social switch, editable names, standard check, how-to; drag the sheet by its body; rename 'Writing the answer' | P12 | Built (desktop model measured) | 0.88.0 |
 
 ## Still open, in the order that matters
 

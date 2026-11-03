@@ -35,6 +35,35 @@ public final class SocialAccounts {
 
     private final File file;
     private final List<Account> list = new ArrayList<Account>();
+    /** Networks switched off in Connectors: their accounts stay signed in, but DVINE doesn't use them. */
+    private final java.util.Set<Platform> off = java.util.EnumSet.noneOf(Platform.class);
+
+    public synchronized void setOn(Platform p, boolean on) {
+        if (on) {
+            off.remove(p);
+        } else {
+            off.add(p);
+        }
+    }
+
+    public synchronized boolean on(Platform p, boolean ignored) {
+        return !off.contains(p);
+    }
+
+    /** A new name for an account ("Work", "Shop page"); a blank one is ignored. */
+    public synchronized void rename(String id, String label) {
+        String name = label == null ? "" : label.trim().replace('\t', ' ').replace('\n', ' ');
+        if (name.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < list.size(); i++) {
+            Account a = list.get(i);
+            if (a.id.equals(id)) {
+                list.set(i, new Account(a.id, a.platform, name, a.added, a.inUse, a.signedIn));
+            }
+        }
+        save();
+    }
 
     public SocialAccounts(File file) {
         this.file = file;
@@ -79,7 +108,7 @@ public final class SocialAccounts {
         List<Platform> out = new ArrayList<Platform>();
         for (Platform p : new Platform[]{Platform.X, Platform.REDDIT, Platform.FACEBOOK, Platform.INSTAGRAM}) {
             Account a = inUse(p);
-            if (a != null && a.signedIn) {
+            if (a != null && a.signedIn && !off.contains(p)) {
                 out.add(p);
             }
         }

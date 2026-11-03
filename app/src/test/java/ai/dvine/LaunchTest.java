@@ -292,6 +292,37 @@ public class LaunchTest {
     }
 
     @Test
+    public void aMessageSentDuringWorkWaitsForItInsteadOfCuttingItOff() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field gen = MainActivity.class.getDeclaredField("generating");
+        gen.setAccessible(true);
+        gen.set(c.get(), true); // a reply is being worked on
+        android.widget.ImageButton send = c.get().findViewById(ai.dvine.R.id.btn_send);
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        field.setText("");
+        org.junit.Assert.assertEquals("an empty box during work: Stop", "Stop", send.getContentDescription().toString());
+        field.setText("Also check the weather in Lagos");
+        org.junit.Assert.assertEquals("typing during work: Send, and it waits", "Send when this finishes", send.getContentDescription().toString());
+        send.performClick();
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field w = MainActivity.class.getDeclaredField("waiting");
+        w.setAccessible(true);
+        org.junit.Assert.assertEquals("held while the work runs", 1, ((java.util.Collection<?>) w.get(c.get())).size());
+        android.widget.TextView line = c.get().findViewById(ai.dvine.R.id.composer_note);
+        org.junit.Assert.assertTrue(line.getText().toString(), line.getText().toString().startsWith("Waiting to send: \u201cAlso check the weather in Lagos\u201d"));
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        org.junit.Assert.assertFalse("not asked yet", chats.transcript(5000).contains("weather in Lagos"));
+        gen.set(c.get(), false); // the work finished
+        ShadowLooper.idleMainLooper(3, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("then it goes", 0, ((java.util.Collection<?>) w.get(c.get())).size());
+        org.junit.Assert.assertTrue(chats.transcript(5000).contains("weather in Lagos"));
+        c.pause().stop().destroy();
+    }
+
+    @Test
     public void everyMessageTakesOneRecordedWayThroughTheGateway() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
