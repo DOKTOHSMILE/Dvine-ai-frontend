@@ -96,10 +96,35 @@ public class UiTourTest {
                 idle();
             }
         }
+        if (c.get() instanceof MainActivity) {
+            drawer(c);
+        }
         try {
             c.pause().stop().destroy();
         } catch (RuntimeException e) {
             failures.add(name + " didn't close cleanly: " + e);
+        }
+    }
+
+    /** The side menu: opened again before each of its buttons and chats, since each one closes it. */
+    private <T extends Activity> void drawer(ActivityController<T> c) {
+        View menu = c.get().findViewById(ai.dvine.R.id.btnMenu);
+        for (int i = 0; i < 40; i++) {
+            View drawer = c.get().findViewById(ai.dvine.R.id.historyDrawer);
+            if (drawer == null || menu == null) {
+                failures.add("MainActivity › the side menu isn't there");
+                return;
+            }
+            if (drawer.getVisibility() != View.VISIBLE) {
+                tap("MainActivity", menu, "btnMenu (open the menu)");
+            }
+            List<View> items = clickable(drawer);
+            if (i >= items.size()) {
+                report.add("MainActivity › side menu: " + items.size() + " buttons and chats tapped");
+                return;
+            }
+            tap("MainActivity › menu", items.get(i), key(items.get(i)));
+            sheets("MainActivity › menu");
         }
     }
 

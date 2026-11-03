@@ -1570,6 +1570,12 @@ Desktop numbers (`OfflineSpeedTest`, the app's own engine built for x86, 4 threa
 | Qwen3 1.7B | about 19 tokens a second |
 | Qwen3 4B | about 9 tokens a second |
 
+**Real models found two more faults**, both fixed (`OfflineIbikoTest` with Qwen3 4B on the desktop engine):
+- *Thinking used up the whole allowance.* Qwen3 thinks before answering, and Ibiko's instructions don't turn that off. On a long step the thinking took the whole allowance and nothing was written. Now `LocalModel.task` tries once more with thinking off. After that, Qwen3 4B lists the files and describes the project, and searches for what it was asked.
+- *Reading counted as writing.* The 3-minute reply cap counted from the request, so it included the time spent reading a long question. A big model on a phone can take minutes to read before its first word. The cap now counts from the first word (`ReplyWatch`), and reading may take up to 10 minutes; past that, the message names the model and what would be quicker.
+
+**Every control tapped** (`UiTourTest`): every screen is opened and every button, switch, tab, row and link is tapped in turn, including the side menu (reopened before each item) and the sheets they open. A yes/no is always answered no, so nothing is deleted. 150 taps across 11 screens, 0 failures. Each tap is listed as a `UITOUR` line.
+
 **Ibiko's instructions** no longer show a made-up example path (`src/app.py`, which Qwen3 4B went looking for): the examples read `FOLDER/FILE`, "a real path from the workspace list".
 
 ## 31. Open work, in order
