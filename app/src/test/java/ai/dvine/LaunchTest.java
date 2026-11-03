@@ -477,7 +477,8 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         org.junit.Assert.assertEquals(first, chats.pinnedFirst().get(0).id);
         android.widget.LinearLayout list = c.get().findViewById(ai.dvine.R.id.historyList);
-        org.junit.Assert.assertTrue(String.valueOf(list.getChildAt(0).getContentDescription()).contains("pinned"));
+        org.junit.Assert.assertEquals("Pinned", ((android.widget.TextView) list.getChildAt(0)).getText().toString()); // the section header
+        org.junit.Assert.assertTrue(String.valueOf(list.getChildAt(1).getContentDescription()).contains("pinned"));
 
         pane.delete(first);
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);

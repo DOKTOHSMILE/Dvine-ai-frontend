@@ -144,6 +144,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 111 | Smaller copy/edit/play icons; Listen pauses and resumes; it keeps repeating (screenshot); remove 'Asking custom gateway' and add separators; crash printing a long audit report | P12 | Built (Robolectric) | 0.70.2 |
 | 112 | Each process shows its timer by its side in the bottom sheet, synced with the work; the process bottom sheet opens at the middle and can be rolled to full screen | P12 | Built (Robolectric) | 0.71.0 |
 | 113 | Models plan, build and test in continuous work that may take hours, online and offline; minimising doesn't kill it; drop replies bit by bit while processing | P12 | Built (JVM) | 0.72.0: rounds with progress notes, PLAN.md, 8-hour run |
+| 114 | Add projects and workspace to the drawer (samples: Claude, Grok, Gemini, Meta AI, ChatGPT, DeepSeek) | P12 | Built (Robolectric) | 0.73.0 |
 
 ## Still open, in the order that matters
 

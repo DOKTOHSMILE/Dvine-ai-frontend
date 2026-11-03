@@ -218,15 +218,38 @@
             android:textColor="@color/text_primary"
             android:textSize="16sp" />
 
+        <!-- as in Claude: projects (chats kept together) and Ibiko's workspace (files on this phone) -->
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:id="@+id/btnDrawerProjects"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_drawer_row"
+            android:drawableStart="@drawable/ic_project"
+            android:drawablePadding="12dp"
+            android:gravity="center_vertical"
             android:paddingStart="10dp"
-            android:paddingBottom="6dp"
-            android:text="Recents"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp" />
+            android:text="Projects"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/btnDrawerWorkspace"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_drawer_row"
+            android:drawableStart="@drawable/ic_folder"
+            android:drawablePadding="12dp"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:text="Workspace"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:background="@color/line" /><!-- the list below draws its own headers: Projects, Pinned, Recents -->
 
         <ScrollView
             android:layout_width="match_parent"

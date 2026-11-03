@@ -796,59 +796,247 @@ public final class ChatPane extends LinearLayout {
         }
         LinearLayout list = (LinearLayout) found;
         list.removeAllViews();
-        for (ChatBook.Section s : book.pinnedFirst()) {
-            boolean on = s.id.equals(book.current().id);
-            String preview = "";
-            for (int i = s.messages.size() - 1; i >= 0; i--) {
-                ChatBook.Message m = s.messages.get(i);
-                if ("text".equals(m.kind) && m.body != null && !m.body.isEmpty()) {
-                    preview = m.body.length() > 48 ? m.body.substring(0, 48) + "…" : m.body;
-                    break;
-                }
+        // as in Claude: Projects, then Pinned, then Recents
+        List<String> projects = book.projects();
+        if (!projects.isEmpty()) {
+            list.addView(drawerHeader("Projects"));
+            for (final String p : projects) {
+                int n = book.inProject(p).size();
+                TextView row = drawerRow(p, R.drawable.ic_project, false);
+                row.setContentDescription("Project " + p + ", " + n + " chat" + (n == 1 ? "" : "s"));
+                row.setOnClickListener(v -> openProject(p));
+                list.addView(row);
             }
-            // one line per chat, as in Claude: its title (or its last words), the open one highlighted
-            TextView row = new TextView(getContext());
-            String named = s.title == null || s.title.trim().isEmpty() || s.title.matches("(?i)^(chat|new chat)$")
-                    ? (preview.isEmpty() ? "New chat" : preview) : s.title;
-            row.setText(named);
-            row.setTextColor(color(on ? R.color.text_primary : R.color.icon));
-            row.setTextSize(15f);
-            row.setSingleLine(true);
-            row.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setMinHeight(dp(44));
-            row.setPadding(dp(10), 0, dp(10), 0);
-            row.setBackgroundResource(R.drawable.bg_drawer_row);
-            row.setSelected(on);
-            if (s.pinned) {
-                android.graphics.drawable.Drawable pin = getContext().getDrawable(R.drawable.ic_pin);
-                if (pin != null) {
-                    pin.setTint(color(R.color.icon));
-                    pin.setBounds(0, 0, dp(16), dp(16));
-                    row.setCompoundDrawablesRelative(pin, null, null, null);
-                    row.setCompoundDrawablePadding(dp(8));
-                }
-            }
-            row.setContentDescription(named + (s.pinned ? ", pinned" : "") + ". Hold for rename, pin and delete.");
-            row.setOnLongClickListener(v -> { // hold a chat: rename, pin, delete
-                chatMenu(s.id);
-                return true;
-            });
-            row.setOnClickListener(v -> {
-                book.use(s.id);
-                host.onSection(book.current());
-                show();
-                android.view.View drawer = ((Activity) getContext()).findViewById(R.id.historyDrawer);
-                android.view.View scrim = ((Activity) getContext()).findViewById(R.id.drawerScrim);
-                if (drawer != null) {
-                    drawer.setVisibility(GONE);
-                }
-                if (scrim != null) {
-                    scrim.setVisibility(GONE);
-                }
-            });
-            list.addView(row);
         }
+        List<ChatBook.Section> all = book.pinnedFirst();
+        boolean pinned = false, recents = false;
+        for (ChatBook.Section s : all) {
+            if (s.pinned && !pinned) {
+                list.addView(drawerHeader("Pinned"));
+                pinned = true;
+            }
+            if (!s.pinned && !recents) {
+                list.addView(drawerHeader("Recents"));
+                recents = true;
+            }
+            list.addView(chatRow(s));
+        }
+    }
+
+    private TextView drawerHeader(String name) {
+        TextView t = plain(name);
+        t.setTextColor(color(R.color.text_secondary));
+        t.setTextSize(13f);
+        t.setPadding(dp(10), dp(14), dp(10), dp(6));
+        return t;
+    }
+
+    private TextView drawerRow(String text, int icon, boolean on) {
+        TextView row = new TextView(getContext());
+        row.setText(text);
+        row.setTextColor(color(on ? R.color.text_primary : R.color.icon));
+        row.setTextSize(15f);
+        row.setSingleLine(true);
+        row.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinHeight(dp(44));
+        row.setPadding(dp(10), 0, dp(10), 0);
+        row.setBackgroundResource(R.drawable.bg_drawer_row);
+        row.setSelected(on);
+        if (icon != 0) {
+            android.graphics.drawable.Drawable d = getContext().getDrawable(icon);
+            if (d != null) {
+                d = d.mutate();
+                d.setTint(color(R.color.icon));
+                d.setBounds(0, 0, dp(18), dp(18));
+                row.setCompoundDrawablesRelative(d, null, null, null);
+                row.setCompoundDrawablePadding(dp(12));
+            }
+        }
+        return row;
+    }
+
+    /** One line per chat: its title (or its last words), the open one highlighted; hold for its menu. */
+    private TextView chatRow(final ChatBook.Section s) {
+        boolean on = s.id.equals(book.current().id);
+        String preview = "";
+        for (int i = s.messages.size() - 1; i >= 0; i--) {
+            ChatBook.Message m = s.messages.get(i);
+            if ("text".equals(m.kind) && m.body != null && !m.body.isEmpty()) {
+                preview = m.body.length() > 48 ? m.body.substring(0, 48) + "…" : m.body;
+                break;
+            }
+        }
+        String named = s.title == null || s.title.trim().isEmpty() || s.title.matches("(?i)^(chat|new chat)$")
+                ? (preview.isEmpty() ? "New chat" : preview) : s.title;
+        TextView row = drawerRow(named, s.pinned ? R.drawable.ic_pin : 0, on);
+        row.setContentDescription(named + (s.pinned ? ", pinned" : "") + (s.project != null ? ", in " + s.project : "")
+                + ". Hold for rename, pin, project and delete.");
+        row.setOnLongClickListener(v -> { // hold a chat: rename, pin, move to a project, delete
+            chatMenu(s.id);
+            return true;
+        });
+        row.setOnClickListener(v -> openChat(s.id));
+        return row;
+    }
+
+    private void openChat(String id) {
+        book.use(id);
+        host.onSection(book.current());
+        show();
+        closeDrawer();
+    }
+
+    private void closeDrawer() {
+        android.view.View drawer = ((Activity) getContext()).findViewById(R.id.historyDrawer);
+        android.view.View scrim = ((Activity) getContext()).findViewById(R.id.drawerScrim);
+        if (drawer != null) {
+            drawer.setVisibility(GONE);
+        }
+        if (scrim != null) {
+            scrim.setVisibility(GONE);
+        }
+    }
+
+    /** The projects: each opens its chats; a new one is made here. */
+    public void openProjects() {
+        final List<String> projects = book.projects();
+        LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(VERTICAL);
+        box.setPadding(dp(16), 0, dp(16), dp(8));
+        final android.app.Dialog[] sheet = {null};
+        TextView add = drawerRow("New project", R.drawable.ic_plus, false);
+        add.setOnClickListener(v -> {
+            if (sheet[0] != null) {
+                sheet[0].dismiss();
+            }
+            newProject(null);
+        });
+        box.addView(add);
+        if (projects.isEmpty()) {
+            TextView none = plain("No projects yet. A project keeps related chats together: make one, then hold a chat to move it in.");
+            none.setTextColor(color(R.color.text_secondary));
+            none.setPadding(dp(10), dp(10), dp(10), dp(10));
+            box.addView(none);
+        }
+        for (final String p : projects) {
+            int n = book.inProject(p).size();
+            TextView row = drawerRow(p + "  \u00B7  " + n + " chat" + (n == 1 ? "" : "s"), R.drawable.ic_project, false);
+            row.setOnClickListener(v -> {
+                if (sheet[0] != null) {
+                    sheet[0].dismiss();
+                }
+                openProject(p);
+            });
+            box.addView(row);
+        }
+        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView((Activity) getContext(), "Projects", box);
+    }
+
+    /** One project: its chats, a new chat in it, and deleting the project (its chats stay). */
+    public void openProject(final String name) {
+        LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(VERTICAL);
+        box.setPadding(dp(16), 0, dp(16), dp(8));
+        final android.app.Dialog[] sheet = {null};
+        TextView fresh = drawerRow("New chat in " + name, R.drawable.ic_new_chat, false);
+        fresh.setOnClickListener(v -> {
+            ChatBook.Section s = book.fresh(book.current().persona);
+            book.moveTo(s.id, name);
+            if (sheet[0] != null) {
+                sheet[0].dismiss();
+            }
+            openChat(s.id);
+        });
+        box.addView(fresh);
+        List<ChatBook.Section> chats = book.inProject(name);
+        if (chats.isEmpty()) {
+            TextView none = plain("No chats here yet. Hold a chat in the menu and choose Move to project.");
+            none.setTextColor(color(R.color.text_secondary));
+            none.setPadding(dp(10), dp(10), dp(10), dp(10));
+            box.addView(none);
+        }
+        for (int i = chats.size() - 1; i >= 0; i--) {
+            final ChatBook.Section s = chats.get(i);
+            TextView row = chatRow(s);
+            row.setOnClickListener(v -> {
+                if (sheet[0] != null) {
+                    sheet[0].dismiss();
+                }
+                openChat(s.id);
+            });
+            box.addView(row);
+        }
+        TextView remove = drawerRow("Delete project", 0, false);
+        remove.setTextColor(color(R.color.text_secondary));
+        remove.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setMessage("Delete the project \u201c" + name + "\u201d? Its chats stay, outside any project.")
+                .setPositiveButton("Delete", (d, w) -> {
+                    book.removeProject(name);
+                    if (sheet[0] != null) {
+                        sheet[0].dismiss();
+                    }
+                    fillSections();
+                })
+                .setNegativeButton("Cancel", null)
+                .show());
+        box.addView(remove);
+        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView((Activity) getContext(), name, box);
+    }
+
+    /** Asks for a project's name; with a chat id, that chat moves into the new project. */
+    public void newProject(final String chatId) {
+        final android.widget.EditText field = new android.widget.EditText(getContext());
+        field.setSingleLine(true);
+        field.setHint("Project name");
+        android.widget.FrameLayout pad = new android.widget.FrameLayout(getContext());
+        pad.setPadding(dp(20), dp(8), dp(20), 0);
+        pad.addView(field);
+        new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setTitle("New project")
+                .setView(pad)
+                .setPositiveButton("Create", (d, w) -> {
+                    String n = field.getText().toString().trim();
+                    if (n.isEmpty()) {
+                        return;
+                    }
+                    book.addProject(n);
+                    if (chatId != null) {
+                        book.moveTo(chatId, n);
+                    }
+                    fillSections();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+        field.requestFocus();
+    }
+
+    /** Moves a chat into a project, a new one, or out of its project. */
+    public void moveToProject(final String id) {
+        ChatBook.Section s = find(id);
+        if (s == null) {
+            return;
+        }
+        final List<String> projects = book.projects();
+        final List<String> items = new ArrayList<String>(projects);
+        items.add("New project\u2026");
+        if (s.project != null) {
+            items.add("Out of \u201c" + s.project + "\u201d");
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setTitle("Move to project")
+                .setItems(items.toArray(new String[0]), (d, which) -> {
+                    if (which < projects.size()) {
+                        book.moveTo(id, projects.get(which));
+                    } else if (which == projects.size()) {
+                        newProject(id);
+                        return;
+                    } else {
+                        book.moveTo(id, null);
+                    }
+                    fillSections();
+                })
+                .show();
     }
 
     public void assistant(String persona, String text) {
@@ -1179,7 +1367,7 @@ public final class ChatPane extends LinearLayout {
             return;
         }
         final boolean pinned = s.pinned;
-        String[] items = {"Rename", pinned ? "Unpin" : "Pin to top", "Delete"};
+        String[] items = {"Rename", pinned ? "Unpin" : "Pin to top", "Move to project", "Delete"};
         new androidx.appcompat.app.AlertDialog.Builder(getContext())
                 .setItems(items, (d, which) -> {
                     if (which == 0) {
@@ -1187,6 +1375,8 @@ public final class ChatPane extends LinearLayout {
                     } else if (which == 1) {
                         book.pin(id, !pinned);
                         fillSections();
+                    } else if (which == 2) {
+                        moveToProject(id);
                     } else {
                         delete(id);
                     }

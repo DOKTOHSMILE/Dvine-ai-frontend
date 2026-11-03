@@ -44,6 +44,8 @@ public final class ChatBook {
         public String persona;
         public boolean pinned;
         public boolean archived;
+        /** The project this chat belongs to (its name), or null. */
+        public String project;
         public final List<Message> messages = new ArrayList<Message>();
 
         Section(String id, String title, String persona) {
@@ -56,6 +58,8 @@ public final class ChatBook {
     private final File file;
     private final List<Section> sections = new ArrayList<Section>();
     private final List<String> shared = new ArrayList<String>();
+    /** The user's projects (names), in the order made; a project may have no chats yet. */
+    private final List<String> projects = new ArrayList<String>();
     private String currentId;
     private int next = 1;
 
@@ -434,6 +438,65 @@ public final class ChatBook {
         return "From the deleted chat" + name + ", the user said: " + String.join("; ", said);
     }
 
+    public synchronized List<String> projects() {
+        return new ArrayList<String>(projects);
+    }
+
+    /** Makes a project (a name of at most 40 characters); false when the name is empty or taken. */
+    public synchronized boolean addProject(String name) {
+        String n = name == null ? "" : name.trim();
+        if (n.length() > 40) {
+            n = n.substring(0, 40).trim();
+        }
+        if (n.isEmpty() || projects.contains(n)) {
+            return false;
+        }
+        projects.add(n);
+        save();
+        return true;
+    }
+
+    /** Puts a chat in a project (null: out of any project); a project named here is made if needed. */
+    public synchronized boolean moveTo(String id, String project) {
+        for (Section s : sections) {
+            if (s.id.equals(id)) {
+                String p = project == null || project.trim().isEmpty() ? null : project.trim();
+                if (p != null && !projects.contains(p)) {
+                    projects.add(p);
+                }
+                s.project = p;
+                save();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Deletes a project; its chats stay, outside any project. */
+    public synchronized boolean removeProject(String name) {
+        if (!projects.remove(name)) {
+            return false;
+        }
+        for (Section s : sections) {
+            if (name.equals(s.project)) {
+                s.project = null;
+            }
+        }
+        save();
+        return true;
+    }
+
+    /** The chats in a project, newest last. */
+    public synchronized List<Section> inProject(String name) {
+        List<Section> out = new ArrayList<Section>();
+        for (Section s : sections) {
+            if (name != null && name.equals(s.project)) {
+                out.add(s);
+            }
+        }
+        return out;
+    }
+
     /** Pinned chats first, the rest after, each group in its own order. */
     public synchronized List<Section> pinnedFirst() {
         List<Section> out = new ArrayList<Section>();
@@ -514,6 +577,14 @@ public final class ChatBook {
                     }
                 }
             }
+            Object projs = root.get("projects");
+            if (projs instanceof List) {
+                for (Object n : (List<?>) projs) {
+                    if (n != null && !String.valueOf(n).trim().isEmpty() && !projects.contains(String.valueOf(n).trim())) {
+                        projects.add(String.valueOf(n).trim());
+                    }
+                }
+            }
             Object list = root.get("sections");
             if (list instanceof List) {
                 for (Object item : (List<?>) list) {
@@ -525,6 +596,8 @@ public final class ChatBook {
                             MiniJson.str(m.get("title"), "Chat"), personaOf(MiniJson.str(m.get("persona"), "ivie")));
                     s.pinned = Boolean.TRUE.equals(m.get("pinned"));
                     s.archived = Boolean.TRUE.equals(m.get("archived"));
+                    String proj = MiniJson.str(m.get("project"), "");
+                    s.project = proj.isEmpty() ? null : proj;
                     Object msgs = m.get("messages");
                     if (msgs instanceof List) {
                         for (Object row : (List<?>) msgs) {
@@ -549,6 +622,7 @@ public final class ChatBook {
         } catch (RuntimeException | IOException ignored) {
             sections.clear();
             shared.clear();
+            projects.clear();
         }
     }
 
@@ -570,6 +644,7 @@ public final class ChatBook {
         Map<String, Object> root = new LinkedHashMap<String, Object>();
         root.put("current", currentId);
         root.put("shared", new ArrayList<String>(shared));
+        root.put("projects", new ArrayList<String>(projects));
         List<Object> list = new ArrayList<Object>();
         for (Section s : sections) {
             Map<String, Object> m = new LinkedHashMap<String, Object>();
@@ -578,6 +653,9 @@ public final class ChatBook {
             m.put("persona", s.persona);
             m.put("pinned", Boolean.valueOf(s.pinned));
             m.put("archived", Boolean.valueOf(s.archived));
+            if (s.project != null) {
+                m.put("project", s.project);
+            }
             List<Object> msgs = new ArrayList<Object>();
             for (Message msg : s.messages) {
                 Map<String, Object> row = new LinkedHashMap<String, Object>();
