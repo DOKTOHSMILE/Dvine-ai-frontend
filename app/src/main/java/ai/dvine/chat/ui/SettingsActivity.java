@@ -129,7 +129,7 @@ public final class SettingsActivity extends AppCompatActivity {
         buttons.addView(modelAction, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         modelRemove = Ui.button(this, "Remove", false);
         modelRemove.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Remove the model from this phone? It frees " + hub.model.spec.sizeWords()
+                .setMessage("Remove the model from this phone? It frees " + hub.chosen().sizeWords()
                         + ". Answers then need an API until you download it again.")
                 .setPositiveButton("Remove", (d, w) -> {
                     hub.stopDownload();
@@ -146,6 +146,11 @@ public final class SettingsActivity extends AppCompatActivity {
         model.addView(buttons, Ui.wide(this, 14));
         model.addView(action("Change the offline model", "Qwen3, Llama, Gemma or Phi, each in sizes: bigger answers better,"
                 + " smaller is faster", this::chooseModel), Ui.wide(this, 10));
+        speed = Ui.text(this, "", 13, Ui.SUB, false);
+        speed.setVisibility(View.GONE);
+        model.addView(action("Test the speed", "Runs the same question on the phone's own model and measures it",
+                this::speedTest), Ui.wide(this, 10));
+        model.addView(speed, Ui.wide(this, 4));
         onPhone = new LinearLayout(this);
         onPhone.setOrientation(LinearLayout.VERTICAL);
         model.addView(onPhone, Ui.wide(this, 6));
@@ -379,8 +384,8 @@ public final class SettingsActivity extends AppCompatActivity {
             return;
         }
         LocalModel m = hub.model;
-        modelTitle.setText("On this phone: " + m.spec.weights);
-        modelAbout.setText("Answers offline and when every API fails. " + m.spec.sizeWords() + ", best on Wi-Fi.");
+        modelTitle.setText("On this phone: " + hub.chosen().weights);
+        modelAbout.setText("Answers offline and when every API fails. " + hub.chosen().sizeWords() + ", best on Wi-Fi.");
         boolean downloading = hub.downloading() || m.state() == LocalModel.State.DOWNLOADING;
         boolean installed = m.installed();
         String state;
@@ -427,7 +432,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (onPhone.getChildCount() == 0) {
                 onPhone.addView(Ui.text(this, "Models on this phone", 14, Ui.SUB, false), Ui.wide(this, 8));
             }
-            final boolean using = m.file.equals(hub.model.spec.file);
+            final boolean using = m.file.equals(hub.chosen().file);
             LinearLayout row = new LinearLayout(this);
             row.setGravity(android.view.Gravity.CENTER_VERTICAL);
             row.setMinimumHeight(Ui.dp(this, 48));
@@ -458,7 +463,37 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private TextView modelTitle, modelAbout;
+    private TextView modelTitle, modelAbout, speed;
+
+    /**
+     * Measures the phone's own model where it runs, on this phone: how long it takes to start, to say its first word,
+     * and how many tokens a second it writes. The same question every time, so models and memory sizes compare.
+     */
+    private void speedTest() {
+        if (!hub.model.installed()) {
+            toast("Download " + hub.chosen().weights + " first.");
+            return;
+        }
+        speed.setVisibility(View.VISIBLE);
+        speed.setText("Testing " + hub.chosen().weights + "\u2026 (up to a minute)");
+        new Thread(() -> {
+            hub.model.context(ai.dvine.chat.Tuning.OFFLINE_CONTEXT.get(getSharedPreferences("dvine", MODE_PRIVATE)));
+            ai.dvine.llm.ModelGuard guard = new ai.dvine.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE));
+            guard.loading(hub.chosen().file);
+            ai.dvine.llm.ReplyService.hold(this);
+            LocalModel.Speed s;
+            try {
+                s = hub.model.speedTest(LocalModel.threads(Runtime.getRuntime().availableProcessors()), 96);
+            } finally {
+                ai.dvine.llm.ReplyService.release(this);
+            }
+            guard.loaded();
+            runOnUiThread(() -> {
+                speed.setText(s == null ? "The test couldn't run: " + hub.model.problem() : s.words());
+                refreshModel();
+            });
+        }, "dvine-speed-test").start();
+    }
 
     /**
      * The offline models on offer: first the family (Qwen3, Llama 3.2, Gemma 3, Phi-4), then its size, as Claude
@@ -473,9 +508,9 @@ public final class SettingsActivity extends AppCompatActivity {
             for (ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.sizes(f)) {
                 sizes.append(sizes.length() == 0 ? "" : " \u00B7 ").append(m.size);
             }
-            boolean using = f.equals(hub.model.spec.family);
+            boolean using = f.equals(hub.chosen().family);
             items[i] = new BottomSheet.Item(using ? ai.dvine.R.drawable.ic_check : ai.dvine.R.drawable.ic_cube, f,
-                    "Sizes: " + sizes + (using ? ". In use: " + hub.model.spec.size + "." : "."));
+                    "Sizes: " + sizes + (using ? ". In use: " + hub.chosen().size + "." : "."));
         }
         BottomSheet.show(this, "Offline model", items, which -> chooseSize(families.get(which)));
     }
@@ -487,7 +522,7 @@ public final class SettingsActivity extends AppCompatActivity {
         BottomSheet.Item[] items = new BottomSheet.Item[sizes.size()];
         for (int i = 0; i < sizes.size(); i++) {
             ai.dvine.llm.ModelSpec m = sizes.get(i);
-            boolean using = m.file.equals(hub.model.spec.file);
+            boolean using = m.file.equals(hub.chosen().file);
             String about = m.about + " " + String.format(java.util.Locale.US, "%.1f GB", m.bytes / 1e9) + ", wants " + m.ramGb
                     + " GB of memory" + (ram > 0 && ram < m.ramGb ? " (this phone has " + ram + " GB: it may not start)" : "")
                     + (hub.model.has(m) ? ". On this phone." : ".");
@@ -499,7 +534,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
     /** Switches to {@code next}, asking first whether to keep the model in use on the phone. */
     private void pick(final ai.dvine.llm.ModelSpec next) {
-        final ai.dvine.llm.ModelSpec now = hub.model.spec;
+        final ai.dvine.llm.ModelSpec now = hub.chosen();
         if (next.file.equals(now.file)) {
             return;
         }
@@ -520,9 +555,10 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private void switchModel(ai.dvine.llm.ModelSpec next, boolean deleteOld) {
+        new ai.dvine.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE)).clear(next.file); // chosen on purpose: tried again
         hub.choose(this, next, deleteOld);
         refreshModel();
-        toast(hub.model.installed() ? next.weights + " is on the phone: it starts when you go back to the chat."
+        toast(hub.model.has(next) ? next.weights + " is on the phone: it starts when you go back to the chat."
                 : "Now tap Download to get " + next.weights + " (" + next.sizeWords() + ").");
     }
 

@@ -1539,6 +1539,45 @@ In app v0.66.0 the list grew by nine commands. DVINE carries each out with the s
 - clear Ibiko's workspace (clones, sandbox, files and the kept agent work; it asks first, since it can't be undone)
 - open Settings
 
+## 55. Obi first, clean new chats, a model that can't stop the app, speed you can measure (app v0.67.0, built)
+
+**Obi first.** The persona switch reads Obi · Ivie · Ibiko. The app opens on an empty chat with Obi, not the last conversation (the chats so far are in the menu). New chat also opens on Obi.
+- `ChatBook.fresh` reuses the latest empty chat, so blank chats don't pile up.
+- A new chat starts clean: work still running is stopped, and its steps are dropped (`ChatPane.activityDrop`), not written into the new chat.
+
+**The model can't stop the app.**
+1. *Startup freeze:* since 0.64, `onResume` set the offline memory size through a method that waited for the model's lock, and a model being loaded holds that lock for the whole load. With a big Qwen3 the screen froze while it loaded, for good if the phone stopped the load. `LocalModel.context` no longer takes the lock; `load()` applies a new size itself.
+2. *Switching and removing* the model run on one model thread (`ModelHub.worker`), in order with loads, never on the screen's thread. Screens show the chosen model at once (`ModelHub.chosen`).
+3. *Too strong for the phone* (`ModelGuard`):
+   - Before a load, a model that wants more memory than the phone has is set aside.
+   - A marker is written while a model loads. Found at the next start, it means the phone stopped the app during that load, so that model is set aside too.
+   - A load that fails for lack of memory sets the model aside as well.
+   - Each time, DVINE starts the strongest model already on the phone that fits, and says which.
+   - Choosing a model again in Settings clears its mark.
+
+**Foreground.** Every piece of model work holds the foreground service: a reply, a load, the reading of a message, the speed test.
+- `ReplyService.hold`/`release` count the holders, so one piece finishing can't drop it while another runs.
+- The phone doesn't throttle or stop the model when the app leaves the screen.
+- The model's threads run at foreground priority (`LocalModel.raisePriority`).
+
+**Speed you can measure.** Settings › Models › Test the speed (`LocalModel.speedTest`) runs the same question on the phone's own model, never an API. It reports the start-up time, the time to the first word, and tokens a second.
+
+Desktop numbers (`OfflineSpeedTest`, the app's own engine built for x86, 4 threads, 8,192 tokens of memory; a phone is several times slower):
+
+| Model | Writing speed |
+|---|---|
+| Gemma 3 1B | about 24 tokens a second |
+| Qwen3 1.7B | about 19 tokens a second |
+| Qwen3 4B | about 9 tokens a second |
+
+**Real models found two more faults**, both fixed (`OfflineIbikoTest` with Qwen3 4B on the desktop engine):
+- *Thinking used up the whole allowance.* Qwen3 thinks before answering, and Ibiko's instructions don't turn that off. On a long step the thinking took the whole allowance and nothing was written. Now `LocalModel.task` tries once more with thinking off. After that, Qwen3 4B lists the files and describes the project, and searches for what it was asked.
+- *Reading counted as writing.* The 3-minute reply cap counted from the request, so it included the time spent reading a long question. A big model on a phone can take minutes to read before its first word. The cap now counts from the first word (`ReplyWatch`), and reading may take up to 10 minutes; past that, the message names the model and what would be quicker.
+
+**Every control tapped** (`UiTourTest`): every screen is opened and every button, switch, tab, row and link is tapped in turn, including the side menu (reopened before each item) and the sheets they open. A yes/no is always answered no, so nothing is deleted. 150 taps across 11 screens, 0 failures. Each tap is listed as a `UITOUR` line.
+
+**Ibiko's instructions** no longer show a made-up example path (`src/app.py`, which Qwen3 4B went looking for): the examples read `FOLDER/FILE`, "a real path from the workspace list".
+
 ## 31. Open work, in order
 
 The order follows the user's priorities and dependencies. Each item becomes a stage with an exit gate in BUILD_STATUS when it starts.

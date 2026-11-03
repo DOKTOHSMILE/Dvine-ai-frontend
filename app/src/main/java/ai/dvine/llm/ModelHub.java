@@ -42,15 +42,37 @@ public final class ModelHub {
      * {@code deleteOld} (else it stays for switching back). The app loads the new model once it is on the phone.
      */
     public void choose(Context c, ModelSpec next, boolean deleteOld) {
-        if (next == null || next.file.equals(model.spec.file)) {
+        if (next == null || next.file.equals(chosen().file)) {
             return;
         }
         stopDownload();
-        model.switchTo(next, deleteOld);
+        chosen = next; // screens show the new model at once; the switch itself happens on the model's own thread
         c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putString(PREF, next.file).apply();
         status.reset();
         generation++;
-        changed();
+        model.cancel(); // a reply in progress stops, so the switch isn't kept waiting
+        worker.execute(() -> {
+            model.switchTo(next, deleteOld); // after any load queued before it, before any queued after it
+            changed();
+        });
+    }
+
+    /**
+     * The one thread the phone's model is loaded, switched and removed on: the model's lock is held for the whole of
+     * a load (seconds, or minutes for a big model), so this never runs on the screen's thread, and in order.
+     */
+    public final java.util.concurrent.ExecutorService worker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "dvine-model");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private volatile ModelSpec chosen;
+
+    /** The model chosen (shown on screens), even while the switch to it is still under way. */
+    public ModelSpec chosen() {
+        ModelSpec c = chosen;
+        return c != null ? c : model.spec;
     }
 
     public static synchronized ModelHub get(Context c) {

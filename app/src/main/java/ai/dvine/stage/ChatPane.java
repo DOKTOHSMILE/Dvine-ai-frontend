@@ -185,6 +185,18 @@ public final class ChatPane extends LinearLayout {
      * The turn is over: its steps are kept in the chat as a folded "Worked for 6s · 4 steps" line above the reply,
      * which opens to show them, as Claude and Grok do.
      */
+    /** Drops the work in progress without keeping it in the chat (a new chat starts clean). */
+    public void activityDrop() {
+        steps.clear();
+        workStarted = 0;
+        thinkingText = null;
+        liveText = null;
+        removeCallbacks(typeNext);
+        typing = "";
+        typed = 0;
+        show();
+    }
+
     public void activityEnd() {
         if (!steps.isEmpty()) {
             long secs = Math.max(1, (System.currentTimeMillis() - workStarted + 500) / 1000);
