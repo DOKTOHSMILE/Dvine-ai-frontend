@@ -150,6 +150,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 117 | Social posting with approval; or on my account without asking via an auto-approve setting (staged actions first) | P12 | Built (Robolectric) | 0.76.0: staged actions, auto-approve, action log |
 | 118 | Fact-check pass on factual answers (spec item 5) | P12 | Built (JVM + desktop model) | 0.77.0 |
 | 119 | Multiple mini agents for heavy tasks, possible offline | P12 | Built (JVM + desktop model) | 0.78.0 |
+| 120 | Model workload counter like an overheating indicator; auto-clear when too full, as the master plan says | P12 | Built (Robolectric) | 0.79.0 |
 
 ## Still open, in the order that matters
 

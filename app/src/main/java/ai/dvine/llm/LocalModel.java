@@ -762,6 +762,30 @@ public final class LocalModel {
         }
     }
 
+    /** How full the working memory was on the last reply, 0..1 (0 before any reply). */
+    public float workload() {
+        UsageLog.Call c = usage.last();
+        return c == null || c.window <= 0 ? 0f : Math.min(1f, c.used() / (float) c.window);
+    }
+
+    /** The conversation the model remembers, as plain lines (for a summary). */
+    public synchronized String historyText() {
+        StringBuilder b = new StringBuilder();
+        for (String[] t : history) {
+            b.append("user".equals(t[0]) ? "User: " : "Assistant: ").append(t[1]).append('\n');
+        }
+        return b.toString();
+    }
+
+    /** Clears the remembered conversation down to a summary of it (the working memory was nearly full). */
+    public synchronized void compact(String summary) {
+        history.clear();
+        if (summary != null && !summary.trim().isEmpty()) {
+            history.add(new String[]{"user", "What have we talked about so far?"});
+            history.add(new String[]{"assistant", summary.trim()});
+        }
+    }
+
     /**
      * The user edited an earlier message: the conversation the model remembers goes back to just before it (that
      * question and every exchange after it are dropped), so the edited message is answered as if the old one had

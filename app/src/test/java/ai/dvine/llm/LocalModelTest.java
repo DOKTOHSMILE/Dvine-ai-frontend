@@ -135,10 +135,18 @@ public class LocalModelTest {
         }
         assertEquals(12, m.historySize());
         // an edited message: the model's memory goes back to just before it (q7 and the exchanges after it go)
+        // the workload: how full the last reply left the window; nearly full is cleared down to a summary
+        org.junit.Assert.assertEquals(0f, m.workload(), 0f);
+        m.usage.record(new UsageLog.Call("test", 4096, 600, 2800, 100, 120, false, 1000, System.currentTimeMillis()));
+        org.junit.Assert.assertTrue(m.workload() > 0.85f);
+        org.junit.Assert.assertTrue(m.historyText().startsWith("User: q4\nAssistant: a4\n"));
         m.rewindTo("q7");
         assertEquals(6, m.historySize()); // q4..q6 remain
         m.rewindTo("never asked");
         assertEquals(6, m.historySize()); // a message it doesn't remember changes nothing
+        m.compact("The user is planning a trip to Abuja.");
+        assertEquals(2, m.historySize());
+        org.junit.Assert.assertTrue(m.historyText().contains("Assistant: The user is planning a trip to Abuja."));
         assertTrue(ModelSpec.QWEN3_1_7B.url.startsWith("https://huggingface.co/") && ModelSpec.QWEN3_1_7B.sha256.length() == 64);
         assertEquals("1.1 gigabytes", ModelSpec.QWEN3_1_7B.sizeWords());
     }

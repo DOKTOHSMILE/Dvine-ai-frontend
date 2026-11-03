@@ -67,6 +67,14 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
+            <!-- the model's workload: how full its working memory is (tap for Usage) -->
+            <ai.dvine.stage.WorkloadGauge
+                android:id="@+id/workload"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginEnd="6dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless" />
+
             <!-- Ibiko only: its mode (Auto, Accept edits, Plan) as in Claude Code; tap to choose -->
             <TextView
                 android:id="@+id/ibikoMode"
