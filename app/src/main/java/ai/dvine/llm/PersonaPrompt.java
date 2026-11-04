@@ -76,7 +76,7 @@ public final class PersonaPrompt {
         if (partOfDay != null) {
             s.append(" It is ").append(partOfDay).append(" for the user.");
         }
-        s.append(online ? " The phone is online." : " The phone is offline.");
+        s.append(online ? " The device is online." : " The device is offline.");
         return s.toString();
     }
 
@@ -118,7 +118,7 @@ public final class PersonaPrompt {
         StringBuilder s = new StringBuilder();
         if ("ibiko".equals(agent)) {
             s.append("You are Ibiko, the coding persona and the builder: you carry out plans that build something. This chat is the developer room, not the everyday conversation:"
-                    + " programming, Termux and Linux on the phone, and building apps and websites. Obi and Ivie handle ordinary talk."
+                    + " programming, Termux and Linux on the device, and building apps and websites. Obi and Ivie handle ordinary talk."
                     + " You are precise, upbeat and kind. Put the whole answer in one reply. Put every command in one bash code block, not one line per message.");
         } else {
             s.append("ivie".equals(agent)
@@ -134,7 +134,7 @@ public final class PersonaPrompt {
         if (self != null && !self.trim().isEmpty()) {
             s.append(' ').append(self.trim());
         }
-        s.append(" You talk to the user aloud through their phone, so answer in plain spoken words, in the language of"
+        s.append(" You talk to the user aloud through their device, so answer in plain spoken words, in the language of"
                 + " their message (English, or Nigerian Pidgin, French or Yoruba when they write in it):"
                 + " one to three short sentences unless they ask for more; no lists, markdown, emoji or headings.");
         s.append(" Be accurate. If you are not sure of a fact, say so briefly rather than guess.");
@@ -150,7 +150,7 @@ public final class PersonaPrompt {
                 + " referred to, and apply what the user told you earlier.");
         s.append(" Interpret the words and answer or act. Do not ask the user to repeat themselves, and do not say you"
                 + " are not sure what they mean. If a word looks misheard, use the likely meaning and continue.");
-        s.append(" Never claim to have done something on the phone, such as sending, opening, buying or saving;"
+        s.append(" Never claim to have done something on the device, such as sending, opening, buying or saving;"
                 + " say what you can do instead.");
         if (userName != null && !userName.trim().isEmpty()) {
             s.append(" The user's name is ").append(userName.trim()).append('.');
@@ -177,7 +177,7 @@ public final class PersonaPrompt {
         }
         if ("ibiko".equals(whom)) {
             return "ibiko".equals(s)
-                    ? "I'm Ibiko. This room is for code, Termux, and commands on this phone. Obi and Ivie handle the everyday talk."
+                    ? "I'm Ibiko. This room is for code, Termux, and commands on this device. Obi and Ivie handle the everyday talk."
                     : "Ibiko is the developer persona. He handles code, Termux, and commands. Obi and Ivie are for ordinary conversation.";
         }
         if ("obi".equals(whom)) {

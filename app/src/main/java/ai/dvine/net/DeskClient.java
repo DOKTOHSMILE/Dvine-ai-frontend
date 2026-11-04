@@ -130,7 +130,7 @@ public final class DeskClient {
         if (room != null) {
             return room;
         }
-        SessionClient.Reply r = http.send("POST", base + "/api/v1/desk-rooms", t, "{\"title\":\"phone\"}");
+        SessionClient.Reply r = http.send("POST", base + "/api/v1/desk-rooms", t, "{\"title\":\"device\"}");
         if (r.code != 201) {
             return null;
         }

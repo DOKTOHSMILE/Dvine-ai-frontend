@@ -65,7 +65,7 @@ public final class SocialLoginActivity extends AppCompatActivity {
         });
         head.addView(done);
         page.addView(head);
-        TextView note = Ui.text(this, "Your password goes only to " + platform.shown + ". DVINE keeps the sign-in on this phone,"
+        TextView note = Ui.text(this, "Your password goes only to " + platform.shown + ". DVINE keeps the sign-in on this device,"
                 + " encrypted, and uses it within safe limits. Sign in with your username or email and password; “Continue"
                 + " with Google” doesn't work inside apps.", 12, Ui.SUB, false);
         note.setPadding(Ui.dp(this, 18), 0, Ui.dp(this, 18), Ui.dp(this, 8));

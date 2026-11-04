@@ -139,7 +139,7 @@ public final class SettingsActivity extends AppCompatActivity {
         buttons.addView(modelAction, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         modelRemove = Ui.button(this, "Remove", false);
         modelRemove.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Remove the model from this phone? It frees " + hub.chosen().sizeWords()
+                .setMessage("Remove the model from this device? It frees " + hub.chosen().sizeWords()
                         + ". Answers then need an API until you download it again.")
                 .setPositiveButton("Remove", (d, w) -> {
                     hub.stopDownload();
@@ -158,7 +158,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 + " smaller is faster", this::chooseModel), Ui.wide(this, 10));
         speed = Ui.text(this, "", 13, Ui.SUB, false);
         speed.setVisibility(View.GONE);
-        model.addView(action("Test the speed", "Runs the same question on the phone's own model and measures it",
+        model.addView(action("Test the speed", "Runs the same question on the device's own model and measures it",
                 this::speedTest), Ui.wide(this, 10));
         model.addView(speed, Ui.wide(this, 4));
         onPhone = new LinearLayout(this);
@@ -190,10 +190,10 @@ public final class SettingsActivity extends AppCompatActivity {
                 + " note in the chat every few steps. Off: Ibiko stops after one batch of steps.", "ibiko_keep_going", true, null),
                 Ui.wide(this, 10));
         ibiko.addView(toggle("Mini agents for heavy jobs", "Audits, research and whole-repo reviews are split into parts; a fresh"
-                + " helper takes each in turn (on the phone's model too) and its findings come as it finishes.", "mini_agents", true, null),
+                + " helper takes each in turn (on the device's model too) and its findings come as it finishes.", "mini_agents", true, null),
                 Ui.wide(this, 10));
         final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
-        ibiko.addView(action("Clear Ibiko's workspace", "Deletes the cloned repositories and files on this phone (" + bytes(size(ws)) + ").",
+        ibiko.addView(action("Clear Ibiko's workspace", "Deletes the cloned repositories and files on this device (" + bytes(size(ws)) + ").",
                 () -> confirm("Delete everything in Ibiko's workspace? Unpushed changes are lost.", () -> {
                     delete(ws);
                     toast("Workspace cleared.");
@@ -214,20 +214,20 @@ public final class SettingsActivity extends AppCompatActivity {
         // ---- data and privacy
         section("Data and privacy");
         LinearLayout data = card();
-        data.addView(toggle("Learn from the API models", "Their answers are kept on this phone to teach DVINE's own model.",
+        data.addView(toggle("Learn from the API models", "Their answers are kept on this device to teach DVINE's own model.",
                 "learn_on", true, on -> hub.model.learning = on ? new ai.dvine.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null));
         data.addView(link("What DVINE remembers", "Notes, facts you taught, how it reads your words: forget any of them",
                 MemoryActivity.class), Ui.wide(this, 10));
         data.addView(link("Usage and learning", "Context, tokens today, what was learned, export", UsageActivity.class), Ui.wide(this, 10));
         data.addView(action("Export chats", "Saves all chats to Downloads/DVINE.", this::exportChats), Ui.wide(this, 6));
-        data.addView(action("Delete all chats", "Every chat and attached image on this phone.",
+        data.addView(action("Delete all chats", "Every chat and attached image on this device.",
                 () -> confirm("Delete all chats? This can't be undone.", () -> {
                     new java.io.File(getFilesDir(), "chats.json").delete();
                     delete(new java.io.File(getFilesDir(), "attachments"));
                     prefs.edit().putBoolean("chats_reset", true).apply();
                     toast("All chats deleted.");
                 })), Ui.wide(this, 6));
-        data.addView(Ui.text(this, "Keys, chats and what DVINE learns stay on this phone. A message goes only to the AI provider you chose.",
+        data.addView(Ui.text(this, "Keys, chats and what DVINE learns stay on this device. A message goes only to the AI provider you chose.",
                 13, Ui.SUB, false), Ui.wide(this, 10));
         body.addView(data, Ui.wide(this, 8));
 
@@ -300,7 +300,7 @@ public final class SettingsActivity extends AppCompatActivity {
         section("About");
         LinearLayout about = card();
         about.addView(Ui.text(this, "DVINE " + version(), 16, Ui.TEXT, false));
-        about.addView(Ui.text(this, "Ivie, Obi and Ibiko, with your models or the one on this phone.", 13, Ui.SUB, false), Ui.wide(this, 4));
+        about.addView(Ui.text(this, "Ivie, Obi and Ibiko, with your models or the one on this device.", 13, Ui.SUB, false), Ui.wide(this, 4));
         body.addView(about, Ui.wide(this, 8));
     }
 
@@ -425,7 +425,7 @@ public final class SettingsActivity extends AppCompatActivity {
             return;
         }
         LocalModel m = hub.model;
-        modelTitle.setText("On this phone: " + hub.chosen().weights);
+        modelTitle.setText("On this device: " + hub.chosen().weights);
         modelAbout.setText("Answers offline and when every API fails. " + hub.chosen().sizeWords() + ", best on Wi-Fi.");
         boolean downloading = hub.downloading() || m.state() == LocalModel.State.DOWNLOADING;
         boolean installed = m.installed();
@@ -434,7 +434,7 @@ public final class SettingsActivity extends AppCompatActivity {
             case READY: state = "Ready and running"; break;
             case LOADING: state = "Starting"; break;
             case INSTALLED: state = "Downloaded"; break;
-            case UNSUPPORTED: state = "This phone can't run it: " + m.problem(); break;
+            case UNSUPPORTED: state = "This device can't run it: " + m.problem(); break;
             case FAILED: state = "Couldn't start: " + m.problem(); break;
             default: state = downloading ? "Downloading" : hub.status.phase() == ai.dvine.llm.DownloadStatus.Phase.PAUSED
                     ? "Paused" : "Not downloaded";
@@ -471,7 +471,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 continue;
             }
             if (onPhone.getChildCount() == 0) {
-                onPhone.addView(Ui.text(this, "Models on this phone", 14, Ui.SUB, false), Ui.wide(this, 8));
+                onPhone.addView(Ui.text(this, "Models on this device", 14, Ui.SUB, false), Ui.wide(this, 8));
             }
             final boolean using = m.file.equals(hub.chosen().file);
             LinearLayout row = new LinearLayout(this);
@@ -483,7 +483,7 @@ public final class SettingsActivity extends AppCompatActivity {
             delete.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
             delete.setContentDescription("Delete " + m.weights);
             delete.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setMessage("Delete " + m.weights + " from this phone? It frees " + bytes(bytes) + "."
+                    .setMessage("Delete " + m.weights + " from this device? It frees " + bytes(bytes) + "."
                             + (using ? " Answers then need an API until you download a model again." : ""))
                     .setPositiveButton("Delete", (d, w) -> {
                         if (using) {
@@ -567,8 +567,8 @@ public final class SettingsActivity extends AppCompatActivity {
             ai.dvine.llm.ModelSpec m = sizes.get(i);
             boolean using = m.file.equals(hub.chosen().file);
             String about = m.about + " " + String.format(java.util.Locale.US, "%.1f GB", m.bytes / 1e9) + ", wants " + m.ramGb
-                    + " GB of memory" + (ram > 0 && ram < m.ramGb ? " (this phone has " + ram + " GB: it may not start)" : "")
-                    + (hub.model.has(m) ? ". On this phone." : ".");
+                    + " GB of memory" + (ram > 0 && ram < m.ramGb ? " (this device has " + ram + " GB: it may not start)" : "")
+                    + (hub.model.has(m) ? ". On this device." : ".");
             items[i] = new BottomSheet.Item(using ? ai.dvine.R.drawable.ic_check : ai.dvine.R.drawable.ic_cube,
                     m.weights + (using ? "  \u00B7 in use" : ""), about);
         }
@@ -587,7 +587,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
         if (hub.model.has(now)) {
             new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setMessage("Switch to " + next.weights + ". Keep " + now.weights + " on the phone to switch back later, or delete it to free "
+                    .setMessage("Switch to " + next.weights + ". Keep " + now.weights + " on the device to switch back later, or delete it to free "
                             + now.sizeWords() + "?")
                     .setPositiveButton("Delete it", (d, w) -> switchModel(next, true))
                     .setNegativeButton("Keep it", (d, w) -> switchModel(next, false))
@@ -601,7 +601,7 @@ public final class SettingsActivity extends AppCompatActivity {
         new ai.dvine.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE)).clear(next.file); // chosen on purpose: tried again
         hub.choose(this, next, deleteOld);
         refreshModel();
-        toast(hub.model.has(next) ? next.weights + " is on the phone: it starts when you go back to the chat."
+        toast(hub.model.has(next) ? next.weights + " is on the device: it starts when you go back to the chat."
                 : "Now tap Download to get " + next.weights + " (" + next.sizeWords() + ").");
     }
 

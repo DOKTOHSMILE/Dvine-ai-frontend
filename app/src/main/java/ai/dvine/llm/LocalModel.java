@@ -98,7 +98,7 @@ public final class LocalModel {
         if (t.length() <= room) {
             return t;
         }
-        String gap = "\n\u2026(earlier work left out to fit the phone's model)\u2026\n";
+        String gap = "\n\u2026(earlier work left out to fit the device's model)\u2026\n";
         int head = (room - gap.length()) / 4;
         int tail = room - gap.length() - head;
         return t.substring(0, Math.max(0, head)) + gap + t.substring(t.length() - Math.max(0, tail));
@@ -127,7 +127,7 @@ public final class LocalModel {
         this.file = new File(dir, spec.file);
         state = !cpuSupported ? State.UNSUPPORTED : installed() ? State.INSTALLED : State.NOT_INSTALLED;
         if (!cpuSupported) {
-            problem = "this phone's processor is too old for it";
+            problem = "this device's processor is too old for it";
         }
     }
 
@@ -304,7 +304,7 @@ public final class LocalModel {
                 smaller = m; // the next size down
             }
         }
-        StringBuilder b = new StringBuilder(spec.weights + " is running slowly on this phone (" + speed + " tokens a second). For faster replies:");
+        StringBuilder b = new StringBuilder(spec.weights + " is running slowly on this device (" + speed + " tokens a second). For faster replies:");
         if (smaller != null) {
             b.append("\n\u2022 a smaller size, ").append(smaller.weights).append(" (tap the model name at the top)");
         }
@@ -421,10 +421,9 @@ public final class LocalModel {
                 remember(question, ActionTags.strip(answer));
                 return answer.trim();
             }
-            if (state != State.READY || "stopped".equals(problem)) {
-                return null;
-            }
-            // the API failed: the phone's own brain answers instead
+            // the API failed: the model the user chose is the one that answers, so the device's own model doesn't
+            // quietly take over (problem says why the API didn't answer)
+            return null;
         }
         if (state != State.READY) {
             return null;
@@ -434,7 +433,7 @@ public final class LocalModel {
         asked = fit(asked, PromptFit.localPromptChars(localWindow(), room, system == null ? 0 : system.length()));
         ai.dvine.learn.LearningLog l = learning;
         String learned = l == null ? "" : l.examplesFor(question, 2, 1400);
-        step("Answering with the model on this phone");
+        step("Answering with the model on this device");
         if (!learned.isEmpty()) {
             step("Recalled similar answers I learned before");
             asked = learned + "\n\n" + (context == null ? "" : context + "\n\n") + "The user says: " + question;
@@ -464,7 +463,7 @@ public final class LocalModel {
             }
             String local = NativeLlm.nError(handle);
             problem = apiProblem == null ? local
-                    : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
+                    : apiProblem + "; the device's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
             if (local == null || !local.contains("too long") || pieces[0] > 0) {
                 return null; // a reply that already started is not "too long"; that error can be left over
             }
@@ -522,12 +521,9 @@ public final class LocalModel {
             turns.add(new String[]{"user", prompt});
             String answer = askRemote(system, turns, maxTokens, 0.35f, sink,
                     tier != null ? tier : TaskSize.ofCall(prompt, maxTokens, coding));
-            if (answer != null) {
-                return answer.trim();
-            }
-            if (state != State.READY || "stopped".equals(problem)) {
-                return null;
-            }
+            // the chosen model does the task (a design's measurements, a plan, a file) or says why it couldn't:
+            // the device's own model never takes over behind the user's back
+            return answer == null ? null : answer.trim();
         }
         if (state != State.READY) {
             return null;
@@ -575,7 +571,7 @@ public final class LocalModel {
                     localWindow()) + " tokens: a bigger offline model, more memory (Settings \u203A Advanced), or an API would fit it";
         }
         problem = apiProblem == null ? local
-                : apiProblem + "; the phone's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
+                : apiProblem + "; the device's own model couldn't take over" + (local == null || local.isEmpty() ? "" : " (" + local + ")");
         return null;
     }
 
@@ -608,7 +604,7 @@ public final class LocalModel {
                 if (watch.expired(System.currentTimeMillis()) && replies.mine(mine)) {
                     String why = watch.reason(System.currentTimeMillis());
                     problem = "cap".equals(why) ? "the reply took too long" : "reading".equals(why)
-                            ? spec.weights + " took over " + READ_MS / 60_000 + " minutes to read the question on this phone; a smaller model,"
+                            ? spec.weights + " took over " + READ_MS / 60_000 + " minutes to read the question on this device; a smaller model,"
                             + " less memory (Settings \u203A Advanced) or an API would be quicker" : "the reply went quiet";
                     cancel();
                     return;
@@ -759,7 +755,7 @@ public final class LocalModel {
         for (String[] t : turns) {
             conversation += UsageLog.estimate(t[1]);
         }
-        usage.record(new UsageLog.Call("On this phone: " + spec.weights, localWindow(), UsageLog.estimate(system), conversation,
+        usage.record(new UsageLog.Call("On this device: " + spec.weights, localWindow(), UsageLog.estimate(system), conversation,
                 UsageLog.estimate(message), Math.max(pieces, 1), false, now - began, now));
         noteSpeed(pieces, now - began);
     }

@@ -34,7 +34,7 @@ public final class ReferenceResearch {
 
     private static final String[][] ARTICLES = {{"house", "House"}, {"car", "Car"}, {"table", "Table_(furniture)"}, {"chair", "Chair"},
             {"sofa", "Couch"}, {"bed", "Bed"}, {"bookshelf", "Bookcase"}, {"lamp", "Light_fixture"}, {"mug", "Mug"},
-            {"bottle", "Bottle"}, {"laptop", "Laptop"}, {"phone", "Smartphone"}, {"tree", "Tree"}, {"bicycle", "Bicycle"}};
+            {"bottle", "Bottle"}, {"laptop", "Laptop"}, {"device", "Smartphone"}, {"tree", "Tree"}, {"bicycle", "Bicycle"}};
 
     private ReferenceResearch() {
     }

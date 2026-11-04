@@ -95,7 +95,7 @@ public final class ModelGuard {
             return "it stopped the app while starting";
         }
         if (!fits(m, ramGb)) {
-            return "it wants " + m.ramGb + " GB of memory and this phone has " + ramGb + " GB";
+            return "it wants " + m.ramGb + " GB of memory and this device has " + ramGb + " GB";
         }
         return null;
     }

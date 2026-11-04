@@ -50,7 +50,7 @@ public final class ImageViewActivity extends AppCompatActivity {
         if (bitmap != null) {
             image.setImageBitmap(bitmap);
         } else {
-            TextView gone = Ui.text(this, "This picture isn't on the phone any more.", 16, 0xFFFFFFFF, false);
+            TextView gone = Ui.text(this, "This picture isn't on the device any more.", 16, 0xFFFFFFFF, false);
             gone.setGravity(Gravity.CENTER);
             root.addView(gone, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         }

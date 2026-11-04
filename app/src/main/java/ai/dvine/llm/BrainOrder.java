@@ -39,7 +39,7 @@ public final class BrainOrder {
     private static String basePrompt() {
         return "You are the brain. The user speaks only to you. DVINE does not answer them."
                 + " Read their words and reply with exactly one line."
-                + " If they want a job this phone can do, reply DO and one code:"
+                + " If they want a job this device can do, reply DO and one code:"
                 + " DO PHOTO <subject>, DO UNZIP, DO FINDZIP, DO NAME <call me>,"
                 + " DO GREET, DO TIME, DO SHELL <one command>,"
                 + " DO BUILD <the thing to build in 3D, with every size they said> (a house, a car, a chair: anything to model),"

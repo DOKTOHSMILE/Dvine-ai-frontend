@@ -37,7 +37,7 @@ public final class MediaPlayActivity extends AppCompatActivity {
         }
         if (!file.isFile()) {
             if (title != null) {
-                title.setText("That file is not on this phone.");
+                title.setText("That file is not on this device.");
             }
             return;
         }

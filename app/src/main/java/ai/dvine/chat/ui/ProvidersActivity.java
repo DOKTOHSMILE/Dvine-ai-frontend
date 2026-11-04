@@ -207,7 +207,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         if (!p.api()) {
             phoneBrain(card);
             if (!store.order().isEmpty()) {
-                TextView only = Ui.button(this, "Use only this phone", false);
+                TextView only = Ui.button(this, "Use only this device", false);
                 only.setOnClickListener(v -> {
                     for (Providers q : store.order()) {
                         store.removeBackup(q);
@@ -243,7 +243,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             // no key: the phone signs in to its own DVINE server; the address is that server's unless changed
             keyBox.setVisibility(View.GONE);
             card.addView(Ui.text(this, ai.dvine.llm.ProviderStore.serverSession != null
-                    ? "Signs in with this phone's own account on the server. The server's owner runs the model (docs/SERVER_MODEL.md)."
+                    ? "Signs in with this device's own account on the server. The server's owner runs the model (docs/SERVER_MODEL.md)."
                     : "Open the chat once so the app can sign in to the server; then this works without a key.", 13, Ui.SUB, false),
                     Ui.wide(this, 10));
         }
@@ -336,7 +336,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             case INSTALLED: state = "Installed. It starts when the chat opens."; break;
             case LOADING: state = "Starting…"; break;
             case DOWNLOADING: state = "Downloading: " + hub.status.percent() + "%"; break;
-            case UNSUPPORTED: state = "Can't run on this phone: " + m.problem() + "."; break;
+            case UNSUPPORTED: state = "Can't run on this device: " + m.problem() + "."; break;
             case FAILED: state = "Couldn't start: " + m.problem() + "."; break;
             default: state = "Not downloaded yet. " + m.spec.sizeWords() + ", best on Wi-Fi."; break;
         }
@@ -351,7 +351,7 @@ public final class ProvidersActivity extends AppCompatActivity {
             });
             card.addView(get, Ui.wide(this, 12));
         }
-        card.addView(Ui.text(this, "With an API chosen, the phone's model still answers when there is no connection.", 13, Ui.SUB, false),
+        card.addView(Ui.text(this, "With an API chosen, the device's model still answers when there is no connection.", 13, Ui.SUB, false),
                 Ui.wide(this, 12));
     }
 

@@ -50,7 +50,7 @@ public final class FileIntake {
             return new Report("pdf", withLearn(speech, learn, null), null, true, 0, 0);
         }
         if (type.startsWith("video/") || lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mkv")) {
-            String speech = "I opened " + label + ", a video of about " + kb(size) + ". I'll try one frame if the phone can decode it. I have not watched every frame.";
+            String speech = "I opened " + label + ", a video of about " + kb(size) + ". I'll try one frame if the device can decode it. I have not watched every frame.";
             return new Report("video", withLearn(speech, learn, null), null, true, 0, 0);
         }
         if (type.startsWith("audio/") || lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav")) {

@@ -55,7 +55,7 @@ public final class PhoneHost implements CodeAgent.Host {
             }
             new androidx.appcompat.app.AlertDialog.Builder(activity)
                     .setTitle("Ibiko wants to go ahead")
-                    .setMessage(command + "\n\nIt runs in Ibiko's project folder on this phone.")
+                    .setMessage(command + "\n\nIt runs in Ibiko's project folder on this device.")
                     .setPositiveButton("Run", (d, w) -> {
                         ok[0] = true;
                         done.countDown();

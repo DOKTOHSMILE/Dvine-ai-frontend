@@ -57,7 +57,7 @@ public final class ModelSpec {
     public static final ModelSpec QWEN3_8B = new ModelSpec("DVINE model", "qwen3-8b-q4km.gguf",
             HF + "Qwen3-8B-GGUF/resolve/a6adef130ffb23ddaf1a62fec9dced968c9bc482/Qwen3-8B-Q4_K_M.gguf",
             5027784512L, "120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4", "Apache 2.0",
-            "Qwen3", "8B", "Strongest: the best answers here, for phones with plenty of memory; slow.", 10, true);
+            "Qwen3", "8B", "Strongest: the best answers here, for devices with plenty of memory; slow.", 10, true);
     public static final ModelSpec LLAMA_3_2_1B = new ModelSpec("DVINE model", "llama-3.2-1b-instruct-q4km.gguf",
             HF + "Llama-3.2-1B-Instruct-GGUF/resolve/b69aef112e9f895e6f98d7ae0949f72ff09aa401/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
             807694368L, "3f5a22426976ab26cfe84dba63c1d08391717abb1af893e10f1b2968d862dcc1", "Llama 3.2 Community Licence",

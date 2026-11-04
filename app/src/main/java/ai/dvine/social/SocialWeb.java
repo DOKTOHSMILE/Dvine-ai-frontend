@@ -236,7 +236,7 @@ public final class SocialWeb {
         SocialAccounts all = accounts(c);
         List<Platform> nets = only != null ? java.util.Collections.singletonList(only) : all.ready();
         if (nets.isEmpty()) {
-            return "No social account is signed in on this phone. The user can add one: menu → Social accounts.";
+            return "No social account is signed in on this device. The user can add one: menu → Social accounts.";
         }
         StringBuilder out = new StringBuilder();
         int each = Math.max(1200, most / nets.size());
@@ -251,7 +251,7 @@ public final class SocialWeb {
     public static String trending(Context c, Platform only, int most) {
         List<Platform> nets = only != null ? java.util.Collections.singletonList(only) : accounts(c).ready();
         if (nets.isEmpty()) {
-            return "No social account is signed in on this phone. The user can add one: menu \u2192 Social accounts.";
+            return "No social account is signed in on this device. The user can add one: menu \u2192 Social accounts.";
         }
         StringBuilder out = new StringBuilder();
         int each = Math.max(1500, most / nets.size());
@@ -276,7 +276,7 @@ public final class SocialWeb {
         SocialAccounts all = accounts(c);
         SocialAccounts.Account a = all.inUse(p);
         if (a == null) {
-            return p.shown + ": no account on this phone. The user can add one: menu → Social accounts.";
+            return p.shown + ": no account on this device. The user can add one: menu → Social accounts.";
         }
         if (!all.on(p, true)) {
             return p.shown + " is switched off in Connectors, so it wasn't read.";

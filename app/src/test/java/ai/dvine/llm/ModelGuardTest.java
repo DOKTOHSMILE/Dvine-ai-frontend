@@ -36,7 +36,7 @@ public class ModelGuardTest {
         // memory: Qwen3 8B wants 10 GB, so an 8 GB phone gets the strongest model on it that fits
         assertFalse(ModelGuard.fits(ModelSpec.QWEN3_8B, 8));
         assertTrue(ModelGuard.fits(ModelSpec.QWEN3_8B, 0)); // unknown memory: not judged
-        assertEquals("it wants 10 GB of memory and this phone has 8 GB", guard.why(ModelSpec.QWEN3_8B, 8));
+        assertEquals("it wants 10 GB of memory and this device has 8 GB", guard.why(ModelSpec.QWEN3_8B, 8));
         assertSame(ModelSpec.QWEN3_1_7B, guard.fallback(model, 8, ModelSpec.QWEN3_8B.file));
         // a load that never returned: the next start finds the marker, and that model is set aside
         guard.loading(ModelSpec.QWEN3_1_7B.file);

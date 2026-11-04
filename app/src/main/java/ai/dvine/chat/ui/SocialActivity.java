@@ -168,7 +168,7 @@ public final class SocialActivity extends AppCompatActivity {
 
     private void remove(final SocialAccounts.Account a) {
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Remove " + a.label + " (" + a.platform.shown + ") from DVINE? Its sign-in on this phone is deleted.")
+                .setMessage("Remove " + a.label + " (" + a.platform.shown + ") from DVINE? Its sign-in on this device is deleted.")
                 .setPositiveButton("Remove", (d, w) -> {
                     SocialWeb.remove(this, a.id);
                     ai.dvine.act.ActionLog.add(getFilesDir(), "sign-out", a.platform.shown + " · " + a.label, "user", "removed", "");

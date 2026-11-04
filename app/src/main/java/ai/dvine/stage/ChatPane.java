@@ -1797,10 +1797,10 @@ public final class ChatPane extends LinearLayout {
         getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true);
         b.setBackgroundResource(ripple.resourceId);
         b.setOnClickListener(click);
-        // small, like ChatGPT's: a 16 dp icon in a 36 by 32 dp target
+        // small, like ChatGPT's: a 15 dp icon in a 35 by 31 dp target
         b.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
         b.setPadding(dp(10), dp(8), dp(10), dp(8));
-        LayoutParams lp = new LayoutParams(dp(36), dp(32));
+        LayoutParams lp = new LayoutParams(dp(10) * 2 + dp(15), dp(8) * 2 + dp(15));
         b.setLayoutParams(lp);
         return b;
     }

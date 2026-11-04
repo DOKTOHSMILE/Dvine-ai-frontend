@@ -99,7 +99,7 @@ public final class DirectQuestions {
     /** What this phone can do, asked as a question rather than a task. */
     public static boolean abilities(String text) {
         String n = bare(text);
-        return n.matches("what can you do( offline| right now| on this phone)?")
+        return n.matches("what can you do( offline| right now| on this (phone|device))?")
                 || n.matches("what are your (basic )?capabilities")
                 || n.matches("what are you able to do( offline| right now)?");
     }

@@ -94,17 +94,17 @@ public final class Tuning {
             "How many of the results are opened and read.", 3, 0, 10);
 
     public static final Knob CLONE_FILES = new Knob("adv_clone_files", "Most files in a clone",
-            "A repository with more files than this isn't cloned onto the phone (a bigger number needs more storage and time).",
+            "A repository with more files than this isn't cloned onto the device (a bigger number needs more storage and time).",
             5000, 100, 50000);
 
     public static final Knob OFFLINE_CONTEXT = new Knob("adv_offline_context", "Offline model memory, tokens",
-            "How much of the conversation and the work the phone's own model keeps in mind. More lets Ibiko work offline and"
-                    + " remember longer chats, but takes more of the phone's memory and starts slower.", 8192, 1024, 32768);
+            "How much of the conversation and the work the device's own model keeps in mind. More lets Ibiko work offline and"
+                    + " remember longer chats, but takes more of the device's memory and starts slower.", 8192, 1024, 32768);
     public static final Knob SLOW_SPEED = new Knob("adv_slow_speed", "Offline model is slow below, tokens a second",
-            "When the phone's own model writes slower than this, DVINE suggests a smaller size or less memory.", 4, 1, 50);
+            "When the device's own model writes slower than this, DVINE suggests a smaller size or less memory.", 4, 1, 50);
 
     public static final Knob MODEL_THREADS = new Knob("adv_model_threads", "Offline model threads (0 = automatic)",
-            "How many of the phone's cores the offline model uses. Automatic takes the fast cores only (more threads on slow"
+            "How many of the device's cores the offline model uses. Automatic takes the fast cores only (more threads on slow"
                     + " cores makes it slower). Compare with Settings \u203A Test the speed.", 0, 0, 8);
 
     public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES,

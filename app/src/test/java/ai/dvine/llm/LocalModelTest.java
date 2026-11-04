@@ -218,7 +218,7 @@ public class LocalModelTest {
         assertEquals(null, m.slowAdvice(4));
         m.noteSpeed(60, 20_000);
         String advice = m.slowAdvice(4);
-        assertTrue(advice, advice.startsWith("Qwen3 4B is running slowly on this phone (2.3 tokens a second)"));
+        assertTrue(advice, advice.startsWith("Qwen3 4B is running slowly on this device (2.3 tokens a second)"));
         assertTrue(advice, advice.contains("a smaller size, Qwen3 1.7B") && advice.contains("Offline model memory, 4,096 instead of 8,192")
                 && advice.contains("an API model"));
         assertEquals(null, m.slowAdvice(4)); // said once
@@ -240,7 +240,7 @@ public class LocalModelTest {
         assertTrue(fitted.length() <= 6000);
         assertTrue(fitted.startsWith(task)); // the task stays
         assertTrue(fitted.endsWith("result line 4999\n")); // and the latest work
-        assertTrue(fitted.contains("earlier work left out to fit the phone's model"));
+        assertTrue(fitted.contains("earlier work left out to fit the device's model"));
         assertEquals("short", LocalModel.fit("short", 6000)); // what fits is untouched
     }
 }

@@ -355,7 +355,7 @@ public final class RemoteBrain {
         if (source != null) {
             String live = source.get();
             if (live == null || live.isEmpty()) {
-                problem = "the phone couldn't sign in to the DVINE server";
+                problem = "the device couldn't sign in to the DVINE server";
                 transientFailure = true;
                 return null;
             }

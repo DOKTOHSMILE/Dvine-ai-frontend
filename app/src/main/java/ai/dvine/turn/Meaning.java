@@ -18,11 +18,11 @@ public final class Meaning {
     public enum Command {
         CONTINUE("continue", true, "carry on with the work already under way"),
         RESULT("give me the result", true, "hand in the result or report of the work so far; asks whether it is done or how far it got"),
-        DOWNLOAD_MODEL("download the model", false, "download or install the phone's own offline model"),
-        REMOVE_MODEL("delete the model", false, "delete or uninstall the phone's own offline model, to free space"),
+        DOWNLOAD_MODEL("download the model", false, "download or install the device's own offline model"),
+        REMOVE_MODEL("delete the model", false, "delete or uninstall the device's own offline model, to free space"),
         DOWNLOAD_PROGRESS("how is the download going", false, "ask how far the model's download has got"),
-        MODEL_OFF("turn off the model", false, "stop using the phone's own model"),
-        MODEL_ON("turn on the model", false, "start using the phone's own model again"),
+        MODEL_OFF("turn off the model", false, "stop using the device's own model"),
+        MODEL_ON("turn on the model", false, "start using the device's own model again"),
         NEW_CHAT("start a new chat", false, "start a new, empty chat"),
         SWITCH_IVIE("switch to Ivie", false, "talk to Ivie (graphics and 3D) from now on; only when the message is just about switching"),
         SWITCH_OBI("switch to Obi", false, "talk to Obi (chat and research) from now on; only when the message is just about switching"),
@@ -31,7 +31,7 @@ public final class Meaning {
         AUTO_ON("turn auto-accept on", false, "let Ibiko run commands, pushes and pull requests without asking first"),
         AUTO_OFF("turn auto-accept off", false, "accept edits: Ibiko changes files but asks before running commands, pushes and pull requests"),
         MODE_PLAN("switch to plan mode", false, "make Ibiko only read and write a plan, asking before it changes anything"),
-        CLEAR_WORKSPACE("clear Ibiko's workspace", false, "delete the cloned repositories, the sandbox and the files in Ibiko's workspace on the phone"),
+        CLEAR_WORKSPACE("clear Ibiko's workspace", false, "delete the cloned repositories, the sandbox and the files in Ibiko's workspace on the device"),
         OPEN_SETTINGS("open Settings", false, "open the app's settings"),
         RETRY("ask again", false, "send the user's previous message again (the last reply failed or they want another try)"),
         NONE("", false, "anything else: a question, a request, chat, a new task");
@@ -68,7 +68,7 @@ public final class Meaning {
 
     /** The reader's instructions: the commands and what each means; a small model follows them. */
     public static String prompt(boolean work) {
-        StringBuilder b = new StringBuilder("You read one message a user sent to DVINE, a phone assistant, and say which of these"
+        StringBuilder b = new StringBuilder("You read one message a user sent to DVINE, a device assistant, and say which of these"
                 + " commands it means, whatever its words. Do not answer it. Reply with one line, COMMAND: and the name.\n");
         for (Command c : Command.values()) {
             if (c.needsWork && !work) {

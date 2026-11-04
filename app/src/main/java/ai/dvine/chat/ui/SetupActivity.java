@@ -66,7 +66,7 @@ public final class SetupActivity extends AppCompatActivity {
         LinearLayout phone = card();
         phone.addView(Ui.text(this, "Download the model", 19, Ui.TEXT, true));
         LocalModel m = hub.model;
-        phone.addView(Ui.text(this, m.spec.weights + " runs on this phone, private and offline. "
+        phone.addView(Ui.text(this, m.spec.weights + " runs on this device, private and offline. "
                 + m.spec.sizeWords() + ", best on Wi-Fi.", 14, Ui.SUB, false), Ui.wide(this, 6));
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(100);
@@ -118,7 +118,7 @@ public final class SetupActivity extends AppCompatActivity {
             downloadButton.setEnabled(false);
             downloadButton.setAlpha(0.4f);
             downloadNote.setVisibility(View.VISIBLE);
-            downloadNote.setText("This phone can't run it: " + m.problem() + ". Use an API key instead.");
+            downloadNote.setText("This device can't run it: " + m.problem() + ". Use an API key instead.");
         } else if (downloading) {
             bar.setVisibility(View.VISIBLE);
             bar.setProgress(hub.status.percent());

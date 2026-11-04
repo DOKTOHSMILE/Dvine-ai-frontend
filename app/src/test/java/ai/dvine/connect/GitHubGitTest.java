@@ -264,7 +264,7 @@ public class GitHubGitTest {
         });
         File dir = new File(Files.createTempDirectory("git").toFile(), "app");
         String said = git.clone("me/app", "", dir);
-        assertTrue(said, said.contains("2 files") && said.contains("on the phone"));
+        assertTrue(said, said.contains("2 files") && said.contains("on the device"));
         assertTrue(asked.get(0), asked.get(0).endsWith("/repos/me/app/zipball/" + hub.refs.get("main")));
         assertFalse(hub.calls.toString(), hub.calls.toString().contains("/git/blobs/")); // no file-by-file download
         assertTrue(git.status(dir).contains("nothing changed"));
