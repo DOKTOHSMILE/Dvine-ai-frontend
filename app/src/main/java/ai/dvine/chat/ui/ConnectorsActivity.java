@@ -248,7 +248,10 @@ public final class ConnectorsActivity extends AppCompatActivity {
         if (k == ConnectorStore.Kind.WEB) {
             webSearchSettings(inside);
         }
-        if (k != ConnectorStore.Kind.WEB) {
+        if (k == ConnectorStore.Kind.DOCS) {
+            docsSettings(inside);
+        }
+        if (k != ConnectorStore.Kind.WEB && k != ConnectorStore.Kind.DOCS) {
             final TextView result = Ui.text(this, "", 13, Ui.SUB, false);
             TextView test = Ui.button(this, "Save and test", true);
             test.setOnClickListener(v -> {
@@ -290,6 +293,98 @@ public final class ConnectorsActivity extends AppCompatActivity {
     // ------------------------------------------------------------ web search
 
     /** Which search: free (Wikipedia), or the whole web with the user's Brave Search, Tavily or Google key. */
+    /** The sets on this device (Delete), and DevDocs' list to download from (online), with progress. */
+    private boolean docsListShown;
+    private String docsBusy;
+
+    private void docsSettings(final LinearLayout inside) {
+        final ai.dvine.library.DevDocs docs = store.docs();
+        java.util.List<ai.dvine.library.DevDocs.Set> kept = docs.installed();
+        inside.addView(Ui.text(this, kept.isEmpty() ? "None on this device yet." : "On this device:", 14, Ui.TEXT, true), Ui.wide(this, 6));
+        for (final ai.dvine.library.DevDocs.Set set : kept) {
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.addView(Ui.text(this, set.shown() + " \u00B7 " + mb(set.bytes), 14, Ui.TEXT, false), new LinearLayout.LayoutParams(0, -2, 1f));
+            TextView del = Ui.text(this, "Delete", 14, Ui.ACCENT, false);
+            del.setPadding(Ui.dp(this, 12), Ui.dp(this, 8), 0, Ui.dp(this, 8));
+            del.setOnClickListener(v -> new Thread(() -> {
+                docs.remove(set.slug);
+                main.post(this::fill);
+            }, "dvine-docs-delete").start());
+            row.addView(del);
+            inside.addView(row, Ui.wide(this, 4));
+        }
+        if (docsBusy != null) {
+            inside.addView(Ui.text(this, docsBusy, 13, Ui.SUB, false), Ui.wide(this, 8));
+        }
+        if (!docsListShown) {
+            TextView choose = Ui.button(this, "Choose docs to download", true);
+            choose.setOnClickListener(v -> {
+                docsListShown = true;
+                docsBusy = "Getting DevDocs' list\u2026";
+                fill();
+                new Thread(() -> {
+                    String why = null;
+                    try {
+                        docs.catalog();
+                    } catch (java.io.IOException | RuntimeException e) {
+                        why = e.getMessage();
+                    }
+                    final String failed = why;
+                    main.post(() -> {
+                        docsBusy = failed == null ? null : "Couldn't get the list (" + failed + "). It needs the internet once.";
+                        fill();
+                    });
+                }, "dvine-docs-list").start();
+            });
+            inside.addView(choose, Ui.wide(this, 12));
+            return;
+        }
+        for (final ai.dvine.library.DevDocs.Set set : docs.lastCatalog()) {
+            if (docs.has(set.slug)) {
+                continue;
+            }
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.addView(Ui.text(this, set.shown() + " \u00B7 " + mb(set.bytes), 14, Ui.TEXT, false), new LinearLayout.LayoutParams(0, -2, 1f));
+            TextView get = Ui.text(this, "Download", 14, Ui.ACCENT, false);
+            get.setPadding(Ui.dp(this, 12), Ui.dp(this, 8), 0, Ui.dp(this, 8));
+            get.setOnClickListener(v -> {
+                if (docsBusy != null && docsBusy.startsWith("Downloading")) {
+                    android.widget.Toast.makeText(this, "One at a time: wait for this one.", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                docsBusy = "Downloading " + set.shown() + "\u2026";
+                fill();
+                new Thread(() -> {
+                    String why = null;
+                    int pages = 0;
+                    try {
+                        pages = docs.download(set, (done, what) -> main.post(() -> {
+                            docsBusy = "Downloading " + set.shown() + ": " + Math.round(done * 100) + "% \u00B7 " + what;
+                            fill();
+                        }));
+                    } catch (java.io.IOException | RuntimeException e) {
+                        why = e.getMessage();
+                    }
+                    final String failed = why;
+                    final int kept2 = pages;
+                    main.post(() -> {
+                        docsBusy = failed == null ? set.shown() + " is on this device: " + kept2 + " pages, searchable offline."
+                                : "Couldn't download " + set.shown() + " (" + failed + ").";
+                        fill();
+                    });
+                }, "dvine-docs-download").start();
+            });
+            row.addView(get);
+            inside.addView(row, Ui.wide(this, 4));
+        }
+    }
+
+    private static String mb(long bytes) {
+        return bytes <= 0 ? "" : bytes < 1_000_000 ? "under 1 MB" : Math.round(bytes / 1_000_000.0) + " MB";
+    }
+
     private void webSearchSettings(LinearLayout inside) {
         final ai.dvine.net.WebSearch.Settings now = store.webSearch();
         final String[] keys = {"", "brave", "tavily", "google"};
@@ -529,6 +624,10 @@ public final class ConnectorsActivity extends AppCompatActivity {
         }
         if (store.ready(k) && k == ConnectorStore.Kind.GITHUB && !store.githubUser().isEmpty()) {
             return "Connected as @" + store.githubUser();
+        }
+        if (k == ConnectorStore.Kind.DOCS) {
+            int n = store.docs().installed().size();
+            return n == 0 ? "On \u00B7 none downloaded yet" : "On \u00B7 " + n + (n == 1 ? " set" : " sets") + " on this device";
         }
         if (store.ready(k) && k == ConnectorStore.Kind.GMAIL) {
             return "Connected as " + store.gmailUser();

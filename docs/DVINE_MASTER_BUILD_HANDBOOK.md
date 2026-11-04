@@ -172,6 +172,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 ### 5.6 Connectors and social accounts
 - **Connectors screen.** GitHub, Gmail, web search, the device calendar, Notion, a custom MCP server and each social network have an on/off switch.
 - **Web search** (0.91): with no key, Google's own results page read in a hidden browser on the device (`net/GoogleWeb`: Google needs JavaScript, so it can't be fetched as plain HTML), then Wikipedia. Google's robot check gives nothing, and the search moves on. With a key: Brave Search, Tavily or Google Programmable Search.
+- **Offline developer docs** (0.92, `library/DevDocs`): official docs from DevDocs (Kotlin, Java, Python, JavaScript, TypeScript, HTML, CSS, the DOM, Node, React, Go, Dart, Rust, C, C++, SQLite, PostgreSQL, Git, Bash, Docker, HTTP; the newest version of each), downloaded once from Connectors › Offline developer docs and indexed into SQLite full-text search on the device (`DocsStream` reads a set one page at a time, so a 120 MB set never sits in memory). The tools docs.search ("python: list sort") and docs.read work with no internet, for the device's model and an API alike. Android's own developer docs are not in DevDocs.
 - **Gmail** (0.91, `connect/Gmail`): the user's Gmail address and an app password (Google Account › Security › 2-Step Verification › App passwords); no Google Cloud project. IMAP to imap.gmail.com: the inbox, Gmail search words, one mail in full, and drafts written into Gmail's Drafts. The inbox is opened read-only, so nothing is marked read, and nothing is sent: the user sends drafts from Gmail. Mail reaches the model marked as people's words, never instructions.
 - **Social accounts.** Sign in on each network's own page inside the app; several accounts per network. **Telegram** (0.91) is the user's own account through Telegram Web: a QR code or the phone number. Its sign-in is kept in the page's storage, not a cookie, so DVINE watches for it while the sign-in page is open, and sees a signed-out page when reading. It reads the chat list (newest first) and a chat or channel by name (@name, t.me/name).
 - **What works now:**
@@ -201,7 +202,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 ## 7. Testing and release
 
-- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (439 tests at 0.91.0). **Build:** `gradle :app:assembleDebug`.
+- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (442 tests at 0.92.0). **Build:** `gradle :app:assembleDebug`.
 - **Real model on a desktop:** set `DVINE_NATIVE_LIB` and `DVINE_MODEL` to run tests against a real model (for example Qwen3 1.7B) through the real JNI bridge.
 - **Robolectric frame trap.** Under Robolectric, the stage's Choreographer frames never settle once a drawing is on stage. Tests that start a build must call `StageView.stopFrames()` before idling the looper. Otherwise the test hangs (fixed in `LaunchTest` at 0.89).
 - **Not run in the cloud:** `lintDebug` (dependency download is rate-limited) and anything on a phone. The phone checks are listed as "phone pending" in `BUILD_STATUS.md`.
@@ -269,5 +270,6 @@ Retired and not coming back unless asked: faces (line-art, wireframe, hologram, 
 | 0.89 | One route for builds and social jobs, measurements asked, the API design prompt, the studio, the full-screen canvas, the thinking star that glances like an eye, replies in short parts between the steps with voice on each, the voice compile fix. 0.89.1: the model narrates its own work between the steps. 0.89.2: crash reports saved to Download/DVINE. 0.89.3: a long chat draws only its latest messages (the freeze on Send). 0.89.4: Ibiko finishes instead of ending on a plan; fewer notes. 0.89.5: explanations like Claude's, a paragraph at each turning point. 0.89.6: New chat is clean for all three personas. 0.89.7: true full screen, a real 3D floor, tyres as rings, designs get 15 minutes. 0.89.8: "device" not "phone", the chosen model does every task. 0.89.9: the device's model works like an API model. |
 | 0.90 | A busy model is waited for and named; a new task starts its own plan. 0.90.1: a notes record so the device's model remembers the whole chat. |
 | 0.91 | Google search with no key, Gmail with an app password, Telegram with the user's own account. |
+| 0.92 | Offline developer docs, searched with no internet. |
 
 The full evidence for every version is in `docs/BUILD_STATUS.md`.
