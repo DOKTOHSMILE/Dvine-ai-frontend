@@ -19,6 +19,9 @@ import ai.dvine.llm.ProviderStore;
 public final class ConnectorStore {
     public enum Kind {
         WEB("Web search", "Searches the web and reads the best pages. Free: Google in DVINE's own browser, then Wikipedia. Or your Brave Search, Tavily or Google key."),
+        DOCS("Offline developer docs", "Official docs kept on this device for coding with no internet: Kotlin, Java, Python,"
+                + " JavaScript, TypeScript, HTML, CSS, Node, React, Go, Dart, Rust, C, C++, SQL and more, from DevDocs. Download the"
+                + " ones you use; the model searches them online or off."),
         GMAIL("Gmail", "Read, search and open your email, and write drafts into Gmail's Drafts (you send them). Your Gmail address and"
                 + " an app password: Google Account › Security › 2-Step Verification › App passwords. No Google project needed."),
         CALENDAR("Device calendar", "Your events for the next week, read from this device's calendar."),
@@ -47,7 +50,7 @@ public final class ConnectorStore {
         if (k == Kind.WEB) {
             return app.getBoolean("fresh_facts", true); // the switch the app already had for looking things up
         }
-        return prefs.getBoolean(k.name() + ".on", false);
+        return prefs.getBoolean(k.name() + ".on", k == Kind.DOCS); // the docs are on until switched off
     }
 
     public void setOn(Kind k, boolean on) {
@@ -82,6 +85,16 @@ public final class ConnectorStore {
 
     public void setGmailUser(String user) {
         prefs.edit().putString("GMAIL.user", user == null ? "" : user.trim()).apply();
+    }
+
+    private static ai.dvine.library.DevDocs docs;
+
+    /** The developer docs kept on this device. */
+    public synchronized ai.dvine.library.DevDocs docs() {
+        if (docs == null) {
+            docs = new ai.dvine.library.DevDocs(context);
+        }
+        return docs;
     }
 
     Gmail gmail() {
@@ -186,6 +199,7 @@ public final class ConnectorStore {
             case GITHUB:
             case NOTION: return !token(k).isEmpty();
             case GMAIL: return !gmailUser().isEmpty() && !token(k).isEmpty();
+            case DOCS: return !docs().installed().isEmpty();
             case MCP: return mcpUrl().startsWith("https://") && !mcpTools().isEmpty();
             default: return true;
         }
@@ -196,6 +210,16 @@ public final class ConnectorStore {
         List<Connectors.Tool> t = new ArrayList<Connectors.Tool>();
         if (ready(Kind.WEB)) {
             t.add(new Connectors.Tool("web.search", "search the web and read the best pages (" + webSearch().label() + ")", "words to search for"));
+        }
+        if (ready(Kind.DOCS)) {
+            StringBuilder sets = new StringBuilder();
+            for (ai.dvine.library.DevDocs.Set s : docs().installed()) {
+                sets.append(sets.length() == 0 ? "" : ", ").append(s.shown());
+            }
+            t.add(new Connectors.Tool("docs.search", "search the official developer docs kept on this device (" + sets
+                    + "); works with no internet: look up an API, a function or its arguments before writing code you"
+                    + " aren't sure of", "words, or set: words (python: list sort)"));
+            t.add(new Connectors.Tool("docs.read", "open one page of those docs, by the [set page] a search showed", "set page"));
         }
         if (ready(Kind.CALENDAR)) {
             t.add(new Connectors.Tool("calendar.week", "the user's calendar events for the next 7 days", ""));
@@ -261,6 +285,14 @@ public final class ConnectorStore {
             }
             if (tool.equals("social.open")) {
                 return ai.dvine.social.SocialWeb.open(context, arg == null ? "" : arg.trim(), 6000);
+            }
+            if (tool.equals("docs.search")) {
+                return Connectors.clip(docs().forModel(arg == null ? "" : arg, 8));
+            }
+            if (tool.equals("docs.read")) {
+                String[] p = (arg == null ? "" : arg.trim().replaceAll("^\\[|\\]$", "")).split("\\s+", 2);
+                String page = p.length == 2 ? docs().read(p[0], p[1], 6000) : null;
+                return page == null ? "No such page in the offline docs: give the [set page] a search showed." : Connectors.clip(page);
             }
             if (tool.equals("calendar.week")) {
                 return calendarWeek();
