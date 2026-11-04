@@ -150,6 +150,14 @@ public final class SocialLoginActivity extends AppCompatActivity {
                 .setTitle("Signed in to " + platform.shown)
                 .setView(box)
                 .setCancelable(false)
+                .setNegativeButton("Not yet", (d, w) -> {
+                    saved = false; // not signed in after all: the page stays open to sign in
+                    if (platform == Platform.TELEGRAM && web != null) {
+                        SocialWeb.telegramSignedIn(this, false);
+                        web.removeCallbacks(telegramWatch);
+                        web.postDelayed(telegramWatch, 8000); // asked again only after a real sign-in
+                    }
+                })
                 .setPositiveButton("Keep", (d, w) -> {
                     SocialAccounts.Account a = SocialWeb.accounts(this).add(platform, field.getText().toString(), System.currentTimeMillis());
                     SocialWeb.keep(this, a);

@@ -272,6 +272,6 @@ Retired and not coming back unless asked: faces (line-art, wireframe, hologram, 
 | 0.90 | A busy model is waited for and named; a new task starts its own plan. 0.90.1: a notes record so the device's model remembers the whole chat. |
 | 0.91 | Google search with no key, Gmail with an app password, Telegram with the user's own account. |
 | 0.92 | Offline developer docs, searched with no internet. |
-| 0.93 | Ibiko codes with a real Linux shell (Termux). 0.93.1: commands from plain words in any chat, the result told in plain words. |
+| 0.93 | Ibiko codes with a real Linux shell (Termux). 0.93.1: commands from plain words in any chat, the result told in plain words. 0.93.2: Telegram's sign-in check fixed. |
 
 The full evidence for every version is in `docs/BUILD_STATUS.md`.
