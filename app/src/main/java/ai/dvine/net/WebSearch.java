@@ -18,8 +18,8 @@ import ai.dvine.connect.Connectors;
 
 /**
  * Web search through proper search APIs, then the text of the best few pages. With the user's key it searches the
- * whole web: Brave Search (a free tier), Tavily, or Google Programmable Search. Without one it searches Wikipedia
- * (several articles, not one page). Search engines' own result pages are not scraped: they refuse automated queries.
+ * whole web: Brave Search (a free tier), Tavily, or Google Programmable Search. Without one it searches Google in the device's own browser (GoogleWeb), then Wikipedia
+ * (several articles, not one page). Google's results page is read as a person's browser shows it, one search at a time.
  * The model is given the numbered results and the page extracts, marked as data, and answers with the sources. Pure
  * Java; the network is behind {@link Connectors.Http} and {@link Get}.
  */
@@ -44,7 +44,7 @@ public final class WebSearch {
                 case "brave": return "Brave Search";
                 case "tavily": return "Tavily";
                 case "google": return "Google";
-                default: return "Wikipedia";
+                default: return browser != null ? "Google, then Wikipedia" : "Wikipedia";
             }
         }
     }
@@ -53,12 +53,20 @@ public final class WebSearch {
     public static final class Hit {
         public final String title, url, snippet;
 
-        Hit(String title, String url, String snippet) {
+        public Hit(String title, String url, String snippet) {
             this.title = title;
             this.url = url;
             this.snippet = snippet;
         }
     }
+
+    /** A search in a browser on the device (Google, with no key: {@link GoogleWeb}); none in tests. */
+    public interface Browser {
+        List<Hit> search(String q, int most);
+    }
+
+    /** The device's browser search, set by the app; null when there is none. */
+    public static volatile Browser browser;
 
     /** A page's HTML or text, or null. */
     public interface Get {
@@ -80,6 +88,14 @@ public final class WebSearch {
                     default: break;
                 }
             } catch (IOException | RuntimeException e) {
+                hits = new ArrayList<Hit>();
+            }
+        }
+        Browser b = browser;
+        if (hits.isEmpty() && b != null) {
+            try {
+                hits = b.search(q, most); // Google, with no key, in the device's own browser
+            } catch (RuntimeException e) {
                 hits = new ArrayList<Hit>();
             }
         }

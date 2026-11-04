@@ -12,6 +12,10 @@ public final class DvineApp extends Application {
     public void onCreate() {
         super.onCreate();
         CrashLog.install(this);
+        if (!"robolectric".equals(android.os.Build.FINGERPRINT)) {
+            // Google search with no key: google.com read in a browser on the device that isn't shown
+            ai.dvine.net.WebSearch.browser = (q, most) -> ai.dvine.net.GoogleWeb.search(this, q, most);
+        }
         Thread t = new Thread(() -> {
             try {
                 CrashLog.collectExits(this);

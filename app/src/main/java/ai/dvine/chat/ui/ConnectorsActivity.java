@@ -184,7 +184,8 @@ public final class ConnectorsActivity extends AppCompatActivity {
             if (on && k == ConnectorStore.Kind.CALENDAR && !store.calendarAllowed()) {
                 requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR}, CALENDAR);
             }
-            if (on && (k == ConnectorStore.Kind.GITHUB || k == ConnectorStore.Kind.NOTION || k == ConnectorStore.Kind.MCP)) {
+            if (on && (k == ConnectorStore.Kind.GITHUB || k == ConnectorStore.Kind.NOTION || k == ConnectorStore.Kind.MCP
+                    || k == ConnectorStore.Kind.GMAIL)) {
                 open = k; // it needs a token or an address: open it
             }
             fill();
@@ -212,9 +213,16 @@ public final class ConnectorsActivity extends AppCompatActivity {
         if (k == ConnectorStore.Kind.GITHUB) {
             githubSignIn(inside);
         }
+        final EditText mail = Ui.field(this, "Your Gmail address", store.gmailUser(), false, false);
+        if (k == ConnectorStore.Kind.GMAIL) {
+            mail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+            inside.addView(mail, Ui.wide(this, 12));
+        }
         final EditText token = Ui.field(this, k == ConnectorStore.Kind.MCP ? "Token (optional)"
-                : k == ConnectorStore.Kind.GITHUB ? "Or paste a token" : "Token", store.token(k), true, false);
-        if (k == ConnectorStore.Kind.GITHUB || k == ConnectorStore.Kind.NOTION || k == ConnectorStore.Kind.MCP) {
+                : k == ConnectorStore.Kind.GITHUB ? "Or paste a token" : k == ConnectorStore.Kind.GMAIL ? "App password (16 letters)" : "Token",
+                store.token(k), true, false);
+        if (k == ConnectorStore.Kind.GITHUB || k == ConnectorStore.Kind.NOTION || k == ConnectorStore.Kind.MCP
+                || k == ConnectorStore.Kind.GMAIL) {
             FrameLayout box = new FrameLayout(this);
             token.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 70), Ui.dp(this, 14));
             box.addView(token);
@@ -246,6 +254,9 @@ public final class ConnectorsActivity extends AppCompatActivity {
             test.setOnClickListener(v -> {
                 if (k == ConnectorStore.Kind.MCP) {
                     store.setMcp(url.getText().toString(), name.getText().toString());
+                }
+                if (k == ConnectorStore.Kind.GMAIL) {
+                    store.setGmailUser(mail.getText().toString());
                 }
                 store.setToken(k, token.getText().toString());
                 store.setOn(k, true);
@@ -314,7 +325,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                 case "brave": how.setText("The whole web. A key from api.search.brave.com (there is a free plan)."); break;
                 case "tavily": how.setText("The whole web, made for AI answers. A key from tavily.com (free credits each month)."); break;
                 case "google": how.setText("Google results through Programmable Search: an API key and a search engine ID from programmablesearchengine.google.com."); break;
-                default: how.setText("Wikipedia's search, several articles at a time. No key. For the whole web, choose a provider and add its key.");
+                default: how.setText("Free: Google, read in DVINE's own browser on this device (no key, no project), then Wikipedia. Or choose a provider and add its key.");
             }
         };
         paint[0].run();
@@ -326,7 +337,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         save.setOnClickListener(v -> {
             store.setWebSearch(chosen[0], key.getText().toString(), cx.getText().toString());
             android.widget.Toast.makeText(this, "Web search: " + store.webSearch().label()
-                    + (chosen[0].isEmpty() || store.webSearch().keyed() ? "." : " needs its key; using Wikipedia until then."),
+                    + (chosen[0].isEmpty() || store.webSearch().keyed() ? "." : " needs its key; using Google and Wikipedia until then."),
                     android.widget.Toast.LENGTH_LONG).show();
             fill();
         });
@@ -519,6 +530,9 @@ public final class ConnectorsActivity extends AppCompatActivity {
         if (store.ready(k) && k == ConnectorStore.Kind.GITHUB && !store.githubUser().isEmpty()) {
             return "Connected as @" + store.githubUser();
         }
+        if (store.ready(k) && k == ConnectorStore.Kind.GMAIL) {
+            return "Connected as " + store.gmailUser();
+        }
         if (k == ConnectorStore.Kind.WEB) {
             return "On \u00B7 " + store.webSearch().label();
         }
@@ -529,6 +543,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
             case CALENDAR: return "Needs calendar permission";
             case MCP: return "Needs an address, then Test";
             case GITHUB: return "Sign in, or paste a token";
+            case GMAIL: return "Needs your address and an app password";
             default: return "Needs a token";
         }
     }

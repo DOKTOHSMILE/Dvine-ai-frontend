@@ -17,7 +17,13 @@ public enum Platform {
     INSTAGRAM("Instagram", "https://www.instagram.com/accounts/login/", "https://www.instagram.com/", new String[]{"sessionid"},
             new String[]{"https://www.instagram.com", "https://instagram.com"}),
     REDDIT("Reddit", "https://www.reddit.com/login/", "https://www.reddit.com/", new String[]{"reddit_session"},
-            new String[]{"https://www.reddit.com", "https://reddit.com", "https://old.reddit.com"});
+            new String[]{"https://www.reddit.com", "https://reddit.com", "https://old.reddit.com"}),
+    /**
+     * The user's own Telegram, through Telegram Web: signed in with the QR code or the phone number. Its sign-in is
+     * kept in the page's own storage, not in a cookie ({@link SocialWeb#signedInNow}); one account.
+     */
+    TELEGRAM("Telegram", "https://web.telegram.org/k/", "https://web.telegram.org/k/", new String[0],
+            new String[]{"https://web.telegram.org"});
 
     public final String shown, login, home;
     final String[] session;
@@ -56,6 +62,13 @@ public enum Platform {
                 return "https://m.facebook.com/search/posts/?q=" + q;
             case X:
                 return "https://x.com/search?q=" + q + "&src=typed_query&f=live";
+            case TELEGRAM: {
+                // a chat or channel by its name (@lagosnews, t.me/lagosnews); otherwise the chat list
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:^|t\\.me/|@)([A-Za-z][A-Za-z0-9_]{4,31})$")
+                        .matcher(query == null ? "" : query.trim());
+                return m.find() && (query.trim().startsWith("@") || query.contains("t.me/"))
+                        ? "https://web.telegram.org/k/#@" + m.group(1) : home;
+            }
             case INSTAGRAM:
                 // Instagram's web search is by hashtag: the words joined
                 String tag = query == null ? "" : query.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", "");
@@ -74,6 +87,8 @@ public enum Platform {
                 return "https://www.reddit.com/r/popular/";
             case INSTAGRAM:
                 return "https://www.instagram.com/explore/";
+            case TELEGRAM:
+                return home; // the chats, newest first, with their latest messages
             default:
                 return "https://m.facebook.com/watch/";
         }
@@ -103,6 +118,7 @@ public enum Platform {
             case "x": case "twitter": case "x(twitter)": return X;
             case "instagram": case "ig": case "insta": return INSTAGRAM;
             case "reddit": return REDDIT;
+            case "telegram": case "tg": return TELEGRAM;
             default: return null;
         }
     }
