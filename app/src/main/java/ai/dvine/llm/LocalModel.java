@@ -426,7 +426,7 @@ public final class LocalModel {
             // quietly take over (problem says why the API didn't answer)
             return null;
         }
-        if (state != State.READY) {
+        if (!ensureLocal()) {
             return null;
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
@@ -526,7 +526,7 @@ public final class LocalModel {
             // the device's own model never takes over behind the user's back
             return answer == null ? null : answer.trim();
         }
-        if (state != State.READY) {
+        if (!ensureLocal()) {
             return null;
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
@@ -624,6 +624,36 @@ public final class LocalModel {
         }
     }
 
+    /** Loads the phone's model if an API reply had set it aside. */
+    private boolean ensureLocal() {
+        if (state == State.READY && handle != 0) {
+            return true;
+        }
+        if (!installed()) {
+            return false;
+        }
+        return load(loadedThreads > 0 ? loadedThreads : 4);
+    }
+
+    /**
+     * Drops the on-device weights while an API answers. The file stays on the phone and is loaded again the next
+     * time the phone's own model is asked to run. Safe to call when nothing is loaded.
+     */
+    private void parkNative() {
+        synchronized (this) {
+            if (handle == 0) {
+                return;
+            }
+            NativeLlm.nCancel(handle);
+            NativeLlm.nFree(handle);
+            handle = 0;
+            loadedContext = 0;
+            if (state == State.READY) {
+                state = State.INSTALLED;
+            }
+        }
+    }
+
     /**
      * The user's APIs answer, in order: the first that isn't resting is asked; one that fails (or goes quiet) before
      * it has said anything rests, and the next is asked. Once a reply has started, it isn't switched mid-sentence.
@@ -649,6 +679,7 @@ public final class LocalModel {
             tries.add(new Object[]{sl, sl.brain});
         }
         lastTier = tier;
+        parkNative(); // the on-device weights are not used for an API reply; leaving them loaded swapped the phone out
         for (Object[] attempt : tries) {
             final Slot sl = (Slot) attempt[0];
             final RemoteBrain r = (RemoteBrain) attempt[1];
@@ -825,7 +856,7 @@ public final class LocalModel {
         // an image is sent once, with its question; the remembered conversation keeps "[an image]"
         history.add(new String[]{"user", ai.dvine.chat.Attachments.withoutImages(question)});
         // the phone's small model keeps a short memory; an API model keeps the whole reply (a report stays a report)
-        history.add(new String[]{"assistant", remoteOn() ? clip(answer, 6000) : clipMemory(answer)});
+        history.add(new String[]{"assistant", remoteOn() ? clip(answer, 24_000) : clipMemory(answer)});
         while (history.size() > HISTORY_TURNS * 2) {
             history.remove(0);
         }

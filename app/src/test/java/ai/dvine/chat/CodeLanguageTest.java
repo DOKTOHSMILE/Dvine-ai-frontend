@@ -66,4 +66,15 @@ public class CodeLanguageTest {
         assertEquals(ai.dvine.llm.BrainOrder.Kind.PHOTO, ai.dvine.llm.BrainOrder.decide("show me a red car", null).kind);
         assertEquals(ai.dvine.llm.BrainOrder.Kind.PHOTO, ai.dvine.llm.BrainOrder.decide("a photo of a lion", null).kind);
     }
+
+    @Test
+    public void aLongLineDoesNotStallLanguageDetection() {
+        StringBuilder huge = new StringBuilder();
+        for (int i = 0; i < 8000; i++) {
+            huge.append("word ");
+        }
+        long t = System.nanoTime();
+        CodeLanguage.detect(huge.toString());
+        org.junit.Assert.assertTrue(System.nanoTime() - t < 500_000_000L);
+    }
 }

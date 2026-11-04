@@ -485,7 +485,11 @@ public final class RemoteBrain {
             if (form == 2) {
                 // a reasoning model's hidden thinking counts against this limit: without room for it, the visible
                 // answer comes back empty ("the model didn't answer")
-                req.put("max_completion_tokens", (double) (reasoning() && maxOutput <= 0 ? Math.min(32_000, Math.max(8_000, allowance * 4)) : allowance));
+                int completion = allowance;
+                if (reasoning()) {
+                    completion = Math.min(32_000, Math.max(8_000, allowance * 3));
+                }
+                req.put("max_completion_tokens", (double) completion);
                 if (small || reasoning()) {
                     req.put("reasoning_effort", small || allowance <= 4_000 ? "low" : "medium");
                 }

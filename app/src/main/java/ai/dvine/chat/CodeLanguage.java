@@ -14,19 +14,19 @@ public final class CodeLanguage {
 
     private static final String[][] RULES = {
             // language, then patterns that say it (each is a regex, multiline)
-            {"xml", "^\\s*<\\?xml\\b", "\\bxmlns(:\\w+)?=\"", "android:\\w+=\"", "^\\s*</?[A-Za-z][\\w.:-]*(\\s+[\\w.:-]+=\"[^\"]*\")*\\s*/?>\\s*$"},
-            {"html", "(?i)<!doctype html", "(?i)<(html|head|body|div|span|p|a|ul|li|script|style)\\b[^>]*>", "(?i)</(div|p|span|body|html)>"},
+            {"xml", "^\\s*<\\?xml\\b", "\\bxmlns(:\\w+)?=\"", "android:\\w+=\"", "^\\s*</?[A-Za-z][\\w.:-]*"},
+            {"html", "(?i)<!doctype html", "(?i)<(html|head|body|div|span|p|a|ul|li|script|style)\\b", "(?i)</(div|p|span|body|html)>"},
             {"java", "\\bpublic\\s+(final\\s+)?(class|interface|enum)\\s+\\w+", "\\b(private|public|protected)\\s+(static\\s+)?(final\\s+)?[\\w<>\\[\\]]+\\s+\\w+\\s*\\(",
                     "^\\s*import\\s+(java|javax|android|androidx|org|com)\\.[\\w.]+;", "System\\.out\\.println", "@Override",
                     "^\\s*(private\\s+|public\\s+|protected\\s+)?(final\\s+)?(int|long|String|boolean|double|float|char|void|List<\\w+>)\\s+\\w+\\s*[;=]"},
             {"kotlin", "\\bfun\\s+\\w+\\s*\\(", "\\b(val|var)\\s+\\w+\\s*(:\\s*\\w+)?\\s*=", "\\bdata\\s+class\\b", "^\\s*package\\s+[\\w.]+\\s*$", "\\bcompanion\\s+object\\b"},
-            {"python", "^\\s*def\\s+\\w+\\s*\\(.*\\)\\s*(->\\s*[\\w\\[\\], ]+)?:\\s*$", "^\\s*(from\\s+[\\w.]+\\s+)?import\\s+[\\w., ]+\\s*$", "\\bself\\.", "^\\s*if\\s+__name__\\s*==",
-                    "\\bprint\\(", "^\\s*(elif|except|with)\\b.*:\\s*$"},
-            {"javascript", "\\bfunction\\s+\\w*\\s*\\(", "\\b(const|let)\\s+\\w+\\s*=", "=>\\s*[{(]?", "\\bconsole\\.log\\(", "\\brequire\\(['\"]", "\\bdocument\\.\\w+"},
+            {"python", "^\\s*def\\s+\\w+\\s*\\(", "^\\s*(from\\s+[\\w.]+\\s+)?import\\s+[\\w., ]+\\s*$", "\\bself\\.", "^\\s*if\\s+__name__\\s*==",
+                    "\\bprint\\(", "^\\s*(elif|except|with)\\b"},
+            {"javascript", "\\bfunction\\s+\\w*\\s*\\(", "\\b(const|let)\\s+\\w+\\s*=", "=>", "\\bconsole\\.log\\(", "\\brequire\\(['\"]", "\\bdocument\\.\\w+"},
             {"typescript", "\\binterface\\s+\\w+\\s*\\{", ":\\s*(string|number|boolean|void|any)\\b", "\\bexport\\s+(type|interface)\\b"},
-            {"json", "^\\s*[\\[{]\\s*$", "^\\s*\"[^\"]+\"\\s*:\\s*", "^\\s*[}\\]],?\\s*$"},
+            {"json", "^\\s*[\\[{]\\s*$", "^\\s*\"[^\"]+\"\\s*:", "^\\s*[}\\]],?\\s*$"},
             {"sql", "(?i)^\\s*(select|insert\\s+into|update|delete\\s+from|create\\s+table|alter\\s+table|drop\\s+table)\\b", "(?i)\\bfrom\\s+\\w+\\s+(where|join|group by|order by)\\b"},
-            {"bash", "^#!/bin/(ba)?sh", "^\\s*(sudo|apt|apt-get|pip|npm|git|cd|ls|mkdir|chmod|export|echo|curl|wget)\\s", "\\$\\{?\\w+\\}?", "^\\s*fi\\s*$", "\\bthen\\s*$"},
+            {"bash", "^#!/bin/(ba)?sh", "^\\s*(sudo|apt|apt-get|pip|npm|git|cd|ls|mkdir|chmod|export|echo|curl|wget)\\s", "\\$\\w+", "^\\s*fi\\s*$"},
             {"c", "^\\s*#include\\s*<\\w+\\.h>", "\\bint\\s+main\\s*\\(", "\\bprintf\\s*\\(", "\\bmalloc\\s*\\("},
             {"cpp", "^\\s*#include\\s*<(iostream|vector|string|map|memory)>", "\\bstd::", "\\bcout\\s*<<", "\\btemplate\\s*<"},
             {"csharp", "^\\s*using\\s+System[\\w.]*;", "\\bnamespace\\s+\\w+", "\\bConsole\\.WriteLine\\(", "\\bpublic\\s+async\\s+Task\\b"},
@@ -34,9 +34,9 @@ public final class CodeLanguage {
             {"rust", "\\bfn\\s+\\w+\\s*\\(", "\\blet\\s+mut\\b", "\\bprintln!\\(", "\\bimpl\\b", "->\\s*Result<"},
             {"swift", "\\bfunc\\s+\\w+\\s*\\(", "\\bimport\\s+(UIKit|SwiftUI|Foundation)\\b", "\\bguard\\s+let\\b", "\\bvar\\s+\\w+\\s*:\\s*\\w+"},
             {"php", "<\\?php", "\\$\\w+\\s*=", "\\becho\\s+", "->\\w+\\("},
-            {"ruby", "^\\s*def\\s+\\w+[?!]?\\s*$", "^\\s*end\\s*$", "\\bputs\\s+", "\\brequire\\s+'"},
-            {"yaml", "^\\s*[\\w.-]+:\\s+[^{}\\[\\];]+$", "^\\s*-\\s+[\\w.-]+:\\s", "^---\\s*$"},
-            {"css", "^\\s*[.#]?[\\w-]+(\\s*[.#:>\\w-]*)*\\s*\\{\\s*$", "^\\s*[\\w-]+\\s*:\\s*[^;]+;\\s*$", "@media\\b"},
+            {"ruby", "^\\s*def\\s+\\w+", "^\\s*end\\s*$", "\\bputs\\s+", "\\brequire\\s+'"},
+            {"yaml", "^\\s*[\\w.-]+:\\s+\\S", "^\\s*-\\s+[\\w.-]+:\\s", "^---\\s*$"},
+            {"css", "^\\s*[.#]?[\\w-]+[^{\\n]{0,60}\\{\\s*$", "^\\s*[\\w-]+\\s*:\\s*[^;\\n]+;\\s*$", "@media\\b"},
             {"gradle", "\\b(implementation|api|testImplementation)\\s*[('\"]", "\\bandroid\\s*\\{", "\\bdependencies\\s*\\{", "\\bplugins\\s*\\{"},
             {"dockerfile", "^\\s*FROM\\s+\\S+", "^\\s*(RUN|COPY|WORKDIR|CMD|ENTRYPOINT|EXPOSE)\\s"},
             {"markdown", "^#{1,6}\\s+\\w", "^\\s*[-*]\\s+\\w", "\\[[^\\]]+\\]\\([^)]+\\)"},
@@ -53,20 +53,27 @@ public final class CodeLanguage {
         }
     }
 
-    /** The language the code is most likely in, or "" when nothing says. */
+    /** The language the code is most likely in, or "" when nothing says. Only a sample is read: a long reply must not stall the screen. */
     public static String detect(String code) {
         String c = code == null ? "" : code;
         if (c.trim().isEmpty()) {
             return "";
         }
+        if (c.length() > 6000) {
+            c = c.substring(0, 4000) + "\n" + c.substring(c.length() - 1500);
+        }
         String best = "";
         int bestScore = 0, second = 0;
+        long deadline = System.nanoTime() + 8_000_000L;
         for (int i = 0; i < RULES.length; i++) {
+            if (System.nanoTime() > deadline) {
+                break;
+            }
             int score = 0;
             for (Pattern p : COMPILED[i]) {
                 java.util.regex.Matcher m = p.matcher(c);
                 int hits = 0;
-                while (m.find() && hits < 5) {
+                while (hits < 3 && m.find()) {
                     hits++;
                 }
                 score += hits;
@@ -79,13 +86,18 @@ public final class CodeLanguage {
                 second = score;
             }
         }
-        // an Android layout is XML even though it also looks like HTML tags
-        if ("html".equals(best) && Pattern.compile("android:\\w+=\"|<\\?xml").matcher(c).find()) {
+        if ("html".equals(best) && ANDROID_XML.matcher(c).find()) {
             best = "xml";
         }
-        // two signs, or one sign no other language shares
         return bestScore >= 2 || (bestScore == 1 && second == 0) ? best : "";
     }
+
+    private static final Pattern ANDROID_XML = Pattern.compile("android:\\w+=\"|<\\?xml");
+    private static final Pattern XML_LINE = Pattern.compile("^</?[A-Za-z][\\w.:-]*|^[\\w:.-]+=\"[^\"]{0,80}\"");
+    private static final Pattern ENDS_CODE = Pattern.compile(".*[;{}]\\s*$");
+    private static final Pattern ENDS_SENTENCE = Pattern.compile(".*[.!?]\\s*$");
+    private static final Pattern CODE_START = Pattern.compile("^(import|package|def|class|fun|val|var|const|let|function|public|private|return|#include|using)\\b");
+    private static final Pattern PROSE = Pattern.compile(".*\\b(the|and|is|are|you|your)\\b.*\\b(the|and|is|are|you|your)\\b.*");
 
     /** The language a fence named, or detected from the code when it named none or one this doesn't know. */
     public static String of(String named, String code) {
@@ -107,20 +119,19 @@ public final class CodeLanguage {
                 + "objective-c|objc|powershell|ps1|bat|cmd|make|makefile|cmake|proto|graphql|vue|svelte|jsx|tsx|scss|sass|less");
     }
 
-    /** Whether a line looks like code rather than prose (for code written without fences). */
+    /** Whether a line looks like code rather than prose (for code written without fences). A very long line is not scanned. */
     public static boolean codeLine(String line) {
         String t = line == null ? "" : line.trim();
-        if (t.isEmpty()) {
+        if (t.isEmpty() || t.length() > 240) {
             return false;
         }
-        if (t.matches("^</?[A-Za-z][\\w.:-]*([\\s/>].*)?$") || t.matches("^[\\w:.-]+=\"[^\"]*\"/?>?$")) {
-            return true; // XML / HTML tags and their attribute lines
-        }
-        if (t.matches(".*[;{}]\\s*$") && !t.matches(".*[.!?]\\s*$")) {
+        if (XML_LINE.matcher(t).find()) {
             return true;
         }
-        return t.matches("^(import|package|def|class|fun|val|var|const|let|function|public|private|return|#include|using)\\b.*")
-                && !t.matches(".*\\b(the|and|is|are|you|your)\\b.*\\b(the|and|is|are|you|your)\\b.*");
+        if (ENDS_CODE.matcher(t).matches() && !ENDS_SENTENCE.matcher(t).matches()) {
+            return true;
+        }
+        return CODE_START.matcher(t).find() && !PROSE.matcher(t).matches();
     }
 
     /** Lower case, as a fence's language would be. */

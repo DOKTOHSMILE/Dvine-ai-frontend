@@ -131,8 +131,12 @@ public final class MessageParts {
             out.add(new Part("html", rest, "html"));
             return;
         }
-        // code written without fences: a run of at least three code-looking lines becomes a code block
+        // a very long reply is not scanned line by line for unfenced code: that scan froze the phone
         String[] lines = text.split("\n", -1);
+        if (lines.length > 400 || text.length() > 20_000) {
+            flushProse(out, new StringBuilder(rest));
+            return;
+        }
         int i = 0;
         StringBuilder prose = new StringBuilder();
         while (i < lines.length) {

@@ -1061,41 +1061,13 @@ public final class ChatPane extends LinearLayout {
         return at;
     }
 
-    /** The kinds of the live reply's parts as shown ("text", "code"…), to redraw only the part being written. */
-    private final java.util.List<String> liveKinds = new java.util.ArrayList<String>();
-
-    /**
-     * Redraws only the last part of the live reply when the parts before it are unchanged (the usual case: text is
-     * added at the end), instead of the whole reply every frame; false when it must be built again.
-     */
-    private boolean growLive(String shown) {
-        if (!(liveRow instanceof LinearLayout) || liveRow.getParent() != thread || liveKinds.isEmpty()) {
-            return false;
-        }
-        java.util.List<ai.dvine.chat.MessageParts.Part> parts;
-        try {
-            parts = ai.dvine.chat.MessageParts.split(ai.dvine.chat.ReplyText.prepare(shown));
-        } catch (RuntimeException e) {
-            return false;
-        }
-        LinearLayout box = (LinearLayout) liveRow;
-        if (parts.size() != liveKinds.size() || box.getChildCount() != parts.size()) {
-            return false;
-        }
-        for (int i = 0; i < parts.size(); i++) {
-            if (!parts.get(i).kind.equals(liveKinds.get(i))) {
-                return false;
-            }
-        }
-        ai.dvine.chat.MessageParts.Part last = parts.get(parts.size() - 1);
-        box.removeViewAt(box.getChildCount() - 1);
-        box.addView(bubble(new ChatBook.Message("assistant", last.kind, last.body, book.current().persona, last.language)));
-        followBottom();
-        return true;
-    }
-
     private void renderLive(String shown) {
-        if (shown != null && growLive(shown)) {
+        if (shown != null && shown.length() > LIVE_TAIL) {
+            shown = liveTail(shown);
+        }
+        if (shown != null && liveRow instanceof TextView && liveRow.getParent() == thread) {
+            ((TextView) liveRow).setText(shown);
+            followBottom();
             return;
         }
         int at = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
@@ -1104,7 +1076,10 @@ public final class ChatPane extends LinearLayout {
         }
         liveRow = null;
         if (shown != null) {
-            liveRow = liveView(shown);
+            TextView writing = plain(shown);
+            writing.setTextSize(16f);
+            writing.setTextIsSelectable(false);
+            liveRow = writing;
             if (at >= 0) {
                 thread.addView(liveRow, at);
             } else {
@@ -1119,25 +1094,13 @@ public final class ChatPane extends LinearLayout {
         }
     }
 
-    /**
-     * The reply as it is written, laid out as it will be kept: prose as text, code (fenced, badly fenced, or not
-     * fenced at all) in the code viewer with its language named.
-     */
+    /** The reply while it is still being written: plain text only. Parsing it here froze the phone. */
     private View liveView(String text) {
-        liveKinds.clear();
-        try {
-            LinearLayout box = new LinearLayout(getContext());
-            box.setOrientation(VERTICAL);
-            String persona = book.current().persona;
-            for (ai.dvine.chat.MessageParts.Part part : ai.dvine.chat.MessageParts.split(ai.dvine.chat.ReplyText.prepare(text))) {
-                box.addView(bubble(new ChatBook.Message("assistant", part.kind, part.body, persona, part.language)));
-                liveKinds.add(part.kind);
-            }
-            return box;
-        } catch (RuntimeException e) {
-            liveKinds.clear();
-            return plain(text);
-        }
+        String shown = text != null && text.length() > LIVE_TAIL ? liveTail(text) : (text == null ? "" : text);
+        TextView writing = plain(shown);
+        writing.setTextSize(16f);
+        writing.setTextIsSelectable(false);
+        return writing;
     }
 
     private boolean stickToBottom = true;
@@ -1956,18 +1919,22 @@ public final class ChatPane extends LinearLayout {
         }
     }
 
-    /** Bold, inline code and headings, so a reply is not a wall of asterisks. */
+    /** Bold and inline code. A long block stays plain: building a span for every mark froze the phone. */
     private CharSequence styled(String text) {
         if (text == null || text.isEmpty()) {
             return "";
         }
-        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        if (text.length() > 6000) {
+            return text;
+        }
+        StringBuilder raw = new StringBuilder(text.length());
+        java.util.List<int[]> marks = new java.util.ArrayList<int[]>();
         String[] lines = text.split("\n", -1);
-        for (int i = 0; i < lines.length; i++) {
-            if (i > 0) {
-                b.append('\n');
+        for (int n = 0; n < lines.length; n++) {
+            if (n > 0) {
+                raw.append('\n');
             }
-            String line = lines[i];
+            String line = lines[n];
             int heading = 0;
             while (heading < line.length() && line.charAt(heading) == '#') {
                 heading++;
@@ -1975,26 +1942,39 @@ public final class ChatPane extends LinearLayout {
             if (heading > 0 && heading <= 3 && heading < line.length() && line.charAt(heading) == ' ') {
                 line = line.substring(heading + 1);
             }
-            int from = b.length();
-            appendInline(b, line);
-            if (heading > 0) {
-                b.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), from, b.length(),
-                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            int from = raw.length();
+            appendInline(raw, marks, line);
+            if (heading > 0 && raw.length() > from) {
+                marks.add(new int[]{from, raw.length(), 1});
             }
         }
-        return b;
+        if (marks.isEmpty()) {
+            return raw.toString();
+        }
+        android.text.SpannableString out = new android.text.SpannableString(raw);
+        for (int[] mark : marks) {
+            if (mark[1] <= mark[0] || mark[1] > out.length()) {
+                continue;
+            }
+            out.setSpan(mark[2] == 2 ? new android.text.style.TypefaceSpan("monospace")
+                    : new android.text.style.StyleSpan(Typeface.BOLD), mark[0], mark[1],
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        return out;
     }
 
-    private void appendInline(android.text.SpannableStringBuilder b, String line) {
+    /** 1 = bold, 2 = monospace. */
+    private void appendInline(StringBuilder raw, java.util.List<int[]> marks, String line) {
         int i = 0;
         while (i < line.length()) {
             if (line.startsWith("**", i) || line.startsWith("__", i)) {
                 int end = line.indexOf(line.substring(i, i + 2), i + 2);
                 if (end > i + 2) {
-                    int from = b.length();
-                    appendCode(b, line.substring(i + 2, end));
-                    b.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), from, b.length(),
-                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    int from = raw.length();
+                    raw.append(line, i + 2, end);
+                    if (raw.length() > from) {
+                        marks.add(new int[]{from, raw.length(), 1});
+                    }
                     i = end + 2;
                     continue;
                 }
@@ -2002,10 +1982,11 @@ public final class ChatPane extends LinearLayout {
             if (line.charAt(i) == '`') {
                 int end = line.indexOf('`', i + 1);
                 if (end > i) {
-                    int from = b.length();
-                    b.append(line, i + 1, end);
-                    b.setSpan(new android.text.style.TypefaceSpan("monospace"), from, b.length(),
-                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    int from = raw.length();
+                    raw.append(line, i + 1, end);
+                    if (raw.length() > from) {
+                        marks.add(new int[]{from, raw.length(), 2});
+                    }
                     i = end + 1;
                     continue;
                 }
@@ -2024,36 +2005,12 @@ public final class ChatPane extends LinearLayout {
                 next = Math.min(next, tick);
             }
             if (next == i) {
-                b.append(line.charAt(i));
+                raw.append(line.charAt(i));
                 i++;
             } else {
-                b.append(line, i, next);
+                raw.append(line, i, next);
                 i = next;
             }
-        }
-    }
-
-    private void appendCode(android.text.SpannableStringBuilder b, String line) {
-        int i = 0;
-        while (i < line.length()) {
-            if (line.charAt(i) == '`') {
-                int end = line.indexOf('`', i + 1);
-                if (end > i) {
-                    int from = b.length();
-                    b.append(line, i + 1, end);
-                    b.setSpan(new android.text.style.TypefaceSpan("monospace"), from, b.length(),
-                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    i = end + 1;
-                    continue;
-                }
-            }
-            int tick = line.indexOf('`', i);
-            if (tick < 0) {
-                b.append(line.substring(i));
-                return;
-            }
-            b.append(line, i, tick);
-            i = tick;
         }
     }
 
