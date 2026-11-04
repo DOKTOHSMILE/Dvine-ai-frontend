@@ -175,6 +175,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 142 | A notes record to help the offline brain remember, since it has a short memory | P12 | Built | 0.90.1 |
 | 143 | Basic Google (Gmail with an app password, Google search with no key, no project) and Telegram | P12 | Built (device check pending) | 0.91.0 |
 | 144 | Developer docs (Google-made Kotlin, Go, Dart and the rest from DevDocs) searchable by the offline model for coding with no internet | P12 | Built (Android docs not available offline) | 0.92.0 |
+| 145 | The model uses shell commands to do the coding: Termux (a real Linux) as Ibiko's termux tool | P12 | Built (device check pending) | 0.93.0 |
 
 ## Still open, in the order that matters
 

@@ -173,6 +173,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 - **Connectors screen.** GitHub, Gmail, web search, the device calendar, Notion, a custom MCP server and each social network have an on/off switch.
 - **Web search** (0.91): with no key, Google's own results page read in a hidden browser on the device (`net/GoogleWeb`: Google needs JavaScript, so it can't be fetched as plain HTML), then Wikipedia. Google's robot check gives nothing, and the search moves on. With a key: Brave Search, Tavily or Google Programmable Search.
 - **Offline developer docs** (0.92, `library/DevDocs`): official docs from DevDocs (Kotlin, Java, Python, JavaScript, TypeScript, HTML, CSS, the DOM, Node, React, Go, Dart, Rust, C, C++, SQLite, PostgreSQL, Git, Bash, Docker, HTTP; the newest version of each), downloaded once from Connectors › Offline developer docs and indexed into SQLite full-text search on the device (`DocsStream` reads a set one page at a time, so a 120 MB set never sits in memory). The tools docs.search ("python: list sort") and docs.read work with no internet, for the device's model and an API alike. Android's own developer docs are not in DevDocs.
+- **Termux** (0.93, `agent/TermuxRunner`): Ibiko's termux tool runs a command in Termux, the full Linux on the device (python3, node, gcc, java, git, pip, npm, pkg), through Termux's RUN_COMMAND service, and gets back its output and exit code through a result PendingIntent. The project folder goes with each command as a .tar.gz on stdin (`agent/TarGz`, without .git, node_modules or build output, up to 600 KB) and is unpacked into ~/dvine/<project>. Asked first like run. Setup: Termux from F-Droid, allow-external-apps=true in ~/.termux/termux.properties, and Connectors › Termux › Allow. The device's small shell (toybox, the run tool) stays for files.
 - **Gmail** (0.91, `connect/Gmail`): the user's Gmail address and an app password (Google Account › Security › 2-Step Verification › App passwords); no Google Cloud project. IMAP to imap.gmail.com: the inbox, Gmail search words, one mail in full, and drafts written into Gmail's Drafts. The inbox is opened read-only, so nothing is marked read, and nothing is sent: the user sends drafts from Gmail. Mail reaches the model marked as people's words, never instructions.
 - **Social accounts.** Sign in on each network's own page inside the app; several accounts per network. **Telegram** (0.91) is the user's own account through Telegram Web: a QR code or the phone number. Its sign-in is kept in the page's storage, not a cookie, so DVINE watches for it while the sign-in page is open, and sees a signed-out page when reading. It reads the chat list (newest first) and a chat or channel by name (@name, t.me/name).
 - **What works now:**
@@ -202,7 +203,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 ## 7. Testing and release
 
-- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (442 tests at 0.92.0). **Build:** `gradle :app:assembleDebug`.
+- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (445 tests at 0.93.0). **Build:** `gradle :app:assembleDebug`.
 - **Real model on a desktop:** set `DVINE_NATIVE_LIB` and `DVINE_MODEL` to run tests against a real model (for example Qwen3 1.7B) through the real JNI bridge.
 - **Robolectric frame trap.** Under Robolectric, the stage's Choreographer frames never settle once a drawing is on stage. Tests that start a build must call `StageView.stopFrames()` before idling the looper. Otherwise the test hangs (fixed in `LaunchTest` at 0.89).
 - **Not run in the cloud:** `lintDebug` (dependency download is rate-limited) and anything on a phone. The phone checks are listed as "phone pending" in `BUILD_STATUS.md`.
@@ -239,7 +240,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 | 3 | **Social actions and automations** (part 2/3): post, reply and schedule on your own request; Ask/Auto; logs; limits per network. | NOT STARTED |
 | 4 | **Phone speed.** Time 0.84 against 0.85 (KleidiAI); build variants that use i8mm and dotprod. | Waiting on the user's phone |
 | 5 | **Split `MainActivity`.** Move the gateway routes, `carryOut`, the canvas and the social flow into their own classes. | NOT STARTED |
-| 6 | **Ibiko's real lanes.** Route to the SSH client and Termux and on-phone Linux (proot + Alpine), with a terminal screen. Verify host keys, keep no passwords. | NOT STARTED |
+| 6 | **Ibiko's real lanes.** Termux built in 0.93 (the termux tool). Still to do: the SSH client and a terminal screen. Verify host keys, keep no passwords. | IN PROGRESS |
 | 7 | **Learning.** Corrections into the journal by meaning; the semantic dictionary. | IN PROGRESS (parts since 0.65) |
 | 8 | Voice polish (M8). | NOT STARTED |
 
@@ -271,5 +272,6 @@ Retired and not coming back unless asked: faces (line-art, wireframe, hologram, 
 | 0.90 | A busy model is waited for and named; a new task starts its own plan. 0.90.1: a notes record so the device's model remembers the whole chat. |
 | 0.91 | Google search with no key, Gmail with an app password, Telegram with the user's own account. |
 | 0.92 | Offline developer docs, searched with no internet. |
+| 0.93 | Ibiko codes with a real Linux shell (Termux). |
 
 The full evidence for every version is in `docs/BUILD_STATUS.md`.
