@@ -276,7 +276,7 @@ public final class RemoteBrain {
      * Returns the whole reply, or null when it failed or was stopped ({@link #problem} says why).
      */
     /** Waits between tries after a dropped connection (ms). */
-    static long[] retryWaits = {1500, 4000};
+    static long[] retryWaits = {1500, 4000, 10000};
     private boolean transientFailure;
 
     /**
@@ -769,7 +769,12 @@ public final class RemoteBrain {
         } catch (IOException e) {
             // no readable message
         }
-        String what = status == 401 || status == 403 ? "the API key was refused"
+        boolean busy = busy(status, said);
+        if (busy) {
+            transientFailure = true; // waited out and asked again (chatRetrying), not given up on
+        }
+        String what = busy ? "the model is busy right now"
+                : status == 401 || status == 403 ? "the API key was refused"
                 : status == 402 ? "the account is out of credit"
                 : status == 404 ? "the address or the model name wasn't found"
                 : status == 429 ? "the server says too many requests, or the account is out of credit"
@@ -780,6 +785,22 @@ public final class RemoteBrain {
             }
         }
         return what + " (" + status + (said.isEmpty() ? "" : ": " + (said.length() > 160 ? said.substring(0, 160) + "…" : said)) + ")";
+    }
+
+    /**
+     * A refusal that passes: the model is busy, overloaded or rate-limited ("That model is busy right now", 429, 503,
+     * 529), worth waiting a moment and asking again, unlike a wrong key or no credit.
+     */
+    static boolean busy(int status, String said) {
+        String m = said == null ? "" : said.toLowerCase(java.util.Locale.ROOT);
+        if (m.matches("(?s).*\\b(insufficient|quota|credit|billing|invalid|incorrect|unauthori[sz]ed|permission|forbidden region)\\b.*")) {
+            return false; // money or the key: waiting won't help
+        }
+        if (status == 503 || status == 529 || status == 502 || status == 504) {
+            return true;
+        }
+        return (status == 403 || status == 429 || status == 500 || status == 408)
+                && m.matches("(?s).*\\b(busy|overloaded|over capacity|capacity|rate.?limit|too many requests|try again|temporarily|unavailable)\\b.*");
     }
 
     private static byte[] readUpTo(InputStream in, int max) throws IOException {
