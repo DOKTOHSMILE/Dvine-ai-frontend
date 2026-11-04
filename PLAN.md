@@ -55,10 +55,21 @@ Steps:
       `PhoneHost.run`), `PhoneHost.allowRun` shows exactly that three-button dialog behind `auto_accept`, and a refusal
       returns "The user didn't allow this command." Also matches for `termux` (3 minutes, `path` copied there) and the
       three `allowRun` git gates. No change needed.
-- [ ] Interpretation.java `command()` bridge: does the classifier's promise match ActionPlanner's behaviour
+- [x] Interpretation.java `command()` bridge: does the classifier's promise match ActionPlanner's behaviour
       (yes/no confirmation, last-said fallback, app list).
-- [ ] SocialAsk: network patterns vs the social.* connector calls actually implemented.
-- [ ] Re-read each change, then commit + push on a branch and open a PR.
+      Javadoc no longer claims `command()` itself runs the checked paths. It emits a candidate only.
+      COPY / SHARE / DEBATE now return command strings (`copy that` / `copy …`, `share that` / `share on {app} saying …`,
+      `debate {topic}`) so ActionPlanner can still confirm and fill "that", and Debate.topicOf can still read the topic.
+      A debate with no topic stays null. Re-read the hunk.
+- [x] SocialAsk: network patterns vs the social.* connector calls actually implemented.
+      Documented on the class: only `social.search`, `social.trending` and `social.open` exist.
+      `connect` / `compose` / `help` are not connectors. `SocialAsk.connector()` returns null for a Telegram word
+      search and for Telegram trending (the chat list is not a search and not a trends page). Facebook, X and Reddit
+      resolve; Instagram search is the hashtag page and its trending page is Explore; Facebook trending is Watch.
+      `SocialWeb.search` / `trending` say so instead of reading the chat list as if it were results. Tool text in
+      `ConnectorStore` matches. Re-read the hunk. `AgentTest` and `SocialAskTest` ran here: 8 tests, OK.
+      Command strings were also checked against `ActionPlanner.plan` and `Debate.topicOf`.
+- [x] Re-read each change, then commit + push on a branch and open a PR.
 
 ## Round 3 (user issue: voice → text auto-stops; voice sounds sharp/robotic)
 
@@ -87,7 +98,14 @@ Steps:
       0.97, and the robot rate stays in the 0.6–1.8 usable band. **Every assertion checked by hand
       against the constants — this shell has no java/javac/gradle/JVM anywhere (verified: only toybox),
       so the suite cannot be executed here; reading is the test.** All 8 pass on paper.
-- [ ] Re-read each change, then commit + push on a branch and open a PR.
+- [x] Re-read each change, then commit + push on a branch and open a PR.
+      Dictation: `toggle()` is the only stop. It now clears `active` and the mic highlight before `listen.finish()`,
+      so a second tap starts a new session instead of calling finish again. `onResult` still keeps a stretch going
+      while the session is live. Hold-to-talk `startListening(hold)` is a different path and was not changed.
+      Voice: `VoiceTuning.warm()` is still applied once in `TalkBridge.say` and once in `queue`. Stored
+      VOICE_HIGHER / VOICE_LOWER still move (clamp 0.55–1.6); the spoken pitch is eased into 0.78–1.08.
+      Crew: `MainActivity` already passes `side` 3 when `model.remoteOn()` and 1 on the phone (`Crew.run` fans out
+      only when side > 1). Council stays sequential: Ivie reads Obi, Ibiko reads both. No parallel change there.
 
 ## Merged from ibiko/localmodel-fixes
 

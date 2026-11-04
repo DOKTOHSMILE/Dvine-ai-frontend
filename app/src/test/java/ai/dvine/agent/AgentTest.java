@@ -26,6 +26,12 @@ public class AgentTest {
         assertEquals(Interpretation.Task.DEBATE, Interpretation.parse("INTENT: prompt\nTASK: debate\nTARGET: cats vs dogs").task);
         assertEquals(Interpretation.Task.OTHER, Interpretation.parse("INTENT: request\nTASK: book a flight").task);
         assertEquals("music off", Interpretation.parse("INTENT: request\nTASK: setting\nTARGET: music off").command());
+        assertEquals("copy that", Interpretation.parse("INTENT: request\nTASK: copy\nTARGET: none").command());
+        assertEquals("copy the address", Interpretation.parse("INTENT: request\nTASK: copy\nTARGET: the address").command());
+        assertEquals("share that", Interpretation.parse("INTENT: request\nTASK: share\nTARGET: none").command());
+        assertEquals("share on whatsapp saying hello", Interpretation.parse("INTENT: request\nTASK: share\nTARGET: whatsapp: hello").command());
+        assertEquals("debate cats vs dogs", Interpretation.parse("INTENT: prompt\nTASK: debate\nTARGET: cats vs dogs").command());
+        assertNull(Interpretation.parse("INTENT: prompt\nTASK: debate\nTARGET: none").command());
         assertNull(Interpretation.parse("I think you want a lion."));
     }
 

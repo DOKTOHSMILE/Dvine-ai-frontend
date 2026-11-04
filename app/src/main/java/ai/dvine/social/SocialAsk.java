@@ -4,8 +4,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A request to look something up on the user's social accounts: "search X for …", "what are people saying about … on
- * Reddit", "check Facebook for …", "… on social media". The network (null: every signed-in one) and what to look for.
+ * A request about the user's social accounts. Only two of these become {@code social.*} connector tools
+ * ({@code ConnectorStore}): a lookup ({@link #parse}) is {@code social.search} or {@code social.trending},
+ * and a link to one page is {@code social.open}. The others are not connectors and must not be described as
+ * if a tool resolved them:
+ * <ul>
+ * <li>{@link #connect} opens the in-app sign-in page. There is no {@code social.connect} tool.</li>
+ * <li>{@link #compose} only drafts words. There is no {@code social.compose} tool; posting still waits for a yes.</li>
+ * <li>{@link #help} is a spoken explanation. There is no {@code social.help} tool.</li>
+ * </ul>
+ * Networks a lookup can actually resolve: Facebook, X and Reddit (search and a real trending page).
+ * Instagram search resolves only as a hashtag page; its trending page is Explore, not a trends list.
+ * Telegram has no word search and no trending page. A Telegram lookup resolves only for a chat named
+ * {@code @name} or {@code t.me/name} ({@code social.search} / {@code social.open}). Anything else stays unresolved.
  * Pure Java.
  */
 public final class SocialAsk {
@@ -41,7 +52,7 @@ public final class SocialAsk {
                     + "(?:\\s+(?:for me|please))?[.?!]*$"),
     };
 
-    /** "connect my Facebook", "sign in to X", "log into Instagram", "add my Reddit account": the network, or null. */
+    /** "connect my Facebook", "sign in to X": the network, or null. Not a connector — the sign-in page, not {@code social.connect}. */
     public static Platform connect(String message) {
         if (message == null) {
             return null;
@@ -51,13 +62,13 @@ public final class SocialAsk {
         return m.matches() && !m.group(1).toLowerCase(java.util.Locale.ROOT).startsWith("social") ? Platform.named(m.group(1)) : null;
     }
 
-    /** "how do I access social media", "what can you do with my social accounts": the user wants to know how. */
+    /** "how do I access social media": an explanation, not a {@code social.help} tool (there isn't one). */
     public static boolean help(String message) {
         return message != null && message.trim().matches("(?i)^(?:how (?:do|can) i (?:access|use|get to|open|connect)|what can you do (?:with|on)|"
                 + "how do you (?:use|access)|where (?:are|is))\\s+(?:my |the )?(?:social media|socials|social accounts?|social media (?:functions|features|accounts))\\b.*");
     }
 
-    /** "generate a new post for Facebook about our sale": the network and what the post is about (may be empty). */
+    /** "generate a new post for Facebook about our sale": a draft only. Not a {@code social.compose} tool; nothing is posted. */
     public static String[] compose(String message) {
         if (message == null) {
             return null;
@@ -110,5 +121,31 @@ public final class SocialAsk {
             return new SocialAsk(n.startsWith("social") ? null : Platform.named(n), q, false);
         }
         return null;
+    }
+
+    /**
+     * The {@code social.*} tool that can carry this lookup out, or null when none can.
+     * {@code social.search} and {@code social.trending} are the only lookup tools. Telegram word search and
+     * Telegram trending return null (the chat list is not a search and not a trends page). A Telegram
+     * {@code @name} or {@code t.me/name} is {@code social.search}.
+     */
+    public String connector() {
+        if (platform == Platform.TELEGRAM) {
+            if (trending || !telegramChat(query)) {
+                return null;
+            }
+            return "social.search";
+        }
+        return trending ? "social.trending" : "social.search";
+    }
+
+    /** A Telegram chat the connector can open ({@code @name} or {@code t.me/name}), not a free-text search. */
+    public static boolean telegramChat(String query) {
+        if (query == null) {
+            return false;
+        }
+        String q = query.trim();
+        return q.matches("(?i)^@[A-Za-z][A-Za-z0-9_]{4,31}$")
+                || q.matches("(?i)^(?:https?://)?t\\.me/[A-Za-z][A-Za-z0-9_]{4,31}/?$");
     }
 }

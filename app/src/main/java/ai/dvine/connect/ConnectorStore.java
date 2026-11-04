@@ -245,10 +245,12 @@ public final class ConnectorStore {
             for (ai.dvine.social.Platform p : social) {
                 names.append(names.length() == 0 ? "" : ", ").append(p.shown);
             }
-            t.add(new Connectors.Tool("social.search", "the newest posts about something on the user's signed-in social accounts ("
-                    + names + "): what people say, not checked facts", "network: words (x: lagos flood), or words for all"));
-            t.add(new Connectors.Tool("social.trending", "what is trending or popular now on the user's signed-in social"
-                    + " accounts", "network (x, reddit…), or nothing for all"));
+            t.add(new Connectors.Tool("social.search", "the newest posts on the user's signed-in Facebook, X or Reddit"
+                    + " (Instagram: the hashtag page only; Telegram: only an @name or t.me/name chat, not a word search)."
+                    + " What people posted, not checked facts. Signed in here: " + names, "network: words (x: lagos flood), or words for all"));
+            t.add(new Connectors.Tool("social.trending", "what is trending now on signed-in X or Reddit. Instagram returns"
+                    + " Explore and Facebook returns Watch, which are browse pages, not a trends list. Telegram has no"
+                    + " trending page and does not resolve", "network (x, reddit), or nothing for all"));
             t.add(new Connectors.Tool("social.open", "read one Facebook, X, Instagram, Reddit or Telegram page (a post or profile"
                     + " link, or a t.me/name channel) with the user's account", "link"));
         }

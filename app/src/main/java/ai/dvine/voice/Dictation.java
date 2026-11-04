@@ -43,10 +43,12 @@ public final class Dictation implements ListenCallback {
         return d;
     }
 
-    /** Starts dictating, or ends it (the final words are kept). */
+    /** Starts dictating, or ends it. Only this call stops a hold-to-continue session; silence does not. */
     public void toggle() {
         if (active) {
-            listen.finish();
+            active = false;
+            show(false);
+            listen.finish(); // the last words still arrive through onResult; the mic is already off
             return;
         }
         before = field.getText() == null ? "" : field.getText().toString();
