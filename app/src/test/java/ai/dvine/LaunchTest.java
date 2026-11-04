@@ -205,6 +205,33 @@ public class LaunchTest {
     }
 
     @Test
+    public void aCommandTheBrainWroteRunsAndItsResultIsTold() throws Exception {
+        ai.dvine.llm.BrainOrder o = ai.dvine.llm.BrainOrder.read("DO SHELL python3 --version");
+        org.junit.Assert.assertEquals(ai.dvine.llm.BrainOrder.Kind.SHELL, o.kind);
+        org.junit.Assert.assertEquals("python3 --version", o.arg);
+        org.junit.Assert.assertTrue(ai.dvine.llm.BrainOrder.prompt("").contains("write the real command yourself"));
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).edit().putBoolean("auto_accept", true).commit();
+        java.lang.reflect.Method run = MainActivity.class.getDeclaredMethod("runShell", String.class, String.class);
+        run.setAccessible(true);
+        run.invoke(c.get(), "say hello in the shell", "echo hello-dvine");
+        java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
+        cf.setAccessible(true);
+        ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        boolean told = false;
+        for (int i = 0; i < 40 && !told; i++) {
+            Thread.sleep(100);
+            ShadowLooper.idleMainLooper();
+            for (ai.dvine.chat.ChatBook.Message m : chats.current().messages) {
+                told |= m.body != null && m.body.contains("hello-dvine");
+            }
+        }
+        org.junit.Assert.assertTrue("with no model, the output itself is shown", told);
+        c.pause().stop().destroy();
+    }
+
+    @Test
     public void thePersonasHaveIconsAndTheChosenOneItsName() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);

@@ -96,7 +96,7 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public boolean termuxReady() {
-        return connectors != null && connectors.on(ai.dvine.connect.ConnectorStore.Kind.TERMUX) && TermuxRunner.usable(activity);
+        return TermuxRunner.usable(activity);
     }
 
     @Override
