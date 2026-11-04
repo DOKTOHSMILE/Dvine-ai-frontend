@@ -12,5 +12,8 @@ then build/test.
 - [x] Check the host's refusal/timeout messages actually say what the prompt promises
       (allowRun = Run / Always run / Don't run, auto_accept pref, 3-min wait; SandboxShell
       reports "stopped after 30 s" and "…(output cut short)"; fetch refuses non-https)
-- [ ] Compile / run the tests (`gradlew test`, or javac of the agent package if Gradle is unavailable)
-- [ ] Report changed files
+- [x] Tests could not be executed here: no JVM in the workspace, and Termux refuses to start
+      (`allow-external-apps` must be set to `true` in `~/.termux/termux.properties`). Run on a
+      machine with JDK 17+: `./gradlew :app:testDebugUnitTest --tests 'ai.dvine.agent.CodeAgentTest'`
+- [x] Commit + push to `ibiko/localmodel-fixes` (247d592); PR #114 opened against `main`
+- [x] Report changed files
