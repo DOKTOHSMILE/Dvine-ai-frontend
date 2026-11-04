@@ -172,6 +172,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 139 | Device instead of phone everywhere; the model in use does every task (the API derives the measurements); 15 dp icons | P12 | Built | 0.89.8 |
 | 140 | The device's model works the same as API models: explanations, steps and the full design process | P12 | Built | 0.89.9 |
 | 141 | Busy API errors retried and named correctly; a new task no longer resumes an old plan (from the gas price screenshot) | P12 | Built | 0.90.0 |
+| 142 | A notes record to help the offline brain remember, since it has a short memory | P12 | Built | 0.90.1 |
 
 ## Still open, in the order that matters
 

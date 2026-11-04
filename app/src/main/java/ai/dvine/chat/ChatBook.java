@@ -318,7 +318,9 @@ public final class ChatBook {
     public synchronized String transcript(int maxChars, int perMessage) {
         Section s = current();
         StringBuilder b = new StringBuilder();
-        for (Message m : s.messages) {
+        List<Integer> starts = new ArrayList<Integer>(), owners = new ArrayList<Integer>(); // where each line starts, whose
+        for (int mi = 0; mi < s.messages.size(); mi++) {
+            Message m = s.messages.get(mi);
             if ("activity".equals(m.kind) || "step".equals(m.kind) || "work".equals(m.kind)) {
                 continue; // how a reply was worked out isn't part of the conversation the model sees
             }
@@ -337,6 +339,8 @@ public final class ChatBook {
                 String t = m.body.replace('\n', ' ').trim();
                 line = who + ": " + (t.length() > perMessage ? t.substring(0, perMessage) : t);
             }
+            starts.add(b.length());
+            owners.add(mi);
             b.append(line).append('\n');
         }
         String all = b.toString().trim();
@@ -344,9 +348,107 @@ public final class ChatBook {
             return "";
         }
         if (maxChars > 0 && all.length() > maxChars) {
-            all = all.substring(all.length() - maxChars);
+            // the start no longer fits: the notes record keeps what was asked and said there, in short, so a model
+            // with a short memory (the device's) still knows what happened earlier in this chat
+            int notesRoom = Math.min(NOTES_MAX, maxChars * 2 / 5);
+            int from = all.length() - (maxChars - notesRoom);
+            int line = 0;
+            while (line < starts.size() && starts.get(line) < from) {
+                line++; // the first whole line that fits
+            }
+            if (line >= starts.size()) {
+                line = starts.size() - 1;
+            }
+            String recent = all.substring(Math.min(all.length(), starts.get(line)));
+            String notes = notes(s, owners.get(line), notesRoom);
+            return "This chat (" + s.persona + "):\n" + (notes.isEmpty() ? "" : notes + "\nThe latest messages:\n") + recent;
         }
         return "This chat (" + s.persona + "):\n" + all;
+    }
+
+    /**
+     * The notes record for what the model no longer holds: every exchange before the last {@code turns} of this chat
+     * (a model remembers only its last few), in at most {@code room} characters; "" when there is nothing older.
+     */
+    public synchronized String olderNotes(int turns, int room) {
+        Section s = current();
+        int seen = 0;
+        for (int i = s.messages.size() - 1; i >= 0; i--) {
+            Message m = s.messages.get(i);
+            if ("user".equals(m.role) && "text".equals(m.kind) && ++seen > turns) {
+                return notes(s, i + 1, room);
+            }
+        }
+        return "";
+    }
+
+    /** The most characters the notes record may take in front of the latest messages. */
+    static final int NOTES_MAX = 1800;
+    /** The chat's first notes are always kept: what it is about, and who the user is. */
+    static final int KEEP_FIRST = 2;
+
+    /**
+     * The notes record: one short line per earlier exchange (what the user asked, the first sentence of the answer),
+     * for the messages before {@code until}, the part of the chat that no longer fits. Built from the chat itself,
+     * so it costs no model call; the newest notes are kept when they don't all fit {@code room}.
+     */
+    static String notes(Section s, int until, int room) {
+        List<String> lines = new ArrayList<String>();
+        String asked = null;
+        for (int i = 0; i < until && i < s.messages.size(); i++) {
+            Message m = s.messages.get(i);
+            if (!"text".equals(m.kind) || m.body == null || m.body.trim().isEmpty()) {
+                continue;
+            }
+            String t = m.body.replace('\n', ' ').replaceAll("\\s+", " ").trim();
+            if ("user".equals(m.role)) {
+                if (asked != null) {
+                    lines.add("- The user said: " + clip(asked, 110));
+                }
+                asked = t;
+            } else if (asked != null) {
+                lines.add("- The user asked: " + clip(asked, 110) + " \u2192 " + (m.persona == null ? "the answer" : m.persona) + ": "
+                        + clip(firstSentence(t), 150));
+                asked = null;
+            }
+        }
+        if (asked != null) {
+            lines.add("- The user said: " + clip(asked, 110));
+        }
+        // the chat's start (what it is about, who the user is) and then the newest notes, as many as fit
+        int budget = room - 60;
+        StringBuilder head = new StringBuilder();
+        int first = 0;
+        for (; first < Math.min(KEEP_FIRST, lines.size()); first++) {
+            String l = lines.get(first);
+            if (head.length() + l.length() + 1 > budget / 2) {
+                break;
+            }
+            head.append(l).append('\n');
+        }
+        StringBuilder tail = new StringBuilder();
+        int used = head.length();
+        int i = lines.size() - 1;
+        for (; i >= first; i--) {
+            String l = lines.get(i);
+            if (used + l.length() + 3 > budget) {
+                break;
+            }
+            tail.insert(0, l + "\n");
+            used += l.length() + 1;
+        }
+        String gap = i >= first ? "- \u2026\n" : "";
+        String out = (head.toString() + gap + tail).trim();
+        return out.isEmpty() ? "" : "Notes from earlier in this chat (oldest first):\n" + out;
+    }
+
+    private static String firstSentence(String t) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(.{20,}?[.!?])(\\s|$)").matcher(t);
+        return m.find() ? m.group(1) : t;
+    }
+
+    private static String clip(String t, int most) {
+        return t.length() <= most ? t : t.substring(0, most - 1).trim() + "\u2026";
     }
 
     private static String lastUser(Section s) {

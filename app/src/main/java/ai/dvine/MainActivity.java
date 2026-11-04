@@ -3548,7 +3548,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 });
             }
             armThink("Thinking\u2026", "Thinking\u2026");
-            final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around);
+            // the notes record: the exchanges older than the model's own memory (its last few turns), in short, so
+            // the device's model with its short memory still knows what this chat said earlier
+            String older = chats == null ? "" : chats.olderNotes(ai.dvine.llm.LocalModel.HISTORY_TURNS + 1,
+                    model.remoteOn() ? 2400 : 1200);
+            final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around)
+                    + (older.isEmpty() ? "" : "\n" + older);
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
             final boolean ivieVoice = "ivie".equals(agent);
             // interpreted: the English isn't shown or spoken as it comes; the translation is, when it is done

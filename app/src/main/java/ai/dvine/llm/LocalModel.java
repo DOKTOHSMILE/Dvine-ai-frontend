@@ -21,7 +21,8 @@ public final class LocalModel {
     private volatile String problem;
     private long handle;
     private final List<String[]> history = new ArrayList<String[]>();
-    private static final int HISTORY_TURNS = 6;
+    /** How many exchanges the model holds itself; older ones reach it as the chat's notes record. */
+    public static final int HISTORY_TURNS = 6;
     private final ReplyLease replies = new ReplyLease();
     /** What each reply used, for the Usage screen. */
     public final UsageLog usage = new UsageLog();
