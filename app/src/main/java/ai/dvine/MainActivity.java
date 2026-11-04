@@ -2552,9 +2552,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (chats == null || task == null || task.trim().isEmpty()) {
             return;
         }
-        selectPersona(persona); // first: switching persona opens their latest chat
         ai.dvine.chat.ChatBook.Section s = chats.fresh(persona);
         chats.rename(s.id, ai.dvine.agent.Handoff.title(task));
+        selectPersona(persona); // the new conversation, this persona's empty page
         chatPane.show();
         noteUser(task);
         if ("ibiko".equals(persona)) {

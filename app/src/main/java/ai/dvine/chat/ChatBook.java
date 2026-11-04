@@ -12,10 +12,9 @@ import java.util.Map;
 import ai.dvine.brain.MiniJson;
 
 /**
- * Chat sections on this phone. Each section has its own transcript and persona.
- * Notes and the latest line from every other section are one shared memory, so a
- * later chat can refer to an earlier one. This is not a cloud memory and not a
- * graph database.
+ * Chat sections on this phone. A section is one conversation, with its own clean page for each persona
+ * (Obi, Ivie, Ibiko). Those pages do not see another section's messages. A note the user asked to remember
+ * is the only thing shared. This is not a cloud memory and not a graph database.
  */
 public final class ChatBook {
     public static final class Message {
@@ -46,6 +45,8 @@ public final class ChatBook {
         public boolean archived;
         /** The project this chat belongs to (its name), or null. */
         public String project;
+        /** Pages for Obi, Ivie and Ibiko that belong to the same conversation share this. */
+        public String group;
         public final List<Message> messages = new ArrayList<Message>();
 
         Section(String id, String title, String persona) {
@@ -127,7 +128,13 @@ public final class ChatBook {
     }
 
     public synchronized Section open(String title, String persona) {
-        Section s = new Section("c" + next++, title == null || title.isEmpty() ? "Chat" : title, personaOf(persona));
+        return openIn(title, persona, null);
+    }
+
+    private Section openIn(String title, String persona, String group) {
+        String id = "c" + next++;
+        Section s = new Section(id, title == null || title.isEmpty() ? "Chat" : title, personaOf(persona));
+        s.group = group == null || group.isEmpty() ? "g" + id.substring(1) : group;
         sections.add(s);
         currentId = s.id;
         save();
@@ -135,25 +142,26 @@ public final class ChatBook {
     }
 
     /**
-     * An empty chat for {@code persona} to start on (app opened, new chat): the latest one that has nothing in it yet,
-     * or a new one, so empty chats don't pile up in the list.
+     * An empty chat for {@code persona}. A conversation that already has messages is left alone: this starts
+     * a new one, so the three persona pages begin empty. A conversation that is still empty is reused.
      */
     public synchronized Section fresh(String persona) {
         String p = personaOf(persona);
         for (int i = sections.size() - 1; i >= 0; i--) {
             Section s = sections.get(i);
-            if (!s.archived && s.messages.isEmpty() && p.equals(s.persona)) {
-                currentId = s.id;
-                save();
-                return s;
+            if (s.archived || !p.equals(s.persona) || !s.messages.isEmpty() || !groupQuiet(s.group)) {
+                continue;
             }
+            currentId = s.id;
+            save();
+            return s;
         }
         return open("New chat", p);
     }
 
     /**
-     * "New chat": a clean start for every persona. {@code persona} gets an empty chat now; the others get theirs when
-     * they are first switched to ({@link #forPersona}), so no empty chats pile up in the list.
+     * "New chat": a new conversation. {@code persona} gets an empty page now. Ivie and Ibiko get an empty page
+     * of this same conversation when they are first opened, not an older chat of theirs.
      */
     public synchronized Section freshForAll(String persona) {
         freshFrom = next;
@@ -177,8 +185,8 @@ public final class ChatBook {
     }
 
     /**
-     * The chat for this persona. Obi and Ivie keep a conversation. Ibiko keeps a coding chat.
-     * A different persona is a different chat, not a rename of the one on screen.
+     * The page for this persona inside the open conversation. A different persona is a different page of the
+     * same conversation, never another conversation's transcript.
      */
     public synchronized Section forPersona(String persona) {
         String p = personaOf(persona);
@@ -186,16 +194,31 @@ public final class ChatBook {
         if (p.equals(cur.persona) && !cur.archived) {
             return cur;
         }
+        String group = cur.group;
         for (int i = sections.size() - 1; i >= 0; i--) {
             Section s = sections.get(i);
-            if (!s.archived && p.equals(s.persona) && (number(s.id) >= freshFrom || s.messages.isEmpty())) {
-                currentId = s.id; // its chat since the last New chat (or an empty one)
+            if (!s.archived && p.equals(s.persona) && group.equals(s.group)) {
+                currentId = s.id;
                 save();
                 return s;
             }
         }
-        String title = "ibiko".equals(p) ? "Ibiko code" : ("obi".equals(p) ? "Obi" : "Ivie");
-        return open(title, p);
+        String title = cur.title != null && !cur.title.matches("(?i)^(chat|new chat|obi|ivie|ibiko|ibiko code)$")
+                ? cur.title : ("ibiko".equals(p) ? "Ibiko code" : ("obi".equals(p) ? "Obi" : "Ivie"));
+        return openIn(title, p, group);
+    }
+
+    /** True when no page of this conversation has a message yet. */
+    private boolean groupQuiet(String group) {
+        if (group == null) {
+            return true;
+        }
+        for (Section s : sections) {
+            if (group.equals(s.group) && !s.messages.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Startup lines that should not sit in the chat. */
@@ -227,10 +250,16 @@ public final class ChatBook {
             return;
         }
         Section s = current();
-        if ("user".equals(role) && (s.title == null || s.title.equals("Chat") || s.title.equals("New chat"))
+        if ("user".equals(role) && (s.title == null || s.title.equals("Chat") || s.title.equals("New chat")
+                || s.title.equals("Obi") || s.title.equals("Ivie") || s.title.equals("Ibiko code"))
                 && s.messages.isEmpty()) {
             String t = body.trim().replace('\n', ' ');
             s.title = t.length() > 48 ? t.substring(0, 48) : t;
+            for (Section other : sections) {
+                if (s.group.equals(other.group)) {
+                    other.title = s.title;
+                }
+            }
         }
         if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
                 || "html".equals(kind) || "text".equals(kind) || "activity".equals(kind) || "step".equals(kind) || "file".equals(kind)
@@ -280,8 +309,8 @@ public final class ChatBook {
     }
 
     /**
-     * What another section should be told: shared notes, then the latest user line from each other section.
-     * The current section's own transcript is not repeated here.
+     * Notes the user asked to remember. Another conversation's messages are not included: each conversation
+     * starts clean.
      */
     public synchronized String memoryForPrompt(int limit) {
         StringBuilder b = new StringBuilder();
@@ -290,23 +319,10 @@ public final class ChatBook {
             b.append("- ").append(shared.get(i)).append('\n');
             n++;
         }
-        String here = currentId;
-        for (int i = sections.size() - 1; i >= 0 && n < limit; i--) {
-            Section s = sections.get(i);
-            if (s.id.equals(here)) {
-                continue;
-            }
-            String last = lastUser(s);
-            if (last == null) {
-                continue;
-            }
-            b.append("- In ").append(s.title).append(" (").append(s.persona).append("): ").append(last).append('\n');
-            n++;
-        }
         if (b.length() == 0) {
             return "";
         }
-        return "Shared across chats:\n" + b.toString().trim();
+        return "Remembered:\n" + b.toString().trim();
     }
 
     /** The current section only, newest tail, so the brain can follow this chat and not another one. */
@@ -470,6 +486,11 @@ public final class ChatBook {
         for (Section s : sections) {
             if (s.id.equals(id)) {
                 s.title = t.length() > 48 ? t.substring(0, 48) : t;
+                for (Section other : sections) {
+                    if (s.group.equals(other.group)) {
+                        other.title = s.title;
+                    }
+                }
                 save();
                 return true;
             }
@@ -498,14 +519,23 @@ public final class ChatBook {
     }
 
     public synchronized boolean pin(String id, boolean on) {
+        Section found = null;
         for (Section s : sections) {
             if (s.id.equals(id)) {
-                s.pinned = on;
-                save();
-                return true;
+                found = s;
+                break;
             }
         }
-        return false;
+        if (found == null) {
+            return false;
+        }
+        for (Section s : sections) {
+            if (found.group.equals(s.group)) {
+                s.pinned = on;
+            }
+        }
+        save();
+        return true;
     }
 
     public synchronized boolean archive(String id, boolean on) {
@@ -520,21 +550,57 @@ public final class ChatBook {
     }
 
     /**
-     * Deletes a chat but keeps what was learned in it: the gist of what the user said there (its name and their
-     * latest lines) becomes a shared note every chat can still see ({@link #memoryForPrompt}). Notes, learned
-     * phrasings and corrections kept elsewhere are not touched. The last remaining chat is cleared instead.
+     * Deletes a conversation (every persona page in it) but keeps what was learned: the gist of what the user
+     * said becomes a remembered note. The last remaining conversation is cleared instead.
      */
     public synchronized boolean delete(String id) {
+        Section found = null;
         for (Section s : sections) {
             if (s.id.equals(id)) {
-                String gist = gist(s);
-                if (gist != null) {
-                    remember(gist);
-                }
-                return remove(id);
+                found = s;
+                break;
             }
         }
-        return false;
+        if (found == null) {
+            return false;
+        }
+        String gist = gist(found);
+        if (gist != null) {
+            remember(gist);
+        }
+        int groups = 0;
+        java.util.HashSet<String> seen = new java.util.HashSet<String>();
+        for (Section s : sections) {
+            if (seen.add(s.group)) {
+                groups++;
+            }
+        }
+        if (groups <= 1) {
+            for (Section s : sections) {
+                s.messages.clear();
+                s.title = "Chat";
+                s.pinned = false;
+            }
+            save();
+            return true;
+        }
+        String group = found.group;
+        for (int i = sections.size() - 1; i >= 0; i--) {
+            if (group.equals(sections.get(i).group)) {
+                sections.remove(i);
+            }
+        }
+        boolean still = false;
+        for (Section s : sections) {
+            if (s.id.equals(currentId)) {
+                still = true;
+            }
+        }
+        if (!still) {
+            currentId = sections.get(0).id;
+        }
+        save();
+        return true;
     }
 
     /** "From the chat “Trip plans”: book a flight to Lagos; …", or null when the user said nothing there. */
@@ -574,18 +640,27 @@ public final class ChatBook {
 
     /** Puts a chat in a project (null: out of any project); a project named here is made if needed. */
     public synchronized boolean moveTo(String id, String project) {
+        Section found = null;
         for (Section s : sections) {
             if (s.id.equals(id)) {
-                String p = project == null || project.trim().isEmpty() ? null : project.trim();
-                if (p != null && !projects.contains(p)) {
-                    projects.add(p);
-                }
-                s.project = p;
-                save();
-                return true;
+                found = s;
+                break;
             }
         }
-        return false;
+        if (found == null) {
+            return false;
+        }
+        String p = project == null || project.trim().isEmpty() ? null : project.trim();
+        if (p != null && !projects.contains(p)) {
+            projects.add(p);
+        }
+        for (Section s : sections) {
+            if (found.group.equals(s.group)) {
+                s.project = p;
+            }
+        }
+        save();
+        return true;
     }
 
     /** Deletes a project; its chats stay, outside any project. */
@@ -627,6 +702,26 @@ public final class ChatBook {
             }
         }
         return out;
+    }
+
+    /** One row per conversation: the page with a real title, or the one that has messages. */
+    public synchronized List<Section> groups() {
+        Map<String, Section> pick = new LinkedHashMap<String, Section>();
+        for (Section s : pinnedFirst()) {
+            Section have = pick.get(s.group);
+            if (have == null || groupScore(s) > groupScore(have)) {
+                pick.put(s.group, s);
+            }
+        }
+        return new ArrayList<Section>(pick.values());
+    }
+
+    private static int groupScore(Section s) {
+        int score = s.messages.isEmpty() ? 0 : 2;
+        if (s.title != null && !s.title.matches("(?i)^(chat|new chat|obi|ivie|ibiko|ibiko code)$")) {
+            score += 1;
+        }
+        return score;
     }
 
     /** Removes a chat. The last remaining chat is cleared instead, so the book is never empty. */
@@ -714,6 +809,8 @@ public final class ChatBook {
                     s.archived = Boolean.TRUE.equals(m.get("archived"));
                     String proj = MiniJson.str(m.get("project"), "");
                     s.project = proj.isEmpty() ? null : proj;
+                    String group = MiniJson.str(m.get("group"), "");
+                    s.group = group.isEmpty() ? "g" + s.id.replaceFirst("^c", "") : group;
                     Object msgs = m.get("messages");
                     if (msgs instanceof List) {
                         for (Object row : (List<?>) msgs) {
@@ -773,6 +870,9 @@ public final class ChatBook {
             m.put("archived", Boolean.valueOf(s.archived));
             if (s.project != null) {
                 m.put("project", s.project);
+            }
+            if (s.group != null) {
+                m.put("group", s.group);
             }
             List<Object> msgs = new ArrayList<Object>();
             for (Message msg : s.messages) {

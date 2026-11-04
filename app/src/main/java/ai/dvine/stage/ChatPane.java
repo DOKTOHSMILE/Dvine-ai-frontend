@@ -1180,14 +1180,14 @@ public final class ChatPane extends LinearLayout {
         if (!projects.isEmpty()) {
             list.addView(drawerHeader("Projects"));
             for (final String p : projects) {
-                int n = book.inProject(p).size();
+                int n = conversationsIn(p);
                 TextView row = drawerRow(p, R.drawable.ic_project, false);
                 row.setContentDescription("Project " + p + ", " + n + " chat" + (n == 1 ? "" : "s"));
                 row.setOnClickListener(v -> openProject(p));
                 list.addView(row);
             }
         }
-        List<ChatBook.Section> all = book.pinnedFirst();
+        List<ChatBook.Section> all = book.groups();
         boolean pinned = false, recents = false;
         for (ChatBook.Section s : all) {
             if (s.pinned && !pinned) {
@@ -1235,9 +1235,17 @@ public final class ChatPane extends LinearLayout {
         return row;
     }
 
+    private int conversationsIn(String project) {
+        java.util.HashSet<String> seen = new java.util.HashSet<String>();
+        for (ChatBook.Section s : book.inProject(project)) {
+            seen.add(s.group);
+        }
+        return seen.size();
+    }
+
     /** One line per chat: its title (or its last words), the open one highlighted; hold for its menu. */
     private TextView chatRow(final ChatBook.Section s) {
-        boolean on = s.id.equals(book.current().id);
+        boolean on = s.group != null && s.group.equals(book.current().group);
         String preview = "";
         for (int i = s.messages.size() - 1; i >= 0; i--) {
             ChatBook.Message m = s.messages.get(i);
@@ -1299,7 +1307,7 @@ public final class ChatPane extends LinearLayout {
             box.addView(none);
         }
         for (final String p : projects) {
-            int n = book.inProject(p).size();
+            int n = conversationsIn(p);
             TextView row = drawerRow(p + "  \u00B7  " + n + " chat" + (n == 1 ? "" : "s"), R.drawable.ic_project, false);
             row.setOnClickListener(v -> {
                 if (sheet[0] != null) {
@@ -1329,6 +1337,7 @@ public final class ChatPane extends LinearLayout {
         });
         box.addView(fresh);
         List<ChatBook.Section> chats = book.inProject(name);
+        java.util.HashSet<String> shown = new java.util.HashSet<String>();
         if (chats.isEmpty()) {
             TextView none = plain("No chats here yet. Hold a chat in the menu and choose Move to project.");
             none.setTextColor(color(R.color.text_secondary));
@@ -1337,6 +1346,9 @@ public final class ChatPane extends LinearLayout {
         }
         for (int i = chats.size() - 1; i >= 0; i--) {
             final ChatBook.Section s = chats.get(i);
+            if (!shown.add(s.group)) {
+                continue;
+            }
             TextView row = chatRow(s);
             row.setOnClickListener(v -> {
                 if (sheet[0] != null) {

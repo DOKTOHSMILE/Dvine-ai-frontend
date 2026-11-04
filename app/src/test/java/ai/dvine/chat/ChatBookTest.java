@@ -21,7 +21,7 @@ public class ChatBookTest {
         book.add("user", "text", "what did we do to the tyre?", "ibiko");
         String memory = book.memoryForPrompt(6);
         assertTrue(memory, memory.contains("front tyre was detached"));
-        assertTrue(memory, memory.contains("the front tyre is off"));
+        assertFalse(memory, memory.contains("the front tyre is off")); // another conversation stays out
         assertFalse(memory.contains("what did we do"));
         assertEquals("ibiko", second.persona);
         assertEquals(1, book.current().messages.size());
@@ -88,6 +88,26 @@ public class ChatBookTest {
             listed |= s.id.equals(oldIvie);
         }
         org.junit.Assert.assertTrue("the old chats stay in the list", listed);
+    }
+
+    @Test
+    public void eachConversationHasItsOwnCleanPersonaPages() throws Exception {
+        File dir = java.nio.file.Files.createTempDirectory("chats").toFile();
+        ChatBook book = new ChatBook(new File(dir, "chats.json"));
+        book.forPersona("ivie");
+        book.add("user", "text", "draw the first car", "ivie");
+        String first = book.current().group;
+        book.forPersona("obi");
+        book.add("user", "text", "plan the first car", "obi");
+        org.junit.Assert.assertEquals(first, book.current().group);
+        book.freshForAll("obi");
+        org.junit.Assert.assertTrue(book.current().messages.isEmpty());
+        org.junit.Assert.assertNotEquals(first, book.current().group);
+        book.forPersona("ivie");
+        org.junit.Assert.assertTrue(book.current().messages.isEmpty());
+        org.junit.Assert.assertFalse(book.transcript(700).contains("draw the first car"));
+        book.use(book.sections().get(0).id);
+        org.junit.Assert.assertEquals("draw the first car", book.current().messages.get(0).body);
     }
 
     @org.junit.Test
