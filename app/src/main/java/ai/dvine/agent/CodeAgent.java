@@ -180,7 +180,8 @@ public final class CodeAgent {
     static final String KEEP_GOING = "Long work: plan, build, test. For anything bigger than a quick answer, keep a checklist"
             + " in PLAN.md in the project folder: write the plan first (the steps, each small), then build one item at a"
             + " time, then test it (run the build or the tests, or read the result back) and fix what fails, ticking items"
-            + " off in PLAN.md as they pass. Read PLAN.md when you carry on, so you pick up where you stopped. You work in"
+            + " off in PLAN.md as they pass. Read PLAN.md when you carry on the same task, so you pick up where you stopped; a"
+            + " new task starts its own PLAN.md (an old one about other work is not your task: replace it). You work in"
             + " rounds; between rounds the user gets a short progress note, and the work goes on by itself.\n";
 
     static final String PROGRESS_NOW = "Your steps for this round are used. Write a short progress note for the user, in a"

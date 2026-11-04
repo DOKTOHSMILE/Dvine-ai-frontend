@@ -199,7 +199,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 ## 7. Testing and release
 
-- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (432 tests at 0.89.9). **Build:** `gradle :app:assembleDebug`.
+- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (433 tests at 0.90.0). **Build:** `gradle :app:assembleDebug`.
 - **Real model on a desktop:** set `DVINE_NATIVE_LIB` and `DVINE_MODEL` to run tests against a real model (for example Qwen3 1.7B) through the real JNI bridge.
 - **Robolectric frame trap.** Under Robolectric, the stage's Choreographer frames never settle once a drawing is on stage. Tests that start a build must call `StageView.stopFrames()` before idling the looper. Otherwise the test hangs (fixed in `LaunchTest` at 0.89).
 - **Not run in the cloud:** `lintDebug` (dependency download is rate-limited) and anything on a phone. The phone checks are listed as "phone pending" in `BUILD_STATUS.md`.
@@ -265,5 +265,6 @@ Retired and not coming back unless asked: faces (line-art, wireframe, hologram, 
 | 0.87 | The 21 built-in shapes deleted. |
 | 0.88 | Every built-in 3D sample deleted; 3D only from measurements; messages queue while busy; social switches and names; the sheet drags by its body. |
 | 0.89 | One route for builds and social jobs, measurements asked, the API design prompt, the studio, the full-screen canvas, the thinking star that glances like an eye, replies in short parts between the steps with voice on each, the voice compile fix. 0.89.1: the model narrates its own work between the steps. 0.89.2: crash reports saved to Download/DVINE. 0.89.3: a long chat draws only its latest messages (the freeze on Send). 0.89.4: Ibiko finishes instead of ending on a plan; fewer notes. 0.89.5: explanations like Claude's, a paragraph at each turning point. 0.89.6: New chat is clean for all three personas. 0.89.7: true full screen, a real 3D floor, tyres as rings, designs get 15 minutes. 0.89.8: "device" not "phone", the chosen model does every task. 0.89.9: the device's model works like an API model. |
+| 0.90 | A busy model is waited for and named; a new task starts its own plan. |
 
 The full evidence for every version is in `docs/BUILD_STATUS.md`.
