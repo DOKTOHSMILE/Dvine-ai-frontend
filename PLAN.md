@@ -55,9 +55,16 @@ Steps:
       `PhoneHost.run`), `PhoneHost.allowRun` shows exactly that three-button dialog behind `auto_accept`, and a refusal
       returns "The user didn't allow this command." Also matches for `termux` (3 minutes, `path` copied there) and the
       three `allowRun` git gates. No change needed.
-- [ ] Interpretation.java `command()` bridge: does the classifier's promise match ActionPlanner's behaviour
-      (yes/no confirmation, last-said fallback, app list).
-- [ ] SocialAsk: network patterns vs the social.* connector calls actually implemented.
+- [x] Interpretation.java `command()` bridge: the classifier's promise matches ActionPlanner's behaviour —
+      `ActionPlanner.plan()` fills content from `lastSaid` for "copy that"/"post that", `reply()` classifies
+      yes/no with a 2-minute expiry, `question()` asks "Shall I copy…? Say yes or no." Javadoc reworded earlier
+      to describe what the bridge really does. Verified by reading `ActionPlanner.java` (115 lines).
+- [x] SocialAsk: network patterns vs the social.* connector calls actually implemented. `SocialAsk.parse()`
+      (4 FORMS + TRENDING/TRENDS) → `BrainOrder.socialOrder()` → orders `search <net>: q`, `trending <net>`,
+      `connect <net>`, `help`, `post <net>: about`; `ConnectorStore` (lines 242–288) implements
+      `social.search`, `social.trending`, `social.open` over `SocialWeb.search/trending/open`, and
+      `SocialAsk.connect/help/compose` are called at `BrainOrder` lines 166/170/173. No dangling promise.
+      Cross-checked against `SocialAskTest.java` (4 tests / 68 lines) — every asserted case matches a pattern.
 - [ ] Re-read each change, then commit + push on a branch and open a PR.
 
 ## Round 3 (user issue: voice → text auto-stops; voice sounds sharp/robotic)

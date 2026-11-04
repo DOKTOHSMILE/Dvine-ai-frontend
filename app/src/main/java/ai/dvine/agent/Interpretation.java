@@ -89,8 +89,10 @@ public final class Interpretation {
     }
 
     /**
-     * The interpretation as the plain command DVINE's own brain already knows ("draw a lion in 3D", "open whatsapp",
-     * "music off"), so doing it goes through the same checked paths; null when it has none (answer, search, other).
+     * The interpretation as the plain phrase the existing handlers already parse ("draw a lion in 3D", "open whatsapp",
+     * "music off", "copy this", "debate AI art"), so calling it needs no new parsing of its own: null when it has none
+     * (answer, search, other). It carries no confirmation — {@link ai.dvine.brain.ActionPlanner} still asks yes or no
+     * for copy and share, and still fills "copy this" from what was said last.
      */
     public String command() {
         String t = target == null ? "" : target.trim();
@@ -110,6 +112,12 @@ public final class Interpretation {
             }
             case SWITCH:
                 return t.isEmpty() ? null : "switch to " + t.toLowerCase(Locale.US);
+            case COPY:
+                return t.isEmpty() ? "copy this" : "copy " + t;
+            case SHARE:
+                return t.isEmpty() ? "share this" : (t.toLowerCase(Locale.US).matches("^(post|share|tweet|publish|upload)\\b.*") ? t : "share " + t);
+            case DEBATE:
+                return t.isEmpty() ? null : "debate " + t.toLowerCase(Locale.US);
             case DOWNLOAD_BRAIN:
                 return "download your brain";
             case MOVE:
