@@ -182,6 +182,36 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void aPlanIsNotTheAnswerAndNotesDontRepeatEveryStep() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Phone phone = new Phone();
+        Script brain = new Script(
+                "Mapping the files first.\n<tool name=\"list_files\" path=\".\"/>",
+                "Reading the runner next.\n<tool name=\"list_files\" path=\".\"/>",
+                "Checking the docs now.\n<tool name=\"list_files\" path=\".\"/>",
+                "Comparing every runner with its docs.\n<tool name=\"list_files\" path=\".\"/>",
+                "Picking up the tool audit, verifying each documented tool against its runner.",
+                "Picking up the tool audit, verifying each documented tool against its runner.",
+                "<tool name=\"list_files\" path=\".\"/>",
+                "<final>All 12 tools match their runners; the fetch line was wrong and is fixed.</final>");
+        CodeAgent agent = new CodeAgent(ws, brain, phone, "", 20_000);
+        assertEquals("All 12 tools match their runners; the fetch line was wrong and is fixed.", agent.run("audit the tools", ""));
+        assertTrue("the plan was sent back to be done", brain.seen.get(brain.seen.size() - 2).contains(CodeAgent.DO_IT_NOW));
+        assertEquals("a note at most every 3 steps", Arrays.asList("Mapping the files first.",
+                "Comparing every runner with its docs."), phone.notes);
+        for (String s : phone.steps) {
+            assertTrue(s, !s.contains("Checking that the answer is complete")); // DVINE's own check isn't a step
+        }
+        assertTrue(CodeAgent.promise("Next: verify each tool doc line against its runner, then build/test."));
+        assertTrue(CodeAgent.promise("Checked the agent prompt and PhoneHost.\nNext: verify each tool, then build."));
+        assertTrue(CodeAgent.promise("I'll fix the docs now."));
+        assertTrue("a result is not a plan", !CodeAgent.promise("Nothing is wrong: every tool matches its runner."));
+        assertTrue(!CodeAgent.promise("The fetch line was wrong. I fixed it in CodeAgent.java and the tests pass."));
+        assertTrue(CodeAgent.alike("Auditing tool docs against host code, mapping files first.",
+                "Auditing each tool doc line against the code, reading the host runner next."));
+    }
+
+    @Test
     public void readsTheToolCallFormsOtherModelsWrite() {
         // exactly what GPT-5 wrote on the phone
         CodeAgent.Call a = CodeAgent.parse("I'll clone the repo first, then audit it.<tool_call><function=git action=\"clone\" "
@@ -283,11 +313,11 @@ public class CodeAgentTest {
         assertEquals("The next step is to review activity_chat.xml, then add the tabs.", out);
         assertEquals(1, brain.seen.size()); // not asked a second time whether it is done (minutes on a phone)
         assertTrue(phone.steps.isEmpty()); // and the answer is not shown as a step
-        // a full-size model is still asked once; the step says so, the answer itself goes to the chat
+        // a full-size model is still asked once; DVINE's own check is not shown as a step, the answer goes to the chat
         Script big = new Script("I'll read the files next.", "<final>Done: nothing to change.</final>");
         Phone p2 = new Phone();
         assertEquals("Done: nothing to change.", new CodeAgent(ws, big, p2, "", 20_000).run("check it", ""));
-        assertEquals(Arrays.asList("Checking that the answer is complete"), p2.steps);
+        assertTrue(p2.steps.toString(), p2.steps.isEmpty());
         // a small model's own-tag call (<search query="car"/>) is carried out, not shown as the answer
         CodeAgent.Call c = CodeAgent.parse("<search query=\"car\"/>");
         assertEquals("search", c.name);
@@ -453,7 +483,7 @@ public class CodeAgentTest {
         Phone phone = new Phone();
         assertEquals("Done: 3 files, all fine.", new CodeAgent(ws, asking, phone, "", 20_000).run("check the files", ""));
         assertTrue(asking.seen.get(1), asking.seen.get(1).contains("don't describe it and don't ask"));
-        assertTrue(phone.steps.toString(), phone.steps.contains("Checking that the answer is complete")); // the held text itself is not a step
+        assertTrue(phone.steps.toString(), phone.steps.isEmpty()); // neither the held text nor DVINE's own check is a step
         // no word lists: whatever the wording, text without a tool call is asked about once; what the model does
         // next decides. A tool call: the work goes on. Plain text again: that is the answer.
         Script narrating = new Script("Fixing your build errors \u2014 digging into the failing sources.",
