@@ -22,10 +22,6 @@ public final class ConnectorStore {
         DOCS("Offline developer docs", "Official docs kept on this device for coding with no internet: Kotlin, Java, Python,"
                 + " JavaScript, TypeScript, HTML, CSS, Node, React, Go, Dart, Rust, C, C++, SQL and more, from DevDocs. Download the"
                 + " ones you use; the model searches them online or off."),
-        TERMUX("Termux (Linux on this device)", "A real Linux shell for Ibiko's coding: python3, node, gcc, java, git, pip, npm and"
-                + " anything from pkg, with no internet once installed. 1. Install Termux from F-Droid. 2. In Termux run:"
-                + " echo allow-external-apps=true >> ~/.termux/termux.properties (then pkg install python nodejs clang git)."
-                + " 3. Allow below, then Save and test."),
         GMAIL("Gmail", "Read, search and open your email, and write drafts into Gmail's Drafts (you send them). Your Gmail address and"
                 + " an app password: Google Account › Security › 2-Step Verification › App passwords. No Google project needed."),
         CALENDAR("Device calendar", "Your events for the next week, read from this device's calendar."),
@@ -204,7 +200,6 @@ public final class ConnectorStore {
             case NOTION: return !token(k).isEmpty();
             case GMAIL: return !gmailUser().isEmpty() && !token(k).isEmpty();
             case DOCS: return !docs().installed().isEmpty();
-            case TERMUX: return ai.dvine.agent.TermuxRunner.usable(context);
             case MCP: return mcpUrl().startsWith("https://") && !mcpTools().isEmpty();
             default: return true;
         }
@@ -386,10 +381,6 @@ public final class ConnectorStore {
                     return calendarAllowed() ? null : "calendar permission isn't given";
                 case GMAIL:
                     return gmail().test();
-                case TERMUX: {
-                    String out = ai.dvine.agent.TermuxRunner.run(context, "echo DVINE-OK; command -v python3 node gcc clang git", null, "test");
-                    return out.contains("DVINE-OK") ? null : out;
-                }
                 default:
                     return null;
             }
