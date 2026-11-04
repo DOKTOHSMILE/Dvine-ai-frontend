@@ -4278,15 +4278,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             openReconstructionPicker();
             return true;
         }
-        // there are no built-in objects: the model designs each thing with its measurements, and changes them; an API
-        // model is given the full design request (every part's exact coordinates), the phone's model the simpler one
-        boolean capable = model != null && model.remoteOn();
+        // there are no built-in objects: the model designs each thing with its measurements, and changes them. Every
+        // model, the device's and an API's, gets the same full design request (the specification, the brief, every
+        // part's exact coordinates, the fixes), so they all work the same way; only the reply room differs
+        boolean capable = true;
         creation.setDesigner(modelOn() ? (system, prompt, max) -> {
                     final String doing = ai.dvine.create.MeasuredDesign.stageOf(system);
                     handler.post(() -> activity(doing)); // each design step shows as it starts
                     return model.task(system, prompt, max, null);
                 } : null,
-                capable ? ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs) : ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), capable);
+                model != null && model.remoteOn() ? ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs) : ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), capable);
         boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.OPEN
