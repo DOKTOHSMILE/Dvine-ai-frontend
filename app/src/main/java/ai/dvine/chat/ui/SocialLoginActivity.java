@@ -57,7 +57,9 @@ public final class SocialLoginActivity extends AppCompatActivity {
         TextView done = Ui.text(this, "Done", 16, Ui.ACCENT, true);
         done.setPadding(Ui.dp(this, 10), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         done.setOnClickListener(v -> {
-            if (SocialWeb.signedInNow(platform)) {
+            if (platform == Platform.TELEGRAM) {
+                checkTelegram(true);
+            } else if (SocialWeb.signedInNow(platform)) {
                 name();
             } else {
                 android.widget.Toast.makeText(this, "Not signed in yet. Sign in on the page first.", android.widget.Toast.LENGTH_SHORT).show();
@@ -65,7 +67,11 @@ public final class SocialLoginActivity extends AppCompatActivity {
         });
         head.addView(done);
         page.addView(head);
-        TextView note = Ui.text(this, "Your password goes only to " + platform.shown + ". DVINE keeps the sign-in on this device,"
+        TextView note = Ui.text(this, platform == Platform.TELEGRAM
+                ? "Sign in on Telegram's own page: scan the QR code with Telegram on another device (Settings › Devices › Link"
+                        + " Desktop Device), or use your number and the code Telegram sends. DVINE reads your chats only when you"
+                        + " ask, and never sends a message without your yes."
+                : "Your password goes only to " + platform.shown + ". DVINE keeps the sign-in on this device,"
                 + " encrypted, and uses it within safe limits. Sign in with your username or email and password; “Continue"
                 + " with Google” doesn't work inside apps.", 12, Ui.SUB, false);
         note.setPadding(Ui.dp(this, 18), 0, Ui.dp(this, 18), Ui.dp(this, 8));
@@ -97,6 +103,36 @@ public final class SocialLoginActivity extends AppCompatActivity {
         setContentView(page);
         Ui.fitInsets(page);
         web.loadUrl(platform.login);
+        if (platform == Platform.TELEGRAM) {
+            web.postDelayed(telegramWatch, 3000); // Telegram signs in inside its page (a QR scan): watched, not a page load
+        }
+    }
+
+    /** While Telegram's page is open: every few seconds, whether it is signed in now. */
+    private final Runnable telegramWatch = new Runnable() {
+        @Override
+        public void run() {
+            if (saved || isFinishing() || web == null) {
+                return;
+            }
+            checkTelegram(false);
+            web.postDelayed(this, 2500);
+        }
+    };
+
+    private void checkTelegram(final boolean asked) {
+        if (web == null) {
+            return;
+        }
+        web.evaluateJavascript(SocialWeb.TELEGRAM_SIGNED_IN, v -> {
+            boolean in = "true".equals(v);
+            if (in) {
+                SocialWeb.telegramSignedIn(this, true);
+                name();
+            } else if (asked) {
+                android.widget.Toast.makeText(this, "Not signed in yet. Sign in on the page first.", android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /** Signed in: the user names the account (a blank name becomes "X 2"), and it is kept. */
@@ -125,6 +161,9 @@ public final class SocialLoginActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (web != null) {
+            web.removeCallbacks(telegramWatch);
+        }
         if (!saved && before != null) {
             SocialWeb.restore(this, before); // no new account: the one in use comes back
         }

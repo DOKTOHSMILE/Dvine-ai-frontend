@@ -106,7 +106,7 @@ public final class SocialAccounts {
     /** The networks with an account signed in, in the order searches use them. */
     public synchronized List<Platform> ready() {
         List<Platform> out = new ArrayList<Platform>();
-        for (Platform p : new Platform[]{Platform.X, Platform.REDDIT, Platform.FACEBOOK, Platform.INSTAGRAM}) {
+        for (Platform p : new Platform[]{Platform.X, Platform.REDDIT, Platform.FACEBOOK, Platform.INSTAGRAM, Platform.TELEGRAM}) {
             Account a = inUse(p);
             if (a != null && a.signedIn && !off.contains(p)) {
                 out.add(p);

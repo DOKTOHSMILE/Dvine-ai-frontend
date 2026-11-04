@@ -44,6 +44,7 @@ public final class SocialWeb {
     static final long PAGE_MS = 25_000L, SETTLE_MS = 3_500L;
 
     public static synchronized SocialAccounts accounts(Context c) {
+        telegramIn = telegramIn || c.getSharedPreferences("dvine", Context.MODE_PRIVATE).getBoolean("telegram_in", false);
         if (accounts == null) {
             accounts = new SocialAccounts(new File(new File(c.getFilesDir(), "social"), "accounts.txt"));
         }
@@ -88,6 +89,9 @@ public final class SocialWeb {
 
     /** Whether the network's cookies on the phone now hold a signed-in session. */
     public static boolean signedInNow(Platform p) {
+        if (p == Platform.TELEGRAM) {
+            return telegramIn; // Telegram Web keeps its sign-in in the page's storage, not a cookie
+        }
         CookieManager cm = CookieManager.getInstance();
         for (String site : p.sites) {
             if (p.signedIn(cm.getCookie(site))) {
@@ -226,6 +230,25 @@ public final class SocialWeb {
         return h.replaceFirst("^(www|m|old|mobile)\\.", "");
     }
 
+    /** Whether Telegram Web is signed in on this device (seen in its page storage when signing in, or on a read). */
+    private static volatile boolean telegramIn;
+
+    /** Telegram's sign-in as seen now (its page storage), kept for the next start. */
+    public static void telegramSignedIn(Context c, boolean in) {
+        telegramIn = in;
+        c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putBoolean("telegram_in", in).apply();
+    }
+
+    /** The script that tells whether Telegram Web is signed in: its auth keys are in the page's storage. */
+    public static final String TELEGRAM_SIGNED_IN = "(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);"
+            + "if(/^(user_auth|dc[1-5]_auth_key|account\\d+)$/.test(k))return true;}}catch(e){}return false;})()";
+
+    /** Telegram's sign-in page, by its words: the account is signed out. */
+    static boolean telegramSignedOut(String text) {
+        String t = text == null ? "" : text;
+        return t.contains("Log in to Telegram by QR Code") || t.contains("Log in by phone Number") || t.contains("Sign in to Telegram");
+    }
+
     // ---- reading
 
     /**
@@ -268,7 +291,11 @@ public final class SocialWeb {
                 return read(c, p, url, url, most);
             }
         }
-        return "Only Facebook, X, Instagram and Reddit pages are opened with the user's accounts.";
+        if (url != null && url.matches("(?i)^https?://t\\.me/[A-Za-z0-9_]+/?$")) {
+            String name = url.replaceAll("(?i)^https?://t\\.me/|/$", "");
+            return read(c, Platform.TELEGRAM, "https://web.telegram.org/k/#@" + name, url, most);
+        }
+        return "Only Facebook, X, Instagram, Reddit and Telegram pages are opened with the user's accounts.";
     }
 
     /** One page, within the limits; a warning pauses the account. */
@@ -309,6 +336,10 @@ public final class SocialWeb {
                 ai.dvine.act.ActionLog.add(c.getFilesDir(), "pause", p.shown + " · " + a.label, "auto", "paused 24 h", state.why);
                 return p.shown + ": stopped and paused this account for 24 hours, because " + state.why
                         + ". The user can check the account in the app and resume it under Social accounts.";
+            }
+            if (p == Platform.TELEGRAM && telegramSignedOut(page[1])) {
+                telegramSignedIn(c, false);
+                state = SocialPage.of("https://web.telegram.org/login", "");
             }
             if (state.state == SocialPage.State.SIGNED_OUT) {
                 all.signedIn(a.id, false);

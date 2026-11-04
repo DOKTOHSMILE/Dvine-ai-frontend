@@ -20,7 +20,7 @@ public final class SocialAsk {
         this.trending = trending;
     }
 
-    static final String NET = "(x|twitter|reddit|facebook|fb|instagram|ig|insta|social media|socials)";
+    static final String NET = "(x|twitter|reddit|facebook|fb|instagram|ig|insta|telegram|tg|social media|socials)";
     /** "check trending post on x", "what's trending on twitter", "popular on reddit", "X trends". */
     private static final Pattern TRENDING = Pattern.compile("(?i)^(?:please |can you |could you )?(?:check|show(?: me)?|see|get|look at|"
             + "what(?:'s| is| are)|whats|tell me)?\\s*(?:the |what(?:'s| is) )?(?:trending|popular|hot|top|viral)(?:\\s+(?:posts?|topics?|tweets?|news|now|today|things|stuff))*"
