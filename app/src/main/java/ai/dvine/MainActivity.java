@@ -1045,7 +1045,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (chatPane != null) {
             chatPane.activityDrop();
         }
-        ai.dvine.chat.ChatBook.Section section = chats.fresh(StageView.OBI);
+        // a clean start for all three: Ivie's and Ibiko's older chats stay in the list, but switching to them now opens
+        // a new chat, not the old one
+        ai.dvine.chat.ChatBook.Section section = chats.freshForAll(StageView.OBI);
+        pendingBuild = null;
         if (chatPane != null) {
             chatPane.show();
         }
@@ -2078,6 +2081,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * ({@code readOnly}). Each step shows in the chat; the stop button stops it between steps.
      */
     private void runAgent(final String task, final String persona, final boolean onlyReading) {
+        final String workAt = workKey(persona); // this chat's: saved here even if the user opens another chat meanwhile
         // Ibiko in Plan mode reads and hands in a plan; "continue" carries on with the same planning
         final boolean planning = !onlyReading && "ibiko".equals(persona) && ai.dvine.agent.IbikoMode.of(prefs) == ai.dvine.agent.IbikoMode.PLAN;
         final boolean readOnly = onlyReading || planning;
@@ -2180,7 +2184,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,
                     model.window() * 3 > 48_000 ? 48_000 : model.window() * 3).useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)))
                     .steps(rounds ? Math.min(ROUND_STEPS, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
-                    .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> saveAgentWork(persona, w))
+                    .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> saveAgentWork(workAt, w))
                     .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             ai.dvine.llm.ReplyService.hold(this);
             markRunning(persona, task); // if the app is closed or crashes, the next start offers to carry on
@@ -2237,7 +2241,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 int round = 1;
                 while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS
                         && System.currentTimeMillis() - began < MAX_WORK_MS) {
-                    saveAgentWork(persona, agent.work());
+                    saveAgentWork(workAt, agent.work());
                     changed.addAll(agent.changed());
                     final String note = result;
                     final int r = round;
@@ -2260,7 +2264,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             markRunning(null, null); // finished (or stopped): nothing to carry on after a restart
             final String answer = result;
             changed.addAll(agent.changed());
-            saveAgentWork(persona, agent.work());
+            saveAgentWork(workAt, agent.work());
             if (!readOnly) {
                 recordIbikoFiles(workspace, changed);
             }
@@ -2571,9 +2575,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 + "what did you find|what are the findings|where is the (report|result)|and\\?|so\\?)$");
     }
 
-    /** The agent's work so far for this persona (its tool calls and results), kept on the phone to carry on from. */
+    /**
+     * The agent's work so far for this persona in this chat (its tool calls and results), kept on the phone to carry
+     * on from. Kept per chat: "continue" in a new chat never picks up another chat's job.
+     */
     private String agentWork(String persona) {
-        java.io.File f = new java.io.File(getFilesDir(), "agent-" + persona + ".txt");
+        java.io.File f = agentFile(workKey(persona));
         try {
             return f.isFile() ? new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8) : "";
         } catch (java.io.IOException e) {
@@ -2581,13 +2588,23 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    private void saveAgentWork(String persona, String work) {
+    /** "ibiko-c12": the persona's work in the chat open now. */
+    private String workKey(String persona) {
+        return persona + "-" + (chats == null ? "" : chats.current().id);
+    }
+
+    private java.io.File agentFile(String key) {
+        return new java.io.File(getFilesDir(), "agent-" + key.replaceAll("[^A-Za-z0-9_-]", "") + ".txt");
+    }
+
+    /** Saves the work under {@code key} ({@link #workKey}, taken when the work started, so a chat switch can't move it). */
+    private void saveAgentWork(String key, String work) {
         if (work == null || work.isEmpty()) {
             return;
         }
         String w = work.length() > 400_000 ? work.substring(work.length() - 400_000) : work;
         try {
-            java.nio.file.Files.write(new java.io.File(getFilesDir(), "agent-" + persona + ".txt").toPath(),
+            java.nio.file.Files.write(agentFile(key).toPath(),
                     w.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (java.io.IOException ignored) {
             // carrying on is a bonus
@@ -3296,8 +3313,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         + " files? Changes that weren't pushed are lost.")
                 .setPositiveButton("Delete", (d, w) -> new Thread(() -> {
                     deleteTree(ws);
-                    for (String persona : new String[]{"ibiko", "obi", "ivie"}) {
-                        new java.io.File(getFilesDir(), "agent-" + persona + ".txt").delete();
+                    java.io.File[] kept = getFilesDir().listFiles((dir, name) -> name.startsWith("agent-") && name.endsWith(".txt"));
+                    for (java.io.File f : kept == null ? new java.io.File[0] : kept) {
+                        f.delete(); // every chat's kept work
                     }
                     handler.post(() -> play(LocalTurn.speakAs(stage.agent(),
                             "Done. Ibiko's workspace on this phone is empty."), null));

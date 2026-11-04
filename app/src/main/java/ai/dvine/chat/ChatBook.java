@@ -62,6 +62,11 @@ public final class ChatBook {
     private final List<String> projects = new ArrayList<String>();
     private String currentId;
     private int next = 1;
+    /**
+     * Chats numbered below this were before the last "New chat": a persona's chat is looked for only from here on,
+     * so after New chat every persona starts clean (0: no new chat yet).
+     */
+    private int freshFrom;
 
     private static final java.util.Map<String, ChatBook> OPEN = new java.util.HashMap<String, ChatBook>();
 
@@ -146,6 +151,15 @@ public final class ChatBook {
         return open("New chat", p);
     }
 
+    /**
+     * "New chat": a clean start for every persona. {@code persona} gets an empty chat now; the others get theirs when
+     * they are first switched to ({@link #forPersona}), so no empty chats pile up in the list.
+     */
+    public synchronized Section freshForAll(String persona) {
+        freshFrom = next;
+        return fresh(persona);
+    }
+
     public synchronized boolean use(String id) {
         for (Section s : sections) {
             if (s.id.equals(id)) {
@@ -174,8 +188,8 @@ public final class ChatBook {
         }
         for (int i = sections.size() - 1; i >= 0; i--) {
             Section s = sections.get(i);
-            if (!s.archived && p.equals(s.persona)) {
-                currentId = s.id;
+            if (!s.archived && p.equals(s.persona) && (number(s.id) >= freshFrom || s.messages.isEmpty())) {
+                currentId = s.id; // its chat since the last New chat (or an empty one)
                 save();
                 return s;
             }
@@ -619,6 +633,7 @@ public final class ChatBook {
                 }
             }
             currentId = MiniJson.str(root.get("current"), sections.isEmpty() ? null : sections.get(0).id);
+            freshFrom = (int) MiniJson.num(root.get("freshFrom"), 0);
         } catch (RuntimeException | IOException ignored) {
             sections.clear();
             shared.clear();
@@ -643,6 +658,7 @@ public final class ChatBook {
         }
         Map<String, Object> root = new LinkedHashMap<String, Object>();
         root.put("current", currentId);
+        root.put("freshFrom", Integer.valueOf(freshFrom));
         root.put("shared", new ArrayList<String>(shared));
         root.put("projects", new ArrayList<String>(projects));
         List<Object> list = new ArrayList<Object>();
