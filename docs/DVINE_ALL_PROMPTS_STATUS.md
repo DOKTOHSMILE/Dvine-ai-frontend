@@ -168,6 +168,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 135 | Compare (DVINE steps vs Claude Code): finish instead of ending on a plan, fewer notes, no check rows | P12 | Built | 0.89.4 |
 | 136 | Make the work notes like Claude: consolidated explanations, then the steps, not a one-liner per step | P12 | Built | 0.89.5 |
 | 137 | New chat starts a clean chat for all three personas, not only the one on screen | P12 | Built | 0.89.6 |
+| 138 | Full screen 3D with the message box inside; deep look at the render (real floor grid, tyres as rings); designs cut off at 3 minutes; Listen per part, one Copy at the end | P12 | Built | 0.89.7 |
 
 ## Still open, in the order that matters
 

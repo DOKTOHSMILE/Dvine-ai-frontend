@@ -49,9 +49,10 @@ public class SolidMeshTest {
             maxY = Math.max(maxY, y);
             minZ = Math.min(minZ, z);
             maxZ = Math.max(maxZ, z);
-            assertEquals(0.75f, s.verts[i + 6], 0.001f);
-            assertEquals(0.82f, s.verts[i + 7], 0.001f);
-            assertEquals(0.95f, s.verts[i + 8], 0.001f);
+            // metal: the natural steel colour (SolidSurface.tint)
+            assertEquals(0.70f, s.verts[i + 6], 0.001f);
+            assertEquals(0.74f, s.verts[i + 7], 0.001f);
+            assertEquals(0.80f, s.verts[i + 8], 0.001f);
         }
         float span = Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ));
         assertEquals(2f, span, 0.02f);

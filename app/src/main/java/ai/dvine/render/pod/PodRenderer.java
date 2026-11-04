@@ -131,10 +131,9 @@ public final class PodRenderer {
         gl.disable(GlApi.BLEND);
         float[] centre = ndc(l, 0f, 0f, 0f);
         if (studio) {
-            // the modelling studio: a grey viewport with a floor grid and the red and green axes, as in Blender
+            // the modelling studio: a grey backdrop as in Blender (its floor grid is drawn under the design itself)
             gl.useProgram(studioProg);
             gl.uniform2f(gl.uniform(studioProg, "uRes"), width, height);
-            gl.uniform1f(gl.uniform(studioProg, "uHorizon"), centre[1] - 0.05f);
             attrib(quadVbo, 0, 2, 8, 0);
             gl.drawArrays(GlApi.TRIANGLES, 0, 3);
             off(1);
@@ -471,28 +470,15 @@ public final class PodRenderer {
             + "}\n";
 
     /** A modelling studio's viewport: grey gradient, a floor grid in perspective that fades away, the X (red) and Y (green) axes. */
+    // the modelling studio's backdrop, as in Blender: a soft grey gradient with a light vignette. The floor grid and
+    // the red and green axes are real geometry under the design (StageRenderer.gridLines), so they turn with it.
     static final String STUDIO_FS = "#version 300 es\n"
             + "precision highp float;\n"
-            + "uniform vec2 uRes; uniform float uHorizon;\n"
+            + "uniform vec2 uRes;\n"
             + "out vec4 o;\n"
             + "void main(){\n"
-            + "  vec2 p=gl_FragCoord.xy/uRes*2.0-1.0; float asp=uRes.x/uRes.y;\n"
-            + "  vec3 col=mix(vec3(0.150,0.152,0.158),vec3(0.245,0.247,0.255),clamp(0.5+0.5*p.y,0.0,1.0));\n"
-            + "  float dy=uHorizon-p.y;\n"
-            + "  if(dy>0.002){\n"
-            + "    float dist=1.4/dy;\n"
-            + "    vec2 w=vec2(p.x*asp*dist*0.75,dist);\n"
-            + "    vec2 c=w*0.5; vec2 fw=max(fwidth(c),vec2(1e-4));\n"
-            + "    vec2 g=abs(fract(c-0.5)-0.5)/fw; float minor=1.0-min(min(g.x,g.y),1.0);\n"
-            + "    vec2 c5=w*0.1; vec2 fw5=max(fwidth(c5),vec2(1e-4));\n"
-            + "    vec2 g5=abs(fract(c5-0.5)-0.5)/fw5; float major=1.0-min(min(g5.x,g5.y),1.0);\n"
-            + "    float fade=exp(-dist*0.045)*smoothstep(0.0,0.05,dy);\n"
-            + "    col=mix(col,vec3(0.29,0.29,0.30),minor*0.55*fade);\n"
-            + "    col=mix(col,vec3(0.34,0.34,0.35),major*0.7*fade);\n"
-            + "    float z0=1.4/0.35; float ax=abs(w.y-z0)/max(fwidth(w.y),1e-4); float ay=abs(w.x)/max(fwidth(w.x),1e-4);\n"
-            + "    col=mix(col,vec3(0.66,0.22,0.24),(1.0-min(ax*0.6,1.0))*fade);\n"
-            + "    col=mix(col,vec3(0.45,0.64,0.20),(1.0-min(ay*0.6,1.0))*fade);\n"
-            + "  }\n"
+            + "  vec2 p=gl_FragCoord.xy/uRes*2.0-1.0;\n"
+            + "  vec3 col=mix(vec3(0.140,0.142,0.148),vec3(0.255,0.257,0.265),clamp(0.5+0.5*p.y,0.0,1.0));\n"
             + "  float v=length(p*vec2(0.9,1.0)); col*=1.0-0.18*smoothstep(0.6,1.5,v);\n"
             + "  o=vec4(col,1.0);\n"
             + "}\n";

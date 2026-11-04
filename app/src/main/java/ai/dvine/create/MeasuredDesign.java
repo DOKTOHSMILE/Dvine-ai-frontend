@@ -22,7 +22,7 @@ import ai.dvine.geom.TriMesh;
  * Sizes are width (x, left to right) × height (y, up) × depth (z, back to front); "at" is the centre of the part's
  * footprint and the height of its bottom above the ground; units are ft, in, m, cm or mm (per line or from UNITS).
  * Shapes: box, cylinder (upright; width is the diameter), cylinder-x / cylinder-z (lying along that axis), sphere,
- * cone, gable roof (ridge along x), hip roof, pyramid. DVINE converts the numbers to geometry in metres and checks
+ * cone, torus-x / torus-z / torus (rings: tyres, hoops), gable roof (ridge along x), hip roof, pyramid. DVINE converts the numbers to geometry in metres and checks
  * them: every size real, nothing floating in the air, everything on its land. Pure Java.
  */
 public final class MeasuredDesign {
@@ -75,6 +75,29 @@ public final class MeasuredDesign {
 
     // ------------------------------------------------------------------ the two steps
 
+    /** What a design call is doing, in words for the steps ("Writing the design brief"), from its instructions. */
+    public static String stageOf(String system) {
+        if (system == null) {
+            return "Designing it";
+        }
+        if (system.equals(EXPAND)) {
+            return "Writing the full design specification";
+        }
+        if (system.equals(BRIEF)) {
+            return "Writing the design brief";
+        }
+        if (system.equals(PARTS) || system.equals(PARTS_FULL)) {
+            return "Working out every part's exact size and position";
+        }
+        if (system.equals(FIX)) {
+            return "Fixing the parts that don't fit together";
+        }
+        if (system.equals(CHANGE)) {
+            return "Changing the measurements";
+        }
+        return "Designing it";
+    }
+
     static final String BRIEF = "You are DVINE's designer. The user wants a 3D model built. Write the design brief the"
             + " builder needs: the overall size, then each part this thing really has (nothing it doesn't have), with its"
             + " width, height and depth, how many there are and where each goes, and its material or colour; and what it"
@@ -83,7 +106,7 @@ public final class MeasuredDesign {
 
     static final String PARTS = "Turn the design brief into parts for the 3D builder: one part a line, in this form\n"
             + "name | shape | material or colour | width x height x depth unit | where it goes\n"
-            + "Shapes: box, cylinder, cylinder-x, cylinder-z, sphere, cone, gable roof, hip roof, pyramid. Where it goes, in"
+            + "Shapes: box, cylinder, cylinder-x, cylinder-z, sphere, cone, torus-x / torus-z (a ring standing along that axis: a tyre; width or depth is its thickness), torus (a flat ring), gable roof, hip roof, pyramid. Where it goes, in"
             + " words, against a part on an earlier line: on the ground; on <part>; under <part>; in the front of <part>"
             + " (also back, left, right: a window or door set into that face); beside <part> on the left (right, front,"
             + " back). Add N ft up or N m left to move it, and repeat N for a row spread evenly. Name each part plainly"
@@ -110,7 +133,7 @@ public final class MeasuredDesign {
     static final String PARTS_FULL = "Turn the design brief into the complete part list for DVINE's 3D engine, one part a line:\n"
             + "name | shape | material or colour | width x height x depth unit | at x, y, z\n"
             + "Start with UNITS: and the unit. Shapes: box, cylinder (upright, width = diameter), cylinder-x, cylinder-z"
-            + " (lying along that axis), sphere, cone, gable roof (ridge along x), hip roof, pyramid. Coordinates: x left to"
+            + " (lying along that axis), sphere, cone, torus-x / torus-z (a ring standing along that axis, as a tyre; its width or depth is the tube's thickness), torus (a flat ring), gable roof (ridge along x), hip roof, pyramid. Coordinates: x left to"
             + " right, y up, z back to front; at = the centre of the part's footprint (x, z) and the height of its bottom"
             + " above the ground (y); the ground is y = 0. Work the coordinates out exactly so parts touch and nothing"
             + " floats or overlaps by mistake: each storey stands on the slab below, the roof sits on the top walls, every"
@@ -646,6 +669,18 @@ public final class MeasuredDesign {
                 return Geo.hip(p.x, p.y, p.z, p.w, p.d, p.h);
             case "pyramid":
                 return Geo.frustum(p.x, cy, p.z, p.w, p.d, 0.01f, 0.01f, p.h, p.turn);
+            case "torus-x": { // a tyre facing sideways (a bicycle's or car's wheel): width is its thickness
+                float outer = Math.min(p.h, p.d) / 2, tube = Math.min(p.w / 2, outer * 0.45f);
+                return Geo.torus(p.x, cy, p.z, Math.max(outer - tube, tube * 0.2f), tube, "x", 32, 12);
+            }
+            case "torus-z": {
+                float outer = Math.min(p.w, p.h) / 2, tube = Math.min(p.d / 2, outer * 0.45f);
+                return Geo.torus(p.x, cy, p.z, Math.max(outer - tube, tube * 0.2f), tube, "z", 32, 12);
+            }
+            case "torus": { // a ring lying flat
+                float outer = Math.min(p.w, p.d) / 2, tube = Math.min(p.h / 2, outer * 0.45f);
+                return Geo.torus(p.x, cy, p.z, Math.max(outer - tube, tube * 0.2f), tube, "y", 32, 12);
+            }
             default:
                 return Geo.box(p.x, cy, p.z, p.w, p.h, p.d, p.turn);
         }
@@ -685,6 +720,9 @@ public final class MeasuredDesign {
             case "gable": case "pitched": case "gabled": case "triangle": case "prism": return "gable";
             case "hip": case "hipped": return "hip";
             case "pyramid": return "pyramid";
+            case "torus-x": case "torus x": case "ring-x": case "ring x": case "tyre": case "tire": case "wheel": return "torus-x";
+            case "torus-z": case "torus z": case "ring-z": case "ring z": return "torus-z";
+            case "torus": case "ring": case "donut": case "doughnut": case "hoop": return "torus";
             default: return null;
         }
     }
@@ -744,7 +782,7 @@ public final class MeasuredDesign {
         List<String> counts = new ArrayList<String>();
         for (java.util.Map.Entry<String, Integer> e : kinds.entrySet()) {
             if (e.getValue() > 1) {
-                counts.add(e.getValue() + " " + e.getKey() + "s");
+                counts.add(e.getValue() + " " + (e.getKey().endsWith("s") ? e.getKey() : e.getKey() + "s")); // "2 chain-stays", not "stayss"
             }
         }
         if (!counts.isEmpty()) {

@@ -99,7 +99,8 @@ public final class ChatPane extends LinearLayout {
         openActions = null;
         ChatBook.Section cur = book.current();
         StringBuilder reply = new StringBuilder(); // the whole of the assistant's turn, for its Copy and Listen
-        int parts = 0; // how many parts of the turn have their own Copy and Listen
+        int parts = 0; // how many parts of the turn have their own Listen
+        lastPartBar = null;
         String work = null; // this reply's Diff, Pull requests and Artifacts, shown under it
         if (!cur.id.equals(windowChat)) {
             windowChat = cur.id; // another chat: it opens at its latest messages again
@@ -123,7 +124,8 @@ public final class ChatPane extends LinearLayout {
                             for (String piece : para.length() > CHUNK ? chunks(para, CHUNK) : java.util.Collections.singletonList(para)) {
                                 shown = bubble(new ChatBook.Message(m.role, m.kind, piece, m.persona, m.language));
                                 thread.addView(shown);
-                                thread.addView(partActions(piece));
+                                lastPartBar = partActions(piece);
+                                thread.addView(lastPartBar);
                                 parts++;
                             }
                         }
@@ -158,12 +160,14 @@ public final class ChatPane extends LinearLayout {
                 work = null;
             }
             if (lastOfTurn && reply.length() > 0) {
-                if (parts != 1 || reply.indexOf("```") >= 0) {
-                    // several parts (or code): the whole turn can still be copied or heard in one go
-                    thread.addView(wholeActions(reply.toString(), stripCode(reply.toString())));
+                if (parts == 1 && lastPartBar != null) {
+                    thread.removeView(lastPartBar); // one part: the end's Listen is the same, shown once
                 }
+                // at the end: Copy for the whole reply at once, and Listen to all of it, as icons
+                thread.addView(actions(reply.toString(), stripCode(reply.toString())));
                 reply.setLength(0);
                 parts = 0;
+                lastPartBar = null;
             }
         }
         title(cur);
@@ -1665,35 +1669,15 @@ public final class ChatPane extends LinearLayout {
         return !para.contains("\n") && (para.startsWith("#") || para.matches("^\\*\\*[^*]{1,60}\\*\\*:?$"));
     }
 
-    /** Copy and Listen under one part of a reply: that part alone is copied or read aloud. */
-    private View partActions(String piece) {
-        View bar = actions(piece, stripCode(piece));
-        bar.setPadding(0, 0, 0, dp(6));
-        return bar;
-    }
+    /** The Listen under the part drawn last (removed when the reply has only that part). */
+    private View lastPartBar;
 
-    /** Under a reply of several parts: "Copy all" and "Listen to all", as small words. */
-    private View wholeActions(final String all, final String spoken) {
+    /** Listen under one part of a reply: that part alone is read aloud (Copy is once, at the end, for all of it). */
+    private View partActions(String piece) {
         LinearLayout bar = new LinearLayout(getContext());
-        bar.setOrientation(HORIZONTAL);
-        bar.setPadding(0, 0, 0, dp(10));
-        TextView copy = plain("Copy all");
-        TextView listen = plain("Listen to all");
-        for (TextView t : new TextView[]{copy, listen}) {
-            t.setTextSize(12.5f);
-            t.setTextColor(color(R.color.text_secondary));
-            t.setPadding(dp(4), dp(8), dp(14), dp(8));
-            bar.addView(t);
-        }
-        copy.setOnClickListener(v -> {
-            copyText(all);
-            android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
-        });
-        listen.setOnClickListener(v -> {
-            readingStopped();
-            boolean on = host.onReadAloudToggle(spoken);
-            listen.setText(on ? "Pause" : "Listen to all");
-        });
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setPadding(0, 0, 0, dp(6));
+        bar.addView(listenButton(stripCode(piece), "Listen to this part"));
         return bar;
     }
 
@@ -1706,18 +1690,24 @@ public final class ChatPane extends LinearLayout {
             copyText(all);
             android.widget.Toast.makeText(getContext(), "Copied", android.widget.Toast.LENGTH_SHORT).show();
         }));
-        final android.widget.ImageButton listen = (android.widget.ImageButton) icon(R.drawable.ic_speaker, "Read aloud", null);
+        bar.addView(listenButton(spoken, "Read aloud"));
+        return bar;
+    }
+
+    /** A speaker icon that reads {@code spoken} aloud, and turns to Pause while it does. */
+    private View listenButton(final String spoken, final String label) {
+        final android.widget.ImageButton listen = (android.widget.ImageButton) icon(R.drawable.ic_speaker, label, null);
         listen.setOnClickListener(v -> {
             if (readingButton != null && readingButton != listen) {
-                readingStopped(); // another reply's button goes back to Listen
+                readingStopped(); // another button goes back to Listen
             }
             boolean on = host.onReadAloudToggle(spoken);
             listen.setImageResource(on ? R.drawable.ic_pause : R.drawable.ic_speaker);
-            listen.setContentDescription(on ? "Pause reading" : "Read aloud");
+            listen.setContentDescription(on ? "Pause reading" : label);
             readingButton = on ? listen : null;
         });
-        bar.addView(listen);
-        return bar;
+        listen.setTag(label);
+        return listen;
     }
 
     /** The Listen button of the reply being read aloud (showing pause); null when nothing is being read. */
@@ -1727,7 +1717,7 @@ public final class ChatPane extends LinearLayout {
     public void readingStopped() {
         if (readingButton != null) {
             readingButton.setImageResource(R.drawable.ic_speaker);
-            readingButton.setContentDescription("Read aloud");
+            readingButton.setContentDescription(String.valueOf(readingButton.getTag() == null ? "Read aloud" : readingButton.getTag()));
             readingButton = null;
         }
     }

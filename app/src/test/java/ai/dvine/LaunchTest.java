@@ -196,8 +196,11 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.view.View root = c.get().getWindow().getDecorView();
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
-        root.findViewsWithText(found, "Read aloud", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        root.findViewsWithText(found, "Listen to this part", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         org.junit.Assert.assertTrue("each part has its own Listen: the note and both paragraphs", found.size() >= 3);
+        java.util.ArrayList<android.view.View> copies = new java.util.ArrayList<android.view.View>();
+        root.findViewsWithText(copies, "Copy", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        org.junit.Assert.assertEquals("one Copy, at the end, for the whole reply", 1, copies.size());
         c.pause().stop().destroy();
     }
 
