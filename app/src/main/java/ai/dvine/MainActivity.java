@@ -151,6 +151,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
         }
     };
+    /**
+     * True while a 3D design runs: the model is asked several times (the specification, the brief, every part, the
+     * fixes), each a long answer with no words shown, so the 3-minute "no first word" limit for a reply doesn't apply.
+     */
+    private volatile boolean designing;
+    /** The longest a 3D design may run before it is given up (an API's long thinking, several calls). */
+    static final long DESIGN_MS = 15 * 60_000L;
+
     /** How long the phone's own model may take to its first word (reading a long question on a slow phone). */
     static final long PHONE_FIRST_WORD_MS = 600_000L;
 
@@ -161,8 +169,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             pace.tick(System.currentTimeMillis());
-            if (inFront && pace.wordCount() == 0
-                    && System.currentTimeMillis() - thinkStartedMs > (model != null && !model.remoteOn() ? PHONE_FIRST_WORD_MS : 180_000L)) {
+            long limit = designing ? DESIGN_MS : model != null && !model.remoteOn() ? PHONE_FIRST_WORD_MS : 180_000L;
+            if (inFront && pace.wordCount() == 0 && System.currentTimeMillis() - thinkStartedMs > limit) {
                 handler.post(() -> {
                     if (thinkPace == null) {
                         return;
@@ -177,7 +185,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                 ? model.spec.weights + " didn't start answering in " + PHONE_FIRST_WORD_MS / 60_000 + " minutes on this phone. A"
                                         + " smaller model, fewer threads or less memory (Settings \u203A Test the speed shows which is"
                                         + " quicker), or an API, would answer sooner."
-                                : "I couldn't finish that on this phone."), null);
+                                : designing ? "The design took longer than " + DESIGN_MS / 60_000 + " minutes, so I stopped it. Ask"
+                                        + " again, or for a simpler version first."
+                                : "The model didn't start answering in 3 minutes, so I stopped waiting. Ask again in a moment."), null);
                     }
                 });
                 return;
@@ -318,7 +328,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             close.setOnClickListener(v -> showIvieCanvas(false));
             int s = Math.round(36 * getResources().getDisplayMetrics().density);
             canvas.addView(close, new android.widget.FrameLayout.LayoutParams(s, s, android.view.Gravity.END | android.view.Gravity.TOP));
-            // full screen: the design space fills the screen between the title and the message box (tap again to shrink)
+            // full screen: the design space covers the whole screen with the message box inside it (tap again to shrink)
             android.widget.ImageView full = new android.widget.ImageView(this);
             full.setImageResource(R.drawable.ic_fullscreen);
             full.setColorFilter(getColor(R.color.text_primary));
@@ -339,18 +349,73 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean designFull;
 
     /** The design space full screen (between the title and the message box), or back to its card above the chat. */
+    /**
+     * Full screen: the 3D space covers the whole screen, edge to edge, with the phone's bars hidden (a swipe from the
+     * edge shows them for a moment), and the message box floats inside it at the bottom, so the user keeps talking to
+     * Ivie over the scene. The title bar and the chat are hidden until the user shrinks it again (the button, or Back).
+     * The message box moves, not the 3D view: moving a GL view would rebuild its surface.
+     */
     private void designFullScreen(boolean on) {
         android.widget.FrameLayout canvas = findViewById(R.id.ivieCanvas);
         android.view.View chat = findViewById(R.id.chatPaneHost);
-        if (canvas == null || chat == null) {
+        android.view.View composer = findViewById(R.id.composerBar);
+        android.widget.LinearLayout root = findViewById(R.id.chatScreenRoot);
+        if (canvas == null || chat == null || composer == null || root == null || on == designFull) {
             return;
         }
         designFull = on;
+        int[] hide = {R.id.chatHeader, R.id.banner_crash};
         android.widget.LinearLayout.LayoutParams lp = (android.widget.LinearLayout.LayoutParams) canvas.getLayoutParams();
-        lp.height = on ? 0 : Math.round(300 * getResources().getDisplayMetrics().density);
-        lp.weight = on ? 1f : 0f;
+        int side = Math.round(16 * getResources().getDisplayMetrics().density);
+        if (on) {
+            canvasBackground = canvas.getBackground();
+            hidden.clear();
+            for (int id : hide) {
+                android.view.View v = findViewById(id);
+                if (v != null && v.getVisibility() == android.view.View.VISIBLE) {
+                    hidden.add(v);
+                    v.setVisibility(android.view.View.GONE);
+                }
+            }
+            chat.setVisibility(android.view.View.GONE);
+            lp.height = 0;
+            lp.weight = 1f;
+            lp.setMargins(0, 0, 0, 0);
+            canvas.setBackground(null); // edge to edge: no card, no rounded corners
+            canvas.setClipToOutline(false);
+            composerAt = root.indexOfChild(composer);
+            composerParams = composer.getLayoutParams();
+            root.removeView(composer);
+            composerBackground = composer.getBackground();
+            composer.setBackground(null); // only the rounded message box floats over the scene, not a bar
+            canvas.addView(composer, new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.BOTTOM));
+        } else {
+            for (android.view.View v : hidden) {
+                v.setVisibility(android.view.View.VISIBLE);
+            }
+            hidden.clear();
+            chat.setVisibility(android.view.View.VISIBLE);
+            lp.height = Math.round(300 * getResources().getDisplayMetrics().density);
+            lp.weight = 0f;
+            lp.setMargins(side, 0, side, Math.round(8 * getResources().getDisplayMetrics().density));
+            canvas.setBackground(canvasBackground);
+            canvas.setClipToOutline(true);
+            canvas.removeView(composer);
+            composer.setBackground(composerBackground);
+            root.addView(composer, Math.min(Math.max(0, composerAt), root.getChildCount()), composerParams);
+        }
         canvas.setLayoutParams(lp);
-        chat.setVisibility(on ? android.view.View.GONE : android.view.View.VISIBLE);
+        androidx.core.view.WindowInsetsControllerCompat bars = androidx.core.view.WindowCompat.getInsetsController(getWindow(), root);
+        if (bars != null) {
+            if (on) {
+                bars.setSystemBarsBehavior(androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                bars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+            } else {
+                bars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+            }
+        }
         for (int i = 0; i < canvas.getChildCount(); i++) {
             android.view.View c = canvas.getChildAt(i);
             if ("Full screen".contentEquals(String.valueOf(c.getContentDescription())) || "Shrink".contentEquals(String.valueOf(c.getContentDescription()))) {
@@ -359,6 +424,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
         }
     }
+
+    /** What full screen hid or moved, to put back. */
+    private final java.util.List<android.view.View> hidden = new java.util.ArrayList<android.view.View>();
+    private android.graphics.drawable.Drawable canvasBackground, composerBackground;
+    private int composerAt = -1;
+    private android.view.ViewGroup.LayoutParams composerParams;
 
     /**
      * Ivie does the graphics: on her tab a drawing, a 3D build, an edit of what is on show ("make the wheels bigger"),
@@ -1118,6 +1189,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     @Override
     public void onBackPressed() {
+        if (designFull) {
+            designFullScreen(false); // Back leaves full screen first
+            return;
+        }
         android.view.View drawer = findViewById(R.id.historyDrawer);
         if (drawer != null && drawer.getVisibility() == android.view.View.VISIBLE) {
             closeDrawer();
@@ -4206,7 +4281,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // there are no built-in objects: the model designs each thing with its measurements, and changes them; an API
         // model is given the full design request (every part's exact coordinates), the phone's model the simpler one
         boolean capable = model != null && model.remoteOn();
-        creation.setDesigner(modelOn() ? (system, prompt, max) -> model.task(system, prompt, max, null) : null,
+        creation.setDesigner(modelOn() ? (system, prompt, max) -> {
+                    final String doing = ai.dvine.create.MeasuredDesign.stageOf(system);
+                    handler.post(() -> activity(doing)); // each design step shows as it starts
+                    return model.task(system, prompt, max, null);
+                } : null,
                 capable ? ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs) : ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), capable);
         boolean slow = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.CREATE
                 || r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY
@@ -4225,8 +4304,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 : r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.MODIFY ? "Changing the measurements"
                 : creation.researchAvailable() ? "Researching it and working out the measurements" : "Working out the measurements";
         armThink(phase, phase);
+        designing = true; // several long model calls with no words between them: not a reply that stalled
         buildThread.execute(() -> {
-            final ai.dvine.create.CreationDirector.Outcome o = creation.perform(r);
+            ai.dvine.create.CreationDirector.Outcome made;
+            try {
+                made = creation.perform(r);
+            } finally {
+                designing = false;
+            }
+            final ai.dvine.create.CreationDirector.Outcome o = made;
             handler.post(() -> {
                 if (id == askId && !isFinishing()) {
                     endThink();

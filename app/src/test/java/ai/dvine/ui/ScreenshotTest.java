@@ -365,6 +365,41 @@ public class ScreenshotTest {
         c.pause().stop().destroy();
     }
 
+    @Test(timeout = 180000)
+    public void rendersTheFullScreenDesignSpace() throws Exception {
+        OUT.mkdirs();
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        MainActivity a = c.get();
+        java.lang.reflect.Method canvasM = MainActivity.class.getDeclaredMethod("showIvieCanvas", boolean.class);
+        canvasM.setAccessible(true);
+        canvasM.invoke(a, true);
+        java.lang.reflect.Method full = MainActivity.class.getDeclaredMethod("designFullScreen", boolean.class);
+        full.setAccessible(true);
+        full.invoke(a, true);
+        // the 3D stage's frames never settle under Robolectric (no GPU): stop them before idling
+        java.lang.reflect.Field st = MainActivity.class.getDeclaredField("stage");
+        st.setAccessible(true);
+        java.lang.reflect.Method stop = ai.dvine.stage.StageView.class.getDeclaredMethod("stopFrames");
+        stop.setAccessible(true);
+        stop.invoke(st.get(a));
+        ShadowLooper.idleMainLooper();
+        android.view.View composer = a.findViewById(ai.dvine.R.id.composerBar);
+        android.view.ViewGroup canvas = a.findViewById(ai.dvine.R.id.ivieCanvas);
+        assertTrue("the message box is inside the 3D space", composer.getParent() == canvas);
+        assertTrue("no title bar", a.findViewById(ai.dvine.R.id.chatHeader).getVisibility() != android.view.View.VISIBLE);
+        assertTrue("no chat", a.findViewById(ai.dvine.R.id.chatPaneHost).getVisibility() != android.view.View.VISIBLE);
+        shoot(a, "9_design_full_screen");
+        android.view.View root = a.findViewById(ai.dvine.R.id.chatScreenRoot);
+        assertTrue("the 3D space covers the screen", canvas.getHeight() >= root.getHeight() - 2 && canvas.getWidth() >= root.getWidth() - 2);
+        a.onBackPressed(); // Back shrinks it
+        stop.invoke(st.get(a));
+        ShadowLooper.idleMainLooper();
+        assertTrue("the message box is back under the chat", composer.getParent() == root);
+        assertTrue(a.findViewById(ai.dvine.R.id.chatHeader).getVisibility() == android.view.View.VISIBLE);
+        c.pause().stop().destroy();
+    }
+
     private static void shoot(android.app.Activity a, String name) throws Exception {
         android.view.View root = a.getWindow().getDecorView();
         int w = 1080, h = 2340;

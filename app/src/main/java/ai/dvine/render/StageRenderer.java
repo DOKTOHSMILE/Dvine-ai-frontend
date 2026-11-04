@@ -105,6 +105,9 @@ public final class StageRenderer {
                 return;
             }
             solidVerts = java.util.Arrays.copyOf(surface.verts, surface.verts.length);
+            gridVerts = gridLines(solidVerts);
+            gridReach = reachOf(gridVerts);
+            gridDirty = true;
             solidIndices = java.util.Arrays.copyOf(surface.indices, surface.indices.length);
             solidTriangles = surface.triangles;
             solidDirty = true;
@@ -163,6 +166,77 @@ public final class StageRenderer {
 
     // ------------------------------------------------------------ GL thread
 
+    /** The design's floor: a grid with the red X and green Z axes, like Blender's (false hides it). */
+    public volatile boolean grid = true;
+    private int gridProg, gridVbo, gridUploaded = -1;
+    private float[] gridVerts = new float[0];
+    private boolean gridDirty;
+    private float gridReach = 1f;
+
+    /** How far the floor reaches from the origin (its outermost line). */
+    static float reachOf(float[] grid) {
+        float r = 1e-3f;
+        for (int i = 0; i + 2 < grid.length; i += GRID_STRIDE) {
+            r = Math.max(r, Math.max(Math.abs(grid[i]), Math.abs(grid[i + 2])));
+        }
+        return r;
+    }
+    /** Floats per grid vertex: position, then colour with alpha. */
+    static final int GRID_STRIDE = 7;
+
+    /**
+     * The floor under a design, in the design's own space so it turns, tips and zooms with it: lines on the plane of
+     * its lowest point, a round number apart (1, 2 or 5 times a power of ten) so about a dozen cross the design,
+     * reaching 2.5 times its size around it, every fifth line brighter; the X axis red and the Z axis green through
+     * the origin. {@code verts} is the mesh ({@link ai.dvine.stage.SolidSurface#STRIDE} floats a vertex).
+     */
+    static float[] gridLines(float[] verts) {
+        int stride = ai.dvine.stage.SolidSurface.STRIDE;
+        if (verts == null || verts.length < stride) {
+            return new float[0];
+        }
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+        for (int i = 0; i + 2 < verts.length; i += stride) {
+            minX = Math.min(minX, verts[i]);
+            maxX = Math.max(maxX, verts[i]);
+            minY = Math.min(minY, verts[i + 1]);
+            minZ = Math.min(minZ, verts[i + 2]);
+            maxZ = Math.max(maxZ, verts[i + 2]);
+        }
+        float span = Math.max(1e-4f, Math.max(maxX - minX, maxZ - minZ));
+        float step = niceStep(span / 12f);
+        float reach = span * 2.5f;
+        int n = Math.max(1, (int) Math.ceil(reach / step));
+        float y = minY - span * 0.002f; // just under the design, so its base is never hidden by the floor
+        java.util.ArrayList<float[]> lines = new java.util.ArrayList<float[]>();
+        for (int k = -n; k <= n; k++) {
+            float at = k * step;
+            boolean major = k % 5 == 0;
+            float[] c = k == 0 ? null : major ? new float[]{0.42f, 0.42f, 0.44f, 0.75f} : new float[]{0.34f, 0.34f, 0.36f, 0.55f};
+            // lines along Z at x = at (the k = 0 one is the green Z axis), and along X at z = at (the red X axis)
+            lines.add(line(at, y, -n * step, at, y, n * step, k == 0 ? new float[]{0.52f, 0.80f, 0.22f, 1f} : c));
+            lines.add(line(-n * step, y, at, n * step, y, at, k == 0 ? new float[]{0.90f, 0.27f, 0.30f, 1f} : c));
+        }
+        float[] out = new float[lines.size() * 2 * GRID_STRIDE];
+        int o = 0;
+        for (float[] l : lines) {
+            System.arraycopy(l, 0, out, o, l.length);
+            o += l.length;
+        }
+        return out;
+    }
+
+    private static float[] line(float x0, float y0, float z0, float x1, float y1, float z1, float[] c) {
+        return new float[]{x0, y0, z0, c[0], c[1], c[2], c[3], x1, y1, z1, c[0], c[1], c[2], c[3]};
+    }
+
+    /** The round step nearest above {@code raw}: 1, 2 or 5 times a power of ten. */
+    static float niceStep(float raw) {
+        double p = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1e-6f))));
+        double f = raw / p;
+        return (float) ((f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p);
+    }
+
     /** A (new) GL context: everything is created from scratch (old handles died with the old context). */
     public void onCreated() {
         liveObjects = 0;
@@ -187,6 +261,14 @@ public final class StageRenderer {
         solidVbo = gl.buffer();
         solidIbo = gl.buffer();
         liveObjects += 2;
+        gridProg = gl.program(GRID_VS, GRID_FS);
+        if (gridProg != 0) {
+            liveObjects++;
+        }
+        gridVbo = gl.buffer();
+        liveObjects++;
+        gridUploaded = -1;
+        gridDirty = gridVerts.length > 0;
         solidUploadedVerts = -1;
         solidUploadedIndices = -1;
         solidDirty = solidTriangles > 0;
@@ -343,6 +425,43 @@ public final class StageRenderer {
         gl.disableAttrib(1);
         gl.disableAttrib(2);
         gl.disable(GlApi.CULL_FACE);
+        drawGrid();
+    }
+
+    /** The floor, after the design: lines behind it stay hidden (depth test), and the floor never hides it. */
+    private void drawGrid() {
+        float[] verts;
+        boolean dirty;
+        float reach;
+        synchronized (lock) {
+            verts = gridVerts;
+            reach = gridReach;
+            dirty = gridDirty;
+            gridDirty = false;
+        }
+        if (!grid || gridProg == 0 || gridVbo == 0 || verts.length == 0) {
+            return;
+        }
+        gl.bindBuffer(GlApi.ARRAY_BUFFER, gridVbo);
+        if (dirty || gridUploaded < 0) {
+            gl.bufferData(GlApi.ARRAY_BUFFER, verts.length * 4, floats(verts), GlApi.STATIC_DRAW);
+            gridUploaded = verts.length;
+        }
+        gl.useProgram(gridProg);
+        gl.uniformMatrix4(gl.uniform(gridProg, "uMvp"), solidMvp);
+        gl.uniform1f(gl.uniform(gridProg, "uReach"), reach);
+        gl.enable(GlApi.DEPTH_TEST);
+        gl.depthFunc(GlApi.LEQUAL);
+        gl.depthMask(false);
+        gl.enable(GlApi.BLEND);
+        gl.blendFunc(GlApi.SRC_ALPHA, GlApi.ONE_MINUS_SRC_ALPHA);
+        gl.vertexAttrib(0, 3, GRID_STRIDE * 4, 0);
+        gl.vertexAttrib(1, 4, GRID_STRIDE * 4, 12);
+        gl.drawArrays(GlApi.LINES, 0, verts.length / GRID_STRIDE);
+        gl.disableAttrib(0);
+        gl.disableAttrib(1);
+        gl.depthMask(true);
+        gl.disable(GlApi.BLEND);
     }
 
     /** Column-major {@code out = a * b}. */
@@ -378,6 +497,16 @@ public final class StageRenderer {
             liveObjects--;
             solidIbo = 0;
         }
+        if (gridProg != 0) {
+            gl.deleteProgram(gridProg);
+            liveObjects--;
+            gridProg = 0;
+        }
+        if (gridVbo != 0) {
+            gl.deleteBuffer(gridVbo);
+            liveObjects--;
+            gridVbo = 0;
+        }
         for (Field fl : fields) {
             if (fl.vbo != 0) {
                 gl.deleteBuffer(fl.vbo);
@@ -410,6 +539,14 @@ public final class StageRenderer {
             + "void main(){ vec2 c = gl_PointCoord * 2.0 - 1.0; float d = dot(c, c); if (d > 1.0) discard;\n"
             + "  float a = (uMode.w > 0.5 ? (1.0 - smoothstep(0.42, 1.0, d)) : (uMode.z > 0.5 ? (1.0 - smoothstep(0.45, 1.0, d)) * 0.95 : exp(-d * 3.0) * 0.8 + exp(-d * 12.0) * 0.6)) * vCol.a;\n"
             + "  o = vec4(vCol.rgb * a, a); }\n";
+    // the floor fades out with distance from the design, as Blender's grid does
+    static final String GRID_VS = "#version 300 es\n"
+            + "layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol;\n"
+            + "uniform mat4 uMvp; out vec4 vCol; out vec2 vXZ;\n"
+            + "void main(){ gl_Position = uMvp * vec4(aPos, 1.0); vCol = aCol; vXZ = aPos.xz; }\n";
+    static final String GRID_FS = "#version 300 es\n"
+            + "precision mediump float; in vec4 vCol; in vec2 vXZ; uniform float uReach; out vec4 o;\n"
+            + "void main(){ float f = 1.0 - smoothstep(uReach * 0.35, uReach, length(vXZ)); o = vec4(vCol.rgb, vCol.a * f); }\n";
     static final String SOLID_VS = "#version 300 es\n"
             + "layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec3 aCol;\n"
             + "uniform mat4 uMvp; uniform mat4 uModel; out vec3 vN; out vec3 vC;\n"

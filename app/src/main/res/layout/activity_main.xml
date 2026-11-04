@@ -161,7 +161,9 @@
             </LinearLayout>
         </FrameLayout>
 
-        <include layout="@layout/layout_chat_input" />
+        <include
+            android:id="@+id/composerBar"
+            layout="@layout/layout_chat_input" />
     </LinearLayout>
 
     <View

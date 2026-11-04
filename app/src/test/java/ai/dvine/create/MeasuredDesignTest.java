@@ -172,4 +172,33 @@ public class MeasuredDesignTest {
         assertTrue(d.read.errors.toString(), d.read.ok());
         assertEquals(5, d.read.parts.size());
     }
+
+    @org.junit.Test
+    public void tyresAreRingsAndCountsAreNotDoublePlural() {
+        MeasuredDesign.Read r = MeasuredDesign.read("UNITS: m\n"
+                + "rear tyre | torus-x | rubber | 0.05 x 0.68 x 0.68 | at 0, 0, -0.5\n"
+                + "front tyre | tyre | rubber | 0.05 x 0.68 x 0.68 | at 0, 0, 0.5\n"
+                + "left chain-stays | box | steel | 0.02 x 0.02 x 0.4 | at -0.05, 0.3, -0.25\n"
+                + "right chain-stays | box | steel | 0.02 x 0.02 x 0.4 | at 0.05, 0.3, -0.25\n");
+        org.junit.Assert.assertTrue(r.errors.toString(), r.errors.isEmpty());
+        org.junit.Assert.assertEquals("torus-x", r.parts.get(0).shape);
+        org.junit.Assert.assertEquals("a shape named tyre is a ring too", "torus-x", r.parts.get(1).shape);
+        for (String w : r.warnings) {
+            org.junit.Assert.assertFalse(w, w.contains("built as a box"));
+        }
+        ai.dvine.geom.TriMesh ring = MeasuredDesign.mesh(r.parts.get(0));
+        float minY = 9, maxY = -9, minX = 9, maxX = -9;
+        for (int i = 0; i < ring.pos.length; i += 3) {
+            minX = Math.min(minX, ring.pos[i]);
+            maxX = Math.max(maxX, ring.pos[i]);
+            minY = Math.min(minY, ring.pos[i + 1]);
+            maxY = Math.max(maxY, ring.pos[i + 1]);
+        }
+        org.junit.Assert.assertEquals("as tall as its diameter", 0.68f, maxY - minY, 0.01f);
+        org.junit.Assert.assertEquals("as thick as its width", 0.05f, maxX - minX, 0.01f);
+        org.junit.Assert.assertEquals("Working out every part's exact size and position", MeasuredDesign.stageOf(MeasuredDesign.PARTS_FULL));
+        org.junit.Assert.assertEquals("Writing the full design specification", MeasuredDesign.stageOf(MeasuredDesign.EXPAND));
+        String said = MeasuredDesign.summary(r, false);
+        org.junit.Assert.assertFalse(said, said.contains("stayss"));
+    }
 }

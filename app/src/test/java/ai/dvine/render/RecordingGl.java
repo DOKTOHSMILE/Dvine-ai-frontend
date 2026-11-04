@@ -14,6 +14,16 @@ public final class RecordingGl implements GlApi {
     int next = 1;
     final Map<String, Integer> locs = new HashMap<>();
     boolean first = true;
+    /** Writes the recording as cmds.json and data.bin into {@code dir}, for tools/gl_replay/play.html. */
+    public void write(File dir) throws IOException {
+        dir.mkdirs();
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(new File(dir, "cmds.json")), "UTF-8")) {
+            w.write(cmds.toString() + "]");
+        }
+        try (OutputStream o = new FileOutputStream(new File(dir, "data.bin"))) {
+            data.writeTo(o);
+        }
+    }
     void c(String s) { if (!first) cmds.append(",\n"); first = false; cmds.append(s); }
     static String q(String s) { StringBuilder b = new StringBuilder("\""); for (char ch : s.toCharArray()) { if (ch == '"' || ch == '\\') b.append('\\').append(ch); else if (ch == '\n') b.append("\\n"); else b.append(ch);} return b.append('"').toString(); }
     long blob(Buffer buf, int bytes) {

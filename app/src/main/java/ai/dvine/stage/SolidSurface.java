@@ -116,18 +116,34 @@ public final class SolidSurface {
 
     private static float[] tint(String material) {
         String m = material == null ? "" : material.toLowerCase(java.util.Locale.US);
+        // natural colours (lit by the mesh shader), not neon: a design should look like what it is made of
         if (m.contains("glass") || m.contains("water")) {
-            return new float[]{0.45f, 0.85f, 1f};
+            return new float[]{0.42f, 0.70f, 0.88f};
         }
-        if (m.contains("wood") || m.contains("brick") || m.contains("roof")) {
-            return new float[]{1f, 0.72f, 0.45f};
+        if (m.contains("brick")) {
+            return new float[]{0.66f, 0.34f, 0.26f};
+        }
+        if (m.contains("roof") || m.contains("tile") || m.contains("slate")) {
+            return new float[]{0.52f, 0.30f, 0.24f};
+        }
+        if (m.contains("wood") || m.contains("timber") || m.contains("oak")) {
+            return new float[]{0.66f, 0.47f, 0.30f};
         }
         if (m.contains("plant") || m.contains("grass") || m.contains("leaf")) {
-            return new float[]{0.5f, 1f, 0.6f};
+            return new float[]{0.36f, 0.56f, 0.28f};
         }
         if (m.contains("metal") || m.contains("steel")) {
-            return new float[]{0.75f, 0.82f, 0.95f};
+            return new float[]{0.70f, 0.74f, 0.80f};
         }
-        return new float[]{0.85f, 0.92f, 1f};
+        if (m.contains("rubber") || m.contains("tyre") || m.contains("tire")) {
+            return new float[]{0.17f, 0.17f, 0.18f};
+        }
+        if (m.contains("leather")) {
+            return new float[]{0.42f, 0.27f, 0.17f};
+        }
+        if (m.contains("concrete") || m.contains("stone") || m.contains("cement")) {
+            return new float[]{0.62f, 0.62f, 0.60f};
+        }
+        return new float[]{0.86f, 0.87f, 0.88f};
     }
 }
