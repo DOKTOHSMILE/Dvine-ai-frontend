@@ -17,3 +17,10 @@ then build/test.
       machine with JDK 17+: `./gradlew :app:testDebugUnitTest --tests 'ai.dvine.agent.CodeAgentTest'`
 - [x] Commit + push to `ibiko/localmodel-fixes` (247d592); PR #114 opened against `main`
 - [x] Report changed files
+- [x] Re-check PR #114 against the newer `main` (which merged PR #113 while this branch was open):
+      the branch's `run` tool doc (command chains allowed) and the `VoiceTuning` constants
+      (`ROBOT_BRIGHT 1.10f` / `ROBOT_QUICK 0.95f` / `ROBOT_BOOST 0.90f`) still match the code, so the
+      branch stays as it is; GitHub reports `mergeable: true` (no conflicts), only "behind" `main`.
+      Verified by fetching PR #114's patch, `main`'s `CodeAgent.java` and `VoiceTuning.java` and reading them.
+- [x] Commit + push `PLAN.md` (this progress) to `ibiko/localmodel-fixes`
+- [ ] Merge the branch into `main` so the user can test (PR #114 open, mergeable)
