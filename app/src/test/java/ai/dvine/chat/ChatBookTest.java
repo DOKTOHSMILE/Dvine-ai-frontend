@@ -63,6 +63,34 @@ public class ChatBookTest {
     }
 
     @org.junit.Test
+    public void newChatIsCleanForAllThreePersonas() throws Exception {
+        java.io.File f = java.nio.file.Files.createTempFile("chats", ".json").toFile();
+        f.delete();
+        ChatBook b = new ChatBook(f);
+        for (String p : new String[]{"obi", "ivie", "ibiko"}) {
+            b.forPersona(p);
+            b.add("user", "text", "old talk with " + p, p);
+        }
+        String oldIvie = b.forPersona("ivie").id;
+        ChatBook.Section obi = b.freshForAll("obi");
+        org.junit.Assert.assertTrue(obi.messages.isEmpty());
+        org.junit.Assert.assertTrue("Ivie starts clean too", b.forPersona("ivie").messages.isEmpty());
+        org.junit.Assert.assertTrue("and Ibiko", b.forPersona("ibiko").messages.isEmpty());
+        org.junit.Assert.assertNotEquals(oldIvie, b.current().id.equals(oldIvie) ? "" : oldIvie + "x");
+        b.add("user", "text", "new talk with ibiko", "ibiko");
+        String newIbiko = b.current().id;
+        b.forPersona("obi");
+        org.junit.Assert.assertEquals("back and forth keeps the new chats", newIbiko, b.forPersona("ibiko").id);
+        ChatBook again = new ChatBook(f); // kept on the phone
+        org.junit.Assert.assertTrue("after a restart Ivie is still clean", again.forPersona("ivie").messages.isEmpty());
+        boolean listed = false;
+        for (ChatBook.Section s : again.sections()) {
+            listed |= s.id.equals(oldIvie);
+        }
+        org.junit.Assert.assertTrue("the old chats stay in the list", listed);
+    }
+
+    @org.junit.Test
     public void chatsGoIntoProjectsAndProjectsAreKept() throws Exception {
         java.io.File f = java.nio.file.Files.createTempFile("chats", ".json").toFile();
         f.delete();

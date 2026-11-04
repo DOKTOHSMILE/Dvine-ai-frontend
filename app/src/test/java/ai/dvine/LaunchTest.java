@@ -295,7 +295,10 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         // Ibiko has work under way, and "where are we with that" was understood before as "give me the result"
         c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
-        java.nio.file.Files.write(new java.io.File(c.get().getFilesDir(), "agent-ibiko.txt").toPath(),
+        java.lang.reflect.Field bookF = MainActivity.class.getDeclaredField("chats");
+        bookF.setAccessible(true);
+        String chatId = ((ai.dvine.chat.ChatBook) bookF.get(c.get())).current().id; // the work is kept per chat
+        java.nio.file.Files.write(new java.io.File(c.get().getFilesDir(), "agent-ibiko-" + chatId + ".txt").toPath(),
                 "Task: audit the repo\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
         ai.dvine.turn.Meaning.Memory m = new ai.dvine.turn.Meaning.Memory();
