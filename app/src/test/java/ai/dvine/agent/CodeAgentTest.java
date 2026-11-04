@@ -206,6 +206,12 @@ public class CodeAgentTest {
         for (String s : phone.steps) {
             assertTrue(s, !s.contains("Checking that the answer is complete")); // DVINE's own check isn't a step
         }
+        // the device's small model works the same way: it explains its work, and a plan goes back to be done
+        Script small = new Script("Next: I'll list the files and check each tool.", "<tool name=\"list_files\" path=\".\"/>",
+                "All 12 tools match.");
+        CodeAgent compact = new CodeAgent(ws, small, new Phone(), "", 20_000).compact(true);
+        assertTrue(compact.system().contains("short paragraph of 2 to 4 plain sentences"));
+        assertEquals("All 12 tools match.", compact.run("audit the tools", ""));
         assertTrue(CodeAgent.promise("Next: verify each tool doc line against its runner, then build/test."));
         assertTrue(CodeAgent.promise("Checked the agent prompt and PhoneHost.\nNext: verify each tool, then build."));
         assertTrue(CodeAgent.promise("I'll fix the docs now."));

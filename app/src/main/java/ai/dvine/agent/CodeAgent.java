@@ -228,7 +228,7 @@ public final class CodeAgent {
                         + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step)\n"
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
                 + (connectorTools.trim().isEmpty() ? "" : "<tool name=\"connector\" call=\"name argument\"/> with one of:" + connectorTools + "\n")
-                + (compact ? "" : NOTE_WAY)
+                + NOTE_WAY // every model, the device's and an API's, explains its work the same way
                 + "Use exactly this <tool …> form, nothing else (no <tool_call>, no JSON), and stop right after the tool call:"
                 + " its result comes back in the next message. Never write a tool call into your final answer.\n"
                 + (readOnly || compact ? "" : SANDBOX + (git == null ? "" : GIT_WAY))
@@ -388,9 +388,10 @@ public final class CodeAgent {
             if (text.isEmpty()) {
                 continue;
             }
-            if (compact && !text.startsWith("<")) {
-                // a small model (the short instructions): asking it again whether it is done costs minutes on a phone
-                // and it can't tell the difference anyway; its plain answer is the answer
+            if (compact && !text.startsWith("<") && !(promise(text) && promises < 2)) {
+                // a small model (the short instructions): asking it again whether it is done costs minutes on a device
+                // and it can't tell the difference anyway; its plain answer is the answer, unless it only promised the
+                // work ("Next: …"), which goes back to be done, as with an API model
                 return text;
             }
             if (pending == null && text.length() < REPORT_CHARS) {

@@ -162,8 +162,8 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 ### 5.5 3D design (Ivie's canvas)
 1. You say what to make. If the request has no sizes, DVINE asks for them. "You choose" or "I don't know" means standard real-world sizes.
-2. **The phone's model** gets a short BRIEF, then PARTS lines in the format `name | shape | material | W x H x D unit | where`. The position can be absolute ("at x,y,z") or relative: on, under, in front of, beside, offsets, or repeat N spread evenly.
-3. **An API model** first expands the request into a full design brief (EXPAND), then gives every part's exact coordinates (PARTS_FULL), then fixes any problems (FIX).
+2. **Every model, the device's and an API's (since 0.89.9),** follows the same four steps: it expands the request into a full design specification (EXPAND), writes the brief (BRIEF), gives every part's exact coordinates (PARTS_FULL), then fixes any problems (FIX). Part lines use the format `name | shape | material | W x H x D unit | where`. The position can be absolute ("at x,y,z") or relative: on, under, in front of, beside, offsets, or repeat N spread evenly.
+3. The model in use does all of it; the device's model never takes over from an API (0.89.8). Each step shows in the chat as it starts.
 4. `MeasuredBuilder` builds the parts.
    - It accepts ft, in, m, cm and mm, swapped columns and table headers.
    - An unknown shape becomes a box, and a part it can't place is put on the ground. Both cases give a warning.
@@ -199,7 +199,7 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 ## 7. Testing and release
 
-- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (432 tests at 0.89.8). **Build:** `gradle :app:assembleDebug`.
+- **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (432 tests at 0.89.9). **Build:** `gradle :app:assembleDebug`.
 - **Real model on a desktop:** set `DVINE_NATIVE_LIB` and `DVINE_MODEL` to run tests against a real model (for example Qwen3 1.7B) through the real JNI bridge.
 - **Robolectric frame trap.** Under Robolectric, the stage's Choreographer frames never settle once a drawing is on stage. Tests that start a build must call `StageView.stopFrames()` before idling the looper. Otherwise the test hangs (fixed in `LaunchTest` at 0.89).
 - **Not run in the cloud:** `lintDebug` (dependency download is rate-limited) and anything on a phone. The phone checks are listed as "phone pending" in `BUILD_STATUS.md`.
@@ -264,6 +264,6 @@ Retired and not coming back unless asked: faces (line-art, wireframe, hologram, 
 | 0.86 | One gateway for every message, with checked results. |
 | 0.87 | The 21 built-in shapes deleted. |
 | 0.88 | Every built-in 3D sample deleted; 3D only from measurements; messages queue while busy; social switches and names; the sheet drags by its body. |
-| 0.89 | One route for builds and social jobs, measurements asked, the API design prompt, the studio, the full-screen canvas, the thinking star that glances like an eye, replies in short parts between the steps with voice on each, the voice compile fix. 0.89.1: the model narrates its own work between the steps. 0.89.2: crash reports saved to Download/DVINE. 0.89.3: a long chat draws only its latest messages (the freeze on Send). 0.89.4: Ibiko finishes instead of ending on a plan; fewer notes. 0.89.5: explanations like Claude's, a paragraph at each turning point. 0.89.6: New chat is clean for all three personas. 0.89.7: true full screen, a real 3D floor, tyres as rings, designs get 15 minutes. 0.89.8: "device" not "phone", the chosen model does every task. |
+| 0.89 | One route for builds and social jobs, measurements asked, the API design prompt, the studio, the full-screen canvas, the thinking star that glances like an eye, replies in short parts between the steps with voice on each, the voice compile fix. 0.89.1: the model narrates its own work between the steps. 0.89.2: crash reports saved to Download/DVINE. 0.89.3: a long chat draws only its latest messages (the freeze on Send). 0.89.4: Ibiko finishes instead of ending on a plan; fewer notes. 0.89.5: explanations like Claude's, a paragraph at each turning point. 0.89.6: New chat is clean for all three personas. 0.89.7: true full screen, a real 3D floor, tyres as rings, designs get 15 minutes. 0.89.8: "device" not "phone", the chosen model does every task. 0.89.9: the device's model works like an API model. |
 
 The full evidence for every version is in `docs/BUILD_STATUS.md`.
