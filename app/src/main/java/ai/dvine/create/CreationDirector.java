@@ -150,7 +150,7 @@ public final class CreationDirector {
                     o.lines.add("Saved the " + session.model().title + ", version " + session.model().version
                             + ". Say open my saved " + session.model().spec.category + " to bring it back.");
                 } catch (IOException e) {
-                    o.lines.add("I couldn't save it on this phone.");
+                    o.lines.add("I couldn't save it on this device.");
                 }
                 return o;
             }

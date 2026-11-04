@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 /**
  * What the user says about saving and finding drawings, in words: "save it as Robo", "save this drawing, call it
  * my red car", "save it as Tom: a cat with a long tail", "name it Speedy", "save it" (then asked for a name),
- * "save it to my phone as an STL", "export it for 3D printing", "show me Robo", "open my drawing of a red car",
+ * "save it to my device as an STL", "export it for 3D printing", "show me Robo", "open my drawing of a red car",
  * "what drawings have I saved", "delete the drawing called Robo". Pure Java.
  */
 public final class LibraryWords {

@@ -304,7 +304,7 @@ public final class OfflineBrain {
         }
         if (text.matches("^(sync|back ?up|upload)( now| what you('ve)? learn(ed|t)?| your learning)?( now)?$")) {
             if (!journal.consent()) {
-                return one(speaker, "Sharing is off, so what I learn stays on this phone. Say share what you learned to turn it back on.", "SET");
+                return one(speaker, "Sharing is off, so what I learn stays on this device. Say share what you learned to turn it back on.", "SET");
             }
             int n = journal.pendingCount();
             BrainAnswer a = one(speaker, n == 0 ? "Everything I've learned is already backed up."
@@ -314,7 +314,7 @@ public final class OfflineBrain {
         }
         if (text.matches("^(sync status|have you (uploaded|backed up|synced)( what you learned| everything)?|is (everything|my learning) backed up)$")) {
             if (!journal.consent()) {
-                return one(speaker, "Sharing is off. What I learn stays on this phone.", "SET");
+                return one(speaker, "Sharing is off. What I learn stays on this device.", "SET");
             }
             int n = journal.pendingCount();
             return one(speaker, n == 0 ? "Yes. Everything I've learned is backed up."
@@ -332,7 +332,7 @@ public final class OfflineBrain {
             said = "Let's hear us both.";
         } else if (text.matches("^(install|add|download|get)( (more|new|better|male|female))? voices?( data)?( please)?$|^voice settings$")) {
             cmd = "VOICE_INSTALL";
-            said = "Opening the phone's voice settings. Install an English voice pack with male and female voices, then come back.";
+            said = "Opening the device's voice settings. Install an English voice pack with male and female voices, then come back.";
         } else if (text.matches(".*\\b(change|switch|try)( your)?( a)?( different| another| new)? voices?\\b.*|.*\\b(another|next|different|new) voice\\b.*")) {
             cmd = "VOICE_NEXT";
             said = "How does this voice sound?";
@@ -568,11 +568,11 @@ public final class OfflineBrain {
         }
         if (text.matches("^(stop|don'?t) shar(e|ing).*")) {
             journal.setConsent(false);
-            return one(speaker, "Understood. From now on, what I learn stays on this phone.", "LEARN");
+            return one(speaker, "Understood. From now on, what I learn stays on this device.", "LEARN");
         }
         if (text.matches("^forget (everything|all|it all)( you learned)?$")) {
             journal.forgetAll();
-            return one(speaker, "Cleared. Everything you taught me on this phone is gone.", "LEARN");
+            return one(speaker, "Cleared. Everything you taught me on this device is gone.", "LEARN");
         }
         if (text.matches("^forget (that|it|the last thing)$")) {
             boolean ok = journal.forgetLast();
@@ -592,7 +592,7 @@ public final class OfflineBrain {
                 }
             }
             return think(speaker, "Let me look back at what you taught me.",
-                    "You've taught me " + n + (n == 1 ? " thing" : " things") + " on this phone. Most recently: "
+                    "You've taught me " + n + (n == 1 ? " thing" : " things") + " on this device. Most recently: "
                     + join(latest, 3) + "."
                     + (journal.consent() ? " I'll share them when we're online." : " They stay here unless you say share what you learned."), "LEARN");
         }
@@ -634,7 +634,7 @@ public final class OfflineBrain {
             lastUnanswered = null;
             lastKey = key;
             return pair("Thank you. Now I know: " + value + ".",
-                    "Learned on this phone. Next time you ask, we'll remember.", speaker, "LEARN");
+                    "Learned on this device. Next time you ask, we'll remember.", speaker, "LEARN");
         }
         m = TEACH_ANY.matcher(cased);
         if (m.matches() && !m.group(1).toLowerCase(Locale.US).matches("^(my|our) .*")) {

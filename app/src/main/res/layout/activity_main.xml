@@ -228,7 +228,7 @@
             android:textColor="@color/text_primary"
             android:textSize="16sp" />
 
-        <!-- as in Claude: projects (chats kept together) and Ibiko's workspace (files on this phone) -->
+        <!-- as in Claude: projects (chats kept together) and Ibiko's workspace (files on this device) -->
         <TextView
             android:id="@+id/btnDrawerProjects"
             android:layout_width="match_parent"

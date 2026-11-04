@@ -182,7 +182,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         play(noted.lines, null);
                     } else {
                         play(LocalTurn.speakAs(stage.agent(), model != null && !model.remoteOn()
-                                ? model.spec.weights + " didn't start answering in " + PHONE_FIRST_WORD_MS / 60_000 + " minutes on this phone. A"
+                                ? model.spec.weights + " didn't start answering in " + PHONE_FIRST_WORD_MS / 60_000 + " minutes on this device. A"
                                         + " smaller model, fewer threads or less memory (Settings \u203A Test the speed shows which is"
                                         + " quicker), or an API, would answer sooner."
                                 : designing ? "The design took longer than " + DESIGN_MS / 60_000 + " minutes, so I stopped it. Ask"
@@ -1885,7 +1885,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("Ivie's 3D canvas", this::ivieGraphics) // Ivie draws, builds or changes it on her canvas
-                .route("read the phone's files", t -> {
+                .route("read the device's files", t -> {
                     if ("ibiko".equals(stage.agent()) || !modelOn() || !aboutPhoneFiles(t)) {
                         return false;
                     }
@@ -2095,7 +2095,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 String ran = ai.dvine.ops.shell.LocalShell.run(order.arg, shellRoots(),
                         new java.io.File(getFilesDir(), "shell"));
                 play(LocalTurn.speakAs("ibiko", ran != null ? ran
-                        : "I can't run that command on this phone. I can find a zip or unzip one."),
+                        : "I can't run that command on this device. I can find a zip or unzip one."),
                         null);
                 return;
             case SEARCH:
@@ -2545,7 +2545,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
-        chatPane.assistant(persona, "That's Ibiko's work: he writes, runs and tests code on this phone. Tap below and I'll hand it"
+        chatPane.assistant(persona, "That's Ibiko's work: he writes, runs and tests code on this device. Tap below and I'll hand it"
                 + " to him; he starts on it in a new chat of his." + (who.isEmpty() ? "" : ""));
         chats.add("assistant", "handoff", "ibiko\n" + task, persona);
         chatPane.show();
@@ -2986,7 +2986,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 boolean has = ai.dvine.social.SocialWeb.accounts(this).inUse(p) != null;
                 play(LocalTurn.speakAs(stage.agent(), has ? "You're already signed in to " + p.shown + ". Here are your accounts: add another,"
                         + " rename one, or switch it off in Connectors." : "Sign in to " + p.shown + " on the page I'm opening. Your password"
-                        + " goes only to " + p.shown + "; I keep the sign-in on this phone, encrypted."), null);
+                        + " goes only to " + p.shown + "; I keep the sign-in on this device, encrypted."), null);
                 startActivity(has ? new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class)
                         : new android.content.Intent(this, ai.dvine.chat.ui.SocialLoginActivity.class)
                                 .putExtra(ai.dvine.chat.ui.SocialLoginActivity.EXTRA_PLATFORM, p.name()));
@@ -3384,7 +3384,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void clearWorkspace() {
         final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Delete everything in Ibiko's workspace on this phone: the cloned repositories, the sandbox and its"
+                .setMessage("Delete everything in Ibiko's workspace on this device: the cloned repositories, the sandbox and its"
                         + " files? Changes that weren't pushed are lost.")
                 .setPositiveButton("Delete", (d, w) -> new Thread(() -> {
                     deleteTree(ws);
@@ -3393,7 +3393,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         f.delete(); // every chat's kept work
                     }
                     handler.post(() -> play(LocalTurn.speakAs(stage.agent(),
-                            "Done. Ibiko's workspace on this phone is empty."), null));
+                            "Done. Ibiko's workspace on this device is empty."), null));
                 }, "dvine-clear-workspace").start())
                 .setNegativeButton("Keep it", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Okay, nothing was deleted."), null))
                 .show();
@@ -3844,7 +3844,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(stage.agent(), "Saved as " + e.name + ". Later, say show me "
                     + e.name + ", or describe it, and I'll find it."), null);
         } catch (java.io.IOException ex) {
-            play(LocalTurn.speakAs(stage.agent(), "I couldn't save it on the phone."), null);
+            play(LocalTurn.speakAs(stage.agent(), "I couldn't save it on the device."), null);
         }
     }
 
@@ -3868,7 +3868,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /**
      * The brain the user chose on the AI providers sheet: an API answers while the phone is online (the phone's own
-     * brain, when installed, answers when it isn't); "On this phone" uses only the phone's.
+     * brain, when installed, answers when it isn't); "On this device" uses only the phone's.
      */
     private void applyProvider() {
         if (model == null) {
@@ -3928,7 +3928,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         for (ai.dvine.llm.ModelSpec m : here) {
             boolean using = m.file.equals(hub.chosen().file);
             items.add(new ai.dvine.chat.ui.BottomSheet.Item(using ? R.drawable.ic_check : R.drawable.ic_cube,
-                    m.weights + (using ? "  \u00B7 in use" : ""), "Offline, on this phone. " + m.about));
+                    m.weights + (using ? "  \u00B7 in use" : ""), "Offline, on this device. " + m.about));
         }
         items.add(new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_settings, "All offline models",
                 "Download another family or size, or delete one"));
@@ -3984,13 +3984,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         ai.dvine.llm.ModelSpec instead = guard.fallback(model, ram, now.file);
         if (instead == null) {
-            note(now.weights + " is too strong for this phone (" + why + "). Choose a smaller model in Settings \u203A Change the"
+            note(now.weights + " is too strong for this device (" + why + "). Choose a smaller model in Settings \u203A Change the"
                     + " offline model, or use an API.");
             return false;
         }
         hub.choose(this, instead, false); // the stronger one stays on the phone, to try again later
         modelGeneration = hub.generation;
-        note(now.weights + " is too strong for this phone (" + why + "), so DVINE uses " + instead.weights + " instead.");
+        note(now.weights + " is too strong for this device (" + why + "), so DVINE uses " + instead.weights + " instead.");
         applyProvider();
         return true;
     }
@@ -4109,7 +4109,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 || said.matches("^(upgrade your brain|make yourself smarter|get smarter)$")) {
             if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
                 play(LocalTurn.speakAs(ivie,
-                        "The model can't run on this phone: " + model.problem() + "."), null);
+                        "The model can't run on this device: " + model.problem() + "."), null);
             } else if (model.installed()) {
                 play(LocalTurn.speakAs(ivie,
                         model.localReady() ? "The model is already installed and running."
@@ -4211,7 +4211,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String line;
             switch (model.state()) {
                 case READY:
-                    line = "The model is running on this phone, offline.";
+                    line = "The model is running on this device, offline.";
                     break;
                 case LOADING:
                     line = "It's starting up now.";
@@ -4223,7 +4223,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     line = "It's installed but switched off. Say turn on the model.";
                     break;
                 case UNSUPPORTED:
-                    line = "This phone can't run it: " + model.problem() + ".";
+                    line = "This device can't run it: " + model.problem() + ".";
                     break;
                 case FAILED:
                     line = "It's installed but didn't start: " + model.problem() + ".";
@@ -4740,7 +4740,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         try {
             startActivityForResult(intent, PICK_CONTENT);
         } catch (android.content.ActivityNotFoundException e) {
-            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."),
+            play(LocalTurn.speakAs(stage.agent(), "This device has no file picker I can open."),
                     null);
         }
     }
@@ -4762,7 +4762,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     null);
         } catch (android.content.ActivityNotFoundException e) {
             pickerReconstruct = false;
-            play(LocalTurn.speakAs(stage.agent(), "This phone has no file picker I can open."),
+            play(LocalTurn.speakAs(stage.agent(), "This device has no file picker I can open."),
                     null);
         }
     }

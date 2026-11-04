@@ -16,7 +16,7 @@ public final class Capabilities {
         switch (task) {
             case SEARCH:
                 if (!online) {
-                    return "I need the internet for that, and this phone is offline right now.";
+                    return "I need the internet for that, and this device is offline right now.";
                 }
                 return lookupsAllowed ? null : "You asked me not to look things up online. Say you can look things up online, and I will.";
             case DRAW:
@@ -27,7 +27,7 @@ public final class Capabilities {
             case MOVE:
                 return bodyShown ? null : "There's no body to move yet. Ask me to build one in 3D first, like build me a robot.";
             case OTHER:
-                return "I can't do that on this phone yet.";
+                return "I can't do that on this device yet.";
             default:
                 return null;
         }

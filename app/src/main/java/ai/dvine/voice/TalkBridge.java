@@ -435,7 +435,7 @@ public final class TalkBridge extends UtteranceProgressListener {
     public String describe(boolean ivie) {
         VoiceTuning t = tuning[ivie ? 1 : 0];
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
-        return (t.voice == null ? "the phone's default voice" : t.voice) + (g.isEmpty() ? "" : " (" + g + ")");
+        return (t.voice == null ? "the device's default voice" : t.voice) + (g.isEmpty() ? "" : " (" + g + ")");
     }
 
     @Override

@@ -49,7 +49,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         head.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         head.addView(Ui.gap(this, 1), new LinearLayout.LayoutParams(Ui.dp(this, 34), 1));
         root.addView(head);
-        TextView lead = Ui.text(this, "Let DVINE use your services when it answers. Tokens stay on this phone, encrypted.",
+        TextView lead = Ui.text(this, "Let DVINE use your services when it answers. Tokens stay on this device, encrypted.",
                 14, Ui.SUB, false);
         lead.setPadding(pad + Ui.dp(this, 6), Ui.dp(this, 4), pad, Ui.dp(this, 8));
         root.addView(lead);
@@ -381,7 +381,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         try {
             startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)));
         } catch (android.content.ActivityNotFoundException e) {
-            android.widget.Toast.makeText(this, "No browser on this phone.", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, "No browser on this device.", android.widget.Toast.LENGTH_SHORT).show();
         }
     }
 

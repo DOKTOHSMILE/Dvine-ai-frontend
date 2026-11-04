@@ -291,7 +291,7 @@ public final class DvineTaskOrchestrator {
         ai.dvine.llm.ModelSpec spec = ai.dvine.llm.ModelSpec.QWEN3_1_7B;
         Outcome o = Outcome.reply("The model in this build is " + spec.runningModel()
                 + " The name on screen is " + spec.name + ". It is not a larger model. Saving a note does not retrain it."
-                + " I only use the file after it has been downloaded onto this phone.");
+                + " I only use the file after it has been downloaded onto this device.");
         o.activity = "Naming the on-device model";
         return o;
     }
@@ -309,7 +309,7 @@ public final class DvineTaskOrchestrator {
         }
         String speech = learn
                 ? "Choose the file. I'll read it and, if there is text worth keeping, save a note. That is not retraining."
-                : "Choose the " + ("file".equals(kind) ? "file" : kind) + ". I'll read what the phone actually gives me.";
+                : "Choose the " + ("file".equals(kind) ? "file" : kind) + ". I'll read what the device actually gives me.";
         Outcome o = Outcome.reply(speech);
         o.picker = kind;
         o.learn = learn;
@@ -365,12 +365,12 @@ public final class DvineTaskOrchestrator {
             speech = done.lastError;
         } else if (freeBytes >= 0) {
             boolean enough = freeBytes > projectBytes + 64L * 1024 * 1024;
-            speech = "This phone has about " + gb(freeBytes) + " GB free. The project needs about " + gb(projectBytes)
+            speech = "This device has about " + gb(freeBytes) + " GB free. The project needs about " + gb(projectBytes)
                     + " GB. " + (enough ? "That is enough room, with space left over." : "That is tight. I would free some space before adding large files.");
             if (done.facts.containsKey("termux")) {
                 speech += " I checked through the approved storage command.";
             } else {
-                speech += " Termux did not return a verified reading, so this is from the phone's own storage report.";
+                speech += " Termux did not return a verified reading, so this is from the device's own storage report.";
             }
         } else {
             speech = done.lastError.isEmpty() ? "I couldn't read the free storage." : done.lastError;

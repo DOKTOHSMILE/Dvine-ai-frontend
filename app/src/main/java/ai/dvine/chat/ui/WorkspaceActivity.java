@@ -78,7 +78,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private void fill() {
         body.removeAllViews();
         String rel = root.toURI().relativize(here.toURI()).getPath();
-        where.setText(rel.isEmpty() ? "Ibiko's files on this phone" : rel);
+        where.setText(rel.isEmpty() ? "Ibiko's files on this device" : rel);
         File[] kids = here.listFiles();
         if (!here.equals(root)) {
             body.addView(row("..", "Up a level", ai.dvine.R.drawable.ic_folder, v -> {

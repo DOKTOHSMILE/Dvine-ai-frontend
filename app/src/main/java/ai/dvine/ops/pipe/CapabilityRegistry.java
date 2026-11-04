@@ -24,7 +24,7 @@ public final class CapabilityRegistry {
         List<Item> all = new ArrayList<Item>();
         all.add(new Item("clock", true, "I can tell you the date and the time."));
         all.add(new Item("notes", true, "I can answer from my notes."));
-        all.add(new Item("qwen", false, "I can use " + ModelSpec.WEIGHTS + " when that file is on this phone."));
+        all.add(new Item("qwen", false, "I can use " + ModelSpec.WEIGHTS + " when that file is on this device."));
         all.add(new Item("picker", true, "I can open a file you choose."));
         all.add(new Item("photograph", true, "I can show a photograph as particles in its own colours."));
         all.add(new Item("task", true, "I can keep a task going while the microphone is open."));
@@ -49,7 +49,7 @@ public final class CapabilityRegistry {
 
     public String speak() {
         return "Offline, I can tell you the date and the time, answer from my notes, and use "
-                + ai.dvine.llm.ModelSpec.WEIGHTS + " when that file is on this phone. I can open a file you choose,"
+                + ai.dvine.llm.ModelSpec.WEIGHTS + " when that file is on this device. I can open a file you choose,"
                 + " and show a photograph as particles in its own colours. I can keep a task going while the microphone is open."
                 + " I cannot read words out of a picture, I cannot build a measured 3D model from one photo, and I do not make up the news."
                 + " When online I can compare Wikipedia with Wikidata. One source is not called verified. I have no dense scan, no COLMAP, and no diffusion model.";

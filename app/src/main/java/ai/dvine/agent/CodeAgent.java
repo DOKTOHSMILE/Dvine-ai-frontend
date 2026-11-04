@@ -197,12 +197,12 @@ public final class CodeAgent {
     }
 
     public String system() {
-        return (planning ? "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's phone. "
+        return (planning ? "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. "
                 + IbikoMode.PLAN_RULES + "\n" : "") + (planning ? "" : (readOnly
-                ? "You are " + persona + ", reading the files on the user's phone (the workspace: cloned repositories and"
+                ? "You are " + persona + ", reading the files on the user's device (the workspace: cloned repositories and"
                         + " projects) to answer them. Any model can do this: the files come to you as text through the tools."
                         + " You only read here; changing files, running commands and pushing are Ibiko's work."
-                : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's phone. You have a project"
+                : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. You have a project"
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it."))
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
@@ -219,7 +219,7 @@ public final class CodeAgent {
                 + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command\"/> (sh with toybox: ls cat grep sed"
                         + " find wc head tail mkdir cp mv rm… — run in the workspace folder, as the app, so only the"
                         + " app's own files are touched; one command at a time; up to 30 seconds, longer runs are"
-                        + " stopped and reported as such; output beyond 8000 characters is cut short. The phone asks"
+                        + " stopped and reported as such; output beyond 8000 characters is cut short. The device asks"
                         + " you first (Run / Always run / Don't run) unless auto-accept is on, and a refused command"
                         + " comes back as not allowed.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
@@ -256,11 +256,11 @@ public final class CodeAgent {
     }
 
     /** How to keep scratch work apart: a sandbox folder of its own in the workspace. */
-    static final String SANDBOX = "Local sandbox: the workspace is on the phone, so you can try things there without touching"
+    static final String SANDBOX = "Local sandbox: the workspace is on the device, so you can try things there without touching"
             + " GitHub. For anything that isn't a change to a cloned repository (a new project, a script to test an idea, notes,"
             + " a report), make a folder of its own under sandbox/ (write_file makes the folders: sandbox/<short-name>/main.py),"
             + " work and run commands there (cd sandbox/<short-name> && sh run.sh), and never leave scratch files inside a"
-            + " clone. Files under sandbox/ stay on the phone and show as artifacts the user can open.\n";
+            + " clone. Files under sandbox/ stay on the device and show as artifacts the user can open.\n";
 
     /** The git workflow, as the tools here do it (the phone has no git: these talk to GitHub directly). */
     static final String GIT_WAY = "Git, step by step:\n"

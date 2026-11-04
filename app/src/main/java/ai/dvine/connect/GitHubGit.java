@@ -127,7 +127,7 @@ public final class GitHubGit {
                     int n = unzip(zip, dir, r);
                     r.write(dir);
                     return "Cloned " + repo + " (" + branch + ", " + n + " files) into " + dir.getName()
-                            + "/. It is on the phone now: read, edit and push it any time.";
+                            + "/. It is on the device now: read, edit and push it any time.";
                 }
             } finally {
                 zip.delete();
@@ -374,7 +374,7 @@ public final class GitHubGit {
                 while ((n = in.read(b)) > 0) {
                     total += n;
                     if (total > 300L * 1024 * 1024) {
-                        throw new IOException("the repository is over 300 MB, too big for the phone");
+                        throw new IOException("the repository is over 300 MB, too big for the device");
                     }
                     out.write(b, 0, n);
                 }

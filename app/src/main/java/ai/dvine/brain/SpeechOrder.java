@@ -40,10 +40,10 @@ public final class SpeechOrder {
         boolean install = n.matches(".*(install|download|get|add|setup|set up).*");
         boolean open = n.matches(".*(open|start|launch|run)\\b.*");
         if (termux && install) {
-            return new Order("INSTALL_TERMUX", n, "Installing Termux. I'll open it if it is already on this phone, otherwise the install page. I won't ask you to repeat that.");
+            return new Order("INSTALL_TERMUX", n, "Installing Termux. I'll open it if it is already on this device, otherwise the install page. I won't ask you to repeat that.");
         }
         if (termux && open) {
-            return new Order("OPEN_TERMUX", n, "Opening Termux. If it is not on this phone, I'll open the install page instead.");
+            return new Order("OPEN_TERMUX", n, "Opening Termux. If it is not on this device, I'll open the install page instead.");
         }
         return null;
     }

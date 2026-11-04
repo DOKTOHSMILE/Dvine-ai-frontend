@@ -36,7 +36,7 @@ public final class ObjectRequestInterpreter {
     private static final String THINGS = "house|home|villa|bungalow|mansion|duplex|cottage|building|office|shop|"
             + "church|school|tower|bridge|garage|shed|car|vehicle|truck|bus|bike|bicycle|motorcycle|motorbike|boat|ship|plane|"
             + "aeroplane|airplane|drone|robot|table|desk|chair|stool|sofa|couch|bed|shelf|bookshelf|cabinet|wardrobe|lamp|mug|"
-            + "cup|bottle|laptop|computer|phone|tree|fence|gate|stairs|staircase|room|kitchen|pool|stadium|tank|machine";
+            + "cup|bottle|laptop|computer|device|tree|fence|gate|stairs|staircase|room|kitchen|pool|stadium|tank|machine";
     private static final String NUM = "(\\d+(?:\\.\\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)";
 
     private ObjectRequestInterpreter() {

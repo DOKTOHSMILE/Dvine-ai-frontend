@@ -102,6 +102,6 @@ public final class Onboarding {
 
     public static String welcome(String name) {
         return "Welcome, " + name + ". We'll remember that. Touch and hold the screen whenever you want to talk, or double-tap to type. "
-                + "What you teach us is backed up to your DVINE account when you're online; say stop sharing to keep it on this phone.";
+                + "What you teach us is backed up to your DVINE account when you're online; say stop sharing to keep it on this device.";
     }
 }

@@ -19,7 +19,7 @@ import ai.dvine.llm.ProviderStore;
 public final class ConnectorStore {
     public enum Kind {
         WEB("Web search", "Searches the web and reads the best pages. Free: Wikipedia. Whole web: your Brave Search, Tavily or Google key."),
-        CALENDAR("Phone calendar", "Your events for the next week, read from this phone's calendar."),
+        CALENDAR("Device calendar", "Your events for the next week, read from this device's calendar."),
         GITHUB("GitHub", "Your repositories, issues and files; Ibiko can clone, pull, commit, push and open pull requests. Sign in with GitHub in the browser, or paste a token."),
         NOTION("Notion", "Search the pages you shared with a Notion integration. Needs its token."),
         MCP("Custom MCP server", "Any server that speaks the Model Context Protocol, over https. Its tools are found on Test.");

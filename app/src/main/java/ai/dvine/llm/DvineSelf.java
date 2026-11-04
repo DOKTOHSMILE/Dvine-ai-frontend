@@ -15,7 +15,7 @@ public final class DvineSelf {
     /** The app's state that the sheet describes. */
     public static final class Facts {
         public String version = "?";
-        public String device = "this phone";
+        public String device = "this device";
         public int taughtFacts;
         public String userName;
         /** "ivie", "obi" or "ibiko": who is speaking now. */
@@ -24,7 +24,7 @@ public final class DvineSelf {
 
     public static String sheet(Facts f) {
         StringBuilder s = new StringBuilder();
-        s.append("About the app you live in: DVINE (version ").append(f.version).append("), an AI companion on the user's Android phone (")
+        s.append("About the app you live in: DVINE (version ").append(f.version).append("), an AI companion on the user's Android device (")
                 .append(f.device).append("), made by DOKTOHSMILE.");
         s.append(" DVINE has three personas, heard as voices (there are no faces): Ivie (gentle, caring and wise), Obi"
                 + " (calm, clear and analytical) and Ibiko (a cute, cheerful coding robot for programming in many languages,"
@@ -35,14 +35,14 @@ public final class DvineSelf {
                 + " in Downloads, each part a joint, for Blender, Unity, Unreal or Godot.");
         s.append(" The user switches by saying switch to, talk to or bring Ivie, Obi or Ibiko"
                 + ". Speech recognition may write Ivie as Evie or Eva, and Obi as Obie: they mean the personas.");
-        s.append(" You are the on-phone model: a small language model stored on this phone, working offline. The app's"
+        s.append(" You are the on-device model: a small language model stored on this device, working offline. The app's"
                 + " offline rules handle the time, maths, memory, corrections and commands before you.");
         s.append(" What DVINE can do: talk by voice (touch and hold anywhere to speak, let go to send; double-tap to type); hold debates between Obi and Ivie on any topic; remember what"
                 + " the user teaches and accept corrections; look things up online when allowed; draw a picture or build a"
                 + " thing in 3D above the pod and change it (bigger, smaller, spin it, a colour, clear it); design"
                 + " a building in 3D; open apps such as WhatsApp, Telegram or Instagram, copy and share text; change its"
                 + " voices; turn subtitles, thoughts and music on or off; give a status report; download or remove the model.");
-        s.append(" It cannot send messages, buy, delete or change anything on the phone by itself.");
+        s.append(" It cannot send messages, buy, delete or change anything on the device by itself.");
         if (f.userName != null && !f.userName.trim().isEmpty()) {
             s.append(" The user is ").append(f.userName.trim()).append('.');
         }

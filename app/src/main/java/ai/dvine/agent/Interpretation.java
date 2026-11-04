@@ -23,7 +23,7 @@ public final class Interpretation {
     public boolean internet;
 
     /** The interpreter's instructions: short, so a small model follows them and answers fast. */
-    public static final String PROMPT = "You read what a user said to DVINE, a phone assistant, and classify it. Do not answer it."
+    public static final String PROMPT = "You read what a user said to DVINE, a device assistant, and classify it. Do not answer it."
             + " Reply with exactly five lines and nothing else:\n"
             + "INTENT: question | request | prompt | chat\n"
             + "MEANS: what the user wants, in one short sentence\n"

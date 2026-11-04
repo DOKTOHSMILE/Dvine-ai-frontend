@@ -116,9 +116,9 @@ public final class UsageActivity extends AppCompatActivity {
         section("Model");
         LinearLayout brain = card();
         String answers = active.api() ? active.title + ": " + store.model(active) + (store.connected(active) ? "" : " (not tested yet)")
-                : "On this phone: " + hub.model.spec.weights;
+                : "On this device: " + hub.model.spec.weights;
         brain.addView(row("Chosen", answers));
-        brain.addView(row("On this phone", phoneState(m)), Ui.wide(this, 8));
+        brain.addView(row("On this device", phoneState(m)), Ui.wide(this, 8));
         brain.addView(row("Context window", tokens(active.api() ? store.window(active) : hub.model.localWindow()) + " tokens"), Ui.wide(this, 8));
         TextView change = Ui.text(this, "Change the model", 15, Ui.ACCENT, false);
         change.setPadding(0, Ui.dp(this, 14), 0, 0);
@@ -146,7 +146,7 @@ public final class UsageActivity extends AppCompatActivity {
         learn.addView(sw);
         learn.addView(row("Answers kept", String.valueOf(ll.count())), Ui.wide(this, 8));
         learn.addView(row("Size", bytes(ll.bytes())), Ui.wide(this, 8));
-        learn.addView(Ui.text(this, "Each request, reply and Ibiko step from your API models is kept on this phone, never sent anywhere."
+        learn.addView(Ui.text(this, "Each request, reply and Ibiko step from your API models is kept on this device, never sent anywhere."
                 + " DVINE's own model uses the closest ones as examples when it answers offline, and Export saves them"
                 + " as a training file to fine-tune DVINE's model. Check your provider's terms before training a model on its replies.",
                 13, Ui.SUB, false), Ui.wide(this, 12));
@@ -170,7 +170,7 @@ public final class UsageActivity extends AppCompatActivity {
         body.addView(learn, Ui.wide(this, 8));
 
         // ---- storage
-        section("On this phone");
+        section("On this device");
         LinearLayout disk = card();
         disk.addView(row("Model file", m.installed() ? bytes(m.file().length()) : "not downloaded"));
         disk.addView(row("Chats", bytes(size(new File(getFilesDir(), "chats.json")))), Ui.wide(this, 8));

@@ -72,7 +72,7 @@ public final class MemoryActivity extends AppCompatActivity {
 
     private void fill() {
         body.removeAllViews();
-        TextView intro = Ui.text(this, "Kept on this phone. Forget anything with ✕; it is gone from every chat.", 14, Ui.SUB, false);
+        TextView intro = Ui.text(this, "Kept on this device. Forget anything with ✕; it is gone from every chat.", 14, Ui.SUB, false);
         intro.setPadding(Ui.dp(this, 6), Ui.dp(this, 4), Ui.dp(this, 6), 0);
         body.addView(intro);
 

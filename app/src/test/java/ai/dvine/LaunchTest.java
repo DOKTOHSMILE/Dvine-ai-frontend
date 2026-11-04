@@ -266,7 +266,7 @@ public class LaunchTest {
             org.junit.Assert.assertSame(ai.dvine.llm.ModelSpec.PHI_4_MINI, hub.chosen()); // shown at once
             hub.worker.submit(() -> { }).get(5, java.util.concurrent.TimeUnit.SECONDS); // the switch itself, on the model's thread
             org.junit.Assert.assertSame(ai.dvine.llm.ModelSpec.PHI_4_MINI, hub.model.spec);
-            c.get().getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "On this phone: Phi-4 mini",
+            c.get().getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "On this device: Phi-4 mini",
                     android.view.View.FIND_VIEWS_WITH_TEXT);
             org.junit.Assert.assertEquals(1, found.size()); // the card names the new model, with Download under it
             // a model on the phone is listed with Delete, to free the space
@@ -511,7 +511,7 @@ public class LaunchTest {
         ActivityController<ai.dvine.chat.ui.ImageViewActivity> gone = Robolectric.buildActivity(ai.dvine.chat.ui.ImageViewActivity.class,
                 new android.content.Intent().putExtra(ai.dvine.chat.ui.ImageViewActivity.EXTRA_PATH, "/nowhere.jpg")).create().start().resume().visible();
         java.util.ArrayList<android.view.View> said = new java.util.ArrayList<android.view.View>();
-        gone.get().getWindow().getDecorView().findViewsWithText(said, "This picture isn't on the phone any more.", android.view.View.FIND_VIEWS_WITH_TEXT);
+        gone.get().getWindow().getDecorView().findViewsWithText(said, "This picture isn't on the device any more.", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertEquals(1, said.size());
         gone.pause().stop().destroy();
     }

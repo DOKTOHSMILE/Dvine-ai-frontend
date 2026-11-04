@@ -91,7 +91,7 @@ public final class ListenBridge implements RecognitionListener {
         this.strikes = 0;
         if (!available()) {
             this.continuous = false;
-            callback.onError("Speech recognition isn't on this phone.");
+            callback.onError("Speech recognition isn't on this device.");
             return;
         }
         partial = "";
