@@ -239,14 +239,25 @@ public final class SocialWeb {
         c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putBoolean("telegram_in", in).apply();
     }
 
-    /** The script that tells whether Telegram Web is signed in: its auth keys are in the page's storage. */
-    public static final String TELEGRAM_SIGNED_IN = "(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);"
-            + "if(/^(user_auth|dc[1-5]_auth_key|account\\d+)$/.test(k))return true;}}catch(e){}return false;})()";
+    /**
+     * The script that tells whether Telegram Web is signed in: the sign-in form is gone and the page's storage holds a
+     * signed-in account (number_of_accounts above 0, or an account with the user's id). The data-centre keys
+     * ("dc2_auth_key", the account1… records without a user) are made as soon as the page opens, before anyone signs
+     * in, so they don't count.
+     */
+    public static final String TELEGRAM_SIGNED_IN = "(function(){try{var t=document.body?document.body.innerText:'';"
+            + "if(/Log in by QR Code|Log in to Telegram by QR Code|Log in by phone Number|LOG IN BY PHONE NUMBER|Please confirm your country code|Sign in to Telegram/.test(t))return false;"
+            + "if(parseInt(localStorage.getItem('number_of_accounts')||'0',10)>0)return true;"
+            + "var keys=['user_auth','account1','account2','account3','account4'];"
+            + "for(var i=0;i<keys.length;i++){var v=localStorage.getItem(keys[i]);if(!v)continue;var o=JSON.parse(v);"
+            + "if(o&&(o.userId||o.id||(o.userAuth&&(o.userAuth.id||o.userAuth.userId))))return true;}"
+            + "return false;}catch(e){return false;}})()";
 
     /** Telegram's sign-in page, by its words: the account is signed out. */
     static boolean telegramSignedOut(String text) {
         String t = text == null ? "" : text;
-        return t.contains("Log in to Telegram by QR Code") || t.contains("Log in by phone Number") || t.contains("Sign in to Telegram");
+        return t.contains("Log in to Telegram by QR Code") || t.contains("Log in by QR Code") || t.contains("Log in by phone Number")
+                || t.contains("LOG IN BY PHONE NUMBER") || t.contains("Sign in to Telegram");
     }
 
     // ---- reading
