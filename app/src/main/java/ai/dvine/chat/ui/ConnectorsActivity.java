@@ -181,6 +181,10 @@ public final class ConnectorsActivity extends AppCompatActivity {
                 new int[]{Ui.CORAL, Ui.FIELD}));
         toggle.setOnCheckedChangeListener((b, on) -> {
             store.setOn(k, on);
+            if (on && k == ConnectorStore.Kind.TERMUX && !ai.dvine.agent.TermuxRunner.allowed(this)) {
+                requestPermissions(new String[]{ai.dvine.agent.TermuxRunner.PERMISSION}, CALENDAR + 1);
+                open = k;
+            }
             if (on && k == ConnectorStore.Kind.CALENDAR && !store.calendarAllowed()) {
                 requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR}, CALENDAR);
             }
@@ -250,6 +254,16 @@ public final class ConnectorsActivity extends AppCompatActivity {
         }
         if (k == ConnectorStore.Kind.DOCS) {
             docsSettings(inside);
+        }
+        if (k == ConnectorStore.Kind.TERMUX) {
+            boolean there = ai.dvine.agent.TermuxRunner.installed(this), allowed = ai.dvine.agent.TermuxRunner.allowed(this);
+            inside.addView(Ui.text(this, (there ? "Termux is installed." : "Termux isn't installed yet (get it from F-Droid).")
+                    + (allowed ? " DVINE may run commands in it." : ""), 14, Ui.TEXT, false), Ui.wide(this, 8));
+            if (there && !allowed) {
+                TextView allow = Ui.button(this, "Allow DVINE to run commands in Termux", true);
+                allow.setOnClickListener(v -> requestPermissions(new String[]{ai.dvine.agent.TermuxRunner.PERMISSION}, CALENDAR + 1));
+                inside.addView(allow, Ui.wide(this, 10));
+            }
         }
         if (k != ConnectorStore.Kind.WEB && k != ConnectorStore.Kind.DOCS) {
             final TextView result = Ui.text(this, "", 13, Ui.SUB, false);
@@ -643,6 +657,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
             case MCP: return "Needs an address, then Test";
             case GITHUB: return "Sign in, or paste a token";
             case GMAIL: return "Needs your address and an app password";
+            case TERMUX: return ai.dvine.agent.TermuxRunner.installed(this) ? "Needs your Allow" : "Install Termux first";
             default: return "Needs a token";
         }
     }
@@ -650,7 +665,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CALENDAR) {
+        if (requestCode == CALENDAR || requestCode == CALENDAR + 1) {
             fill();
         }
     }

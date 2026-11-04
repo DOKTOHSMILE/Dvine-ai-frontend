@@ -75,6 +75,16 @@ public final class CodeAgent {
             step(line);
         }
 
+        /** Whether Termux, the full Linux on the device, can run commands now. */
+        default boolean termuxReady() {
+            return false;
+        }
+
+        /** Runs a command in Termux in the project {@code folder} (copied there first); what it printed. */
+        default String termux(String command, File folder) {
+            return "Termux isn't available.";
+        }
+
         /** The user stopped the work. */
         boolean stopped();
 
@@ -223,6 +233,11 @@ public final class CodeAgent {
                         + " stopped and reported as such; output beyond 8000 characters is cut short. The device asks"
                         + " you first (Run / Always run / Don't run) unless auto-accept is on, and a refused command"
                         + " comes back as not allowed.)\n")
+                + (readOnly || !host.termuxReady() ? "" : "<tool name=\"termux\" path=\"FOLDER\" command=\"python3 main.py\"/> (a real"
+                        + " Linux shell in Termux on the device: python3, node, gcc, clang, java, git, make, pip, npm and any"
+                        + " pkg install; works with no internet once installed. The project FOLDER is copied there first and the"
+                        + " command runs inside it, up to 3 minutes; use it to run, build and test code. Files it makes stay in"
+                        + " Termux: change the project with write_file and edit_file. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
                 + (git == null || readOnly ? "" : "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
                         + "<tool name=\"git\" action=\"status|pull\" path=\"folder\"/>\n"
@@ -964,6 +979,29 @@ public final class CodeAgent {
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
                 host.step(CommandWords.describe(cmd), "$ " + clip(cmd, 80), shown, -1, -1); // the meaning in words; the command a tap away
                 return out;
+            }
+            case "termux": {
+                String cmd = c.a("command").trim();
+                if (cmd.isEmpty()) {
+                    return "No command given.";
+                }
+                if (!host.termuxReady()) {
+                    return "Termux isn't available; use run (the device's small shell) instead.";
+                }
+                File folder = c.a("path").trim().isEmpty() || c.a("path").trim().equals(".") ? workspace : inside(c.a("path"));
+                if (!folder.isDirectory()) {
+                    return "No such folder: " + c.a("path");
+                }
+                if (!host.allowRun("termux: " + cmd)) {
+                    host.step("Not run: " + clip(cmd, 60));
+                    return "The user didn't allow this command. Find another way, or ask them in your final answer.";
+                }
+                String out = host.termux(cmd, folder);
+                List<String> shown = new ArrayList<String>();
+                shown.add("$ " + cmd);
+                shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
+                host.step(CommandWords.describe(cmd) + " in Termux", "$ " + clip(cmd, 80), shown, -1, -1);
+                return out == null ? "Termux gave nothing back." : clip(out, RESULT_CHARS);
             }
             case "fetch": {
                 String url = c.a("url");

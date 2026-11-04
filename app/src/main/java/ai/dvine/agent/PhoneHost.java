@@ -95,6 +95,16 @@ public final class PhoneHost implements CodeAgent.Host {
     }
 
     @Override
+    public boolean termuxReady() {
+        return connectors != null && connectors.on(ai.dvine.connect.ConnectorStore.Kind.TERMUX) && TermuxRunner.usable(activity);
+    }
+
+    @Override
+    public String termux(String command, File folder) {
+        return TermuxRunner.run(activity, command, folder, folder.getName());
+    }
+
+    @Override
     public String fetch(String url) {
         WebGet.Page p = WebGet.page(url, 15_000, 1_000_000);
         if (p.body == null) {
