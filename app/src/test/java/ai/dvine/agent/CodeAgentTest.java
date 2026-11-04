@@ -129,6 +129,23 @@ public class CodeAgentTest {
         assertTrue(slow, slow.contains("stopped after"));
     }
 
+    /** The shell cuts its own output at 8000 and says so; the view clipped on top must not hide that marker. */
+    @Test
+    public void longShellOutputKeepsTheShellsOwnCutMarker() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Phone phone = new Phone();
+        phone.allow = true;
+        Script brain = new Script("<tool name=\"run\" command=\"for i in $(seq 1 400); do echo line-$i-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; done\"/>", "ok");
+        CodeAgent agent = new CodeAgent(ws, brain, phone, "", 20_000);
+        assertEquals("ok", agent.run("print a lot", ""));
+        String seen = brain.seen.get(brain.seen.size() - 1);
+        assertTrue("the shell's own cut marker must survive", seen.contains("…(output cut short)"));
+        assertFalse("the view must not clip a second time: " + seen.substring(Math.max(0, seen.indexOf("line-400") - 40)),
+                seen.contains("…(cut short)"));
+        assertFalse(CodeAgent.clipResult("…(output cut short)", 10).contains("…(cut short)\n")); // pass-through, not re-cut
+        assertEquals("a short result is clipped as usual", "12345\n…(cut short)", CodeAgent.clipResult("1234567890", 5));
+    }
+
     @Test
     public void bigWorkGoesToTheStrongModel() {
         assertEquals(TaskSize.Tier.FAST, TaskSize.of("What's the capital of Nigeria?", false));

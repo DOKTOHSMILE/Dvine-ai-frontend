@@ -46,7 +46,15 @@ Steps:
       wording — it claimed "I won't open another app", which is false (apps open after a spoken yes), and it never
       named the tools that do exist here. Now: "My file tools live here: ask me to find a zip, unzip it, or run a
       command in this chat. If a task needs another app I'll ask you first." Read back the edited hunk.
-- [ ] run_terminal_cmd tool doc vs what the shell actually does (working directory, limits, denial wording).
+- [x] run_terminal_cmd tool doc vs what the shell actually does (working directory, limits, denial wording).
+      Checked line by line against `SandboxShell.run`, `PhoneHost` and `CodeAgent`: the doc says "one shell command at a
+      time, run in the workspace folder, as the app", "up to 30 seconds, longer runs are stopped", "output beyond 8000
+      characters is cut short", "asks you first (Run / Always run / Don't run) unless auto-accept is on, and a refused
+      command comes back as not allowed" — each matches: `SandboxShell` runs `sh -c` with `directory(dir)` and
+      HOME/TMPDIR set to the folder, kills at 30 s and appends `…(output cut short)` past 8000 chars (`maxChars` from
+      `PhoneHost.run`), `PhoneHost.allowRun` shows exactly that three-button dialog behind `auto_accept`, and a refusal
+      returns "The user didn't allow this command." Also matches for `termux` (3 minutes, `path` copied there) and the
+      three `allowRun` git gates. No change needed.
 - [ ] Interpretation.java `command()` bridge: does the classifier's promise match ActionPlanner's behaviour
       (yes/no confirmation, last-said fallback, app list).
 - [ ] SocialAsk: network patterns vs the social.* connector calls actually implemented.

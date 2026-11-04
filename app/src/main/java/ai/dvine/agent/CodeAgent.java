@@ -28,6 +28,9 @@ public final class CodeAgent {
     private boolean readOnly;
     static final int RESULT_CHARS = 6000, FILE_CHARS = 24_000;
 
+    /** What SandboxShell appends when its own 8000-character limit ended the output. */
+    static final String SHELL_CUT = "…(output cut short)";
+
     /** The model: the instructions and the work so far in, its next reply out (null when it failed). */
     public interface Brain {
         String ask(String system, String transcript);
@@ -383,7 +386,7 @@ public final class CodeAgent {
                 } catch (IOException | RuntimeException e) {
                     result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
                 }
-                work.append("\n").append(call.raw).append("\n<result>\n").append(clip(result, RESULT_CHARS)).append("\n</result>\n");
+                work.append("\n").append(call.raw).append("\n<result>\n").append(clipResult(result, RESULT_CHARS)).append("\n</result>\n");
                 saved();
                 continue;
             }
@@ -979,7 +982,7 @@ public final class CodeAgent {
                 shown.add("$ " + cmd);
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
                 host.step(CommandWords.describe(cmd), "$ " + clip(cmd, 80), shown, -1, -1); // the meaning in words; the command a tap away
-                return out;
+                return clipResult(out, RESULT_CHARS);
             }
             case "termux": {
                 String cmd = c.a("command").trim();
@@ -1002,7 +1005,7 @@ public final class CodeAgent {
                 shown.add("$ " + cmd);
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
                 host.step(CommandWords.describe(cmd) + " in Termux", "$ " + clip(cmd, 80), shown, -1, -1);
-                return out == null ? "Termux gave nothing back." : clip(out, RESULT_CHARS);
+                return out == null ? "Termux gave nothing back." : clipResult(out, RESULT_CHARS);
             }
             case "fetch": {
                 String url = c.a("url");
@@ -1176,5 +1179,16 @@ public final class CodeAgent {
     static String clip(String s, int n) {
         String t = s == null ? "" : s;
         return t.length() <= n ? t : t.substring(0, n) + "\n…(cut short)";
+    }
+
+    /**
+     * A tool result clipped to what the model is shown (n = {@link #RESULT_CHARS}). A shell that stopped at
+     * its own 8000 characters has already said so ("…(output cut short)" plus the exit status), so it is
+     * passed through: clipping again at 6000 would cut the marker off and hide where the output really ended,
+     * which is what the run tool's doc promises ("output beyond 8000 characters is cut short").
+     */
+    static String clipResult(String s, int n) {
+        String t = s == null ? "" : s;
+        return t.contains(SHELL_CUT) ? t : clip(t, n);
     }
 }
