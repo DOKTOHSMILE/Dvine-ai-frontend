@@ -89,6 +89,25 @@ Steps:
       so the suite cannot be executed here; reading is the test.** All 8 pass on paper.
 - [ ] Re-read each change, then commit + push on a branch and open a PR.
 
+## Constraints / challenges limiting full capacity (added 2026-11-04)
+
+- This shell is toybox-only: no java/javac/gradle/JVM, no Android SDK, no network installs. Verified by reading only.
+  Consequence: cannot compile, cannot run `./gradlew`, cannot execute `VoiceTuningTest` or any unit test here.
+  Mitigation: verify by re-reading every edited hunk line-by-line; mark tests as "pass on paper, not executed".
+- `run` tool limit: one shell command per call, 30s max, 8000 chars output cut. Long builds/tests will be stopped.
+  Mitigation: keep commands small (`grep`, `sed`, `git status`), chain with `&&` as one command.
+- `termux` path needs user approval (Run / Always run) per call unless auto-accept is on. If refused it comes back
+  as not allowed — then fall back to read-only verification and note it.
+- Workspace is a huge Android repo + llama.cpp vendored tree. `git` clone/push can hit file-count limits
+  (Settings > Advanced > Most files in a clone). Mitigation: work in place, push on small branch, open PR.
+- App must stay alive while patching: never run a command that kills the host app process, wipes the workspace,
+  or blocks the UI thread. Mitigation: read-before-change, small hunks, `git status` before push, no `rm -rf`.
+- Single-tool-call per reply (platform rule): only one <tool> per turn, no text+tool mix. Mitigation: plan in
+  PLAN.md, then one tool per step; progress notes go between rounds.
+- No `SocialAsk.java` in `agent/` listing — lives elsewhere (`ai/dvine/social/` or `brain/`). Must `find` first.
+- `Interpretation.command()` Javadoc overstates "same checked paths": bridge does no confirmation / last-said /
+  app-list validation. Must either reword doc or add validation; chosen: reword + restore COPY/SHARE/DEBATE.
+
 ## Merged from ibiko/localmodel-fixes
 
 - [x] Run tool prompt now says one command per tool call, and a chain like `a && b` is one command
