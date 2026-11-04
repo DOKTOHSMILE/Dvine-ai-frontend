@@ -334,6 +334,11 @@ public final class CodeAgent {
                 work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(EMPTY_FINAL).append("\n</result>\n");
                 continue;
             }
+            if (fin != null && !fin.isEmpty() && promise(fin) && promises < 2) {
+                promises++; // "<final>Next: verify each tool.</final>": a plan dressed as the answer
+                work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(DO_IT_NOW).append("\n</result>\n");
+                continue;
+            }
             if (fin != null && !fin.isEmpty()) {
                 if (big && !reportAsked && fin.length() < REPORT_CHARS) {
                     reportAsked = true; // "<final>Done.</final>" for an audit: the report itself, please
@@ -347,10 +352,12 @@ public final class CodeAgent {
             Call call = parse(text);
             if (call != null) {
                 String said = noteBefore(text, call);
-                if (said != null && !said.equals(lastNote)) {
+                if (said != null && (lastNote == null || callsSinceNote >= NOTE_EVERY) && !alike(said, lastNote)) {
                     lastNote = said;
+                    callsSinceNote = 0;
                     host.note(said); // what it is doing and why, between the steps in the chat
                 }
+                callsSinceNote++;
                 pending = null; // it carried on: whatever it wrote before was not the answer
                 String result;
                 try {
@@ -386,9 +393,14 @@ public final class CodeAgent {
                 return text;
             }
             if (pending == null && text.length() < REPORT_CHARS) {
-                pending = text;
-                host.step("Checking that the answer is complete"); // the answer itself shows in the chat, not as a step
+                pending = text; // asked once whether it is done (DVINE's own check: not a step the user sees)
                 work.append("\n").append(text).append("\n<result>\n").append(DONE_OR_GO_ON).append("\n</result>\n");
+                continue;
+            }
+            if (promise(text) && promises < 2) {
+                // "Picking up the audit: verifying each tool next." is a plan, not the answer: back to work
+                promises++;
+                work.append("\n").append(text).append("\n<result>\n").append(DO_IT_NOW).append("\n</result>\n");
                 continue;
             }
             String answer = pending != null && pending.length() > text.length() ? pending : text;
@@ -522,6 +534,65 @@ public final class CodeAgent {
 
     /** The last note shown, so the same words don't show twice in a row. */
     private String lastNote;
+    /** Tool calls since the last note shown. */
+    private int callsSinceNote;
+    /** At most one note every this many tool calls: a note per step only repeats itself, and splits every group. */
+    static final int NOTE_EVERY = 3;
+    /** How many times a reply that only promised work was sent back to do it. */
+    private int promises;
+
+    static final String DO_IT_NOW = "That describes work still to do, not its result. Do it now with tools, then give the"
+            + " result inside <final>\u2026</final>. Never end on what you are about to do.";
+
+    /**
+     * A short reply that only says what is about to happen ("Picking up the audit: verifying each tool next.",
+     * "Next: build and test.", "I'll check the runner."), not a result.
+     */
+    static boolean promise(String text) {
+        if (text == null) {
+            return false;
+        }
+        String t = text.trim();
+        if (t.isEmpty() || t.length() > 600 || t.contains("```")) {
+            return false;
+        }
+        String last = t.substring(Math.max(0, t.lastIndexOf('\n') + 1)).trim();
+        if (t.matches("(?s)^(?:Nothing|Something|Everything|Anything|During|According|Including|Following|Thing)\\b.*")) {
+            return false; // "-ing" words that start results, not plans
+        }
+        return t.length() < 300 && t.matches("(?s)^(?:[A-Z][a-z]+ing|Now [a-z]+ing)\\b.*")
+                || t.matches("(?s)^(?:Next|I'll|I will|I'm going to|Let me|Going to)\\b.*")
+                || last.matches("(?is)^(?:next|then|now)\\b.*")
+                || t.matches("(?is).*\\b(?:next|then)\\s*[:\u2014-]\\s*\\w+.*") && t.length() < 300;
+    }
+
+    /** Two notes that say mostly the same (half their words or more shared). */
+    static boolean alike(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        java.util.Set<String> x = words(a), y = words(b);
+        if (x.isEmpty() || y.isEmpty()) {
+            return false;
+        }
+        int shared = 0;
+        for (String w : x) {
+            if (y.contains(w)) {
+                shared++;
+            }
+        }
+        return shared * 2 >= Math.min(x.size(), y.size());
+    }
+
+    private static java.util.Set<String> words(String s) {
+        java.util.Set<String> out = new java.util.HashSet<String>();
+        for (String w : s.toLowerCase(java.util.Locale.US).split("[^a-z0-9]+")) {
+            if (w.length() > 3) {
+                out.add(w);
+            }
+        }
+        return out;
+    }
 
     /** Longest note shown: anything longer before a call is the model thinking, not a note. */
     static final int NOTE_CHARS = 280;

@@ -165,6 +165,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 132 | Notes between the steps written by the model itself (continue of "format my message like this, broken by processes") | P12 | Built | 0.89.1 |
 | 133 | The app is crashing: a debug catcher that saves crash logs to the Downloads folder to copy | P12 | Built (cause pending the first report) | 0.89.2 |
 | 134 | The app froze on Send (ANR report from the crash catcher): draw only the latest messages | P12 | Built | 0.89.3 |
+| 135 | Compare (DVINE steps vs Claude Code): finish instead of ending on a plan, fewer notes, no check rows | P12 | Built | 0.89.4 |
 
 ## Still open, in the order that matters
 
