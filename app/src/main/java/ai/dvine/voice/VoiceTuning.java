@@ -345,6 +345,52 @@ public final class VoiceTuning {
         return 3;
     }
 
+    /**
+     * The stored form of a tuning: pitch, rate and voice, each field
+     * separated by a pipe, e.g. {@code "0.80|0.98|en-us-x-iam-local"}
+     * (the voice may be empty). Written by {@link #encode()} and read
+     * back by {@link #parse}; nothing else needs to know the layout.
+     */
+    private static final String SEP = "|";
+
+    /** The stored form of this tuning, for a preference of the caller's. */
+    public String encode() {
+        return pitch + SEP + rate + SEP + (voice == null ? "" : voice);
+    }
+
+    /**
+     * Reads a tuning back from what {@link #encode()} wrote, for the
+     * persona identified by {@code ivie}. A missing, empty or
+     * unreadable value falls back to {@link #defaults} for that persona,
+     * so a first run (or a value an older version wrote) still speaks at
+     * the right pitch instead of failing.
+     *
+     * @param stored the preference, or null when nothing was saved yet
+     * @param ivie   which persona this tuning belongs to
+     */
+    public static VoiceTuning parse(String stored, boolean ivie) {
+        VoiceTuning t = defaults(ivie);
+        if (stored == null) {
+            return t;
+        }
+        String[] parts = stored.split("\\|", -1);
+        if (parts.length < 2) {
+            return t; // not something this build wrote — keep the defaults
+        }
+        try {
+            float p = Float.parseFloat(parts[0].trim());
+            float r = Float.parseFloat(parts[1].trim());
+            t.pitch = clamp(p, 0.55f, 1.6f);
+            t.rate = clamp(r, 0.6f, 1.8f);
+        } catch (NumberFormatException e) {
+            return t; // a bad number leaves the defaults in place
+        }
+        if (parts.length > 2 && !parts[2].trim().isEmpty()) {
+            t.voice = parts[2].trim();
+        }
+        return t;
+    }
+
     private static float clamp(float v, float lo, float hi) {
         return Math.max(lo, Math.min(hi, v));
     }

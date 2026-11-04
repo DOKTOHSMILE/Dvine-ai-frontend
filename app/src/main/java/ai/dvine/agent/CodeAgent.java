@@ -211,7 +211,8 @@ public final class CodeAgent {
                 + "<tool name=\"search\" query=\"text to find\"/>\n"
                 + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command\"/> (sh with toybox: ls cat grep sed"
                         + " find wc head tail mkdir cp mv rm… — run in the workspace folder, as the app, so only the"
-                        + " app's own files are touched; one command at a time; up to 30 seconds, longer runs are"
+                        + " app's own files are touched; one command per tool call (a chain like a && b is fine);"
+                        + " up to 30 seconds, longer runs are"
                         + " stopped and reported as such; output beyond 8000 characters is cut short. The phone asks"
                         + " you first (Run / Always run / Don't run) unless auto-accept is on, and a refused command"
                         + " comes back as not allowed.)\n")
