@@ -352,7 +352,8 @@ public final class CodeAgent {
             Call call = parse(text);
             if (call != null) {
                 String said = noteBefore(text, call);
-                if (said != null && (lastNote == null || callsSinceNote >= NOTE_EVERY) && !alike(said, lastNote)) {
+                if (said != null && said.length() >= NOTE_MIN && (lastNote == null || callsSinceNote >= NOTE_EVERY)
+                        && !alike(said, lastNote)) {
                     lastNote = said;
                     callsSinceNote = 0;
                     host.note(said); // what it is doing and why, between the steps in the chat
@@ -528,9 +529,11 @@ public final class CodeAgent {
     }
 
     /** How the model tells the user what it is doing as it works, like a person narrating their work. */
-    static final String NOTE_WAY = "Before a tool call you may write one short sentence for the user (under 30 words):"
-            + " what you found or what you are doing next and why, e.g. \"The freeze comes from Save; reading it next.\""
-            + " Plain words, no tool names. Not before every call: when you learn something or change course.\n";
+    static final String NOTE_WAY = "Explain your work to the user the way a colleague would: at the turning points only"
+            + " (when you have read enough to understand the problem, found the cause, decided on a fix, or seen the test"
+            + " results), write a short paragraph of 2 to 4 plain sentences before your next tool call: what you found,"
+            + " what it means, and what you will do about it. Between turning points just call the tools, with no text:"
+            + " never a one-line \"Reading X next\".\n";
 
     /** The last note shown, so the same words don't show twice in a row. */
     private String lastNote;
@@ -595,7 +598,12 @@ public final class CodeAgent {
     }
 
     /** Longest note shown: anything longer before a call is the model thinking, not a note. */
-    static final int NOTE_CHARS = 280;
+    static final int NOTE_CHARS = 1200;
+    /**
+     * Shortest note shown: an explanation, not a one-line "Mapping the files first." (those keep the steps around
+     * them in one group, as Claude's chat does).
+     */
+    static final int NOTE_MIN = 90;
 
     /**
      * The short sentence the model wrote before {@code call}, cleaned up (no thinking, no tags), or null when there is

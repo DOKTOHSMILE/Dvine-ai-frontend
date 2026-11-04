@@ -166,6 +166,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 133 | The app is crashing: a debug catcher that saves crash logs to the Downloads folder to copy | P12 | Built (cause pending the first report) | 0.89.2 |
 | 134 | The app froze on Send (ANR report from the crash catcher): draw only the latest messages | P12 | Built | 0.89.3 |
 | 135 | Compare (DVINE steps vs Claude Code): finish instead of ending on a plan, fewer notes, no check rows | P12 | Built | 0.89.4 |
+| 136 | Make the work notes like Claude: consolidated explanations, then the steps, not a one-liner per step | P12 | Built | 0.89.5 |
 
 ## Still open, in the order that matters
 

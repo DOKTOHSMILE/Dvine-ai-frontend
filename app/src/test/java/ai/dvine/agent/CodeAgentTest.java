@@ -165,19 +165,19 @@ public class CodeAgentTest {
     public void theModelsWordsBeforeAStepReachTheChatAsANote() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         Phone phone = new Phone();
+        String p1 = "The freeze comes from Save: it writes the whole file on the screen thread, so a big chat blocks every tap. I'll move the write to a background thread.";
         CodeAgent agent = new CodeAgent(ws, new Script(
-                "<think>where is it</think>The freeze must be in Save; listing the files first.\n<tool name=\"list_files\" path=\".\"/>",
-                "The freeze must be in Save; listing the files first.\n<tool name=\"list_files\" path=\".\"/>",
+                "<think>where is it</think>" + p1 + "\n<tool name=\"list_files\" path=\".\"/>",
+                p1 + "\n<tool name=\"list_files\" path=\".\"/>",
                 "<tool name=\"list_files\" path=\".\"/>",
                 "<final>Found it.</final>"), phone, "", 20_000);
-        assertTrue(agent.system().contains("one short sentence for the user"));
+        assertTrue(agent.system().contains("short paragraph of 2 to 4 plain sentences"));
         assertEquals("Found it.", agent.run("why does it freeze", ""));
-        assertEquals("the thinking is left out and the same words show once",
-                Arrays.asList("The freeze must be in Save; listing the files first."), phone.notes);
-        // too long, code, or nothing before the call: no note
+        assertEquals("the thinking is left out and the same words show once", Arrays.asList(p1), phone.notes);
+        // too long (thinking, not a note), code, or nothing before the call: no note
         CodeAgent.Call call = CodeAgent.parse("<tool name=\"list_files\" path=\".\"/>");
         assertEquals(null, CodeAgent.noteBefore(call.raw, call));
-        assertEquals(null, CodeAgent.noteBefore("x".repeat(400) + call.raw, call));
+        assertEquals(null, CodeAgent.noteBefore("x".repeat(1300) + call.raw, call));
         assertEquals(null, CodeAgent.noteBefore("```\nls\n```" + call.raw, call));
     }
 
@@ -185,11 +185,15 @@ public class CodeAgentTest {
     public void aPlanIsNotTheAnswerAndNotesDontRepeatEveryStep() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         Phone phone = new Phone();
+        String first = "The tool docs live in CodeAgent.system() and each tool is run by carryOut(), so the two can drift."
+                + " I'll read both side by side and list every line that no longer matches.";
+        String found = "Eleven of the twelve tools match. The fetch line promises any URL, but the runner only takes https"
+                + " pages, so I'll fix the wording and then run the tests.";
         Script brain = new Script(
-                "Mapping the files first.\n<tool name=\"list_files\" path=\".\"/>",
+                first + "\n<tool name=\"list_files\" path=\".\"/>",
                 "Reading the runner next.\n<tool name=\"list_files\" path=\".\"/>",
-                "Checking the docs now.\n<tool name=\"list_files\" path=\".\"/>",
-                "Comparing every runner with its docs.\n<tool name=\"list_files\" path=\".\"/>",
+                found + "\n<tool name=\"list_files\" path=\".\"/>",
+                found + " Fixing it now.\n<tool name=\"list_files\" path=\".\"/>",
                 "Picking up the tool audit, verifying each documented tool against its runner.",
                 "Picking up the tool audit, verifying each documented tool against its runner.",
                 "<tool name=\"list_files\" path=\".\"/>",
@@ -197,8 +201,8 @@ public class CodeAgentTest {
         CodeAgent agent = new CodeAgent(ws, brain, phone, "", 20_000);
         assertEquals("All 12 tools match their runners; the fetch line was wrong and is fixed.", agent.run("audit the tools", ""));
         assertTrue("the plan was sent back to be done", brain.seen.get(brain.seen.size() - 2).contains(CodeAgent.DO_IT_NOW));
-        assertEquals("a note at most every 3 steps", Arrays.asList("Mapping the files first.",
-                "Comparing every runner with its docs."), phone.notes);
+        assertEquals("explanations at the turning points; no one-liners, nothing too soon or repeated",
+                Arrays.asList(first, found + " Fixing it now."), phone.notes);
         for (String s : phone.steps) {
             assertTrue(s, !s.contains("Checking that the answer is complete")); // DVINE's own check isn't a step
         }
