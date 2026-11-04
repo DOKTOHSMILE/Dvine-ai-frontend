@@ -481,6 +481,25 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void aRunToolCallIsOneShellCommandWhateverItContains() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        CodeAgent ibiko = new CodeAgent(ws, new Script(), new Phone(), "", 20_000);
+        // the prompt says one shell command per tool call, not one line per tool call
+        String sys = ibiko.system();
+        assertTrue(sys, sys.contains("one command per tool call"));
+        assertFalse(sys, sys.contains("one command at a time"));
+        assertFalse(sys, sys.contains("up to one command line"));
+        // the form is sh itself, so a pipe, a redirect or an && stay one command
+        assertEquals("ls | wc -l", CodeAgent.parse("<tool name=\"run\" command=\"ls | wc -l\"/>").a("command"));
+        assertEquals("echo hi > a.txt", CodeAgent.parse("<tool name=\"run\" command=\"echo hi > a.txt\"/>").a("command"));
+        assertEquals("a && b", CodeAgent.parse("<tool name=\"run\" command=\"a && b\"/>").a("command"));
+        // the prompt itself says a chain like a && b is fine: one tool call, whatever it contains
+        assertTrue(sys, sys.contains("a chain like a && b is fine"));
+        // reading only: Obi never gets a run tool at all
+        assertFalse(new CodeAgent(ws, new Script(), new Phone(), "", 20_000).as("Obi", true).system().contains("name=\"run\""));
+    }
+
+    @Test
     public void finalAnswersEmptyRepliesAndQuestions() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         // <final> ends the work, its words are the answer

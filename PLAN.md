@@ -80,3 +80,10 @@ Steps:
       against the constants — this shell has no java/javac/gradle/JVM anywhere (verified: only toybox),
       so the suite cannot be executed here; reading is the test.** All 8 pass on paper.
 - [ ] Re-read each change, then commit + push on a branch and open a PR.
+
+## Merged from ibiko/localmodel-fixes
+
+- [x] Run tool prompt now says one command per tool call, and a chain like `a && b` is one command
+      (`CodeAgent.system()`, test `aRunToolCallIsOneShellCommandWhateverItContains`).
+- [x] Voice settings stay on the current `voice;pitch;rate` form. The older pipe format was not merged,
+      so saved voices are not wiped.
