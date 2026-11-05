@@ -97,7 +97,11 @@ Steps:
       0.97, and the robot rate stays in the 0.6–1.8 usable band. **Every assertion checked by hand
       against the constants — this shell has no java/javac/gradle/JVM anywhere (verified: only toybox),
       so the suite cannot be executed here; reading is the test.** All 8 pass on paper.
-- [ ] Re-read each change, then commit + push on a branch and open a PR.
+      Re-read `Dictation.java` (session/hold-to-continue flow) and `TalkBridge.say()/queue()` hunks (`warm()` applied
+      exactly once per path). `git status` on `ibiko/round2-classifier-social` is clean — every voice change is already
+      committed and pushed; PLAN.md committed as `ae8faba`. PR #116 already tracks this branch, so the Round 3 work
+      lands there: https://github.com/DOKTOHSMILE/Dvine-ai-frontend/pull/116 (no new PR needed — verified by
+      `git status` clean + existing PR).
 
 ## Constraints / challenges limiting full capacity (added 2026-11-04)
 
