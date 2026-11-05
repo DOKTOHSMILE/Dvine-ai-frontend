@@ -58,6 +58,46 @@ public class CrewTest {
     }
 
     @Test
+    public void eightWorkersGetEightPartsNotTheOldCapOfFive() {
+        assertEquals(8, Crew.plan(8));
+        assertEquals(5, Crew.plan(4));
+        assertEquals(5, Crew.plan(1));
+        assertTrue(Crew.planPrompt(8).contains("2 to 8"));
+        StringBuilder plan = new StringBuilder();
+        for (int i = 1; i <= 8; i++) {
+            plan.append("PART: part ").append(i).append('\n');
+        }
+        List<String> brainSaid = new ArrayList<String>(Arrays.asList(plan.toString(), null));
+        List<Integer> done = java.util.Collections.synchronizedList(new ArrayList<Integer>());
+        String r = Crew.run((sys, p) -> {
+            if (brainSaid.size() == 2) {
+                assertTrue(sys, sys.contains("2 to 8"));
+            }
+            return brainSaid.isEmpty() ? null : brainSaid.remove(0);
+        }, (part, brief) -> {
+            try {
+                Thread.sleep(part.endsWith("1") ? 60 : 15);
+            } catch (InterruptedException ignored) {
+            }
+            return "found " + part;
+        }, "Deep audit", (n, of, part, found) -> done.add(n), () -> false, 8);
+        assertEquals(8, done.size());
+        List<Integer> sorted = new ArrayList<Integer>(done);
+        java.util.Collections.sort(sorted);
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8), sorted);
+        for (int i = 1; i < 8; i++) {
+            assertTrue(r, r.indexOf("Part " + i + ": part " + i) < r.indexOf("Part " + (i + 1) + ": part " + (i + 1)));
+        }
+        // one worker still reports in order, not as a race
+        List<String> oneBrain = new ArrayList<String>(Arrays.asList("PART: one\nPART: two\nPART: three", "written"));
+        List<Integer> order = new ArrayList<Integer>();
+        String one = Crew.run((sys, p) -> oneBrain.remove(0), (part, brief) -> "found " + part,
+                "Deep audit", (n, of, part, found) -> order.add(n), () -> false, 1);
+        assertEquals("written", one);
+        assertEquals(Arrays.asList(1, 2, 3), order);
+    }
+
+    @Test
     public void onlyHeavyJobsGetHelpers() {
         assertTrue(Crew.heavy("Deep audit my Harvana app codebase in my GitHub repo"));
         assertTrue(Crew.heavy("Find all the bugs in the whole repository"));

@@ -10,9 +10,10 @@ import java.util.regex.Pattern;
 /**
  * Mini agents for a heavy job, on one model: a planner splits the job into a few independent parts, a fresh helper
  * (its own short memory: only its part) works on each in turn, each helper's findings are handed back as they come,
- * and a writer puts them together. A phone holds one model at a time, so the helpers take turns on it rather than
- * running side by side; what they gain is focus: a small model does much better with one short, clear part than with
- * the whole job in one long memory. Pure Java.
+ * and a writer puts them together. How many helpers run at once is the worker count (Settings › Advanced), on the
+ * phone's own model and on an API. The phone still answers one model request at a time, so extra workers wait on
+ * that lock between steps; what they gain is focus: a small model does much better with one short, clear part than
+ * with the whole job in one long memory. Pure Java.
  */
 public final class Crew {
     /** The model, for the planner and the writer. */
@@ -35,6 +36,19 @@ public final class Crew {
 
     static final int MOST = 5;
 
+    /** How many parts the planner may write: at least {@link #MOST}, more when the user asked for more workers. */
+    static int plan(int workers) {
+        return Math.max(MOST, workers);
+    }
+
+    /** Planner instructions that name the part cap for this worker count. */
+    static String planPrompt(int workers) {
+        return "Split the job below into 2 to " + plan(workers) + " independent parts, each small enough for one"
+                + " helper with a short memory to finish alone (for a code audit: by folder or concern, such as security, data,"
+                + " UI, build; for research: by question). One per line as PART: … with what to look at and what to report."
+                + " No other text. /no_think";
+    }
+
     /** A job worth splitting: an audit, a deep review, research, an investigation, a whole repository. */
     public static boolean heavy(String task) {
         String t = task == null ? "" : task.toLowerCase(Locale.US);
@@ -43,10 +57,6 @@ public final class Crew {
                 + "|entire (repo|repository|codebase|project)|codebase|security review)\\b.*");
     }
 
-    static final String PLAN = "Split the job below into 2 to " + MOST + " independent parts, each small enough for one"
-            + " helper with a short memory to finish alone (for a code audit: by folder or concern, such as security, data,"
-            + " UI, build; for research: by question). One per line as PART: … with what to look at and what to report."
-            + " No other text. /no_think";
     static final String WRITE = "You are writing the final answer from your helpers' findings, each on one part of the"
             + " job. Put them together into one complete answer for the user: the most important findings first, every"
             + " problem with where it is and how to fix it (code where it helps), and anything a helper couldn't finish."
@@ -58,18 +68,19 @@ public final class Crew {
     }
 
     /**
-     * Does the job with helpers; null when it couldn't be split (one agent does it then) or it was stopped. With
-     * {@code side} above 1 (an API model, which has no single phone to share), that many helpers work at once, each
-     * reporting as it finishes; the answer keeps the parts in their order.
+     * Does the job with helpers; null when it couldn't be split (one agent does it then) or it was stopped.
+     * {@code side} is how many helpers work at once (1 runs them one after another). This is the user's worker
+     * setting, on the phone and on an API. The planner may write up to {@link #plan(int)} parts.
      */
     public static String run(Brain brain, Helper helper, String task, Progress progress, BooleanSupplier stopped, int side) {
-        final List<String> parts = parts(brain.ask(PLAN, "The job: " + task));
+        final int workers = Math.max(1, side);
+        final List<String> parts = parts(brain.ask(planPrompt(workers), "The job: " + task), plan(workers));
         if (parts.size() < 2 || stopped.getAsBoolean()) {
             return null;
         }
         final String[] results = new String[parts.size()];
-        if (side > 1) {
-            java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(Math.min(side, parts.size()));
+        if (workers > 1) {
+            java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(Math.min(workers, parts.size()));
             List<java.util.concurrent.Future<?>> jobs = new ArrayList<java.util.concurrent.Future<?>>();
             for (int i = 0; i < parts.size(); i++) {
                 final int n = i;
@@ -126,15 +137,21 @@ public final class Crew {
         return r == null || r.trim().isEmpty() ? "(nothing found: the helper couldn't finish this part)" : r.trim();
     }
 
-    /** The parts: each from its PART: marker to the next, lines joined (a model may write "What to look at" below it). */
+    /** The parts: each from its PART: marker to the next, lines joined, at most {@link #MOST}. */
     static List<String> parts(String plan) {
+        return parts(plan, MOST);
+    }
+
+    /** Same as {@link #parts(String)}, capped at {@code cap} parts (the worker plan, which can be above {@link #MOST}). */
+    static List<String> parts(String plan, int cap) {
         List<String> out = new ArrayList<String>();
         if (plan == null) {
             return out;
         }
+        int most = Math.max(1, cap);
         String t = plan.replaceAll("(?s)<think>.*?(</think>|$)", "");
         String[] blocks = t.split("(?im)^\\s*(?:[-*\\d.]+\\s*)?\\**PART\\s*\\d*\\**\\s*:");
-        for (int i = 1; i < blocks.length && out.size() < MOST; i++) {
+        for (int i = 1; i < blocks.length && out.size() < most; i++) {
             String p = blocks[i].replaceAll("\\s+", " ").replace("**", "").trim();
             if (p.length() >= 3) {
                 out.add(p);

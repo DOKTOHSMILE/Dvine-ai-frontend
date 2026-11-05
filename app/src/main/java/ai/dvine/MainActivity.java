@@ -2275,8 +2275,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             chatPane.activityStep("Splitting the job between mini agents");
                         }
                     });
-                    // online (an API): three helpers at once, each with its own calls; on the phone: one after another
-                    final boolean side = model.remoteOn();
+                    // the worker count is a setting, on the phone and on an API (the phone's model still answers one step at a time)
+                    final int workers = Math.max(1, ai.dvine.chat.Tuning.WORKERS.get(prefs));
                     final ai.dvine.agent.CodeAgent.Brain online = new ai.dvine.agent.CodeAgent.Brain() {
                         @Override
                         public String ask(String system, String transcript) {
@@ -2293,7 +2293,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     crew = ai.dvine.agent.Crew.run(brain::ask, (part, brief) -> {
                                 String helper = ai.dvine.agent.AgentBoard.start(who + " \u00B7 mini agent", part);
                                 try {
-                                    ai.dvine.agent.CodeAgent mini = side ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
+                                    ai.dvine.agent.CodeAgent mini = workers > 1 ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
                                             model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
                                             .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ROUND_STEPS)
                                             .as(who, readOnly).keepGoing(rounds) : make.get();
@@ -2305,7 +2305,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             },
                             task, (n, of, part, found) -> handler.post(() -> progressNote(id, persona, n,
                                     "Part " + n + " of " + of + " done: " + part + "\n\n" + found)),
-                            host::stopped, side ? 3 : 1);
+                            host::stopped, workers);
                 }
                 result = crew != null ? crew : agent.run(task, earlier);
                 long began = System.currentTimeMillis();
