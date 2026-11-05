@@ -513,30 +513,30 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** The XML chat screen owns sizing; these views fill their dedicated hosts. */
-    private void fitTypeBar() {
-        if (typeBar == null || typeBar.getParent() == null)
-            return;
-        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        int margin = Math.round(4 * dm.density);
-        android.view.ViewGroup.LayoutParams raw = typeBar.getLayoutParams();
-        if (raw instanceof android.widget.FrameLayout.LayoutParams) {
-            android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) raw;
-            lp.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-            lp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-            lp.gravity = android.view.Gravity.BOTTOM;
-            lp.setMargins(margin, 0, margin, 0);
-            typeBar.setLayoutParams(lp);
+    /** The XML chat screen owns sizing; these views fill their dedicated hosts ({@link ai.dvine.main.ChatFit}). */
+    private final ai.dvine.main.ChatFit chatFit = new ai.dvine.main.ChatFit(new ai.dvine.main.ChatFit.Host() {
+        @Override
+        public android.view.View typeBar() {
+            return typeBar;
         }
+
+        @Override
+        public android.view.View chatPane() {
+            return chatPane;
+        }
+
+        @Override
+        public android.content.res.Resources getResources() {
+            return MainActivity.this.getResources();
+        }
+    });
+
+    private void fitTypeBar() {
+        chatFit.fitTypeBar();
     }
 
     private void fitChatPane() {
-        if (chatPane == null || chatPane.getParent() == null)
-            return;
-        android.view.ViewGroup.LayoutParams raw = chatPane.getLayoutParams();
-        raw.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-        raw.height = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-        chatPane.setLayoutParams(raw);
+        chatFit.fitChatPane();
     }
 
     private void selectPersona(String persona) {
