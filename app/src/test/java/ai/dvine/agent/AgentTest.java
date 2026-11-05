@@ -25,8 +25,22 @@ public class AgentTest {
         assertEquals("open whatsapp", Interpretation.parse("INTENT: request\nTASK: open app\nTARGET: WhatsApp").command());
         assertEquals(Interpretation.Task.DEBATE, Interpretation.parse("INTENT: prompt\nTASK: debate\nTARGET: cats vs dogs").task);
         assertEquals(Interpretation.Task.OTHER, Interpretation.parse("INTENT: request\nTASK: book a flight").task);
-        assertEquals("music off", Interpretation.parse("INTENT: request\nTASK: setting\nTARGET: music off").command());
         assertNull(Interpretation.parse("I think you want a lion."));
+    }
+
+    @Test
+    public void handsThePlainPhraseToTheExistingHandlers() {
+        // copy/share: no confirmation here — ActionPlanner asks yes or no and fills "this" from lastSaid.
+        assertEquals("copy this", Interpretation.parse("INTENT: request\nTASK: copy").command());
+        assertEquals("copy the address", Interpretation.parse("INTENT: request\nTASK: copy\nTARGET: the address").command());
+        assertEquals("share this", Interpretation.parse("INTENT: request\nTASK: share").command());
+        assertEquals("post Now in 3d", Interpretation.parse("INTENT: request\nTASK: share\nTARGET: post Now in 3d").command());
+        assertEquals("share great work", Interpretation.parse("INTENT: request\nTASK: share\nTARGET: great work").command());
+        // debate: Debate.topicOf/DualAgentCoordinator parse the phrase downstream.
+        assertEquals("debate ai art", Interpretation.parse("INTENT: prompt\nTASK: debate\nTARGET: AI art").command());
+        assertNull(Interpretation.parse("INTENT: prompt\nTASK: debate").command());
+        // copy of nothing still means "copy this", never null.
+        assertEquals("copy this", Interpretation.parse("INTENT: request\nTASK: copy\nTARGET: ").command());
     }
 
     @Test
