@@ -93,6 +93,11 @@ public final class Tuning {
     public static final Knob WEB_PAGES = new Knob("adv_web_pages", "Pages read per search",
             "How many of the results are opened and read.", 3, 0, 10);
 
+    public static final Knob WORKERS = new Knob("adv_workers", "Mini agent workers at once",
+            "How many mini agents work side by side on a heavy job (each takes one part and reports when it finishes)."
+                    + " The device's own model is taken by one request at a time, so extra workers wait for it between"
+                    + " their steps; an API model answers them all at once.", 4, 1, 8);
+
     public static final Knob CLONE_FILES = new Knob("adv_clone_files", "Most files in a clone",
             "A repository with more files than this isn't cloned onto the device (a bigger number needs more storage and time).",
             5000, 100, 50000);
@@ -108,7 +113,7 @@ public final class Tuning {
                     + " cores makes it slower). Compare with Settings \u203A Test the speed.", 0, 0, 8);
 
     public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES,
-            CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED, MODEL_THREADS};
+            WORKERS, CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED, MODEL_THREADS};
 
     /** The threads for the phone's own model: the setting, or the fast cores when it is automatic. */
     public static int modelThreads(android.content.SharedPreferences p) {

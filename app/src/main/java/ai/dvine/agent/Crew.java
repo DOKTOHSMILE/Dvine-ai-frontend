@@ -43,10 +43,22 @@ public final class Crew {
                 + "|entire (repo|repository|codebase|project)|codebase|security review)\\b.*");
     }
 
-    static final String PLAN = "Split the job below into 2 to " + MOST + " independent parts, each small enough for one"
-            + " helper with a short memory to finish alone (for a code audit: by folder or concern, such as security, data,"
-            + " UI, build; for research: by question). One per line as PART: … with what to look at and what to report."
-            + " No other text. /no_think";
+    /**
+     * How many parts the planner is asked for: as many as the job has room for — the worker count when that is
+     * bigger than the usual {@link #MOST}, so asking for 8 workers isn't quietly capped at 5.
+     */
+    static int plan(int workers) {
+        return Math.max(MOST, workers);
+    }
+
+    /** The planner's prompt for a job split into {@link #plan(int)} parts. */
+    static String planPrompt(int workers) {
+        return "Split the job below into 2 to " + plan(workers) + " independent parts, each small enough for one"
+                + " helper with a short memory to finish alone (for a code audit: by folder or concern, such as security,"
+                + " data, UI, build; for research: by question). One per line as PART: … with what to look at and what to"
+                + " report. No other text. /no_think";
+    }
+
     static final String WRITE = "You are writing the final answer from your helpers' findings, each on one part of the"
             + " job. Put them together into one complete answer for the user: the most important findings first, every"
             + " problem with where it is and how to fix it (code where it helps), and anything a helper couldn't finish."
@@ -59,11 +71,13 @@ public final class Crew {
 
     /**
      * Does the job with helpers; null when it couldn't be split (one agent does it then) or it was stopped. With
-     * {@code side} above 1 (an API model, which has no single phone to share), that many helpers work at once, each
-     * reporting as it finishes; the answer keeps the parts in their order.
+     * {@code side} above 1, that many helpers work at once, each reporting as it finishes; the answer keeps the parts
+     * in their order. The phone's own model takes one request at a time, so its workers queue on the model's lock
+     * between steps — that is safe, they simply take turns on it.
      */
     public static String run(Brain brain, Helper helper, String task, Progress progress, BooleanSupplier stopped, int side) {
-        final List<String> parts = parts(brain.ask(PLAN, "The job: " + task));
+        final int workers = Math.max(1, side);
+        final List<String> parts = parts(brain.ask(planPrompt(workers), "The job: " + task), plan(workers));
         if (parts.size() < 2 || stopped.getAsBoolean()) {
             return null;
         }
@@ -126,15 +140,24 @@ public final class Crew {
         return r == null || r.trim().isEmpty() ? "(nothing found: the helper couldn't finish this part)" : r.trim();
     }
 
-    /** The parts: each from its PART: marker to the next, lines joined (a model may write "What to look at" below it). */
+    /** The parts, capped at the usual {@link #MOST}; see the other {@code parts}. */
     static List<String> parts(String plan) {
+        return parts(plan, MOST);
+    }
+
+    /**
+     * The parts: each from its PART: marker to the next, lines joined (a model may write "What to look at" below it).
+     * Capped at {@code most} — as many as this job has workers for, so asking for 8 workers gives up to 8 parts.
+     */
+    static List<String> parts(String plan, int most) {
         List<String> out = new ArrayList<String>();
         if (plan == null) {
             return out;
         }
         String t = plan.replaceAll("(?s)<think>.*?(</think>|$)", "");
         String[] blocks = t.split("(?im)^\\s*(?:[-*\\d.]+\\s*)?\\**PART\\s*\\d*\\**\\s*:");
-        for (int i = 1; i < blocks.length && out.size() < MOST; i++) {
+        final int cap = Math.max(1, most);
+        for (int i = 1; i < blocks.length && out.size() < cap; i++) {
             String p = blocks[i].replaceAll("\\s+", " ").replace("**", "").trim();
             if (p.length() >= 3) {
                 out.add(p);

@@ -156,4 +156,3 @@ public final class PersonaTabs {
         tab.setSelected(selected);
     }
 }
-</parameter></function>
