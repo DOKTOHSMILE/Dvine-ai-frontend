@@ -65,7 +65,10 @@ Steps:
       `social.search`, `social.trending`, `social.open` over `SocialWeb.search/trending/open`, and
       `SocialAsk.connect/help/compose` are called at `BrainOrder` lines 166/170/173. No dangling promise.
       Cross-checked against `SocialAskTest.java` (4 tests / 68 lines) — every asserted case matches a pattern.
-- [ ] Re-read each change, then commit + push on a branch and open a PR.
+- [x] Re-read each change, then commit + push on a branch and open a PR.
+      Re-read `Interpretation.command()` (all cases + helpers) and `AgentTest.java` (all 5 tests) line-by-line;
+      pushed 3 files as `e2250bc` on `ibiko/round2-classifier-social`, PR #116:
+      https://github.com/DOKTOHSMILE/Dvine-ai-frontend/pull/116 (`git status` clean afterwards).
 
 ## Round 3 (user issue: voice → text auto-stops; voice sounds sharp/robotic)
 
