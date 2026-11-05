@@ -122,6 +122,28 @@ Steps:
 - `Interpretation.command()` Javadoc overstates "same checked paths": bridge does no confirmation / last-said /
   app-list validation. Must either reword doc or add validation; chosen: reword + restore COPY/SHARE/DEBATE.
 
+## Fact-check of the Round 3 voice/update claims (done 2026-11-05)
+
+- [x] External claims cross-checked against independent sources (web search + page fetch):
+  - **"2 Bcf/day of 7.5 Bcf/day domestic gas supply"** — CONFIRMED. Minister Ekperikpe Ekpo and the Decade of Gas
+    Secretariat (Ed Ubong): production 7.5 bcf/d in 2025, up from 6.8 bcf/d in 2023; domestic supply surpassed
+    2 bcf/d (Ghana Guardian 2026-10-04, Africa Energy Insights, TheCable 2026-03-31).
+  - **"139,470 MT September supply, stock cover 15.9 days"** — CONFIRMED. @LpgNigeria (LPG In Nigeria) September 2026
+    Market Intelligence Report, verbatim: "Supply rose 4.4 percent to 139,470 MT … national stock cover fell to 15.9 days."
+  - **Independent corroboration of the September supply figure** — CONFIRMED by a second, unrelated source: NMDPRA data
+    via Vanguard (2026-10-28): domestic LPG supply 4.5m litres/day in Sept 2026 (+17.78% YoY from 3.7m; +33.33% MoM).
+    4.5m litres/day × 30 ≈ 135,000 litres ≈ **~110–135k MT** — same order as 139,470 MT. Two independent series agree.
+  - **"Cooking gas price rise ~5.55% in October"** — CONFIRMED as a distinct series: 12.5kg refill ₦17,616 → ₦18,593.75
+    (lpginnigeria.com, 2026-11-02) = +5.55%. NBS's 15.36% MoM is a different (basket-weighted) series — not a conflict.
+  - **"₦1,600 / ₦1,500 / ₦1,400 per kg" retail prices** — corroborated (Daily Post 2026-10-17 N1,700; NMDPRA via Vanguard
+    Oct 2026 N1,400/kg, +7.14% from N1,300 in Sept; BusinessDay ₦1,400). Range plausible; ₦1,400 BusinessDay piece is
+    dated Oct **2025** — do not cite it as current.
+  - **"Asiko 5,000MT terminal"** — CONFIRMED earlier round.
+  - **"Naira appreciation + lower international LPG prices = the price drop"** — mechanism corroborated (BusinessDay),
+    BUT flagged: prices actually *rose* Oct→Nov 2026 (depot rates +16% Oct 30–Nov 2; NMDPRA +7.14% MoM), so the
+    "drop" framing is the weakest claim in the update.
+- [x] Result: **all headline figures verified; one framing caveat (the price "drop") and one date trap (BusinessDay 2025).**
+
 ## Merged from ibiko/localmodel-fixes
 
 - [x] Run tool prompt now says one command per tool call, and a chain like `a && b` is one command
