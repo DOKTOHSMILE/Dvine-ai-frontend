@@ -58,6 +58,33 @@ public class CrewTest {
     }
 
     @Test
+    public void eightWorkersGetEightPartsNotTheOldCapOfFive() {
+        StringBuilder plan = new StringBuilder();
+        for (int i = 1; i <= 8; i++) {
+            plan.append("PART: part ").append(i).append(" of the audit\n");
+        }
+        // the parser keeps as many parts as the job has workers for
+        assertEquals(8, Crew.parts(plan.toString(), Crew.plan(8)).size());
+        // ...and stays at the usual MOST for the plain one-argument call
+        assertEquals(Crew.MOST, Crew.parts(plan.toString()).size());
+        List<String> worked = java.util.Collections.synchronizedList(new ArrayList<String>());
+        List<String> done = java.util.Collections.synchronizedList(new ArrayList<String>());
+        List<String> brainSaid = new ArrayList<String>(Arrays.asList(plan.toString(), "Final: all eight."));
+        String r = Crew.run((sys, p) -> brainSaid.remove(0), (part, brief) -> {
+            worked.add(part);
+            return "done " + part;
+        }, "Full review of the whole codebase", (n, of, part, found) -> done.add(n + "/" + of), () -> false, 8);
+        assertEquals("Final: all eight.", r);
+        assertEquals(8, worked.size());
+        assertEquals(8, done.size());
+        assertEquals("1/8", done.get(0));
+        assertEquals("8/8", done.get(7));
+        // the planner is asked for up to 8 parts, so an 8-worker job is not quietly 5
+        assertTrue(Crew.planPrompt(8).contains("2 to 8"));
+        assertTrue(Crew.planPrompt(1).contains("2 to " + Crew.MOST));
+    }
+
+    @Test
     public void onlyHeavyJobsGetHelpers() {
         assertTrue(Crew.heavy("Deep audit my Harvana app codebase in my GitHub repo"));
         assertTrue(Crew.heavy("Find all the bugs in the whole repository"));

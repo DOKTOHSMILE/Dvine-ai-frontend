@@ -539,87 +539,100 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         chatFit.fitChatPane();
     }
 
+    // --- persona tabs: handed over to main/PersonaTabs.java ---
+    /** What main/PersonaTabs.java needs from this screen: the views, the stage, the chats, and a few screen actions. */
+    private final ai.dvine.main.PersonaTabs.Host personaTabsHost = new ai.dvine.main.PersonaTabs.Host() {
+        @Override
+        public android.content.Context context() {
+            return MainActivity.this;
+        }
+
+        @Override
+        public SharedPreferences prefs() {
+            return prefs;
+        }
+
+        @Override
+        public boolean hasStage() {
+            return stage != null;
+        }
+
+        @Override
+        public void ensureFace(String persona) {
+            stage.ensureFace(persona, null);
+        }
+
+        @Override
+        public boolean objectShown() {
+            return stage != null && stage.objectShown();
+        }
+
+        @Override
+        public void chatsForPersona(String persona) {
+            if (chats != null) {
+                chats.forPersona(persona);
+            }
+        }
+
+        @Override
+        public void showChatPane() {
+            if (chatPane != null) {
+                chatPane.show();
+            }
+        }
+
+        @Override
+        public <T extends android.view.View> T find(int id) {
+            return findViewById(id);
+        }
+
+        @Override
+        public android.content.res.Resources resources() {
+            return getResources();
+        }
+
+        @Override
+        public int color(int resId) {
+            return getColor(resId);
+        }
+
+        @Override
+        public String brainLabel() {
+            return MainActivity.this.brainLabel();
+        }
+
+        @Override
+        public void showIvieCanvas(boolean on) {
+            MainActivity.this.showIvieCanvas(on);
+        }
+
+        @Override
+        public void showIbikoMode(boolean visible) {
+            MainActivity.this.showIbikoMode(visible);
+        }
+
+        @Override
+        public void warmModel() {
+            MainActivity.this.warmModel();
+        }
+
+        @Override
+        public void play(java.util.List<ai.dvine.turn.TurnLine> next, Runnable done) {
+            MainActivity.this.play(next, done);
+        }
+    };
+    private final ai.dvine.main.PersonaTabs personaTabs = new ai.dvine.main.PersonaTabs(personaTabsHost);
+
     private void selectPersona(String persona) {
-        selectPersona(persona, false);
+        personaTabs.select(persona);
     }
 
     private void selectPersona(String persona, boolean fromTap) {
-        if (persona == null || persona.isEmpty() || stage == null)
-            return;
-        if (prefs != null)
-            prefs.edit().putString("face", persona).apply();
-        stage.ensureFace(persona, null);
-        updatePersonaTabs(persona);
-        showIvieCanvas("ivie".equals(persona) && stage.objectShown()); // the 3D canvas is Ivie's
-        if (chats != null) {
-            chats.forPersona(persona);
-        }
-        if (chatPane != null) {
-            chatPane.show();
-        }
-        android.widget.EditText field = findViewById(R.id.et_message);
-        if (field != null) {
-            field.setHint("Ask anything");
-        }
-        android.widget.TextView sub = findViewById(R.id.tv_header_sub);
-        if (sub != null) {
-            String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
-            sub.setText(name + " · " + brainLabel());
-        }
-        android.widget.TextView mark = findViewById(R.id.empty_mark);
-        if (mark != null) {
-            mark.setText(persona.substring(0, 1).toUpperCase());
-        }
-        showIbikoMode("ibiko".equals(persona));
-        if (fromTap) {
-            if ("ibiko".equals(persona)) {
-                offerTermux();
-            }
-            warmModel(); // the new persona's instructions read ahead, beside the others
-        }
+        personaTabs.select(persona, fromTap);
     }
 
     private void offerTermux() {
-        if (prefs == null) {
-            return;
-        }
-        boolean installed = ai.dvine.ops.TermuxAndroid.installed(this);
-        String key = installed ? "ibiko_ready_said" : "ibiko_install_offered";
-        if (prefs.getBoolean(key, false)) {
-            return;
-        }
-        prefs.edit().putBoolean(key, true).apply();
-        // only when the coding chat is opened, and only once; the wording matches what the tools really do here
-        play(LocalTurn.speakAs("ibiko", installed
-                ? "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."
-                : "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."),
-                null);
-    }
-
-    private void updatePersonaTabs(String persona) {
-        setPersonaTab(findViewById(R.id.tabIvie), "ivie".equalsIgnoreCase(persona));
-        setPersonaTab(findViewById(R.id.tabObi), "obi".equalsIgnoreCase(persona));
-        setPersonaTab(findViewById(R.id.tabIbiko), "ibiko".equalsIgnoreCase(persona));
-    }
-
-    private void setPersonaTab(android.widget.TextView tab, boolean selected) {
-        if (tab == null)
-            return;
-        // an icon each (graphics for Ivie, chat for Obi, tools for Ibiko); the chosen one also shows its name
-        CharSequence name = tab.getContentDescription();
-        tab.setText(selected && name != null ? name : "");
-        tab.setCompoundDrawablePadding(selected ? Math.round(4 * getResources().getDisplayMetrics().density) : 0);
-        tab.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(
-                getColor(selected ? R.color.text_primary : R.color.text_secondary)));
-        tab.setTextColor(getColor(selected ? R.color.text_primary : R.color.text_secondary));
-        tab.setTypeface(null,
-                selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-        if (selected) {
-            tab.setBackgroundResource(R.drawable.bg_segment_selected);
-        } else {
-            tab.setBackgroundColor(0x00000000);
-        }
-        tab.setSelected(selected);
+        personaTabs.offerTermux();
     }
 
     private void bindChatHeader() {
@@ -2143,8 +2156,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             chatPane.activityStep("Splitting the job between mini agents");
                         }
                     });
-                    // online (an API): three helpers at once, each with its own calls; on the phone: one after another
-                    final boolean side = model.remoteOn();
+                    // how many workers run at once (Settings › Advanced): each takes a part of the job; the phone's own
+                    // model is taken by one request at a time, so its workers wait for it between steps instead
+                    final int workers = Math.max(1, ai.dvine.chat.Tuning.WORKERS.get(prefs));
                     final ai.dvine.agent.CodeAgent.Brain online = new ai.dvine.agent.CodeAgent.Brain() {
                         @Override
                         public String ask(String system, String transcript) {
@@ -2161,10 +2175,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     crew = ai.dvine.agent.Crew.run(brain::ask, (part, brief) -> {
                                 String helper = ai.dvine.agent.AgentBoard.start(who + " \u00B7 mini agent", part);
                                 try {
-                                    ai.dvine.agent.CodeAgent mini = side ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
+                                    ai.dvine.agent.CodeAgent mini = workers > 1 ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
                                             model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
                                             .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ROUND_STEPS)
                                             .as(who, readOnly).keepGoing(rounds) : make.get();
+                                    // an API model: each worker gets its own model calls; the phone's model: one request
+                                    // at a time, so the workers share it (they queue on the model's lock)
                                     return mini.run(part, brief + (earlier.isEmpty() ? ""
                                             : "\n\nEarlier in this chat (its end):\n" + earlier.substring(Math.max(0, earlier.length() - 800))));
                                 } finally {
@@ -2173,7 +2189,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             },
                             task, (n, of, part, found) -> handler.post(() -> progressNote(id, persona, n,
                                     "Part " + n + " of " + of + " done: " + part + "\n\n" + found)),
-                            host::stopped, side ? 3 : 1);
+                            host::stopped, workers);
                 }
                 result = crew != null ? crew : agent.run(task, earlier);
                 long began = System.currentTimeMillis();
@@ -4536,89 +4552,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         stage.setSubtitle(message);
         stage.setMode(StageMode.ERROR);
-    }
-
-    private void play(List<TurnLine> next, Runnable done) {
-        stopPlay();
-        lines = next;
-        index = 0;
-        afterPlay = done;
-        step(playId);
-    }
-
-    private String spokenLine(String line) {
-        if (line != null && line.contains("unable to connect to my database")
-                && connectivity != null && connectivity.isOnline()) {
-            return "I don't have that in my notes.";
-        }
-        return line == null ? "" : line;
-    }
-
-    private void step(final int token) {
-        if (token != playId) {
-            return;
-        }
-        if (index >= lines.size()) {
-            if (streamOpen) {
-                handler.postDelayed(() -> step(token), 120);
-                return;
-            }
-            keepAwake(false);
-            stage.setMode(StageMode.DONE);
-            Runnable after = afterPlay;
-            afterPlay = null;
-
-            final Runnable done = after;
-            if (done != null) {
-                // the microphone waits until the voice has finished, so it doesn't hear DVINE's own words
-                talk.whenQuiet(() -> handler.postDelayed(() -> {
-                    if (token == playId) {
-                        done.run();
-                    }
-                }, 250));
-            }
-            return;
-        }
-        final TurnLine line = lines.get(index);
-        index++;
-        final String who = stage.agent();
-        stage.ensureFace(who, () -> {
-            if (token != playId) {
-                return;
-            }
-            talk.setRobot("ibiko".equals(who));
-            if ("SAY".equals(line.cue)) {
-                stage.setMode(StageMode.SPEAKING);
-                stage.setThought(null);
-                stage.setSubtitle(spokenLine(line.text));
-                if (chatPane != null) {
-                    chatPane.setLive(null);
-                }
-                if (chatPane != null && line.text != null && !line.text.isEmpty()) {
-                    chatPane.assistant(who, spokenLine(line.text));
-                }
-                if (speakReply() && talk != null && !spokenLive.remove(line) && line.text != null) {
-                    ai.dvine.voice.SentenceStream cut = new ai.dvine.voice.SentenceStream();
-                    boolean ivieVoice = "ivie".equals(who);
-                    for (String sentence : cut.add(spokenLine(line.text))) {
-                        talk.queue(ivieVoice, sentence);
-                    }
-                    for (String sentence : cut.finish()) {
-                        talk.queue(ivieVoice, sentence);
-                    }
-                }
-                handler.post(() -> step(token));
-            } else if (line.text != null && line.text.length() > 0) {
-                stage.setThought(line.text);
-                stage.setMode(StageMode.THINKING);
-                stage.setSubtitle("");
-                handler.post(() -> step(token));
-            } else {
-                stage.setThought(null);
-                stage.setMode(StageMode.THINKING);
-                handler.postDelayed(() -> step(token), 520);
-            }
-        });
     }
 
     private String selfSheet() {
