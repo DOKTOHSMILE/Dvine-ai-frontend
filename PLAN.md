@@ -1,123 +1,136 @@
-# Deep analysis: model connection in Dvine LLM frontend
+# Task: break up MainActivity (the god class)
 
-Goal: a written analysis of every path a prompt takes from the app to a model and back,
-with the failure handling, security, and tests. No code changes — this is an analysis repo task.
+Goal: `app/src/main/java/ai/dvine/MainActivity.java` is 5271 lines / ~196 top-level members with no
+section markers. Extract its responsibilities into focused classes under `ai.dvine.main.*`
+so the Activity only wires lifecycle, views and the extracted helpers. Behaviour must not
+change; every extraction is a move, not a rewrite.
 
-Steps:
+## Toolchain: use Termux directly (do not forget)
 
-- [x] Map the repo: where the LLM code lives (app/src/main/java/ai/dvine/llm, chat/ui).
-- [x] Read RemoteBrain.java end to end (URL check, headers, body/forms, streaming readers, errors, transport).
-- [x] Read ProviderStore.java (key encryption, address/model/advanced settings, provider order, CA sockets, keySource session).
-- [x] Read Providers.java — protocols, default addresses/models, capability hints.
-- [x] Trace the session token: MainActivity:1338 / session.token(), renewal, expiry handling.
-- [x] Read the call site that drives requests (MainActivity.applyProvider -> LocalModel.useRemotes -> askRemote:
-  up to 3 slots, fast-then-strong per slot, restUntil cooldown, one-shot switchNote, cancel via epoch).
-- [x] Read LocalBrain + NativeLlm (the on-phone path) for contrast in the same connection story.
-- [x] Read the wiring: Connectivity/online supplier, and how DVINE_SERVER's address is derived (serverUrl).
-- [x] Read tests: ProviderOrderTest and any RemoteBrain/connection tests; run them if a JVM test task exists
-  (no javac/gradle on this shell — verified by reading, not by running).
-- [x] Write the final analysis report: architecture, request lifecycle, negotiation/fallback ladder, security, weaknesses with file:line references.
-      Written to docs/model-connection-analysis.md (architecture, lifecycle, ladder, offline path, security table,
-      7 weaknesses with file:line, tests, sources). Verified by reading the referenced lines — no javac/gradle here.
+This sandbox shell only has toybox — but **Termux on this device has the real toolchain**.
+Anything needing `javac`, `java`, `git`, `python3`, `gradle` or `npm` must be run through
+the `termux` tool (project folder is copied in, command runs inside it), not through `run`.
+Verified present in Termux: `git`, `java`, `javac` at `/data/data/com.termux/files/usr/bin`,
+plus a `~/.gradle` cache, so a real compile check **is** possible.
 
-## Fixes (issue round: fix what the audit found, then commit and push)
+```sh
+# compile check (from the repo root inside Termux)
+javac -d /tmp/out $(find app/src/main/java -name '*.java')
+# or the gradle route if the wrapper needs the network:
+./gradlew :app:compileDebugJavaWithJavac
 
-- [x] LocalModel.java: orphaned Javadoc for `forget()` sitting above `warm()` — move/relabel so the doc matches its method.
-      (Removed the stray block that sat above `remoteTask` with no declaration under it; `warm()`, `forget()` and
-      `remoteTask` now each carry their own correct doc.)
-- [x] LocalModel.java: `withTimeout(...)` watchdog — Javadoc says "12 seconds / 90 seconds" but constants are
-      60s idle / 180s write / 600s read; and the watchdog writes `problem` before `cancel()`, racing the
-      reply thread which can overwrite it — fix the doc and make the timeout problem stick.
-      (Doc rewritten to IDLE_MS 60s / 180s writing cap / READ_MS 600s; the timeout reason now survives `cancel()`
-      instead of relying on the fragile `startsWith("the reply")` prefix check.)
-- [x] LocalModel.java: failover `problem = apiProblem == null ? local : …` at the two fallback sites —
-      make sure a stale API problem isn't reported as the reason the phone's model failed, and that
-      "stopped" is never overwritten by an engine message. (Guarded at both `replyNow` and `taskNow`.)
-- [x] Re-read each change for correctness (no compiler on this machine) and note it here.
-      Re-read every edited hunk by hand: no orphaned Javadoc left, the watchdog doc matches the constants,
-      and both failover sites preserve a stopped/timeout reason. Verified by reading only — no javac/gradle here.
-- [x] git: review `git status`, commit, push on a branch, open a PR.
-      Committed as `6fb84ae` on branch `ibiko/localmodel-fixes`, PR #91:
-      https://github.com/DOKTOHSMILE/Dvine-ai-frontend/pull/91
+# git baseline / commit / push / PR
+git status && git diff --stat
+```
 
-## Round 2 (audit: behaviour that doesn't match what the app says it does)
+Rules:
+- Compile verification happens in Termux (step 6), never as "impossible".
+- git steps (status, commit, push, PR) happen in Termux too (step 7).
+- Files changed with `write_file`/`edit_file` in the workspace are copied into Termux on
+  each call, and any files Termux creates stay in Termux — so change in the workspace,
+  verify in Termux, then push from the workspace-side git.
+- **The termux tool only re-copies when pointed at a single file** (a whole folder is
+  skipped silently). To land workspace edits in Termux's `~/dvine/repo`, run a `python3`
+  patch script inside Termux that applies the same edits there (matched step 3: 4 edits,
+  each hit exactly once).
 
-- [x] MainActivity.offerTermux(): gate the message on actually opening the Ibiko tab (`fromTap`), and fix the
-      wording — it claimed "I won't open another app", which is false (apps open after a spoken yes), and it never
-      named the tools that do exist here. Now: "My file tools live here: ask me to find a zip, unzip it, or run a
-      command in this chat. If a task needs another app I'll ask you first." Read back the edited hunk.
-- [x] run_terminal_cmd tool doc vs what the shell actually does (working directory, limits, denial wording).
-      Checked line by line against `SandboxShell.run`, `PhoneHost` and `CodeAgent`: the doc says "one shell command at a
-      time, run in the workspace folder, as the app", "up to 30 seconds, longer runs are stopped", "output beyond 8000
-      characters is cut short", "asks you first (Run / Always run / Don't run) unless auto-accept is on, and a refused
-      command comes back as not allowed" — each matches: `SandboxShell` runs `sh -c` with `directory(dir)` and
-      HOME/TMPDIR set to the folder, kills at 30 s and appends `…(output cut short)` past 8000 chars (`maxChars` from
-      `PhoneHost.run`), `PhoneHost.allowRun` shows exactly that three-button dialog behind `auto_accept`, and a refusal
-      returns "The user didn't allow this command." Also matches for `termux` (3 minutes, `path` copied there) and the
-      three `allowRun` git gates. No change needed.
-- [x] Interpretation.java `command()` bridge: the classifier's promise matches ActionPlanner's behaviour —
-      `ActionPlanner.plan()` fills content from `lastSaid` for "copy that"/"post that", `reply()` classifies
-      yes/no with a 2-minute expiry, `question()` asks "Shall I copy…? Say yes or no." Javadoc reworded earlier
-      to describe what the bridge really does. Verified by reading `ActionPlanner.java` (115 lines).
-- [x] SocialAsk: network patterns vs the social.* connector calls actually implemented. `SocialAsk.parse()`
-      (4 FORMS + TRENDING/TRENDS) → `BrainOrder.socialOrder()` → orders `search <net>: q`, `trending <net>`,
-      `connect <net>`, `help`, `post <net>: about`; `ConnectorStore` (lines 242–288) implements
-      `social.search`, `social.trending`, `social.open` over `SocialWeb.search/trending/open`, and
-      `SocialAsk.connect/help/compose` are called at `BrainOrder` lines 166/170/173. No dangling promise.
-      Cross-checked against `SocialAskTest.java` (4 tests / 68 lines) — every asserted case matches a pattern.
-- [ ] Re-read each change, then commit + push on a branch and open a PR.
+## Rules of the extraction
 
-## Round 3 (user issue: voice → text auto-stops; voice sounds sharp/robotic)
+- One cluster per step; read every method in the cluster before moving it, keep bodies verbatim.
+- The helper takes the `MainActivity` (or a narrow interface it implements) and uses its
+  package-private fields/methods — same package, so no visibility hacks where avoidable.
+- Fields the cluster owns move with it; fields shared by several clusters stay in the Activity.
+- After each move: read the new file back, grep for leftover references, then `git status`.
+- Test: compile in Termux (javac); also grep every moved symbol for stale references.
 
-- [x] Dictation keeps recording until the record button is pressed again (no auto-stop on silence/end of speech).
-      `ai/dvine/voice/Dictation.java` rewritten as a hold-to-continue session; MainActivity only stops it from
-      `toggle()` (read back; the hold-to-talk `startListening(hold)` path is separate and untouched).
-- [x] Voice pitch: soften the sharp, bright, robotic edge so it sounds more human.
-      - Read `VoiceTuning.java` (pitch/rate defaults, `warm`, `pitchFor`, thought variant) and `TalkBridge.java`
-        say/queue.
-      - The sharp edge was `TalkBridge.say()`'s `bright = robot && !ivie ? 1.25f : 1f` on top of the persona
-        pitch with `quick = 1.06f` on rate, and defaults of Obi 0.84 / Ivie 1.05.
-      - Now: `ROBOT_BRIGHT = 1.10f` / `ROBOT_QUICK = 0.95f` (brighter but slower, not hurried),
-        defaults Obi 0.80 / Ivie 0.97, thought 0.94/0.96, THOUGHT_VOLUME 0.6f, and an anti-sharp
-        `VoiceTuning.warm()` — floor 0.78 (no buzzy bottom), ease anything above neutral toward a 1.08
-        ceiling via WARM_LIFT/WARM_FADE so it never reaches the thin/whiny zone. Every call site in
-        `TalkBridge` (`say()` line 267, `queue()` line 308) passes `pitchFor(...) * bright` through
-        `warm(...)` exactly once, so the user's VOICE_HIGHER/VOICE_LOWER commands still move the voice
-        but never past the ceiling or floor.
-- [x] Test: any JVM/unit tests for voice exist? run them; otherwise verify by reading back and note here.
-      `app/src/test/java/ai/dvine/voice/VoiceTuningTest.java` exists (146 lines, 8 tests): warm never
-      exceeds 1.08 nor drops below neutral and is monotonic; warm passes 0.80/0.85 through and lifts
-      0.60/0.40/0.78 to the floor; defaults are gendered and inside the band; the 0.85x/1.15x gender
-      shifts stay in 0.78–1.08 after warm; thought is softer/slower with THOUGHT_VOLUME 0.6; spoken
-      higher/lower/slower/faster commands move the value and stay warm (junk and null return false);
-      ROBOT_BRIGHT>1, ROBOT_QUICK<1, every robot-lit combination inside the band, Obi-lit 0.88 < Ivie
-      0.97, and the robot rate stays in the 0.6–1.8 usable band. **Every assertion checked by hand
-      against the constants — this shell has no java/javac/gradle/JVM anywhere (verified: only toybox),
-      so the suite cannot be executed here; reading is the test.** All 8 pass on paper.
-- [ ] Re-read each change, then commit + push on a branch and open a PR.
+## Method clusters — CORRECTED against the live index (old names in PLAN.md did not exist)
 
-## Constraints / challenges limiting full capacity (added 2026-11-04)
+Indexed with `grep -nE '^    [A-Za-z][^(]*[(]' MainActivity.java` → 196 members. The original
+cluster lists were written against an older file (`sendGuardShow`, `isSending`, `speakingNow`,
+`rebuildPersonaTabs`, `applyTypeBarStyle` … do not exist); these are the real symbols:
 
-- This shell is toybox-only: no java/javac/gradle/JVM, no Android SDK, no network installs. Verified by reading only.
-  Consequence: cannot compile, cannot run `./gradlew`, cannot execute `VoiceTuningTest` or any unit test here.
-  Mitigation: verify by re-reading every edited hunk line-by-line; mark tests as "pass on paper, not executed".
-- `run` tool limit: one shell command per call, 30s max, 8000 chars output cut. Long builds/tests will be stopped.
-  Mitigation: keep commands small (`grep`, `sed`, `git status`), chain with `&&` as one command.
-- `termux` path needs user approval (Run / Always run) per call unless auto-accept is on. If refused it comes back
-  as not allowed — then fall back to read-only verification and note it.
-- Workspace is a huge Android repo + llama.cpp vendored tree. `git` clone/push can hit file-count limits
-  (Settings > Advanced > Most files in a clone). Mitigation: work in place, push on small branch, open PR.
-- App must stay alive while patching: never run a command that kills the host app process, wipes the workspace,
-  or blocks the UI thread. Mitigation: read-before-change, small hunks, `git status` before push, no `rm -rf`.
-- Single-tool-call per reply (platform rule): only one <tool> per turn, no text+tool mix. Mitigation: plan in
-  PLAN.md, then one tool per step; progress notes go between rounds.
-- No `SocialAsk.java` in `agent/` listing — lives elsewhere (`ai/dvine/social/` or `brain/`). Must `find` first.
-- `Interpretation.command()` Javadoc overstates "same checked paths": bridge does no confirmation / last-said /
-  app-list validation. Must either reword doc or add validation; chosen: reword + restore COPY/SHARE/DEBATE.
+1. Send + waiting queue (was "send guard"): `SEND_GUARD_MS`/`lastSendAt` (L781), `sendComposer`
+   (L785), `waiting`/`waitingWords`/`waitingSince`/`idleBeats` (L821), `busy` (L827), `hold` (L831),
+   `releaseBeat` (L847), `unhold` (L889).
+2. Crash banner/reporter: `installCrashReporter` (L475), `takeCrashReport` (L479),
+   `bindCrashBanner` (L1046), `freshCrash` (L1082), `clearCrash` (L1104).
+3. Read-aloud / speech: `readAloud` (L1226), `speakReply` (L1231), `readingSentences` (L1682),
+   `toggleReading` (L1691), `readNext` (L1713), `stopGeneration`/`setGenerating`/`refreshSend`
+   (L1734–1755) stay put (shared with send).
+4. Persona tabs: `selectPersona` (L536/L540), `updatePersonaTabs` (L593), `setPersonaTab` (L599).
+5. Type-bar/chat fitting: `fitTypeBar` (L511), `fitChatPane` (L527).
+6. Brain/model gates: `applyProvider` (L3946), `brainLabel` (L3973), `askForBrainIfNone` (L3983),
+   `showModelSwitch` (L3993), `switchOfflineModel` (L4021), `loadModel` (L4074),
+   `modelCommand` (L4145), `startModelDownload` (L4313), `modelOn` (L1967).
+7. Actions (staged card, connectors, shell, documents, creation): `showStaged` (L3244),
+   `closeStaged` (L3265), `doAction` (L3273), `connectorTools` (L2740), `useConnector` (L2748),
+   `runShell` (L2795), `makeDocument` (L3159), `create` (L4340), `runCreation` (L4349),
+   `applyCreation` (L4400).
+8. Voice input: `onMic` (L4527), `onMicRelease` (L4539), `sendHeld` (L4554),
+   `startListening` (L4572), `onType` (L4595), `heldWords` (L4522), `dictating`/`toggleDictation`
+   (L1023/L1027).
+9. Play/turn stepping: `play` (L4677), `step` (L4693), `stopPlay` (L4780), `spokenLine` (L4685),
+   `selfSheet` (L4760), `lastSaid` (L4770).
+10. File picking: `openContentPicker` (L4795), `openReconstructionPicker` (L4822),
+    `onActivityResult` (L4845), `pickedUris` (L4937), `deliverReconstruction` (L4954),
+    `deliverFile` (L5010), `showSelected` (L5074), `readRaster` (L4980).
+11. Agent work loop: `runAgent` (L2154), `markRunning` (L2361), `offerToCarryOn` (L2377),
+    `backupPartial` (L2420), `clearPartial` (L2430), `agentWork`/`workKey`/`agentFile`/
+    `saveAgentWork` (L2653–2672), `carriesOn` (L2642).
+12. Social: `social` (L3040).
+13. Meaning/command: `meanings` (L3295), `understand` (L3308), `act` (L3360), `command` (L3374),
+    `retryLast` (L3423), `clearWorkspace` (L3452), `deleteTree` (L3470), `stagedAction` (L2992),
+    `looksLikeAction` (L2979), `stager` (L2972).
 
-## Merged from ibiko/localmodel-fixes
+## Parallel workers (how to quicken this)
 
-- [x] Run tool prompt now says one command per tool call, and a chain like `a && b` is one command
-      (`CodeAgent.system()`, test `aRunToolCallIsOneShellCommandWhateverItContains`).
-- [x] Voice settings stay on the current `voice;pitch;rate` form. The older pipe format was not merged,
-      so saved voices are not wiped.
+Because every extraction is an **isolated file addition** plus a **line-range removal** from
+MainActivity, clusters that don't touch the same lines can be built by separate workers in
+parallel. Dispatch rule: a worker owns whole clusters, never half of one, and two workers
+never edit the same line range of MainActivity in the same round.
+
+Ready to dispatch now (no overlap in fields, methods or line ranges):
+
+- **Worker A — cluster 4 (persona tabs)** → `main/PersonaTabs.java`
+- **Worker B — cluster 5 (type-bar/chat fitting)** → `main/ChatFit.java`
+- **Worker C — cluster 9 (play/turn stepping)** → `main/PlayStep.java`
+
+Blocked until the workspace and Termux repo are back in sync (the termux tool's copy is
+stale at `e53fe54`, missing `ReadAloud.java`): clusters 6, 7, 8, 10, 11, 12, 13 — they
+read MainActivity's live line numbers, which drift after every landed edit.
+
+After each worker finishes: re-read the file, grep the moved symbols for stale references,
+then compile **once** in Termux and commit **once** from the workspace — merging is serial
+on purpose, so MainActivity never ends up with a conflicting edit.
+
+**First priority (user): push to GitHub.** Steps 1–3 are compiled (0 errors, 634 classes)
+and committed in Termux (`8062639`) but have never reached GitHub: the workspace git lacks
+push access and Termux has no credentials. Fix the push route before dispatching workers —
+otherwise parallel edits pile up with no way to land them.
+
+## Steps
+
+Baseline (step 0): 5271 lines / 196 top-level members in MainActivity, indexed as above.
+- [x] 1. Cluster 1 (sendComposer + waiting queue) → `ai/dvine/main/SendQueue.java`.
+- [x] 2. Cluster 2 (crash banner/reporter) → `main/CrashReport.java`.
+
+Compile status after step 2 (Termux, javac): **0 errors, 631 class files** in `~/jout`
+(`SendQueue.class`, `CrashReport.class`, `MainActivity.class` all present). javac log:
+only the two deprecation notes. Compile needs a generated `ai/dvine/R.java` (built from
+`res/` by a script, dotted style names nested) plus the AndroidX jars from `~/alljars.txt`
+(`-cp $(paste -sd: ~/alljars.txt)`).
+- [x] 3. Cluster 3 (read-aloud) → `main/ReadAloud.java`.
+
+Compile status after step 3 (Termux, javac): **0 errors, 634 class files** in `~/jout`
+(`ReadAloud.class`, `ReadAloud$Host.class`, `MainActivity.class` all present). Log: only
+the two deprecation notes. Committed in Termux as `8062639`. The workspace copy still
+needs `ReadAloud.java` + the four MainActivity edits written into it before push.
+
+## Steps (parallel batch — dispatch the three workers above)
+
+- [ ] 4. Cluster 4 (persona tabs) → `main/PersonaTabs.java` — worker A
+- [ ] 5. Cluster 5 (type-bar/chat fitting) → `main/ChatFit.java` — worker B
+- [ ] 6. Cluster 9 (play/turn stepping) → `main/PlayStep.java` — worker C
+- [ ] 7. Sync workspace ↔ Termux, compile once, commit once, **push to GitHub**
+- [ ] 8. Batch 2 (clusters 6, 7, 8) after the sync — worker dispatch
+- [ ] 9. Batch 3 (clusters 10, 11, 12, 13) after the sync — worker dispatch
