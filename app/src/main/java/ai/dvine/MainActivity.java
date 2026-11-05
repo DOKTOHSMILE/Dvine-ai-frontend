@@ -469,25 +469,31 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean awaitingName;
 
     /**
-     * The crash catcher ({@link CrashLog}): every crash is saved to files/crash.txt and to Download/DVINE. The app
-     * class installs it at start; this covers a start without it (tests).
+     * The crash banner ({@link ai.dvine.main.CrashReport}): every crash is saved to files/crash.txt and to
+     * Download/DVINE, and on the next start the banner offers that report once. This is the screen it serves.
      */
-    private void installCrashReporter() {
-        CrashLog.install(this);
-    }
+    private final ai.dvine.main.CrashReport.Host crashHost = new ai.dvine.main.CrashReport.Host() {
+        @Override
+        public <T extends android.view.View> T find(int id) {
+            return findViewById(id);
+        }
 
-    private String takeCrashReport() {
-        File f = new File(getFilesDir(), "crash.txt");
-        if (!f.exists()) {
-            return null;
+        @Override
+        public android.content.Context context() {
+            return MainActivity.this;
         }
-        try {
-            return new String(java.nio.file.Files.readAllBytes(f.toPath()),
-                    java.nio.charset.StandardCharsets.UTF_8);
-        } catch (java.io.IOException e) {
-            return null;
+
+        @Override
+        public String version() {
+            return BuildConfigInfo.version(MainActivity.this);
         }
-    }
+
+        @Override
+        public SharedPreferences prefs() {
+            return prefs;
+        }
+    };
+    private final ai.dvine.main.CrashReport crash = new ai.dvine.main.CrashReport(crashHost);
 
     private android.widget.FrameLayout chatPaneHost;
     private android.widget.FrameLayout typeBarHost;
@@ -706,7 +712,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         selectPersona(StageView.OBI);
         bindComposer();
         refreshSend();
-        bindCrashBanner();
+        crash.bind();
     }
 
     private void bindComposer() {
@@ -778,135 +784,76 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** After a send, taps on the button are ignored this long, so a double tap neither cancels nor sends twice. */
-    static final long SEND_GUARD_MS = 900;
-    private long lastSendAt = -SEND_GUARD_MS;
-
-    private void sendComposer() {
-        android.widget.EditText field = findViewById(R.id.et_message);
-        if (field == null || field.getText() == null) {
-            return;
-        }
-        String text = field.getText().toString().trim();
-        boolean attached = attachments != null && !attachments.isEmpty();
-        long now = android.os.SystemClock.uptimeMillis();
-        if (now - lastSendAt < SEND_GUARD_MS) {
-            return; // a double tap: the second tap would otherwise stop the reply it just asked for, or send twice
-        }
-        if (text.isEmpty() && !attached) {
-            if (generating) {
-                stopGeneration();
-            }
-            return;
-        }
-        lastSendAt = now;
-        field.setText("");
-        voiceTurn = dictation != null && dictation.takeDraft();
-        if (busy()) {
-            // work is running: the message waits its turn instead of cutting the work off (Stop still stops it)
-            final String words = text;
-            hold(words, attached ? () -> sendWithAttachments(words) : () -> answer(words));
-            field.requestFocus();
-            return;
-        }
-        if (attached) {
-            sendWithAttachments(text);
-        } else {
-            answer(text);
-        }
-        field.requestFocus(); // the keyboard keeps typing into the box after Send
-    }
-
-    /** Messages sent while work was running, in order, waiting for it to finish (with what they say, and since when). */
-    private final java.util.ArrayDeque<Runnable> waiting = new java.util.ArrayDeque<Runnable>();
-    private final java.util.ArrayDeque<String> waitingWords = new java.util.ArrayDeque<String>();
-    private long waitingSince;
-    private int idleBeats;
+    // --- send + waiting queue: handed over to main/SendQueue.java ---
+    /** The send button's queue: a double tap is ignored, and messages sent while work runs wait their turn. */
+    private ai.dvine.main.SendQueue sendQueue;
 
     /** Something is being worked on or still being written out: a reply, an agent's run, a build. */
     private boolean busy() {
         return generating || streamOpen || index < lines.size();
     }
 
-    private void hold(String words, Runnable send) {
-        if (waiting.isEmpty()) {
-            waitingSince = System.currentTimeMillis();
-        }
-        waiting.add(send);
-        waitingWords.add(words.isEmpty() ? "your files" : words);
-        idleBeats = 0;
-        handler.removeCallbacks(releaseBeat);
-        handler.post(releaseBeat);
+    private void sendComposer() {
+        sendQueue.sendComposer();
     }
 
-    /**
-     * Every half second while messages wait: the waiting line shows them and how long they've waited, and once the
-     * work has finished (and stayed finished a moment, so a reply that runs in two steps isn't cut between them) the
-     * first goes, then the next after its own work.
-     */
-    private final Runnable releaseBeat = new Runnable() {
+    /** What main/SendQueue.java needs from this screen: views, the two ways a message goes out, and the stop. */
+    private final ai.dvine.main.SendQueue.Host sendHost = new ai.dvine.main.SendQueue.Host() {
         @Override
-        public void run() {
-            android.widget.TextView line = findViewById(R.id.composer_note);
-            if (waiting.isEmpty()) {
-                if (line != null && line.getTag() == waiting) {
-                    line.setTag(null);
-                    line.setOnClickListener(null);
-                    line.setVisibility(android.view.View.GONE);
-                }
-                return;
-            }
-            if (!busy()) {
-                idleBeats++;
-            } else {
-                idleBeats = 0;
-            }
-            if (idleBeats >= 2) {
-                idleBeats = 0;
-                Runnable next = waiting.poll();
-                waitingWords.poll();
-                waitingSince = System.currentTimeMillis();
-                if (next != null) {
-                    next.run();
-                }
-            }
-            if (line != null && !waiting.isEmpty()) {
-                long secs = (System.currentTimeMillis() - waitingSince) / 1000;
-                String first = waitingWords.peek();
-                first = first == null ? "" : first.length() > 40 ? first.substring(0, 40) + "\u2026" : first;
-                line.setText("Waiting to send" + (waiting.size() > 1 ? " (" + waiting.size() + ")" : "") + ": \u201c" + first + "\u201d \u00b7 "
-                        + ai.dvine.stage.ChatPane.duration(secs) + " \u00b7 sends when this finishes \u00b7 tap to edit");
-                line.setTag(waiting);
-                line.setVisibility(android.view.View.VISIBLE);
-                handler.removeCallbacks(hideNote);
-                line.setOnClickListener(v -> unhold());
-            }
-            handler.postDelayed(this, 500);
+        public <T extends android.view.View> T find(int id) {
+            return findViewById(id);
+        }
+
+        @Override
+        public android.os.Handler handler() {
+            return handler;
+        }
+
+        @Override
+        public android.widget.TextView findNote() {
+            return findViewById(R.id.composer_note);
+        }
+
+        @Override
+        public boolean busy() {
+            return MainActivity.this.busy();
+        }
+
+        @Override
+        public boolean hasAttachments() {
+            return attachments != null && !attachments.isEmpty();
+        }
+
+        @Override
+        public boolean takeVoiceDraft() {
+            return dictation != null && dictation.takeDraft();
+        }
+
+        @Override
+        public void markVoiceTurn() {
+            voiceTurn = true;
+        }
+
+        @Override
+        public void answer(String text) {
+            MainActivity.this.answer(text);
+        }
+
+        @Override
+        public void sendAttached(String text) {
+            sendWithAttachments(text);
+        }
+
+        @Override
+        public void haltGeneration() {
+            stopGeneration();
+        }
+
+        @Override
+        public void cancelNoteHide() {
+            handler.removeCallbacks(hideNote);
         }
     };
-
-    /** The waiting line tapped: the messages come back into the box to change, and nothing more waits. */
-    private void unhold() {
-        android.widget.EditText field = findViewById(R.id.et_message);
-        StringBuilder b = new StringBuilder();
-        for (String w : waitingWords) {
-            if (!"your files".equals(w)) {
-                b.append(b.length() == 0 ? "" : "\n").append(w);
-            }
-        }
-        waiting.clear();
-        waitingWords.clear();
-        if (field != null) {
-            field.setText(b.toString());
-            field.setSelection(field.getText().length());
-        }
-        android.widget.TextView line = findViewById(R.id.composer_note);
-        if (line != null) {
-            line.setOnClickListener(null);
-            line.setTag(null);
-            line.setVisibility(android.view.View.GONE);
-        }
-    }
 
     /**
      * Files Ibiko made outside the cloned repositories (a script, a page, a report) become artifacts, openable and
@@ -1043,67 +990,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         dictation.toggle();
     }
 
-    private void bindCrashBanner() {
-        android.view.View banner = findViewById(R.id.banner_crash);
-        if (banner == null) {
-            return;
-        }
-        String report = freshCrash();
-        // shown once after a crash: the report is in Download/DVINE, and Copy puts it on the clipboard
-        banner.setVisibility(report != null ? android.view.View.VISIBLE : android.view.View.GONE);
-        android.widget.TextView detail = findViewById(R.id.tv_crash_detail);
-        if (detail != null && report != null) {
-            String first = report.split("\n\n", 3).length > 1 ? report.split("\n\n", 3)[1].split("\n")[0] : "";
-            detail.setText("Saved in Download/DVINE" + (first.isEmpty() ? "" : " (" + first + ")") + ". Tap Copy to copy it.");
-        }
-        android.view.View copy = findViewById(R.id.btn_copy_crash);
-        if (copy != null) {
-            copy.setOnClickListener(v -> {
-                android.content.ClipboardManager clips = (android.content.ClipboardManager) getSystemService(
-                        CLIPBOARD_SERVICE);
-                if (clips != null && report != null) {
-                    clips.setPrimaryClip(
-                            android.content.ClipData.newPlainText("dvine-crash", report));
-                }
-                clearCrash();
-                banner.setVisibility(android.view.View.GONE);
-            });
-        }
-        android.view.View dismiss = findViewById(R.id.btn_dismiss);
-        if (dismiss != null) {
-            dismiss.setOnClickListener(v -> {
-                clearCrash();
-                banner.setVisibility(android.view.View.GONE);
-            });
-        }
-    }
-
-    /** A crash from this version, once. An old report, or one already shown, is removed. */
-    private String freshCrash() {
-        String report = takeCrashReport();
-        if (report == null) {
-            return null;
-        }
-        String version = BuildConfigInfo.version(this);
-        if (!report.startsWith("DVINE " + version + " ")) {
-            clearCrash();
-            return null;
-        }
-        String seen = prefs == null ? "" : prefs.getString("crash_seen", "");
-        String mark = String.valueOf(report.hashCode());
-        if (mark.equals(seen)) {
-            clearCrash();
-            return null;
-        }
-        if (prefs != null) {
-            prefs.edit().putString("crash_seen", mark).apply();
-        }
-        return report;
-    }
-
-    private void clearCrash() {
-        new File(getFilesDir(), "crash.txt").delete();
-    }
 
     private void startNewChatSafely() {
         if (chats == null) {
@@ -1237,7 +1123,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     protected void onCreate(Bundle savedInstanceState) {
         applyTheme(getSharedPreferences("dvine", MODE_PRIVATE).getString("theme", "system"));
         super.onCreate(savedInstanceState);
-        installCrashReporter();
+        crash.install();
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         window.setStatusBarColor(getColor(R.color.bg_main)); // and the theme sets light or dark bar icons
@@ -1255,6 +1141,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // alive as the rendering/agent surface, while this screen is dedicated
         // to the conversation UI.
         setContentView(R.layout.activity_main);
+        sendQueue = new ai.dvine.main.SendQueue(sendHost);
         android.widget.LinearLayout root = findViewById(R.id.chatScreenRoot);
         chatPaneHost = findViewById(R.id.chatPaneHost);
         thoughtStatus = findViewById(R.id.thoughtStatus);

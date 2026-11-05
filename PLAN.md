@@ -1,155 +1,90 @@
-# Deep analysis: model connection in Dvine LLM frontend
+# Task: break up MainActivity (the god class)
 
-Goal: a written analysis of every path a prompt takes from the app to a model and back,
-with the failure handling, security, and tests. No code changes — this is an analysis repo task.
+Goal: `app/src/main/java/ai/dvine/MainActivity.java` is 5271 lines / ~196 top-level members with no
+section markers. Extract its responsibilities into focused classes under `ai.dvine.main.*`
+so the Activity only wires lifecycle, views and the extracted helpers. Behaviour must not
+change; every extraction is a move, not a rewrite.
 
-Steps:
+## Toolchain: use Termux directly (do not forget)
 
-- [x] Map the repo: where the LLM code lives (app/src/main/java/ai/dvine/llm, chat/ui).
-- [x] Read RemoteBrain.java end to end (URL check, headers, body/forms, streaming readers, errors, transport).
-- [x] Read ProviderStore.java (key encryption, address/model/advanced settings, provider order, CA sockets, keySource session).
-- [x] Read Providers.java — protocols, default addresses/models, capability hints.
-- [x] Trace the session token: MainActivity:1338 / session.token(), renewal, expiry handling.
-- [x] Read the call site that drives requests (MainActivity.applyProvider -> LocalModel.useRemotes -> askRemote:
-  up to 3 slots, fast-then-strong per slot, restUntil cooldown, one-shot switchNote, cancel via epoch).
-- [x] Read LocalBrain + NativeLlm (the on-phone path) for contrast in the same connection story.
-- [x] Read the wiring: Connectivity/online supplier, and how DVINE_SERVER's address is derived (serverUrl).
-- [x] Read tests: ProviderOrderTest and any RemoteBrain/connection tests; run them if a JVM test task exists
-  (no javac/gradle on this shell — verified by reading, not by running).
-- [x] Write the final analysis report: architecture, request lifecycle, negotiation/fallback ladder, security, weaknesses with file:line references.
-      Written to docs/model-connection-analysis.md (architecture, lifecycle, ladder, offline path, security table,
-      7 weaknesses with file:line, tests, sources). Verified by reading the referenced lines — no javac/gradle here.
+This sandbox shell only has toybox — but **Termux on this device has the real toolchain**.
+Anything needing `javac`, `java`, `git`, `python3`, `gradle` or `npm` must be run through
+the `termux` tool (project folder is copied in, command runs inside it), not through `run`.
+Verified present in Termux: `git`, `java`, `javac` at `/data/data/com.termux/files/usr/bin`,
+plus a `~/.gradle` cache, so a real compile check **is** possible.
 
-## Fixes (issue round: fix what the audit found, then commit and push)
+```sh
+# compile check (from the repo root inside Termux)
+javac -d /tmp/out $(find app/src/main/java -name '*.java')
+# or the gradle route if the wrapper needs the network:
+./gradlew :app:compileDebugJavaWithJavac
 
-- [x] LocalModel.java: orphaned Javadoc for `forget()` sitting above `warm()` — move/relabel so the doc matches its method.
-      (Removed the stray block that sat above `remoteTask` with no declaration under it; `warm()`, `forget()` and
-      `remoteTask` now each carry their own correct doc.)
-- [x] LocalModel.java: `withTimeout(...)` watchdog — Javadoc says "12 seconds / 90 seconds" but constants are
-      60s idle / 180s write / 600s read; and the watchdog writes `problem` before `cancel()`, racing the
-      reply thread which can overwrite it — fix the doc and make the timeout problem stick.
-      (Doc rewritten to IDLE_MS 60s / 180s writing cap / READ_MS 600s; the timeout reason now survives `cancel()`
-      instead of relying on the fragile `startsWith("the reply")` prefix check.)
-- [x] LocalModel.java: failover `problem = apiProblem == null ? local : …` at the two fallback sites —
-      make sure a stale API problem isn't reported as the reason the phone's model failed, and that
-      "stopped" is never overwritten by an engine message. (Guarded at both `replyNow` and `taskNow`.)
-- [x] Re-read each change for correctness (no compiler on this machine) and note it here.
-      Re-read every edited hunk by hand: no orphaned Javadoc left, the watchdog doc matches the constants,
-      and both failover sites preserve a stopped/timeout reason. Verified by reading only — no javac/gradle here.
-- [x] git: review `git status`, commit, push on a branch, open a PR.
-      Committed as `6fb84ae` on branch `ibiko/localmodel-fixes`, PR #91:
-      https://github.com/DOKTOHSMILE/Dvine-ai-frontend/pull/91
+# git baseline / commit / push / PR
+git status && git diff --stat
+```
 
-## Round 2 (audit: behaviour that doesn't match what the app says it does)
+Rules:
+- Compile verification happens in Termux (step 6), never as "impossible".
+- git steps (status, commit, push, PR) happen in Termux too (step 7).
+- Files changed with `write_file`/`edit_file` in the workspace are copied into Termux on
+  each call, and any files Termux creates stay in Termux — so change in the workspace,
+  verify in Termux, then push from the workspace-side git.
 
-- [x] MainActivity.offerTermux(): gate the message on actually opening the Ibiko tab (`fromTap`), and fix the
-      wording — it claimed "I won't open another app", which is false (apps open after a spoken yes), and it never
-      named the tools that do exist here. Now: "My file tools live here: ask me to find a zip, unzip it, or run a
-      command in this chat. If a task needs another app I'll ask you first." Read back the edited hunk.
-- [x] run_terminal_cmd tool doc vs what the shell actually does (working directory, limits, denial wording).
-      Checked line by line against `SandboxShell.run`, `PhoneHost` and `CodeAgent`: the doc says "one shell command at a
-      time, run in the workspace folder, as the app", "up to 30 seconds, longer runs are stopped", "output beyond 8000
-      characters is cut short", "asks you first (Run / Always run / Don't run) unless auto-accept is on, and a refused
-      command comes back as not allowed" — each matches: `SandboxShell` runs `sh -c` with `directory(dir)` and
-      HOME/TMPDIR set to the folder, kills at 30 s and appends `…(output cut short)` past 8000 chars (`maxChars` from
-      `PhoneHost.run`), `PhoneHost.allowRun` shows exactly that three-button dialog behind `auto_accept`, and a refusal
-      returns "The user didn't allow this command." Also matches for `termux` (3 minutes, `path` copied there) and the
-      three `allowRun` git gates. No change needed.
-- [x] Interpretation.java `command()` bridge: the classifier's promise matches ActionPlanner's behaviour —
-      `ActionPlanner.plan()` fills content from `lastSaid` for "copy that"/"post that", `reply()` classifies
-      yes/no with a 2-minute expiry, `question()` asks "Shall I copy…? Say yes or no." Javadoc reworded earlier
-      to describe what the bridge really does. Verified by reading `ActionPlanner.java` (115 lines).
-- [x] SocialAsk: network patterns vs the social.* connector calls actually implemented. `SocialAsk.parse()`
-      (4 FORMS + TRENDING/TRENDS) → `BrainOrder.socialOrder()` → orders `search <net>: q`, `trending <net>`,
-      `connect <net>`, `help`, `post <net>: about`; `ConnectorStore` (lines 242–288) implements
-      `social.search`, `social.trending`, `social.open` over `SocialWeb.search/trending/open`, and
-      `SocialAsk.connect/help/compose` are called at `BrainOrder` lines 166/170/173. No dangling promise.
-      Cross-checked against `SocialAskTest.java` (4 tests / 68 lines) — every asserted case matches a pattern.
-- [x] Re-read each change, then commit + push on a branch and open a PR.
-      Re-read `Interpretation.command()` (all cases + helpers) and `AgentTest.java` (all 5 tests) line-by-line;
-      pushed 3 files as `e2250bc` on `ibiko/round2-classifier-social`, PR #116:
-      https://github.com/DOKTOHSMILE/Dvine-ai-frontend/pull/116 (`git status` clean afterwards).
+## Rules of the extraction
 
-## Round 3 (user issue: voice → text auto-stops; voice sounds sharp/robotic)
+- One cluster per step; read every method in the cluster before moving it, keep bodies verbatim.
+- The helper takes the `MainActivity` (or a narrow interface it implements) and uses its
+  package-private fields/methods — same package, so no visibility hacks where avoidable.
+- Fields the cluster owns move with it; fields shared by several clusters stay in the Activity.
+- After each move: read the new file back, grep for leftover references, then `git status`.
+- Test: compile in Termux (javac); also grep every moved symbol for stale references.
 
-- [x] Dictation keeps recording until the record button is pressed again (no auto-stop on silence/end of speech).
-      `ai/dvine/voice/Dictation.java` rewritten as a hold-to-continue session; MainActivity only stops it from
-      `toggle()` (read back; the hold-to-talk `startListening(hold)` path is separate and untouched).
-- [x] Voice pitch: soften the sharp, bright, robotic edge so it sounds more human.
-      - Read `VoiceTuning.java` (pitch/rate defaults, `warm`, `pitchFor`, thought variant) and `TalkBridge.java`
-        say/queue.
-      - The sharp edge was `TalkBridge.say()`'s `bright = robot && !ivie ? 1.25f : 1f` on top of the persona
-        pitch with `quick = 1.06f` on rate, and defaults of Obi 0.84 / Ivie 1.05.
-      - Now: `ROBOT_BRIGHT = 1.10f` / `ROBOT_QUICK = 0.95f` (brighter but slower, not hurried),
-        defaults Obi 0.80 / Ivie 0.97, thought 0.94/0.96, THOUGHT_VOLUME 0.6f, and an anti-sharp
-        `VoiceTuning.warm()` — floor 0.78 (no buzzy bottom), ease anything above neutral toward a 1.08
-        ceiling via WARM_LIFT/WARM_FADE so it never reaches the thin/whiny zone. Every call site in
-        `TalkBridge` (`say()` line 267, `queue()` line 308) passes `pitchFor(...) * bright` through
-        `warm(...)` exactly once, so the user's VOICE_HIGHER/VOICE_LOWER commands still move the voice
-        but never past the ceiling or floor.
-- [x] Test: any JVM/unit tests for voice exist? run them; otherwise verify by reading back and note here.
-      `app/src/test/java/ai/dvine/voice/VoiceTuningTest.java` exists (146 lines, 8 tests): warm never
-      exceeds 1.08 nor drops below neutral and is monotonic; warm passes 0.80/0.85 through and lifts
-      0.60/0.40/0.78 to the floor; defaults are gendered and inside the band; the 0.85x/1.15x gender
-      shifts stay in 0.78–1.08 after warm; thought is softer/slower with THOUGHT_VOLUME 0.6; spoken
-      higher/lower/slower/faster commands move the value and stay warm (junk and null return false);
-      ROBOT_BRIGHT>1, ROBOT_QUICK<1, every robot-lit combination inside the band, Obi-lit 0.88 < Ivie
-      0.97, and the robot rate stays in the 0.6–1.8 usable band. **Every assertion checked by hand
-      against the constants — this shell has no java/javac/gradle/JVM anywhere (verified: only toybox),
-      so the suite cannot be executed here; reading is the test.** All 8 pass on paper.
-      Re-read `Dictation.java` (session/hold-to-continue flow) and `TalkBridge.say()/queue()` hunks (`warm()` applied
-      exactly once per path). `git status` on `ibiko/round2-classifier-social` is clean — every voice change is already
-      committed and pushed; PLAN.md committed as `ae8faba`. PR #116 already tracks this branch, so the Round 3 work
-      lands there: https://github.com/DOKTOHSMILE/Dvine-ai-frontend/pull/116 (no new PR needed — verified by
-      `git status` clean + existing PR).
+## Method clusters — CORRECTED against the live index (old names in PLAN.md did not exist)
 
-## Constraints / challenges limiting full capacity (added 2026-11-04)
+Indexed with `grep -nE '^    [A-Za-z][^(]*[(]' MainActivity.java` → 196 members. The original
+cluster lists were written against an older file (`sendGuardShow`, `isSending`, `speakingNow`,
+`rebuildPersonaTabs`, `applyTypeBarStyle` … do not exist); these are the real symbols:
 
-- This shell is toybox-only: no java/javac/gradle/JVM, no Android SDK, no network installs. Verified by reading only.
-  Consequence: cannot compile, cannot run `./gradlew`, cannot execute `VoiceTuningTest` or any unit test here.
-  Mitigation: verify by re-reading every edited hunk line-by-line; mark tests as "pass on paper, not executed".
-- `run` tool limit: one shell command per call, 30s max, 8000 chars output cut. Long builds/tests will be stopped.
-  Mitigation: keep commands small (`grep`, `sed`, `git status`), chain with `&&` as one command.
-- `termux` path needs user approval (Run / Always run) per call unless auto-accept is on. If refused it comes back
-  as not allowed — then fall back to read-only verification and note it.
-- Workspace is a huge Android repo + llama.cpp vendored tree. `git` clone/push can hit file-count limits
-  (Settings > Advanced > Most files in a clone). Mitigation: work in place, push on small branch, open PR.
-- App must stay alive while patching: never run a command that kills the host app process, wipes the workspace,
-  or blocks the UI thread. Mitigation: read-before-change, small hunks, `git status` before push, no `rm -rf`.
-- Single-tool-call per reply (platform rule): only one <tool> per turn, no text+tool mix. Mitigation: plan in
-  PLAN.md, then one tool per step; progress notes go between rounds.
-- No `SocialAsk.java` in `agent/` listing — lives elsewhere (`ai/dvine/social/` or `brain/`). Must `find` first.
-- `Interpretation.command()` Javadoc overstates "same checked paths": bridge does no confirmation / last-said /
-  app-list validation. Must either reword doc or add validation; chosen: reword + restore COPY/SHARE/DEBATE.
+1. Send + waiting queue (was "send guard"): `SEND_GUARD_MS`/`lastSendAt` (L781), `sendComposer`
+   (L785), `waiting`/`waitingWords`/`waitingSince`/`idleBeats` (L821), `busy` (L827), `hold` (L831),
+   `releaseBeat` (L847), `unhold` (L889).
+2. Crash banner/reporter: `installCrashReporter` (L475), `takeCrashReport` (L479),
+   `bindCrashBanner` (L1046), `freshCrash` (L1082), `clearCrash` (L1104).
+3. Read-aloud / speech: `readAloud` (L1226), `speakReply` (L1231), `readingSentences` (L1682),
+   `toggleReading` (L1691), `readNext` (L1713), `stopGeneration`/`setGenerating`/`refreshSend`
+   (L1734–1755) stay put (shared with send).
+4. Persona tabs: `selectPersona` (L536/L540), `updatePersonaTabs` (L593), `setPersonaTab` (L599).
+5. Type-bar/chat fitting: `fitTypeBar` (L511), `fitChatPane` (L527).
+6. Brain/model gates: `applyProvider` (L3946), `brainLabel` (L3973), `askForBrainIfNone` (L3983),
+   `showModelSwitch` (L3993), `switchOfflineModel` (L4021), `loadModel` (L4074),
+   `modelCommand` (L4145), `startModelDownload` (L4313), `modelOn` (L1967).
+7. Actions (staged card, connectors, shell, documents, creation): `showStaged` (L3244),
+   `closeStaged` (L3265), `doAction` (L3273), `connectorTools` (L2740), `useConnector` (L2748),
+   `runShell` (L2795), `makeDocument` (L3159), `create` (L4340), `runCreation` (L4349),
+   `applyCreation` (L4400).
+8. Voice input: `onMic` (L4527), `onMicRelease` (L4539), `sendHeld` (L4554),
+   `startListening` (L4572), `onType` (L4595), `heldWords` (L4522), `dictating`/`toggleDictation`
+   (L1023/L1027).
+9. Play/turn stepping: `play` (L4677), `step` (L4693), `stopPlay` (L4780), `spokenLine` (L4685),
+   `selfSheet` (L4760), `lastSaid` (L4770).
+10. File picking: `openContentPicker` (L4795), `openReconstructionPicker` (L4822),
+    `onActivityResult` (L4845), `pickedUris` (L4937), `deliverReconstruction` (L4954),
+    `deliverFile` (L5010), `showSelected` (L5074), `readRaster` (L4980).
+11. Agent work loop: `runAgent` (L2154), `markRunning` (L2361), `offerToCarryOn` (L2377),
+    `backupPartial` (L2420), `clearPartial` (L2430), `agentWork`/`workKey`/`agentFile`/
+    `saveAgentWork` (L2653–2672), `carriesOn` (L2642).
+12. Social: `social` (L3040).
+13. Meaning/command: `meanings` (L3295), `understand` (L3308), `act` (L3360), `command` (L3374),
+    `retryLast` (L3423), `clearWorkspace` (L3452), `deleteTree` (L3470), `stagedAction` (L2992),
+    `looksLikeAction` (L2979), `stager` (L2972).
 
-## Fact-check of the Round 3 voice/update claims (done 2026-11-05)
+## Steps
 
-- [x] External claims cross-checked against independent sources (web search + page fetch):
-  - **"2 Bcf/day of 7.5 Bcf/day domestic gas supply"** — CONFIRMED. Minister Ekperikpe Ekpo and the Decade of Gas
-    Secretariat (Ed Ubong): production 7.5 bcf/d in 2025, up from 6.8 bcf/d in 2023; domestic supply surpassed
-    2 bcf/d (Ghana Guardian 2026-10-04, Africa Energy Insights, TheCable 2026-03-31).
-  - **"139,470 MT September supply, stock cover 15.9 days"** — CONFIRMED. @LpgNigeria (LPG In Nigeria) September 2026
-    Market Intelligence Report, verbatim: "Supply rose 4.4 percent to 139,470 MT … national stock cover fell to 15.9 days."
-  - **Independent corroboration of the September supply figure** — CONFIRMED by a second, unrelated source: NMDPRA data
-    via Vanguard (2026-10-28): domestic LPG supply 4.5m litres/day in Sept 2026 (+17.78% YoY from 3.7m; +33.33% MoM).
-    4.5m litres/day × 30 ≈ 135,000 litres ≈ **~110–135k MT** — same order as 139,470 MT. Two independent series agree.
-  - **"Cooking gas price rise ~5.55% in October"** — CONFIRMED as a distinct series: 12.5kg refill ₦17,616 → ₦18,593.75
-    (lpginnigeria.com, 2026-11-02) = +5.55%. NBS's 15.36% MoM is a different (basket-weighted) series — not a conflict.
-  - **"₦1,600 / ₦1,500 / ₦1,400 per kg" retail prices** — corroborated (Daily Post 2026-10-17 N1,700; NMDPRA via Vanguard
-    Oct 2026 N1,400/kg, +7.14% from N1,300 in Sept; BusinessDay ₦1,400). Range plausible; ₦1,400 BusinessDay piece is
-    dated Oct **2025** — do not cite it as current.
-  - **"Asiko 5,000MT terminal"** — CONFIRMED with sources (2026-11-05): Asiko Energy Holdings completed a 5,000MT
-    fully mounded LPG + propane terminal in **Ijora, Lagos** (Phase 1 of a tri-fuel LPG/propane/LNG hub); first gas
-    expected November 2026. Sources: Vanguard (2026-10-05), BusinessDay (2026-09-30), New Telegraph (2026-10-06),
-    Energy Focus Report (2026-09-29), LPG in Nigeria (2026-10-02), Fuel Data Portal (2026-10-05).
-  - **"Naira appreciation + lower international LPG prices = the price drop"** — mechanism corroborated (BusinessDay),
-    BUT flagged: prices actually *rose* Oct→Nov 2026 (depot rates +16% Oct 30–Nov 2; NMDPRA +7.14% MoM), so the
-    "drop" framing is the weakest claim in the update.
-- [x] Result: **all headline figures verified; one framing caveat (the price "drop") and one date trap (BusinessDay 2025).**
-
-## Merged from ibiko/localmodel-fixes
-
-- [x] Run tool prompt now says one command per tool call, and a chain like `a && b` is one command
-      (`CodeAgent.system()`, test `aRunToolCallIsOneShellCommandWhateverItContains`).
-- [x] Voice settings stay on the current `voice;pitch;rate` form. The older pipe format was not merged,
-      so saved voices are not wiped.
+Baseline (step 0): 5271 lines / 196 top-level members in MainActivity, indexed as above.
+- [ ] 1. Cluster 1 (sendComposer + waiting queue) → `ai/dvine/main/SendQueue.java`.
+- [ ] 2. Cluster 2 (crash banner/reporter) → `main/CrashReport.java`.
+- [ ] 3. Cluster 3 (read-aloud) → `main/ReadAloud.java`.
+- [ ] 4. Cluster 4 (persona tabs) → `main/PersonaTabs.java`.
+- [ ] 5. Cluster 5 (type-bar fitting) → `main/TypeBarFitter.java`.
+- [ ] 6. Re-check: MainActivity line count drop, no stale refs (`grep`), compile in Termux.
+- [ ] 7. git: status, commit, push on a new branch, open a PR.
