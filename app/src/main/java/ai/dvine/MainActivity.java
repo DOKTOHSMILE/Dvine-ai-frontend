@@ -1110,13 +1110,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** "always" (the default), "mic" (only after the microphone) or "off". */
     private String readAloud() {
-        return prefs == null ? "always" : prefs.getString("read_aloud", "always");
+        return readAloudHelper.setting();
     }
 
     /** Whether this reply is read out: always, after a dictated message, or never, as chosen in the drawer. */
     private boolean speakReply() {
-        String mode = readAloud();
-        return "always".equals(mode) || ("mic".equals(mode) && voiceTurn);
+        return readAloudHelper.speakReply();
     }
 
     @Override
@@ -1564,58 +1563,40 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** The reply being read aloud by its Listen button, its sentences, and the one it is on. */
-    private String readingText;
-    private java.util.List<String> readingSentences = new java.util.ArrayList<String>();
-    private int readingAt;
-    private boolean readingOn;
+    // --- read-aloud: handed over to main/ReadAloud.java ---
+    /** What main/ReadAloud.java needs from this screen: the voice, the persona, the setting, and when reading stops. */
+    private final ai.dvine.main.ReadAloud.Host readAloudHost = new ai.dvine.main.ReadAloud.Host() {
+        @Override
+        public ai.dvine.voice.TalkBridge talk() {
+            return talk;
+        }
 
-    /**
-     * Listen: reads the reply sentence by sentence; tapped while reading, it pauses (the phone's voice can't stop
-     * mid-word and carry on, so it stops and remembers the sentence); tapped again, it carries on from that
-     * sentence. True when it is reading now.
-     */
-    private boolean toggleReading(String text) {
-        if (talk == null || stage == null || text == null || text.trim().isEmpty()) {
-            return false;
+        @Override
+        public String agent() {
+            return stage == null ? null : stage.agent();
         }
-        if (readingOn && text.equals(readingText)) {
-            readingOn = false;
-            talk.stop();
-            return false;
-        }
-        if (!text.equals(readingText)) {
-            readingText = text;
-            readingSentences = ai.dvine.voice.SentenceStream.split(text);
-            readingAt = 0;
-        }
-        if (readingAt >= readingSentences.size()) {
-            readingAt = 0; // finished last time: from the start
-        }
-        readingOn = true;
-        readNext(stage.agent());
-        return true;
-    }
 
-    private void readNext(final String persona) {
-        if (!readingOn) {
-            return;
+        @Override
+        public SharedPreferences prefs() {
+            return prefs;
         }
-        if (readingAt >= readingSentences.size()) {
-            readingOn = false;
-            readingAt = 0;
+
+        @Override
+        public boolean voiceTurn() {
+            return voiceTurn;
+        }
+
+        @Override
+        public void readingStopped() {
             if (chatPane != null) {
                 chatPane.readingStopped();
             }
-            return;
         }
-        talk.speak("ivie".equals(persona), readingSentences.get(readingAt), () -> {
-            if (!readingOn) {
-                return;
-            }
-            readingAt++;
-            readNext(persona);
-        });
+    };
+    private final ai.dvine.main.ReadAloud readAloudHelper = new ai.dvine.main.ReadAloud(readAloudHost);
+
+    private boolean toggleReading(String text) {
+        return readAloudHelper.toggleReading(text);
     }
 
     private void stopGeneration() {
@@ -2839,12 +2820,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void answer(String text, boolean interpreted) {
         interruptReply();
-        if (readingOn) {
-            readingOn = false; // a new message ends reading an old reply aloud
-            if (chatPane != null) {
-                chatPane.readingStopped();
-            }
-        }
+        // a new message ends reading an old reply aloud
+        readAloudHelper.stop();
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;
@@ -5122,11 +5099,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     talk.resume();
                     break;
                 default:
-                    readingOn = false;
+                    readAloudHelper.stop();
                     talk.stop();
-                    if (chatPane != null) {
-                        chatPane.readingStopped();
-                    }
                     ai.dvine.voice.ReadAloudNotice.show(MainActivity.this, false, false, null, "", MainActivity.class);
             }
         }
