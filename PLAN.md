@@ -138,7 +138,10 @@ Steps:
   - **"₦1,600 / ₦1,500 / ₦1,400 per kg" retail prices** — corroborated (Daily Post 2026-10-17 N1,700; NMDPRA via Vanguard
     Oct 2026 N1,400/kg, +7.14% from N1,300 in Sept; BusinessDay ₦1,400). Range plausible; ₦1,400 BusinessDay piece is
     dated Oct **2025** — do not cite it as current.
-  - **"Asiko 5,000MT terminal"** — CONFIRMED earlier round.
+  - **"Asiko 5,000MT terminal"** — CONFIRMED with sources (2026-11-05): Asiko Energy Holdings completed a 5,000MT
+    fully mounded LPG + propane terminal in **Ijora, Lagos** (Phase 1 of a tri-fuel LPG/propane/LNG hub); first gas
+    expected November 2026. Sources: Vanguard (2026-10-05), BusinessDay (2026-09-30), New Telegraph (2026-10-06),
+    Energy Focus Report (2026-09-29), LPG in Nigeria (2026-10-02), Fuel Data Portal (2026-10-05).
   - **"Naira appreciation + lower international LPG prices = the price drop"** — mechanism corroborated (BusinessDay),
     BUT flagged: prices actually *rose* Oct→Nov 2026 (depot rates +16% Oct 30–Nov 2; NMDPRA +7.14% MoM), so the
     "drop" framing is the weakest claim in the update.
