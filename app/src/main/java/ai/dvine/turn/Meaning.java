@@ -81,20 +81,54 @@ public final class Meaning {
         return b.toString();
     }
 
-    /** The command the reader named, or {@link Command#NONE} when it named none (or wrote something else). */
+    /** The command the reader named, or {@link Command#NONE} when it named none (or wrote a real answer). */
     public static Command read(String reply) {
         if (reply == null) {
             return Command.NONE;
         }
-        String t = reply.replaceAll("(?s)<think>.*?(</think>|$)", "").trim().toLowerCase(Locale.US);
-        int at = t.indexOf("command:");
-        String name = (at >= 0 ? t.substring(at + 8) : t).trim().replaceAll("^[\"'`*\\s]+", "").replaceAll("[^a-z_].*$", "");
+        // A working answer is not a command, even when it starts with a trigger word ("Stop. I'll rewrite the
+        // login."). Only a reply that is just "COMMAND: name" is acted on.
+        String t = reply.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "(?is)^\\s*command:\\s*(?:\\*\\*)?([a-z_]+)(?:\\*\\*)?\\s*[.!?]*\\s*$").matcher(t);
+        if (!m.matches()) {
+            return Command.NONE;
+        }
+        String name = m.group(1).toLowerCase(Locale.US);
         for (Command c : Command.values()) {
             if (c.name().toLowerCase(Locale.US).equals(name)) {
                 return c;
             }
         }
         return Command.NONE;
+    }
+
+    /**
+     * Whether the user's own words really are this command. A classifier that latches onto "stop" inside a task
+     * ("stop the null in the login and keep going") must not stop the work. {@link Command#STOP},
+     * {@link Command#NEW_CHAT} and {@link Command#CLEAR_WORKSPACE} have to be the whole message.
+     */
+    public static boolean userMeant(String text, Command c) {
+        if (c == null || c == Command.NONE) {
+            return false;
+        }
+        String t = key(text);
+        if (c == Command.STOP) {
+            return t.length() <= 60 && !taskWords(t)
+                    && t.matches("^(please )?(stop|stop it|stop now|cancel|cancel it|abort|halt|never mind|nevermind|shut up|be quiet|quiet)( please)?$");
+        }
+        if (c == Command.NEW_CHAT) {
+            return t.length() <= 48 && t.matches(".*(new chat|start over|fresh chat|clear the chat|clear chat).*");
+        }
+        if (c == Command.CLEAR_WORKSPACE) {
+            return t.length() <= 80 && (t.matches(".*(clear|delete|wipe|reset).*(workspace|repo|repos|clone|clones|files).*")
+                    || t.matches(".*(workspace|clones).*(clear|delete|wipe).*"));
+        }
+        return true;
+    }
+
+    private static boolean taskWords(String t) {
+        return t.matches(".*(bug|error|crash|code|file|class|method|function|login|build|fix|repo|line|null|exception|api).*");
     }
 
     /** A message as remembered: lower case, without punctuation or extra spaces ("Are you done??" → "are you done"). */

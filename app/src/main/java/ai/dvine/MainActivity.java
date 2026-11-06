@@ -71,6 +71,109 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean voiceTurn;
     /** Lines already read out while they were being written (not read again when shown). */
     private final java.util.Set<TurnLine> spokenLive = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<TurnLine, Boolean>());
+    /** Showing a reply: the lines, the voice, and which walk is still live. Owned here so a merge can't drop it. */
+    private final ai.dvine.main.PlayStep.Host walkHost = new ai.dvine.main.PlayStep.Host() {
+        @Override
+        public android.os.Handler handler() {
+            return handler;
+        }
+
+        @Override
+        public android.content.Context context() {
+            return MainActivity.this;
+        }
+
+        @Override
+        public ai.dvine.stage.StageView stage() {
+            return stage;
+        }
+
+        @Override
+        public ai.dvine.stage.ChatPane chatPane() {
+            return chatPane;
+        }
+
+        @Override
+        public ai.dvine.voice.TalkBridge talk() {
+            return talk;
+        }
+
+        @Override
+        public ai.dvine.voice.ListenBridge listen() {
+            return listen;
+        }
+
+        @Override
+        public boolean online() {
+            return connectivity != null && connectivity.isOnline();
+        }
+
+        @Override
+        public boolean speakReply() {
+            return MainActivity.this.speakReply();
+        }
+
+        @Override
+        public boolean dictating() {
+            return MainActivity.this.dictating();
+        }
+
+        @Override
+        public void endThink() {
+            MainActivity.this.endThink();
+        }
+
+        @Override
+        public void keepAwake(boolean on) {
+            MainActivity.this.keepAwake(on);
+        }
+
+        @Override
+        public void switchFace(String persona, boolean fromTap) {
+            MainActivity.this.switchFace(persona, fromTap);
+        }
+
+        @Override
+        public boolean spokenLive(TurnLine line) {
+            return spokenLive.contains(line);
+        }
+
+        @Override
+        public void markSpokenLive(TurnLine line) {
+            spokenLive.add(line);
+        }
+
+        @Override
+        public boolean streaming() {
+            return streamOpen;
+        }
+
+        @Override
+        public void clearStreaming() {
+            streamOpen = false;
+        }
+
+        @Override
+        public void setStreaming() {
+            streamOpen = true;
+        }
+
+        @Override
+        public int playToken() {
+            return walker.token();
+        }
+
+        @Override
+        public boolean samePlay(int token) {
+            return walker.token() == token;
+        }
+
+        @Override
+        public void cancelWalk() {
+            walker.abandon();
+        }
+    };
+    private final ai.dvine.main.PlayStep walker = new ai.dvine.main.PlayStep(walkHost);
     private ai.dvine.llm.ModelHub hub;
     private ai.dvine.llm.DownloadStatus.Phase lastPhase = ai.dvine.llm.DownloadStatus.Phase.IDLE;
     private boolean downloadBarHidden;
@@ -454,13 +557,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private ai.dvine.net.WebClient web;
     private SharedPreferences prefs;
 
-    private List<TurnLine> lines = new ArrayList<TurnLine>();
-    private int index;
-    /** Dual-AI: the discussion in progress (cancelled by any new input), and lines held by "pause". */
-    private ai.dvine.turn.DualAgentCoordinator discussion;
     private List<TurnLine> paused;
-    private int playId;
-    private Runnable afterPlay;
+    /** Dual-AI: the discussion in progress (cancelled by any new input). */
+    private ai.dvine.turn.DualAgentCoordinator discussion;
     private ai.dvine.stage.ChatPane chatPane;
     private ai.dvine.chat.ChatBook chats;
     /** The last thing drawn or formed, while it is on show: context for the model. */
@@ -803,7 +902,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** Something is being worked on or still being written out: a reply, an agent's run, a build. */
     private boolean busy() {
-        return generating || streamOpen || index < lines.size();
+        return generating || streamOpen || walker.walking();
     }
 
     private void sendComposer() {
@@ -1566,9 +1665,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (model != null) {
             model.cancel();
         }
-        playId++;
+        walker.abandon();
         streamOpen = false;
-        afterPlay = null;
         endThink();
         keepAwake(false);
         if (talk != null) {
@@ -1690,10 +1788,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         messageGate = new ai.dvine.gate.BrainGateway("message")
                 .route("pause", t -> {
-                    if (!control(t).matches("^(pause|hold on|wait|hang on)( please)?$") || index >= lines.size()) {
+                    if (!control(t).matches("^(pause|hold on|wait|hang on)( please)?$") || !walker.walking()) {
                         return false;
                     }
-                    paused = new ArrayList<TurnLine>(lines.subList(Math.max(0, index - 1), lines.size()));
+                    paused = walker.pauseHeld();
                     stopPlay();
                     stage.setMode(StageMode.LISTENING);
                     return true;
@@ -3166,11 +3264,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** The phrasings already understood ("are you done?" → give me the result), kept on the phone. */
     private ai.dvine.turn.Meaning.Memory meanings;
-    /** How long the reading of a message may take before the message goes on as written (API, phone's model). */
-    static final long MEANING_WAIT_API_MS = 6000, MEANING_WAIT_PHONE_MS = 4000;
-
-    /** The message being read; a newer message makes an older reading moot. */
-    private int meaningToken;
 
     private ai.dvine.turn.Meaning.Memory meanings() {
         if (meanings == null) {
@@ -3179,75 +3272,94 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return meanings;
     }
 
+    private final ai.dvine.main.DirectCommands.Host commandHost = new ai.dvine.main.DirectCommands.Host() {
+        @Override
+        public boolean workUnderWay() {
+            return paused != null || !agentWork(stage.agent()).isEmpty();
+        }
+
+        @Override
+        public ai.dvine.turn.Meaning.Command remembered(String text) {
+            return meanings().get(text);
+        }
+
+        @Override
+        public void remember(String text, ai.dvine.turn.Meaning.Command command) {
+            meanings().put(text, command);
+            if (prefs != null) {
+                prefs.edit().putString("meanings", meanings().write()).apply();
+            }
+        }
+
+        @Override
+        public boolean remoteModel() {
+            return model != null && model.remoteOn();
+        }
+
+        @Override
+        public void ask(String text) {
+            askTheBrain(text);
+        }
+
+        @Override
+        public void say(String canonical) {
+            answer(canonical, true);
+        }
+
+        @Override
+        public String classify(String prompt, String text) {
+            return model.task(prompt, text, 24, null);
+        }
+
+        @Override
+        public android.os.Handler handler() {
+            return handler;
+        }
+
+        @Override
+        public android.view.View clock() {
+            return chatPane != null ? chatPane : getWindow().getDecorView();
+        }
+
+        @Override
+        public boolean alive() {
+            return !isFinishing();
+        }
+
+        @Override
+        public void note(String line) {
+            MainActivity.this.note(line);
+        }
+
+        @Override
+        public void perform(ai.dvine.turn.Meaning.Command command) {
+            command(command);
+        }
+
+        @Override
+        public void holdReply(boolean on) {
+            if (on) {
+                ai.dvine.llm.ReplyService.hold(MainActivity.this);
+            } else {
+                ai.dvine.llm.ReplyService.release(MainActivity.this);
+            }
+        }
+
+        @Override
+        public void cancelModel() {
+            if (model != null) {
+                model.cancel();
+            }
+        }
+    };
+    private final ai.dvine.main.DirectCommands commands = new ai.dvine.main.DirectCommands(commandHost);
+
     /**
-     * Reads what a short message means before acting on it: one of the commands DVINE carries out itself (carry on,
-     * hand in the result, get or remove the model…), however it is worded, or none. A phrasing understood before is
-     * known at once; a new one is read by the brain (a few tokens) and remembered. Then DVINE acts on the command's own
-     * wording, or passes the message on as it was written.
+     * Reads what a short message means before acting on it. A working answer from the API is not a command, and a
+     * trigger word inside a real task does not stop the work.
      */
     private void understand(final String text) {
-        final boolean work = paused != null || !agentWork(stage.agent()).isEmpty();
-        ai.dvine.turn.Meaning.Command known = meanings().get(text);
-        if (known != null) {
-            act(text, known, work);
-            return;
-        }
-        if (model == null || !model.remoteOn()) {
-            // only the phone's own model: no reading call. On a phone it costs as much as a reply and pushes the
-            // persona's instructions out of the model's memory, so every reply would read them again. Phrasings
-            // understood before (remembered above) still work offline
-            askTheBrain(text);
-            return;
-        }
-        final int token = ++meaningToken;
-        // the reading never holds the message up for long: a busy or slow model (the phone's own, still finishing
-        // earlier work) gets a few seconds, then the message goes on as written and the reading is stopped
-        final boolean[] settled = {false};
-        final android.view.View clock = chatPane != null ? chatPane : getWindow().getDecorView();
-        clock.postDelayed(() -> {
-            if (settled[0] || token != meaningToken || isFinishing()) {
-                return;
-            }
-            settled[0] = true;
-            meaningToken++;
-            model.cancel();
-            askTheBrain(text);
-        }, model.remoteOn() ? MEANING_WAIT_API_MS : MEANING_WAIT_PHONE_MS);
-        new Thread(() -> {
-            ai.dvine.llm.ReplyService.hold(this);
-            String reply;
-            try {
-                reply = model.task(ai.dvine.turn.Meaning.prompt(work), text, 24, null);
-            } finally {
-                ai.dvine.llm.ReplyService.release(this);
-            }
-            final ai.dvine.turn.Meaning.Command c = ai.dvine.turn.Meaning.read(reply);
-            handler.post(() -> {
-                if (settled[0] || token != meaningToken || isFinishing()) {
-                    return;
-                }
-                settled[0] = true;
-                if (reply != null) {
-                    meanings().put(text, c);
-                    prefs.edit().putString("meanings", meanings().write()).apply();
-                }
-                act(text, c, work);
-            });
-        }, "dvine-meaning").start();
-    }
-
-    /** Carries out what the message meant: the command under its own wording, or the message itself. */
-    private void act(String text, ai.dvine.turn.Meaning.Command c, boolean work) {
-        if (c == ai.dvine.turn.Meaning.Command.NONE || (c.needsWork && !work)) {
-            askTheBrain(text);
-            return;
-        }
-        note("Understood as \u201c" + c.canonical + "\u201d");
-        if (c.direct()) {
-            command(c);
-            return;
-        }
-        answer(c.canonical, true); // the user's own words stay in the chat; the command's wording is what runs
+        commands.read(text);
     }
 
     /** The commands DVINE carries out with its own actions, the same ones its buttons use. */
@@ -3442,10 +3554,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.activity("MODEL", "thinking offline");
         final List<TurnLine> stream = new ArrayList<TurnLine>();
         streamOpen = true;
-        lines = stream;
-        index = 0;
-        afterPlay = null;
-        step(playId);
+        walker.follow(stream);
         final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
                 new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK)
                         .format(new java.util.Date()),
@@ -3584,7 +3693,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     factCheck(id, agent, english, lang == null ? body : englishBody);
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
-                    afterPlay = () -> switchFace(switchTo, true);
+                    walker.setAfter(() -> switchFace(switchTo, true));
                 } // the microphone never opens by itself: only a tap on the mic
                 streamOpen = false;
             });
@@ -4576,105 +4685,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** The words the voice says for a line: a model's own connect failure is said plainly when the phone is online. */
     private String spokenLine(String line) {
-        if (line != null && line.contains("unable to connect to my database")
-                && connectivity != null && connectivity.isOnline()) {
-            return "I don't have that in my notes.";
-        }
-        return line == null ? "" : line;
+        return walker.spokenLine(line);
     }
 
     /** Show these lines in order, then run {@code done} once the voice has gone quiet. */
     private void play(List<TurnLine> next, Runnable done) {
-        stopPlay();
-        lines = next;
-        index = 0;
-        afterPlay = done;
-        step(playId);
+        walker.play(next, done);
     }
 
     /** Play the next line, or finish the walk when the lines run out. */
     private void step(final int token) {
-        if (token != playId) {
-            return;
-        }
-        if (index >= lines.size()) {
-            if (streamOpen) {
-                handler.postDelayed(() -> step(token), 120);
-                return;
-            }
-            keepAwake(false);
-            stage.setMode(StageMode.DONE);
-            Runnable after = afterPlay;
-            afterPlay = null;
-            if (after != null && talk != null) {
-                final Runnable done = after;
-                talk.whenQuiet(() -> handler.postDelayed(() -> {
-                    if (token == playId) {
-                        done.run();
-                    }
-                }, 250));
-            } else if (after != null) {
-                after.run();
-            }
-            return;
-        }
-        final TurnLine line = lines.get(index);
-        index++;
-        final String who = stage.agent();
-        stage.ensureFace(who, () -> {
-            if (token != playId) {
-                return;
-            }
-            if (talk != null) {
-                talk.setRobot("ibiko".equals(who));
-            }
-            if ("SAY".equals(line.cue)) {
-                stage.setMode(StageMode.SPEAKING);
-                stage.setThought(null);
-                stage.setSubtitle(spokenLine(line.text));
-                if (chatPane != null) {
-                    chatPane.setLive(null);
-                    if (line.text != null && !line.text.isEmpty()) {
-                        chatPane.assistant(who, spokenLine(line.text));
-                    }
-                }
-                if (speakReply() && talk != null && !spokenLive.contains(line) && line.text != null) {
-                    ai.dvine.voice.SentenceStream cut = new ai.dvine.voice.SentenceStream();
-                    boolean ivieVoice = "ivie".equals(who);
-                    for (String sentence : cut.add(spokenLine(line.text))) {
-                        talk.queue(ivieVoice, sentence);
-                    }
-                    for (String sentence : cut.finish()) {
-                        talk.queue(ivieVoice, sentence);
-                    }
-                }
-                handler.post(() -> step(token));
-            } else if (line.text != null && line.text.length() > 0) {
-                stage.setThought(line.text);
-                stage.setMode(StageMode.THINKING);
-                stage.setSubtitle("");
-                handler.post(() -> step(token));
-            } else {
-                stage.setThought(null);
-                stage.setMode(StageMode.THINKING);
-                handler.postDelayed(() -> step(token), 520);
-            }
-        });
+        walker.step(token);
     }
 
     private void stopPlay() {
-        playId++;
-        streamOpen = false;
-        afterPlay = null;
-        handler.removeCallbacksAndMessages(null);
-        if (talk != null) {
-            talk.stop();
-        }
-        // an active dictation session is the user's recording: it ends only on its own button, never with the playback
-        if (listen != null && listen.isListening() && !dictating()) {
-            listen.stop();
-            stage.setListening(false);
-        }
+        walker.stopPlay();
     }
 
     private void openContentPicker(String kind, boolean learn) {

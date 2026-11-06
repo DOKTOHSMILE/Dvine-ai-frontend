@@ -222,14 +222,15 @@ public final class CodeAgent {
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
-                + "<tool name=\"read_file\" path=\"FOLDER/FILE\"/>\n"
+                + "<tool name=\"read_file\" path=\"FOLDER/FILE\" start=\"(optional first line)\" end=\"(optional last line)\"/>\n"
                 + (readOnly ? "" : "<tool name=\"write_file\" path=\"FOLDER/FILE\">the whole new content</tool>\n"
                         + "<tool name=\"edit_file\" path=\"FOLDER/FILE\"><old>exact text now in the file</old><new>its replacement</new></tool>\n")
                 + (readOnly ? "" : "<tool name=\"make_file\" path=\"FOLDER/report.pdf\">the document in Markdown</tool> (a real PDF,"
                         + " Word .docx, Excel .xlsx from a | table |, .html, .csv or .md, by the name's ending)\n")
                 + (readOnly ? "" : "<tool name=\"zip\" path=\"FOLDER\" to=\"FOLDER.zip\"/> (a folder or file into a zip)\n"
                         + "<tool name=\"unzip\" path=\"FILE.zip\" to=\"FOLDER\"/> (a zip into a folder)\n")
-                + "<tool name=\"search\" query=\"text to find\"/>\n"
+                + "<tool name=\"search\" query=\"text to find\" path=\"(optional folder)\"/> (searches every source file on the device,"
+                + " any length, and reports file:line:text; no shell and no Termux)\n"
                 + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command\"/> (sh with toybox: ls cat grep sed"
                         + " find wc head tail mkdir cp mv rm… — run in the workspace folder, as the app, so only the"
                         + " app's own files are touched; one command per tool call (a chain like a && b is fine);"
@@ -249,8 +250,8 @@ public final class CodeAgent {
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
                 + (connectorTools.trim().isEmpty() ? "" : "<tool name=\"connector\" call=\"name argument\"/> with one of:" + connectorTools + "\n")
                 + NOTE_WAY // every model, the device's and an API's, explains its work the same way
-                + "Use exactly this <tool …> form, nothing else (no <tool_call>, no JSON), and stop right after the tool call:"
-                + " its result comes back in the next message. Never write a tool call into your final answer.\n"
+                + "Use exactly this <tool …> form, nothing else (no <tool_call>, no JSON), and end the reply immediately after the"
+                + " tool call: its result comes back in the next message. Never write a tool call into your final answer.\n"
                 + (readOnly || compact ? "" : SANDBOX + (git == null ? "" : GIT_WAY))
                 + (keepGoing && !readOnly ? KEEP_GOING : "")
                 + "When the task is done, give the complete answer inside <final>\u2026</final>. Never stop to ask whether to"
@@ -370,6 +371,15 @@ public final class CodeAgent {
                 return fin; // the model said it is finished
             }
             Call call = parse(text);
+            if (call != null && text.indexOf(call.raw) > 1200) {
+                call = null; // a sample tag inside a long working answer is not a call to run
+            }
+            if (call == null && controlWord(text) && nudges < 2) {
+                nudges++; // the model echoed a trigger word; that is not the user ending the task
+                work.append("\n<result>\nThat word is part of the working reply, not the user ending the task. It is not a"
+                        + " new prompt. Carry on with the next tool, or put the finished answer inside <final>…</final>.\n</result>\n");
+                continue;
+            }
             if (call != null) {
                 String said = noteBefore(text, call);
                 if (said != null && said.length() >= NOTE_MIN && (lastNote == null || callsSinceNote >= NOTE_EVERY)
@@ -386,7 +396,7 @@ public final class CodeAgent {
                 } catch (IOException | RuntimeException e) {
                     result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
                 }
-                work.append("\n").append(call.raw).append("\n<result>\n").append(clipResult(result, RESULT_CHARS)).append("\n</result>\n");
+                work.append("\n").append(call.raw).append("\n<result>\n").append(clipResult(result, back(call))).append("\n</result>\n");
                 saved();
                 continue;
             }
@@ -887,9 +897,9 @@ public final class CodeAgent {
                 if (!f.isFile()) {
                     return "No such file: " + c.a("path");
                 }
-                String text = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+                String text = SourceRead.read(f, first(c.attrs, "start", "from", "line"), first(c.attrs, "end", "to"));
                 host.step("Read " + show(c.a("path")), c.a("path"), lines(clip(text, FILE_CHARS)), -1, -1);
-                return numbered(clip(text, FILE_CHARS));
+                return text;
             }
             case "write_file": {
                 File f = inside(c.a("path"));
@@ -966,7 +976,7 @@ public final class CodeAgent {
             }
             case "search": {
                 host.step("Searched for \u201c" + clip(c.a("query"), 40) + "\u201d");
-                return search(c.a("query"));
+                return SourceRead.search(workspace, c.a("query"), c.a("path"));
             }
             case "run": {
                 String cmd = c.a("command").trim();
@@ -1174,6 +1184,18 @@ public final class CodeAgent {
 
     private static String show(String path) {
         return path == null || path.isEmpty() || path.equals(".") ? "the workspace" : path;
+    }
+
+    /** How much of a tool result goes back to the model. A file read or a search is not cut down to a short note. */
+    private static int back(Call call) {
+        return call != null && (call.name.equals("read_file") || call.name.equals("search") || call.name.equals("list_files"))
+                ? SourceRead.WINDOW : RESULT_CHARS;
+    }
+
+    /** A reply that is only a control word. That word inside a working answer is not the user ending the task. */
+    static boolean controlWord(String text) {
+        String t = text == null ? "" : text.trim().toLowerCase(Locale.US);
+        return t.matches("^(stop|cancel|pause|wait|abort|clear|halt)[.!]?$");
     }
 
     static String clip(String s, int n) {

@@ -26,19 +26,34 @@ public final class FakeTurn {
         int found = -1;
         Matcher u = USER.matcher(text);
         while (u.find()) {
-            if (u.start() > 0) {
+            if (u.start() > 0 && !fenced(text, u.start())) {
                 found = u.start();
                 break;
             }
         }
         Matcher a = AGAIN.matcher(text);
         while (a.find()) {
-            if (a.start() > 0) {
+            if (a.start() > 0 && !fenced(text, a.start())) {
                 found = found < 0 ? a.start() : Math.min(found, a.start());
                 break;
             }
         }
         return found;
+    }
+
+    /** A "User:" inside a code fence is the code being written, not a new prompt. */
+    private static boolean fenced(String text, int index) {
+        boolean in = false;
+        int i = 0;
+        while (i < index) {
+            int tick = text.indexOf("```", i);
+            if (tick < 0 || tick >= index) {
+                break;
+            }
+            in = !in;
+            i = tick + 3;
+        }
+        return in;
     }
 
     /** The reply without the invented turns (null stays null). */

@@ -42,8 +42,11 @@ public final class GitHubLogin {
         }
     }
 
-    /** What DVINE asks for: repositories (read and write, to push) and the user's name. */
-    public static final String SCOPES = "repo read:user";
+    /**
+     * What DVINE asks for: every repository the account can see (public, private, organisation and collaborator),
+     * including push and pull, plus the user's name and which organisations they belong to.
+     */
+    public static final String SCOPES = "repo read:user read:org";
 
     private final Connectors.Http http;
     private final String clientId;
@@ -100,9 +103,40 @@ public final class GitHubLogin {
         return MiniJson.str(MiniJson.obj(MiniJson.parse(r.body)).get("login"), "");
     }
 
+    /**
+     * Who is signed in, and whether this token can push and pull every repository it can see. A classic token lists
+     * its scopes; a fine-grained token does not, and keeps whatever access it was given.
+     */
+    public static String access(Connectors.Http http, String token) throws IOException {
+        Map<String, String> h = new LinkedHashMap<String, String>();
+        h.put("Accept", "application/vnd.github+json");
+        h.put("Authorization", "Bearer " + token);
+        h.put("User-Agent", "DVINE");
+        Connectors.Reply r = http.send("GET", "https://api.github.com/user", h, null);
+        if (r.status == 401) {
+            throw new IOException("GitHub refused the token (401)");
+        }
+        if (r.status < 200 || r.status >= 300) {
+            throw new IOException("GitHub said " + r.status);
+        }
+        String login = MiniJson.str(MiniJson.obj(MiniJson.parse(r.body)).get("login"), "");
+        String scopes = r.header("X-OAuth-Scopes");
+        if (scopes == null || scopes.trim().isEmpty()) {
+            return "Signed in as @" + login + ". This token doesn't list classic scopes; push and pull use the access it was given"
+                    + " (a fine-grained token needs Contents: Read and write on the repositories).";
+        }
+        String low = scopes.toLowerCase(java.util.Locale.US);
+        boolean repo = java.util.regex.Pattern.compile("(^|,)\\s*repo\\s*(,|$)").matcher(low).find();
+        if (repo) {
+            return "Signed in as @" + login + " with repo access: clone, pull, commit and push every repository this account can see.";
+        }
+        return "Signed in as @" + login + " but this token's scopes (" + scopes.trim() + ") cannot push or pull private repositories."
+                + " Sign in again, or make a token with the repo scope (Connectors \u203A GitHub).";
+    }
+
     /** GitHub's page for making a token, filled in with DVINE's name and the scopes it needs. */
     public static String newTokenUrl() {
-        return "https://github.com/settings/tokens/new?description=DVINE&scopes=repo,read:user";
+        return "https://github.com/settings/tokens/new?description=DVINE&scopes=repo,read:user,read:org";
     }
 
     private Map<String, Object> post(String url, String form) throws IOException {

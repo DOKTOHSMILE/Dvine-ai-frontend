@@ -117,6 +117,45 @@ public final class PlayStep {
         return new ArrayList<TurnLine>(lines.subList(Math.max(0, index - 1), lines.size()));
     }
 
+    /** The walk's token. A step queued with an older one does nothing. */
+    public int token() {
+        return playId;
+    }
+
+    public int index() {
+        return index;
+    }
+
+    public List<TurnLine> lines() {
+        return lines;
+    }
+
+    /** True while a line is still waiting to be shown. */
+    public boolean walking() {
+        return index < lines.size();
+    }
+
+    /** What to run once this walk finishes (a persona switch). */
+    public void setAfter(Runnable done) {
+        afterPlay = done;
+    }
+
+    /** Leave every queued step of this walk inert, without stopping the voice. */
+    public void abandon() {
+        playId++;
+        afterPlay = null;
+    }
+
+    /**
+     * Walk a list that is still being written. The caller has already ended the previous walk; this does not
+     * stop the voice again.
+     */
+    public void follow(List<TurnLine> live) {
+        lines = live == null ? new ArrayList<TurnLine>() : live;
+        index = 0;
+        step(playId);
+    }
+
     /** The words the voice says for a line: the model's own connect failures are said plainly. */
     public String spokenLine(String line) {
         if (line != null && line.contains("unable to connect to my database") && host.online()) {
@@ -187,12 +226,17 @@ public final class PlayStep {
 
             final Runnable done = after;
             if (done != null) {
-                // the microphone waits until the voice has finished, so it doesn't hear DVINE's own words
-                host.talk().whenQuiet(() -> host.handler().postDelayed(() -> {
-                    if (host.samePlay(token)) {
-                        done.run();
-                    }
-                }, 250));
+                ai.dvine.voice.TalkBridge talk = host.talk();
+                if (talk == null) {
+                    done.run();
+                } else {
+                    // the microphone waits until the voice has finished, so it doesn't hear DVINE's own words
+                    talk.whenQuiet(() -> host.handler().postDelayed(() -> {
+                        if (host.samePlay(token)) {
+                            done.run();
+                        }
+                    }, 250));
+                }
             }
             return;
         }
