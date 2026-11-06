@@ -36,6 +36,35 @@ public class ScribeTest {
     }
 
     @Test
+    public void aSecondBeginResumesTheOpenJobAndAnAndroidTreeIsRecognised() throws Exception {
+        File ws = Files.createTempDirectory("dvine-survey").toFile();
+        File app = new File(ws, "app");
+        assertTrue(app.mkdirs());
+        Files.write(new File(app, "build.gradle").toPath(), "apply plugin: 'com.android.application'\n".getBytes(StandardCharsets.UTF_8));
+        Files.write(new File(app, "Main.java").toPath(), "class Main {}\n".getBytes(StandardCharsets.UTF_8));
+        ProjectSurvey survey = ProjectSurvey.of(ws);
+        assertTrue(survey.languages.contains("Java"));
+        assertTrue(survey.markers.contains("build.gradle"));
+        assertTrue(survey.plan("Build the screen").contains("Android"));
+        Scribe scribe = new Scribe(ws);
+        String instruction = "Build the settings screen for this application";
+        scribe.begin("ibiko", instruction);
+        File plan = new File(ws, "memory/projects");
+        File[] kids = plan.listFiles();
+        assertTrue(kids != null && kids.length == 1);
+        String written = new String(Files.readAllBytes(new File(kids[0], "PROJECT_PLAN.md").toPath()), StandardCharsets.UTF_8);
+        assertTrue(written.contains("Android"));
+        assertEquals(1, Scribe.jobs(ws).size());
+        assertTrue(Scribe.jobs(ws).get(0).open);
+        scribe.begin("ibiko", instruction);
+        assertEquals(1, Scribe.jobs(ws).size());
+        String progress = new String(Files.readAllBytes(new File(kids[0], "PROGRESS.md").toPath()), StandardCharsets.UTF_8);
+        assertTrue(progress.contains("Resumed"));
+        String kept = new String(Files.readAllBytes(new File(kids[0], "PROJECT_PLAN.md").toPath()), StandardCharsets.UTF_8);
+        assertEquals(written, kept);
+    }
+
+    @Test
     public void deepModeDoesNotInheritTheShortReplyCap() {
         assertEquals(180_000L, RunMode.BALANCED.replyCapMs);
         assertTrue(RunMode.DEEP.replyCapMs > RunMode.BALANCED.replyCapMs);
