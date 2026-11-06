@@ -2266,6 +2266,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
                 }
                 String crew = null;
+                final String asked = ai.dvine.scribe.Scribe.worth(task) ? task
+                        + "\n\nA project record is already in memory/projects. Read PROJECT_PLAN.md and PROJECT_MAP.md"
+                        + " before creating files. If they describe this job, continue them. Do not start a second project."
+                        : task;
                 if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
                     // a heavy job: mini agents, one part each, their findings posted as they come, then one answer
                     handler.post(() -> {
@@ -2305,11 +2309,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     ai.dvine.agent.AgentBoard.end(helper);
                                 }
                             },
-                            task, (n, of, part, found) -> handler.post(() -> progressNote(id, persona, n,
+                            asked, (n, of, part, found) -> handler.post(() -> progressNote(id, persona, n,
                                     "Part " + n + " of " + of + " done: " + part + "\n\n" + found)),
                             host::stopped, workers);
                 }
-                result = crew != null ? crew : agent.run(task, earlier);
+                result = crew != null ? crew : agent.run(asked, earlier);
                 long began = System.currentTimeMillis();
                 int round = 1;
                 while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS

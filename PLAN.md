@@ -72,3 +72,13 @@ be something the user controls, not a hidden `remoteOn()` switch.
 - [ ] A separate on-screen dashboard activity was not added. Progress is the Scribe files plus the carry-on line, so the chat layout stays as it is.
 
 The full directive's phases that need a device (Termux sessions, GitHub push of a real repo, JNI benchmarks) are not claimed as tested here. The unit test covers the record, redaction, and the deep-mode budgets.
+
+
+# Project survey and resume (0.94.1)
+
+- [x] `ProjectSurvey` reads the workspace (capped at 2,000 files, skips `memory`, `.git`, `node_modules`, `build`) and names languages and build files.
+- [x] Scribe writes the plan and the map from that survey. An Android tree is called an Android project. An empty folder is not treated as a project to replace.
+- [x] Starting the same instruction again resumes the open job. The plan file is kept. The map is read again.
+- [x] The workload sheet lists open and recent jobs with the next outstanding step.
+- [x] The agent is told to read `PROJECT_PLAN.md` and `PROJECT_MAP.md` before creating files.
+- [ ] Native llama.cpp KV-cache and thread affinity still need a device.

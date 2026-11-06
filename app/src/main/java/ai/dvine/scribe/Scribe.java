@@ -48,27 +48,48 @@ public final class Scribe {
             return;
         }
         active = true;
+        String key = slug(clip(instruction, 160));
+        TaskRecord prior = tasks.byIdempotency(key);
+        if (prior != null && prior.state != null && prior.state.open()) {
+            current = prior;
+            projectDir = new File(workspace, "memory/projects/" + key);
+            new File(projectDir, "checkpoints").mkdirs();
+            current.state = TaskState.RESUMING;
+            current.updatedAt = System.currentTimeMillis();
+            tasks.save(current);
+            ProjectSurvey survey = ProjectSurvey.of(workspace);
+            write("PROJECT_MAP.md", survey.map());
+            append("PROGRESS.md", "\n- Resumed " + current.id + ". The plan was kept. The map was read again ("
+                    + survey.files + " files).\n");
+            current.state = TaskState.RUNNING;
+            current.updatedAt = System.currentTimeMillis();
+            tasks.save(current);
+            write("EXECUTION.json", execution());
+            return;
+        }
         long now = System.currentTimeMillis();
         current = new TaskRecord();
         current.id = "job-" + now;
         current.instruction = redact(instruction);
         current.description = clip(current.instruction, 160);
         current.kind = persona == null ? "ibiko" : persona;
+        current.idempotencyKey = key;
         current.state = TaskState.QUEUED;
         current.createdAt = now;
         current.updatedAt = now;
-        current.remaining.add("Carry out the instruction");
-        current.remaining.add("Verify the result against the files");
+        ProjectSurvey survey = ProjectSurvey.of(workspace);
+        current.remaining.addAll(survey.steps);
         tasks.save(current);
-        projectDir = new File(workspace, "memory/projects/" + slug(current.description));
+        projectDir = new File(workspace, "memory/projects/" + key);
         new File(projectDir, "checkpoints").mkdirs();
         write("PROJECT_MANIFEST.json", manifest(persona));
-        write("PROJECT_PLAN.md", plan());
-        write("PROJECT_MAP.md", map());
-        write("PROGRESS.md", "# Progress\n\n- Planning. The instruction is recorded. Nothing is marked done yet.\n");
+        write("PROJECT_PLAN.md", survey.plan(current.instruction));
+        write("PROJECT_MAP.md", survey.map());
+        write("PROGRESS.md", "# Progress\n\n- Surveyed the workspace (" + survey.files
+                + " files). Nothing is marked done yet.\n");
         write("DECISIONS.md", "# Decisions\n\n- The job is tracked by Scribe, apart from the chat.\n");
         write("ERRORS.md", "# Errors\n\n");
-        write("NEXT_ACTIONS.md", "# Next\n\n1. Carry out the instruction.\n2. Check the files that changed.\n");
+        write("NEXT_ACTIONS.md", next());
         write("CHANGELOG.md", "# Changelog\n\n");
         current.state = TaskState.RUNNING;
         current.updatedAt = System.currentTimeMillis();
@@ -152,31 +173,54 @@ public final class Scribe {
                 + "  \"instruction\": \"" + json(clip(current.instruction, 500)) + "\",\n  \"state\": \"" + current.state + "\"\n}\n";
     }
 
-    private String plan() {
-        return "# Plan\n\n## Instruction\n\n" + current.instruction + "\n\n## Steps\n\n"
-                + "1. Read what is already in the workspace. Do not overwrite a project blindly.\n"
-                + "2. Do the instruction in small steps.\n"
-                + "3. Check the result (files changed, or a command that exited cleanly).\n"
-                + "4. Scribe records each checkpoint. A claim in chat is not completion.\n";
+    /** One line of the project list. {@code next} is the first step still outstanding. */
+    public static final class Job {
+        public final String title;
+        public final String state;
+        public final String next;
+        public final boolean open;
+
+        Job(String title, String state, String next, boolean open) {
+            this.title = title;
+            this.state = state;
+            this.next = next;
+            this.open = open;
+        }
     }
 
-    private String map() {
-        StringBuilder b = new StringBuilder("# Workspace map\n\n");
-        File[] kids = workspace.listFiles();
-        if (kids == null || kids.length == 0) {
-            b.append("(empty)\n");
-            return b.toString();
+    /** Open jobs first, then the latest closed ones. At most eight. */
+    public static List<Job> jobs(File workspace) {
+        List<Job> out = new ArrayList<Job>();
+        if (workspace == null) {
+            return out;
         }
-        java.util.Arrays.sort(kids);
-        int n = 0;
-        for (File k : kids) {
-            if (k.getName().equals("memory") || n >= 80) {
-                continue;
+        TaskStateRepository tasks = new TaskStateRepository(new File(workspace, "memory/tasks"));
+        List<TaskRecord> open = new ArrayList<TaskRecord>();
+        List<TaskRecord> closed = new ArrayList<TaskRecord>();
+        for (TaskRecord r : tasks.all()) {
+            if (r.state != null && r.state.open()) {
+                open.add(r);
+            } else {
+                closed.add(r);
             }
-            b.append("- ").append(k.getName()).append(k.isDirectory() ? "/" : "").append('\n');
-            n++;
         }
-        return b.toString();
+        for (TaskRecord r : open) {
+            out.add(job(r));
+        }
+        for (TaskRecord r : closed) {
+            if (out.size() >= 8) {
+                break;
+            }
+            out.add(job(r));
+        }
+        return out;
+    }
+
+    private static Job job(TaskRecord r) {
+        String title = r.description == null || r.description.isEmpty() ? r.instruction : r.description;
+        String state = r.state == null ? "unknown" : r.state.name().toLowerCase(Locale.US).replace('_', ' ');
+        String next = r.remaining.isEmpty() ? "Nothing outstanding in the record." : r.remaining.get(0);
+        return new Job(clip(title, 120), state, clip(next, 160), r.state != null && r.state.open());
     }
 
     private String execution() {

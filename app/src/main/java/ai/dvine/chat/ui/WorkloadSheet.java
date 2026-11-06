@@ -109,6 +109,24 @@ public final class WorkloadSheet {
         }
         body.addView(agents, Ui.wide(a, 4));
 
+        body.addView(label(a, "Project"));
+        LinearLayout project = card(a);
+        java.util.List<ai.dvine.scribe.Scribe.Job> jobs = ai.dvine.scribe.Scribe.jobs(new java.io.File(a.getFilesDir(), "ibiko"));
+        if (jobs.isEmpty()) {
+            project.addView(Ui.text(a, "No project on record. A build or a long instruction opens one.", 14, Ui.SUB, false));
+        }
+        for (int i = 0; i < jobs.size(); i++) {
+            ai.dvine.scribe.Scribe.Job j = jobs.get(i);
+            project.addView(row(a, j.open ? "Open" : "Closed", j.state), Ui.wide(a, i == 0 ? 0 : 12));
+            TextView title = Ui.text(a, j.title, 14, Ui.TEXT, false);
+            title.setPadding(0, Ui.dp(a, 4), 0, 0);
+            project.addView(title);
+            TextView next = Ui.text(a, j.next, 13, Ui.SUB, false);
+            next.setPadding(0, Ui.dp(a, 2), 0, 0);
+            project.addView(next);
+        }
+        body.addView(project, Ui.wide(a, 4));
+
         // ---- today
         body.addView(label(a, "Today"));
         LinearLayout today = card(a);
