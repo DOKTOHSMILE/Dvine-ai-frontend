@@ -113,23 +113,23 @@ public final class Interpretation {
             }
             case SWITCH:
                 return t.isEmpty() ? null : "switch to " + t.toLowerCase(Locale.US);
-            case COPY:
-                return t.isEmpty() ? "copy this" : "copy " + t;
-            case SHARE:
-                return t.isEmpty() ? "share this" : (t.toLowerCase(Locale.US).matches("^(post|share|tweet|publish|upload)\\b.*") ? t : "share " + t);
-            case DEBATE:
-                return t.isEmpty() ? null : "debate " + t.toLowerCase(Locale.US);
             case DOWNLOAD_BRAIN:
                 return "download your brain";
             case MOVE:
                 return t.isEmpty() ? null : "make it " + t.toLowerCase(Locale.US);
             case COPY:
-                // "copy that" lets ActionPlanner fill the words from the last thing said, after a yes.
-                return t.isEmpty() ? "copy that" : "copy " + t;
+                // "copy this" lets ActionPlanner fill the words from the last thing said, after a yes.
+                return t.isEmpty() ? "copy this" : "copy " + t;
             case SHARE:
+                if (t.isEmpty()) {
+                    return "share this";
+                }
+                if (t.toLowerCase(Locale.US).matches("^(post|share|tweet|publish|upload)\\b.*")) {
+                    return t;
+                }
                 return shareCommand(t);
             case DEBATE:
-                return t.isEmpty() ? null : "debate " + t;
+                return t.isEmpty() ? null : "debate " + t.toLowerCase(Locale.US);
             default:
                 return null;
         }

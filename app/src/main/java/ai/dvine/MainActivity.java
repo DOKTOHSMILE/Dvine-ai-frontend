@@ -4574,6 +4574,94 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return null;
     }
 
+    /** The words the voice says for a line: a model's own connect failure is said plainly when the phone is online. */
+    private String spokenLine(String line) {
+        if (line != null && line.contains("unable to connect to my database")
+                && connectivity != null && connectivity.isOnline()) {
+            return "I don't have that in my notes.";
+        }
+        return line == null ? "" : line;
+    }
+
+    /** Show these lines in order, then run {@code done} once the voice has gone quiet. */
+    private void play(List<TurnLine> next, Runnable done) {
+        stopPlay();
+        lines = next;
+        index = 0;
+        afterPlay = done;
+        step(playId);
+    }
+
+    /** Play the next line, or finish the walk when the lines run out. */
+    private void step(final int token) {
+        if (token != playId) {
+            return;
+        }
+        if (index >= lines.size()) {
+            if (streamOpen) {
+                handler.postDelayed(() -> step(token), 120);
+                return;
+            }
+            keepAwake(false);
+            stage.setMode(StageMode.DONE);
+            Runnable after = afterPlay;
+            afterPlay = null;
+            if (after != null && talk != null) {
+                final Runnable done = after;
+                talk.whenQuiet(() -> handler.postDelayed(() -> {
+                    if (token == playId) {
+                        done.run();
+                    }
+                }, 250));
+            } else if (after != null) {
+                after.run();
+            }
+            return;
+        }
+        final TurnLine line = lines.get(index);
+        index++;
+        final String who = stage.agent();
+        stage.ensureFace(who, () -> {
+            if (token != playId) {
+                return;
+            }
+            if (talk != null) {
+                talk.setRobot("ibiko".equals(who));
+            }
+            if ("SAY".equals(line.cue)) {
+                stage.setMode(StageMode.SPEAKING);
+                stage.setThought(null);
+                stage.setSubtitle(spokenLine(line.text));
+                if (chatPane != null) {
+                    chatPane.setLive(null);
+                    if (line.text != null && !line.text.isEmpty()) {
+                        chatPane.assistant(who, spokenLine(line.text));
+                    }
+                }
+                if (speakReply() && talk != null && !spokenLive.contains(line) && line.text != null) {
+                    ai.dvine.voice.SentenceStream cut = new ai.dvine.voice.SentenceStream();
+                    boolean ivieVoice = "ivie".equals(who);
+                    for (String sentence : cut.add(spokenLine(line.text))) {
+                        talk.queue(ivieVoice, sentence);
+                    }
+                    for (String sentence : cut.finish()) {
+                        talk.queue(ivieVoice, sentence);
+                    }
+                }
+                handler.post(() -> step(token));
+            } else if (line.text != null && line.text.length() > 0) {
+                stage.setThought(line.text);
+                stage.setMode(StageMode.THINKING);
+                stage.setSubtitle("");
+                handler.post(() -> step(token));
+            } else {
+                stage.setThought(null);
+                stage.setMode(StageMode.THINKING);
+                handler.postDelayed(() -> step(token), 520);
+            }
+        });
+    }
+
     private void stopPlay() {
         playId++;
         streamOpen = false;

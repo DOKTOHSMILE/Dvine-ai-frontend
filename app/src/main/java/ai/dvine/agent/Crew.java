@@ -36,19 +36,6 @@ public final class Crew {
 
     static final int MOST = 5;
 
-    /** How many parts the planner may write: at least {@link #MOST}, more when the user asked for more workers. */
-    static int plan(int workers) {
-        return Math.max(MOST, workers);
-    }
-
-    /** Planner instructions that name the part cap for this worker count. */
-    static String planPrompt(int workers) {
-        return "Split the job below into 2 to " + plan(workers) + " independent parts, each small enough for one"
-                + " helper with a short memory to finish alone (for a code audit: by folder or concern, such as security, data,"
-                + " UI, build; for research: by question). One per line as PART: … with what to look at and what to report."
-                + " No other text. /no_think";
-    }
-
     /** A job worth splitting: an audit, a deep review, research, an investigation, a whole repository. */
     public static boolean heavy(String task) {
         String t = task == null ? "" : task.toLowerCase(Locale.US);
@@ -168,10 +155,9 @@ public final class Crew {
         if (plan == null) {
             return out;
         }
-        int most = Math.max(1, cap);
+        int cap = Math.max(1, most);
         String t = plan.replaceAll("(?s)<think>.*?(</think>|$)", "");
         String[] blocks = t.split("(?im)^\\s*(?:[-*\\d.]+\\s*)?\\**PART\\s*\\d*\\**\\s*:");
-        final int cap = Math.max(1, most);
         for (int i = 1; i < blocks.length && out.size() < cap; i++) {
             String p = blocks[i].replaceAll("\\s+", " ").replace("**", "").trim();
             if (p.length() >= 3) {

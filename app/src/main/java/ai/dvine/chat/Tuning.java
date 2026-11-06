@@ -112,11 +112,6 @@ public final class Tuning {
             "How many of the device's cores the offline model uses. Automatic takes the fast cores only (more threads on slow"
                     + " cores makes it slower). Compare with Settings \u203A Test the speed.", 0, 0, 8);
 
-    public static final Knob WORKERS = new Knob("adv_workers", "Mini agent workers at once",
-            "How many mini agents work on a heavy job at the same time. This applies on every build: the phone's own model"
-                    + " and an API. The phone's model still answers one step at a time; the other workers wait their turn.",
-            4, 1, 8);
-
     public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES, WORKERS, CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED, MODEL_THREADS};
     /** The threads for the phone's own model: the setting, or the fast cores when it is automatic. */
     public static int modelThreads(android.content.SharedPreferences p) {
