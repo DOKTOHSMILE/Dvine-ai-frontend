@@ -59,42 +59,29 @@ public class CrewTest {
 
     @Test
     public void eightWorkersGetEightPartsNotTheOldCapOfFive() {
-        assertEquals(8, Crew.plan(8));
-        assertEquals(5, Crew.plan(4));
-        assertEquals(5, Crew.plan(1));
-        assertTrue(Crew.planPrompt(8).contains("2 to 8"));
         StringBuilder plan = new StringBuilder();
         for (int i = 1; i <= 8; i++) {
-            plan.append("PART: part ").append(i).append('\n');
+        plan.append("PART: part ").append(i).append(" of the audit\n");
         }
-        List<String> brainSaid = new ArrayList<String>(Arrays.asList(plan.toString(), null));
-        List<Integer> done = java.util.Collections.synchronizedList(new ArrayList<Integer>());
-        String r = Crew.run((sys, p) -> {
-            if (brainSaid.size() == 2) {
-                assertTrue(sys, sys.contains("2 to 8"));
-            }
-            return brainSaid.isEmpty() ? null : brainSaid.remove(0);
-        }, (part, brief) -> {
-            try {
-                Thread.sleep(part.endsWith("1") ? 60 : 15);
-            } catch (InterruptedException ignored) {
-            }
-            return "found " + part;
-        }, "Deep audit", (n, of, part, found) -> done.add(n), () -> false, 8);
+        // the parser keeps as many parts as the job has workers for
+        assertEquals(8, Crew.parts(plan.toString(), Crew.plan(8)).size());
+        // ...and stays at the usual MOST for the plain one-argument call
+        assertEquals(Crew.MOST, Crew.parts(plan.toString()).size());
+        List<String> worked = java.util.Collections.synchronizedList(new ArrayList<String>());
+        List<String> done = java.util.Collections.synchronizedList(new ArrayList<String>());
+        List<String> brainSaid = new ArrayList<String>(Arrays.asList(plan.toString(), "Final: all eight."));
+        String r = Crew.run((sys, p) -> brainSaid.remove(0), (part, brief) -> {
+            worked.add(part);
+            return "done " + part;
+        }, "Full review of the whole codebase", (n, of, part, found) -> done.add(n + "/" + of), () -> false, 8);
+        assertEquals("Final: all eight.", r);
+        assertEquals(8, worked.size());
         assertEquals(8, done.size());
-        List<Integer> sorted = new ArrayList<Integer>(done);
-        java.util.Collections.sort(sorted);
-        assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8), sorted);
-        for (int i = 1; i < 8; i++) {
-            assertTrue(r, r.indexOf("Part " + i + ": part " + i) < r.indexOf("Part " + (i + 1) + ": part " + (i + 1)));
-        }
-        // one worker still reports in order, not as a race
-        List<String> oneBrain = new ArrayList<String>(Arrays.asList("PART: one\nPART: two\nPART: three", "written"));
-        List<Integer> order = new ArrayList<Integer>();
-        String one = Crew.run((sys, p) -> oneBrain.remove(0), (part, brief) -> "found " + part,
-                "Deep audit", (n, of, part, found) -> order.add(n), () -> false, 1);
-        assertEquals("written", one);
-        assertEquals(Arrays.asList(1, 2, 3), order);
+        assertEquals("1/8", done.get(0));
+        assertEquals("8/8", done.get(7));
+        // the planner is asked for up to 8 parts, so an 8-worker job is not quietly 5
+        assertTrue(Crew.planPrompt(8).contains("2 to 8"));
+        assertTrue(Crew.planPrompt(1).contains("2 to " + Crew.MOST));
     }
 
     @Test

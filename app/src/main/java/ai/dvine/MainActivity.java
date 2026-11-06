@@ -469,25 +469,31 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean awaitingName;
 
     /**
-     * The crash catcher ({@link CrashLog}): every crash is saved to files/crash.txt and to Download/DVINE. The app
-     * class installs it at start; this covers a start without it (tests).
+     * The crash banner ({@link ai.dvine.main.CrashReport}): every crash is saved to files/crash.txt and to
+     * Download/DVINE, and on the next start the banner offers that report once. This is the screen it serves.
      */
-    private void installCrashReporter() {
-        CrashLog.install(this);
-    }
+    private final ai.dvine.main.CrashReport.Host crashHost = new ai.dvine.main.CrashReport.Host() {
+        @Override
+        public <T extends android.view.View> T find(int id) {
+            return findViewById(id);
+        }
 
-    private String takeCrashReport() {
-        File f = new File(getFilesDir(), "crash.txt");
-        if (!f.exists()) {
-            return null;
+        @Override
+        public android.content.Context context() {
+            return MainActivity.this;
         }
-        try {
-            return new String(java.nio.file.Files.readAllBytes(f.toPath()),
-                    java.nio.charset.StandardCharsets.UTF_8);
-        } catch (java.io.IOException e) {
-            return null;
+
+        @Override
+        public String version() {
+            return BuildConfigInfo.version(MainActivity.this);
         }
-    }
+
+        @Override
+        public SharedPreferences prefs() {
+            return prefs;
+        }
+    };
+    private final ai.dvine.main.CrashReport crash = new ai.dvine.main.CrashReport(crashHost);
 
     private android.widget.FrameLayout chatPaneHost;
     private android.widget.FrameLayout typeBarHost;
@@ -507,113 +513,126 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** The XML chat screen owns sizing; these views fill their dedicated hosts. */
-    private void fitTypeBar() {
-        if (typeBar == null || typeBar.getParent() == null)
-            return;
-        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        int margin = Math.round(4 * dm.density);
-        android.view.ViewGroup.LayoutParams raw = typeBar.getLayoutParams();
-        if (raw instanceof android.widget.FrameLayout.LayoutParams) {
-            android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) raw;
-            lp.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-            lp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-            lp.gravity = android.view.Gravity.BOTTOM;
-            lp.setMargins(margin, 0, margin, 0);
-            typeBar.setLayoutParams(lp);
+    /** The XML chat screen owns sizing; these views fill their dedicated hosts ({@link ai.dvine.main.ChatFit}). */
+    private final ai.dvine.main.ChatFit chatFit = new ai.dvine.main.ChatFit(new ai.dvine.main.ChatFit.Host() {
+        @Override
+        public android.view.View typeBar() {
+            return typeBar;
         }
+
+        @Override
+        public android.view.View chatPane() {
+            return chatPane;
+        }
+
+        @Override
+        public android.content.res.Resources getResources() {
+            return MainActivity.this.getResources();
+        }
+    });
+
+    private void fitTypeBar() {
+        chatFit.fitTypeBar();
     }
 
     private void fitChatPane() {
-        if (chatPane == null || chatPane.getParent() == null)
-            return;
-        android.view.ViewGroup.LayoutParams raw = chatPane.getLayoutParams();
-        raw.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-        raw.height = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-        chatPane.setLayoutParams(raw);
+        chatFit.fitChatPane();
     }
 
+    // --- persona tabs: handed over to main/PersonaTabs.java ---
+    /** What main/PersonaTabs.java needs from this screen: the views, the stage, the chats, and a few screen actions. */
+    private final ai.dvine.main.PersonaTabs.Host personaTabsHost = new ai.dvine.main.PersonaTabs.Host() {
+        @Override
+        public android.content.Context context() {
+            return MainActivity.this;
+        }
+
+        @Override
+        public SharedPreferences prefs() {
+            return prefs;
+        }
+
+        @Override
+        public boolean hasStage() {
+            return stage != null;
+        }
+
+        @Override
+        public void ensureFace(String persona) {
+            stage.ensureFace(persona, null);
+        }
+
+        @Override
+        public boolean objectShown() {
+            return stage != null && stage.objectShown();
+        }
+
+        @Override
+        public void chatsForPersona(String persona) {
+            if (chats != null) {
+                chats.forPersona(persona);
+            }
+        }
+
+        @Override
+        public void showChatPane() {
+            if (chatPane != null) {
+                chatPane.show();
+            }
+        }
+
+        @Override
+        public <T extends android.view.View> T find(int id) {
+            return findViewById(id);
+        }
+
+        @Override
+        public android.content.res.Resources resources() {
+            return getResources();
+        }
+
+        @Override
+        public int color(int resId) {
+            return getColor(resId);
+        }
+
+        @Override
+        public String brainLabel() {
+            return MainActivity.this.brainLabel();
+        }
+
+        @Override
+        public void showIvieCanvas(boolean on) {
+            MainActivity.this.showIvieCanvas(on);
+        }
+
+        @Override
+        public void showIbikoMode(boolean visible) {
+            MainActivity.this.showIbikoMode(visible);
+        }
+
+        @Override
+        public void warmModel() {
+            MainActivity.this.warmModel();
+        }
+
+        @Override
+        public void play(java.util.List<ai.dvine.turn.TurnLine> next, Runnable done) {
+            MainActivity.this.play(next, done);
+        }
+    };
+    private final ai.dvine.main.PersonaTabs personaTabs = new ai.dvine.main.PersonaTabs(personaTabsHost);
+
     private void selectPersona(String persona) {
-        selectPersona(persona, false);
+        personaTabs.select(persona);
     }
 
     private void selectPersona(String persona, boolean fromTap) {
-        if (persona == null || persona.isEmpty() || stage == null)
-            return;
-        if (prefs != null)
-            prefs.edit().putString("face", persona).apply();
-        stage.ensureFace(persona, null);
-        updatePersonaTabs(persona);
-        showIvieCanvas("ivie".equals(persona) && stage.objectShown()); // the 3D canvas is Ivie's
-        if (chats != null) {
-            chats.forPersona(persona);
-        }
-        if (chatPane != null) {
-            chatPane.show();
-        }
-        android.widget.EditText field = findViewById(R.id.et_message);
-        if (field != null) {
-            field.setHint("Ask anything");
-        }
-        android.widget.TextView sub = findViewById(R.id.tv_header_sub);
-        if (sub != null) {
-            String name = persona.substring(0, 1).toUpperCase() + persona.substring(1);
-            sub.setText(name + " · " + brainLabel());
-        }
-        android.widget.TextView mark = findViewById(R.id.empty_mark);
-        if (mark != null) {
-            mark.setText(persona.substring(0, 1).toUpperCase());
-        }
-        showIbikoMode("ibiko".equals(persona));
-        if (fromTap) {
-            if ("ibiko".equals(persona)) {
-                offerTermux();
-            }
-            warmModel(); // the new persona's instructions read ahead, beside the others
-        }
+        personaTabs.select(persona, fromTap);
     }
 
     private void offerTermux() {
-        if (prefs == null) {
-            return;
-        }
-        boolean installed = ai.dvine.ops.TermuxAndroid.installed(this);
-        String key = installed ? "ibiko_ready_said" : "ibiko_install_offered";
-        if (prefs.getBoolean(key, false)) {
-            return;
-        }
-        prefs.edit().putBoolean(key, true).apply();
-        // only when the coding chat is opened, and only once; the wording matches what the tools really do here
-        play(LocalTurn.speakAs("ibiko", installed
-                ? "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."
-                : "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."),
-                null);
-    }
-
-    private void updatePersonaTabs(String persona) {
-        setPersonaTab(findViewById(R.id.tabIvie), "ivie".equalsIgnoreCase(persona));
-        setPersonaTab(findViewById(R.id.tabObi), "obi".equalsIgnoreCase(persona));
-        setPersonaTab(findViewById(R.id.tabIbiko), "ibiko".equalsIgnoreCase(persona));
-    }
-
-    private void setPersonaTab(android.widget.TextView tab, boolean selected) {
-        if (tab == null)
-            return;
-        // an icon each (graphics for Ivie, chat for Obi, tools for Ibiko); the chosen one also shows its name
-        CharSequence name = tab.getContentDescription();
-        tab.setText(selected && name != null ? name : "");
-        tab.setCompoundDrawablePadding(selected ? Math.round(4 * getResources().getDisplayMetrics().density) : 0);
-        tab.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(
-                getColor(selected ? R.color.text_primary : R.color.text_secondary)));
-        tab.setTextColor(getColor(selected ? R.color.text_primary : R.color.text_secondary));
-        tab.setTypeface(null,
-                selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-        if (selected) {
-            tab.setBackgroundResource(R.drawable.bg_segment_selected);
-        } else {
-            tab.setBackgroundColor(0x00000000);
-        }
-        tab.setSelected(selected);
+        personaTabs.offerTermux();
     }
 
     private void bindChatHeader() {
@@ -706,7 +725,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         selectPersona(StageView.OBI);
         bindComposer();
         refreshSend();
-        bindCrashBanner();
+        crash.bind();
     }
 
     private void bindComposer() {
@@ -778,135 +797,76 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** After a send, taps on the button are ignored this long, so a double tap neither cancels nor sends twice. */
-    static final long SEND_GUARD_MS = 900;
-    private long lastSendAt = -SEND_GUARD_MS;
-
-    private void sendComposer() {
-        android.widget.EditText field = findViewById(R.id.et_message);
-        if (field == null || field.getText() == null) {
-            return;
-        }
-        String text = field.getText().toString().trim();
-        boolean attached = attachments != null && !attachments.isEmpty();
-        long now = android.os.SystemClock.uptimeMillis();
-        if (now - lastSendAt < SEND_GUARD_MS) {
-            return; // a double tap: the second tap would otherwise stop the reply it just asked for, or send twice
-        }
-        if (text.isEmpty() && !attached) {
-            if (generating) {
-                stopGeneration();
-            }
-            return;
-        }
-        lastSendAt = now;
-        field.setText("");
-        voiceTurn = dictation != null && dictation.takeDraft();
-        if (busy()) {
-            // work is running: the message waits its turn instead of cutting the work off (Stop still stops it)
-            final String words = text;
-            hold(words, attached ? () -> sendWithAttachments(words) : () -> answer(words));
-            field.requestFocus();
-            return;
-        }
-        if (attached) {
-            sendWithAttachments(text);
-        } else {
-            answer(text);
-        }
-        field.requestFocus(); // the keyboard keeps typing into the box after Send
-    }
-
-    /** Messages sent while work was running, in order, waiting for it to finish (with what they say, and since when). */
-    private final java.util.ArrayDeque<Runnable> waiting = new java.util.ArrayDeque<Runnable>();
-    private final java.util.ArrayDeque<String> waitingWords = new java.util.ArrayDeque<String>();
-    private long waitingSince;
-    private int idleBeats;
+    // --- send + waiting queue: handed over to main/SendQueue.java ---
+    /** The send button's queue: a double tap is ignored, and messages sent while work runs wait their turn. */
+    private ai.dvine.main.SendQueue sendQueue;
 
     /** Something is being worked on or still being written out: a reply, an agent's run, a build. */
     private boolean busy() {
         return generating || streamOpen || index < lines.size();
     }
 
-    private void hold(String words, Runnable send) {
-        if (waiting.isEmpty()) {
-            waitingSince = System.currentTimeMillis();
-        }
-        waiting.add(send);
-        waitingWords.add(words.isEmpty() ? "your files" : words);
-        idleBeats = 0;
-        handler.removeCallbacks(releaseBeat);
-        handler.post(releaseBeat);
+    private void sendComposer() {
+        sendQueue.sendComposer();
     }
 
-    /**
-     * Every half second while messages wait: the waiting line shows them and how long they've waited, and once the
-     * work has finished (and stayed finished a moment, so a reply that runs in two steps isn't cut between them) the
-     * first goes, then the next after its own work.
-     */
-    private final Runnable releaseBeat = new Runnable() {
+    /** What main/SendQueue.java needs from this screen: views, the two ways a message goes out, and the stop. */
+    private final ai.dvine.main.SendQueue.Host sendHost = new ai.dvine.main.SendQueue.Host() {
         @Override
-        public void run() {
-            android.widget.TextView line = findViewById(R.id.composer_note);
-            if (waiting.isEmpty()) {
-                if (line != null && line.getTag() == waiting) {
-                    line.setTag(null);
-                    line.setOnClickListener(null);
-                    line.setVisibility(android.view.View.GONE);
-                }
-                return;
-            }
-            if (!busy()) {
-                idleBeats++;
-            } else {
-                idleBeats = 0;
-            }
-            if (idleBeats >= 2) {
-                idleBeats = 0;
-                Runnable next = waiting.poll();
-                waitingWords.poll();
-                waitingSince = System.currentTimeMillis();
-                if (next != null) {
-                    next.run();
-                }
-            }
-            if (line != null && !waiting.isEmpty()) {
-                long secs = (System.currentTimeMillis() - waitingSince) / 1000;
-                String first = waitingWords.peek();
-                first = first == null ? "" : first.length() > 40 ? first.substring(0, 40) + "\u2026" : first;
-                line.setText("Waiting to send" + (waiting.size() > 1 ? " (" + waiting.size() + ")" : "") + ": \u201c" + first + "\u201d \u00b7 "
-                        + ai.dvine.stage.ChatPane.duration(secs) + " \u00b7 sends when this finishes \u00b7 tap to edit");
-                line.setTag(waiting);
-                line.setVisibility(android.view.View.VISIBLE);
-                handler.removeCallbacks(hideNote);
-                line.setOnClickListener(v -> unhold());
-            }
-            handler.postDelayed(this, 500);
+        public <T extends android.view.View> T find(int id) {
+            return findViewById(id);
+        }
+
+        @Override
+        public android.os.Handler handler() {
+            return handler;
+        }
+
+        @Override
+        public android.widget.TextView findNote() {
+            return findViewById(R.id.composer_note);
+        }
+
+        @Override
+        public boolean busy() {
+            return MainActivity.this.busy();
+        }
+
+        @Override
+        public boolean hasAttachments() {
+            return attachments != null && !attachments.isEmpty();
+        }
+
+        @Override
+        public boolean takeVoiceDraft() {
+            return dictation != null && dictation.takeDraft();
+        }
+
+        @Override
+        public void markVoiceTurn() {
+            voiceTurn = true;
+        }
+
+        @Override
+        public void answer(String text) {
+            MainActivity.this.answer(text);
+        }
+
+        @Override
+        public void sendAttached(String text) {
+            sendWithAttachments(text);
+        }
+
+        @Override
+        public void haltGeneration() {
+            stopGeneration();
+        }
+
+        @Override
+        public void cancelNoteHide() {
+            handler.removeCallbacks(hideNote);
         }
     };
-
-    /** The waiting line tapped: the messages come back into the box to change, and nothing more waits. */
-    private void unhold() {
-        android.widget.EditText field = findViewById(R.id.et_message);
-        StringBuilder b = new StringBuilder();
-        for (String w : waitingWords) {
-            if (!"your files".equals(w)) {
-                b.append(b.length() == 0 ? "" : "\n").append(w);
-            }
-        }
-        waiting.clear();
-        waitingWords.clear();
-        if (field != null) {
-            field.setText(b.toString());
-            field.setSelection(field.getText().length());
-        }
-        android.widget.TextView line = findViewById(R.id.composer_note);
-        if (line != null) {
-            line.setOnClickListener(null);
-            line.setTag(null);
-            line.setVisibility(android.view.View.GONE);
-        }
-    }
 
     /**
      * Files Ibiko made outside the cloned repositories (a script, a page, a report) become artifacts, openable and
@@ -1043,67 +1003,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         dictation.toggle();
     }
 
-    private void bindCrashBanner() {
-        android.view.View banner = findViewById(R.id.banner_crash);
-        if (banner == null) {
-            return;
-        }
-        String report = freshCrash();
-        // shown once after a crash: the report is in Download/DVINE, and Copy puts it on the clipboard
-        banner.setVisibility(report != null ? android.view.View.VISIBLE : android.view.View.GONE);
-        android.widget.TextView detail = findViewById(R.id.tv_crash_detail);
-        if (detail != null && report != null) {
-            String first = report.split("\n\n", 3).length > 1 ? report.split("\n\n", 3)[1].split("\n")[0] : "";
-            detail.setText("Saved in Download/DVINE" + (first.isEmpty() ? "" : " (" + first + ")") + ". Tap Copy to copy it.");
-        }
-        android.view.View copy = findViewById(R.id.btn_copy_crash);
-        if (copy != null) {
-            copy.setOnClickListener(v -> {
-                android.content.ClipboardManager clips = (android.content.ClipboardManager) getSystemService(
-                        CLIPBOARD_SERVICE);
-                if (clips != null && report != null) {
-                    clips.setPrimaryClip(
-                            android.content.ClipData.newPlainText("dvine-crash", report));
-                }
-                clearCrash();
-                banner.setVisibility(android.view.View.GONE);
-            });
-        }
-        android.view.View dismiss = findViewById(R.id.btn_dismiss);
-        if (dismiss != null) {
-            dismiss.setOnClickListener(v -> {
-                clearCrash();
-                banner.setVisibility(android.view.View.GONE);
-            });
-        }
-    }
-
-    /** A crash from this version, once. An old report, or one already shown, is removed. */
-    private String freshCrash() {
-        String report = takeCrashReport();
-        if (report == null) {
-            return null;
-        }
-        String version = BuildConfigInfo.version(this);
-        if (!report.startsWith("DVINE " + version + " ")) {
-            clearCrash();
-            return null;
-        }
-        String seen = prefs == null ? "" : prefs.getString("crash_seen", "");
-        String mark = String.valueOf(report.hashCode());
-        if (mark.equals(seen)) {
-            clearCrash();
-            return null;
-        }
-        if (prefs != null) {
-            prefs.edit().putString("crash_seen", mark).apply();
-        }
-        return report;
-    }
-
-    private void clearCrash() {
-        new File(getFilesDir(), "crash.txt").delete();
-    }
 
     private void startNewChatSafely() {
         if (chats == null) {
@@ -1224,20 +1123,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** "always" (the default), "mic" (only after the microphone) or "off". */
     private String readAloud() {
-        return prefs == null ? "always" : prefs.getString("read_aloud", "always");
+        return readAloudHelper.setting();
     }
 
     /** Whether this reply is read out: always, after a dictated message, or never, as chosen in the drawer. */
     private boolean speakReply() {
-        String mode = readAloud();
-        return "always".equals(mode) || ("mic".equals(mode) && voiceTurn);
+        return readAloudHelper.speakReply();
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         applyTheme(getSharedPreferences("dvine", MODE_PRIVATE).getString("theme", "system"));
         super.onCreate(savedInstanceState);
-        installCrashReporter();
+        crash.install();
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         window.setStatusBarColor(getColor(R.color.bg_main)); // and the theme sets light or dark bar icons
@@ -1255,6 +1153,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // alive as the rendering/agent surface, while this screen is dedicated
         // to the conversation UI.
         setContentView(R.layout.activity_main);
+        sendQueue = new ai.dvine.main.SendQueue(sendHost);
         android.widget.LinearLayout root = findViewById(R.id.chatScreenRoot);
         chatPaneHost = findViewById(R.id.chatPaneHost);
         thoughtStatus = findViewById(R.id.thoughtStatus);
@@ -1677,58 +1576,40 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** The reply being read aloud by its Listen button, its sentences, and the one it is on. */
-    private String readingText;
-    private java.util.List<String> readingSentences = new java.util.ArrayList<String>();
-    private int readingAt;
-    private boolean readingOn;
+    // --- read-aloud: handed over to main/ReadAloud.java ---
+    /** What main/ReadAloud.java needs from this screen: the voice, the persona, the setting, and when reading stops. */
+    private final ai.dvine.main.ReadAloud.Host readAloudHost = new ai.dvine.main.ReadAloud.Host() {
+        @Override
+        public ai.dvine.voice.TalkBridge talk() {
+            return talk;
+        }
 
-    /**
-     * Listen: reads the reply sentence by sentence; tapped while reading, it pauses (the phone's voice can't stop
-     * mid-word and carry on, so it stops and remembers the sentence); tapped again, it carries on from that
-     * sentence. True when it is reading now.
-     */
-    private boolean toggleReading(String text) {
-        if (talk == null || stage == null || text == null || text.trim().isEmpty()) {
-            return false;
+        @Override
+        public String agent() {
+            return stage == null ? null : stage.agent();
         }
-        if (readingOn && text.equals(readingText)) {
-            readingOn = false;
-            talk.stop();
-            return false;
-        }
-        if (!text.equals(readingText)) {
-            readingText = text;
-            readingSentences = ai.dvine.voice.SentenceStream.split(text);
-            readingAt = 0;
-        }
-        if (readingAt >= readingSentences.size()) {
-            readingAt = 0; // finished last time: from the start
-        }
-        readingOn = true;
-        readNext(stage.agent());
-        return true;
-    }
 
-    private void readNext(final String persona) {
-        if (!readingOn) {
-            return;
+        @Override
+        public SharedPreferences prefs() {
+            return prefs;
         }
-        if (readingAt >= readingSentences.size()) {
-            readingOn = false;
-            readingAt = 0;
+
+        @Override
+        public boolean voiceTurn() {
+            return voiceTurn;
+        }
+
+        @Override
+        public void readingStopped() {
             if (chatPane != null) {
                 chatPane.readingStopped();
             }
-            return;
         }
-        talk.speak("ivie".equals(persona), readingSentences.get(readingAt), () -> {
-            if (!readingOn) {
-                return;
-            }
-            readingAt++;
-            readNext(persona);
-        });
+    };
+    private final ai.dvine.main.ReadAloud readAloudHelper = new ai.dvine.main.ReadAloud(readAloudHost);
+
+    private boolean toggleReading(String text) {
+        return readAloudHelper.toggleReading(text);
     }
 
     private void stopGeneration() {
@@ -2275,7 +2156,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             chatPane.activityStep("Splitting the job between mini agents");
                         }
                     });
-                    // the worker count is a setting, on the phone and on an API (the phone's model still answers one step at a time)
+                   // how many workers run at once (Settings › Advanced): each takes a part of the job; the phone's own
+                    // model is taken by one request at a time, so its workers wait for it between steps instead
                     final int workers = Math.max(1, ai.dvine.chat.Tuning.WORKERS.get(prefs));
                     final ai.dvine.agent.CodeAgent.Brain online = new ai.dvine.agent.CodeAgent.Brain() {
                         @Override
@@ -2297,6 +2179,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                             model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
                                             .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ROUND_STEPS)
                                             .as(who, readOnly).keepGoing(rounds) : make.get();
+                                    // an API model: each worker gets its own model calls; the phone's model: one request
+                                    // at a time, so the workers share it (they queue on the model's lock)
                                     return mini.run(part, brief + (earlier.isEmpty() ? ""
                                             : "\n\nEarlier in this chat (its end):\n" + earlier.substring(Math.max(0, earlier.length() - 800))));
                                 } finally {
@@ -2952,12 +2836,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void answer(String text, boolean interpreted) {
         interruptReply();
-        if (readingOn) {
-            readingOn = false; // a new message ends reading an old reply aloud
-            if (chatPane != null) {
-                chatPane.readingStopped();
-            }
-        }
+        // a new message ends reading an old reply aloud
+        readAloudHelper.stop();
         fromBrain = interpreted;
         if (text == null || text.trim().isEmpty()) {
             return;
@@ -4674,89 +4554,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.setMode(StageMode.ERROR);
     }
 
-    private void play(List<TurnLine> next, Runnable done) {
-        stopPlay();
-        lines = next;
-        index = 0;
-        afterPlay = done;
-        step(playId);
-    }
-
-    private String spokenLine(String line) {
-        if (line != null && line.contains("unable to connect to my database")
-                && connectivity != null && connectivity.isOnline()) {
-            return "I don't have that in my notes.";
-        }
-        return line == null ? "" : line;
-    }
-
-    private void step(final int token) {
-        if (token != playId) {
-            return;
-        }
-        if (index >= lines.size()) {
-            if (streamOpen) {
-                handler.postDelayed(() -> step(token), 120);
-                return;
-            }
-            keepAwake(false);
-            stage.setMode(StageMode.DONE);
-            Runnable after = afterPlay;
-            afterPlay = null;
-
-            final Runnable done = after;
-            if (done != null) {
-                // the microphone waits until the voice has finished, so it doesn't hear DVINE's own words
-                talk.whenQuiet(() -> handler.postDelayed(() -> {
-                    if (token == playId) {
-                        done.run();
-                    }
-                }, 250));
-            }
-            return;
-        }
-        final TurnLine line = lines.get(index);
-        index++;
-        final String who = stage.agent();
-        stage.ensureFace(who, () -> {
-            if (token != playId) {
-                return;
-            }
-            talk.setRobot("ibiko".equals(who));
-            if ("SAY".equals(line.cue)) {
-                stage.setMode(StageMode.SPEAKING);
-                stage.setThought(null);
-                stage.setSubtitle(spokenLine(line.text));
-                if (chatPane != null) {
-                    chatPane.setLive(null);
-                }
-                if (chatPane != null && line.text != null && !line.text.isEmpty()) {
-                    chatPane.assistant(who, spokenLine(line.text));
-                }
-                if (speakReply() && talk != null && !spokenLive.remove(line) && line.text != null) {
-                    ai.dvine.voice.SentenceStream cut = new ai.dvine.voice.SentenceStream();
-                    boolean ivieVoice = "ivie".equals(who);
-                    for (String sentence : cut.add(spokenLine(line.text))) {
-                        talk.queue(ivieVoice, sentence);
-                    }
-                    for (String sentence : cut.finish()) {
-                        talk.queue(ivieVoice, sentence);
-                    }
-                }
-                handler.post(() -> step(token));
-            } else if (line.text != null && line.text.length() > 0) {
-                stage.setThought(line.text);
-                stage.setMode(StageMode.THINKING);
-                stage.setSubtitle("");
-                handler.post(() -> step(token));
-            } else {
-                stage.setThought(null);
-                stage.setMode(StageMode.THINKING);
-                handler.postDelayed(() -> step(token), 520);
-            }
-        });
-    }
-
     private String selfSheet() {
         ai.dvine.llm.DvineSelf.Facts f = new ai.dvine.llm.DvineSelf.Facts();
         f.version = BuildConfigInfo.version(this);
@@ -5235,11 +5032,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     talk.resume();
                     break;
                 default:
-                    readingOn = false;
+                    readAloudHelper.stop();
                     talk.stop();
-                    if (chatPane != null) {
-                        chatPane.readingStopped();
-                    }
                     ai.dvine.voice.ReadAloudNotice.show(MainActivity.this, false, false, null, "", MainActivity.class);
             }
         }

@@ -89,11 +89,11 @@ public final class Interpretation {
     }
 
     /**
-     * Emits a plain-text command candidate ("draw a lion in 3d", "copy that", "share on x saying hello",
-     * "debate cats vs dogs"). It does not run the checked paths: {@code ActionPlanner} still confirms with yes
-     * or no and fills "that" from the last thing said, {@link #groundedIn} still has to match the user's words,
-     * and an app still has to be on the phone's app list. Null when there is no command to offer (answer,
-     * search, other, or a debate with no topic).
+
+     * The interpretation as the plain phrase the existing handlers already parse ("draw a lion in 3D", "open whatsapp",
+     * "music off", "copy this", "debate AI art"), so calling it needs no new parsing of its own: null when it has none
+     * (answer, search, other). It carries no confirmation — {@link ai.dvine.brain.ActionPlanner} still asks yes or no
+     * for copy and share, and still fills "copy this" from what was said last.
      */
     public String command() {
         String t = target == null ? "" : target.trim();
@@ -113,6 +113,12 @@ public final class Interpretation {
             }
             case SWITCH:
                 return t.isEmpty() ? null : "switch to " + t.toLowerCase(Locale.US);
+            case COPY:
+                return t.isEmpty() ? "copy this" : "copy " + t;
+            case SHARE:
+                return t.isEmpty() ? "share this" : (t.toLowerCase(Locale.US).matches("^(post|share|tweet|publish|upload)\\b.*") ? t : "share " + t);
+            case DEBATE:
+                return t.isEmpty() ? null : "debate " + t.toLowerCase(Locale.US);
             case DOWNLOAD_BRAIN:
                 return "download your brain";
             case MOVE:
