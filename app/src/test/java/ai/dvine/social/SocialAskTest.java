@@ -1,8 +1,10 @@
 package ai.dvine.social;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -48,6 +50,14 @@ public class SocialAskTest {
         assertEquals("X", c[0]);
         assertEquals("our weekend sale", c[1]);
         assertNull(SocialAsk.compose("write a post about cats"));
+        assertEquals("social.search", SocialAsk.parse("search X for the fuel price").connector());
+        assertEquals("social.trending", SocialAsk.parse("what's trending on twitter").connector());
+        assertEquals("social.search", SocialAsk.parse("search telegram for @lagosnews").connector());
+        assertNull("telegram word search has no connector", SocialAsk.parse("search telegram for fuel price").connector());
+        assertNull("telegram has no trending page", SocialAsk.parse("what's trending on telegram").connector());
+        assertTrue(SocialAsk.telegramChat("@lagosnews"));
+        assertTrue(SocialAsk.telegramChat("t.me/lagosnews"));
+        assertFalse(SocialAsk.telegramChat("fuel price"));
     }
 
     @Test

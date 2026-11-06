@@ -275,6 +275,11 @@ public final class SocialWeb {
         StringBuilder out = new StringBuilder();
         int each = Math.max(1200, most / nets.size());
         for (Platform p : nets) {
+            if (p == Platform.TELEGRAM && !SocialAsk.telegramChat(query)) {
+                // the chat list is not a search; do not hand it back as if the words were found
+                out.append("Telegram: no word search. This connector only opens a chat named @name or t.me/name.\n\n");
+                continue;
+            }
             String r = read(c, p, p.searchUrl(query), "search for “" + query + "”", each);
             out.append(r).append("\n\n");
         }
@@ -290,7 +295,13 @@ public final class SocialWeb {
         StringBuilder out = new StringBuilder();
         int each = Math.max(1500, most / nets.size());
         for (Platform p : nets) {
-            out.append(read(c, p, p.trendingUrl(), "what is trending now", each)).append("\n\n");
+            if (p == Platform.TELEGRAM) {
+                out.append("Telegram: no trending page, so nothing was read.\n\n");
+                continue;
+            }
+            String what = p == Platform.INSTAGRAM ? "Instagram Explore, not a trends list"
+                    : p == Platform.FACEBOOK ? "Facebook Watch, not a trends list" : "what is trending now";
+            out.append(read(c, p, p.trendingUrl(), what, each)).append("\n\n");
         }
         return out.toString().trim();
     }

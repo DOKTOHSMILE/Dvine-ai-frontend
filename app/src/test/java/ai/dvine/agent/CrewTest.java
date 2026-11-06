@@ -61,7 +61,7 @@ public class CrewTest {
     public void eightWorkersGetEightPartsNotTheOldCapOfFive() {
         StringBuilder plan = new StringBuilder();
         for (int i = 1; i <= 8; i++) {
-            plan.append("PART: part ").append(i).append(" of the audit\n");
+        plan.append("PART: part ").append(i).append(" of the audit\n");
         }
         // the parser keeps as many parts as the job has workers for
         assertEquals(8, Crew.parts(plan.toString(), Crew.plan(8)).size());

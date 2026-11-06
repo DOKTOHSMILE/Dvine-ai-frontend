@@ -2156,7 +2156,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             chatPane.activityStep("Splitting the job between mini agents");
                         }
                     });
-                    // how many workers run at once (Settings › Advanced): each takes a part of the job; the phone's own
+                   // how many workers run at once (Settings › Advanced): each takes a part of the job; the phone's own
                     // model is taken by one request at a time, so its workers wait for it between steps instead
                     final int workers = Math.max(1, ai.dvine.chat.Tuning.WORKERS.get(prefs));
                     final ai.dvine.agent.CodeAgent.Brain online = new ai.dvine.agent.CodeAgent.Brain() {

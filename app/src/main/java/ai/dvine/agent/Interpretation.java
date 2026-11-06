@@ -89,6 +89,7 @@ public final class Interpretation {
     }
 
     /**
+
      * The interpretation as the plain phrase the existing handlers already parse ("draw a lion in 3D", "open whatsapp",
      * "music off", "copy this", "debate AI art"), so calling it needs no new parsing of its own: null when it has none
      * (answer, search, other). It carries no confirmation — {@link ai.dvine.brain.ActionPlanner} still asks yes or no
@@ -122,9 +123,37 @@ public final class Interpretation {
                 return "download your brain";
             case MOVE:
                 return t.isEmpty() ? null : "make it " + t.toLowerCase(Locale.US);
+            case COPY:
+                // "copy that" lets ActionPlanner fill the words from the last thing said, after a yes.
+                return t.isEmpty() ? "copy that" : "copy " + t;
+            case SHARE:
+                return shareCommand(t);
+            case DEBATE:
+                return t.isEmpty() ? null : "debate " + t;
             default:
                 return null;
         }
+    }
+
+    /**
+     * A share candidate ActionPlanner can confirm later. An app named in the target is written as
+     * "share on {app} saying …" so the app-list check still happens there, not here.
+     */
+    private static String shareCommand(String target) {
+        if (target.isEmpty()) {
+            return "share that";
+        }
+        String s = target.toLowerCase(Locale.US).trim();
+        java.util.regex.Matcher named = java.util.regex.Pattern.compile(
+                "^(?:on |to |via |in )?((?:whats ?app|x|twitter|facebook|fb|instagram|ig|linkedin|linked ?in|telegram))"
+                        + "(?:\\s*[:,]\\s*|\\s+saying\\s+|\\s+that says\\s+|\\s+)(.+)$").matcher(s);
+        if (named.matches()) {
+            return "share on " + named.group(1) + " saying " + named.group(2).trim();
+        }
+        if (s.matches("^(?:on |to |via |in )?(whats ?app|x|twitter|facebook|fb|instagram|ig|linkedin|linked ?in|telegram)$")) {
+            return "share on " + s.replaceFirst("^(?:on |to |via |in )", "");
+        }
+        return "share " + target;
     }
 
     private static String article(String t) {

@@ -1,12 +1,25 @@
+# Deep analysis & multi-worker mini agents task tracking
+
+## Completed Audit & Fixes History
+
+- **Model connection analysis (`docs/model-connection-analysis.md`)**: Mapped `RemoteBrain`, `ProviderStore`, `Providers`, session tokens, call sites, local brain vs. remote paths, connectivity, and tests.
+- **LocalModel fixes (`ibiko/localmodel-fixes`, PR #91)**: 
+  - Orphaned Javadoc moved/relabeled above `warm()`, `forget()`, and `remoteTask`.
+  - Watchdog documentation updated to match constants (`IDLE_MS` 60s, write cap 180s, `READ_MS` 600s); timeout reason now survives `cancel()`.
+  - Failover `problem` guarded at both fallback sites so stale API problems don't misreport phone model failures.
+- **Round 2 & 3 (Voice, Dictation, Termux & Tools)**:
+  - Dictation updated as a hold-to-continue session (stopped explicitly via toggle).
+  - Voice pitch and robotic edge softened via `VoiceTuning.warm()` and updated Obi/Ivie defaults.
+  - Run tool prompt clarified (one command per tool call; `a && b` treated as a single command).
+
+---
+
 # Task: multi-worker mini agents, on every build
 
 User request: *"every build let me run the multi workers — that's the main feature I want enabled."*
 So: the crew of mini agents must be able to run several workers **at once**, on **every** build of
 the app — with the phone's own model as well as with an API model — and the number of workers must
 be something the user controls, not a hidden `remoteOn()` switch.
-
-The earlier plan (breaking up `MainActivity`) is paused and archived in `PLAN-refactor.md`
-(steps 1–3 landed on branch `ibiko/extract-main-activity`, Termux commit `8062639`, not pushed).
 
 ## What the code does today (read before changing)
 
