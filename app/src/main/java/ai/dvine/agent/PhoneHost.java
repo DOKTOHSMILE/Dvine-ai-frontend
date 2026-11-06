@@ -91,7 +91,8 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public String run(String command, File dir) {
-        return SandboxShell.run(command, dir, 30_000, 8000);
+        long ms = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs)).shellMs;
+        return SandboxShell.run(command, dir, ms, 8000);
     }
 
     @Override
@@ -101,7 +102,8 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public String termux(String command, File folder) {
-        return TermuxRunner.run(activity, command, folder, folder.getName());
+        long ms = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs)).termuxMs;
+        return TermuxRunner.run(activity, command, folder, folder.getName(), ms);
     }
 
     @Override
