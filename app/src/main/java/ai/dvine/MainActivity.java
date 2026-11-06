@@ -2231,10 +2231,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             // done, stopped, or the time limit; the phone's foreground service keeps it going while minimised
             // every agent (Ibiko changing things, Obi or Ivie reading files) except a plan being drawn up
             final boolean rounds = !planning && prefs.getBoolean("ibiko_keep_going", true);
+            final ai.dvine.scribe.RunMode pace = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs));
+            model.watchIdleMs = pace.idleMs;
+            model.watchCapMs = pace.replyCapMs;
+            model.watchReadMs = pace.readMs;
+            final long workMs = pace.ordinal() <= ai.dvine.scribe.RunMode.BALANCED.ordinal()
+                    ? Math.max(MAX_WORK_MS, pace.workMs) : pace.workMs;
+            final ai.dvine.scribe.Scribe scribe = new ai.dvine.scribe.Scribe(workspace);
+            scribe.begin(persona, task);
+            if (ai.dvine.scribe.Scribe.worth(task)) {
+                handler.post(() -> {
+                    if (id == askId && chatPane != null) {
+                        chatPane.activityStep("Scribe opened the project record");
+                    }
+                });
+            }
             final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,
-                    model.window() * 3 > 48_000 ? 48_000 : model.window() * 3).useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)))
-                    .steps(rounds ? Math.min(ROUND_STEPS, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
-                    .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> saveAgentWork(workAt, w))
+                    model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
+                    .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
+                    .steps(rounds ? Math.min(pace.roundSteps, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
+                    .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> {
+                        saveAgentWork(workAt, w);
+                        scribe.checkpoint(w);
+                    })
                     .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             ai.dvine.llm.ReplyService.hold(this);
             markRunning(persona, task); // if the app is closed or crashes, the next start offers to carry on
@@ -2275,7 +2294,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                 try {
                                     ai.dvine.agent.CodeAgent mini = workers > 1 ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
                                             model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
-                                            .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs))).steps(ROUND_STEPS)
+                                            .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
+                                            .steps(Math.min(pace.roundSteps, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)))
                                             .as(who, readOnly).keepGoing(rounds) : make.get();
                                     // an API model: each worker gets its own model calls; the phone's model: one request
                                     // at a time, so the workers share it (they queue on the model's lock)
@@ -2293,7 +2313,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 long began = System.currentTimeMillis();
                 int round = 1;
                 while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS
-                        && System.currentTimeMillis() - began < MAX_WORK_MS) {
+                        && System.currentTimeMillis() - began < workMs) {
                     saveAgentWork(workAt, agent.work());
                     changed.addAll(agent.changed());
                     final String note = result;
@@ -2306,17 +2326,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     round++;
                 }
                 if (rounds && agent.outOfSteps()) {
-                    result = result + "\n\n(" + (System.currentTimeMillis() - began >= MAX_WORK_MS ? "Stopped after "
-                            + MAX_WORK_MS / 3_600_000 + " hours" : "Paused after " + round + " rounds")
+                    result = result + "\n\n(" + (System.currentTimeMillis() - began >= workMs ? "Stopped after "
+                            + workMs / 3_600_000 + " hours" : "Paused after " + round + " rounds")
                             + ". Say \u201ccontinue\u201d to keep going.)";
                 }
             } finally {
+                model.watchIdleMs = 0;
+                model.watchCapMs = 0;
+                model.watchReadMs = 0;
                 ai.dvine.llm.ReplyService.release(this);
                 ai.dvine.agent.AgentBoard.end(lead);
             }
             markRunning(null, null); // finished (or stopped): nothing to carry on after a restart
             final String answer = result;
             changed.addAll(agent.changed());
+            scribe.finish(answer, host.stopped(), changed);
             saveAgentWork(workAt, agent.work());
             if (!readOnly) {
                 recordIbikoFiles(workspace, changed);
@@ -2378,10 +2402,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         markRunning(null, null);
         String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
         String shown = task.length() > 80 ? task.substring(0, 80) + "\u2026" : task;
+        String record = ai.dvine.scribe.Scribe.pending(new java.io.File(getFilesDir(), "ibiko"));
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Carry on where it stopped?")
                 .setMessage(who + " was working on \u201c" + shown + "\u201d when DVINE closed. Its work so far is saved,"
-                        + " step by step.")
+                        + " step by step." + (record.isEmpty() ? "" : "\n\nScribe: " + record))
                 .setPositiveButton("Carry on", (d, w) -> {
                     if (chat != null && chats.use(chat)) {
                         chatPane.show();

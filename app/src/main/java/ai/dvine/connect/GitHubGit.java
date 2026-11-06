@@ -36,6 +36,13 @@ public final class GitHubGit {
         return this;
     }
     static final long MAX_FILE_BYTES = 1_000_000;
+    private long maxFileBytes = MAX_FILE_BYTES;
+
+    /** The largest file a clone will copy. Larger files are skipped and named, not loaded whole. */
+    public GitHubGit maxFileBytes(long most) {
+        maxFileBytes = Math.max(1, most);
+        return this;
+    }
 
     private final Connectors.Http http;
     private final String token;
@@ -568,7 +575,7 @@ public final class GitHubGit {
         Map<String, String> out = new TreeMap<String, String>();
         for (Object o : MiniJson.list(m.get("tree"))) {
             Map<String, Object> e = MiniJson.obj(o);
-            if (!"blob".equals(MiniJson.str(e.get("type"), "")) || MiniJson.num(e.get("size"), 0) > MAX_FILE_BYTES) {
+            if (!"blob".equals(MiniJson.str(e.get("type"), "")) || MiniJson.num(e.get("size"), 0) > maxFileBytes) {
                 continue;
             }
             if (out.size() >= maxFiles) {

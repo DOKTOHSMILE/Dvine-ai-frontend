@@ -65,6 +65,11 @@ public final class TermuxRunner {
 
     /** What the command printed and its exit code, for the model; blocking (call off the main thread). */
     public static String run(Context c, String command, File folder, String project) {
+        return run(c, command, folder, project, TIMEOUT_MS);
+    }
+
+    /** As {@link #run(Context, String, File, String)} with a budget from the run mode. The process is not resumed mid-command. */
+    public static String run(Context c, String command, File folder, String project, long timeoutMs) {
         if (!installed(c)) {
             return "Termux isn't installed on this device (it comes from F-Droid).";
         }
@@ -108,8 +113,10 @@ public final class TermuxRunner {
             }
             i.putExtra("com.termux.RUN_COMMAND_PENDING_INTENT", pi);
             app.startForegroundService(i);
-            if (!done.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                return note + "Termux didn't answer in " + TIMEOUT_MS / 1000 + " seconds: the command may still be running there.";
+            long wait = Math.max(5_000L, timeoutMs);
+            if (!done.await(wait, TimeUnit.MILLISECONDS)) {
+                return note + "Termux didn't answer in " + wait / 1000 + " seconds: the command may still be running there."
+                        + " The project record keeps the last checkpoint; the command itself is not resumed mid-way.";
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

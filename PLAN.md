@@ -59,3 +59,16 @@ be something the user controls, not a hidden `remoteOn()` switch.
   a push that the tool did not report.
 - `run` only has toybox; `javac`, `java`, `git` go through the `termux` tool (project copied in,
   command runs inside it).
+
+
+# Scribe and adaptive run mode (0.94.0)
+
+- [x] Limitation audit in `docs/limitation-audit.md`. Class A timers widen with the run mode. Class B and C limits stay.
+- [x] `RunMode` (quick, balanced, deep, extended, autonomous) drives reply watch, shell, Termux, round length, job clock and clone file size.
+- [x] Settings knob `adv_run_mode` (default balanced, so existing phones keep today's limits).
+- [x] `Scribe` writes `memory/projects/<job>/` (plan, map, progress, checkpoints, next actions) and a `TaskStateRepository` record. Tokens are redacted. A reply that says "continue" stays paused.
+- [x] Carry-on dialog shows the open Scribe record.
+- [ ] Native llama.cpp KV-cache and thread affinity were not retuned on a device in this pass. The thread knob already exists.
+- [ ] A separate on-screen dashboard activity was not added. Progress is the Scribe files plus the carry-on line, so the chat layout stays as it is.
+
+The full directive's phases that need a device (Termux sessions, GitHub push of a real repo, JNI benchmarks) are not claimed as tested here. The unit test covers the record, redaction, and the deep-mode budgets.
