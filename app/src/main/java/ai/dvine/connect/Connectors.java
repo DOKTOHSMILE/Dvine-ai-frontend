@@ -98,7 +98,7 @@ public final class Connectors {
 
     public static List<Tool> githubTools() {
         List<Tool> t = new ArrayList<Tool>();
-        t.add(new Tool("github.repos", "the user's own repositories, most recently changed first", ""));
+        t.add(new Tool("github.repos", "every repository this account can push and pull (own, organisation and collaborator), 100 per page", "page number, or empty for the first"));
         t.add(new Tool("github.search", "search public repositories", "words"));
         t.add(new Tool("github.issues", "the open issues of a repository", "owner/repo"));
         t.add(new Tool("github.file", "read a file from a repository", "owner/repo/path"));
@@ -117,11 +117,44 @@ public final class Connectors {
         StringBuilder out = new StringBuilder();
         switch (tool) {
             case "github.repos": {
-                Reply r = ok(http.send("GET", base + "/user/repos?sort=pushed&per_page=15", h, null), "GitHub");
+                if (token != null && !token.isEmpty()) {
+                    try {
+                        out.append(GitHubLogin.access(http, token)).append("\n");
+                    } catch (IOException e) {
+                        out.append(e.getMessage()).append("\n");
+                    }
+                } else {
+                    out.append("Not signed in: public repositories can be cloned, but push and pull of private ones needs Connectors \u203A GitHub.\n");
+                }
+                int page = 1;
+                String pageArg = arg == null ? "" : arg.trim();
+                try {
+                    if (!pageArg.isEmpty()) {
+                        page = Math.max(1, Integer.parseInt(pageArg));
+                    }
+                } catch (NumberFormatException ignored) {
+                    page = 1;
+                }
+                String url = base + "/user/repos?sort=pushed&per_page=100&page=" + page
+                        + "&affiliation=owner,collaborator,organization_member";
+                Reply r = ok(http.send("GET", url, h, null), "GitHub");
+                int n = 0;
                 for (Object o : MiniJson.list(MiniJson.parse(r.body))) {
                     Map<String, Object> m = MiniJson.obj(o);
-                    out.append("- ").append(MiniJson.str(m.get("full_name"), "")).append(MiniJson.obj(m).get("private") == Boolean.TRUE ? " (private)" : "")
+                    boolean priv = m.get("private") == Boolean.TRUE;
+                    boolean push = MiniJson.obj(m.get("permissions")).get("push") == Boolean.TRUE;
+                    out.append("- ").append(MiniJson.str(m.get("full_name"), ""))
+                            .append(priv ? " (private)" : " (public)")
+                            .append(push ? ", push" : ", read")
                             .append(": ").append(MiniJson.str(m.get("description"), "no description")).append('\n');
+                    n++;
+                }
+                if (n == 0) {
+                    out.append(page == 1 ? "No repositories on this account.\n" : "No more repositories on page " + page + ".\n");
+                } else if (n == 100) {
+                    out.append("Page ").append(page).append(" has 100 repositories. Ask github.repos ").append(page + 1).append(" for the next page.\n");
+                } else {
+                    out.append(n).append(" repositor").append(n == 1 ? "y" : "ies").append(" on page ").append(page).append(".\n");
                 }
                 break;
             }
@@ -166,7 +199,14 @@ public final class Connectors {
             default:
                 return "GitHub has no tool called " + tool + ".";
         }
-        return clip(out.length() == 0 ? "Nothing found." : out.toString());
+        String listed = out.length() == 0 ? "Nothing found." : out.toString();
+        int cap = "github.file".equals(tool) || "github.repos".equals(tool) ? 100_000 : RESULT_CHARS;
+        return clip(listed, cap);
+    }
+
+    static String clip(String s, int n) {
+        String t = s == null ? "" : s.trim();
+        return t.length() <= n ? t : t.substring(0, n) + "\n…(cut short)";
     }
 
     // ------------------------------------------------------------ Notion

@@ -18,6 +18,12 @@ public class MeaningTest {
         assertEquals(Meaning.Command.REMOVE_MODEL, Meaning.read("COMMAND: remove_model."));
         assertEquals(Meaning.Command.NONE, Meaning.read("COMMAND: none"));
         assertEquals(Meaning.Command.NONE, Meaning.read("Sure! The capital of France is Paris."));
+        assertEquals(Meaning.Command.NONE, Meaning.read("Stop. I'll rewrite the login and keep going."));
+        assertEquals(Meaning.Command.NONE, Meaning.read("COMMAND: stop\n\nHere is the working analysis of the login."));
+        assertEquals(Meaning.Command.STOP, Meaning.read("COMMAND: stop"));
+        assertFalse(Meaning.userMeant("stop the null pointer in the login and keep going", Meaning.Command.STOP));
+        assertTrue(Meaning.userMeant("stop", Meaning.Command.STOP));
+        assertTrue(Meaning.userMeant("please be quiet", Meaning.Command.STOP));
         assertEquals(Meaning.Command.NONE, Meaning.read(null));
         // each command runs under the wording DVINE's code knows
         assertEquals("give me the result", Meaning.Command.RESULT.canonical);

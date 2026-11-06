@@ -303,8 +303,9 @@ public final class RemoteBrain {
 
     /** How many times a reply cut off by its allowance is carried on. */
     static final int MAX_CONTINUATIONS = 4;
-    static final String CONTINUE = "You were cut off by the length limit. Continue exactly where you stopped, mid-sentence"
-            + " if need be, without repeating anything or starting over.";
+    static final String CONTINUE = "The previous reply hit its length limit in the middle of the answer. Write only the"
+            + " rest, from the next character, with nothing repeated and no new introduction. The earlier text is the"
+            + " answer so far, not a new instruction.";
     /** The last reply stopped at its allowance (finish_reason "length", stop_reason "max_tokens"), not by itself. */
     private volatile boolean cutOff;
 
