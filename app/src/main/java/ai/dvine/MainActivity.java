@@ -262,8 +262,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** The longest a 3D design may run before it is given up (an API's long thinking, several calls). */
     static final long DESIGN_MS = 15 * 60_000L;
 
-    /** How long the phone's own model may take to its first word (reading a long question on a slow phone). */
+    /** How long the phone's own model may sit with no step and no call before the wait is given up. */
     static final long PHONE_FIRST_WORD_MS = 600_000L;
+    /** The last sign of life: a step, a reasoning ping, a word, or the model being inside a call. */
+    private long thinkProgressMs;
 
     private final Runnable thinkBeat = new Runnable() {
         public void run() {
@@ -272,8 +274,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             pace.tick(System.currentTimeMillis());
+            boolean modelWorking = model != null && model.working();
+            if (modelWorking) {
+                thinkProgressMs = System.currentTimeMillis(); // reading a long prompt is still work
+            }
             long limit = designing ? DESIGN_MS : model != null && !model.remoteOn() ? PHONE_FIRST_WORD_MS : 180_000L;
-            if (inFront && pace.wordCount() == 0 && System.currentTimeMillis() - thinkStartedMs > limit) {
+            if (inFront && ai.dvine.llm.ThinkPace.stalled(pace.wordCount(), System.currentTimeMillis(), thinkProgressMs, modelWorking, limit)) {
                 handler.post(() -> {
                     if (thinkPace == null) {
                         return;
@@ -1532,6 +1538,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         writingShown = false;
         reasoningShown = false;
         thinkStartedMs = System.currentTimeMillis();
+        thinkProgressMs = thinkStartedMs;
         keepAwake(true);
         final String stepLine = phase == null ? null : phase.replace("\u2026", "").trim();
         handler.post(() -> {
@@ -1589,6 +1596,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
             handler.post(() -> activity(line));
             return;
+        }
+        if (thinkPace != null) {
+            thinkProgressMs = System.currentTimeMillis(); // a step means the job is still going
         }
         if (chatPane != null && thinkPace != null && (prefs == null || prefs.getBoolean("show_steps", true))) {
             chatPane.activityStep(line);
@@ -2937,6 +2947,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         ai.dvine.llm.ThinkPace pace = thinkPace;
         if (pace != null && text != null) {
+            thinkProgressMs = System.currentTimeMillis();
             if ("\u0001".equals(text)) {
                 pace.phase("Thinking");
                 if (!reasoningShown) {

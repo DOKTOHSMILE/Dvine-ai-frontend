@@ -65,6 +65,13 @@ public final class LocalModel {
         }
     }
 
+    /** True while a native call is inside {@link #withTimeout}, including the time spent reading the prompt. */
+    private volatile boolean inCall;
+
+    public boolean working() {
+        return inCall;
+    }
+
     /** The longest pause between words before a reply counts as stuck. */
     static final long IDLE_MS = 60_000;
     /** How long a reply may be written after its first word (the reading time is separate). Overridden by a run mode. */
@@ -579,20 +586,19 @@ public final class LocalModel {
     }
 
     /**
-     * Runs one reply under a watch: it is stopped when it goes quiet for {@link #IDLE_MS}, has been writing for
-     * 3 minutes, or has spent {@link #READ_MS} reading the question without saying anything. A token resets the
-     * quiet timer, so a slow but live answer is not cut off. The reason it stopped is kept in {@link #problem}
-     * (a stop from elsewhere stays "stopped").
+     * Runs one reply under a watch. Waiting for the first token is not a failure: reading a long prompt on this phone
+     * can take longer than ten minutes. After the first token, silence of {@link #IDLE_MS} or the write cap stops it.
+     * A token resets the quiet timer. The reason it stopped is kept in {@link #problem}.
      */
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
         final int mine = replies.open();
-        // a minute of silence while writing (a slow phone with the app out of view can pause that long between words),
-        // 3 minutes of writing, and up to 10 minutes reading a long question first
+        // silence between words, and a cap on writing. Reading the prompt has no clock: that wait is the work.
         long idle = watchIdleMs > 0 ? watchIdleMs : IDLE_MS;
         long cap = watchCapMs > 0 ? watchCapMs : 180_000;
         long read = watchReadMs > 0 ? watchReadMs : READ_MS;
         final ReplyWatch watch = new ReplyWatch(idle, cap, read, System.currentTimeMillis());
         final int ticket = epoch.get();
+        inCall = true;
         NativeLlm.Sink wrapped = text -> {
             if (ticket != epoch.get()) {
                 return false;
@@ -609,9 +615,7 @@ public final class LocalModel {
                 }
                 if (watch.expired(System.currentTimeMillis()) && replies.mine(mine)) {
                     String why = watch.reason(System.currentTimeMillis());
-                    problem = "cap".equals(why) ? "the reply took too long" : "reading".equals(why)
-                            ? spec.weights + " took over " + READ_MS / 60_000 + " minutes to read the question on this device; a smaller model,"
-                            + " less memory (Settings \u203A Advanced) or an API would be quicker" : "the reply went quiet";
+                    problem = "cap".equals(why) ? "the reply took too long" : "the reply went quiet";
                     cancel();
                     return;
                 }
@@ -624,6 +628,7 @@ public final class LocalModel {
         } catch (RuntimeException e) {
             return null;
         } finally {
+            inCall = false;
             watch.finish();
             watchdog.interrupt();
         }
