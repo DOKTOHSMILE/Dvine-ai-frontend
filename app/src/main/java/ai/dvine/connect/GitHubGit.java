@@ -8,9 +8,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import ai.dvine.brain.MiniJson;
@@ -103,6 +106,44 @@ public final class GitHubGit {
             m.put("tree", tree);
             m.put("files", new LinkedHashMap<String, Object>(files));
             Files.write(new File(dir, RECORD).toPath(), MiniJson.write(m).getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    /** A branch listed from GitHub and not written into the working folder. File ids only, no file bodies. */
+    static final class Fetched {
+        String branch = "", head = "", tree = "";
+        Map<String, String> files = new TreeMap<String, String>();
+
+        static File file(File dir, String branch) {
+            String safe = branch.replace("/", "__");
+            return new File(new File(new File(dir, ".git"), "dvine-fetched"), safe + ".json");
+        }
+
+        static Fetched read(File dir, String branch) throws IOException {
+            File f = file(dir, branch);
+            if (!f.isFile()) {
+                return null;
+            }
+            Map<String, Object> m = MiniJson.obj(MiniJson.parse(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
+            Fetched got = new Fetched();
+            got.branch = MiniJson.str(m.get("branch"), branch);
+            got.head = MiniJson.str(m.get("head"), "");
+            got.tree = MiniJson.str(m.get("tree"), "");
+            for (Map.Entry<String, Object> e : MiniJson.obj(m.get("files")).entrySet()) {
+                got.files.put(e.getKey(), MiniJson.str(e.getValue(), ""));
+            }
+            return got;
+        }
+
+        void write(File dir) throws IOException {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("branch", branch);
+            m.put("head", head);
+            m.put("tree", tree);
+            m.put("files", new LinkedHashMap<String, Object>(files));
+            File f = file(dir, branch);
+            f.getParentFile().mkdirs();
+            Files.write(f.toPath(), MiniJson.write(m).getBytes(StandardCharsets.UTF_8));
         }
     }
 
@@ -344,6 +385,381 @@ public final class GitHubGit {
     }
 
     /**
+     * Lists a branch (main when {@code branch} is empty) without writing those files into the folder. The phone
+     * keeps the file ids under .git and downloads a body only later, if a merge needs that one file.
+     */
+    public String fetch(File dir, String branch) throws IOException {
+        Record r = Record.read(dir);
+        String name = cleanBranch(branch);
+        GitOp.open(dir, "fetch of " + name);
+        try {
+            Fetched got = fetchInto(dir, r, name);
+            String done = describeFetch(r, got);
+            GitOp.close(dir, "FINISHED", done);
+            return done;
+        } catch (IOException | RuntimeException e) {
+            GitOp.close(dir, "FAILED", e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Merges a branch into the folder on the phone. The same branch is a pull. Another branch (main, into a feature
+     * branch) is a three-way merge: edits that do not overlap are combined, and overlapping edits stay in the file
+     * as conflict markers with a .theirs copy. The branch pointer is not moved, so the result is a local change to
+     * push. File bodies are downloaded only for files the merge has to write.
+     */
+    public String merge(File dir, String branch) throws IOException {
+        Record r = Record.read(dir);
+        String name = cleanBranch(branch);
+        GitOp.open(dir, "merge of " + name);
+        try {
+            String done = mergeInto(dir, r, name);
+            GitOp.close(dir, "FINISHED", done);
+            return done;
+        } catch (IOException | RuntimeException e) {
+            GitOp.close(dir, "FAILED", e.getMessage());
+            throw e;
+        }
+    }
+
+    private Fetched fetchInto(File dir, Record r, String name) throws IOException {
+        String head = headOf(r.repo, name);
+        if (head == null && "main".equals(name)) {
+            String def = MiniJson.str(get("/repos/" + r.repo).get("default_branch"), "");
+            if (!def.isEmpty() && !def.equals(name)) {
+                String alt = headOf(r.repo, def);
+                if (alt != null) {
+                    name = def;
+                    head = alt;
+                }
+            }
+        }
+        if (head == null) {
+            throw new IOException("the branch " + name + " isn't in " + r.repo);
+        }
+        Fetched f = new Fetched();
+        f.branch = name;
+        f.head = head;
+        f.tree = treeOf(r.repo, head);
+        f.files = files(r.repo, f.tree);
+        f.write(dir);
+        return f;
+    }
+
+    private static String describeFetch(Record r, Fetched got) {
+        String where = shortSha(got.head);
+        if (got.branch.equals(r.branch) && got.head.equals(r.head)) {
+            return "Fetched " + got.branch + " (" + where + "). Already the commit in this folder. No files were downloaded.";
+        }
+        if (got.head.equals(r.head)) {
+            return "Fetched " + got.branch + " (" + where + "). It is the same commit as " + r.branch
+                    + ". No files were downloaded.";
+        }
+        return "Fetched " + got.branch + " (" + where + ", " + got.files.size() + " files listed) into the phone's index."
+                + " The folder was not changed. Merge to bring " + got.branch + " into " + r.branch + ".";
+    }
+
+    private String mergeInto(File dir, Record r, String requested) throws IOException {
+        Fetched got = fetchInto(dir, r, requested);
+        if (got.branch.equals(r.branch)) {
+            return pullInto(dir, r);
+        }
+        if (got.head.equals(r.head)) {
+            return "Fetched " + got.branch + " (" + shortSha(got.head) + "). It is the same commit as " + r.branch
+                    + ". Nothing to merge.";
+        }
+        String baseCommit = mergeBase(r.repo, r.head, got.head);
+        Map<String, String> baseFiles;
+        if (baseCommit == null) {
+            baseFiles = new TreeMap<String, String>();
+        } else if (baseCommit.equals(r.head)) {
+            baseFiles = r.files;
+        } else if (baseCommit.equals(got.head)) {
+            baseFiles = got.files;
+        } else {
+            baseFiles = files(r.repo, treeOf(r.repo, baseCommit));
+        }
+        Changes mine = changes(dir, r);
+        Set<String> paths = new java.util.TreeSet<String>();
+        paths.addAll(r.files.keySet());
+        paths.addAll(got.files.keySet());
+        List<String> took = new ArrayList<String>();
+        List<String> merged = new ArrayList<String>();
+        List<String> conflicts = new ArrayList<String>();
+        StringBuilder pieces = new StringBuilder();
+        Map<String, byte[]> bodies = new HashMap<String, byte[]>();
+        for (String path : paths) {
+            if (path.endsWith(".theirs")) {
+                continue;
+            }
+            String baseSha = baseFiles.get(path);
+            String ourSha = r.files.get(path);
+            String theirSha = got.files.get(path);
+            boolean gone = mine.deleted.contains(path);
+            byte[] working = null;
+            if (!gone) {
+                File onDisk = inside(dir, path);
+                if (onDisk.isFile()) {
+                    working = Files.readAllBytes(onDisk.toPath());
+                }
+            }
+            String eff = gone || working == null ? null : mine.touched(path) ? blobSha(working) : ourSha;
+            if (sameSha(eff, theirSha)) {
+                quietTheirs(dir, path);
+                continue;
+            }
+            if (sameSha(theirSha, baseSha)) {
+                continue;
+            }
+            if (sameSha(eff, baseSha)) {
+                if (theirSha == null) {
+                    if (ourSha != null && !gone) {
+                        inside(dir, path).delete();
+                        quietTheirs(dir, path);
+                        took.add(path + " (deleted)");
+                    }
+                } else {
+                    byte[] bytes = body(r.repo, theirSha, bodies);
+                    if (bytes == null) {
+                        continue;
+                    }
+                    writeFile(dir, path, bytes);
+                    quietTheirs(dir, path);
+                    took.add(path);
+                }
+                continue;
+            }
+            byte[] ourBytes = working;
+            byte[] theirBytes = theirSha == null ? null : body(r.repo, theirSha, bodies);
+            byte[] baseBytes = baseSha == null ? new byte[0] : body(r.repo, baseSha, bodies);
+            if (theirBytes == null) {
+                conflicts.add(path + " (deleted on " + got.branch + ")");
+                continue;
+            }
+            if (ourBytes == null) {
+                writeFile(dir, path + ".theirs", theirBytes);
+                conflicts.add(path + " (you deleted it, " + got.branch + " changed it)");
+                continue;
+            }
+            if (baseBytes == null || binary(ourBytes) || binary(theirBytes) || binary(baseBytes)
+                    || ourBytes.length > 200_000 || theirBytes.length > 200_000) {
+                writeFile(dir, path + ".theirs", theirBytes);
+                conflicts.add(path + " (not merged as text)");
+                continue;
+            }
+            LineMerge.Result m = LineMerge.of(new String(baseBytes, StandardCharsets.UTF_8),
+                    new String(ourBytes, StandardCharsets.UTF_8), new String(theirBytes, StandardCharsets.UTF_8),
+                    "yours", got.branch);
+            writeFile(dir, path, m.text.getBytes(StandardCharsets.UTF_8));
+            if (m.clean()) {
+                quietTheirs(dir, path);
+                merged.add(path);
+            } else {
+                writeFile(dir, path + ".theirs", theirBytes);
+                conflicts.add(path);
+                if (pieces.length() < 1800) {
+                    pieces.append("\n").append(path).append(":\n").append(excerpt(m.text));
+                }
+            }
+        }
+        StringBuilder out = new StringBuilder();
+        out.append("Merged ").append(got.branch).append(" (").append(shortSha(got.head)).append(") into ")
+                .append(r.branch).append(" on the phone. ");
+        out.append(took.size()).append(" file").append(took.size() == 1 ? "" : "s").append(" taken from ").append(got.branch);
+        out.append(", ").append(merged.size()).append(" merged");
+        out.append(", ").append(conflicts.size()).append(" conflict").append(conflicts.size() == 1 ? "" : "s").append(".");
+        if (baseCommit == null) {
+            out.append(" No shared commit was found in the recent history, so every disagreement is a conflict.");
+        }
+        out.append(" The repository stayed on the device.");
+        if (!took.isEmpty()) {
+            out.append("\nFrom ").append(got.branch).append(":\n").append(String.join("\n", cap(took)));
+        }
+        if (!merged.isEmpty()) {
+            out.append("\nMerged:\n").append(String.join("\n", cap(merged)));
+        }
+        if (!conflicts.isEmpty()) {
+            out.append("\nConflicts (your version is under <<<<<<< yours, theirs under >>>>>>> ")
+                    .append(got.branch).append("; a .theirs copy sits beside the file). Edit the file, delete the .theirs file, then push:\n")
+                    .append(String.join("\n", conflicts));
+            if (pieces.length() > 0) {
+                out.append("\n").append(pieces);
+            }
+        } else {
+            out.append("\nNothing overlapped. Check git status, then push.");
+        }
+        return out.toString();
+    }
+
+    private static void quietTheirs(File dir, String path) throws IOException {
+        File side = inside(dir, path + ".theirs");
+        if (side.isFile()) {
+            side.delete();
+        }
+    }
+
+    private static void writeFile(File dir, String path, byte[] bytes) throws IOException {
+        File f = inside(dir, path);
+        File parent = f.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
+        Files.write(f.toPath(), bytes);
+    }
+
+    private byte[] body(String repo, String sha, Map<String, byte[]> cache) throws IOException {
+        if (cache.containsKey(sha)) {
+            return cache.get(sha);
+        }
+        byte[] got = blob(repo, sha);
+        cache.put(sha, got);
+        return got;
+    }
+
+    private static boolean sameSha(String a, String b) {
+        return a == null ? b == null : a.equals(b);
+    }
+
+    private static boolean binary(byte[] bytes) {
+        if (bytes == null) {
+            return false;
+        }
+        int n = Math.min(bytes.length, 8000);
+        for (int i = 0; i < n; i++) {
+            if (bytes[i] == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The conflict regions only, so a model is not handed the whole file. */
+    static String excerpt(String marked) {
+        if (marked == null || marked.isEmpty()) {
+            return "";
+        }
+        String[] lines = marked.split("\n", -1);
+        StringBuilder out = new StringBuilder();
+        boolean on = false;
+        int n = 0;
+        for (String line : lines) {
+            if (line.startsWith("<<<<<<< ")) {
+                on = true;
+            }
+            if (!on) {
+                continue;
+            }
+            if (n == 60) {
+                out.append("…\n");
+                break;
+            }
+            out.append(line).append('\n');
+            n++;
+            if (line.startsWith(">>>>>>> ")) {
+                on = false;
+            }
+        }
+        return out.toString();
+    }
+
+    private String mergeBase(String repo, String left, String right) throws IOException {
+        if (left == null || right == null) {
+            return null;
+        }
+        if (left.equals(right)) {
+            return left;
+        }
+        Map<String, List<String>> cache = new HashMap<String, List<String>>();
+        Set<String> seenLeft = new HashSet<String>();
+        Set<String> seenRight = new HashSet<String>();
+        List<String> leftWave = new ArrayList<String>();
+        List<String> rightWave = new ArrayList<String>();
+        leftWave.add(left);
+        rightWave.add(right);
+        for (int depth = 0; depth < 40; depth++) {
+            if (leftWave.isEmpty() && rightWave.isEmpty()) {
+                break;
+            }
+            String hit = expand(repo, leftWave, seenLeft, seenRight, cache);
+            if (hit != null) {
+                return hit;
+            }
+            hit = expand(repo, rightWave, seenRight, seenLeft, cache);
+            if (hit != null) {
+                return hit;
+            }
+        }
+        return null;
+    }
+
+    /** Puts this wave into {@code seen} and replaces it with the parents. A sha already seen from the other side is the base. */
+    private String expand(String repo, List<String> wave, Set<String> seen, Set<String> other, Map<String, List<String>> cache)
+            throws IOException {
+        List<String> next = new ArrayList<String>();
+        for (String sha : new ArrayList<String>(wave)) {
+            if (sha == null || sha.isEmpty() || !seen.add(sha)) {
+                continue;
+            }
+            if (other.contains(sha)) {
+                return sha;
+            }
+            next.addAll(parentsOf(repo, sha, cache));
+        }
+        wave.clear();
+        wave.addAll(next);
+        return null;
+    }
+
+    private List<String> parentsOf(String repo, String commit, Map<String, List<String>> cache) throws IOException {
+        List<String> got = cache.get(commit);
+        if (got != null) {
+            return got;
+        }
+        List<String> out = new ArrayList<String>();
+        for (Object o : MiniJson.list(get("/repos/" + repo + "/git/commits/" + commit).get("parents"))) {
+            String sha = MiniJson.str(MiniJson.obj(o).get("sha"), "");
+            if (!sha.isEmpty()) {
+                out.add(sha);
+            }
+        }
+        cache.put(commit, out);
+        return out;
+    }
+
+    private static String shortSha(String sha) {
+        if (sha == null) {
+            return "";
+        }
+        return sha.length() > 7 ? sha.substring(0, 7) : sha;
+    }
+
+    private static String cleanBranch(String branch) throws IOException {
+        String name = branch == null ? "" : branch.trim();
+        if (name.startsWith("origin/")) {
+            name = name.substring("origin/".length());
+        }
+        if (name.equals("origin") || name.equals("HEAD")) {
+            name = "";
+        }
+        if (name.isEmpty()) {
+            return "main";
+        }
+        if (!name.matches("[\\w.-]+(?:/[\\w.-]+)*")) {
+            throw new IOException("that branch name isn't one I can fetch");
+        }
+        return name;
+    }
+
+    static boolean conflictMarkers(byte[] bytes) {
+        if (bytes == null || bytes.length > 2_000_000) {
+            return false;
+        }
+        String s = new String(bytes, StandardCharsets.UTF_8);
+        return s.contains("<<<<<<< ") && s.contains("\n=======\n") && s.contains(">>>>>>> ");
+    }
+
+    /**
      * Commits the folder's changes and pushes them: to its branch, or to {@code toBranch} (made from this commit
      * when it doesn't exist yet). Refused when the branch has moved on (pull first).
      */
@@ -356,6 +772,13 @@ public final class GitHubGit {
         for (String p : c.added) {
             if (p.endsWith(".theirs")) {
                 throw new IOException("merge and delete " + p + " before pushing");
+            }
+        }
+        List<String> marked = new ArrayList<String>(c.added);
+        marked.addAll(c.modified);
+        for (String p : marked) {
+            if (conflictMarkers(Files.readAllBytes(inside(dir, p).toPath()))) {
+                throw new IOException("resolve the conflict markers in " + p + " and delete its .theirs file before pushing");
             }
         }
         String branch = toBranch == null || toBranch.trim().isEmpty() ? r.branch : toBranch.trim();

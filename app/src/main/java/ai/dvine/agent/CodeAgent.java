@@ -245,8 +245,12 @@ public final class CodeAgent {
                         + " command runs inside it, up to 3 minutes; use it to run, build and test code. Files it makes stay in"
                         + " Termux: change the project with write_file and edit_file. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
-                + (git == null || readOnly ? "" : "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
+                + (git == null || readOnly ? "" : PhoneSuite.NOTE
+                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
+                        + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the phone; writes no file)\n"
+                        + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the phone; overlapping edits stay as conflicts)\n"
+                        + "<tool name=\"git\" action=\"sync\" path=\"folder\" branch=\"main\"/> (fetch, then merge)\n"
                         + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step; a push that errors did not land)\n"
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
                 + (connectorTools.trim().isEmpty() ? "" : "<tool name=\"connector\" call=\"name argument\"/> with one of:" + connectorTools + "\n")
@@ -297,6 +301,10 @@ public final class CodeAgent {
             + "5. If a clone says the repository has too many files, tell the user the number and where to raise the limit"
             + " (Settings \u203A Advanced \u203A Most files in a clone); don't work around it.\n"
             + "6. git diff shows the changed lines, git log the recent commits, git branches the branch names. None of these download the repository again.\n"
+            + "7. To bring main into this branch: git fetch branch=\"main\", then git merge branch=\"main\" (git sync does both)."
+            + " The phone fetches the file list and merges on the device. It does not send the repository to a server."
+            + " A clean merge is ready to push. A conflict leaves markers in the file and a .theirs copy; edit the file,"
+            + " delete the .theirs file, then push.\n"
             + "Never claim you pushed or opened a pull request unless the tool's result says so; quote the commit or the link."
             + " A result that starts with Error means it did not happen.\n";
 
@@ -323,6 +331,10 @@ public final class CodeAgent {
             work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
         }
         this.work = work;
+        String direct = directGit(task);
+        if (direct != null) {
+            return direct;
+        }
         boolean big = bigTask(task) || bigTask(resume);
         boolean retried = false, reportAsked = false;
         pending = null;
@@ -1063,6 +1075,17 @@ public final class CodeAgent {
             case "pull":
                 host.step("Pulling " + show(c.a("path")));
                 return git.pull(inside(folderOf(c)));
+            case "fetch":
+                return stepped("Fetched " + branchOf(c), git.fetch(inside(folderOf(c)), c.a("branch")));
+            case "merge":
+                return stepped("Merged " + branchOf(c), git.merge(inside(folderOf(c)), c.a("branch")));
+            case "sync": {
+                File dir = inside(folderOf(c));
+                String branch = c.a("branch");
+                String fetched = git.fetch(dir, branch);
+                String merged = git.merge(dir, branch);
+                return stepped("Fetched and merged " + branchOf(c), fetched + "\n" + merged);
+            }
             case "push": {
                 String to = c.a("branch").isEmpty() ? "" : " to " + c.a("branch");
                 if (!host.allowRun("git commit and push " + folderOf(c) + to + ": " + c.a("message"))) {
@@ -1081,8 +1104,66 @@ public final class CodeAgent {
                 return git.pullRequest(inside(folderOf(c)), c.a("title"), c.body.trim(), c.a("base"));
             }
             default:
-                return "Git actions: clone, status, diff, log, branches, pull, push, pr.";
+                return "Git actions: clone, status, diff, log, branches, pull, fetch, merge, sync, push, pr.";
         }
+    }
+
+    /**
+     * "fetch main and merge" and the same short orders run here, with no model call. Null when the sentence is not
+     * one of those, or when more than one clone is in the workspace and the sentence names no folder.
+     */
+    private String directGit(String task) {
+        if (readOnly) {
+            return null;
+        }
+        PhoneSuite.GitOrder order = PhoneSuite.read(task);
+        if (order == null) {
+            return null;
+        }
+        if (git == null) {
+            return "Git needs the GitHub connector: ask the user to turn it on in Connectors and add a token.";
+        }
+        try {
+            File dir = order.path.isEmpty() ? soleClone() : inside(order.path);
+            if (dir == null) {
+                return null;
+            }
+            if (!new File(dir, ai.dvine.connect.GitHubGit.RECORD).isFile()) {
+                return null;
+            }
+            if ("fetch".equals(order.action)) {
+                return stepped("Fetched " + order.branch, git.fetch(dir, order.branch));
+            }
+            if ("merge".equals(order.action)) {
+                return stepped("Merged " + order.branch, git.merge(dir, order.branch));
+            }
+            String fetched = git.fetch(dir, order.branch);
+            String merged = git.merge(dir, order.branch);
+            return stepped("Fetched and merged " + order.branch, fetched + "\n" + merged);
+        } catch (IOException e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /** The one cloned folder in the workspace, or null when there isn't exactly one. */
+    private File soleClone() {
+        List<File> found = new ArrayList<File>();
+        if (new File(workspace, ai.dvine.connect.GitHubGit.RECORD).isFile()) {
+            found.add(workspace);
+        }
+        File[] kids = workspace.listFiles();
+        if (kids != null) {
+            for (File k : kids) {
+                if (k.isDirectory() && new File(k, ai.dvine.connect.GitHubGit.RECORD).isFile()) {
+                    found.add(k);
+                }
+            }
+        }
+        return found.size() == 1 ? found.get(0) : null;
+    }
+
+    private static String branchOf(Call c) {
+        return c.a("branch").isEmpty() ? "main" : c.a("branch");
     }
 
     /** Shows the step only after the call has returned, so a failure is not announced as done. */

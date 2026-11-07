@@ -179,6 +179,33 @@ public class CodeAgentTest {
     }
 
     @Test
+    public void fetchMainAndMergeRunsOnThePhoneWithoutAModel() throws Exception {
+        ai.dvine.connect.GitHubGitTest.FakeHub hub = new ai.dvine.connect.GitHubGitTest.FakeHub();
+        java.util.Map<String, String> f = new java.util.TreeMap<String, String>();
+        f.put("a.txt", "one\ntwo\n");
+        String first = hub.commit(f, null, "base");
+        hub.refs.put("main", first);
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        ai.dvine.connect.GitHubGit git = new ai.dvine.connect.GitHubGit(hub, "tok");
+        File app = new File(ws, "app");
+        git.clone("me/app", "main", app);
+        Files.write(new File(app, "a.txt").toPath(), "one\nmine\n".getBytes(StandardCharsets.UTF_8));
+        git.push(app, "mine", "feature");
+        java.util.Map<String, String> moved = new java.util.TreeMap<String, String>();
+        moved.put("a.txt", "one\ntwo\nmain\n");
+        hub.refs.put("main", hub.commit(moved, first, "main moved"));
+        CodeAgent agent = new CodeAgent(ws, new CodeAgent.Brain() {
+            public String ask(String system, String transcript) {
+                throw new AssertionError("a fetch and merge must not ask a model");
+            }
+        }, new Phone(), "", 20_000).useGit(git);
+        String out = agent.run("fetch main and merge in app", "");
+        assertTrue(out, out.contains("on the phone") && out.contains("stayed on the device"));
+        assertEquals("one\nmine\nmain\n", new String(Files.readAllBytes(new File(app, "a.txt").toPath()), StandardCharsets.UTF_8));
+        assertTrue(agent.system().contains("action=\"fetch\"") && agent.system().contains("action=\"merge\""));
+    }
+
+    @Test
     public void theModelsWordsBeforeAStepReachTheChatAsANote() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         Phone phone = new Phone();

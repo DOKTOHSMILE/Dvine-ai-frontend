@@ -69,9 +69,20 @@ public class GitHubGitTest {
                 o.put("sha", sha);
                 out.put("object", o);
             } else if (method.equals("GET") && path.startsWith("/git/commits/")) {
+                String[] c = commits.get(path.substring(13));
+                if (c == null) {
+                    return new Connectors.Reply(404, "{\"message\":\"Not Found\"}", null);
+                }
                 Map<String, Object> t = new LinkedHashMap<String, Object>();
-                t.put("sha", commits.get(path.substring(13))[0]);
+                t.put("sha", c[0]);
                 out.put("tree", t);
+                List<Object> parents = new ArrayList<Object>();
+                if (c[1] != null && !c[1].isEmpty() && !"null".equals(c[1])) {
+                    Map<String, Object> p = new LinkedHashMap<String, Object>();
+                    p.put("sha", c[1]);
+                    parents.add(p);
+                }
+                out.put("parents", parents);
             } else if (method.equals("GET") && path.startsWith("/git/trees/")) {
                 List<Object> list = new ArrayList<Object>();
                 for (Map.Entry<String, String> e : trees.get(path.substring(11).replace("?recursive=1", "")).entrySet()) {
@@ -329,5 +340,61 @@ public class GitHubGitTest {
         assertTrue(GitHubGit.diff(dir).isEmpty()); // pushed: nothing left to show
         assertEquals(files("README.md", "# App\n", "src/main.py", "print('hello')\n"), hub.filesAt("main"));
         assertFalse(new File(dir.getParentFile(), ".app.zip").exists());
+    }
+
+    @Test
+    public void fetchMainThenMergeCombinesEditsAndLeavesARealConflict() throws Exception {
+        FakeHub hub = new FakeHub();
+        String base = "line1\nline2\nline3\nline4\n";
+        String first = hub.commit(files("a.txt", base, "keep.txt", "same\n"), null, "base");
+        hub.refs.put("main", first);
+        GitHubGit git = new GitHubGit(hub, "tok");
+        File dir = new File(Files.createTempDirectory("git").toFile(), "app");
+        git.clone("me/app", "main", dir);
+        write(new File(dir, "a.txt"), "line1\nline2-mine\nline3\nline4\n");
+        git.push(dir, "mine", "feature");
+        hub.refs.put("main", hub.commit(files("a.txt", "line1\nline2\nline3\nline4-main\n", "keep.txt", "same\n"), first, "main moved"));
+
+        int before = hub.calls.size();
+        String fetched = git.fetch(dir, "main");
+        assertTrue(fetched, fetched.contains("folder was not changed") && fetched.contains("No files were downloaded") == false);
+        assertTrue(fetched, fetched.contains("files listed"));
+        for (int i = before; i < hub.calls.size(); i++) {
+            assertFalse(hub.calls.get(i), hub.calls.get(i).contains("/git/blobs/"));
+        }
+        assertEquals("line1\nline2-mine\nline3\nline4\n", read(new File(dir, "a.txt")));
+
+        String merged = git.merge(dir, "origin/main");
+        assertTrue(merged, merged.contains("on the phone") && merged.contains("stayed on the device"));
+        assertEquals("line1\nline2-mine\nline3\nline4-main\n", read(new File(dir, "a.txt")));
+        assertFalse(new File(dir, "a.txt.theirs").exists());
+        assertTrue(git.status(dir), git.status(dir).contains("modified: a.txt"));
+        assertEquals("same\n", read(new File(dir, "keep.txt")));
+        String pushed = git.push(dir, "Bring in main", "");
+        assertTrue(pushed, pushed.contains("to feature"));
+        assertEquals("line1\nline2-mine\nline3\nline4-main\n", hub.filesAt("feature").get("a.txt"));
+
+        // overlapping edit: markers and .theirs block the push until they are gone
+        hub.refs.put("main", hub.commit(files("a.txt", "line1\nline2-theirs\nline3\nline4-main\n", "keep.txt", "same\n"),
+                hub.refs.get("main"), "overlap"));
+        String clash = git.merge(dir, "main");
+        assertTrue(clash, clash.contains("1 conflict") && clash.contains("<<<<<<< yours"));
+        assertTrue(read(new File(dir, "a.txt.theirs")), read(new File(dir, "a.txt.theirs")).contains("line2-theirs"));
+        assertTrue(read(new File(dir, "a.txt")).contains("<<<<<<< yours"));
+        try {
+            git.push(dir, "too soon", "");
+            fail("a .theirs file must stop the push");
+        } catch (IOException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains(".theirs"));
+        }
+        new File(dir, "a.txt.theirs").delete();
+        try {
+            git.push(dir, "still marked", "");
+            fail("conflict markers must stop the push");
+        } catch (IOException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("conflict markers"));
+        }
+        write(new File(dir, "a.txt"), "line1\nline2-both\nline3\nline4-main\n");
+        assertTrue(git.push(dir, "Resolved", "").contains("to feature"));
     }
 }

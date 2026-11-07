@@ -136,3 +136,13 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] Pause, resume, cancel and stop of a task go through DvineCommandGateway. Chat, model text, code, documents and a spoken reply do not.
 - [x] The send button still stops the current reply. A long-press on the microphone opens command mode for one message, which is the only spoken path that can pause, resume or cancel a task.
 - [x] Saying "stop" or "pause" in ordinary conversation no longer stops the work, the download, or the body.
+
+
+# Fetch main and merge on the phone (0.94.9)
+
+- [x] `git fetch` lists main (or another branch) on the phone. It downloads file ids, not the files, and it does not change the folder.
+- [x] `git merge` brings that branch in. The same branch is a pull. Another branch is a three-way merge: edits that do not overlap are combined on the phone, and overlapping edits stay as conflict markers plus a `.theirs` copy.
+- [x] A push is refused while a `.theirs` file or conflict markers remain. The branch pointer is not moved, so a clean merge shows up as a local change to push.
+- [x] "fetch main and merge", "merge origin/main" and "update from main" run on the phone with no model call when there is one clone, or the sentence names the folder.
+- [x] The coding model is told the phone is its suite: list, read, search, edit and git run on the device, and a merge returns only the conflict pieces.
+
