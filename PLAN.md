@@ -82,3 +82,12 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] The workload sheet lists open and recent jobs with the next outstanding step.
 - [x] The agent is told to read `PROJECT_PLAN.md` and `PROJECT_MAP.md` before creating files.
 - [ ] Native llama.cpp KV-cache and thread affinity still need a device.
+
+
+# Recovery against the files (0.94.2)
+
+- [x] `Reconcile` checks every path a job claims. A path with `..` or outside the workspace counts as missing.
+- [x] Scribe marks a job completed only when every claimed file is on disk. A long reply is not enough.
+- [x] A missing file is written back onto the outstanding list and into `RECOVERY.md`.
+- [x] Resuming reads the claims again. A file that has since appeared is counted; one that has not stays outstanding.
+- [ ] Native llama.cpp KV-cache and thread affinity still need a device.
