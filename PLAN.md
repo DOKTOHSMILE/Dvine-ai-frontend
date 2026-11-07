@@ -130,3 +130,11 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] The text field no longer folds when a file is attached. The chip row is held to the screen width, and the field keeps its own height.
 - [x] The on-device model receives the words taken out of an attached file, not only the file's name. A later turn keeps a short excerpt.
 - [x] An API model still gets a PDF, a spreadsheet or an mp3 as the file itself, and also the extracted words. A video goes as its frames, not as a raw video part the API refuses.
+
+
+# Command authorization (0.94.8)
+
+- [x] Pause, resume, cancel and stop go through `DvineCommandGateway`. A chat message, a model reply, generated code, a document, terminal output, DVine's own speech, or an agent cannot authorize them.
+- [x] The stop button is a trusted control. It stops the current reply, not every task.
+- [x] Command mode is the authorized voice for one utterance. "Pause the current project" then pauses that project. "What happens if I cancel this?" does not.
+- [x] Saying "stop" in ordinary conversation no longer stops the work or the body.

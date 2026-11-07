@@ -2,6 +2,7 @@ package ai.dvine.ops;
 
 import java.io.File;
 
+import ai.dvine.gate.DvineCommandGateway;
 import ai.dvine.ops.mind.DvinePerformanceMonitor;
 import ai.dvine.ops.mind.InternetResearchEngine;
 import ai.dvine.ops.mind.LanguageInferenceOptimizer;
@@ -28,6 +29,7 @@ import ai.dvine.ops.vision.VisualPerceptionEngine;
 public final class AssistantCore {
     private final DvineTaskManager tasks;
     private final VoiceInterruptionManager voice = new VoiceInterruptionManager();
+    private final DvineCommandGateway commands = new DvineCommandGateway();
     private final DvineTaskOrchestrator orchestrator;
     private final ModelRuntimeManager models = new ModelRuntimeManager();
     private long now = 1_000;
@@ -98,6 +100,10 @@ public final class AssistantCore {
         return termux;
     }
 
+    public DvineCommandGateway commands() {
+        return commands;
+    }
+
     public SshConnectionManager ssh() {
         return ssh;
     }
@@ -131,8 +137,11 @@ public final class AssistantCore {
         long at = System.currentTimeMillis();
         VoiceInterruptionManager.Decision d = voice.decide(text, confidence, tasks.hasActiveWork(), tasks.paused().size(), at);
         Outcome outcome;
-        if (d.action != VoiceInterruptionManager.Action.NONE) {
-            outcome = control(d, now++);
+        if (d.action == VoiceInterruptionManager.Action.CLARIFY || d.action == VoiceInterruptionManager.Action.CONTINUE) {
+            outcome = control(d, null, now++);
+        } else if (isControl(d.action)) {
+            DvineCommandGateway.Result auth = authorize(text);
+            outcome = auth.accepted ? control(d, auth.targetId, now++) : orchestrator.handle(text, confidence, now++);
         } else {
             outcome = orchestrator.handle(text, confidence, now++);
         }
@@ -160,7 +169,28 @@ public final class AssistantCore {
         return orchestrator.hasModel();
     }
 
-    private Outcome control(VoiceInterruptionManager.Decision d, long at) {
+    private static boolean isControl(VoiceInterruptionManager.Action action) {
+        return action == VoiceInterruptionManager.Action.PAUSE || action == VoiceInterruptionManager.Action.RESUME
+                || action == VoiceInterruptionManager.Action.CANCEL || action == VoiceInterruptionManager.Action.SWITCH;
+    }
+
+    /** Command mode authorizes this utterance. Ordinary speech, and anything a model wrote, does not. */
+    private DvineCommandGateway.Result authorize(String text) {
+        DvineCommandGateway.Board board = new DvineCommandGateway.Board();
+        TaskRecord active = tasks.active();
+        if (active != null) {
+            board.currentId = active.id;
+        }
+        for (TaskRecord t : tasks.all()) {
+            if (t.state != null && (t.state.runningLike() || t.state == ai.dvine.ops.task.TaskState.PAUSED)) {
+                board.add(t.id, t.description, t.destructive);
+            }
+        }
+        DvineCommandGateway.Intent intent = commands.armed() ? DvineCommandGateway.Intent.command(text) : DvineCommandGateway.Intent.chat(text);
+        return commands.submit(intent, board);
+    }
+
+    private Outcome control(VoiceInterruptionManager.Decision d, String targetId, long at) {
         switch (d.action) {
             case CONTINUE:
                 Outcome keep = Outcome.say(d.say, false);
@@ -173,7 +203,7 @@ public final class AssistantCore {
                 ask.activity = tasks.activityLine();
                 return ask;
             case PAUSE: {
-                TaskRecord active = running();
+                TaskRecord active = find(targetId);
                 if (active != null) {
                     tasks.requestPause(active, at);
                 }
@@ -184,7 +214,7 @@ public final class AssistantCore {
             case RESUME:
                 return resume(d.followUp == null ? "" : d.followUp, at);
             case CANCEL: {
-                TaskRecord active = running();
+                TaskRecord active = find(targetId);
                 if (active == null) {
                     return Outcome.say("Nothing is running to cancel.", false);
                 }
@@ -224,6 +254,18 @@ public final class AssistantCore {
         o.taskId = choice.task.id;
         o.activity = tasks.activityLine();
         return o;
+    }
+
+    private TaskRecord find(String id) {
+        if (id == null) {
+            return running();
+        }
+        for (TaskRecord t : tasks.all()) {
+            if (id.equals(t.id)) {
+                return t;
+            }
+        }
+        return running();
     }
 
     private TaskRecord running() {

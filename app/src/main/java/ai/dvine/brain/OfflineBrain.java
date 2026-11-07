@@ -245,9 +245,15 @@ public final class OfflineBrain {
             return one(speaker, nameLine(), "MEMORY");
         }
         if (text.matches("^(stop|stop it|stop moving|enough|that'?s enough|freeze|cancel that|be still)( now| please)?$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, stopping."), "SET");
-            a.command = "STOP";
-            return a;
+            ai.dvine.gate.DvineCommandGateway.Result allowed = ai.dvine.gate.DvineCommandGateway.app().submit(
+                    ai.dvine.gate.DvineCommandGateway.app().armed()
+                            ? ai.dvine.gate.DvineCommandGateway.Intent.command(text)
+                            : ai.dvine.gate.DvineCommandGateway.Intent.chat(text));
+            if (allowed.accepted) {
+                BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, stopping."), "SET");
+                a.command = "STOP";
+                return a;
+            }
         }
         String pose = posePhrase(text);
         if (pose != null) {

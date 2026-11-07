@@ -57,14 +57,17 @@ public class OpsPipelineTest {
         TaskRecord b = core.tasks().create("search folder", "Folder search", "files", List.of("search"), false, 2);
         TaskRecord c = core.tasks().create("inspect server", "Server inspection", "ssh", List.of("connect"), false, 3);
         core.tasks().markRunning(a, 4);
+        core.commands().arm();
         Outcome paused = core.hear("Pause this task.", 1);
         assertTrue(paused.speech.toLowerCase(Locale.US).contains("paused"));
         assertEquals(TaskState.PAUSED, core.tasks().all().get(0).state == TaskState.PAUSED ? TaskState.PAUSED : reloaded(core, a.id).state);
         assertEquals(TaskState.PAUSED, reloaded(core, a.id).state);
         core.tasks().requestPause(b, 5);
         core.tasks().requestPause(c, 6);
+        core.commands().arm();
         Outcome which = core.hear("Resume it.", 1);
         assertTrue(which.speech.toLowerCase(Locale.US).contains("which"));
+        core.commands().arm();
         Outcome again = core.hear("Resume the motorcycle model.", 1);
         assertTrue(again.speech.toLowerCase(Locale.US).contains("motorcycle"));
         assertEquals(TaskState.RUNNING, reloaded(core, a.id).state);
@@ -89,6 +92,7 @@ public class OpsPipelineTest {
         core.orchestrator().setAuthorizedRoot(root);
         TaskRecord task = core.tasks().create("build", "Motorcycle reconstruction", "reconstruct", List.of("build"), false, 1);
         core.tasks().markRunning(task, 2);
+        core.commands().arm();
         Outcome o = core.hear("Pause that and check my project folder for the motorcycle image.", 1);
         assertEquals(TaskState.PAUSED, reloaded(core, task.id).state);
         assertTrue(o.speech.toLowerCase(Locale.US).contains("motorcycle"));
@@ -105,6 +109,7 @@ public class OpsPipelineTest {
         core.tasks().requestPause(task, 5);
         AssistantCore again = AssistantCore.offline(dir);
         assertNotNull(again.restoredSummary());
+        again.commands().arm();
         Outcome o = again.hear("Resume the motorcycle model.", 1);
         assertEquals(TaskState.RUNNING, reloaded(again, task.id).state);
         assertTrue(o.speech.contains("inspect"));
@@ -117,6 +122,7 @@ public class OpsPipelineTest {
         core.tasks().requestPause(keep, 2);
         TaskRecord drop = core.tasks().create("build", "Motorcycle reconstruction", "reconstruct", List.of("build"), false, 3);
         core.tasks().markRunning(drop, 4);
+        core.commands().arm();
         core.hear("Cancel the current task.", 1);
         assertEquals(TaskState.CANCELLED, reloaded(core, drop.id).state);
         assertEquals(TaskState.PAUSED, reloaded(core, keep.id).state);
@@ -424,6 +430,7 @@ public class OpsPipelineTest {
         AssistantCore core = AssistantCore.offline(dir());
         TaskRecord task = core.tasks().create("build", "Motorcycle reconstruction", "reconstruct", List.of("build"), false, 1);
         core.tasks().markRunning(task, 2);
+        core.commands().arm();
         core.hear("Pause the current task.", 1);
         assertEquals(0, core.performance().researchCalls());
     }

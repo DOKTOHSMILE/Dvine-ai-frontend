@@ -964,7 +964,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         @Override
         public void haltGeneration() {
-            stopGeneration();
+            ai.dvine.gate.DvineCommandGateway.Result r = ai.dvine.gate.DvineCommandGateway.app().submit(
+                    ai.dvine.gate.DvineCommandGateway.Intent.button(ai.dvine.gate.DvineCommandGateway.Action.STOP));
+            if (r.accepted) {
+                stopGeneration();
+            }
         }
 
         @Override
@@ -1800,6 +1804,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 .route("pause", t -> {
                     if (!control(t).matches("^(pause|hold on|wait|hang on)( please)?$") || !walker.walking()) {
                         return false;
+                    }
+                    ai.dvine.gate.DvineCommandGateway gate = ai.dvine.gate.DvineCommandGateway.app();
+                    ai.dvine.gate.DvineCommandGateway.Intent intent = gate.armed()
+                            ? ai.dvine.gate.DvineCommandGateway.Intent.command(t)
+                            : ai.dvine.gate.DvineCommandGateway.Intent.chat(t);
+                    if (!gate.submit(intent).accepted) {
+                        return false; // saying the word is not permission
                     }
                     paused = walker.pauseHeld();
                     stopPlay();

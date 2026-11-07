@@ -120,6 +120,11 @@ public final class DirectCommands {
             host.ask(text);
             return;
         }
+        if (c == Meaning.Command.STOP && !ai.dvine.gate.DvineCommandGateway.app().submit(
+                ai.dvine.gate.DvineCommandGateway.Intent.chat(text)).accepted) {
+            host.ask(text); // the word was said in conversation. It does not stop the work.
+            return;
+        }
         if ((c == Meaning.Command.STOP || c == Meaning.Command.NEW_CHAT || c == Meaning.Command.CLEAR_WORKSPACE)
                 && !Meaning.userMeant(text, c)) {
             host.ask(text);
