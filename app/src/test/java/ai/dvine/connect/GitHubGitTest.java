@@ -123,6 +123,32 @@ public class GitHubGitTest {
                 out.put("number", 7.0);
                 out.put("html_url", "https://github.com/me/app/pull/7");
                 out.put("head", in.get("head"));
+            } else if (method.equals("GET") && path.startsWith("/commits")) {
+                String sha = q(path, "sha");
+                if (refs.containsKey(sha)) {
+                    sha = refs.get(sha);
+                }
+                List<Object> arr = new ArrayList<Object>();
+                int guard = 0;
+                while (sha != null && commits.containsKey(sha) && guard++ < 20) {
+                    Map<String, Object> one = new LinkedHashMap<String, Object>();
+                    one.put("sha", sha);
+                    Map<String, Object> cm = new LinkedHashMap<String, Object>();
+                    cm.put("message", commits.get(sha)[2] == null ? "" : commits.get(sha)[2]);
+                    one.put("commit", cm);
+                    arr.add(one);
+                    String parent = commits.get(sha)[1];
+                    sha = parent == null || parent.isEmpty() || "null".equals(parent) ? null : parent;
+                }
+                return new Connectors.Reply(200, MiniJson.write(arr), null);
+            } else if (method.equals("GET") && path.startsWith("/branches")) {
+                List<Object> arr = new ArrayList<Object>();
+                for (String name : refs.keySet()) {
+                    Map<String, Object> one = new LinkedHashMap<String, Object>();
+                    one.put("name", name);
+                    arr.add(one);
+                }
+                return new Connectors.Reply(200, MiniJson.write(arr), null);
             } else {
                 return new Connectors.Reply(404, "{}", null);
             }
@@ -135,6 +161,16 @@ public class GitHubGitTest {
                 out.put(e.getKey(), new String(blobs.get(e.getValue()), StandardCharsets.UTF_8));
             }
             return out;
+        }
+
+        static String q(String path, String key) {
+            int at = path.indexOf(key + "=");
+            if (at < 0) {
+                return "";
+            }
+            String v = path.substring(at + key.length() + 1);
+            int amp = v.indexOf('&');
+            return amp < 0 ? v : v.substring(0, amp);
         }
     }
 
@@ -225,6 +261,14 @@ public class GitHubGitTest {
         new File(dir, "b.txt.theirs").delete();
         git.push(dir, "Keep mine", "");
         assertEquals(files("a.txt", "a2\n", "b.txt", "mine\n"), hub.filesAt("main"));
+        String history = git.log(dir);
+        assertTrue(history, history.contains("Keep mine") && history.contains("Recent commits"));
+        String branches = git.branches(dir);
+        assertTrue(branches, branches.contains("* main"));
+        GitOp.open(dir, "push to main");
+        assertTrue(git.status(dir).contains("never confirmed"));
+        GitOp.close(dir, "FAILED", "stopped");
+        assertFalse(git.status(dir).contains("never confirmed"));
     }
 
     @Test
