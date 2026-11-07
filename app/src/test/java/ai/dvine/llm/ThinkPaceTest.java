@@ -23,4 +23,12 @@ public class ThinkPaceTest {
         assertTrue(pace.line().contains("2 words"));
         assertTrue(pace.line().startsWith("Writing the answer · 2s"));
     }
+
+    @Test
+    public void workInProgressIsNotAStall() {
+        assertFalse(ThinkPace.stalled(0, 700_000, 0, true, 600_000)); // the model is still inside the call
+        assertFalse(ThinkPace.stalled(0, 700_000, 650_000, false, 600_000)); // a step arrived a minute ago
+        assertFalse(ThinkPace.stalled(4, 700_000, 0, false, 600_000)); // it has already written
+        assertTrue(ThinkPace.stalled(0, 700_000, 0, false, 600_000)); // nothing at all for the whole wait
+    }
 }

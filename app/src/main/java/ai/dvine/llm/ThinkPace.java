@@ -59,6 +59,17 @@ public final class ThinkPace {
         return words;
     }
 
+    /**
+     * True only when nothing is happening: no words yet, the model is not inside a call, and no step has arrived for
+     * {@code limitMs}. A phase change does not count as a stall. Reading a long prompt is not a stall.
+     */
+    public static boolean stalled(int words, long nowMs, long lastProgressMs, boolean modelWorking, long limitMs) {
+        if (modelWorking || words > 0 || limitMs <= 0) {
+            return false;
+        }
+        return nowMs - lastProgressMs > limitMs;
+    }
+
     public synchronized String line() {
         long sec = Math.max(0L, (now - started) / 1000L);
         if (words > 0) {

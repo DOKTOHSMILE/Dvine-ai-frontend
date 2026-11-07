@@ -101,3 +101,10 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] The allow-listed planner now knows install Python, install Node, git status, installed packages, Gradle or Python tests, an Android compile, unzip of one named zip, and clone of one https address. Install, compile, unzip and clone need confirmation. A zip path with `..` and a clone URL with a password are refused. Push is not guessed.
 - [x] The workload sheet shows an unverified command when one is open.
 - [ ] A live Termux process still cannot be resumed at its instruction pointer. The record is the recovery.
+
+
+# The 10-minute first-word cutoff (0.94.4)
+
+- [x] The cutoff was timed from the start of the job, and every phase change ("Reasoning", "Replying") set the word count back to zero. After ten minutes a live job looked like it had never started, and the screen posted "didn't start answering in 10 minutes" and cancelled it.
+- [x] A job is stopped for silence only when there are no words, the model is not inside a call, and no step has arrived for the whole wait. Reading the prompt is not a failure. A reasoning ping or "Explored 1 file" resets the wait.
+- [x] The native watch no longer cancels a call that has not produced its first token yet.

@@ -50,11 +50,8 @@ public final class ReplyWatch {
 
     /** True once tokens have stalled, or the hard cap has passed. Waiting for the first token is not a stall. */
     public boolean expired(long nowMs) {
-        if (finished) {
-            return false;
-        }
-        if (!heard) {
-            return nowMs - started >= readMs; // still reading the question
+        if (finished || !heard) {
+            return false; // still reading the question: a long prefill on a phone is work, not a failure
         }
         if (nowMs - firstHeard >= capMs) {
             return true;
@@ -63,13 +60,13 @@ public final class ReplyWatch {
     }
 
     public String reason(long nowMs) {
-        if (!heard && nowMs - started >= readMs) {
-            return "reading";
+        if (!heard || finished) {
+            return "";
         }
-        if (heard && nowMs - firstHeard >= capMs) {
+        if (nowMs - firstHeard >= capMs) {
             return "cap";
         }
-        if (heard && nowMs - lastTouch >= idleMs) {
+        if (nowMs - lastTouch >= idleMs) {
             return "idle";
         }
         return "";
