@@ -1,5 +1,9 @@
 package ai.dvine.chat;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -82,6 +86,73 @@ public final class Attachments {
             return null;
         }
         return FILE.matcher(IMAGE.matcher(message).replaceAll("[an image]")).replaceAll("[a document: $3]");
+    }
+
+    /**
+     * The same message for the on-device model, which cannot see pixels. A file's extracted words (the ".txt" kept
+     * beside it) are included, capped, so the model reads the document instead of only its name.
+     */
+    public static String forDevice(String message) {
+        return expand(message, 12_000);
+    }
+
+    /** A shorter form of {@link #forDevice} kept in the conversation, so a later question still has the file. */
+    public static String forMemory(String message) {
+        return expand(message, 1_500);
+    }
+
+    private static String expand(String message, int cap) {
+        if (message == null) {
+            return null;
+        }
+        Matcher files = FILE.matcher(message);
+        StringBuffer done = new StringBuffer();
+        while (files.find()) {
+            String path = files.group(1);
+            String mime = files.group(2);
+            String name = files.group(3);
+            int pages = 0;
+            for (String p : files.group(4).split(";")) {
+                if (!p.isEmpty()) {
+                    pages++;
+                }
+            }
+            StringBuilder note = new StringBuilder();
+            note.append("[attached file: ").append(name.isEmpty() ? "file" : name).append(", ").append(mime).append("]");
+            String inside = sidecar(path, cap);
+            if (inside != null) {
+                note.append("\n").append(inside);
+            } else if (pages > 0) {
+                note.append("\n[the phone saved ").append(pages).append(pages == 1 ? " picture" : " pictures")
+                        .append(" of it. This on-device model cannot see pictures, so say so if the words are not here]");
+            } else if (mime.startsWith("audio/") || mime.startsWith("video/")) {
+                note.append("\n[this on-device model cannot hear or watch it. Ask for the part that matters as text]");
+            } else {
+                note.append("\n[no text could be read from it]");
+            }
+            files.appendReplacement(done, Matcher.quoteReplacement(note.toString()));
+        }
+        files.appendTail(done);
+        return IMAGE.matcher(done.toString()).replaceAll("[attached image. This on-device model cannot see pictures]");
+    }
+
+    private static String sidecar(String path, int cap) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        File f = new File(path + ".txt");
+        if (!f.isFile()) {
+            return null;
+        }
+        try {
+            String text = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
+            if (text.isEmpty()) {
+                return null;
+            }
+            return text.length() > cap ? text.substring(0, cap) + "\n…(the file goes on)" : text;
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     /** The user's own words, without the attached blocks and markers. */

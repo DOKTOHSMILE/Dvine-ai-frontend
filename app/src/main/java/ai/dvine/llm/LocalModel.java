@@ -456,7 +456,7 @@ public final class LocalModel {
             String[] roles = new String[turns.size()], texts = new String[turns.size()];
             for (int i = 0; i < turns.size(); i++) {
                 roles[i] = turns.get(i)[0];
-                texts[i] = ai.dvine.chat.Attachments.withoutImages(turns.get(i)[1]); // the phone's model can't see images
+                texts[i] = ai.dvine.chat.Attachments.forDevice(turns.get(i)[1]); // pixels stay out; a file's words stay in
             }
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
@@ -556,7 +556,7 @@ public final class LocalModel {
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
             String answer = withTimeout(counting(FakeTurn.guard(sink), pieces), wrapped -> NativeLlm.nReply(handle, spec.prompt(asSystem), new String[]{"user"},
-                    new String[]{ai.dvine.chat.Attachments.withoutImages(fitted)}, room, 0.35f, wrapped));
+                    new String[]{ai.dvine.chat.Attachments.forDevice(fitted)}, room, 0.35f, wrapped));
             answer = FakeTurn.cut(answer);
             recordLocal(system, java.util.Collections.<String[]>emptyList(), fitted, answer, pieces[0], began);
             if (answer != null && !answer.trim().isEmpty()) {
@@ -864,7 +864,7 @@ public final class LocalModel {
 
     synchronized void remember(String question, String answer) {
         // an image is sent once, with its question; the remembered conversation keeps "[an image]"
-        history.add(new String[]{"user", ai.dvine.chat.Attachments.withoutImages(question)});
+        history.add(new String[]{"user", ai.dvine.chat.Attachments.forMemory(question)});
         // the phone's small model keeps a short memory; an API model keeps the whole reply (a report stays a report)
         history.add(new String[]{"assistant", remoteOn() ? clip(answer, 24_000) : clipMemory(answer)});
         while (history.size() > HISTORY_TURNS * 2) {
@@ -902,9 +902,15 @@ public final class LocalModel {
      * never been asked. When the message isn't remembered (too old, or never sent to the model), nothing changes.
      */
     public synchronized void rewindTo(String question) {
-        String q = question == null ? "" : ai.dvine.chat.Attachments.withoutImages(question).trim();
+        String q = question == null ? "" : question.trim();
+        String plain = ai.dvine.chat.Attachments.withoutImages(q);
+        String mem = ai.dvine.chat.Attachments.forMemory(q);
         for (int i = history.size() - 1; i >= 0; i--) {
-            if ("user".equals(history.get(i)[0]) && history.get(i)[1] != null && history.get(i)[1].trim().equals(q)) {
+            if (!"user".equals(history.get(i)[0]) || history.get(i)[1] == null) {
+                continue;
+            }
+            String stored = history.get(i)[1].trim();
+            if (stored.equals(q) || stored.equals(plain == null ? "" : plain.trim()) || stored.equals(mem == null ? "" : mem.trim())) {
                 while (history.size() > i) {
                     history.remove(history.size() - 1);
                 }
