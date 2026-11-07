@@ -59,8 +59,12 @@ public final class Scribe {
             tasks.save(current);
             ProjectSurvey survey = ProjectSurvey.of(workspace);
             write("PROJECT_MAP.md", survey.map());
+            Reconcile recovered = Reconcile.check(workspace, current.assets);
+            write("RECOVERY.md", recovered.report());
+            noteMissing(recovered);
             append("PROGRESS.md", "\n- Resumed " + current.id + ". The plan was kept. The map was read again ("
-                    + survey.files + " files).\n");
+                    + survey.files + " files). Claimed files on disk: " + recovered.present.size()
+                    + ". Missing: " + recovered.missing.size() + ".\n");
             current.state = TaskState.RUNNING;
             current.updatedAt = System.currentTimeMillis();
             tasks.save(current);
@@ -112,8 +116,8 @@ public final class Scribe {
     }
 
     /**
-     * Closes the round. Completed only when the run was not stopped and the reply does not ask to continue.
-     * A reply that merely says the work is done is not enough on its own when nothing changed and it asks to go on.
+     * Closes the round. Completed only when every claimed file is on disk. A long reply, or a reply that says the
+     * work is done, is not enough. A missing file stays on the list.
      */
     public void finish(String result, boolean userStopped, List<String> changed) {
         if (!active || current == null) {
@@ -125,20 +129,25 @@ public final class Scribe {
         String shown = redact(result == null ? "" : result);
         boolean asksContinue = shown.toLowerCase(Locale.US).contains("continue");
         boolean failed = shown.contains("didn't answer") || shown.startsWith("Stopped.");
+        Reconcile check = Reconcile.check(workspace, files);
+        write("RECOVERY.md", check.report());
         if (userStopped || asksContinue || failed) {
             current.state = TaskState.PAUSED;
+            noteMissing(check);
             if (!current.remaining.contains("Resume from the last checkpoint")) {
                 current.remaining.add("Resume from the last checkpoint");
             }
-        } else if (!files.isEmpty() || shown.length() > 200) {
+        } else if (check.verified()) {
             current.state = TaskState.VERIFYING;
-            current.completed.add("A result was written");
-            current.remaining.remove("Carry out the instruction");
+            current.completed.add("Verified " + check.present.size() + " files on disk");
+            current.remaining.remove("Verify from the files and command results. A sentence in chat is not completion.");
             current.state = TaskState.COMPLETED;
-            current.completed.add("Files or a full result were checked in");
         } else {
             current.state = TaskState.PAUSED;
-            current.lastError = "The reply was too thin to count as finished.";
+            current.lastError = check.missing.isEmpty()
+                    ? "No files were written, so the job is not finished."
+                    : "Claimed files are not on disk.";
+            noteMissing(check);
         }
         current.updatedAt = System.currentTimeMillis();
         tasks.save(current);
@@ -166,6 +175,19 @@ public final class Scribe {
             }
         }
         return "";
+    }
+
+    /** A missing claim goes back on the list. It is not ticked off. */
+    private void noteMissing(Reconcile check) {
+        if (current == null || check == null) {
+            return;
+        }
+        for (String f : check.missing) {
+            String step = "Write " + f + " — it was claimed but it is not on disk";
+            if (!current.remaining.contains(step)) {
+                current.remaining.add(step);
+            }
+        }
     }
 
     private String manifest(String persona) {

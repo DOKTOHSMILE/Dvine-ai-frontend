@@ -65,6 +65,30 @@ public class ScribeTest {
     }
 
     @Test
+    public void aJobIsFinishedOnlyWhenTheClaimedFileIsOnDisk() throws Exception {
+        File ws = Files.createTempDirectory("dvine-reconcile").toFile();
+        Scribe scribe = new Scribe(ws);
+        String instruction = "Build the notes screen for the application";
+        scribe.begin("ibiko", instruction);
+        scribe.finish("The notes screen is finished and the reply is long enough to look done.", false,
+                Collections.singletonList("app/Notes.java"));
+        assertTrue(Scribe.jobs(ws).get(0).open);
+        File project = new File(ws, "memory/projects").listFiles()[0];
+        String recovery = new String(Files.readAllBytes(new File(project, "RECOVERY.md").toPath()), StandardCharsets.UTF_8);
+        assertTrue(recovery.contains("Missing: 1"));
+        assertTrue(recovery.contains("app/Notes.java"));
+        assertEquals(1, Reconcile.check(ws, Collections.singletonList("../secret.txt")).missing.size());
+
+        assertTrue(new File(ws, "app").mkdirs());
+        Files.write(new File(ws, "app/Notes.java").toPath(), "class Notes {}".getBytes(StandardCharsets.UTF_8));
+        scribe.begin("ibiko", instruction);
+        String progress = new String(Files.readAllBytes(new File(project, "PROGRESS.md").toPath()), StandardCharsets.UTF_8);
+        assertTrue(progress.contains("Missing: 0"));
+        scribe.finish("The notes screen is in app/Notes.java.", false, Collections.singletonList("app/Notes.java"));
+        assertFalse(Scribe.jobs(ws).get(0).open);
+    }
+
+    @Test
     public void deepModeDoesNotInheritTheShortReplyCap() {
         assertEquals(180_000L, RunMode.BALANCED.replyCapMs);
         assertTrue(RunMode.DEEP.replyCapMs > RunMode.BALANCED.replyCapMs);
