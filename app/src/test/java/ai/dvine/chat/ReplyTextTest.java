@@ -16,4 +16,14 @@ public class ReplyTextTest {
         assertFalse(out.contains("tool_call"));
         assertFalse(out.contains("function="));
     }
+
+    @Test
+    public void deepSeekToolMarkupIsNotShown() {
+        String raw = "Looking now.\n<|DSML|calls>\n<|DSML|invoke name=\"read_file\" path=\"memory/projects/PROJECT_PLAN.md\"/>\n"
+                + "</|DSML|calls>\nOpenRouter didn't answer (the account is out of credit (402)).";
+        String out = ReplyText.prepare(raw);
+        assertFalse(out.contains("DSML"));
+        assertFalse(out.contains("read_file"));
+        assertEquals("Looking now.\n\nOpenRouter didn't answer (the account is out of credit (402)).", out);
+    }
 }

@@ -35,6 +35,14 @@ public class CodeAgentTest {
     private static final class Phone implements CodeAgent.Host {
         final List<String> steps = new ArrayList<String>(), asked = new ArrayList<String>(), notes = new ArrayList<String>();
         boolean allow;
+        int steerCalls;
+        String steerOnSecond;
+
+        @Override
+        public String steer() {
+            steerCalls++;
+            return steerCalls == 2 ? steerOnSecond : null;
+        }
 
         @Override
         public void note(String text) {
@@ -98,6 +106,22 @@ public class CodeAgentTest {
         String last = brain.seen.get(brain.seen.size() - 1);
         assertTrue(last.contains("src/hello.py:2: print(\"goodbye\")")); // the search result reached the brain
         assertTrue(brain.seen.get(3).contains("1\tprint(\"hello\")")); // a file is read back with line numbers
+    }
+
+    @Test
+    public void aMessageSentMidTaskIsReadOnTheNextStepAndTheWorkContinues() throws Exception {
+        File ws = Files.createTempDirectory("ibiko-steer").toFile();
+        Script brain = new Script(
+                "<tool name=\"list_files\" path=\".\"/>",
+                "<final>Added the weather check for Lagos.</final>");
+        Phone phone = new Phone();
+        phone.steerOnSecond = "Also check the weather in Lagos";
+        String answer = new CodeAgent(ws, brain, phone, "", 20_000).run("make a note", "");
+        assertTrue(answer, answer.contains("Lagos"));
+        assertFalse(answer.startsWith("Stopped"));
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("Also check the weather in Lagos"));
+        assertTrue(brain.seen.get(1).contains("continue the same task"));
+        assertTrue(phone.steps.contains("Reading what you just sent"));
     }
 
     @Test

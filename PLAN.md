@@ -1,3 +1,19 @@
+# Chat fixes (0.95.2)
+
+- [x] DeepSeek `<|DSML|>` tool markup is run as a tool, or hidden. It is not shown as the reply.
+- [x] An out-of-credit error is one short line, not a step plus the same line again.
+- [x] The send button is busy only on the chat that is running. Another chat can send without cancelling it.
+- [x] An attachment is drawn at the top of the user's message, with the words under it.
+- [x] A folded run is named for its latest step (Thinking, Reading, Planning), not "and 3 more steps".
+- [x] Reply URLs are coloured and open when tapped.
+
+# A message during a task (0.95.1)
+
+- [x] Sending while a task runs no longer parks the text on "Waiting to send", and it does not cancel the task.
+- [x] The message is shown in the chat immediately and injected before the agent's next step (and after the current model call returns). The model reads it and continues the same task.
+- [x] If the task ends without reading it, that message goes out as the next turn instead of staying pending.
+- [ ] Not timed on a phone in this pass.
+
 # RAM and tokens (0.95.0)
 
 - [x] Offline: mmap without mlock, smaller prefill batch for a small window, 8-bit KV cache from 4,096 tokens (was only above 4,096), unload an idle model when Android asks for memory.

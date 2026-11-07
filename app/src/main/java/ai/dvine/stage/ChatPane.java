@@ -112,6 +112,35 @@ public final class ChatPane extends LinearLayout {
         }
         for (int i = from; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
+            if (attachment(m)) {
+                android.widget.LinearLayout col = new android.widget.LinearLayout(getContext());
+                col.setOrientation(android.widget.LinearLayout.VERTICAL);
+                col.setGravity(android.view.Gravity.END);
+                android.widget.LinearLayout.LayoutParams colLp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+                col.setLayoutParams(colLp);
+                int j = i;
+                while (j < cur.messages.size() && attachment(cur.messages.get(j))) {
+                    col.addView(bubble(cur.messages.get(j)));
+                    j++;
+                }
+                if (j < cur.messages.size()) {
+                    ChatBook.Message words = cur.messages.get(j);
+                    if ("user".equals(words.role) && "text".equals(words.kind) && words.body != null && !words.body.trim().isEmpty()) {
+                        View text = bubble(words);
+                        col.addView(text);
+                        View actions = userActions(words.body, j);
+                        actions.setVisibility(GONE);
+                        col.addView(actions);
+                        tapToggles(text, actions);
+                        j++;
+                    }
+                }
+                thread.addView(col);
+                i = j - 1;
+                reply.setLength(0);
+                parts = 0;
+                continue;
+            }
             View shown = null;
             if ("work".equals(m.kind)) {
                 work = m.body;
@@ -912,7 +941,8 @@ public final class ChatPane extends LinearLayout {
             int n = end - g;
             if (n > PLAIN_RUN) {
                 int to = groups.get(end - 1).items.get(0).index + 1;
-                out.add(new Row(words.get(from) + " and " + (n - 1) + " more steps", from, to, false));
+                int last = groups.get(end - 1).items.get(0).index;
+                out.add(new Row(stepName(words.get(last)), from, to, false));
             } else {
                 for (int k = g; k < end; k++) {
                     int i = groups.get(k).items.get(0).index;
@@ -926,6 +956,19 @@ public final class ChatPane extends LinearLayout {
 
     private static String stripTimer(String line) {
         return line.replaceAll("\\s*[\\u00B7(]?\\s*\\d+\\s*s\\)?\\s*$", "").replaceAll("\\u2026$", "").trim();
+    }
+
+    /** The step the user should read: Thinking, Reading, Planning, or the file, never "and 3 more steps". */
+    static String stepName(String line) {
+        String s = stripTimer(line == null ? "" : line);
+        s = s.replaceFirst("(?i)^(ibiko|obi|ivie)\\s+is\\s+", "");
+        if (s.matches("(?i)working.*") || s.equalsIgnoreCase("working")) {
+            return "Thinking";
+        }
+        if (s.length() > 52) {
+            s = s.substring(0, 52) + "\u2026";
+        }
+        return s.isEmpty() ? "Thinking" : s;
     }
 
     /**
@@ -1522,7 +1565,11 @@ public final class ChatPane extends LinearLayout {
             n.setPadding(0, 0, 0, 0);
             card.addView(n);
             if (parts.length > 1) {
-                TextView sub = plain(parts[1]);
+                String subText = parts[1].trim().replace('\n', ' ');
+                if (subText.length() > 42) {
+                    subText = subText.substring(0, 42) + "\u2026";
+                }
+                TextView sub = plain(subText);
                 sub.setTextColor(color(R.color.text_secondary));
                 sub.setTextSize(12f);
                 sub.setPadding(0, dp(2), 0, 0);
@@ -1583,6 +1630,7 @@ public final class ChatPane extends LinearLayout {
         body.setText(user ? (m.body == null ? "" : m.body) : styled(m.body));
         body.setTextIsSelectable(true); // hold to select any part and copy it
         if (!user) {
+            body.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
             body.setLineSpacing(dp(3), 1.05f);
         }
         if ("code".equals(m.kind)) {
@@ -1919,13 +1967,20 @@ public final class ChatPane extends LinearLayout {
         }
     }
 
+    private static boolean attachment(ChatBook.Message m) {
+        return m != null && "user".equals(m.role)
+                && ("image".equals(m.kind) || "file".equals(m.kind) || "video".equals(m.kind) || "audio".equals(m.kind));
+    }
+
     /** Bold and inline code. A long block stays plain: building a span for every mark froze the phone. */
     private CharSequence styled(String text) {
         if (text == null || text.isEmpty()) {
             return "";
         }
         if (text.length() > 6000) {
-            return text;
+            android.text.SpannableString plain = new android.text.SpannableString(text);
+            linkUrls(plain);
+            return plain;
         }
         StringBuilder raw = new StringBuilder(text.length());
         java.util.List<int[]> marks = new java.util.ArrayList<int[]>();
@@ -1949,7 +2004,9 @@ public final class ChatPane extends LinearLayout {
             }
         }
         if (marks.isEmpty()) {
-            return raw.toString();
+            android.text.SpannableString plain = new android.text.SpannableString(raw);
+            linkUrls(plain);
+            return plain;
         }
         android.text.SpannableString out = new android.text.SpannableString(raw);
         for (int[] mark : marks) {
@@ -1960,7 +2017,23 @@ public final class ChatPane extends LinearLayout {
                     : new android.text.style.StyleSpan(Typeface.BOLD), mark[0], mark[1],
                     android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
+        linkUrls(out);
         return out;
+    }
+
+    /** URLs in a reply are coloured and open when tapped. */
+    private void linkUrls(android.text.Spannable out) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("https?://[^\\s<>\"]+").matcher(out);
+        while (m.find()) {
+            String url = m.group().replaceAll("[),.;]+$", "");
+            int end = m.start() + url.length();
+            if (end <= m.start()) {
+                continue;
+            }
+            out.setSpan(new android.text.style.ForegroundColorSpan(0xFF8AB4F8), m.start(), end,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            out.setSpan(new android.text.style.URLSpan(url), m.start(), end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
     }
 
     /** 1 = bold, 2 = monospace. */

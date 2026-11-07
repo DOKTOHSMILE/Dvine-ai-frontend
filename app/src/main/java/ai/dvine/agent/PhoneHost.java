@@ -173,11 +173,30 @@ public final class PhoneHost implements CodeAgent.Host {
     }
 
     private Consumer<String> onNote;
+    private java.util.function.Supplier<String> steerFrom;
 
     /** Where the model's notes between the steps go (the chat); without it they are dropped. */
     public PhoneHost onNote(Consumer<String> to) {
         onNote = to;
         return this;
+    }
+
+    /** Messages the user sends while this task runs. Taken once, before the next step. */
+    public PhoneHost onSteer(java.util.function.Supplier<String> from) {
+        steerFrom = from;
+        return this;
+    }
+
+    @Override
+    public String steer() {
+        if (steerFrom == null) {
+            return null;
+        }
+        try {
+            return steerFrom.get();
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     @Override

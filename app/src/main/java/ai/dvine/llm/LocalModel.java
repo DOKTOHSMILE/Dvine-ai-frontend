@@ -747,7 +747,7 @@ public final class LocalModel {
                 return null;
             }
             if (answer != null && !answer.trim().isEmpty() && ticket == epoch.get()) {
-                if (failedName != null) {
+                if (failedName != null && !failedName.equals(sl.name)) {
                     switchNote = failedName + " didn't answer (" + firstFailure + "), so " + sl.name + " did.";
                 }
                 record(sl, r, system, fitted, answer, pieces[0], began);
@@ -763,7 +763,9 @@ public final class LocalModel {
             if (r == sl.brain) { // a provider rests when its main model fails (its fast model failing alone doesn't)
                 sl.restUntil = System.currentTimeMillis() + (credit ? REST_LONG_MS : REST_MS);
             }
-            step(sl.name + " didn't answer (" + why + ")");
+            if (!credit) {
+                step(sl.name + " didn't answer (" + why + ")"); // a credit error is said once, in the reply, not also as a step
+            }
             if (firstFailure == null) {
                 firstFailure = why;
                 failedName = sl.name;

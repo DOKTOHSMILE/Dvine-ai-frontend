@@ -14,6 +14,7 @@ public final class ReplyText {
         }
         String s = raw.replace("\r\n", "\n").replace('\r', '\n');
         s = s.replaceAll("(?s)<think>.*?(</think>|$)", "");
+        s = stripDsml(s);
         s = s.replaceAll("(?s)<tool_call>.*?(</tool_call>|$)", "");
         s = s.replaceAll("(?s)<function\\b[^>]*>.*?</function>", "");
         s = s.replaceAll("(?s)<function\\b[^>]*/>", "");
@@ -51,5 +52,20 @@ public final class ReplyText {
             out.append(t);
         }
         return out.toString().replaceAll("^\\s*\\n", "").replaceAll("\\s+$", "");
+    }
+
+    /**
+     * DeepSeek's tool block ({@code <|DSML|calls>…}, also written with a full-width bar). It is a tool call, not
+     * something to show. A half-written one, cut off when the request failed, goes too.
+     */
+    static String stripDsml(String s) {
+        if (s == null || s.isEmpty() || !s.toUpperCase(java.util.Locale.US).contains("DSML")) {
+            return s == null ? "" : s;
+        }
+        String t = s.replace('\uFF5C', '|');
+        t = t.replaceAll("(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*calls\\s*>.*?(</\\s*\\|\\s*DSML\\s*\\|\\s*calls\\s*>|$)", "");
+        t = t.replaceAll("(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*invoke\\b.*?(</\\s*\\|\\s*DSML\\s*\\|\\s*invoke\\s*>|$)", "");
+        t = t.replaceAll("(?is)</?\\s*\\|\\s*DSML\\s*\\|[^>]*>", "");
+        return t;
     }
 }

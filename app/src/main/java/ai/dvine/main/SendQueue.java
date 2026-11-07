@@ -1,13 +1,13 @@
 package ai.dvine.main;
 
 /**
- * The composer's half of a send, and the queue for messages that arrive while work is still running.
+ * The composer's half of a send.
  *
  * <p>Tap Send and this decides what happens: a double tap is ignored, an empty box stops the reply that is going,
- * and when something is already being worked on the message waits its turn instead of cutting it off (Stop still
- * stops it). Waiting messages are shown on the note line above the keyboard with how long they've waited, and they
- * go one at a time once the work has finished and stayed finished a moment — a reply that runs in two steps is not
- * cut between them. Tapping that note brings the waiting messages back into the box to change.
+ * and when something is already being worked on the message is sent into that work instead of cutting it off
+ * (Stop still stops it). The words show in the chat at once. The running task reads them on its next step and
+ * continues, the way a message sent mid-task is folded into the same job. If the task has already finished and
+ * never saw them, they go out as the next turn.
  *
  * <p>The screen side lives in {@link ai.dvine.MainActivity}: it implements {@link Host}, keeps the send button
  * enabled, and hands over the two ways a message can go out.
@@ -19,7 +19,7 @@ public final class SendQueue {
         /** A view of the screen by id, or null when it isn't there. */
         <T extends android.view.View> T find(int id);
 
-        /** The main thread handler, for the half-second beat. */
+        /** The main thread handler. */
         android.os.Handler handler();
 
         /** The note line above the composer, or null when it isn't there. */
@@ -45,6 +45,12 @@ public final class SendQueue {
 
         /** Stop the reply that is running (empty box tapped while working). */
         void haltGeneration();
+
+        /**
+         * The user sent this while work is running. Show it now and hand it to that work. Do not stop the work.
+         * {@code attached} means the composer is holding files that go with the words.
+         */
+        void steer(String text, boolean attached);
 
         /** The note line's own hide timer is cancelled: this beat is showing it. */
         void cancelNoteHide();
@@ -83,9 +89,8 @@ public final class SendQueue {
             host.markVoiceTurn();
         }
         if (host.busy()) {
-            // work is running: the message waits its turn instead of cutting the work off (Stop still stops it)
-            final String words = text;
-            hold(words, attached ? () -> host.sendAttached(words) : () -> host.answer(words));
+            // work is running: the message joins it. The task is not stopped, and the model reads this on its next step.
+            host.steer(text, attached);
             field.requestFocus();
             return;
         }
@@ -95,91 +100,5 @@ public final class SendQueue {
             host.answer(text);
         }
         field.requestFocus(); // the keyboard keeps typing into the box after Send
-    }
-
-    /** Messages sent while work was running, in order, waiting for it to finish (with what they say, and since when). */
-    private final java.util.ArrayDeque<Runnable> waiting = new java.util.ArrayDeque<Runnable>();
-    private final java.util.ArrayDeque<String> waitingWords = new java.util.ArrayDeque<String>();
-    private long waitingSince;
-    private int idleBeats;
-
-    private void hold(String words, Runnable send) {
-        if (waiting.isEmpty()) {
-            waitingSince = System.currentTimeMillis();
-        }
-        waiting.add(send);
-        waitingWords.add(words.isEmpty() ? "your files" : words);
-        idleBeats = 0;
-        host.handler().removeCallbacks(releaseBeat);
-        host.handler().post(releaseBeat);
-    }
-
-    /**
-     * Every half second while messages wait: the waiting line shows them and how long they've waited, and once the
-     * work has finished (and stayed finished a moment, so a reply that runs in two steps isn't cut between them) the
-     * first goes, then the next after its own work.
-     */
-    private final Runnable releaseBeat = new Runnable() {
-        @Override
-        public void run() {
-            android.widget.TextView line = host.find(ai.dvine.R.id.composer_note);
-            if (waiting.isEmpty()) {
-                if (line != null && line.getTag() == waiting) {
-                    line.setTag(null);
-                    line.setOnClickListener(null);
-                    line.setVisibility(android.view.View.GONE);
-                }
-                return;
-            }
-            if (!host.busy()) {
-                idleBeats++;
-            } else {
-                idleBeats = 0;
-            }
-            if (idleBeats >= 2) {
-                idleBeats = 0;
-                Runnable next = waiting.poll();
-                waitingWords.poll();
-                waitingSince = System.currentTimeMillis();
-                if (next != null) {
-                    next.run();
-                }
-            }
-            if (line != null && !waiting.isEmpty()) {
-                long secs = (System.currentTimeMillis() - waitingSince) / 1000;
-                String first = waitingWords.peek();
-                first = first == null ? "" : first.length() > 40 ? first.substring(0, 40) + "\u2026" : first;
-                line.setText("Waiting to send" + (waiting.size() > 1 ? " (" + waiting.size() + ")" : "") + ": \u201c" + first + "\u201d \u00b7 "
-                        + ai.dvine.stage.ChatPane.duration(secs) + " \u00b7 sends when this finishes \u00b7 tap to edit");
-                line.setTag(waiting);
-                line.setVisibility(android.view.View.VISIBLE);
-                host.cancelNoteHide();
-                line.setOnClickListener(v -> unhold());
-            }
-            host.handler().postDelayed(this, 500);
-        }
-    };
-
-    /** The waiting line tapped: the messages come back into the box to change, and nothing more waits. */
-    private void unhold() {
-        android.widget.EditText field = host.find(ai.dvine.R.id.et_message);
-        StringBuilder b = new StringBuilder();
-        for (String w : waitingWords) {
-            if (!"your files".equals(w)) {
-                b.append(b.length() == 0 ? "" : "\n").append(w);
-            }
-        }
-        waiting.clear();
-        waitingWords.clear();
-        if (field != null) {
-            field.setText(b.toString());
-            field.setSelection(field.getText().length());
-        }
-        android.widget.TextView line = host.find(ai.dvine.R.id.composer_note);
-        if (line != null) {
-            line.setOnClickListener(null);
-            line.setTag(null);
-            line.setVisibility(android.view.View.GONE);
-        }
     }
 }

@@ -788,7 +788,7 @@ public final class RemoteBrain {
         }
         String what = busy ? "the model is busy right now"
                 : status == 401 || status == 403 ? "the API key was refused"
-                : status == 402 ? "the account is out of credit"
+                : status == 402 ? "the account is out of credit (402)"
                 : status == 404 ? "the address or the model name wasn't found"
                 : status == 429 ? "the server says too many requests, or the account is out of credit"
                 : status >= 500 ? "the server had a problem" : "the server said no";
@@ -796,6 +796,9 @@ public final class RemoteBrain {
             if (k != null && k.length() > 3) {
                 said = said.replace(k, "…");
             }
+        }
+        if (status == 402) {
+            return what; // one short line; the vendor's essay is not shown again
         }
         return what + " (" + status + (said.isEmpty() ? "" : ": " + (said.length() > 160 ? said.substring(0, 160) + "…" : said)) + ")";
     }

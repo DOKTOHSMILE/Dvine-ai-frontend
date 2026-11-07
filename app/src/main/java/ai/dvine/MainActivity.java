@@ -911,13 +911,40 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    // --- send + waiting queue: handed over to main/SendQueue.java ---
-    /** The send button's queue: a double tap is ignored, and messages sent while work runs wait their turn. */
+    // --- send: a message during work is steered into that work, not queued and not used to stop it ---
+    /** The send button: a double tap is ignored, and a message sent while work runs joins that work. */
     private ai.dvine.main.SendQueue sendQueue;
+    /** What the user sent while a task was still running. The task reads it; it does not get cancelled to make room. */
+    private final ai.dvine.main.SteerInbox steer = new ai.dvine.main.SteerInbox();
 
-    /** Something is being worked on or still being written out: a reply, an agent's run, a build. */
+    /** A reply, an agent run, or a model call is still going on this chat. Speech, and another chat's run, are not. */
     private boolean busy() {
-        return generating || streamOpen || walker.walking();
+        return thisChatBusy();
+    }
+
+    private boolean modelGoing() {
+        return generating || streamOpen || (model != null && (model.working() || model.coding));
+    }
+
+    /** The chat the current run belongs to. Another chat stays idle. */
+    private String runChat;
+    /** Messages sent in a chat while a different chat is the one running. They go out when that run ends. */
+    private final java.util.ArrayDeque<String[]> heldChat = new java.util.ArrayDeque<String[]>();
+    private boolean replacing;
+
+    private boolean thisChatBusy() {
+        if (!modelGoing()) {
+            return false;
+        }
+        String here = chats == null || chats.current() == null ? "" : chats.current().id;
+        return runChat == null || runChat.equals(here);
+    }
+
+    private boolean runningElsewhere() {
+        if (!modelGoing() || runChat == null || chats == null || chats.current() == null) {
+            return false;
+        }
+        return !runChat.equals(chats.current().id);
     }
 
     private void sendComposer() {
@@ -974,6 +1001,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public void haltGeneration() {
             stopGeneration();
+        }
+
+        @Override
+        public void steer(String text, boolean attached) {
+            steerIntoTask(text, attached);
         }
 
         @Override
@@ -1039,25 +1071,34 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     private void sendWithAttachments(String words) {
         String forModel = attachments.forModel(words);
-        if (chats != null) {
-            String persona = chats.current().persona;
-            for (ai.dvine.chat.ui.ComposerAttachments.Item it : attachments.items()) {
-                if ("image".equals(it.kind)) {
-                    chats.add("user", "image", it.path, persona);
-                } else {
-                    chats.add("user", "file", it.name + "\n" + ("text".equals(it.kind) ? ai.dvine.chat.Attachments.lines(it.text)
-                            : "doc".equals(it.kind) ? ai.dvine.chat.ui.ComposerAttachments.pages(it) : "file"), persona);
-                }
-            }
-            if (!words.isEmpty()) {
-                chats.add("user", "text", words, persona);
-            }
-            if (chatPane != null) {
-                chatPane.show();
-            }
-        }
+        showSentAttachments(words);
         attachments.clear();
         answer(forModel, true); // already shown: not noted again
+    }
+
+    /** The attachment sits at the top of the user's message, the words under it. The file's text is for the model only. */
+    private void showSentAttachments(String words) {
+        if (chats == null || attachments == null) {
+            return;
+        }
+        String persona = chats.current().persona;
+        for (ai.dvine.chat.ui.ComposerAttachments.Item it : attachments.items()) {
+            if ("image".equals(it.kind)) {
+                chats.add("user", "image", it.path, persona);
+            } else if ("video".equals(it.kind) || "audio".equals(it.kind)) {
+                chats.add("user", it.kind, it.path == null ? it.name : it.path, persona);
+            } else {
+                String kind = "doc".equals(it.kind) ? ai.dvine.chat.ui.ComposerAttachments.pages(it)
+                        : "text".equals(it.kind) ? "Text" : "File";
+                chats.add("user", "file", it.name + "\n" + kind, persona);
+            }
+        }
+        if (words != null && !words.trim().isEmpty()) {
+            chats.add("user", "text", words.trim(), persona);
+        }
+        if (chatPane != null) {
+            chatPane.show();
+        }
     }
 
     /** Adds a picked file to the message being written (read off the main thread). */
@@ -1287,6 +1328,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 selectPersona(section.persona);
                 examiner.clearTopic();
+                refreshSend();
+                handler.post(releaseHeld);
             }
 
             @Override
@@ -1556,7 +1599,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (thinkPace == null || thinkToken != readToken) {
                 return;
             }
-            activity("Thinking".equals(stepLine) ? "Reading your message" : stepLine);
+            activity(stepLine == null || stepLine.isEmpty() ? "Thinking" : stepLine);
             stage.setMode(StageMode.THINKING);
             stage.progress(thinkPace.line());
             updateThoughtStatus(thinkPace.line(), true);
@@ -1639,6 +1682,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         handler.removeCallbacks(thinkBeat);
         updateThoughtStatus("", false);
         setGenerating(false);
+        if (!replacing) {
+            runChat = null;
+            handler.post(releaseHeld); // a message typed in another chat goes now, without having cancelled this one
+        }
+        if (steer.pending()) {
+            handler.post(releaseUnseenSteer); // the task ended without reading it: it goes out now, as its own turn
+        }
         String switched = model == null ? null : model.takeSwitchNote();
         if (switched != null) {
             note(switched);
@@ -1760,13 +1810,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         boolean words = field != null && field.getText() != null && field.getText().toString().trim().length() > 0;
         boolean files = attachments != null && !attachments.isEmpty();
-        send.setEnabled(generating || words || files);
-        // while work runs, an empty box shows Stop; anything typed shows Send (it waits its turn)
-        boolean stop = generating && !words && !files;
+        boolean here = thisChatBusy();
+        send.setEnabled(here || words || files);
+        // while this chat's work runs, an empty box shows Stop; another chat stays a normal Send
+        boolean stop = here && !words && !files;
         if (send instanceof android.widget.ImageButton) {
             ((android.widget.ImageButton) send).setImageResource(stop ? R.drawable.ic_stop : R.drawable.ic_send);
         }
-        send.setContentDescription(stop ? "Stop" : generating ? "Send when this finishes" : "Send");
+        send.setContentDescription(stop ? "Stop" : here ? "Send to the running task" : "Send");
     }
 
     private void openHistory() {
@@ -2143,7 +2194,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stopPlay();
         stage.setMode(StageMode.THINKING);
         String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
-        armThink(planning ? who + " is planning" : readOnly ? who + " is reading the files" : who + " is working", who + " is working");
+        armThink(planning ? "Planning" : readOnly ? "Reading the files" : "Thinking", "Writing");
         final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
         final String earlier = chats == null ? "" : chats.transcript(model.remoteOn() ? 12000 : Math.max(1500, model.window()),
@@ -2160,7 +2211,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (chatPane != null) {
                         chatPane.assistant(persona, note); // between the steps, with its own Copy and Listen
                     }
-                });
+                }).onSteer(steer::drain);
         new Thread(() -> {
             final StringBuilder live = new StringBuilder();
             final long[] shown = {0};
@@ -2204,7 +2255,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     sofar = live.toString();
                                 }
                                 String t = ai.dvine.agent.CodeAgent.unlabel(sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim()); // the answer shows as it is written
-                                boolean tool = t.startsWith("<") || t.contains("<tool") || t.contains("<function") || t.contains("<invoke");
+                                boolean tool = t.startsWith("<") || t.contains("<tool") || t.contains("<function") || t.contains("<invoke")
+                                        || t.toUpperCase(java.util.Locale.US).contains("DSML") || t.contains("<|") || t.contains("\uFF5C");
                                 long now = System.currentTimeMillis();
                                 if (!tool && t.length() > 0 && now - shown[0] > 120) {
                                     shown[0] = now;
@@ -2780,14 +2832,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 byte[] body = ai.dvine.net.WebGet.get(url, 8000, 400_000);
                 return body == null ? null : new String(body, java.nio.charset.StandardCharsets.UTF_8);
             }, System.currentTimeMillis()));
-            final String answer = model == null || !model.ready() ? null
+            String answer = model == null || !model.ready() ? null
                     : model.reply(system, question, "Result of " + c[0] + ":\n" + result, 600, piece -> modelPiece(id, piece));
+            answer = foldSteer(id, system, question, "Result of " + c[0] + ":\n" + result, 600, answer, piece -> modelPiece(id, piece));
+            final String folded = answer;
             handler.post(() -> {
                 if (id != askId || isFinishing()) {
                     return;
                 }
                 endThink();
-                String text = answer == null || answer.trim().isEmpty() ? result : ai.dvine.llm.ActionTags.strip(answer).trim();
+                String text = folded == null || folded.trim().isEmpty() ? result : ai.dvine.llm.ActionTags.strip(folded).trim();
                 play(LocalTurn.speakAs(agent, text), null);
             });
         });
@@ -2851,15 +2905,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         + " Termux from F-Droid gives a full Linux.)";
             }
             final String result = out == null || out.trim().isEmpty() ? "(no output)" : out;
-            final String answer = model == null || !model.ready() ? null
+            String answer = model == null || !model.ready() ? null
                     : model.reply(system, question, "Output of `" + cmd + "`:\n" + cut(result, 6000), 700, piece -> modelPiece(id, piece));
+            answer = foldSteer(id, system, question, "Output of `" + cmd + "`:\n" + cut(result, 6000), 700, answer,
+                    piece -> modelPiece(id, piece));
+            final String folded = answer;
             handler.post(() -> {
                 if (id != askId || isFinishing()) {
                     return;
                 }
                 endThink();
-                String text = answer == null || answer.trim().isEmpty() ? "```\n" + cut(result, 3000) + "\n```"
-                        : ai.dvine.llm.ActionTags.strip(answer).trim();
+                String text = folded == null || folded.trim().isEmpty() ? "```\n" + cut(result, 3000) + "\n```"
+                        : ai.dvine.llm.ActionTags.strip(folded).trim();
                 play(LocalTurn.speakAs(agent, text), null);
             });
         });
@@ -2966,7 +3023,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void answer(String text, boolean interpreted) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        if (runningElsewhere()) {
+            // this chat is not the one running: show the message here and do not cancel the other chat
+            if (!interpreted) {
+                noteUser(text);
+            }
+            if (chats != null && chats.current() != null) {
+                heldChat.add(new String[] { chats.current().id, text });
+            }
+            note("Sent. This chat answers when the other one finishes.");
+            return;
+        }
+        replacing = true;
         interruptReply();
+        replacing = false;
+        runChat = chats == null || chats.current() == null ? null : chats.current().id;
         // a new message ends reading an old reply aloud
         readAloudHelper.stop();
         fromBrain = interpreted;
@@ -3527,6 +3601,115 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return extra == null || extra.isEmpty() ? "" : "\n" + extra;
     }
 
+    /**
+     * A message sent while work is running. It is shown now. The running task reads it on its next step and keeps
+     * going. This does not cancel the model. If that task ends without reading it, {@link #releaseUnseenSteer} sends
+     * it as the next turn.
+     */
+    private void steerIntoTask(String text, boolean attached) {
+        String payload = text == null ? "" : text.trim();
+        if (attached && attachments != null && !attachments.isEmpty()) {
+            String forModel = attachments.forModel(payload);
+            showSentAttachments(payload);
+            attachments.clear();
+            payload = forModel == null ? payload : forModel;
+        } else if (!payload.isEmpty()) {
+            noteUser(payload);
+        }
+        if (payload == null || payload.trim().isEmpty()) {
+            return;
+        }
+        steer.add(payload.trim());
+        note("Sent \u2014 I'll read it and keep going");
+        handler.removeCallbacks(releaseUnseenSteer);
+        handler.postDelayed(releaseUnseenSteer, 500);
+    }
+
+    /**
+     * A message sent in a chat that was not the one running. When that run ends, and this chat is the one on screen,
+     * it is asked. The other chat was not cancelled to make room.
+     */
+    private final Runnable releaseHeld = new Runnable() {
+        @Override
+        public void run() {
+            if (isFinishing() || heldChat.isEmpty() || chats == null || chats.current() == null) {
+                return;
+            }
+            if (modelGoing()) {
+                handler.postDelayed(this, 400);
+                return;
+            }
+            String here = chats.current().id;
+            String[] match = null;
+            for (String[] h : heldChat) {
+                if (here.equals(h[0])) {
+                    match = h;
+                    break;
+                }
+            }
+            if (match == null) {
+                return;
+            }
+            heldChat.remove(match);
+            answer(match[1], true);
+        }
+    };
+
+    /**
+     * A steered message the task never read (it finished, or it was never a multi-step run). It goes out as its own
+     * turn. While work is still going this waits, so it is not delivered twice and the task is not cancelled to send it.
+     */
+    private final Runnable releaseUnseenSteer = new Runnable() {
+        @Override
+        public void run() {
+            if (isFinishing() || !steer.pending()) {
+                return;
+            }
+            if (busy()) {
+                handler.postDelayed(this, 500);
+                return;
+            }
+            String more = steer.drain();
+            if (more != null && !more.isEmpty()) {
+                answer(more, true); // already shown in the chat
+            }
+        }
+    };
+
+    /** The end of a long reply, so a continuation can see what was already said without the whole thing. */
+    private static String tail(String s, int most) {
+        if (s == null || s.isEmpty()) {
+            return "";
+        }
+        return s.length() <= most ? s : s.substring(s.length() - most);
+    }
+
+    /**
+     * The current model call has returned. Anything the user sent during it is read now, and the model continues
+     * the same answer. The call that just finished is not cancelled, and neither is this one, unless the user stops.
+     */
+    private String foldSteer(int id, String system, String question, String context, int length, String soFar,
+            ai.dvine.llm.NativeLlm.Sink sink) {
+        String raw = soFar;
+        for (int extra = 0; extra < 4 && id == askId && steer.pending(); extra++) {
+            String more = steer.drain();
+            if (more == null || more.isEmpty()) {
+                break;
+            }
+            activity("Reading what you just sent");
+            String continued = model == null ? null : model.reply(system, more,
+                    (context == null ? "" : context + "\n")
+                            + "You were already working on: " + tail(question, 400)
+                            + "\nThe user sent this while you worked. Read it and continue the same"
+                            + " answer. Do not start over and do not stop.\n\nYour answer so far:\n" + tail(raw, 4000),
+                    length, sink);
+            if (continued != null && !continued.trim().isEmpty()) {
+                raw = (raw == null || raw.trim().isEmpty() ? "" : raw.trim() + "\n\n") + continued.trim();
+            }
+        }
+        return raw;
+    }
+
     private void noteUser(String text) {
         if (chats == null || chatPane == null || text == null) {
             return;
@@ -3678,7 +3861,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             backupPartial(ai.dvine.llm.ActionTags.strip(soFar)); // a crash doesn't lose what was written
                         }
                     });
-            final String raw = model.reply(system, english, context, length, text -> {
+            final ai.dvine.llm.NativeLlm.Sink sink = text -> {
                 if (!modelPiece(id, text)) {
                     return false;
                 }
@@ -3689,7 +3872,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                 }
                 return id == askId;
-            });
+            };
+            String raw = model.reply(system, english, context, length, sink);
+            raw = foldSteer(id, system, english, context, length, raw, sink);
             tags.flush();
             String back = null;
             if (lang != null && raw != null && id == askId) {
