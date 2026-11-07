@@ -1,6 +1,7 @@
 package ai.dvine.net;
 
 import android.content.SharedPreferences;
+import android.os.SystemClock;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +27,8 @@ public final class SessionClient {
     private final DeviceVault vault;
     private String token;
     private long expiresAt;
+    /** Elapsed-realtime deadline. Wall-clock jumps do not stretch or kill a token early. */
+    private long freshUntilElapsed;
 
     public SessionClient(Supplier<String> base, SharedPreferences prefs, DeviceVault vault) {
         this.base = base;
@@ -35,8 +38,7 @@ public final class SessionClient {
 
     /** A valid session token, or null when the server can't be reached. */
     public synchronized String token() {
-        long now = System.currentTimeMillis();
-        if (token != null && expiresAt - now > 5 * 60_000L) {
+        if (token != null && SystemClock.elapsedRealtime() < freshUntilElapsed) {
             return token;
         }
         String root = root();
@@ -65,6 +67,11 @@ public final class SessionClient {
             Map<String, Object> body = MiniJson.obj(MiniJson.parse(r.body));
             token = MiniJson.str(body.get("token"), null);
             expiresAt = parseInstant(MiniJson.str(body.get("expiresAt"), ""));
+            long ttl = expiresAt - System.currentTimeMillis();
+            if (ttl < 60_000L) {
+                ttl = 60 * 60_000L; // a missing or already-past expiry: one hour, then sign in again
+            }
+            freshUntilElapsed = freshUntil(SystemClock.elapsedRealtime(), ttl);
             return token;
         } catch (IOException | IllegalArgumentException | IllegalStateException e) {
             return null;
@@ -75,6 +82,20 @@ public final class SessionClient {
     public synchronized void invalidate() {
         token = null;
         expiresAt = 0L;
+        freshUntilElapsed = 0L;
+    }
+
+    /**
+     * When a token issued at {@code elapsedNow} with {@code ttlMs} left should be renewed: five minutes
+     * before it ends, measured on the monotonic clock so a changed phone clock does not reuse a dead token
+     * or throw a live one away.
+     */
+    static long freshUntil(long elapsedNow, long ttlMs) {
+        long margin = 5 * 60_000L;
+        if (ttlMs <= margin) {
+            return elapsedNow;
+        }
+        return elapsedNow + ttlMs - margin;
     }
 
     /** The https server root, or null when no secure server is set. */

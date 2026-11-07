@@ -77,7 +77,7 @@ public final class Tuning {
     }
 
     public static final Knob CHAT_TOKENS = new Knob("adv_chat_tokens", "Everyday reply length, tokens",
-            "How long an ordinary answer may be (API models get at least 1,024).", 160, 64, 8000);
+            "How long an ordinary answer may be. A reasoning model still keeps a little room to think first.", 160, 64, 8000);
     public static final Knob BIG_TOKENS = new Knob("adv_big_tokens", "Long reply length, tokens",
             "For real work: writing, research, analysis.", 1500, 256, 32000);
     public static final Knob AGENT_STEPS = new Knob("adv_agent_steps", "Agent steps per task",

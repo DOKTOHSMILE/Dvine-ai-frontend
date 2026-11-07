@@ -2250,7 +2250,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 });
             }
             final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,
-                    model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
+                    model.window() * 3 > 24_000 ? 24_000 : model.window() * 3)
                     .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
                     .steps(rounds ? Math.min(pace.roundSteps, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
                     .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> {
@@ -2300,7 +2300,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                 String helper = ai.dvine.agent.AgentBoard.start(who + " \u00B7 mini agent", part);
                                 try {
                                     ai.dvine.agent.CodeAgent mini = workers > 1 ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
-                                            model.window() * 3 > 48_000 ? 48_000 : model.window() * 3)
+                                            model.window() * 3 > 24_000 ? 24_000 : model.window() * 3)
                                             .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
                                             .steps(Math.min(pace.roundSteps, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)))
                                             .as(who, readOnly).keepGoing(rounds) : make.get();
@@ -3994,7 +3994,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 windows.add(providers.window(p));
             }
         }
-        model.useRemotes(brains, fasts, names, windows, () -> connectivity == null || connectivity.isOnline());
+        model.useRemotes(brains, fasts, names, windows, () -> connectivity != null && connectivity.isOnline());
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
             String face = stage.agent();
@@ -5115,6 +5115,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onStop() {
         inFront = false;
+        if (model != null && hub != null && hub.worker != null && !model.working()) {
+            final ai.dvine.llm.LocalModel leaving = model;
+            hub.worker.execute(leaving::releaseIfIdle); // the cache is not kept while the app is off screen
+        }
         if (thinkPace == null) {
             connectivity.stop();
         }

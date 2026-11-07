@@ -268,11 +268,11 @@ public final class LocalModel {
         // longer for a big one) holds the lock; the change is applied by the next load(), which frees and reloads
         int t = Math.max(LOCAL_WINDOW, tokens);
         if (t == contextTokens) {
-            return false;
+            return false; // a smaller cache than this ceiling is on purpose; a long question grows it
         }
         contextTokens = t;
         advisedFor = null;
-        return handle != 0 && askedAtLoad != t;
+        return handle != 0;
     }
 
     /** The memory asked for when the loaded model was loaded (it may have settled for less), and its threads. */
@@ -340,17 +340,25 @@ public final class LocalModel {
         return r;
     }
 
-    /** Loads the installed model into memory (blocking, a few seconds). */
+    /** Loads the installed model into memory (blocking, a few seconds). A short cache is loaded; a long question grows it. */
     public synchronized boolean load(int threads) {
-        if (state == State.READY && askedAtLoad == contextTokens && loadedThreads == threads) {
+        int light = PromptFit.localContext(0, contextTokens);
+        if (state == State.READY && handle != 0 && loadedThreads == threads && loadedContext == light) {
+            return true;
+        }
+        return loadSized(threads, light);
+    }
+
+    /** Loads {@code tokens} of cache, never above the user's ceiling and never below {@link #LOCAL_WINDOW}. */
+    private synchronized boolean loadSized(int threads, int tokens) {
+        int want = Math.max(LOCAL_WINDOW, Math.min(contextTokens, tokens));
+        if (state == State.READY && handle != 0 && loadedThreads == threads && loadedContext == want) {
             return true;
         }
         if (handle != 0) {
-            // loaded with another memory size: freed, and loaded again below with the one asked for now
             NativeLlm.nFree(handle);
             handle = 0;
             loadedContext = 0;
-            history.clear();
             state = State.INSTALLED;
         }
         if (!installed()) {
@@ -363,13 +371,11 @@ public final class LocalModel {
             return false;
         }
         state = State.LOADING;
-        int want = contextTokens;
-        askedAtLoad = want;
+        askedAtLoad = contextTokens;
         loadedThreads = threads;
         raisePriority();
         handle = NativeLlm.nLoad(file.getPath(), want, threads);
         if (handle == 0 && want > LOCAL_WINDOW) {
-            // not enough memory for that much: the smallest working memory still runs, and the user is told
             handle = NativeLlm.nLoad(file.getPath(), LOCAL_WINDOW, threads);
             if (handle != 0) {
                 memoryNote = "There wasn't enough free memory for " + String.format(java.util.Locale.US, "%,d", want) + " tokens, so "
@@ -386,6 +392,31 @@ public final class LocalModel {
         }
         state = State.READY;
         return true;
+    }
+
+    /**
+     * Frees the on-device weights when nothing is being written. The file stays on the phone and is loaded again
+     * for the next question. Called when the app leaves the screen, so an idle chat does not keep the cache.
+     */
+    public void releaseIfIdle() {
+        if (inCall) {
+            return;
+        }
+        synchronized (this) {
+            if (inCall || state == State.LOADING) {
+                return;
+            }
+            if (handle == 0) {
+                return;
+            }
+            NativeLlm.nCancel(handle);
+            NativeLlm.nFree(handle);
+            handle = 0;
+            loadedContext = 0;
+            if (state == State.READY) {
+                state = State.INSTALLED;
+            }
+        }
     }
 
     /**
@@ -435,7 +466,7 @@ public final class LocalModel {
             // quietly take over (problem says why the API didn't answer)
             return null;
         }
-        if (!ensureLocal()) {
+        if (!ensureFitted(system, asked)) {
             return null;
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
@@ -535,7 +566,7 @@ public final class LocalModel {
             // the device's own model never takes over behind the user's back
             return answer == null ? null : answer.trim();
         }
-        if (!ensureLocal()) {
+        if (!ensureFitted(system, prompt)) {
             return null;
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
@@ -634,15 +665,23 @@ public final class LocalModel {
         }
     }
 
-    /** Loads the phone's model if an API reply had set it aside. */
-    private boolean ensureLocal() {
-        if (state == State.READY && handle != 0) {
+    /**
+     * Loads the phone's model if it is not loaded, and at a cache size that fits this text. A short question does
+     * not keep an 8,192-token cache. A long one grows, up to the user's ceiling.
+     */
+    private boolean ensureFitted(String system, String text) {
+        int chars = (system == null ? 0 : system.length()) + (text == null ? 0 : text.length());
+        for (String[] t : history) {
+            chars += t[1] == null ? 0 : t[1].length();
+        }
+        int want = PromptFit.localContext(chars, contextTokens);
+        if (state == State.READY && handle != 0 && loadedContext >= want && loadedContext <= want * 2L) {
             return true;
         }
-        if (!installed()) {
+        if (!installed() && handle == 0) {
             return false;
         }
-        return load(loadedThreads > 0 ? loadedThreads : 4);
+        return loadSized(loadedThreads > 0 ? loadedThreads : 4, want);
     }
 
     /**
@@ -694,7 +733,8 @@ public final class LocalModel {
             final Slot sl = (Slot) attempt[0];
             final RemoteBrain r = (RemoteBrain) attempt[1];
             current = r;
-            final List<String[]> fitted = PromptFit.remoteTurns(turns, sl.window, maxTokens);
+            final boolean brief = tier == TaskSize.Tier.FAST;
+            final List<String[]> fitted = PromptFit.remoteTurns(turns, sl.window, maxTokens, brief);
             // no "Asking <provider>" step: it repeated between every real step (the model shows in the header)
             final int ticket = epoch.get();
             final int[] pieces = {0};
@@ -866,7 +906,7 @@ public final class LocalModel {
         // an image is sent once, with its question; the remembered conversation keeps "[an image]"
         history.add(new String[]{"user", ai.dvine.chat.Attachments.forMemory(question)});
         // the phone's small model keeps a short memory; an API model keeps the whole reply (a report stays a report)
-        history.add(new String[]{"assistant", remoteOn() ? clip(answer, 24_000) : clipMemory(answer)});
+        history.add(new String[]{"assistant", remoteOn() ? fit(answer, 4_000) : clipMemory(answer)});
         while (history.size() > HISTORY_TURNS * 2) {
             history.remove(0);
         }

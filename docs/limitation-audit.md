@@ -1,4 +1,21 @@
-# Limitation audit (0.94.0)
+# Limitation audit
+
+## 0.95.0 — RAM offline, tokens online
+
+Read in the source and changed. Security limits (sandbox, confirmations, key storage) stay.
+
+| Limit | Where | What was wrong | What 0.95.0 does |
+|---|---|---|---|
+| Every API call reserved at least 1,024 output tokens, and a short reasoning call reserved 8,000 | `RemoteBrain.body` | A one-line order ("hi", 48 tokens) was allowed to spend a long answer. A user cap of 4,000 on a reasoning model was raised to 12,000. | A plain model gets the allowance it was asked for. A short reasoning call keeps 2,048 tokens of room to think, not 8,000. A cap set in Settings is never raised. A one-line order that fills its cap is not sent again. |
+| Simple questions resent 12,000 characters of old chat | `PromptFit.remoteTurns` | A 128k window was trimmed, but a greeting still paid for the long history. | Fast-tier calls keep 4,000 characters of older turns. The latest turn is still sent whole. Real work keeps 12,000. |
+| Agent steps resent up to 48,000 characters | `MainActivity` work budget | A large API window billed about 12,000 tokens of the work log on every tool step. | Capped at 24,000 characters. Small windows are unchanged (`window × 3`). |
+| Unknown network counted as online | `MainActivity.applyProvider` | `connectivity == null` tried every API, failed, then fell back. That spends tokens and time. | Unknown is offline. The on-device model answers. A real validated network still uses the API. |
+| Session token used the wall clock | `SessionClient` | Moving the phone clock kept a dead token or dropped a live one until the next 401. | Expiry is five minutes early on `elapsedRealtime`. |
+| On-device weights stayed resident | `dvine_llm.cpp`, `DvineApp` | The loader could mlock the GGUF. A 512-wide compute batch was allocated even for a 2,048-token window. 4,096 tokens of cache stayed 16-bit. A low-memory warning did not unload an idle model. | Weights are mmap, not locked. Batch is 128 / 256 / 512 with the window. KV cache is 8-bit from 4,096 tokens up (16-bit if that fails). Android `onTrimMemory` frees an idle model. A GGUF with no chat template still answers (ChatML). |
+
+Not changed, on purpose: the sandbox, confirm before shell / push / pull request, the stop button, prompt fitting when the model says the input is too long, and Android's refusal to keep a background process forever.
+
+## 0.94.0
 
 Each limit below was read in the source and classed. Only class A items that were safe to widen were changed. Security and Android limits stay.
 

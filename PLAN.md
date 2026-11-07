@@ -1,3 +1,13 @@
+# RAM and tokens (0.95.0)
+
+- [x] Offline: mmap without mlock, smaller prefill batch for a small window, 8-bit KV cache from 4,096 tokens (was only above 4,096), unload an idle model when Android asks for memory.
+- [x] A GGUF with no chat template still gets a ChatML prompt instead of failing closed.
+- [x] Online: plain calls are not padded to 1,024 output tokens. A short reasoning call reserves 2,048, not 8,000. A user cap is not multiplied. A one-line order that hits its cap is not continued.
+- [x] Fast questions keep 4,000 characters of older chat, not 12,000. Agent work sent back each step is capped at 24,000 characters, not 48,000.
+- [x] A missing connectivity object is offline, so the app does not spend a round of API calls that cannot connect.
+- [x] Session tokens renew on the monotonic clock, five minutes early.
+- [ ] The new native batch and KV settings are not timed on a phone in this pass. The 16-bit path is still the fallback if 8-bit context will not start.
+
 # Deep analysis & multi-worker mini agents task tracking
 
 ## Completed Audit & Fixes History

@@ -54,11 +54,13 @@ private:
     void drop_slot(int slot);
     std::vector<int> tokenize(const std::string & text, bool add_special);
     std::string format(const std::string & system, const std::vector<Turn> & turns, bool add_assistant);
+    std::string chatml(const std::string & system, const std::vector<Turn> & turns, bool add_assistant);
 
     llama_model * model_ = nullptr;
     llama_context * ctx_ = nullptr;
     llama_sampler * sampler_ = nullptr;
     llama_batch_ext * batch_ = nullptr;
+    int batch_tokens_ = 512; // prefill chunk; kept at or under the context's n_batch so the graph stays small
     float sampler_temp_ = -1.f;
     // The model's memory holds up to SLOTS conversations side by side (each a sequence): the tokens in each (its
     // prompt and the reply written), kept between replies so a prompt that starts the same way is not read again.

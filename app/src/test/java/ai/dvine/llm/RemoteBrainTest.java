@@ -60,8 +60,8 @@ public class RemoteBrainTest {
         assertEquals("Bearer sk-test", f.headers.get(0).get("Authorization"));
         Map<String, Object> req = MiniJson.obj(MiniJson.parse(f.bodies.get(0)));
         assertEquals("openai/gpt-5-mini", req.get("model"));
-        // a reasoning model: room for its hidden thinking on the first request, so it never comes back empty
-        assertEquals(8000.0, MiniJson.num(req.get("max_completion_tokens"), 0), 0);
+        // a reasoning model, short question: room to think, but not an 8,000-token reservation
+        assertEquals(2048.0, MiniJson.num(req.get("max_completion_tokens"), 0), 0);
         assertFalse(f.bodies.get(0).contains("temperature"));
         assertFalse(f.bodies.get(0).contains("no_think"));
         assertEquals(31, b.used().promptTokens);
@@ -461,9 +461,23 @@ public class RemoteBrainTest {
             return new RemoteBrain.Response(200, new ByteArrayInputStream(parts[Math.min(calls[0]++, 1)].getBytes(StandardCharsets.UTF_8)));
         };
         RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://brewkeg.dev/v1", "gpt-4.1", "k", "", t);
-        assertEquals("The audit found three problems, all fixed.", b.chat("s", ask("audit"), 48, 0.7f, null));
+        assertEquals("The audit found three problems, all fixed.", b.chat("s", ask("audit"), 1500, 0.7f, null));
         assertEquals(2, calls[0]); // stopped by itself the second time: no third request
-        assertTrue(sent.get(1), sent.get(1).contains("The audit found three ") && sent.get(1).contains("Continue exactly where you stopped"));
+        assertTrue(sent.get(1), sent.get(1).contains("The audit found three ") && sent.get(1).contains("hit its length limit"));
+    }
+
+    @Test
+    public void aOneLineOrderThatFillsItsCapIsNotAskedAgain() {
+        final int[] calls = {0};
+        RemoteBrain.Transport t = (url, h, body, timeoutMs) -> {
+            calls[0]++;
+            String stream = "data: {\"choices\":[{\"delta\":{\"content\":\"Hi.\"}}]}\n"
+                    + "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\ndata: [DONE]\n";
+            return new RemoteBrain.Response(200, new ByteArrayInputStream(stream.getBytes(StandardCharsets.UTF_8)));
+        };
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-4.1-mini", "k", "", t);
+        assertEquals("Hi.", b.chat("s", ask("hi"), 48, 0.7f, null));
+        assertEquals(1, calls[0]);
     }
 
     @Test
@@ -479,7 +493,7 @@ public class RemoteBrainTest {
         RemoteBrain.Transport t = (url, h, body, timeoutMs) ->
                 new RemoteBrain.Response(200, new ByteArrayInputStream(parts[Math.min(calls[0]++, 1)].getBytes(StandardCharsets.UTF_8)));
         RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-sonnet-5-5", "k", "", t);
-        assertEquals("Part one, part two.", b.chat("s", ask("write"), 48, 0.7f, null));
+        assertEquals("Part one, part two.", b.chat("s", ask("write"), 1500, 0.7f, null));
         assertEquals(2, calls[0]);
     }
 }

@@ -295,7 +295,7 @@ public final class RemoteBrain {
         String out = chatRetrying(system, turns, maxTokens, temperature, sink);
         // the model was cut off by its allowance, not finished: it writes on from where it stopped, until it ends
         // by itself (the server's own stop reason says which), and the pieces are one reply
-        for (int more = 0; out != null && cutOff && more < MAX_CONTINUATIONS && !cancelled; more++) {
+        for (int more = 0; out != null && cutOff && more < MAX_CONTINUATIONS && !cancelled && maxTokens > 256; more++) {
             List<String[]> next = new ArrayList<String[]>(turns);
             next.add(new String[]{"assistant", out});
             next.add(new String[]{"user", CONTINUE});
@@ -444,16 +444,18 @@ public final class RemoteBrain {
     }
 
     /**
-     * The request. The brain asks for short answers (a one-line order is 48 tokens), but a thinking model spends
-     * part of its allowance before it writes, so a remote call never gets fewer than 1024; a short call asks for
-     * little effort. OpenAI forms: 0 with the usage report, 1 without it, 2 as the newer OpenAI reasoning models
-     * want (max_completion_tokens, no temperature). Anthropic forms: 0 with the refusal fallback and the effort, 1 plain (for models that take neither).
+     * The request. A one-line order stays a one-line allowance. A thinking model still gets room to think
+     * before it writes, but a short question does not reserve 8,000 completion tokens, and a cap the user
+     * set is never raised. OpenAI forms: 0 with the usage report, 1 without it, 2 as the newer OpenAI
+     * reasoning models want (max_completion_tokens, no temperature). Anthropic forms: 0 with the refusal
+     * fallback and the effort, 1 plain (for models that take neither).
      */
     byte[] body(String system, List<String[]> turns, int maxTokens, float temperature, int form) {
         Map<String, Object> req = new LinkedHashMap<String, Object>();
         req.put("model", model);
         String sys = system == null ? "" : system.replace("/no_think", "").trim();
-        int allowance = maxOutput > 0 ? maxOutput : Math.max(1024, maxTokens);
+        boolean thinking = reasoning();
+        int allowance = PromptFit.outputTokens(maxTokens, thinking, maxOutput);
         boolean small = maxTokens <= 256;
         List<Object> messages = new ArrayList<Object>();
         if (protocol == Protocol.ANTHROPIC) {
@@ -492,11 +494,8 @@ public final class RemoteBrain {
             req.put("stream", Boolean.TRUE);
             if (form == 2) {
                 // a reasoning model's hidden thinking counts against this limit: without room for it, the visible
-                // answer comes back empty ("the model didn't answer")
-                int completion = allowance;
-                if (reasoning()) {
-                    completion = Math.min(32_000, Math.max(8_000, allowance * 3));
-                }
+                // answer comes back empty ("the model didn't answer"). The user's own cap is not multiplied.
+                int completion = PromptFit.completionTokens(maxTokens, thinking, maxOutput);
                 req.put("max_completion_tokens", (double) completion);
                 if (small || reasoning()) {
                     req.put("reasoning_effort", small || allowance <= 4_000 ? "low" : "medium");
@@ -568,12 +567,14 @@ public final class RemoteBrain {
         String words = ai.dvine.chat.Attachments.FILE.matcher(ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll("")).replaceAll("").trim();
         for (ai.dvine.chat.Attachments.Doc d : docs) {
             java.io.File f = new java.io.File(d.path);
+            Map<String, Object> part = takesFiles() && f.isFile() && f.length() <= 20L * 1024 * 1024 ? nativeFile(d, f) : null;
             String inside = sidecar(d);
             if (inside != null) {
-                String clip = inside.length() > 12_000 ? inside.substring(0, 12_000) + "\n…(the file goes on)" : inside;
+                // the file itself is already attached when part is set, so only a short extract goes with it
+                int cap = part != null ? 1_500 : 8_000;
+                String clip = inside.length() > cap ? inside.substring(0, cap) + "\n…(the rest of the file was not sent)" : inside;
                 words += "\n\n" + ai.dvine.chat.Attachments.text(d.name, clip);
             }
-            Map<String, Object> part = takesFiles() && f.isFile() && f.length() <= 20L * 1024 * 1024 ? nativeFile(d, f) : null;
             if (part != null) {
                 parts.add(part);
                 continue;

@@ -26,24 +26,35 @@ bool Engine::load(const std::string & path, int n_ctx, int n_threads) {
     }
     llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = 0; // CPU only: works on every phone
+    // Map the file. Do not mlock it: locking pins the whole GGUF in RAM even between replies.
+    mp.load_mode = LLAMA_LOAD_MODE_MMAP;
     model_ = llama_model_load_from_file(path.c_str(), mp);
     if (!model_) {
         error_ = "the model file could not be read";
         return false;
     }
+    // A short window does not need a 512-wide compute graph. The graph is the other big allocation
+    // beside the KV cache, and a greeting only reads a few dozen tokens at a time.
+    int batch = n_ctx <= 2048 ? 128 : n_ctx <= 4096 ? 256 : 512;
+    if (batch > n_ctx) batch = n_ctx;
+    if (batch < 32) batch = 32;
+    batch_tokens_ = batch;
     llama_context_params cp = llama_context_default_params();
     cp.n_ctx = n_ctx;
-    cp.n_batch = 512;
-    cp.n_ubatch = 512;
+    cp.n_batch = batch;
+    cp.n_ubatch = batch;
     cp.n_threads = n_threads;
     cp.n_threads_batch = n_threads;
     cp.no_perf = true; // no timing records: nothing reads them
     cp.n_seq_max = SLOTS; // several conversations kept side by side (see SLOTS)
     cp.kv_unified = true; // sharing one memory of n_ctx cells: no more memory than one
-    // A large memory (over 4,096 tokens) is kept 8-bit with flash attention: half the size (about 470 MB less for
-    // a 1.7B model at 8,192 tokens), so it fits on more phones. A smaller one stays 16-bit, which writes faster
-    // (measured: 15 against 13 tokens a second). If the 8-bit memory can't be made, the 16-bit one is used.
-    if (n_ctx > 4096) {
+    cp.offload_kqv = false; // no GPU: don't reserve a device copy of the cache
+    cp.op_offload = false;
+    // From 4,096 tokens up the cache is 8-bit with flash attention: about half the size of 16-bit
+    // (a 1.7B model at 8,192 tokens saves roughly 470 MB). 4,096 itself used to stay 16-bit, which
+    // is the size Settings offers as "less memory". A smaller window stays 16-bit: it writes faster
+    // (measured: 15 against 13 tokens a second). If the 8-bit memory can't be made, 16-bit is used.
+    if (n_ctx >= 4096) {
         cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
         cp.type_k = GGML_TYPE_Q8_0;
         cp.type_v = GGML_TYPE_Q8_0;
@@ -80,24 +91,42 @@ std::vector<int> Engine::tokenize(const std::string & text, bool add_special) {
 }
 
 std::string Engine::format(const std::string & system, const std::vector<Turn> & turns, bool add_assistant) {
+    std::string plain = chatml(system, turns, add_assistant);
+    const char * tmpl = model_ ? llama_model_chat_template(model_, nullptr) : nullptr;
+    if (tmpl == nullptr || tmpl[0] == '\0') {
+        return plain; // a GGUF with no template still answers (ChatML). Known families keep their own template.
+    }
     std::vector<llama_chat_message> msgs;
     msgs.push_back({"system", system.c_str()});
     for (const Turn & t : turns) {
         msgs.push_back({t.role.c_str(), t.text.c_str()});
     }
-    const char * tmpl = llama_model_chat_template(model_, nullptr);
     std::vector<char> buf(4096);
     int n = llama_chat_apply_template(tmpl, msgs.data(), msgs.size(), add_assistant, buf.data(), (int32_t) buf.size());
     if (n > (int) buf.size()) {
         buf.resize(n);
         n = llama_chat_apply_template(tmpl, msgs.data(), msgs.size(), add_assistant, buf.data(), (int32_t) buf.size());
     }
-    return n < 0 ? std::string() : std::string(buf.data(), n);
+    return n < 0 ? plain : std::string(buf.data(), n);
+}
+
+// A model file with no chat template (or one llama.cpp refuses) still has to be asked something.
+// ChatML is what Qwen and many other GGUF files already use; a file that has its own template never gets here.
+std::string Engine::chatml(const std::string & system, const std::vector<Turn> & turns, bool add_assistant) {
+    std::string out = "<|im_start|>system\n" + system + "<|im_end|>\n";
+    for (const Turn & t : turns) {
+        std::string role = t.role == "assistant" ? "assistant" : "user";
+        out += "<|im_start|>" + role + "\n" + t.text + "<|im_end|>\n";
+    }
+    if (add_assistant) {
+        out += "<|im_start|>assistant\n";
+    }
+    return out;
 }
 
 // Feeds tokens at positions pos0.. in chunks of the batch size; logits only for the last one.
 bool Engine::decode(const std::vector<int> & tokens, int pos0, int seq) {
-    const int chunk = 512;
+    const int chunk = batch_tokens_ > 0 ? batch_tokens_ : 128;
     for (size_t i = 0; i < tokens.size() && !stop_; i += chunk) {
         size_t end = std::min(tokens.size(), i + chunk);
         llama_batch_ext_clear(batch_);

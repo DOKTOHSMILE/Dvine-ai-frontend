@@ -26,4 +26,22 @@ public final class DvineApp extends Application {
         t.setDaemon(true);
         t.start();
     }
+
+    /**
+     * Android is short of memory. Drop the on-device weights if nothing is being written. The file stays
+     * on the device and is loaded again for the next offline question. An API reply already parks them.
+     */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level < TRIM_MEMORY_RUNNING_LOW) {
+            return;
+        }
+        try {
+            ai.dvine.llm.ModelHub hub = ai.dvine.llm.ModelHub.get(this);
+            hub.worker.execute(hub.model::releaseIfIdle);
+        } catch (RuntimeException ignored) {
+            // a trim must never take the app down
+        }
+    }
 }
