@@ -116,3 +116,10 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] `search` walks each file a line at a time instead of loading it whole.
 - [x] `search` with `query="name:File.java"` finds a file by name and does not open its contents.
 - [x] Zip extraction already refuses entries that would write outside the folder. That was left as it is.
+
+
+# Git calls that finish only when GitHub says so (0.94.6)
+
+- [x] Clone, pull and push write a record before they talk to GitHub. The record becomes finished only when the call returns. If the app stops in the middle, git status says the call was never confirmed and is not done.
+- [x] A failed push is recorded as failed, not as pushed. The chat says "Pushing" before the call and does not say "Committed and pushed" until the tool result comes back.
+- [x] git diff shows the changed lines. git log shows recent commits. git branches lists the branch names. None of these download the repository again.

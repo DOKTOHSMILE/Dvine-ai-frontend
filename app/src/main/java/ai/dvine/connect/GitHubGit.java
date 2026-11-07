@@ -127,10 +127,22 @@ public final class GitHubGit {
         r.head = head;
         r.tree = treeOf(repo, head);
         dir.mkdirs();
+        GitOp.open(dir, "clone of " + repo);
+        try {
+            String done = cloneInto(repo, branch, dir, r);
+            GitOp.close(dir, "FINISHED", done);
+            return done;
+        } catch (IOException | RuntimeException e) {
+            GitOp.close(dir, "FAILED", e.getMessage());
+            throw e;
+        }
+    }
+
+    private String cloneInto(String repo, String branch, File dir, Record r) throws IOException {
         if (zips != null) {
             File zip = new File(dir.getParentFile(), "." + dir.getName() + ".zip");
             try {
-                if (zips.download(API + "/repos/" + repo + "/zipball/" + head, headers(), zip)) {
+                if (zips.download(API + "/repos/" + repo + "/zipball/" + r.head, headers(), zip)) {
                     int n = unzip(zip, dir, r);
                     r.write(dir);
                     return "Cloned " + repo + " (" + branch + ", " + n + " files) into " + dir.getName()
@@ -161,17 +173,114 @@ public final class GitHubGit {
 
     /** What changed in the folder since the clone or the last pull or push. */
     public String status(File dir) throws IOException {
+        String warn = GitOp.pending(dir);
         Record r = Record.read(dir);
         Changes c = changes(dir, r);
-        if (c.isEmpty()) {
-            return "On " + r.branch + " of " + r.repo + ": nothing changed.";
+        String body = c.isEmpty()
+                ? "On " + r.branch + " of " + r.repo + ": nothing changed."
+                : "On " + r.branch + " of " + r.repo + ":\n" + c.describe();
+        return warn == null ? body : warn + "\n" + body;
+    }
+
+    /** The changed lines, capped, so a push can be checked before it is sent. */
+    public static String diffText(File dir) {
+        List<FileDiff> diffs = diff(dir);
+        if (diffs.isEmpty()) {
+            return "No line changes.";
         }
-        return "On " + r.branch + " of " + r.repo + ":\n" + c.describe();
+        StringBuilder out = new StringBuilder();
+        int shown = 0;
+        for (FileDiff f : diffs) {
+            if (shown >= 20) {
+                out.append("…and ").append(diffs.size() - 20).append(" more files\n");
+                break;
+            }
+            shown++;
+            out.append(f.kind).append(" ").append(f.path);
+            if (f.diff != null) {
+                out.append(" (+").append(f.diff.added).append(" -").append(f.diff.removed).append(")");
+            }
+            out.append("\n");
+            int lines = 0;
+            if (f.diff != null && f.diff.lines != null) {
+                for (String line : f.diff.lines) {
+                    if (lines++ >= 30) {
+                        out.append("  …\n");
+                        break;
+                    }
+                    out.append(line).append("\n");
+                }
+            }
+        }
+        return out.toString().trim();
+    }
+
+    /** Recent commits on the folder's branch. This does not download the files. */
+    public String log(File dir) throws IOException {
+        Record r = Record.read(dir);
+        Connectors.Reply reply = check(http.send("GET",
+                API + "/repos/" + r.repo + "/commits?sha=" + r.branch + "&per_page=15", headers(), null));
+        List<Object> list = MiniJson.list(MiniJson.parse(reply.body));
+        if (list.isEmpty()) {
+            return "No commits on " + r.branch + ".";
+        }
+        StringBuilder out = new StringBuilder("Recent commits on " + r.branch + " of " + r.repo + ":");
+        int n = 0;
+        for (Object o : list) {
+            if (n++ >= 15) {
+                break;
+            }
+            Map<String, Object> c = MiniJson.obj(o);
+            String sha = MiniJson.str(c.get("sha"), "");
+            String msg = MiniJson.str(MiniJson.obj(c.get("commit")).get("message"), "");
+            String first = msg.split("\n", 2)[0].trim();
+            if (first.length() > 120) {
+                first = first.substring(0, 120);
+            }
+            out.append("\n").append(sha.length() > 7 ? sha.substring(0, 7) : sha).append(" ").append(first);
+        }
+        return out.toString();
+    }
+
+    /** Branch names in the repository. The folder's current branch is marked. */
+    public String branches(File dir) throws IOException {
+        Record r = Record.read(dir);
+        Connectors.Reply reply = check(http.send("GET",
+                API + "/repos/" + r.repo + "/branches?per_page=100", headers(), null));
+        List<Object> list = MiniJson.list(MiniJson.parse(reply.body));
+        if (list.isEmpty()) {
+            return "No branches listed for " + r.repo + ".";
+        }
+        StringBuilder out = new StringBuilder("Branches in " + r.repo + ":");
+        int n = 0;
+        for (Object o : list) {
+            if (n++ >= 100) {
+                break;
+            }
+            String name = MiniJson.str(MiniJson.obj(o).get("name"), "");
+            if (name.isEmpty()) {
+                continue;
+            }
+            out.append("\n").append(name.equals(r.branch) ? "* " : "  ").append(name);
+        }
+        return out.toString();
     }
 
     /** Brings in the branch's newer commit; files the user changed are kept and listed (the other side is saved as "name.theirs"). */
     public String pull(File dir) throws IOException {
         Record r = Record.read(dir);
+        GitOp.open(dir, "pull of " + r.branch);
+        try {
+            String done = pullInto(dir, r);
+            GitOp.close(dir, "FINISHED", done);
+            return done;
+        } catch (IOException | RuntimeException e) {
+            GitOp.close(dir, "FAILED", e.getMessage());
+            throw e;
+        }
+    }
+
+    private String pullInto(File dir, Record r) throws IOException {
         String head = headOf(r.repo, r.branch);
         if (head == null) {
             throw new IOException("the branch " + r.branch + " is gone from " + r.repo);
@@ -250,6 +359,18 @@ public final class GitHubGit {
             }
         }
         String branch = toBranch == null || toBranch.trim().isEmpty() ? r.branch : toBranch.trim();
+        GitOp.open(dir, "push to " + branch);
+        try {
+            String done = pushOnto(dir, r, c, message, branch);
+            GitOp.close(dir, "FINISHED", done);
+            return done;
+        } catch (IOException | RuntimeException e) {
+            GitOp.close(dir, "FAILED", e.getMessage());
+            throw e;
+        }
+    }
+
+    private String pushOnto(File dir, Record r, Changes c, String message, String branch) throws IOException {
         String there = headOf(r.repo, branch);
         if (there != null && !there.equals(r.head)) {
             throw new IOException(branch.equals(r.branch) ? r.branch + " has newer commits on GitHub; pull first"
@@ -527,7 +648,8 @@ public final class GitHubGit {
             return;
         }
         for (File k : kids) {
-            if (k.getName().equals(RECORD) || k.getName().equals(".git")) {
+            if (k.getName().equals(RECORD) || k.getName().equals(".git") || k.getName().equals(GitOp.FILE)
+                    || k.getName().equals(GitOp.FILE + ".tmp")) {
                 continue;
             }
             if (k.isDirectory()) {

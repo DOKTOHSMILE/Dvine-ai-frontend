@@ -246,8 +246,8 @@ public final class CodeAgent {
                         + " Termux: change the project with write_file and edit_file. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
                 + (git == null || readOnly ? "" : "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
-                        + "<tool name=\"git\" action=\"status|pull\" path=\"folder\"/>\n"
-                        + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step)\n"
+                        + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
+                        + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step; a push that errors did not land)\n"
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
                 + (connectorTools.trim().isEmpty() ? "" : "<tool name=\"connector\" call=\"name argument\"/> with one of:" + connectorTools + "\n")
                 + NOTE_WAY // every model, the device's and an API's, explains its work the same way
@@ -296,7 +296,9 @@ public final class CodeAgent {
             + " conflicts, read each file and its .theirs copy, merge them into the file, delete the .theirs file, then push.\n"
             + "5. If a clone says the repository has too many files, tell the user the number and where to raise the limit"
             + " (Settings \u203A Advanced \u203A Most files in a clone); don't work around it.\n"
-            + "Never claim you pushed or opened a pull request unless the tool's result says so; quote the commit or the link.\n";
+            + "6. git diff shows the changed lines, git log the recent commits, git branches the branch names. None of these download the repository again.\n"
+            + "Never claim you pushed or opened a pull request unless the tool's result says so; quote the commit or the link."
+            + " A result that starts with Error means it did not happen.\n";
 
     /** Works on the task; the final answer for the user (without a "Ibiko:" label a small model copies from the chat). */
     public String run(String task, String earlier) {
@@ -1051,10 +1053,15 @@ public final class CodeAgent {
                 return git.clone(repo, c.a("branch"), inside(folder));
             }
             case "status":
-                host.step("Git status of " + show(c.a("path")));
-                return git.status(inside(folderOf(c)));
+                return stepped("Git status of " + show(c.a("path")), git.status(inside(folderOf(c))));
+            case "diff":
+                return stepped("Git diff of " + show(c.a("path")), ai.dvine.connect.GitHubGit.diffText(inside(folderOf(c))));
+            case "log":
+                return stepped("Git log of " + show(c.a("path")), git.log(inside(folderOf(c))));
+            case "branches":
+                return stepped("Branches of " + show(c.a("path")), git.branches(inside(folderOf(c))));
             case "pull":
-                host.step("Pulled " + show(c.a("path")));
+                host.step("Pulling " + show(c.a("path")));
                 return git.pull(inside(folderOf(c)));
             case "push": {
                 String to = c.a("branch").isEmpty() ? "" : " to " + c.a("branch");
@@ -1062,7 +1069,7 @@ public final class CodeAgent {
                     host.step("Not pushed");
                     return "The user didn't allow the push. Ask them in your final answer.";
                 }
-                host.step("Committed and pushed " + show(c.a("path")) + to);
+                host.step("Pushing " + show(c.a("path")) + to);
                 return git.push(inside(folderOf(c)), c.a("message"), c.a("branch"));
             }
             case "pr": {
@@ -1070,12 +1077,18 @@ public final class CodeAgent {
                     host.step("Pull request not opened");
                     return "The user didn't allow the pull request.";
                 }
-                host.step("Opened a pull request");
+                host.step("Opening a pull request");
                 return git.pullRequest(inside(folderOf(c)), c.a("title"), c.body.trim(), c.a("base"));
             }
             default:
-                return "Git actions: clone, status, pull, push, pr.";
+                return "Git actions: clone, status, diff, log, branches, pull, push, pr.";
         }
+    }
+
+    /** Shows the step only after the call has returned, so a failure is not announced as done. */
+    private String stepped(String doing, String result) {
+        host.step(doing);
+        return result;
     }
 
     private static String folderOf(Call c) {
