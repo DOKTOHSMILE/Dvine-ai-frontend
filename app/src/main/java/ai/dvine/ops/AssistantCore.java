@@ -38,6 +38,7 @@ public final class AssistantCore {
         TaskEventDispatcher events = new TaskEventDispatcher();
         this.tasks = new DvineTaskManager(repo, events);
         TermuxCommandEngine termux = new TermuxCommandEngine(new TermuxCapabilityDetector(termuxProbe), new TermuxExecutionService(runner));
+        termux.sessions(dir == null ? null : new File(dir, "termux-sessions"));
         SshConnectionManager ssh = new SshConnectionManager(transport, new SshHostKeyVerifier());
         VisualPerceptionEngine vision = new VisualPerceptionEngine(new PhoneFileAccessManager());
         InternetResearchEngine research = new InternetResearchEngine(web);

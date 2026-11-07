@@ -91,3 +91,13 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] A missing file is written back onto the outstanding list and into `RECOVERY.md`.
 - [x] Resuming reads the claims again. A file that has since appeared is counted; one that has not stays outstanding.
 - [ ] Native llama.cpp KV-cache and thread affinity still need a device.
+
+
+# Termux sessions (0.94.3)
+
+- [x] A Termux command from Ibiko is written down before it starts. If the app dies, the session stays RUNNING and is not called finished.
+- [x] A wait that ends while the command may still be running is TIMED_OUT. The reply says it is not verified and was not resumed mid-way.
+- [x] Secrets in the command text are stripped from the session file.
+- [x] The allow-listed planner now knows install Python, install Node, git status, installed packages, Gradle or Python tests, an Android compile, unzip of one named zip, and clone of one https address. Install, compile, unzip and clone need confirmation. A zip path with `..` and a clone URL with a password are refused. Push is not guessed.
+- [x] The workload sheet shows an unverified command when one is open.
+- [ ] A live Termux process still cannot be resumed at its instruction pointer. The record is the recovery.
