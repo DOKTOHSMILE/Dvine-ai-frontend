@@ -127,6 +127,14 @@ public final class WorkloadSheet {
         }
         body.addView(project, Ui.wide(a, 4));
 
+        String commands = ai.dvine.ops.termux.TermuxSessionLog.pending(new java.io.File(a.getFilesDir(), "ibiko/memory/termux"));
+        if (!commands.isEmpty()) {
+            body.addView(label(a, "Commands"));
+            LinearLayout commandCard = card(a);
+            commandCard.addView(Ui.text(a, commands, 14, Ui.TEXT, false));
+            body.addView(commandCard, Ui.wide(a, 4));
+        }
+
         // ---- today
         body.addView(label(a, "Today"));
         LinearLayout today = card(a);
