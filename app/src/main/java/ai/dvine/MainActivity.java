@@ -886,6 +886,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (voice != null) {
             voice.setOnClickListener(v -> toggleDictation());
+            voice.setOnLongClickListener(v -> {
+                if (assistant == null) {
+                    note("Command mode is not ready yet.");
+                    return true;
+                }
+                commandSession = assistant.commandGateway().beginVoiceCommandMode();
+                note("Command mode is on for the next message. It can pause, resume or cancel one task.");
+                return true;
+            });
         }
         if (attach != null) {
             attach.setOnClickListener(this::showAttachMenu);
@@ -1521,6 +1530,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private ai.dvine.agent.LearnedIntents learned;
     private boolean fromBrain;
     private ai.dvine.ops.AssistantCore assistant;
+    /** One utterance, opened only by a long-press on the microphone. Chat text never opens this. */
+    private ai.dvine.ops.task.DvineCommandGateway.VoiceSession commandSession;
     private static final int PICK_CONTENT = 47;
     private static final int HISTORY = 48;
     private boolean generating;
@@ -1797,29 +1808,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return messageGate;
         }
         messageGate = new ai.dvine.gate.BrainGateway("message")
-                .route("pause", t -> {
-                    if (!control(t).matches("^(pause|hold on|wait|hang on)( please)?$") || !walker.walking()) {
-                        return false;
-                    }
-                    paused = walker.pauseHeld();
-                    stopPlay();
-                    stage.setMode(StageMode.LISTENING);
-                    return true;
-                })
                 .route("retry", t -> {
                     if (!control(t).matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
                         return false;
                     }
                     retryLast();
-                    return true;
-                })
-                .route("resume", t -> {
-                    if (!control(t).matches("^(resume|continue|go on|carry on)( please)?$") || paused == null) {
-                        return false;
-                    }
-                    List<TurnLine> rest = paused;
-                    paused = null;
-                    play(rest, null);
                     return true;
                 })
                 .route("model command", t -> {
@@ -2982,6 +2975,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (!interpreted) {
             noteUser(text);
+        }
+        if (!interpreted && commandSession != null && assistant != null) {
+            ai.dvine.ops.task.DvineCommandGateway.VoiceSession session = commandSession;
+            commandSession = null;
+            ai.dvine.ops.Outcome controlled = assistant.command(session, text, false);
+            if (controlled.handled) {
+                if (controlled.speech != null && !controlled.speech.isEmpty()) {
+                    play(LocalTurn.speakAs(stage.agent(), controlled.speech), null);
+                }
+                return;
+            }
         }
         messageGate().handle(text, System.currentTimeMillis()); // every message takes one way through DVINE
     }
@@ -4230,15 +4234,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return true;
         }
         if (said.matches("^(cancel|stop|pause) (the |that |my )?download$")) {
-            if (!hub.downloading()) {
-                play(LocalTurn.speakAs(ivie, "There's no download running."), null);
-            } else {
-                hub.stopDownload();
-                play(LocalTurn.speakAs(ivie,
-                        "Pausing the download. What's done is kept; say continue the download to carry on."),
-                        null);
-            }
-            return true;
+            return false; // naming the download is not authorization to stop it
         }
         if (said.matches("^(continue|resume|restart|carry on with) (the |my )?download$")) {
             if (model.installed()) {

@@ -77,13 +77,26 @@ public final class DvineCommandGateway {
         return dispatch(action, taskId, Source.USER_BUTTON, confirmed);
     }
 
+    /** Ends a voice-command session when the utterance was conversation, not a control. */
+    public boolean closeVoiceCommand(VoiceSession session) {
+        if (!live(session)) {
+            return false;
+        }
+        session.consumed = true;
+        return true;
+    }
+
     /** Accepts a structured intent only while an explicitly activated voice-command session is valid. */
     public Result submitVoiceCommand(VoiceSession session, Action action, String taskId, boolean confirmed) {
-        if (session == null || session.owner != this || session.consumed || System.currentTimeMillis() > session.expiresAt) {
+        if (!live(session)) {
             return rejected("Voice command mode is not active.");
         }
         session.consumed = true;
         return dispatch(action, taskId, Source.AUTHORIZED_USER_VOICE, confirmed);
+    }
+
+    private boolean live(VoiceSession session) {
+        return session != null && session.owner == this && !session.consumed && System.currentTimeMillis() <= session.expiresAt;
     }
 
     /** Model output, generated code, documents and other external content are never command authorities. */

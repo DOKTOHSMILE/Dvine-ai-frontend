@@ -12,6 +12,7 @@ import ai.dvine.ops.ssh.SshConnectionManager;
 import ai.dvine.ops.ssh.SshCredentialStore;
 import ai.dvine.ops.ssh.SshHostKeyVerifier;
 import ai.dvine.ops.ssh.SshTransport;
+import ai.dvine.ops.task.CommandPhrasing;
 import ai.dvine.ops.task.DvineCommandGateway;
 import ai.dvine.ops.task.DvineTaskManager;
 import ai.dvine.ops.task.MicState;
@@ -31,6 +32,8 @@ public final class AssistantCore {
     private final DvineTaskOrchestrator orchestrator;
     private final ModelRuntimeManager models = new ModelRuntimeManager();
     private final DvineCommandGateway commandGateway;
+    private DvineCommandGateway.Action pendingAction;
+    private String pendingId;
     private long now = 1_000;
 
     public AssistantCore(File dir, TermuxCapabilityDetector.Probe termuxProbe, TermuxExecutionService.Runner runner,
@@ -100,6 +103,140 @@ public final class AssistantCore {
             outcome.persona = lastDecision.persona;
         }
         return outcome;
+    }
+
+    /**
+     * One utterance from an explicitly opened command-mode session.
+     * Ordinary {@link #hear(String, double)} never calls this. A question, a quote or a model-shaped JSON object
+     * spends the session and changes no task.
+     */
+    public Outcome command(DvineCommandGateway.VoiceSession session, String text, boolean confirmed) {
+        String said = text == null ? "" : text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "").trim();
+        if (pendingAction != null && (said.equals("yes") || said.equals("yes confirm") || said.equals("confirm"))) {
+            DvineCommandGateway.Action action = pendingAction;
+            String id = pendingId;
+            pendingAction = null;
+            pendingId = null;
+            return finishCommand(commandGateway.submitVoiceCommand(session, action, id, true), id);
+        }
+        if (pendingAction != null && (said.equals("no") || said.equals("nope"))) {
+            pendingAction = null;
+            pendingId = null;
+            commandGateway.closeVoiceCommand(session);
+            return Outcome.say("Left it as it is.", false);
+        }
+        CommandPhrasing read = CommandPhrasing.read(text);
+        if (!read.control) {
+            commandGateway.closeVoiceCommand(session);
+            return Outcome.pass();
+        }
+        pendingAction = null;
+        pendingId = null;
+        String id = resolve(read.action, read.name);
+        if (id == null) {
+            commandGateway.closeVoiceCommand(session);
+            String which = read.action == DvineCommandGateway.Action.RESUME
+                    ? "Which paused task should I resume?"
+                    : "Which task do you mean?";
+            return Outcome.say(which, false);
+        }
+        DvineCommandGateway.Result result = commandGateway.submitVoiceCommand(session, read.action, id, confirmed);
+        if (!result.accepted && result.intent != null && result.intent.requiresConfirmation && !confirmed) {
+            pendingAction = result.intent.action;
+            pendingId = result.intent.targetTaskId;
+            TaskRecord target = find(id);
+            String name = target == null ? "that task" : target.description;
+            return Outcome.say("I have not changed " + name + ". Confirm it in command mode if you still want that.", false);
+        }
+        return finishCommand(result, id);
+    }
+
+    private Outcome finishCommand(DvineCommandGateway.Result result, String id) {
+        if (result == null || !result.accepted) {
+            return Outcome.say(result == null || result.reason == null ? "I did not do that." : result.reason, false);
+        }
+        TaskRecord target = find(id);
+        String name = target == null || target.description == null || target.description.isEmpty() ? "that task" : target.description;
+        String verb;
+        switch (result.intent.action) {
+            case PAUSE:
+                verb = "Paused";
+                break;
+            case RESUME:
+                verb = "Resumed";
+                break;
+            case CANCEL:
+                verb = "Cancelled";
+                break;
+            default:
+                verb = "Stopped";
+                break;
+        }
+        Outcome outcome = Outcome.say(verb + " " + name + ".", false);
+        outcome.taskId = id == null ? "" : id;
+        return outcome;
+    }
+
+    /** Current task, or the one task whose name is in the utterance. Never "every running task". */
+    private String resolve(DvineCommandGateway.Action action, String name) {
+        if (name == null) {
+            if (action == DvineCommandGateway.Action.RESUME) {
+                java.util.List<TaskRecord> paused = tasks.paused();
+                return paused.size() == 1 ? paused.get(0).id : null;
+            }
+            TaskRecord active = tasks.active();
+            return active == null ? null : active.id;
+        }
+        String needle = name.toLowerCase(java.util.Locale.US);
+        TaskRecord hit = null;
+        for (TaskRecord task : tasks.all()) {
+            if (task.state == null || task.state == TaskState.CANCELLED || task.state == TaskState.COMPLETED
+                    || task.state == TaskState.FAILED) {
+                continue;
+            }
+            if (!names(needle, task)) {
+                continue;
+            }
+            if (hit != null) {
+                return null;
+            }
+            hit = task;
+        }
+        return hit == null ? null : hit.id;
+    }
+
+    private static boolean names(String needle, TaskRecord task) {
+        String blob = ((task.description == null ? "" : task.description) + " "
+                + (task.instruction == null ? "" : task.instruction) + " "
+                + (task.kind == null ? "" : task.kind)).toLowerCase(java.util.Locale.US);
+        int specific = 0;
+        for (String word : needle.split(" ")) {
+            if (word.length() < 4 || generic(word)) {
+                continue;
+            }
+            specific++;
+            if (!blob.contains(word)) {
+                return false;
+            }
+        }
+        return specific > 0;
+    }
+
+    private static boolean generic(String word) {
+        return word.equals("project") || word.equals("task") || word.equals("model")
+                || word.equals("current") || word.equals("please");
+    }
+
+    private TaskRecord find(String id) {
+        if (id == null) {
+            return null;
+        }
+        for (TaskRecord task : tasks.all()) {
+            if (id.equals(task.id)) {
+                return task;
+            }
+        }
+        return null;
     }
 
     /** Model interpretation of a user request is not itself a task-control authorization event. */

@@ -1,24 +1,43 @@
-# Command authorization gateway engineering report
+# Command authorization (0.94.8)
 
-## Finding
+## Original trigger
 
-Task interruption was previously decided from arbitrary recognized speech. `AssistantCore.hear()` passed every transcription to `VoiceInterruptionManager.decide()`, whose regular expressions matched natural-language text and selected pause, resume, cancel, or task-switch actions before ordinary conversation routing. This made a text matcher an authorization mechanism. Model response handling was a separate path, but the single shared task-control policy was not enforced at a dedicated typed authorization boundary.
+`AssistantCore.hear()` used to pass every utterance to `VoiceInterruptionManager`, whose regular expressions turned "pause", "resume" and "cancel" into task-state changes. That matcher is now a no-op (pull request 126). Three other paths still treated the words as authority:
+
+- The chat message gate paused or resumed speech when the message was exactly "pause" or "continue".
+- `DirectCommands` carried out `COMMAND: stop` when the user's own message was exactly "stop", "cancel", "abort" or "be quiet", and that called `stopGeneration()`.
+- `OfflineBrain` answered "stop" / "freeze" / "that's enough" with a body `STOP` command.
+- "stop the download" called `hub.stopDownload()` from the sentence alone.
 
 ## Correction
 
-- Added `DvineCommandGateway` as the typed boundary for pause/resume/cancel/stop requests. It accepts task IDs and enumerated actions, validates task existence and state, checks the source capability, and requires confirmation for destructive commands.
-- Added separate dedicated-button and explicitly activated, one-use voice-command paths. Merely receiving microphone text does not activate command mode. Model-originated control requests are rejected.
-- Ordinary `AssistantCore.hear()` now routes conversational input to the orchestrator without consulting a text-based interruption recognizer. The legacy `VoiceInterruptionManager` is retained only for source compatibility and no longer interprets any text.
-- Control targets are task-specific. Cancellation is routed to the selected task; other running tasks are unaffected. `STOP` is registered but fails closed because the existing task lifecycle has no distinct stop semantics; it is not silently aliased to cancellation.
-- Added regression coverage for conversational/hypothetical/quoted/code text, model self-authorization rejection, explicit voice mode, confirmation, and targeting among multiple tasks.
+`ai.dvine.ops.task.DvineCommandGateway` is the only component that changes a task. It accepts a typed action and a task id from two sources: a button event, or one voice-command session opened by the interface (`beginVoiceCommandMode`). Model JSON, code, documents and chat text are not sources. `STOP` still fails closed, because the task lifecycle has no separate stop state; it is not turned into cancel.
 
-## Files changed
+`AssistantCore.hear()` only talks. `AssistantCore.command(session, text, confirmed)` is the command-mode path. It reads the utterance with `CommandPhrasing` after the session is already open. Questions, quotes, "someone told me", "if I", JSON and code comments spend the session and change nothing. A named task is the only target. A vague resume asks which task. Cancel asks for a second command-mode "yes" before it runs.
 
-- `app/src/main/java/ai/dvine/ops/task/DvineCommandGateway.java` (new)
+On the phone, a long-press of the microphone opens that session for the next message. The send button still stops the current reply, because it is a button, not a word. Ordinary "stop" in the composer does not.
+
+## Files
+
+- `app/src/main/java/ai/dvine/ops/task/DvineCommandGateway.java`
+- `app/src/main/java/ai/dvine/ops/task/CommandPhrasing.java` (new)
 - `app/src/main/java/ai/dvine/ops/AssistantCore.java`
-- `app/src/main/java/ai/dvine/ops/task/VoiceInterruptionManager.java`
-- `app/src/test/java/ai/dvine/ops/DvineCommandGatewayTest.java` (new)
+- `app/src/main/java/ai/dvine/MainActivity.java`
+- `app/src/main/java/ai/dvine/main/DirectCommands.java`
+- `app/src/main/java/ai/dvine/brain/OfflineBrain.java`
+- `app/src/main/java/ai/dvine/ops/task/DvineTaskManager.java`
+- `app/src/test/java/ai/dvine/ops/DvineCommandGatewayTest.java`
+- `app/src/test/java/ai/dvine/ops/OpsPipelineTest.java`
+- `app/src/test/java/ai/dvine/brain/ActionsAndOnboardingTest.java`
 
-## Verification status
+## Tests
 
-Automated tests have been added but were not executed in this environment. No claim is made that the full acceptance criteria are met: dedicated Android button and voice-mode UI wiring, all model/agent/JNI entry paths, STOP lifecycle semantics, and repository-wide searches/build verification remain to be integrated or verified. The gateway is in place at `AssistantCore`, and this report deliberately distinguishes implemented changes from outstanding integration work.
+`DvineCommandGatewayTest` covers discussion, code comments, quoted speech, hypotheticals, model JSON, streamed chunks, command-mode pause of one named task, cancel that waits for confirmation, and a question inside command mode. `OpsPipelineTest` now expects chat "pause" / "resume" / "cancel" to leave the task alone, and the command-mode path to change only the named task.
+
+## Remaining
+
+- There is no separate on-screen Pause or Cancel button yet. Command mode is a long-press on the microphone, then one message.
+- Task `STOP` is rejected on purpose until the task controller has stop semantics. The send button stops the current model reply only.
+- A new message still interrupts the reply already on screen, so the new message can be answered. That is not a task cancel.
+- "stop spinning" still stops a shape animation. "stop" while a yes/no confirmation is open still means no. Neither one pauses or cancels a project.
+- `CodeAgent` treats a reply that is only the word "stop" as the model echoing a word, and tells it to keep going. It does not stop the task.
