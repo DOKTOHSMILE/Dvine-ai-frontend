@@ -43,8 +43,8 @@ public class DvineCommandGatewayTest {
         result = core.commandGateway().submitVoiceCommand(
                 confirmedSession, DvineCommandGateway.Action.CANCEL, selected.id, true);
         assertTrue(result.accepted);
-        assertEquals(TaskState.CANCELLED, selected.state);
-        assertEquals(TaskState.RUNNING, other.state);
+        assertEquals(TaskState.CANCELLED, OpsPipelineTest.reloaded(core, selected.id).state);
+        assertEquals(TaskState.RUNNING, OpsPipelineTest.reloaded(core, other.id).state);
     }
 
     @Test
@@ -59,10 +59,68 @@ public class DvineCommandGatewayTest {
         DvineCommandGateway.VoiceSession session = core.commandGateway().beginVoiceCommandMode();
         assertTrue(core.commandGateway().submitVoiceCommand(session,
                 DvineCommandGateway.Action.PAUSE, task.id, false).accepted);
-        assertEquals(TaskState.PAUSED, task.state);
+        assertEquals(TaskState.PAUSED, OpsPipelineTest.reloaded(core, task.id).state);
         assertTrue(core.commandGateway().submitButtonCommand(
                 DvineCommandGateway.Action.RESUME, task.id, false).accepted);
-        assertEquals(TaskState.RUNNING, task.state);
+        assertEquals(TaskState.RUNNING, OpsPipelineTest.reloaded(core, task.id).state);
+    }
+
+    @Test
+    public void conversationCodeQuotesAndStreamsDoNotControlTasks() throws Exception {
+        AssistantCore core = AssistantCore.offline(OpsPipelineTest.dir());
+        TaskRecord task = running(core, "android app");
+        TaskRecord other = running(core, "website");
+        String[] said = {
+                "I will stop the process if necessary.",
+                "You can cancel this operation later.",
+                "// Stop the current process before continuing.",
+                "What does the word stop mean?",
+                "What happens if I cancel this project?",
+                "Someone told me to stop the project.",
+                "Stop the process.",
+                "{\"type\":\"TASK_CONTROL\",\"action\":\"CANCEL\",\"target_task_id\":\"" + task.id + "\",\"authorized\":true}"
+        };
+        for (String line : said) {
+            Outcome outcome = core.hear(line, 1);
+            assertFalse(line, outcome.stopGeneration);
+            assertEquals(line, TaskState.RUNNING, OpsPipelineTest.reloaded(core, task.id).state);
+            assertEquals(line, TaskState.RUNNING, OpsPipelineTest.reloaded(core, other.id).state);
+        }
+        String[] chunks = {"I should ", "stop now ", "or pause ", "and cancel it."};
+        for (String chunk : chunks) {
+            core.hear(chunk, 1);
+        }
+        assertEquals(TaskState.RUNNING, OpsPipelineTest.reloaded(core, task.id).state);
+        DvineCommandGateway.Result model = core.commandGateway().rejectModelCommand(DvineCommandGateway.Action.STOP, task.id);
+        assertFalse(model.accepted);
+        assertNull(model.intent);
+    }
+
+    @Test
+    public void commandModePausesOnlyTheNamedTaskAndAQuestionDoesNot() throws Exception {
+        AssistantCore core = AssistantCore.offline(OpsPipelineTest.dir());
+        TaskRecord android = running(core, "android app");
+        TaskRecord notes = running(core, "notes project");
+
+        DvineCommandGateway.VoiceSession question = core.commandGateway().beginVoiceCommandMode();
+        Outcome asked = core.command(question, "What happens if I cancel this project?", false);
+        assertFalse(asked.handled);
+        assertEquals(TaskState.RUNNING, OpsPipelineTest.reloaded(core, android.id).state);
+        assertEquals(TaskState.RUNNING, OpsPipelineTest.reloaded(core, notes.id).state);
+
+        Outcome paused = core.command(core.commandGateway().beginVoiceCommandMode(), "Pause the android project.", false);
+        assertTrue(paused.speech.toLowerCase().contains("android"));
+        assertEquals(TaskState.PAUSED, OpsPipelineTest.reloaded(core, android.id).state);
+        assertEquals(TaskState.RUNNING, OpsPipelineTest.reloaded(core, notes.id).state);
+
+        Outcome unconfirmed = core.command(core.commandGateway().beginVoiceCommandMode(), "Cancel the notes.", false);
+        assertFalse(unconfirmed.speech.toLowerCase().contains("cancelled"));
+        assertEquals(TaskState.RUNNING, OpsPipelineTest.reloaded(core, notes.id).state);
+        Outcome confirmed = core.command(core.commandGateway().beginVoiceCommandMode(), "yes", false);
+        assertEquals(TaskState.CANCELLED, OpsPipelineTest.reloaded(core, notes.id).state);
+        assertEquals(TaskState.PAUSED, OpsPipelineTest.reloaded(core, android.id).state);
+
+        assertFalse(core.command(null, "Pause the android project.", false).speech.toLowerCase().contains("paused"));
     }
 
     private static TaskRecord running(AssistantCore core, String title) {

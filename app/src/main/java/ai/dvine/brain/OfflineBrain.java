@@ -244,11 +244,6 @@ public final class OfflineBrain {
         if (text.matches("^what('s| is) my name\\??$") && (userName != null || givenName != null)) {
             return one(speaker, nameLine(), "MEMORY");
         }
-        if (text.matches("^(stop|stop it|stop moving|enough|that'?s enough|freeze|cancel that|be still)( now| please)?$")) {
-            BrainAnswer a = one(speaker, pick(speaker, "Stopping.", "Okay, stopping."), "SET");
-            a.command = "STOP";
-            return a;
-        }
         String pose = posePhrase(text);
         if (pose != null) {
             // the movement engine: it moves a body DVINE designed in 3D (the app checks one is on show)

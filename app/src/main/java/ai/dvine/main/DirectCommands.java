@@ -120,7 +120,11 @@ public final class DirectCommands {
             host.ask(text);
             return;
         }
-        if ((c == Meaning.Command.STOP || c == Meaning.Command.NEW_CHAT || c == Meaning.Command.CLEAR_WORKSPACE)
+        if (c == Meaning.Command.STOP) {
+            host.ask(text); // saying the word is not permission to stop the work
+            return;
+        }
+        if ((c == Meaning.Command.NEW_CHAT || c == Meaning.Command.CLEAR_WORKSPACE)
                 && !Meaning.userMeant(text, c)) {
             host.ask(text);
             return;

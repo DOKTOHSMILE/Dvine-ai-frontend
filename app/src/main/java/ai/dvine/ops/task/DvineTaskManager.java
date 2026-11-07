@@ -220,8 +220,8 @@ public final class DvineTaskManager {
             return null;
         }
         if (p.size() == 1) {
-            return p.get(0).description + " is paused. Say resume to continue.";
+            return p.get(0).description + " is paused. Progress is saved.";
         }
-        return p.size() + " tasks are paused. Say resume and the task's name.";
+        return p.size() + " tasks are paused.";
     }
 }

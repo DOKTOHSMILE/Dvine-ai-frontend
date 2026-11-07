@@ -90,8 +90,8 @@ public class ActionsAndOnboardingTest {
         assertTrue(!"POSE".equals(brain.respond("can you walk me through the steps", "obi").command));
         assertTrue(!"POSE".equals(brain.respond("can you run the numbers", "obi").command));
         assertTrue(!"POSE".equals(brain.respond("how do I run a business", "obi").command));
-        assertEquals("STOP", brain.respond("stop", "obi").command);
-        assertEquals("STOP", brain.respond("that's enough", "ivie").command);
+        assertNull(brain.respond("stop", "obi").command);
+        assertNull(brain.respond("that's enough", "ivie").command);
         assertEquals("SELF_REPORT", brain.respond("what are you doing", "obi").command);
         assertEquals("FAVOURITES", brain.respond("what do I like", "obi").command);
         // a named picture is a photograph lookup, not a stored shape
