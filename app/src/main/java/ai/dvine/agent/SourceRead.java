@@ -1,7 +1,10 @@
 package ai.dvine.agent;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -26,42 +29,48 @@ public final class SourceRead {
     }
 
     /**
-     * Lines {@code start}–{@code end} (1-based, inclusive; empty means the whole file, or the first window of it).
-     * The result says how long the file really is when this is not all of it.
+     * Lines {@code start}–{@code end} (1-based, inclusive; empty means from the start, up to one window).
+     * The file is read a line at a time. The whole text is not held in memory. The result says how long the file
+     * really is when this is not all of it.
      */
     public static String read(File file, String start, String end) throws IOException {
-        String text = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-        String[] lines = text.split("\n", -1);
         int from = number(start, 1);
-        int to = number(end, lines.length);
+        boolean toEnd = end == null || end.trim().isEmpty();
+        int to = toEnd ? Integer.MAX_VALUE : number(end, Integer.MAX_VALUE);
         if (from < 1) {
             from = 1;
         }
         if (to < from) {
             to = from;
         }
-        if (from > lines.length) {
-            return "That file has " + lines.length + " lines; there is no line " + from + ".";
-        }
-        to = Math.min(to, lines.length);
         StringBuilder body = new StringBuilder();
-        int shown = from;
-        for (int i = from; i <= to; i++) {
-            String row = i + "\t" + lines[i - 1] + "\n";
-            if (body.length() + row.length() > WINDOW && i > from) {
-                to = i - 1;
-                break;
+        int total = 0;
+        int shown = from - 1;
+        boolean cut = false;
+        try (BufferedReader in = reader(file)) {
+            for (String line; (line = in.readLine()) != null; ) {
+                total++;
+                if (total < from || total > to || cut) {
+                    continue;
+                }
+                String row = total + "\t" + line + "\n";
+                if (body.length() + row.length() > WINDOW && total > from) {
+                    cut = true;
+                    continue;
+                }
+                body.append(row);
+                shown = total;
             }
-            body.append(row);
-            shown = i;
         }
-        boolean all = from == 1 && shown == lines.length;
+        if (from > total) {
+            return "That file has " + total + " lines; there is no line " + from + ".";
+        }
+        boolean all = from == 1 && shown == total && !cut;
         if (all) {
             return body.toString();
         }
-        return "Lines " + from + "–" + shown + " of " + lines.length + " in this file (" + text.length()
-                + " characters). This is not the whole file. Read another range with start and end line numbers.\n"
-                + body;
+        return "Lines " + from + "–" + shown + " of " + total + " in this file. This is not the whole file."
+                + " Read another range with start and end line numbers.\n" + body;
     }
 
     /** Every line in {@code root} (or under {@code folder}) that contains {@code query}. */
@@ -76,6 +85,9 @@ public final class SourceRead {
                 return "No such folder: " + folder;
             }
         }
+        if (query.regionMatches(true, 0, "name:", 0, 5)) {
+            return locate(root, query.substring(5).trim(), base);
+        }
         List<File> files = new ArrayList<File>();
         collect(base, files);
         List<String> hits = new ArrayList<String>();
@@ -88,16 +100,17 @@ public final class SourceRead {
                 continue;
             }
             scanned++;
-            try {
-                String[] lines = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\n", -1);
+            try (BufferedReader in = reader(f)) {
                 String rel = root.toPath().relativize(f.toPath()).toString();
-                for (int i = 0; i < lines.length && hits.size() < HITS; i++) {
-                    if (lines[i].contains(query)) {
-                        String row = lines[i].trim();
+                int i = 0;
+                for (String line; (line = in.readLine()) != null && hits.size() < HITS; ) {
+                    i++;
+                    if (line.contains(query)) {
+                        String row = line.trim();
                         if (row.length() > 400) {
                             row = row.substring(0, 400);
                         }
-                        hits.add(rel + ":" + (i + 1) + ": " + row);
+                        hits.add(rel + ":" + i + ": " + row);
                     }
                 }
             } catch (IOException e) {
@@ -109,6 +122,36 @@ public final class SourceRead {
         }
         String more = hits.size() >= HITS ? "\n…(" + HITS + " matches shown; narrow the query or the folder.)" : "";
         return String.join("\n", hits) + more;
+    }
+
+    /** Files whose name contains {@code name}. Contents are not opened. */
+    static String locate(File root, String name, File base) {
+        if (name == null || name.isEmpty()) {
+            return "No file name given.";
+        }
+        String needle = name.toLowerCase(java.util.Locale.US);
+        List<File> files = new ArrayList<File>();
+        collect(base, files);
+        List<String> hits = new ArrayList<String>();
+        for (File f : files) {
+            if (hits.size() >= 100) {
+                break;
+            }
+            if (f.getName().toLowerCase(java.util.Locale.US).contains(needle)) {
+                hits.add(root.toPath().relativize(f.toPath()).toString());
+            }
+        }
+        if (hits.isEmpty()) {
+            return "No file named like \"" + name + "\".";
+        }
+        return String.join("\n", hits) + (hits.size() >= 100 ? "\n…(100 names shown; narrow the name.)" : "");
+    }
+
+    private static BufferedReader reader(File file) throws IOException {
+        java.nio.charset.CharsetDecoder dec = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPLACE)
+                .onUnmappableCharacter(CodingErrorAction.REPLACE);
+        return new BufferedReader(new InputStreamReader(Files.newInputStream(file.toPath()), dec));
     }
 
     private static void collect(File dir, List<File> out) {

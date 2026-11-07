@@ -230,7 +230,8 @@ public final class CodeAgent {
                 + (readOnly ? "" : "<tool name=\"zip\" path=\"FOLDER\" to=\"FOLDER.zip\"/> (a folder or file into a zip)\n"
                         + "<tool name=\"unzip\" path=\"FILE.zip\" to=\"FOLDER\"/> (a zip into a folder)\n")
                 + "<tool name=\"search\" query=\"text to find\" path=\"(optional folder)\"/> (searches every source file on the device,"
-                + " any length, and reports file:line:text; no shell and no Termux)\n"
+                + " a line at a time, and reports file:line:text. query=\"name:Main.java\" finds a file by its name and does not open it."
+                + " No shell and no Termux)\n"
                 + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command\"/> (sh with toybox: ls cat grep sed"
                         + " find wc head tail mkdir cp mv rm… — run in the workspace folder, as the app, so only the"
                         + " app's own files are touched; one command per tool call (a chain like a && b is fine);"
