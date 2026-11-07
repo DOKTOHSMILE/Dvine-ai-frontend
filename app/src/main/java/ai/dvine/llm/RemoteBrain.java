@@ -117,8 +117,15 @@ public final class RemoteBrain {
      */
     private Map<String, Object> nativeFile(ai.dvine.chat.Attachments.Doc d, java.io.File f) {
         String mime = d.mime == null ? "application/octet-stream" : d.mime.toLowerCase(java.util.Locale.US);
+        if (mime.startsWith("video/")) {
+            return null; // frames of the video go as images; a raw video part is refused by the chat APIs
+        }
         if (protocol == Protocol.ANTHROPIC && !mime.contains("pdf") && !mime.startsWith("text/")) {
             return null;
+        }
+        if (protocol != Protocol.ANTHROPIC && mime.startsWith("audio/")
+                && !(mime.equals("audio/mpeg") || mime.equals("audio/mp3") || mime.equals("audio/wav") || mime.equals("audio/x-wav"))) {
+            return null; // only wav and mp3 are real audio parts; anything else is said in words
         }
         byte[] bytes;
         try {
@@ -561,15 +568,15 @@ public final class RemoteBrain {
         String words = ai.dvine.chat.Attachments.FILE.matcher(ai.dvine.chat.Attachments.IMAGE.matcher(text).replaceAll("")).replaceAll("").trim();
         for (ai.dvine.chat.Attachments.Doc d : docs) {
             java.io.File f = new java.io.File(d.path);
+            String inside = sidecar(d);
+            if (inside != null) {
+                String clip = inside.length() > 12_000 ? inside.substring(0, 12_000) + "\n…(the file goes on)" : inside;
+                words += "\n\n" + ai.dvine.chat.Attachments.text(d.name, clip);
+            }
             Map<String, Object> part = takesFiles() && f.isFile() && f.length() <= 20L * 1024 * 1024 ? nativeFile(d, f) : null;
             if (part != null) {
                 parts.add(part);
                 continue;
-            }
-            // the model can't take this file: what the phone took out of it instead
-            String inside = sidecar(d);
-            if (inside != null) {
-                words += "\n\n" + ai.dvine.chat.Attachments.text(d.name, inside);
             }
             if (!d.pages.isEmpty()) {
                 images.addAll(d.pages); // a PDF's pages, a video's frames
