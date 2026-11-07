@@ -14,9 +14,9 @@ The principal verified gaps at this stage are:
 - Native inference is CPU-only in the app wrapper and requires explicit model/token/context budgets. Device memory fallback is bounded; context limits are architectural/resource safeguards, not safe to remove blindly.
 - Termux uses a synchronous result wait, a 180-second default, and a 600 KB compressed project-transfer limit. A timed-out process is not recoverable mid-command.
 - The task state repository is atomic file-per-task storage, not SQLite. Scribe provides project records and checkpoints, but is a Java service integrated at the Ibiko agent call site rather than a separately scheduled process.
-- Existing Scribe verifies claimed files' existence, but the inspected completion code does not establish that build/test/command acceptance criteria passed before marking the record complete.
+- Existing Scribe verified claimed files' existence, but did not require a recorded successful build/test/command check before marking a project complete.
 - Android foreground execution is best effort, and cannot guarantee an unrestricted process survives arbitrary OS termination. WorkManager/foreground services and durable checkpoints are supported alternatives, not guarantees of uninterrupted work.
-- The current DirectCommands/model-classification path and legacy app controls need a repository-wide follow-up audit after the separate command-gateway patch; task-control authorization and this autonomy directive must remain separate security boundaries.
+- The command-gateway branch also contains an independent task-control security improvement; it is not a reason to route ordinary content into authorization.
 
 ## Classification
 
@@ -38,7 +38,7 @@ A = artificial software restriction; B = security/resource safeguard; C = Androi
 | Clone file count/size | Clone file count is user-configurable; GitHub file-size cap is mode-dependent and larger files are skipped/not loaded. | B, D, E | Keep bounded memory, pagination/streaming, and explicit skipped-file reporting. |
 | GitHub operations | Existing integration uses API-mediated clone/push/PR operations and confirmations; repo listing pagination surfaced in existing audit. | B, E | Preserve auth, confirmations and rollback; large repository support requires paginated/streamed implementation plus tests. |
 | Persistent task state | `TaskStateRepository` stores each task in a temp file, fsyncs, then renames; malformed records are skipped. It is not SQLite or a transaction across task+documentation files. | B | Existing durable baseline; improve cross-record consistency/atomic replacement and verify recovery rather than adding a second manager. |
-| Scribe/project memory | `Scribe` writes Markdown/JSON plus task record, project survey, checkpoints, and reconciles claimed files. Completion may mark complete on file existence, not proven test/build results. | A, B | Extend events and evidence verification. Preserve readable formats and task repository ownership. |
+| Scribe/project memory | `Scribe` writes Markdown/JSON plus task record, project survey, checkpoints, and reconciles claimed files. Completion now requires file presence and structured zero-exit verification evidence. | A, B | Added fail-closed completion policy and regression cases; integration with actual command/build/test result producers and test execution remains pending. |
 | Conversation history/context | Local model retains a bounded number of turns and clips summaries/replies; native context is finite. Project records are separate from model history. | B, F | Keep separate persistent project memory; use summaries/retrieval, not unlimited prompt growth. |
 | Background service | Reply/download services are foreground services/wake-lock users but lifecycle/process can still be killed; work recovery is user-visible at next start. | C, D | Use supported foreground-service/WorkManager paths for eligible work, durable checkpoints, and accurately report limits. |
 | Filesystem access | App sandbox and selected SAF/URI content are used; access depends on granted permissions/persistable URI grants. | B, C | Do not bypass Android scoped storage; unify access around granted URIs and stream large files. |
@@ -61,7 +61,7 @@ A = artificial software restriction; B = security/resource safeguard; C = Androi
 - [x] Record initial limits and classify the observed causes before the autonomy implementation phase.
 - [ ] Exhaustively enumerate every occurrence of the requested search terms across tracked source and build files.
 - [ ] Add progress/heartbeat-based inference execution policies and test local cancellation/continuation.
-- [ ] Verify and improve Scribe completion evidence and event integration.
+- [ ] Add Scribe verification-evidence completion gate (code/test cases added; not yet executed or wired to actual tool receipts).
 - [ ] Verify task/project recovery against actual filesystem state and interrupted writes.
 - [ ] Add durable Termux session tracking/chunked transfer or document the specific Termux API limitation.
 - [ ] Audit SAF URI retention and large-file streaming paths.

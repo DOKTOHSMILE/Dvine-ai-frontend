@@ -13,7 +13,7 @@ import org.junit.Test;
 
 import ai.dvine.ops.task.TaskState;
 
-/** Scribe keeps a project record that survives the chat, and does not treat a thin reply as finished. */
+/** Scribe keeps a project record that survives the chat, and does not treat an unverified claim as completion. */
 public class ScribeTest {
     @Test
     public void aProjectIsRecordedAndAStopDoesNotFinishIt() throws Exception {
@@ -65,27 +65,30 @@ public class ScribeTest {
     }
 
     @Test
-    public void aJobIsFinishedOnlyWhenTheClaimedFileIsOnDisk() throws Exception {
+    public void filePresenceAloneDoesNotCompleteAndVerificationMustSucceed() throws Exception {
         File ws = Files.createTempDirectory("dvine-reconcile").toFile();
         Scribe scribe = new Scribe(ws);
         String instruction = "Build the notes screen for the application";
         scribe.begin("ibiko", instruction);
-        scribe.finish("The notes screen is finished and the reply is long enough to look done.", false,
-                Collections.singletonList("app/Notes.java"));
-        assertTrue(Scribe.jobs(ws).get(0).open);
-        File project = new File(ws, "memory/projects").listFiles()[0];
-        String recovery = new String(Files.readAllBytes(new File(project, "RECOVERY.md").toPath()), StandardCharsets.UTF_8);
-        assertTrue(recovery.contains("Missing: 1"));
-        assertTrue(recovery.contains("app/Notes.java"));
-        assertEquals(1, Reconcile.check(ws, Collections.singletonList("../secret.txt")).missing.size());
+        File target = new File(ws, "app/Notes.java");
+        assertTrue(target.getParentFile().mkdirs());
+        Files.write(target.toPath(), "class Notes {}".getBytes(StandardCharsets.UTF_8));
 
-        assertTrue(new File(ws, "app").mkdirs());
-        Files.write(new File(ws, "app/Notes.java").toPath(), "class Notes {}".getBytes(StandardCharsets.UTF_8));
+        scribe.finish("The notes screen is finished.", false, Collections.singletonList("app/Notes.java"));
+        assertTrue("No independent verification must leave the task open", Scribe.jobs(ws).get(0).open);
+
         scribe.begin("ibiko", instruction);
-        String progress = new String(Files.readAllBytes(new File(project, "PROGRESS.md").toPath()), StandardCharsets.UTF_8);
-        assertTrue(progress.contains("Missing: 0"));
-        scribe.finish("The notes screen is in app/Notes.java.", false, Collections.singletonList("app/Notes.java"));
+        scribe.finish("The notes screen is finished.", false, Collections.singletonList("app/Notes.java"),
+                Scribe.VerificationEvidence.commandResult(1, "tests failed"));
+        assertTrue("A failed check must leave the task open", Scribe.jobs(ws).get(0).open);
+
+        scribe.begin("ibiko", instruction);
+        scribe.finish("The notes screen is finished.", false, Collections.singletonList("app/Notes.java"),
+                Scribe.VerificationEvidence.commandResult(0, "test suite: 14 passed"));
         assertFalse(Scribe.jobs(ws).get(0).open);
+        File project = new File(ws, "memory/projects").listFiles()[0];
+        String report = new String(Files.readAllBytes(new File(project, "TEST_RESULTS.md").toPath()), StandardCharsets.UTF_8);
+        assertTrue(report.contains("test suite: 14 passed"));
     }
 
     @Test
