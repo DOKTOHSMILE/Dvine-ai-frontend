@@ -108,3 +108,11 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] The cutoff was timed from the start of the job, and every phase change ("Reasoning", "Replying") set the word count back to zero. After ten minutes a live job looked like it had never started, and the screen posted "didn't start answering in 10 minutes" and cancelled it.
 - [x] A job is stopped for silence only when there are no words, the model is not inside a call, and no step has arrived for the whole wait. Reading the prompt is not a failure. A reasoning ping or "Explored 1 file" resets the wait.
 - [x] The native watch no longer cancels a call that has not produced its first token yet.
+
+
+# Streaming file access (0.94.5)
+
+- [x] `read_file` reads a line at a time. A request for three lines of a 5,000-line file does not hold the whole file as one string, and the reply still says how long the file really is.
+- [x] `search` walks each file a line at a time instead of loading it whole.
+- [x] `search` with `query="name:File.java"` finds a file by name and does not open its contents.
+- [x] Zip extraction already refuses entries that would write outside the folder. That was left as it is.

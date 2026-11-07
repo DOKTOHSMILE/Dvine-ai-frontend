@@ -32,6 +32,9 @@ public class SourceReadTest {
         Files.write(new File(nest, "B.java").toPath(), "int stop = 1;\nvoid login() {}\n".getBytes(StandardCharsets.UTF_8));
         String found = SourceRead.search(dir, "void login", "");
         assertTrue(found.contains("pkg/B.java:2:") || found.contains("pkg\\B.java:2:"));
+        String named = SourceRead.search(dir, "name:B.java", "");
+        assertTrue(named.contains("pkg/B.java") || named.contains("pkg\\B.java"));
+        assertTrue(!named.contains("void login"));
     }
 
     @Test
