@@ -58,7 +58,7 @@ public class CrewTest {
     }
 
     @Test
-    public void eightWorkersGetEightPartsNotTheOldCapOfFive() {
+    public void everyPartInThePlanIsWorkedEvenWhenTheWorkersAreFewer() {
         StringBuilder plan = new StringBuilder();
         for (int i = 1; i <= 8; i++) {
         plan.append("PART: part ").append(i).append(" of the audit\n");
@@ -70,16 +70,19 @@ public class CrewTest {
         List<String> worked = java.util.Collections.synchronizedList(new ArrayList<String>());
         List<String> done = java.util.Collections.synchronizedList(new ArrayList<String>());
         List<String> brainSaid = new ArrayList<String>(Arrays.asList(plan.toString(), "Final: all eight."));
+        // 4 workers on a plan of 8: the parts are the job, so all 8 are worked and counted
         String r = Crew.run((sys, p) -> brainSaid.remove(0), (part, brief) -> {
             worked.add(part);
             return "done " + part;
-        }, "Full review of the whole codebase", (n, of, part, found) -> done.add(n + "/" + of), () -> false, 8);
+        }, "Full review of the whole codebase", (n, of, part, found) -> done.add(n + "/" + of), () -> false, 4);
         assertEquals("Final: all eight.", r);
         assertEquals(8, worked.size());
         assertEquals(8, done.size());
-        assertEquals("1/8", done.get(0));
-        assertEquals("8/8", done.get(7));
-        // the planner is asked for up to 8 parts, so an 8-worker job is not quietly 5
+        // helpers report as they finish, so the order they land in is the race, not the contract:
+        // what matters is that every one of the 8 parts is reported exactly once
+        java.util.Collections.sort(done);
+        assertEquals(Arrays.asList("1/8", "2/8", "3/8", "4/8", "5/8", "6/8", "7/8", "8/8"), done);
+        // the planner is asked for as many parts as the workers, so an 8-worker job is not quietly 5
         assertTrue(Crew.planPrompt(8).contains("2 to 8"));
         assertTrue(Crew.planPrompt(1).contains("2 to " + Crew.MOST));
     }

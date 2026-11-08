@@ -1,42 +1,25 @@
 package ai.dvine.agent;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * Mini agents for a heavy job, on one model: a planner splits the job into a few independent parts, a fresh helper
- * (its own short memory: only its part) works on each in turn, each helper's findings are handed back as they come,
- * and a writer puts them together. How many helpers run at once is the worker count (Settings › Advanced), on the
- * phone's own model and on an API. The phone still answers one model request at a time, so extra workers wait on
- * that lock between steps; what they gain is focus: a small model does much better with one short, clear part than
- * with the whole job in one long memory. Pure Java.
+ * The one agent on a job: it looks at the work itself, asks the model for a plan, follows the plan one step at a
+ * time in order, checks each result, and goes on until the job is done — a short memory, one small task each time,
+ * the plan written down outside the model so nothing is lost between steps. There are no helpers and no writer: on
+ * one model request at a time the helpers only wait in a queue, and the writer drops what the helpers found.
+ * Pure Java.
  */
 public final class Crew {
-    /** The model, for the planner and the writer. */
+    /** The model: each ask is one step of the agent. */
     public interface Brain {
         String ask(String system, String prompt);
-    }
-
-    /** A helper: a fresh agent working on one part (with the brief: the whole job, for context); its findings. */
-    public interface Helper {
-        String work(String part, String brief);
-    }
-
-    /** A part finished: its number, how many there are, what it was, and what was found. */
-    public interface Progress {
-        void done(int number, int of, String part, String found);
     }
 
     private Crew() {
     }
 
-    static final int MOST = 5;
-
-    /** A job worth splitting: an audit, a deep review, research, an investigation, a whole repository. */
+    /** A job worth going through in several steps: an audit, a deep review, research, an investigation. */
     public static boolean heavy(String task) {
         String t = task == null ? "" : task.toLowerCase(Locale.US);
         return t.matches("(?s).*\\b(audit|deep (dive|review|look)|full review|review (the|my) (whole|entire|code|repo)|research|investigate"
@@ -44,126 +27,92 @@ public final class Crew {
                 + "|entire (repo|repository|codebase|project)|codebase|security review)\\b.*");
     }
 
-    /**
-     * How many parts the planner is asked for: as many as the job has room for — the worker count when that is
-     * bigger than the usual {@link #MOST}, so asking for 8 workers isn't quietly capped at 5.
-     */
-    static int plan(int workers) {
-        return Math.max(MOST, workers);
+    /** The job's plan, kept on the side (the model is never trusted with its own list): numbered steps, done ✓. */
+    static final String PLAN = "PLAN";
+
+    /** The plan the agent asks for when the job is heavy: steps in the order they have to be done. */
+    static String planPrompt() {
+        return "You are an agent working on this job on the phone, one step at a time. Write a numbered plan first"
+                + " (1. 2. 3.) of the steps it takes — each small enough for one short answer: what to look at, what"
+                + " to do — in the order they have to happen, then the first step on its own after PLAN. No other text."
+                + " /no_think";
     }
 
-    /** The planner's prompt for a job split into {@link #plan(int)} parts. */
-    static String planPrompt(int workers) {
-        return "Split the job below into 2 to " + plan(workers) + " independent parts, each small enough for one"
-                + " helper with a short memory to finish alone (for a code audit: by folder or concern, such as security,"
-                + " data, UI, build; for research: by question). One per line as PART: … with what to look at and what to"
-                + " report. No other text. /no_think";
-    }
-
-    static final String WRITE = "You are writing the final answer from your helpers' findings, each on one part of the"
-            + " job. Put them together into one complete answer for the user: the most important findings first, every"
-            + " problem with where it is and how to fix it (code where it helps), and anything a helper couldn't finish."
-            + " Don't drop findings or invent new ones. /no_think";
-
-    /** Does the job with helpers one after another (one model on the phone); see the other {@code run}. */
-    public static String run(Brain brain, Helper helper, String task, Progress progress, BooleanSupplier stopped) {
-        return run(brain, helper, task, progress, stopped, 1);
-    }
+    /** The system prompt: a plan, one step, a result. Everything else is noise in a small memory. */
+    static final String STEP = "You are an agent on a job, one step at a time. You are given the job, the plan so far"
+            + " and the last result. Reply with only the next step as STEP: … (one line), or DONE when the job is"
+            + " finished. No other text. /no_think";
 
     /**
-     * Does the job with helpers; null when it couldn't be split (one agent does it then) or it was stopped. With
-     * {@code side} above 1, that many helpers work at once, each reporting as it finishes; the answer keeps the parts
-     * in their order. The phone's own model takes one request at a time, so its workers queue on the model's lock
-     * between steps — that is safe, they simply take turns on it.
+     * Does the job as one agent: plans it, follows the plan step by step, checks each result against the job, and
+     * stops at the step cap, when the model says DONE, or when stopped. Null when stopped; the result is what the
+     * agent found, step by step.
      */
-    public static String run(Brain brain, Helper helper, String task, Progress progress, BooleanSupplier stopped, int side) {
-        final int workers = Math.max(1, side);
-        final List<String> parts = parts(brain.ask(planPrompt(workers), "The job: " + task), plan(workers));
-        if (parts.size() < 2 || stopped.getAsBoolean()) {
+    public static String run(Brain brain, String task, Progress progress, BooleanSupplier stopped) {
+        final String job = task == null ? "" : task.trim();
+        if (brain == null || job.isEmpty() || stopped.getAsBoolean()) {
             return null;
         }
-        final String[] results = new String[parts.size()];
-        if (workers > 1) {
-            java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(Math.min(workers, parts.size()));
-            List<java.util.concurrent.Future<?>> jobs = new ArrayList<java.util.concurrent.Future<?>>();
-            for (int i = 0; i < parts.size(); i++) {
-                final int n = i;
-                jobs.add(pool.submit(() -> {
-                    if (!stopped.getAsBoolean()) {
-                        results[n] = work(helper, parts, n, task);
-                        progress.done(n + 1, parts.size(), parts.get(n), results[n]);
-                    }
-                }));
+        String raw = brain.ask(planPrompt(), "The job: " + job);
+        String plan = raw == null ? "" : raw.replaceAll("(?s).*?PLAN", "").replaceAll("</?final>", "").trim();
+        if (plan.isEmpty()) {
+            plan = raw == null || raw.trim().isEmpty() ? job : raw.trim();
+        }
+        if (progress != null) {
+            progress.plan(plan);
+        }
+        // the steps, in order, the plan kept on the side; a step is one line the model can do alone
+        java.util.List<String> steps = new java.util.ArrayList<String>();
+        for (String line : plan.split("\n")) {
+            String s = line.replaceAll("^\\s*\\d+[.)]\\s*", "").replaceAll("^[-*]\\s*", "").trim();
+            if (s.length() >= 3) {
+                steps.add(s);
             }
-            for (java.util.concurrent.Future<?> j : jobs) {
-                try {
-                    j.get();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (java.util.concurrent.ExecutionException e) {
-                    // that helper failed: its part says so below
-                }
+        }
+        StringBuilder done = new StringBuilder();
+        String result = "";
+        for (int i = 0; i < steps.size(); i++) {
+            if (stopped.getAsBoolean()) {
+                return null;
             }
-            pool.shutdownNow();
-        } else {
-            for (int i = 0; i < parts.size() && !stopped.getAsBoolean(); i++) {
-                results[i] = work(helper, parts, i, task);
-                progress.done(i + 1, parts.size(), parts.get(i), results[i]);
+            String step = steps.get(i);
+            result = brain.ask(STEP, "The job: " + job + "\n\nThe plan so far:\n" + plan
+                    + "\n\nDone so far: " + (done.length() == 0 ? "(nothing yet)" : done.toString())
+                    + "\n\nThe step to do now: " + step);
+            if (result == null) {
+                result = "";
             }
+            result = result.replaceAll("(?s).*?STEP", "").replaceAll("</?final>", "").trim();
+            if (progress != null) {
+                progress.step(i + 1, steps.size(), step, result);
+            }
+            if (result.isEmpty() || result.startsWith("DONE") || result.equalsIgnoreCase("DONE")) {
+                // the model stopped itself; the step it did not do is marked so nothing is missing from the answer
+                done.append('\n').append("[").append(i + 1).append("/").append(steps.size()).append("] ")
+                        .append(step).append(": ").append(result.isEmpty() ? "(nothing: the step could not be done)"
+                                : "(the agent stopped here)");
+                break;
+            }
+            done.append('\n').append("[").append(i + 1).append("/").append(steps.size()).append("] ")
+                    .append(step).append(": ").append(result);
         }
         if (stopped.getAsBoolean()) {
             return null;
         }
-        StringBuilder found = new StringBuilder();
-        for (int i = 0; i < parts.size(); i++) {
-            String r = results[i] == null ? "(nothing found: the helper couldn't finish this part)" : results[i];
-            found.append("\n\nPart ").append(i + 1).append(": ").append(parts.get(i)).append("\n").append(r.length() > 6000 ? r.substring(0, 6000) : r);
+        if (progress != null) {
+            progress.finished(result);
         }
-        if (stopped.getAsBoolean()) {
-            return null;
-        }
-        String answer = brain.ask(WRITE, "The job: " + task + "\n\nThe helpers' findings:" + found);
-        answer = answer == null ? "" : answer.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim();
-        // the writer failed: the parts themselves are the answer
-        return answer.isEmpty() ? found.toString().trim() : answer;
+        return done.length() == 0 ? job : done.toString().trim();
     }
 
-    private static String work(Helper helper, List<String> parts, int i, String task) {
-        String brief = "You are helper " + (i + 1) + " of " + parts.size() + " on this job: " + task
-                + "\nDo only your part; the others are covered by other helpers.";
-        String r;
-        try {
-            r = helper.work(parts.get(i), brief);
-        } catch (RuntimeException e) {
-            r = null;
-        }
-        return r == null || r.trim().isEmpty() ? "(nothing found: the helper couldn't finish this part)" : r.trim();
-    }
+    /** A step finished: its number, how many there are, what it was, and what was found. */
+    public interface Progress {
+        void step(int number, int of, String step, String found);
 
-    /** The parts, capped at the usual {@link #MOST}; see the other {@code parts}. */
-    static List<String> parts(String plan) {
-        return parts(plan, MOST);
-    }
+        /** The job is done: the last result, or null when it never ran. */
+        void finished(String result);
 
-    /**
-     * The parts: each from its PART: marker to the next, lines joined (a model may write "What to look at" below it).
-     * Capped at {@code most} — as many as this job has workers for, so asking for 8 workers gives up to 8 parts.
-     */
-    static List<String> parts(String plan, int most) {
-        List<String> out = new ArrayList<String>();
-        if (plan == null) {
-            return out;
-        }
-        int cap = Math.max(1, most);
-        String t = plan.replaceAll("(?s)<think>.*?(</think>|$)", "");
-        String[] blocks = t.split("(?im)^\\s*(?:[-*\\d.]+\\s*)?\\**PART\\s*\\d*\\**\\s*:");
-        for (int i = 1; i < blocks.length && out.size() < cap; i++) {
-            String p = blocks[i].replaceAll("\\s+", " ").replace("**", "").trim();
-            if (p.length() >= 3) {
-                out.add(p);
-            }
-        }
-        return out;
+        /** The plan the agent wrote: the steps, in order, to check before the run starts. */
+        void plan(String plan);
     }
 }
