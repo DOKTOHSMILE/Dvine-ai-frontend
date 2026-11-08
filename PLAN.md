@@ -148,6 +148,7 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] A document built with `make_file` is saved and shared through a UI action, not only handed back to the model. Done: `Download` saves it to `Downloads` with a share link and a toast.
 - [x] A Termux session is watched on screen, so a command that is still running can be seen, stopped, and resumed. Done: `TermuxActivity` lists RUNNING and STALE sessions, shows the command, can cancel one and relaunch it; the workload sheet points there.
 - [x] The chat shows which model and which provider are in use, so an empty or wrong reply can be blamed on the right one. Done: the toolbar line shows the brain and provider, and the offline banner names the brain.
+- [x] The wording around connection and account: the app works and answers on its own, and without the connection the app uses the small local model for free, with no account required. The connection and account are what unlock the capable cloud model, not the local one.
 - [ ] Native llama.cpp KV-cache and thread affinity were not retuned on a device. The thread knob already exists.
 - [ ] The unit tests were run in this pass as a compile of the new record test; the full suite runs at the next build.
 

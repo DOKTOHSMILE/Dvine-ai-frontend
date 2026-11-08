@@ -49,15 +49,17 @@ public final class PromptFit {
         }
         int want = asked <= 0 ? 256 : asked;
         if (reasoning) {
-            return Math.max(1024, want);
+            // 4,096, not 1,024: a reasoning model hides its thinking inside the same limit as the answer,
+            // and the small limit was the reason big models answered with nothing ("the model didn't answer").
+            return Math.max(4096, want);
         }
         return Math.max(32, Math.min(want, 8192));
     }
 
     /**
-     * Tokens for {@code max_completion_tokens}. A user cap is never raised. A short reasoning call keeps
-     * 2,048 tokens of room to think (enough that the visible answer is not empty) instead of 8,000.
-     * Real work still gets at least 8,000, because hidden thinking counts against the same limit.
+     * Tokens for {@code max_completion_tokens}. A user cap is never raised. A reasoning model gets four times
+     * its allowance of room, because the hidden thinking is spent from the same limit as the visible answer:
+     * 16,384 for a short question, 32,000 for real work. Plain models send the allowance as it is.
      */
     public static int completionTokens(int asked, boolean reasoning, int userCap) {
         int allowance = outputTokens(asked, reasoning, userCap);
@@ -65,9 +67,9 @@ public final class PromptFit {
             return allowance;
         }
         if (asked <= 256) {
-            return 2048;
+            return Math.min(16_384, allowance * 4);
         }
-        return Math.min(32_000, Math.max(8_000, allowance * 3));
+        return Math.min(32_000, allowance * 4);
     }
 
     /**
