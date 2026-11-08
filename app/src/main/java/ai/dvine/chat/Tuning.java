@@ -11,14 +11,21 @@ public final class Tuning {
     public static final class Knob {
         public final String key, name, about;
         public final int def, min, max;
+        /** A model-tier choice (0 automatic, 1 fast, 2 small, 3 big, 4 strong) rather than a count. */
+        public final boolean tier;
 
         Knob(String key, String name, String about, int def, int min, int max) {
+            this(key, name, about, def, min, max, false);
+        }
+
+        Knob(String key, String name, String about, int def, int min, int max, boolean tier) {
             this.key = key;
             this.name = name;
             this.about = about;
             this.def = def;
             this.min = min;
             this.max = max;
+            this.tier = tier;
         }
 
         /**
@@ -112,12 +119,46 @@ public final class Tuning {
             "How many of the device's cores the offline model uses. Automatic takes the fast cores only (more threads on slow"
                     + " cores makes it slower). Compare with Settings \u203A Test the speed.", 0, 0, 8);
 
+    /**
+     * The name the app answers to and the one it works for. It is text rather than a number, so it has no range: the
+     * default is empty and the helper below falls back to "you". It is what every persona line reads, so the answer
+     * changes everywhere at once.
+     */
+    public static final String NAME_KEY = "adv_name";
+    public static final String NAME_DEF = "";
+
+    /**
+     * The user's name, or "you" when none has been set. Every line that speaks to them goes through here, so a name
+     * typed once appears in the whole app.
+     */
+    public static String face(SharedPreferences p) {
+        String n = p == null ? NAME_DEF : p.getString(NAME_KEY, NAME_DEF).trim();
+        return n.isEmpty() ? "you" : n;
+    }
+
+    /** The name of a model tier, or null when it isn't a tier ("3" for a count). */
+    public static final Knob TASK_TIER = new Knob("adv_task_tier", "Task model tier (0 automatic)",
+            "Which model answers the task. Automatic lets Ibiko pick; a higher tier is slower and uses more of the plan.",
+            0, 0, 4, true);
+
+    public static final Knob BRAIN_TIER = new Knob("adv_brain_tier", "Brain model tier (0 automatic)",
+            "Which model writes each step of the work. Automatic follows the task tier unless the step is small.",
+            0, 0, 4, true);
+
     public static final Knob RUN_MODE = new Knob("adv_run_mode", "How long a job may run (0 quick … 4 autonomous)",
             "0 quick, 1 balanced (today's limits), 2 deep reasoning, 3 extended project, 4 autonomous development."
                     + " Deep and above do not use the short reply timer. Android can still stop the app; the Scribe record is what resumes.",
             1, 0, 4);
 
-    public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES, WORKERS, CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED, MODEL_THREADS, RUN_MODE};
+    public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES, WORKERS, CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED, MODEL_THREADS, TASK_TIER, BRAIN_TIER, RUN_MODE};
+
+    /** The name of a model tier, or null when it isn't a tier ("3" for a count). */
+    public static String tierName(android.content.SharedPreferences p, int v) {
+        if (!TASK_TIER.tier) return null;
+        if (v <= 0) return "Automatic";
+        String[] names = {"", "Fast", "Small", "Big", "Strong"};
+        return v < names.length ? names[v] : "Strong";
+    }
     /** The threads for the phone's own model: the setting, or the fast cores when it is automatic. */
     public static int modelThreads(android.content.SharedPreferences p) {
         int set = MODEL_THREADS.get(p);

@@ -11,7 +11,8 @@
 - [x] `MainActivity`: a heavy job takes the crew workers, side and step count from its own agent
       row, not from the model's row; a message inside a run goes to the active agent (the step's
       brain when it is one) instead of a new brain; the registry shows in the run line.
-- [ ] Compile of the new record test; the full suite runs at the next build.
+- [ ] The unit tests were not run in this pass: the new record test compiles here, and the full
+      suite runs at the next build.
 - [ ] Not timed on a phone in this pass.
 
 # Compile fix (0.95.4)

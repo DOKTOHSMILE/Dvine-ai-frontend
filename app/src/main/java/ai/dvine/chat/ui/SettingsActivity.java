@@ -242,7 +242,7 @@ public final class SettingsActivity extends AppCompatActivity {
             head.setGravity(android.view.Gravity.CENTER_VERTICAL);
             head.addView(Ui.text(this, k.name.replace(" (0 = automatic)", ""), 15, Ui.TEXT, false),
                     new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            final TextView value = Ui.text(this, k.shown(k.get(prefs)), 15, Ui.ACCENT, true);
+            final TextView value = Ui.text(this, label(k, k.get(prefs)), 15, Ui.ACCENT, true);
             head.addView(value);
             adv.addView(head, Ui.wide(this, 16));
             adv.addView(Ui.text(this, k.about, 12, Ui.SUB, false));

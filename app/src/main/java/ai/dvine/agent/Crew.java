@@ -51,6 +51,18 @@ public final class Crew {
         return Math.max(MOST, workers);
     }
 
+    /** How many parts a plan may have on this job: at least MOST, and however many workers were asked for. */
+    public static int plan(String instruction) {
+        String s = instruction == null ? "" : instruction;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "(?i)([1-9][0-9]?)[ \\-]*(workers?|parts?|agents?)").matcher(s);
+        int asked = 0;
+        while (m.find()) {
+            asked = Math.max(asked, Integer.parseInt(m.group(1)));
+        }
+        return plan(asked);
+    }
+
     /** The plan the model is asked for on a job: the parts, named and in order, never the finished file. */
     static String planPrompt(String instruction) {
         return "You are planning a job on the phone. Write the plan only: " + plan(instruction) + " parts as"
@@ -87,8 +99,8 @@ public final class Crew {
         return parts;
     }
 
-    /** The plan the agent asks for when the job is heavy: steps in the order they have to be done. */
-    static String planPrompt() {
+    /** The plan the single agent asks for on a heavy job: numbered steps in the order they have to be done. */
+    static String runPlanPrompt() {
         return "You are an agent working on this job on the phone, one step at a time. Write a numbered plan first"
                 + " (1. 2. 3.) of the steps it takes — each small enough for one short answer: what to look at, what"
                 + " to do — in the order they have to happen, then the first step on its own after PLAN. No other text."
@@ -110,7 +122,7 @@ public final class Crew {
         if (brain == null || job.isEmpty() || stopped.getAsBoolean()) {
             return null;
         }
-        String raw = brain.ask(planPrompt(), "The job: " + job);
+        String raw = brain.ask(runPlanPrompt(), "The job: " + job);
         String plan = raw == null ? "" : raw.replaceAll("(?s).*?PLAN", "").replaceAll("</?final>", "").trim();
         if (plan.isEmpty()) {
             plan = raw == null || raw.trim().isEmpty() ? job : raw.trim();
