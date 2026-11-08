@@ -1,3 +1,8 @@
+# Compile fix (0.95.4)
+
+- [x] `controlWord` returns the word, or null. A caller can keep the word. It is not a boolean.
+- [x] A heavy job calls `Crew.run(Brain, Helper, String, Progress, BooleanSupplier, int)` through those types directly, not as lambdas the compiler was binding to an older four-argument `run`.
+
 # Reply formatting (0.95.3)
 
 - [x] A reply is formatted, not shown as the raw marks: headings, bold, italic, inline code, a fenced snippet, a bullet, a quote.

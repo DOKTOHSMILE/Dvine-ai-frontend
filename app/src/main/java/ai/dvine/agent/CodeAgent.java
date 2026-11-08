@@ -411,7 +411,7 @@ public final class CodeAgent {
             if (call != null && text.indexOf(call.raw) > 1200) {
                 call = null; // a sample tag inside a long working answer is not a call to run
             }
-            if (call == null && controlWord(text) && nudges < 2) {
+            if (call == null && controlWord(text) != null && nudges < 2) {
                 nudges++; // the model echoed a trigger word; that is not the user ending the task
                 work.append("\n<result>\nThat word is part of the working reply, not the user ending the task. It is not a"
                         + " new prompt. Carry on with the next tool, or put the finished answer inside <final>…</final>.\n</result>\n");
@@ -1369,10 +1369,14 @@ public final class CodeAgent {
                 ? SourceRead.WINDOW : RESULT_CHARS;
     }
 
-    /** A reply that is only a control word. That word inside a working answer is not the user ending the task. */
-    static boolean controlWord(String text) {
-        String t = text == null ? "" : text.trim().toLowerCase(Locale.US);
-        return t.matches("^(stop|cancel|pause|wait|abort|clear|halt)[.!]?$");
+    /** The control word when the text is only that word, otherwise null. A word inside a working answer is not one. */
+    static String controlWord(String text) {
+        if (text == null) {
+            return null;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(stop|cancel|pause|wait|abort|clear|halt)[.!]?$")
+                .matcher(text.trim().toLowerCase(Locale.US));
+        return m.matches() ? m.group(1) : null;
     }
 
     static String clip(String s, int n) {
