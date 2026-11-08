@@ -1,3 +1,8 @@
+# Compile fix (0.95.4)
+
+- [x] `controlWord` returns the word, or null. A caller can keep the word. It is not a boolean.
+- [x] A heavy job calls `Crew.run(Brain, Helper, String, Progress, BooleanSupplier, int)` through those types directly, not as lambdas the compiler was binding to an older four-argument `run`.
+
 # Reply formatting (0.95.3)
 
 - [x] A reply is formatted, not shown as the raw marks: headings, bold, italic, inline code, a fenced snippet, a bullet, a quote.
@@ -177,4 +182,3 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] A push is refused while a `.theirs` file or conflict markers remain. The branch pointer is not moved, so a clean merge shows up as a local change to push.
 - [x] "fetch main and merge", "merge origin/main" and "update from main" run on the phone with no model call when there is one clone, or the sentence names the folder.
 - [x] The coding model is told the phone is its suite: list, read, search, edit and git run on the device, and a merge returns only the conflict pieces.
-

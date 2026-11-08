@@ -2326,47 +2326,38 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         + " before creating files. If they describe this job, continue them. Do not start a second project."
                         : task;
                 if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
-                    // a heavy job: mini agents, one part each, their findings posted as they come, then one answer
                     handler.post(() -> {
                         if (id == askId && chatPane != null) {
-                            chatPane.activityStep("Splitting the job between mini agents");
+                            chatPane.activityStep("Planning");
                         }
                     });
-                   // how many workers run at once (Settings › Advanced): each takes a part of the job; the phone's own
-                    // model is taken by one request at a time, so its workers wait for it between steps instead
-                    final int workers = Math.max(1, ai.dvine.chat.Tuning.WORKERS.get(prefs));
-                    final ai.dvine.agent.CodeAgent.Brain online = new ai.dvine.agent.CodeAgent.Brain() {
+                    final ai.dvine.agent.Crew.Brain planner = new ai.dvine.agent.Crew.Brain() {
                         @Override
-                        public String ask(String system, String transcript) {
-                            String r = model.remoteTask(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), ai.dvine.llm.TaskSize.Tier.FAST);
-                            return r != null ? r : model.task(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), null,
-                                    ai.dvine.llm.TaskSize.Tier.FAST);
+                        public String ask(String system, String prompt) {
+                            return brain.ask(system, prompt);
+                        }
+                    };
+                    final ai.dvine.agent.Crew.Progress report = new ai.dvine.agent.Crew.Progress() {
+                        @Override
+                        public void plan(String plan) {
+                            handler.post(() -> {
+                                if (id == askId && chatPane != null) {
+                                    chatPane.activityStep("Planning");
+                                }
+                            });
                         }
 
                         @Override
-                        public String why() {
-                            return model.problem();
+                        public void step(int n, int of, String step, String found) {
+                            handler.post(() -> progressNote(id, persona, n,
+                                    "Step " + n + " of " + of + ": " + step + "\n\n" + found));
+                        }
+
+                        @Override
+                        public void finished(String result) {
                         }
                     };
-                    crew = ai.dvine.agent.Crew.run(brain::ask, (part, brief) -> {
-                                String helper = ai.dvine.agent.AgentBoard.start(who + " \u00B7 mini agent", part);
-                                try {
-                                    ai.dvine.agent.CodeAgent mini = workers > 1 ? new ai.dvine.agent.CodeAgent(workspace, online, host, tools,
-                                            model.window() * 3 > 24_000 ? 24_000 : model.window() * 3)
-                                            .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
-                                            .steps(Math.min(pace.roundSteps, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)))
-                                            .as(who, readOnly).keepGoing(rounds) : make.get();
-                                    // an API model: each worker gets its own model calls; the phone's model: one request
-                                    // at a time, so the workers share it (they queue on the model's lock)
-                                    return mini.run(part, brief + (earlier.isEmpty() ? ""
-                                            : "\n\nEarlier in this chat (its end):\n" + earlier.substring(Math.max(0, earlier.length() - 800))));
-                                } finally {
-                                    ai.dvine.agent.AgentBoard.end(helper);
-                                }
-                            },
-                            asked, (n, of, part, found) -> handler.post(() -> progressNote(id, persona, n,
-                                    "Part " + n + " of " + of + " done: " + part + "\n\n" + found)),
-                            host::stopped, workers);
+                    crew = ai.dvine.agent.Crew.run(planner, asked, report, host::stopped);
                 }
                 result = crew != null ? crew : agent.run(asked, earlier);
                 long began = System.currentTimeMillis();
