@@ -8,7 +8,14 @@ import java.util.Locale;
  * for Ibiko) goes to the strong one. A guess from the words, deliberately simple, so it costs nothing. Pure Java.
  */
 public final class TaskSize {
-    public enum Tier { FAST, STRONG }
+    public enum Tier {
+        FAST, STRONG;
+
+        /** 1 and 2 are the fast model. 3 and 4 are the strong one. 0 is automatic and is not passed here. */
+        public static Tier of(int tier) {
+            return tier >= 3 ? STRONG : FAST;
+        }
+    }
 
     private TaskSize() {
     }

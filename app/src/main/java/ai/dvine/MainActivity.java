@@ -2201,6 +2201,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 model.remoteOn() ? 6000 : Math.max(220, model.window() / 6)); // what was already found, as much as the model can hold
         final String tools = connectorTools();
         model.coding = true;
+        final String agentId = ai.dvine.config.ModelRegistry.agentIdFor(persona); // Obi reads, Ivie reviews, Ibiko writes
+        final ai.dvine.config.ModelRegistry.Agent agentRow = ai.dvine.config.ModelRegistry.of(this).agent(agentId);
+        final int taskTier = ai.dvine.chat.Tuning.TASK_TIER.get(prefs); // 0 = auto
+        final int brainTier = ai.dvine.chat.Tuning.BRAIN_TIER.get(prefs);
+        final ai.dvine.llm.TaskSize.Tier stepTier = brainTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(brainTier)
+                : (taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier) : ai.dvine.llm.TaskSize.Tier.FAST);
+        final ai.dvine.llm.TaskSize.Tier reportTier = taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier)
+                : ai.dvine.llm.TaskSize.Tier.STRONG;
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> askId,
                 line -> {
                     if (chatPane != null) {
@@ -2301,14 +2309,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                 });
             }
-            final String agentId = ai.dvine.config.ModelRegistry.agentIdFor(persona); // Obi reads, Ivie reviews, Ibiko writes
-            final ai.dvine.config.ModelRegistry.Agent agentRow = ai.dvine.config.ModelRegistry.of(this).agent(agentId);
-            final int taskTier = ai.dvine.chat.Tuning.TASK_TIER.get(prefs); // 0 = auto
-            final int brainTier = ai.dvine.chat.Tuning.BRAIN_TIER.get(prefs);
-            final ai.dvine.llm.TaskSize.Tier stepTier = brainTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(brainTier)
-                    : (taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier) : ai.dvine.llm.TaskSize.Tier.FAST);
-            final ai.dvine.llm.TaskSize.Tier reportTier = taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier)
-                    : ai.dvine.llm.TaskSize.Tier.STRONG;
             // the agent's own row, not the model's: this crew has its own workers, steps and side
             final int agentSteps = agentRow != null && agentRow.maxSteps > 0 ? agentRow.maxSteps : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs);
             final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,

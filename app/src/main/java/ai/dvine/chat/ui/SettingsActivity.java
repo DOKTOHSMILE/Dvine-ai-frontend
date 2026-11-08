@@ -692,4 +692,15 @@ public final class SettingsActivity extends AppCompatActivity {
         r.setOnClickListener(v -> startActivity(new Intent(this, screen)));
         return r;
     }
+
+    /** The number beside a slider. A tier shows Automatic, Fast, Small, Big or Strong instead of a raw count. */
+    private static String label(ai.dvine.chat.Tuning.Knob k, int value) {
+        if (k != null && k.tier) {
+            String name = ai.dvine.chat.Tuning.tierName(null, value);
+            if (name != null) {
+                return name;
+            }
+        }
+        return k == null ? "" : k.shown(value);
+    }
 }
