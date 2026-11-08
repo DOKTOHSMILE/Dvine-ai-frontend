@@ -1,7 +1,2 @@
 #v2
-1
-/storage/emulated/0/Android/data/com.tyron.code/files/codeassist/projects/Dvine-ai-frontend/app/src/main/java/ai/dvine/MainActivity.java	16579	378	text
-/storage/emulated/0/Android/data/com.tyron.code/files/codeassist/projects/Dvine-ai-frontend/app/src/main/res/layout/activity_main.xml	0	0	text
-/storage/emulated/0/Android/data/com.tyron.code/files/codeassist/projects/Dvine-ai-frontend/app/src/main/res/drawable/dvine_thought_chip.xml	278	0	text
-/storage/emulated/0/Android/data/com.tyron.code/files/codeassist/projects/Dvine-ai-frontend/app/src/main/res/values/themes.xml	0	0	text
-/storage/emulated/0/Android/data/com.tyron.code/files/codeassist/projects/Dvine-ai-frontend/app/src/main/AndroidManifest.xml	0	14	text
+0
