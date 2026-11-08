@@ -38,4 +38,15 @@
     <color name="pill">#E6E1FC</color>
     <color name="pill_text">#3A2E9C</color>
     <color name="track">#E1E0EB</color>
+
+    <!-- Syntax colours for the chat code viewer (light surfaces). -->
+    <color name="code_keyword">#1552B8</color>
+    <color name="code_string">#1B7A3D</color>
+    <color name="code_number">#A2560B</color>
+    <color name="code_comment">#7A828C</color>
+    <color name="code_type">#7A3BB8</color>
+    <color name="code_annotation">#B03A8F</color>
+    <color name="code_builtin">#0F766E</color>
+    <color name="code_constant">#1552B8</color>
+    <color name="code_shell_var">#B45309</color>
 </resources>

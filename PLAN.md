@@ -1,66 +1,19 @@
-# Compile fix (0.95.4)
+# Model Registry and task/brain tiers (0.96.0)
 
-- [x] `controlWord` returns the word, or null. A caller can keep the word. It is not a boolean.
-- [x] A heavy job calls `Crew.run(Brain, Helper, String, Progress, BooleanSupplier, int)` through those types directly, not as lambdas the compiler was binding to an older four-argument `run`.
-
-# Reply formatting (0.95.3)
-
-- [x] A reply is formatted, not shown as the raw marks: headings, bold, italic, inline code, a fenced snippet, a bullet, a quote.
-- [x] A named link `[note](https://…)` shows the name, coloured, and opens that address. A bare address does the same.
-- [x] A file name with an underscore is left as written. A reply longer than 16,000 characters only colours its addresses.
-
-# Chat fixes (0.95.2)
-
-- [x] DeepSeek `<|DSML|>` tool markup is run as a tool, or hidden. It is not shown as the reply.
-- [x] An out-of-credit error is one short line, not a step plus the same line again.
-- [x] The send button is busy only on the chat that is running. Another chat can send without cancelling it.
-- [x] An attachment is drawn at the top of the user's message, with the words under it.
-- [x] A folded run is named for its latest step (Thinking, Reading, Planning), not "and 3 more steps".
-- [x] Reply URLs are coloured and open when tapped.
-
-# A message during a task (0.95.1)
-
-- [x] Sending while a task runs no longer parks the text on "Waiting to send", and it does not cancel the task.
-- [x] The message is shown in the chat immediately and injected before the agent's next step (and after the current model call returns). The model reads it and continues the same task.
-- [x] If the task ends without reading it, that message goes out as the next turn instead of staying pending.
+- [x] `config/model-registry.toml` at the repo root: models (id, name, provider, api,
+      contextWindow, reasoning, needsApiKey), agents (id, name, brain, provider, maxSteps,
+      maxTokens, side, description), providers (id, api key env, docs).
+- [x] `app/src/main/java/ai/dvine/config/ModelRegistry.java`: reads that file from the app's own
+      files (or `~/Dvine/config/`), copies the bundled one on first launch, parses TOML with a
+      small `Toml` reader (`T[]` arrays of tables, `#` comments, quotes, escapes).
+- [x] `ModelBrain`: one object per agent row, so the crew runs several brains at once.
+- [x] `Tuning.TASK_TIER` and `Tuning.BRAIN_TIER`: both default to 0 = `auto` (the old behaviour).
+- [x] `MainActivity`: a heavy job takes the crew workers, side and step count from its own agent
+      row, not from the model's row; a message inside a run goes to the active agent (the step's
+      brain when it is one) instead of a new brain; the registry shows in the run line.
+- [ ] The unit tests were not run in this pass: the new record test compiles here, and the full
+      suite runs at the next build.
 - [ ] Not timed on a phone in this pass.
-
-# RAM and tokens (0.95.0)
-
-- [x] Offline: mmap without mlock, smaller prefill batch for a small window, 8-bit KV cache from 4,096 tokens (was only above 4,096), unload an idle model when Android asks for memory.
-- [x] A GGUF with no chat template still gets a ChatML prompt instead of failing closed.
-- [x] Online: plain calls are not padded to 1,024 output tokens. A short reasoning call reserves 2,048, not 8,000. A user cap is not multiplied. A one-line order that hits its cap is not continued.
-- [x] Fast questions keep 4,000 characters of older chat, not 12,000. Agent work sent back each step is capped at 24,000 characters, not 48,000.
-- [x] A missing connectivity object is offline, so the app does not spend a round of API calls that cannot connect.
-- [x] Session tokens renew on the monotonic clock, five minutes early.
-- [ ] The new native batch and KV settings are not timed on a phone in this pass. The 16-bit path is still the fallback if 8-bit context will not start.
-
-# Deep analysis & multi-worker mini agents task tracking
-
-## Completed Audit & Fixes History
-
-- **Model connection analysis (`docs/model-connection-analysis.md`)**: Mapped `RemoteBrain`, `ProviderStore`, `Providers`, session tokens, call sites, local brain vs. remote paths, connectivity, and tests.
-- **LocalModel fixes (`ibiko/localmodel-fixes`, PR #91)**: 
-  - Orphaned Javadoc moved/relabeled above `warm()`, `forget()`, and `remoteTask`.
-  - Watchdog documentation updated to match constants (`IDLE_MS` 60s, write cap 180s, `READ_MS` 600s); timeout reason now survives `cancel()`.
-  - Failover `problem` guarded at both fallback sites so stale API problems don't misreport phone model failures.
-- **Round 2 & 3 (Voice, Dictation, Termux & Tools)**:
-  - Dictation updated as a hold-to-continue session (stopped explicitly via toggle).
-  - Voice pitch and robotic edge softened via `VoiceTuning.warm()` and updated Obi/Ivie defaults.
-  - Run tool prompt clarified (one command per tool call; `a && b` treated as a single command).
-
----
-
-# Task: multi-worker mini agents, on every build
-
-User request: *"every build let me run the multi workers — that's the main feature I want enabled."*
-So: the crew of mini agents must be able to run several workers **at once**, on **every** build of
-the app — with the phone's own model as well as with an API model — and the number of workers must
-be something the user controls, not a hidden `remoteOn()` switch.
-
-## What the code does today (read before changing)
-
-- `ai.dvine.agent.Crew.run(brain, helper, task, progress, stopped, int side)`:
   with `side > 1` it splits the job into parts and runs them on a fixed thread pool
   (`Executors.newFixedThreadPool(min(side, parts))`); with `side == 1` it runs them one after another.
   Parts are capped at `Crew.MOST = 5` (also the number written into the planner prompt).
@@ -183,3 +136,21 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] "fetch main and merge", "merge origin/main" and "update from main" run on the phone with no model call when there is one clone, or the sentence names the folder.
 - [x] The coding model is told the phone is its suite: list, read, search, edit and git run on the device, and a merge returns only the conflict pieces.
 
+
+# 0.95.5 limitations audit and the first fixes
+
+- [x] `docs/LIMITATIONS.md` writes down every limitation found in this pass, ranked P1 to P5, with what stops it and the smallest next step.
+- [x] A heavy job calls `Crew.run` with its arguments in the order the current `run` takes, so the first step no longer reads as "already done" and starts the model.
+- [x] `controlWord` returns the word, not a boolean, so the caller can print the word it stopped on.
+- [x] The silence cutoff only applies when the job has no text at all, does not reset itself on a phase change, and the native watch does not cancel a call that has not produced its first token.
+- [x] A reply over 16,000 characters is streamed a chunk at a time, and a reply over 2,000 characters says how long it is before the chunks start.
+- [x] A local PDF, spreadsheet, email, or plain text can be read by the tools, and the tool list says so.
+- [x] A document built with `make_file` is saved and shared through a UI action, not only handed back to the model. Done: `Download` saves it to `Downloads` with a share link and a toast.
+- [x] A Termux session is watched on screen, so a command that is still running can be seen, stopped, and resumed. Done: `TermuxActivity` lists RUNNING and STALE sessions, shows the command, can cancel one and relaunch it; the workload sheet points there.
+- [x] The chat shows which model and which provider are in use, so an empty or wrong reply can be blamed on the right one. Done: the toolbar line shows the brain and provider, and the offline banner names the brain.
+- [ ] Native llama.cpp KV-cache and thread affinity were not retuned on a device. The thread knob already exists.
+- [ ] The unit tests were run in this pass as a compile of the new record test; the full suite runs at the next build.
+
+Additions from the 0.95.6 audit: `ToolTimeouts` runs the command on a daemon thread so a download, a kill, or a cancel reaches the phone inside the timeout; `ProviderCredentials` now covers the GitHub token, the Dvine key, the OpenAI key and the session token, and `Scribe` strips them from every line it records; the on-disk record uses the local model path in the app's own files. `T20c.kt` and `T20main.kt` at the workspace root are stray test files from an earlier run and are not part of the app; they should be deleted with the user's consent.
+
+The full directive's phases that need a device (Termux sessions, GitHub push of a real repo, JNI benchmarks) are not claimed as tested here. The unit test covers the record, redaction, and the deep-mode budgets.

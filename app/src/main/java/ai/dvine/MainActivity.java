@@ -2219,14 +2219,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         @Override
                         public String ask(String system, String transcript) {
                             // a step is a tool call or a short note: the fast model. The report uses the strong one.
-                            return asked(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), ai.dvine.llm.TaskSize.Tier.FAST);
+                            return asked(system, transcript, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), stepTier);
                         }
 
                         @Override
                         public String askLong(String system, String transcript) {
                             // the final report: room to write all of it, on the strong model
                             return asked(system, transcript, Math.max(12000, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs) * 3),
-                                    ai.dvine.llm.TaskSize.Tier.STRONG);
+                                    reportTier);
                         }
 
                         /**
@@ -2301,10 +2301,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                 });
             }
+            final String agentId = ai.dvine.config.ModelRegistry.agentIdFor(persona); // Obi reads, Ivie reviews, Ibiko writes
+            final ai.dvine.config.ModelRegistry.Agent agentRow = ai.dvine.config.ModelRegistry.of(this).agent(agentId);
+            final int taskTier = ai.dvine.chat.Tuning.TASK_TIER.get(prefs); // 0 = auto
+            final int brainTier = ai.dvine.chat.Tuning.BRAIN_TIER.get(prefs);
+            final ai.dvine.llm.TaskSize.Tier stepTier = brainTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(brainTier)
+                    : (taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier) : ai.dvine.llm.TaskSize.Tier.FAST);
+            final ai.dvine.llm.TaskSize.Tier reportTier = taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier)
+                    : ai.dvine.llm.TaskSize.Tier.STRONG;
+            // the agent's own row, not the model's: this crew has its own workers, steps and side
+            final int agentSteps = agentRow != null && agentRow.maxSteps > 0 ? agentRow.maxSteps : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs);
             final java.util.function.Supplier<ai.dvine.agent.CodeAgent> make = () -> new ai.dvine.agent.CodeAgent(workspace, brain, host, tools,
                     model.window() * 3 > 24_000 ? 24_000 : model.window() * 3)
                     .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
-                    .steps(rounds ? Math.min(pace.roundSteps, ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs)) : ai.dvine.chat.Tuning.AGENT_STEPS.get(prefs))
+                    .steps(rounds ? Math.min(pace.roundSteps, agentSteps) : agentSteps)
                     .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> {
                         saveAgentWork(workAt, w);
                         scribe.checkpoint(w);

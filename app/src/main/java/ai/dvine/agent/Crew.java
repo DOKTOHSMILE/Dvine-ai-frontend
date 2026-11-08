@@ -30,6 +30,63 @@ public final class Crew {
     /** The job's plan, kept on the side (the model is never trusted with its own list): numbered steps, done ✓. */
     static final String PLAN = "PLAN";
 
+    /** The fewest parts a plan is ever broken into, so a small job still has a real plan. */
+    static final int MOST = 5;
+
+    /** One named part of a plan: the order of the work, never the finished work itself. */
+    public static final class PlanStep {
+        /** The part's name, as written in the plan (Step 1, Step 2, …). */
+        public final String name;
+        /** What the part says to do, in order. */
+        public final String body;
+
+        public PlanStep(String name, String body) {
+            this.name = name;
+            this.body = body;
+        }
+    }
+
+    /** How many parts a plan may have for this many workers: at least MOST, never fewer than asked for. */
+    public static int plan(int workers) {
+        return Math.max(MOST, workers);
+    }
+
+    /** The plan the model is asked for on a job: the parts, named and in order, never the finished file. */
+    static String planPrompt(String instruction) {
+        return "You are planning a job on the phone. Write the plan only: " + plan(instruction) + " parts as"
+                + " sections named \"### Step 1\", \"### Step 2\", …, in the order they have to happen, each part"
+                + " short enough for one worker to do alone. The plan is the order of the work — never the work"
+                + " itself, never a finished file, never code or tool names. No other text.";
+    }
+
+    static String planPrompt() {
+        return planPrompt("");
+    }
+
+    /** The plan's parts, in the order they were planned: every section the model named, none reordered. */
+    public static java.util.List<PlanStep> partsOf(String plan) {
+        java.util.List<PlanStep> parts = new java.util.ArrayList<PlanStep>();
+        if (plan == null || plan.trim().isEmpty()) {
+            return parts;
+        }
+        PlanStep current = null;
+        for (String line : plan.split("\n")) {
+            String s = line.trim();
+            if (s.startsWith("###")) {
+                String title = s.replaceAll("^#+\\s*", "").trim();
+                if (title.isEmpty()) {
+                    continue;
+                }
+                current = new PlanStep(title, "");
+                parts.add(current);
+            } else if (current != null && !s.isEmpty()) {
+                current = new PlanStep(current.name, current.body.isEmpty() ? s : current.body + "\n" + s);
+                parts.set(parts.size() - 1, current);
+            }
+        }
+        return parts;
+    }
+
     /** The plan the agent asks for when the job is heavy: steps in the order they have to be done. */
     static String planPrompt() {
         return "You are an agent working on this job on the phone, one step at a time. Write a numbered plan first"
