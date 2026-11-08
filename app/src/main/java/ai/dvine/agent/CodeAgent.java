@@ -1375,6 +1375,32 @@ public final class CodeAgent {
         return t.matches("^(stop|cancel|pause|wait|abort|clear|halt)[.!]?$");
     }
 
+    /** The control words and the words of the plan/step prompts, in the order they are trimmed. */
+    static String[] words() {
+        return new String[] {"THOUGHT", "REASONING", "REASON", "ANALYSIS", "THINKING", "THINK", "SUMMARY", "EXPLANATION",
+                "RECAP", "CONCLUSION", "WELCOME", "INTRO", "PLAN", "STEP", "DONE"};
+    }
+
+    /** The reply after the first control word when the model opens with one, null when it opens with its own words. */
+    static String said(String raw) {
+        String t = raw == null ? "" : raw;
+        int i = 0;
+        while (i < t.length() && Character.isWhitespace(t.charAt(i))) i++;
+        String head = controlWord(t.substring(i));
+        if (head == null) {
+            return null;
+        }
+        return t.substring(i + head.length());
+    }
+
+    /** True when everything before the first non-whitespace character is whitespace, i.e. the reply opens with the control word and nothing is written in front of it. */
+    static boolean onlySpaceBefore(String text) {
+        String raw = text == null ? "" : text;
+        int i = 0;
+        while (i < raw.length() && Character.isWhitespace(raw.charAt(i))) i++;
+        return controlWord(raw.substring(i)) != null;
+    }
+
     static String clip(String s, int n) {
         String t = s == null ? "" : s;
         return t.length() <= n ? t : t.substring(0, n) + "\n…(cut short)";
