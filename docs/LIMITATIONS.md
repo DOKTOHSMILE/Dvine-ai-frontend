@@ -1,134 +1,174 @@
-# DVINE Frontend — Limitations Blocking Full Capability
+# Limitations of the Dvine app — as found on 2025-XX, ranked
 
-Inventory of everything I found that stops the Dvine Android app (and, in practice,
-stops *me*, its coding agent) from reaching full capability. Evidence is in the form
-`file:line` so every claim can be checked. Ordered: **P0 = urgent fix first**, then P1, P2.
+This is the list of what blocks the app from running at full capability. Each item says what it
+stops, what causes it, and the smallest next step that would remove it. Items are numbered for
+reference. The rank (P1–P5) is at the end, together with the order of work.
 
-Workspace snapshot: 259 files / 134 dirs. Languages: XML, Kotlin, C/C++, Python.
-Build files: `build.gradle`, `settings.gradle`, `AndroidManifest.xml`, `CMakeLists.txt`.
-
----
-
-## P0 — Urgent fix (nothing works without these)
-
-### 1. There is no chat UI at all — the screen is a hard-coded mock-up
-`app/src/main/java/com/ai/dvineai/MainActivity.kt:36-38` → `setContent { HomeScreen() }`,
-and `HomeScreen.kt:193-255` is `Composable private fun HomeScreen()` with
-`HomeScreenMock` built inside it. The chat screen composable lives only in the
-**instrumentation** source set:
-`app/src/androidTest/java/com/ai/dvineai/ChatScreen.kt:32` (`private fun ChatScreen(...)`)
-and is referenced solely by `app/src/androidTest/.../E2ETest.kt:43`.
-**Effect:** the shipped app has no chat screen, no message list, no send button, no
-input box — the user cannot talk to the model at all. `ChatViewModel.kt` (59 lines)
-holds no message state (`:35-59`). This is the single biggest blocker: everything else
-is invisible to the user until it exists.
-**Fix:** move `ChatScreen` + `ChatViewModel` into `main`, wire `MainActivity` to it,
-and connect it to the existing `KotlinSources` entry points (`loadModel`, `generate`, …).
-
-### 2. The native bridge is not actually wired to C++ — the model can never run
-`app/src/main/cpp/CMakeLists.txt:15-18` registers only `llama.cpp` (which is the full
-GGML tree: `CMakeLists.txt:7`, `ggml/src/`, `include/llama/`) and `ggml`. Lines 20-25 add
-nothing else: **there is no native target that exposes JNI entry points**, no
-`llama_cpp` / `dvine_jni` library. The Kotlin `nativeObject`/`nativeContext` fields
-(`KotlinSources.kt:48-52`, `:199`) are never bound to any native symbol; `loadModel`
-would fail at the first `nativeObject == 0L` guard (`:73`).
-**Effect:** `KotlinSources.generate()` can never produce a token, so the chat (once it
-exists) would be dead on arrival. The app builds, but the AI brain is disconnected.
-**Fix:** add a JNI target (`add_library(dvine SHARED …)` with `native-lib.cpp`) that
-calls `llama_init_from_file`, `llama_decode`/`llama_sample`, `llama_free`, and load it
-with `System.loadLibrary("dvine")`.
-
-### 3. The only "working" native flags are copied from an upstream build — the local
-   `CMakeLists.txt` cannot produce a usable Android `.so`
-`app/src/main/cpp/CMakeLists.txt:1-20` contains comments copied verbatim from
-upstream llama.cpp (`# This part is based on https://github.com/ggml-org/llama.cpp/blob/…`)
-and sets `GGML_VULKAN`, `GGML_NATIVE`, `LLAMA_BUILD_TESTS`… but the Android NDK cross
-toolchain is configured in `app/build.gradle:73` with `arguments "-DANDROID_STL=c++_shared"`
-and `cppFlags "-std=c11 -O2"`. There is no `ANDROID_ABI`/`ANDROID_PLATFORM` matrix in
-`app/build.gradle:71-77` and no `local.properties`/`ANDROID_NDK_HOME` documented in the
-repo (only `release/CHANGELOG.md:23433` mentions `android-ndk` in an environment).
-**Effect:** builds are non-reproducible; a fresh checkout likely fails or silently drops
-the CPU kernels. **Fix:** pin `minSdk/targetSdk`, declare `abiFilters`, add
-`externalNativeBuild { cmake { path …; version … } }` explicitly and a checked-in
-`local.properties` template.
+Nothing here is fixed yet. This file is the backlog.
 
 ---
 
-## P1 — Blocks real functionality once the UI and bridge exist
+## 1. `make_file` cannot write into the user's own project folder (P1)
 
-### 4. The C++ build is incomplete: `llama` sources, headers and `libllama` are missing
-`app/src/main/cpp/llama.cpp/` has no `src/`, `include/llama/`, `llama.h`, `common.h` or
-`vendor/` content (listed directories are empty). No `add_library(llama …)` in
-`app/src/main/cpp/CMakeLists.txt:15-25`. So even a correct JNI layer has nothing to link
-against. **Fix:** vendor a complete llama.cpp (or a pinned release tarball) into the repo.
+- **Stops:** any real work. I am asked to build files inside `Dvine-ai-frontend/`, but the document
+  tool refuses every path that is not inside the shared `documents/` folder. The only way to produce
+  a deliverable in the project is `write_file`, which handles plain text only — no `.md`, no `.pdf`,
+  no `.xlsx`, no `.docx`.
+- **Cause:** `DocumentTools.save(...)` validates `name` against `isSafeName(name)` and then calls
+  `resolveInShared(name)`, which hard-rejects any path with a directory component
+  (`java/.../DvineAgent/DocumentTools.java:307-319`).
+- **Smallest next step:** let a relative path that starts with an existing, allow-listed project root
+  (`Dvine-ai-frontend/`) resolve inside that root, keeping the traversal check. Then a `.md` written
+  into the project is a real deliverable.
 
-### 5. `n_ctx` / generation params are hard-coded and unsafe
-`KotlinSources.kt:166-170` forces `n_ctx = 2048`, `n_batch = 512`, `n_threads = 4`,
-`n_gpu_layers = 0`. `generate()` (`:158-163`) takes no prompt and no conversation
-history — there is no way to pass the user's message in from the UI layer without a
-signature change. `:734-741` shows model download is a stub (URL placeholder, no
-progress, no integrity check). **Fix:** make `generate(prompt: String, history: List<…>)`
-the real API, expose settings, and implement download with progress + SHA-256.
+## 2. The "Download" action on a built document does nothing (P1)
 
-### 6. Session persistence is half-built
-`KotlinSources.kt:195-205` only writes/reads a KV blob (`saveSession`/`loadSession`),
-no chat transcript, no model metadata, no versioning. Resuming a conversation after
-process death is impossible. **Fix:** persist the message list (JSON) alongside the KV.
+- **Stops:** every deliverable made with `make_file` from reaching the user. The chip is drawn, the
+  tap is handled, and then `Documents.saveCopy()` looks for a file that is not there, so
+  `SaveCopyResult.missing` is true, `reportSave` writes "Couldn't save …" and returns.
+- **Cause:** the path the chip is built from is `saved.path`, while the handler re-resolves
+  `saved.name` through `Documents.savedFolder()` (`.../MainActivity.java:5794-5806`).
+- **Smallest next step:** build the path from `saved.name` (or store the resolved path on
+  `SavedDocument`) and read it directly.
 
-### 7. No tests can run on this device, and the test story is thin
-`app/src/test/` is **empty**; the only automated tests are `androidTest/E2ETest.kt:35-46`
-(`shouldReachAnswerScreen`), which needs an emulator and a real model — neither exists
-in this environment. `app/tests.gradle` is a separate, non-applied script.
-**Effect:** I cannot verify any change beyond reading files and compiling; there is no
-fast feedback loop. **Fix:** add JVM unit tests for `ChatViewModel`/prompt assembly and a
-fake-native test double so logic is testable without the NDK.
+## 3. `run_crew_tests.sh` does not run the agent tests it names (P1)
 
----
+- **Stops:** anyone knowing whether `Crew`, `Agent`, `CrewTool` and `AgentTool` still compile or pass.
+  The script is the advertised test entry point and it reports `done` while skipping all five
+  suites. The Gradle build is red, so the normal route is blocked too.
+- **Cause:** `agent_tests` never matches a `.java` file (the classes live in `crew/*.java` and
+  `agent/*.java`, one class per file), and `run()` exits before the first suite without saying so
+  (`run_crew_tests.sh:18-28, 76-92, 103-104`).
+- **Smallest next step:** search for `Crew.java` and `Agent.java` by name and compile them; print
+  `skipped: no files` instead of `done` when a suite has nothing to compile.
 
-## P2 — Capability and hygiene gaps (important, not urgent)
+## 4. The app cannot be built (P1)
 
-### 8. The repo is not a git checkout on this device
-Workspace root has **no `.git`** (confirmed by directory listing); only the app folder is
-a clone. Push/PR/branch workflow, bisect and blame are unavailable for the app folder
-until it is cloned as a proper repo. **Fix:** clone `Dvine-ai-frontend` as a git repo.
+- **Stops:** shipping anything, and running any test the normal way.
+- **Cause:** `app/build.gradle:65` passes `--add-exports java.base/java.lang=ALL-UNNAMED` to
+  `javac`, which fails with "option --add-exports not allowed with target 8".
+- **Smallest next step:** drop that flag (it belongs to a toolchain that needs it, not to this
+  `compileOptions`), or raise the target to 11+ where the flag is accepted.
 
-### 9. No CI / no reproducible build entry point
-No `Makefile`, no workflow files, no `gradlew` wrapper jar listed (only `gradle/` dir),
-no documented `./gradlew assembleDebug` command in-repo. **Fix:** add wrapper + a
-one-command build script and a CI job that compiles both `debug` and `release`.
+## 5. The GitHub push/pull token is not wired up (P1)
 
-### 10. Model management and runtime capability are absent
-No GGUF model is committed or downloaded (`jniLibs/` present but unverified), no
-chat template handling, no streaming callback into Kotlin (the `generate` API is
-synchronous, `KotlinSources.kt:158-163`), no token-by-token UI updates. **Fix:** add a
-streaming callback (`onToken: (String) -> Unit`) and a model-manager screen.
+- **Stops:** `git push`, `git pull`, `git clone` and `git fetch` from ever authenticating. Every one
+  of them goes out with no token, so the call is refused before it starts, and the user has to do
+  it by hand in a terminal.
+- **Cause:** `Credentials.githubToken()` returns null — no repository is registered and no
+  environment variable is read (`.../DvineAgent/Credentials.java:88-104`).
+- **Smallest next step:** read a PAT from `DvineAgent.Credentials.GITHUB_PAT` (system property or
+  `GITHUB_PAT` environment variable) and pass it as a `Authorization: Bearer` header on
+  `https://api.github.com/...` calls in `GitHubApi` and `DvineGitHubRepo`.
 
-### 11. Error handling and observability are missing
-`KotlinSources.kt:166-170` and `:734-741` swallow errors into booleans; there is no
-logging (`Log` calls only in `ChatScreen.kt:96` for `onError`), no crash reporting, no
-guard against running inference on the main thread (`generate` is a plain function).
-**Fix:** structured logging + coroutine/worker dispatch for inference.
+## 6. `DvineAgent.DvineSession.run()` is dead code that would throw (P1)
 
----
+- **Stops:** nothing today, because nothing calls it — but it is the session entry point, and it
+  hands a never-set `chat` to the run (`.../DvineAgent/DvineSession.java:44-64`).
+- **Smallest next step:** either delete the method or construct the `DvineChat` it needs before use.
 
-## Priority order (next urgent fix first)
+## 7. The native layer has no `llama_init_from_file` (P2)
 
-| # | Item | Priority | Why first |
-|---|------|----------|-----------|
-| 1 | Chat UI in `main` + `ChatViewModel` state | **P0** | Nothing is usable without a screen |
-| 2 | JNI bridge target + `System.loadLibrary` | **P0** | Screen would be dead without it |
-| 3 | Reproducible Android CMake/Gradle build | **P0** | Blocks every other verification |
-| 4 | Complete llama.cpp sources/`libllama` | **P1** | Bridge has nothing to call |
-| 5 | Real `generate(prompt, history)` + settings | **P1** | Needed for actual conversation |
-| 6 | Session + transcript persistence | **P1** | Resume is currently impossible |
-| 7 | Unit tests with a fake native layer | **P1** | Gives a feedback loop |
-| 8 | Git checkout / CI / wrapper | **P2** | Enables safe iteration |
-| 9 | Streaming + model manager + logging | **P2** | Polish and operability |
+- **Stops:** loading a GGUF model from the C++ side. `LLamaModel.load()` and `LLamaChatModel`'s
+  constructors both call a native function that does not exist in `llama_jni.cpp`, so any local-model
+  path that reaches them throws `UnsatisfiedLinkError` at runtime.
+- **Cause:** `llama_jni.cpp` defines `llama_init_from_model_and_vocab`, `llama_free_model`, and the
+  eval/generation functions, but not `llama_init_from_file`
+  (`app/src/main/cpp/llama_jni.cpp:1689-1728`).
+- **Smallest next step:** add `llama_init_from_file` (open the file, read the GGUF header, build the
+  model and vocab, return the handle) or change the Java callers to use the functions that exist.
 
-## Verification status of this report
+## 8. The model list is empty, so "the model" cannot be chosen (P2)
 
-Every claim above was read directly from the files cited (`read_file` /
-`list_files` on the workspace). Items 1-7 are confirmed by source inspection;
-items 8-9 by directory listing (no `.git`, no wrapper jar, empty `src/test/`).
-No build or test run was possible in this environment (no Gradle/NDK toolchain),
-which is itself limitation #9.
+- **Stops:** selecting a model in the UI, and knowing which model produced a reply.
+- **Cause:** `Models.kt` never adds entries to its models list, and `Models.default` returns null
+  (`app/src/main/java/ai/dvine/models/Models.kt:15-53`).
+- **Smallest next step:** populate the list from the device's model files (or from the API's
+  `/models` endpoint) and make `default` return the first one.
+
+## 9. Nothing can be downloaded from the network (P2)
+
+- **Stops:** fetching a model, a document, or any remote file. Every request returns
+  `DownloadResult.FAILED` with no file, because the whole of `Net.java` throws before it opens a
+  socket.
+- **Cause:** `Net.openHttp`, `Net.openHttps`, `Net.openHttpSocks` and `Net.openHttpTor` all end in
+  `throw new UnsupportedOperationException("No networking backend is wired up yet.")`
+  (`.../DvineAgent/Net.java:27-30, 58-61, 93-96, 130-133`).
+- **Smallest next step:** implement `openHttp` on `HttpURLConnection` (the only backend that needs no
+  dependency) and leave the Tor/SOCKS ones throwing.
+
+## 10. `fetch` has no user-agent, so many sites refuse it (P2)
+
+- **Stops:** reading ordinary web pages. The tool exists and the loop works, but the first request
+  out is often a 403 with no `user-agent`.
+- **Cause:** `HttpFetcher` builds `new URL(...).openConnection()` with no `setRequestProperty`
+  (`.../DvineAgent/HttpFetcher.java:31-44`).
+- **Smallest next step:** set a `user-agent` and an `accept` header before connecting.
+
+## 11. `make_file` writes only Markdown, whatever extension is asked for (P2)
+
+- **Stops:** every deliverable the user asks for that is not `.md` — `.pdf`, `.docx`, `.xlsx`, `.html`,
+  `.csv`. The tool advertises all of them, then stores one plain-text file under any name.
+- **Cause:** `DocumentTools.save` uses `builder.build()` for every type, and `builder.build()` only
+  writes Markdown (`.../DvineAgent/DocumentBuilder.java:61-98`).
+- **Smallest next step:** dispatch on the extension and add the missing builders (CSV/HTML are a few
+  lines each; PDF/DOCX/XLSX need a library or a minimal writer).
+
+## 12. `Documents.resolveInShared` only accepts bare file names (P2)
+
+- **Stops:** saving anything into a named subfolder of the shared documents folder (there is a
+  `projects/<job>/` convention that cannot be written to).
+- **Cause:** the first check rejects any name containing a directory separator
+  (`.../DvineAgent/Documents.java:99-104`).
+- **Smallest next step:** allow relative subpaths that stay under `sharedFolder()` after
+  `normalize()`.
+
+## 13. `TermuxSessionStore` is never connected to a real runner (P2)
+
+- **Stops:** recording Termux sessions on the device. `CommandRunner.run` returns
+  `ToolResult.error("Termux is not available in this build")` unconditionally
+  (`.../DvineAgent/CommandRunner.java:19-21`), so the session store, `TermuxActivity` and the
+  workload sheet all sit on an empty list.
+- **Smallest next step:** shell out to the `termux` binary (or the `termux-open`/`am` intent) and
+  keep `TermuxSessionStore.start/finish` around that call.
+
+## 14. Tool timeouts run on the main thread (P2)
+
+- **Stops:** a hung download or a slow command from being cancelled inside its timeout. The executor
+  waits on the calling thread, so `timeoutMs` only fires after the work itself returns.
+- **Cause:** `ToolTimeouts.run` uses the caller's thread for `call.call()` and a daemon thread only
+  for the watcher (`.../DvineAgent/ToolTimeouts.java:25-57`).
+- **Smallest next step:** submit the work to a daemon `ExecutorService` and wait on the calling
+  thread, so the timeout can interrupt it.
+
+## 15. Credentials sit in plain text (P3)
+
+- **Stops:** nothing today, but any process on the device can read the file and replay the session
+  token, the GitHub PAT or the API key.
+- **Cause:** `ProviderCredentials.store` writes key/value lines with `Files.write`
+  (`.../DvineAgent/ProviderCredentials.java:97-121`).
+- **Smallest next step:** encrypt the file with a key held by the Android `Keystore` (or at least
+  mark the file owner-only and say so in the file's header comment).
+
+## 16. Two file-format readers are stubs (P3)
+
+- **Stops:** `.docx` and `.xlsx` attachments being read. Both return a one-line placeholder instead
+  of the file's words, while `.pdf`, `.eml` and `.csv` work.
+- **Cause:** `AttachmentTools.readText`'s branches for `docx` and `xlsx`
+  (`.../DvineAgent/AttachmentTools.java:90-101, 147-163`).
+- **Smallest next step:** parse `word/document.xml` out of the zip for `.docx`, and `xl/sharedStrings.xml`
+  + the first sheet for `.xlsx`.
+
+## 17. `Scribe` reports progress only against a whole file (P3)
+
+- **Stops:** a precise "we are at line 400 of 900" for the Scribe plan. `fileStats` reports the
+  file's size and whether it was read, not where reading stopped
+  (`.../DvineAgent/Scribe.java:267-282`).
+- **Smallest next step:** have `read_file`'s result carry the last line number and store it on
+  `ScribeFile`.
+
+## 18. The build is red for one line (P4)
+
+- **Stops:** CI, and any future test run through Gradle.
+- **Cause:** the `--add-exports` flag on `JavaCompile` (see item 4).
+- **Smallest next step:** same as item 4 — remove the flag.
