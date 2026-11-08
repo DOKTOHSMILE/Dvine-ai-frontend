@@ -411,7 +411,7 @@ public final class CodeAgent {
             if (call != null && text.indexOf(call.raw) > 1200) {
                 call = null; // a sample tag inside a long working answer is not a call to run
             }
-            if (call == null && controlWord(text) && nudges < 2) {
+            if (call == null && controlWord(text) && onlySpaceBefore(text) && nudges < 2) {
                 nudges++; // the model echoed a trigger word; that is not the user ending the task
                 work.append("\n<result>\nThat word is part of the working reply, not the user ending the task. It is not a"
                         + " new prompt. Carry on with the next tool, or put the finished answer inside <final>…</final>.\n</result>\n");

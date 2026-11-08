@@ -91,6 +91,7 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public String run(String command, File dir) {
+        onCommand(command);
         long ms = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs)).shellMs;
         return SandboxShell.run(command, dir, ms, 8000);
     }
@@ -102,6 +103,7 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public String termux(String command, File folder) {
+        onCommand(command);
         long ms = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs)).termuxMs;
         ai.dvine.ops.termux.TermuxSessionLog log = new ai.dvine.ops.termux.TermuxSessionLog(
                 new File(activity.getFilesDir(), "ibiko/memory/termux"));
@@ -173,12 +175,27 @@ public final class PhoneHost implements CodeAgent.Host {
     }
 
     private Consumer<String> onNote;
+    private Consumer<String> onCommand;
     private java.util.function.Supplier<String> steerFrom;
 
     /** Where the model's notes between the steps go (the chat); without it they are dropped. */
     public PhoneHost onNote(Consumer<String> to) {
         onNote = to;
         return this;
+    }
+
+    /** Every command line as the agent dispatches it, so a session can show what ran in it. */
+    public PhoneHost onCommand(Consumer<String> to) {
+        onCommand = to;
+        return this;
+    }
+
+    public void onCommand(String command) {
+        main.post(() -> {
+            if (!stopped() && onCommand != null) {
+                onCommand.accept(command);
+            }
+        });
     }
 
     /** Messages the user sends while this task runs. Taken once, before the next step. */
