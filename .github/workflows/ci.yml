@@ -1,50 +1,141 @@
-name: ci
+name: CI
+
+# Why this exists:
+#   The Gradle build (especially the CMake/llama.cpp native compile) needs
+#   more RAM than a phone has, so it OOMs on device (daemon killed, "A problem
+#   occurred configuring root project"). Everything expensive runs here
+#   instead: lint, Kotlin unit tests and the native build.
+#
+#   CodeAssist's module.toml (app/module.toml) is only the declarative model
+#   of the module (source sets, deps, android block) - it is not a test
+#   runner - so testing is done with this workflow.
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    # nightly, so a dependency breaking us shows up without a push
+    - cron: '30 3 * * *'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  lint:
+    name: Android lint
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
+          gradle-version: '8.9'
           cache-read-only: false
 
-      - name: Unit tests
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+      - name: Ensure Gradle wrapper exists
+        run: |
+          if [ ! -f ./gradlew ]; then
+            gradle wrapper --gradle-version 8.9 --no-daemon
+          fi
+          chmod +x ./gradlew
 
-      - name: Lint
-        run: ./gradlew --no-daemon :app:lintDebug
+      - name: Android lint
+        run: ./gradlew lintDebug --no-daemon --stacktrace
 
-      - name: Assemble debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
-
-      - name: Upload test results
+      - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: lint-report
+          path: app/build/reports/lint-results-*.html
+          if-no-files-found: ignore
+          retention-days: 14
+
+  unit-test:
+    name: Kotlin unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Ensure Gradle wrapper exists
+        run: |
+          if [ ! -f ./gradlew ]; then
+            gradle wrapper --gradle-version 8.9 --no-daemon
+          fi
+          chmod +x ./gradlew
+
+      - name: Unit tests (crew)
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
           path: app/build/reports/tests/
           if-no-files-found: ignore
+          retention-days: 14
+
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Ensure Gradle wrapper exists
+        run: |
+          if [ ! -f ./gradlew ]; then
+            gradle wrapper --gradle-version 8.9 --no-daemon
+          fi
+          chmod +x ./gradlew
+
+      - name: Build debug APK (Kotlin + llama.cpp via CMake)
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: dvine-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          # 24 hours: APKs are big, GitHub storage fills fast
+          retention-days: 1
