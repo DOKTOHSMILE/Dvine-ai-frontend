@@ -1,3 +1,9 @@
+# Reply formatting (0.95.3)
+
+- [x] A reply is formatted, not shown as the raw marks: headings, bold, italic, inline code, a fenced snippet, a bullet, a quote.
+- [x] A named link `[note](https://…)` shows the name, coloured, and opens that address. A bare address does the same.
+- [x] A file name with an underscore is left as written. A reply longer than 16,000 characters only colours its addresses.
+
 # Chat fixes (0.95.2)
 
 - [x] DeepSeek `<|DSML|>` tool markup is run as a tool, or hidden. It is not shown as the reply.

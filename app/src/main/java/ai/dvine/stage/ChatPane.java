@@ -1972,119 +1972,47 @@ public final class ChatPane extends LinearLayout {
                 && ("image".equals(m.kind) || "file".equals(m.kind) || "video".equals(m.kind) || "audio".equals(m.kind));
     }
 
-    /** Bold and inline code. A long block stays plain: building a span for every mark froze the phone. */
+    /** Headings, bold, italic, code, quotes and links. A very long reply only colours its addresses. */
     private CharSequence styled(String text) {
         if (text == null || text.isEmpty()) {
             return "";
         }
-        if (text.length() > 6000) {
-            android.text.SpannableString plain = new android.text.SpannableString(text);
-            linkUrls(plain);
-            return plain;
+        ai.dvine.chat.ReplyMarks.Result ready = ai.dvine.chat.ReplyMarks.of(text);
+        if (ready.marks.isEmpty()) {
+            return ready.text;
         }
-        StringBuilder raw = new StringBuilder(text.length());
-        java.util.List<int[]> marks = new java.util.ArrayList<int[]>();
-        String[] lines = text.split("\n", -1);
-        for (int n = 0; n < lines.length; n++) {
-            if (n > 0) {
-                raw.append('\n');
-            }
-            String line = lines[n];
-            int heading = 0;
-            while (heading < line.length() && line.charAt(heading) == '#') {
-                heading++;
-            }
-            if (heading > 0 && heading <= 3 && heading < line.length() && line.charAt(heading) == ' ') {
-                line = line.substring(heading + 1);
-            }
-            int from = raw.length();
-            appendInline(raw, marks, line);
-            if (heading > 0 && raw.length() > from) {
-                marks.add(new int[]{from, raw.length(), 1});
-            }
-        }
-        if (marks.isEmpty()) {
-            android.text.SpannableString plain = new android.text.SpannableString(raw);
-            linkUrls(plain);
-            return plain;
-        }
-        android.text.SpannableString out = new android.text.SpannableString(raw);
-        for (int[] mark : marks) {
-            if (mark[1] <= mark[0] || mark[1] > out.length()) {
+        android.text.SpannableString out = new android.text.SpannableString(ready.text);
+        for (ai.dvine.chat.ReplyMarks.Mark mark : ready.marks) {
+            if (mark.to <= mark.from || mark.to > out.length()) {
                 continue;
             }
-            out.setSpan(mark[2] == 2 ? new android.text.style.TypefaceSpan("monospace")
-                    : new android.text.style.StyleSpan(Typeface.BOLD), mark[0], mark[1],
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-        linkUrls(out);
-        return out;
-    }
-
-    /** URLs in a reply are coloured and open when tapped. */
-    private void linkUrls(android.text.Spannable out) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("https?://[^\\s<>\"]+").matcher(out);
-        while (m.find()) {
-            String url = m.group().replaceAll("[),.;]+$", "");
-            int end = m.start() + url.length();
-            if (end <= m.start()) {
-                continue;
-            }
-            out.setSpan(new android.text.style.ForegroundColorSpan(0xFF8AB4F8), m.start(), end,
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            out.setSpan(new android.text.style.URLSpan(url), m.start(), end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-    }
-
-    /** 1 = bold, 2 = monospace. */
-    private void appendInline(StringBuilder raw, java.util.List<int[]> marks, String line) {
-        int i = 0;
-        while (i < line.length()) {
-            if (line.startsWith("**", i) || line.startsWith("__", i)) {
-                int end = line.indexOf(line.substring(i, i + 2), i + 2);
-                if (end > i + 2) {
-                    int from = raw.length();
-                    raw.append(line, i + 2, end);
-                    if (raw.length() > from) {
-                        marks.add(new int[]{from, raw.length(), 1});
-                    }
-                    i = end + 2;
-                    continue;
-                }
-            }
-            if (line.charAt(i) == '`') {
-                int end = line.indexOf('`', i + 1);
-                if (end > i) {
-                    int from = raw.length();
-                    raw.append(line, i + 1, end);
-                    if (raw.length() > from) {
-                        marks.add(new int[]{from, raw.length(), 2});
-                    }
-                    i = end + 1;
-                    continue;
-                }
-            }
-            int next = line.length();
-            int star = line.indexOf("**", i);
-            int under = line.indexOf("__", i);
-            int tick = line.indexOf('`', i);
-            if (star >= 0) {
-                next = Math.min(next, star);
-            }
-            if (under >= 0) {
-                next = Math.min(next, under);
-            }
-            if (tick >= 0) {
-                next = Math.min(next, tick);
-            }
-            if (next == i) {
-                raw.append(line.charAt(i));
-                i++;
+            if (mark.kind == ai.dvine.chat.ReplyMarks.CODE) {
+                out.setSpan(new android.text.style.TypefaceSpan("monospace"), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                out.setSpan(new android.text.style.ForegroundColorSpan(0xFFD7BA7D), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (mark.kind == ai.dvine.chat.ReplyMarks.ITALIC) {
+                out.setSpan(new android.text.style.StyleSpan(Typeface.ITALIC), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (mark.kind == ai.dvine.chat.ReplyMarks.LINK && mark.url != null) {
+                out.setSpan(new android.text.style.ForegroundColorSpan(0xFF8AB4F8), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                out.setSpan(new android.text.style.URLSpan(mark.url), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (mark.kind == ai.dvine.chat.ReplyMarks.QUOTE) {
+                out.setSpan(new android.text.style.ForegroundColorSpan(0xFFB0B6C0), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (mark.kind == ai.dvine.chat.ReplyMarks.HEAD) {
+                out.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                out.setSpan(new android.text.style.RelativeSizeSpan(1.12f), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             } else {
-                raw.append(line, i, next);
-                i = next;
+                out.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), mark.from, mark.to,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
         }
+        return out;
     }
 
     private static String labelOf(String persona) {
