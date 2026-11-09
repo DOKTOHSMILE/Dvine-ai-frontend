@@ -24,6 +24,8 @@ public final class ReplyService extends Service {
     private static final int NOTE = 7003;
 
     private PowerManager.WakeLock wake;
+    /** Keeps Wi-Fi awake too while a reply is on its way, so a minimised app doesn't lose the connection. */
+    private android.net.wifi.WifiManager.WifiLock wifi;
 
     /** How many pieces of model work hold the service (a reply, a model loading, a message being read…). */
     private static int holders;
@@ -104,7 +106,17 @@ public final class ReplyService extends Service {
             return;
         }
         wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dvine:reply");
-        wake.acquire(10 * 60 * 1000L);
+        wake.acquire(30 * 60 * 1000L); // a long API answer (up to 10 minutes) and its tools fit
+        try {
+            android.net.wifi.WifiManager wm = getApplicationContext().getSystemService(android.net.wifi.WifiManager.class);
+            if (wm != null && (wifi == null || !wifi.isHeld())) {
+                wifi = wm.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "dvine:reply");
+                wifi.setReferenceCounted(false);
+                wifi.acquire();
+            }
+        } catch (RuntimeException ignored) {
+            // no Wi-Fi on this device: mobile data stays up under the foreground service
+        }
     }
 
     private void unlock() {
@@ -112,6 +124,10 @@ public final class ReplyService extends Service {
             wake.release();
         }
         wake = null;
+        if (wifi != null && wifi.isHeld()) {
+            wifi.release();
+        }
+        wifi = null;
     }
 
     private static void channel(Context c) {

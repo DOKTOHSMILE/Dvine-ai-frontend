@@ -120,6 +120,7 @@ public final class ChatPane extends LinearLayout {
     }
 
     private void rated(String q, String a, boolean right) {
+        ratedAnswer = a;
         rateQuestion = null;
         rateAnswer = null;
         host.onRate(q, a, right);
@@ -238,6 +239,7 @@ public final class ChatPane extends LinearLayout {
                 }
             }
             if ("user".equals(m.role)) {
+                lastAsked = "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty() ? m.body.trim() : null;
                 reply.setLength(0);
                 parts = 0;
                 if (shown != null && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
@@ -264,9 +266,16 @@ public final class ChatPane extends LinearLayout {
                     thread.removeView(lastPartBar); // one part: the end's Listen is the same, shown once
                 }
                 // at the end: Copy for the whole reply at once, and Listen to all of it, as icons
-                thread.addView(actions(reply.toString(), stripCode(reply.toString())));
-                if (rateAnswer != null && i == cur.messages.size() - 1 && reply.toString().contains(rateAnswer)) {
+                boolean lastReply = i == cur.messages.size() - 1;
+                if (rateAnswer != null && lastReply && reply.toString().contains(rateAnswer)) {
+                    thread.addView(actions(reply.toString(), stripCode(reply.toString())));
                     thread.addView(rating()); // DVINE asks whether its answer was right
+                } else if (lastReply && lastAsked != null && !reply.toString().equals(ratedReply)
+                        && (ratedAnswer == null || !reply.toString().contains(ratedAnswer))) {
+                    // every answer can be marked right or wrong, whichever model wrote it: DVINE keeps learning
+                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), lastAsked));
+                } else {
+                    thread.addView(actions(reply.toString(), stripCode(reply.toString())));
                 }
                 reply.setLength(0);
                 parts = 0;
@@ -1807,6 +1816,26 @@ public final class ChatPane extends LinearLayout {
         bar.addView(listenButton(spoken, "Read aloud"));
         return bar;
     }
+
+    /** Copy and Listen, then a check (right) and a cancel (wrong) that teach DVINE from this answer. */
+    private View actions(final String all, final String spoken, final String question) {
+        LinearLayout bar = (LinearLayout) actions(all, spoken);
+        final String answer = stripCode(all).trim();
+        bar.addView(icon(R.drawable.ic_rate_right, "Correct", v -> {
+            ratedReply = all;
+            host.onRate(question, answer, true);
+            show();
+        }));
+        bar.addView(icon(R.drawable.ic_rate_wrong, "Wrong", v -> {
+            ratedReply = all;
+            host.onRate(question, answer, false);
+            show();
+        }));
+        return bar;
+    }
+
+    /** The user's message the latest reply answers, while drawing; the reply already marked right or wrong. */
+    private String lastAsked, ratedReply, ratedAnswer;
 
     /** A speaker icon that reads {@code spoken} aloud, and turns to Pause while it does. */
     private View listenButton(final String spoken, final String label) {

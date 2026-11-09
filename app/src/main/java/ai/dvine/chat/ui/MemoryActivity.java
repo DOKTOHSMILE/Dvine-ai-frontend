@@ -87,6 +87,31 @@ public final class MemoryActivity extends AppCompatActivity {
             n.addView(row(note, null, () -> chats.forgetNote(note)));
         }
 
+        // ---- what the pilot said about themselves, told to every brain
+        final ai.dvine.learn.PilotProfile profile = new ai.dvine.learn.PilotProfile(new File(getFilesDir(), "brain/pilot.tsv"));
+        List<String> about = profile.lines();
+        LinearLayout pr = section("What DVINE knows about you", about.size(), "Forget everything it knows about you?", profile::clear);
+        if (about.isEmpty()) {
+            empty(pr, "None yet. When you mention where you live, your work or your project, it is kept here and every model is told.");
+        }
+        for (final String line : about) {
+            final String key = line.substring(0, line.indexOf(':'));
+            pr.addView(row(line, null, () -> profile.forget(key)));
+        }
+
+        // ---- answers confirmed with the check
+        final ai.dvine.learn.Knowledge known = new ai.dvine.learn.Knowledge(new File(getFilesDir(), "brain/knowledge.tsv"));
+        List<ai.dvine.learn.Knowledge.Fact> sure = known.confirmed();
+        LinearLayout kc = section("Answers you marked correct", sure.size(), "Forget every answer you marked correct?", known::clear);
+        if (sure.isEmpty()) {
+            empty(kc, "None yet. Tap the check under an answer that's right: DVINE answers it again however it's asked.");
+        }
+        for (int i = sure.size() - 1; i >= 0; i--) {
+            final ai.dvine.learn.Knowledge.Fact f = sure.get(i);
+            kc.addView(row("“" + f.question + "”", f.answer.length() > 140 ? f.answer.substring(0, 140) + "…" : f.answer,
+                    () -> known.forget(f.question)));
+        }
+
         // ---- taught facts and corrections
         LinearLayout t = section("Facts you taught and corrections", journal.taughtCount(), "Forget every fact you taught?",
                 () -> journal.forgetTaught());

@@ -908,6 +908,51 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    /** Every reply can be marked right or wrong (check, cancel), whichever model wrote it; DVINE learns either way. */
+    @Test(timeout = 120000)
+    public void everyReplyCanBeMarkedRightOrWrong() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field bf = MainActivity.class.getDeclaredField("chats");
+        bf.setAccessible(true);
+        ai.dvine.chat.ChatBook book = (ai.dvine.chat.ChatBook) bf.get(c.get());
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        book.add("user", "text", "What is the capital of Kenya?", "obi");
+        pane.assistant("obi", "The capital of Kenya is Nairobi.");
+        android.view.View root = c.get().getWindow().getDecorView();
+        assertNotNull(described(root, "Wrong"));
+        described(root, "Correct").performClick();
+        org.junit.Assert.assertNull("marked once", described(root, "Correct"));
+        ai.dvine.learn.Knowledge k = new ai.dvine.learn.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        org.junit.Assert.assertEquals("The capital of Kenya is Nairobi.", k.recall("Kenya's capital city?").answer);
+        c.pause().stop().destroy();
+    }
+
+    /** No internet with an API picked: the message waits and DVINE says the connection is missing, not the API. */
+    @Test(timeout = 120000)
+    public void noInternetIsSaidAndTheMessageWaits() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Method m = MainActivity.class.getDeclaredMethod("waitForInternet", String.class);
+        m.setAccessible(true);
+        m.invoke(c.get(), "Summarise this article");
+        ShadowLooper.idleMainLooper(5, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field wf = MainActivity.class.getDeclaredField("waitingOnline");
+        wf.setAccessible(true);
+        org.junit.Assert.assertEquals(1, ((java.util.List<?>) wf.get(c.get())).size());
+        java.lang.reflect.Field bf = MainActivity.class.getDeclaredField("chats");
+        bf.setAccessible(true);
+        ai.dvine.chat.ChatBook book = (ai.dvine.chat.ChatBook) bf.get(c.get());
+        StringBuilder all = new StringBuilder();
+        for (ai.dvine.chat.ChatBook.Message msg : book.current().messages) {
+            all.append(msg.body).append('\n');
+        }
+        org.junit.Assert.assertTrue(all.toString(), all.toString().contains("No internet connection. Nothing is wrong with"));
+        c.pause().stop().destroy();
+    }
+
     /** DVINE 1 asks whether its answer was right; 👍🏽 saves it to its memory, found again for the same question reworded. */
     @Test(timeout = 120000)
     public void aThumbsUpTeachesDvine() throws Exception {
