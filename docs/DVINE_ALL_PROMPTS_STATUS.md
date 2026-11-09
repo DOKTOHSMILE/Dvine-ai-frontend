@@ -183,6 +183,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 150 | Close PR #140; a custom API Claude Opus model was failing to answer | P12 | Built (device check pending) | 0.96.5 |
 | 151 | Read the docs for unfinished builds; Claude runs through the custom API (Anthropic format), not the Anthropic card; stop building APKs | P12 | Built (device check pending) | 0.96.6 |
 | 152 | Redesign Settings (no sliders a finger moves by accident, sections hidden until opened, proper defaults), providers and drawer; code viewer with colours and line numbers | P12 | Built (device check pending) | 0.97.0 |
+| 153 | Media picker like the photo picker; every offline model listed (download/delete, memory needs), folded; offline models dropped from memory with an API; DVINE's own offline brain that learns the interactions and acts fast | P12 | Built (foundation; device check pending) | 0.97.1 |
 
 ## Still open, in the order that matters
 

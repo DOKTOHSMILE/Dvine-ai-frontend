@@ -1968,6 +1968,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     carryOut(stage.agent(), t, known);
                     return true;
                 })
+                .route("learned", t -> {
+                    // DVINE's own brain: an action it learned from the models, carried out without asking one
+                    String learned = brainBox().recall(t);
+                    ai.dvine.llm.BrainOrder order = learned == null ? null : ai.dvine.llm.BrainOrder.decide(t, learned);
+                    if (order == null || order.kind == ai.dvine.llm.BrainOrder.Kind.SAY
+                            || order.kind == ai.dvine.llm.BrainOrder.Kind.CANNOT) {
+                        return false;
+                    }
+                    if (chatPane != null) {
+                        chatPane.activityStep("Done from what DVINE learned (no model needed)");
+                    }
+                    carryOut(stage.agent(), t, order);
+                    return true;
+                })
                 .route("no model", t -> {
                     if (modelOn()) {
                         return false;
@@ -1997,6 +2011,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return brainGate;
     }
 
+    private ai.dvine.learn.BrainBox brainBox;
+
+    /** DVINE's own light brain: how the user's words became actions, learned from every model it works with. */
+    private synchronized ai.dvine.learn.BrainBox brainBox() {
+        if (brainBox == null) {
+            brainBox = new ai.dvine.learn.BrainBox(new java.io.File(getFilesDir(), "learning/brainbox.tsv"));
+        }
+        return brainBox;
+    }
+
     private boolean modelOn() {
         return model != null && model.ready() && prefs.getBoolean("llm_on", true);
     }
@@ -2021,6 +2045,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 endThink();
                 ai.dvine.llm.BrainOrder order = ai.dvine.llm.BrainOrder.decide(finalQuestion, all);
+                if (order != null && all != null) {
+                    final String line = all;
+                    hub.worker.execute(() -> brainBox().learn(finalQuestion, line)); // the next time, no model call
+                }
                 if (order == null && all != null && !all.trim().isEmpty()) {
                     // the model wrote no usable order (a bare "SAY"): it is asked for a plain answer instead
                     askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
@@ -4181,6 +4209,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
         }
         model.useRemotes(brains, fasts, names, windows, () -> connectivity != null && connectivity.isOnline());
+        if (model.remoteOn() && hub != null) {
+            // switched to an API: the offline model leaves memory now, not at the next question
+            final ai.dvine.llm.LocalModel leaving = model;
+            hub.worker.execute(leaving::releaseIfIdle);
+        }
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
             String face = stage.agent();
@@ -4291,6 +4324,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private int modelGeneration;
 
     private void loadModel(final boolean tell) {
+        if (!tell && model != null && model.remoteOn()) {
+            // an API answers (and the user didn't ask to start it): the offline model is not loaded ahead of time. It loads when an answer needs it
+            // (offline, or every API failed), and leaves memory again when an API answers
+            return;
+        }
         if (!safeModel()) {
             return; // nothing on the phone fits it: answers come from an API until a smaller model is chosen
         }
@@ -4926,6 +4964,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void openContentPicker(String kind, boolean learn) {
         pickerLearn = learn;
+        if ("image".equals(kind) || "video".equals(kind)) {
+            // photos and videos: Android's own photo picker (the Photos / Collections sheet, Google Photos included),
+            // which needs no storage permission and shows the gallery instead of a file browser
+            android.content.Intent media = new android.content.Intent(android.provider.MediaStore.ACTION_PICK_IMAGES);
+            media.setType("image".equals(kind) ? "image/*" : "video/*");
+            if (!learn) {
+                media.putExtra(android.provider.MediaStore.EXTRA_PICK_IMAGES_MAX,
+                        Math.min(20, android.provider.MediaStore.getPickImagesMaxLimit()));
+            }
+            try {
+                startActivityForResult(media, PICK_CONTENT);
+                return;
+            } catch (android.content.ActivityNotFoundException | IllegalArgumentException e) {
+                // no photo picker on this device: the file picker below
+            }
+        }
         android.content.Intent intent = new android.content.Intent(
                 android.content.Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
@@ -4954,13 +5008,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void openReconstructionPicker() {
         pickerReconstruct = true;
         pickerLearn = false;
-        android.content.Intent intent = new android.content.Intent(
-                android.content.Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        android.content.Intent intent = new android.content.Intent(android.provider.MediaStore.ACTION_PICK_IMAGES); // the gallery
         intent.setType("image/*");
-        intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, true);
-        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        intent.putExtra(android.provider.MediaStore.EXTRA_PICK_IMAGES_MAX, Math.min(20, android.provider.MediaStore.getPickImagesMaxLimit()));
         try {
             startActivityForResult(intent, PICK_CONTENT);
             play(LocalTurn.speakAs(stage.agent(),
