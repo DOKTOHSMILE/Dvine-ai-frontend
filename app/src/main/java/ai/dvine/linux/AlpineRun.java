@@ -77,7 +77,9 @@ public final class AlpineRun {
             pb.directory(new File(c.getFilesDir(), "linux"));
             Map<String, String> env = pb.environment();
             env.put("PROOT_TMP_DIR", tmp.getAbsolutePath());
-            env.put("PROOT_NO_SECCOMP", "1");
+            // Do not set PROOT_NO_SECCOMP. Setting it stops proot fixing the calls Android blocks,
+            // and apk then dies with "Function not implemented".
+            env.remove("PROOT_NO_SECCOMP");
             env.put("PROOT_IGNORE_MISSING_BINDINGS", "1");
             File loader = LinuxRoot.loader(c);
             if (loader.isFile()) {
@@ -89,6 +91,7 @@ public final class AlpineRun {
             env.put("LANG", "C.UTF-8");
             env.remove("LD_PRELOAD");
             env.remove("LD_LIBRARY_PATH");
+            LinuxRoot.refreshDns(c);
             Process proc = pb.start();
             if (job != null) {
                 job.proc = proc;

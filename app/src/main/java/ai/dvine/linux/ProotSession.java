@@ -37,7 +37,7 @@ public final class ProotSession {
         pb.directory(new File(c.getFilesDir(), "linux"));
         Map<String, String> env = pb.environment();
         env.put("PROOT_TMP_DIR", tmp.getAbsolutePath());
-        env.put("PROOT_NO_SECCOMP", "1");
+        env.remove("PROOT_NO_SECCOMP");
         env.put("PROOT_IGNORE_MISSING_BINDINGS", "1");
         File loader = LinuxRoot.loader(c);
         if (loader.isFile()) {

@@ -2,12 +2,18 @@ package ai.dvine.linux;
 
 import android.content.Context;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.LinkProperties;
+import android.net.Network;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,8 +23,10 @@ import java.nio.file.Files;
  * Termux is not installed and not opened. {@code pkg} is the same shape of command Termux uses.
  */
 public final class LinuxRoot {
+    /** Alpine 3.22. apk in 3.24 uses calls this phone rejects, so packages never install. */
+    public static final String RELEASE = "3.22.5";
     public static final String ROOTFS_URL =
-            "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/alpine-minirootfs-3.24.4-aarch64.tar.gz";
+            "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/aarch64/alpine-minirootfs-3.22.5-aarch64.tar.gz";
     public static final String PROOT_URL =
             "https://skirsten.github.io/proot-portable-android-binaries/aarch64/proot";
     private static final byte[] ELF = new byte[] {0x7f, 'E', 'L', 'F'};
@@ -57,10 +65,15 @@ public final class LinuxRoot {
 
     public static void install(Context c, Progress progress) throws IOException {
         File rootfs = root(c);
-        if (ready(rootfs) && new File(rootfs, "usr/local/bin/pkg").isFile()) {
+        File stamp = new File(rootfs, "etc/dvine-release");
+        if (ready(rootfs) && new File(rootfs, "usr/local/bin/pkg").isFile() && same(stamp, RELEASE)) {
+            refreshDns(c);
             return;
         }
-        say(progress, "Preparing Linux. The first time downloads about 4 MB.");
+        boolean replacing = ready(rootfs);
+        say(progress, replacing
+                ? "Replacing Linux with Alpine 3.22 so pkg can install packages on this phone."
+                : "Preparing Linux. The first time downloads about 4 MB.");
         ensureProot(c, progress);
         File gz = new File(c.getCacheDir(), "alpine-minirootfs.tar.gz");
         say(progress, "Downloading Alpine Linux…");
@@ -77,13 +90,70 @@ public final class LinuxRoot {
         if (!ready(rootfs)) {
             throw new IOException("Linux unpacked, but its shell is missing.");
         }
-        write(new File(rootfs, "etc/resolv.conf"), "nameserver 1.1.1.1\nnameserver 8.8.8.8\n");
         File bin = new File(rootfs, "usr/local/bin");
         bin.mkdirs();
         File pkg = new File(bin, "pkg");
-        write(pkg, ProotCommand.PKG);
+        write(new File(bin, "pkg"), ProotCommand.PKG);
         pkg.setExecutable(true, false);
+        write(new File(rootfs, "etc/apk/repositories"), repositories());
+        write(stamp, RELEASE + "\n");
+        refreshDns(c);
         say(progress, "Linux is ready.");
+    }
+
+    /** Plain http. apk still checks the package signature. https fails on this phone with "Function not implemented". */
+    static String repositories() {
+        return "http://dl-cdn.alpinelinux.org/alpine/v3.22/main\n"
+                + "http://dl-cdn.alpinelinux.org/alpine/v3.22/community\n";
+    }
+
+    /** The phone's own DNS first. Public servers are only a fallback, and many networks block them. */
+    public static void refreshDns(Context c) {
+        if (c == null) {
+            return;
+        }
+        File conf = new File(root(c), "etc/resolv.conf");
+        File parent = conf.getParentFile();
+        if (parent == null || !parent.isDirectory()) {
+            return;
+        }
+        StringBuilder text = new StringBuilder();
+        try {
+            ConnectivityManager cm = (ConnectivityManager) c.getSystemService(Context.CONNECTIVITY_SERVICE);
+            Network net = cm == null ? null : cm.getActiveNetwork();
+            LinkProperties link = net == null || cm == null ? null : cm.getLinkProperties(net);
+            if (link != null) {
+                for (InetAddress address : link.getDnsServers()) {
+                    String host = address.getHostAddress();
+                    if (host == null || host.indexOf(':') >= 0 || text.length() > 240) {
+                        continue;
+                    }
+                    text.append("nameserver ").append(host).append('\n');
+                }
+            }
+        } catch (Throwable ignored) {
+            // keep the public servers below
+        }
+        if (text.indexOf("8.8.8.8") < 0) {
+            text.append("nameserver 8.8.8.8\n");
+        }
+        if (text.indexOf("1.1.1.1") < 0) {
+            text.append("nameserver 1.1.1.1\n");
+        }
+        try {
+            write(conf, text.toString());
+        } catch (IOException ignored) {
+            // a command can still run; only package installs need this file
+        }
+    }
+
+    private static boolean same(File stamp, String want) {
+        try {
+            String got = new String(Files.readAllBytes(stamp.toPath()), StandardCharsets.UTF_8).trim();
+            return want.equals(got);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private static void ensureProot(Context c, Progress progress) throws IOException {

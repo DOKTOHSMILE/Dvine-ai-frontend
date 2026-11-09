@@ -1,3 +1,12 @@
+# Package install (0.99.23)
+
+`pkg install` failed with "Function not implemented" and then "DNS: transient error". Alpine 3.24's package tool uses calls this phone rejects, and DNS was pointed at public servers the network can block.
+
+- [x] Linux is replaced with Alpine 3.22.5 the first time the shell opens. Opening it downloads about 4 MB again.
+- [x] Repositories use http. apk still checks the package signature.
+- [x] DNS is the phone's own servers, with 8.8.8.8 and 1.1.1.1 only as fallback.
+- [x] `PROOT_NO_SECCOMP` is not set. Setting it stopped proot from fixing the blocked calls.
+
 # Linux terminal (0.99.22)
 
 - [x] Each command finishes and prints, instead of a pipe that can hold the output back.
