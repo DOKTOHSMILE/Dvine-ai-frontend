@@ -445,8 +445,9 @@ public final class ChatPane extends LinearLayout {
             liveBlock = new LinearLayout(getContext());
             liveBlock.setOrientation(HORIZONTAL);
             liveBlock.setGravity(Gravity.CENTER_VERTICAL);
-            liveBlock.setPadding(0, dp(8), 0, dp(8));
-            liveBlock.setMinimumHeight(dp(40));
+            liveBlock.setPadding(0, dp(10), 0, dp(10));
+            liveBlock.setMinimumHeight(dp(52)); // a full-width target: one tap opens the steps
+            liveBlock.setBackgroundResource(ripple());
             // the live mark: a turning, breathing spark while the work goes on
             ThinkingMark mark = new ThinkingMark(getContext(), color(R.color.accent));
             LayoutParams mp = new LayoutParams(dp(18), dp(18));
@@ -501,7 +502,7 @@ public final class ChatPane extends LinearLayout {
         }
     };
     /** A character every this many milliseconds: the typewriter's pace. */
-    static final long TYPE_MS = 18;
+    static final long TYPE_MS = 40; // 25 times a second reads as typing; 60 only warms the device
 
     /** Types {@code words} into the live line, a character at a time; the same words again are left as they are. */
     private void type(String words) {
@@ -665,7 +666,9 @@ public final class ChatPane extends LinearLayout {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(4), dp(8), 0, dp(8));
+        row.setPadding(dp(4), dp(10), 0, dp(10));
+        row.setMinimumHeight(dp(48)); // a group of steps opens with one tap anywhere on its row
+        row.setBackgroundResource(ripple());
         android.widget.ImageView icon = new android.widget.ImageView(getContext());
         icon.setImageResource(group.kind == ai.dvine.agent.StepGroups.Kind.COMMAND ? R.drawable.ic_terminal
                 : group.kind == ai.dvine.agent.StepGroups.Kind.EDIT ? R.drawable.ic_edit : R.drawable.ic_search);
@@ -712,7 +715,9 @@ public final class ChatPane extends LinearLayout {
         t.setTextSize(13f);
         t.setMaxLines(open ? 4 : 1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        t.setPadding(dp(32), dp(5), 0, dp(5));
+        t.setPadding(dp(32), dp(10), 0, dp(10));
+        t.setMinHeight(dp(44));
+        t.setGravity(Gravity.CENTER_VERTICAL);
         if (d != null) {
             t.setContentDescription(it.verb + " " + it.target + (open ? ", hide" : ", show"));
             t.setOnClickListener(v -> toggle.run());
@@ -954,7 +959,11 @@ public final class ChatPane extends LinearLayout {
             row.setTextSize(14f);
             row.setMaxLines(1);
             row.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            row.setPadding(0, dp(9), 0, dp(9));
+            row.setPadding(0, dp(12), 0, dp(12));
+            row.setMinHeight(dp(48)); // the whole width and 48dp tall: easy to hit
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setBackgroundResource(ripple());
+            row.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             row.setContentDescription(label + ", open the steps");
             final String title = r.grouped ? label : "Steps";
             row.setOnClickListener(v -> openSteps(title, mine, false));
@@ -1154,8 +1163,8 @@ public final class ChatPane extends LinearLayout {
     }
 
     /** At least this many characters a frame (about 500 a second at 60 frames), in whole words, as ChatGPT streams. */
-    static final int LIVE_CHARS_PER_TICK = 8;
-    static final long LIVE_TICK_MS = 16;
+    static final int LIVE_CHARS_PER_TICK = 20; // 25 redraws a second, 20 characters each: the same 500 a second
+    static final long LIVE_TICK_MS = 40; // as above: the live reply is redrawn 25 times a second at most
 
     /**
      * Where the typewriter stops next: a few characters on, more the further behind it is (a third of the gap a
@@ -1919,10 +1928,10 @@ public final class ChatPane extends LinearLayout {
         getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true);
         b.setBackgroundResource(ripple.resourceId);
         b.setOnClickListener(click);
-        // small, like ChatGPT's: a 15 dp icon in a 35 by 31 dp target
+        // a small 18 dp icon in Android's standard 48 by 48 dp touch target, so one tap is enough
         b.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        b.setPadding(dp(10), dp(8), dp(10), dp(8));
-        LayoutParams lp = new LayoutParams(dp(10) * 2 + dp(15), dp(8) * 2 + dp(15));
+        b.setPadding(dp(15), dp(15), dp(15), dp(15));
+        LayoutParams lp = new LayoutParams(dp(48), dp(48));
         b.setLayoutParams(lp);
         return b;
     }
@@ -2133,6 +2142,13 @@ public final class ChatPane extends LinearLayout {
 
     private int color(int id) {
         return getContext().getColor(id);
+    }
+
+    /** The press ripple of the theme, for rows that open something. */
+    private int ripple() {
+        android.util.TypedValue t = new android.util.TypedValue();
+        getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, t, true);
+        return t.resourceId;
     }
 
     private int dp(int v) {

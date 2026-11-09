@@ -107,16 +107,8 @@ public final class ReplyService extends Service {
         }
         wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dvine:reply");
         wake.acquire(30 * 60 * 1000L); // a long API answer (up to 10 minutes) and its tools fit
-        try {
-            android.net.wifi.WifiManager wm = getApplicationContext().getSystemService(android.net.wifi.WifiManager.class);
-            if (wm != null && (wifi == null || !wifi.isHeld())) {
-                wifi = wm.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "dvine:reply");
-                wifi.setReferenceCounted(false);
-                wifi.acquire();
-            }
-        } catch (RuntimeException ignored) {
-            // no Wi-Fi on this device: mobile data stays up under the foreground service
-        }
+        // no high-performance Wi-Fi lock: it holds the radio at full power for the whole task and warms the device;
+        // the foreground service already keeps the connection alive
     }
 
     private void unlock() {

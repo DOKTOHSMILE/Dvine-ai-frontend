@@ -104,8 +104,40 @@ public final class SettingsActivity extends AppCompatActivity {
         voice.addView(Ui.text(this, "Speaking speed", 16, Ui.TEXT, false), Ui.wide(this, 14));
         voice.addView(choice(new String[]{"Slower", "Normal", "Faster"}, new String[]{"0.85", "1.0", "1.2"},
                 prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
+        voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
+                + " no sound but the voice. Takes effect the next time DVINE opens.", "music", false, null), Ui.wide(this, 10));
         voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",
                 13, Ui.SUB, false), Ui.wide(this, 10));
+
+        // ---- DVINE 1, the work in the chat, and actions (in step with the model menu and the tools sheet)
+        LinearLayout own = group("DVINE 1 and learning", "The brain in use, the learning schedule, training file");
+        String pick = prefs.getString("brain_pick", "api");
+        own.addView(Ui.text(this, "Answering now: " + ("dvine".equals(pick) ? ai.dvine.dvine1.Dvine1.NAME : "device".equals(pick)
+                ? "the offline model" : "your API models") + ". Change it from the model name under the chat's title.", 14, Ui.SUB, false));
+        final ai.dvine.dvine1.LearningSchedule.Plan plan = ai.dvine.dvine1.LearningJob.plan(this);
+        own.addView(toggle("Learn on a schedule", (plan.on ? "On, " : "Hours: ") + plan.words() + ". " + ai.dvine.dvine1.Dvine1.NAME
+                + " goes online and learns from what you asked. Set the hours from the model menu.", "learn_schedule_on", plan.on,
+                on -> ai.dvine.dvine1.LearningJob.setPlan(this, new ai.dvine.dvine1.LearningSchedule.Plan(on, plan.start, plan.end,
+                        plan.wifiOnly, plan.chargingOnly, plan.most))), Ui.wide(this, 10));
+        android.view.View learnNow = Ui.button(this, "Learn now", false);
+        learnNow.setOnClickListener(v -> {
+            ai.dvine.dvine1.LearningJob.learnNow(this);
+            android.widget.Toast.makeText(this, "Learning now. The Workload sheet shows it.", android.widget.Toast.LENGTH_SHORT).show();
+        });
+        own.addView(learnNow, Ui.wide(this, 10));
+        android.view.View train = Ui.button(this, "Export DVINE 1's training file", false);
+        train.setOnClickListener(v -> exportTraining());
+        own.addView(train, Ui.wide(this, 8));
+        own.addView(Ui.text(this, "Everything DVINE 1 learned (confirmed answers, facts, words) as a JSONL file in Downloads/DVINE,"
+                + " for training a model of your own.", 13, Ui.SUB, false), Ui.wide(this, 6));
+
+        LinearLayout work = group("Work and actions", "What long work says in the chat; sharing and posting");
+        work.addView(toggle("Say what each step found", "During long work, a line in the chat after each step: what it looked for"
+                + " and what it found. The full summary comes at the end.", "narrate_steps", true, null));
+        work.addView(toggle("Share and post without asking first", "Off (recommended): each share, post or copy is shown and waits"
+                + " for your yes.", "actions_auto", false, null), Ui.wide(this, 10));
+        work.addView(link("What DVINE remembers", "Answers you marked correct, what it knows about you, actions done", MemoryActivity.class),
+                Ui.wide(this, 10));
 
         // ---- models
         LinearLayout apis = group("Models", "AI providers and the model on this device");
@@ -391,6 +423,32 @@ public final class SettingsActivity extends AppCompatActivity {
 
     /** Keeps a number, brought into its range (the field shows what was kept). */
     /** A switch row kept in the preferences; {@code changed} also runs when it flips. */
+    /** DVINE 1's learning as a training file in Downloads/DVINE. */
+    private void exportTraining() {
+        java.io.File dir = new java.io.File(getFilesDir(), "brain");
+        String name = "dvine1-training-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(new java.util.Date()) + ".jsonl";
+        android.content.ContentValues v = new android.content.ContentValues();
+        v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
+        v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/jsonl");
+        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        String said;
+        try {
+            android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) {
+                throw new java.io.IOException("no Downloads folder");
+            }
+            int n;
+            try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
+                n = ai.dvine.dvine1.Training.write(o, new ai.dvine.dvine1.Knowledge(new java.io.File(dir, "knowledge.tsv")),
+                        new ai.dvine.dvine1.Facts(new java.io.File(dir, "facts.tsv")), new ai.dvine.dvine1.Lexicon(new java.io.File(dir, "words.tsv")));
+            }
+            said = n == 0 ? "Nothing learned yet." : "Saved " + n + " examples to Downloads/DVINE/" + name;
+        } catch (java.io.IOException | RuntimeException e) {
+            said = "Couldn't export: " + e.getMessage();
+        }
+        android.widget.Toast.makeText(this, said, android.widget.Toast.LENGTH_LONG).show();
+    }
+
     private View toggle(String title, String about, final String key, boolean def, final java.util.function.Consumer<Boolean> changed) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);

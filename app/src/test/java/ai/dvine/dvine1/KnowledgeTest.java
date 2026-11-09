@@ -1,4 +1,4 @@
-package ai.dvine.learn;
+package ai.dvine.dvine1;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -11,7 +11,7 @@ import java.nio.file.Files;
 
 import org.junit.Test;
 
-import ai.dvine.suit.ResearchAnswer;
+import ai.dvine.dvine1.ResearchAnswer;
 
 /** DVINE 1's memory: answers confirmed with a thumbs up, found again however the question is asked. */
 public class KnowledgeTest {

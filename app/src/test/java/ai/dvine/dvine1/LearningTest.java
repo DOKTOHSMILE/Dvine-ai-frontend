@@ -1,4 +1,4 @@
-package ai.dvine.learn;
+package ai.dvine.dvine1;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -15,7 +15,7 @@ import java.util.TimeZone;
 import org.junit.Test;
 
 /** Night learning: the window, tonight's topics, the day's feed, and answers learned but not yet checked. */
-public class NightLearnTest {
+public class LearningTest {
     static final TimeZone LAGOS = TimeZone.getTimeZone("Africa/Lagos");
 
     static long at(int h, int m) {
@@ -27,7 +27,7 @@ public class NightLearnTest {
 
     @Test
     public void theWindowCrossesMidnight() {
-        NightLearn.Plan p = new NightLearn.Plan(true, 23 * 60, 6 * 60, true, true, 40);
+        LearningSchedule.Plan p = new LearningSchedule.Plan(true, 23 * 60, 6 * 60, true, true, 40);
         assertTrue(p.inWindow(at(23, 30), LAGOS));
         assertTrue(p.inWindow(at(2, 0), LAGOS));
         assertFalse(p.inWindow(at(6, 0), LAGOS));
@@ -36,18 +36,18 @@ public class NightLearnTest {
         assertEquals(0, p.untilStart(at(1, 0), LAGOS));
         assertEquals(5 * 3_600_000L, p.untilEnd(at(1, 0), LAGOS));
         assertEquals("23:00 to 06:00, on Wi-Fi while charging", p.words());
-        NightLearn.Plan back = NightLearn.Plan.read(p.write());
+        LearningSchedule.Plan back = LearningSchedule.Plan.read(p.write());
         assertEquals(p.write(), back.write());
-        assertFalse("off unless the pilot turns it on", NightLearn.Plan.defaults().on);
+        assertFalse("off unless the pilot turns it on", LearningSchedule.Plan.defaults().on);
     }
 
     @Test
     public void tonightLearnsOnlyFromUsage() {
-        List<String> t = NightLearn.topics(Arrays.asList("who invented the radio", "What is a quasar?", "What is Lagos?"),
+        List<String> t = LearningSchedule.topics(Arrays.asList("who invented the radio", "What is a quasar?", "What is Lagos?"),
                 Arrays.asList("Afrobeats", "photosynthesis", "Afrobeats"), topic -> topic.equals("What is Lagos?"), 4);
         assertEquals(Arrays.asList("who invented the radio", "What is a quasar?", "Afrobeats", "photosynthesis"), t);
-        assertEquals("What is Afrobeats?", NightLearn.question("Afrobeats"));
-        assertEquals("who invented the radio", NightLearn.question("who invented the radio"));
+        assertEquals("What is Afrobeats?", LearningSchedule.question("Afrobeats"));
+        assertEquals("who invented the radio", LearningSchedule.question("who invented the radio"));
     }
 
     @Test
@@ -70,7 +70,7 @@ public class NightLearnTest {
     public void wordsItDoesntKnowAreLearnedFromTheQuestions() {
         Lexicon l = new Lexicon(null);
         l.learn("photosynthesis", "{\"en\":[{\"partOfSpeech\":\"Noun\",\"definitions\":[{\"definition\":\"How plants make food.\"}]}]}");
-        assertEquals(Arrays.asList("ephemeral", "serendipity"), NightLearnJob.unknownWords(
+        assertEquals(Arrays.asList("ephemeral", "serendipity"), LearningJob.unknownWords(
                 Arrays.asList("What does ephemeral mean?", "Is serendipity about photosynthesis?"), l, 10));
     }
 }

@@ -19,6 +19,7 @@ public final class ThinkingMark extends View {
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), glow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path spark = new Path();
     private ValueAnimator spin;
+    private long drawnAt;
     private float phase;
     /** One full look: centre, left, rest, right, rest, centre. */
     static final long GLANCE_MS = 3200;
@@ -46,7 +47,13 @@ public final class ThinkingMark extends View {
         spin.setInterpolator(new LinearInterpolator());
         spin.addUpdateListener(a -> {
             phase = (float) a.getAnimatedValue();
-            invalidate();
+            // redrawn about 12 times a second, not at the screen's 60-120: a mark that turns for a whole task must not
+            // keep the display and graphics chip at full rate (that warms the device)
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - drawnAt >= 80) {
+                drawnAt = now;
+                invalidate();
+            }
         });
         spin.start();
     }

@@ -1,4 +1,4 @@
-package ai.dvine.learn;
+package ai.dvine.dvine1;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -15,7 +15,7 @@ import java.util.TimeZone;
  * the morning it can answer more, and still asks "accurate?" until the pilot confirms. Pure Java: the plan, the
  * window and the topics; the device's job scheduler runs it.
  */
-public final class NightLearn {
+public final class LearningSchedule {
     /** The pilot's settings. Times are minutes after midnight. */
     public static final class Plan {
         public final boolean on;
