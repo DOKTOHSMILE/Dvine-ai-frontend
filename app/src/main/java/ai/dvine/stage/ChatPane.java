@@ -51,7 +51,7 @@ public final class ChatPane extends LinearLayout {
         default void onHandoff(String persona, String task) {
         }
 
-        /** 👍🏽 ({@code right}) or 👎🏽 on an answer DVINE asked about: it learns from it. */
+        /** Correct ({@code right}) or Wrong on an answer DVINE asked about: it learns from it. */
         default void onRate(String question, String answer, boolean right) {
         }
     }
@@ -61,19 +61,19 @@ public final class ChatPane extends LinearLayout {
     /** The answer DVINE asked "is this accurate?" about, and its question; null when none is waiting. */
     private String rateQuestion, rateAnswer;
 
-    /** Shows 👍🏽 and 👎🏽 under the reply holding {@code answer} until the pilot taps one or the chat moves on. */
+    /** Shows Correct and Wrong under the reply holding {@code answer} until the pilot taps one or the chat moves on. */
     public void askRating(String question, String answer) {
         rateQuestion = question;
         rateAnswer = answer;
         show();
     }
 
-    /** True while an answer waits for 👍🏽 or 👎🏽. */
+    /** True while an answer waits for Correct or Wrong. */
     public boolean ratingWaiting() {
         return rateAnswer != null;
     }
 
-    /** The 👍🏽 and 👎🏽 buttons: one tap teaches DVINE, then they say what it learned. */
+    /** The Correct and Wrong buttons: one tap teaches DVINE, then they say what it learned. */
     private View rating() {
         final LinearLayout bar = new LinearLayout(getContext());
         bar.setOrientation(LinearLayout.HORIZONTAL);
@@ -86,21 +86,30 @@ public final class ChatPane extends LinearLayout {
         ask.setPadding(dp(4), 0, dp(8), 0);
         bar.addView(ask);
         final String q = rateQuestion, a = rateAnswer;
-        bar.addView(thumb("\uD83D\uDC4D\uD83C\uDFFD", "Correct", v -> rated(q, a, true)));
-        bar.addView(thumb("\uD83D\uDC4E\uD83C\uDFFD", "Wrong", v -> rated(q, a, false)));
+        bar.addView(rateButton(R.drawable.ic_rate_right, "Correct", 0xFF1E9E5A, v -> rated(q, a, true)));
+        bar.addView(rateButton(R.drawable.ic_rate_wrong, "Wrong", 0xFFD93A3A, v -> rated(q, a, false)));
         return bar;
     }
 
-    private View thumb(String emoji, String label, View.OnClickListener click) {
+    /** A rating chip: DVINE's own icon (a check or a cross in a ring) and its word, outlined in its colour. */
+    private View rateButton(int icon, String label, int color, View.OnClickListener click) {
         TextView t = new TextView(getContext());
-        t.setText(emoji);
-        t.setTextSize(20f);
-        t.setGravity(android.view.Gravity.CENTER);
-        t.setMinWidth(dp(48));
-        t.setMinHeight(dp(44));
+        t.setText(label);
+        t.setTextSize(13f);
+        t.setTextColor(color);
+        t.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.graphics.drawable.Drawable d = getContext().getDrawable(icon);
+        if (d != null) {
+            d.setBounds(0, 0, dp(18), dp(18));
+            t.setCompoundDrawables(d, null, null, null);
+            t.setCompoundDrawablePadding(dp(6));
+        }
+        t.setPadding(dp(10), dp(6), dp(12), dp(6));
+        t.setMinHeight(dp(40));
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setCornerRadius(dp(22));
-        bg.setStroke(dp(1), getContext().getColor(R.color.text_secondary) & 0x55FFFFFF);
+        bg.setCornerRadius(dp(20));
+        bg.setColor((color & 0x00FFFFFF) | 0x14000000);
+        bg.setStroke(dp(1), (color & 0x00FFFFFF) | 0x66000000);
         t.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         lp.rightMargin = dp(8);
