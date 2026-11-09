@@ -62,11 +62,9 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private void fill() {
         body.removeAllViews();
-        knobs.clear();
 
         // ---- profile
-        section("Profile");
-        LinearLayout profile = card();
+        LinearLayout profile = group("Profile", "Your name and who starts the chat");
         profile.addView(Ui.text(this, "What should DVINE call you?", 16, Ui.TEXT, false));
         final android.widget.EditText name = Ui.field(this, "Your name", prefs.getString("user_name", ""), false, false);
         name.setOnFocusChangeListener((v, focused) -> {
@@ -81,11 +79,9 @@ public final class SettingsActivity extends AppCompatActivity {
                 prefs.getString("face", "ivie"), k -> prefs.edit().putString("face", k).apply()), Ui.wide(this, 8));
         profile.addView(Ui.text(this, "Ivie: images, drawings and 3D. Obi: conversation and questions. Ibiko: code, files and GitHub.",
                 13, Ui.SUB, false), Ui.wide(this, 8));
-        body.addView(profile, Ui.wide(this, 8));
 
         // ---- chat
-        section("Chat");
-        LinearLayout chat = card();
+        LinearLayout chat = group("Chat", "Enter to send, thinking together, fact-checks, working steps");
         chat.addView(toggle("Enter sends the message", "Off: Enter starts a new line; send with the arrow.", "send_enter", false, null));
         chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: Obi, Ivie and Ibiko each"
                 + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",
@@ -99,11 +95,9 @@ public final class SettingsActivity extends AppCompatActivity {
                 + " a little longer.", "interpreter", true, null));
         chat.addView(toggle("Show the working steps", "What DVINE is doing while it answers: searches, sources, models.", "show_steps", true, null),
                 Ui.wide(this, 10));
-        body.addView(chat, Ui.wide(this, 8));
 
         // ---- voice
-        section("Voice");
-        LinearLayout voice = card();
+        LinearLayout voice = group("Voice", "Reading replies aloud and how fast");
         voice.addView(Ui.text(this, "Read replies aloud", 16, Ui.TEXT, false));
         voice.addView(choice(new String[]{"Always", "After the mic", "Never"}, new String[]{"always", "mic", "off"},
                 prefs.getString("read_aloud", "always"), k -> prefs.edit().putString("read_aloud", k).apply()), Ui.wide(this, 10));
@@ -112,15 +106,14 @@ public final class SettingsActivity extends AppCompatActivity {
                 prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
         voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",
                 13, Ui.SUB, false), Ui.wide(this, 10));
-        body.addView(voice, Ui.wide(this, 8));
 
         // ---- models
-        section("Models");
-        LinearLayout apis = card();
+        LinearLayout apis = group("Models", "AI providers and the model on this device");
         apis.addView(link("AI providers", "API keys, up to three that take over from each other, fast and strong models",
                 ProvidersActivity.class));
-        body.addView(apis, Ui.wide(this, 8));
-        LinearLayout model = card();
+        LinearLayout model = new LinearLayout(this);
+        model.setOrientation(LinearLayout.VERTICAL);
+        model.setPadding(0, Ui.dp(this, 14), 0, 0);
         modelTitle = Ui.text(this, "", 17, Ui.TEXT, true);
         model.addView(modelTitle);
         modelAbout = Ui.text(this, "", 13, Ui.SUB, false);
@@ -164,26 +157,21 @@ public final class SettingsActivity extends AppCompatActivity {
         onPhone = new LinearLayout(this);
         onPhone.setOrientation(LinearLayout.VERTICAL);
         model.addView(onPhone, Ui.wide(this, 6));
-        body.addView(model, Ui.wide(this, 8));
+        apis.addView(model);
         refreshModel();
 
         // ---- web and services
-        section("Web and services");
-        LinearLayout web = card();
+        LinearLayout web = group("Web and services", "Web look-ups and connectors");
         web.addView(toggle("Look things up on the web", "For news, prices and anything recent; the sources are listed.", "fresh_facts", true, null));
         web.addView(link("Connectors", "Web search provider, GitHub, calendar, Notion, MCP servers", ConnectorsActivity.class), Ui.wide(this, 10));
-        body.addView(web, Ui.wide(this, 8));
 
         // ---- actions on the user's behalf
-        section("Actions");
-        LinearLayout acts = card();
+        LinearLayout acts = group("Actions", "Whether posts and shares wait for your yes");
         acts.addView(toggle("Auto-approve actions", "Posts, shares and copies go ahead without asking first. Off: each one is"
                 + " shown with its exact text and where it goes, and waits for your yes.", "actions_auto", false, null));
-        body.addView(acts, Ui.wide(this, 8));
 
         // ---- ibiko
-        section("Ibiko (coding)");
-        LinearLayout ibiko = card();
+        LinearLayout ibiko = group("Ibiko (coding)", "Commands, long jobs and the workspace");
         ibiko.addView(toggle("Run commands without asking", "Auto-accept: shell commands, git pushes and pull requests go ahead.",
                 "auto_accept", false, null));
         ibiko.addView(toggle("Keep working until done", "Long jobs run for hours if needed: plan, build, test, with a short progress"
@@ -199,21 +187,17 @@ public final class SettingsActivity extends AppCompatActivity {
                     toast("Workspace cleared.");
                     fill();
                 })), Ui.wide(this, 10));
-        body.addView(ibiko, Ui.wide(this, 8));
 
         // ---- appearance
-        section("Appearance");
-        LinearLayout look = card();
+        LinearLayout look = group("Appearance", "System, light or dark");
         look.addView(choice(new String[]{"System", "Light", "Dark"}, new String[]{"system", "light", "dark"},
                 prefs.getString("theme", "system"), k -> {
                     prefs.edit().putString("theme", k).apply();
                     ai.dvine.MainActivity.applyTheme(k);
                 }));
-        body.addView(look, Ui.wide(this, 8));
 
         // ---- data and privacy
-        section("Data and privacy");
-        LinearLayout data = card();
+        LinearLayout data = group("Data and privacy", "Memory, learning, export and deleting chats");
         data.addView(toggle("Learn from the API models", "Their answers are kept on this device to teach DVINE's own model.",
                 "learn_on", true, on -> hub.model.learning = on ? new ai.dvine.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null));
         data.addView(link("What DVINE remembers", "Notes, facts you taught, how it reads your words: forget any of them",
@@ -229,72 +213,26 @@ public final class SettingsActivity extends AppCompatActivity {
                 })), Ui.wide(this, 6));
         data.addView(Ui.text(this, "Keys, chats and what DVINE learns stay on this device. A message goes only to the AI provider you chose.",
                 13, Ui.SUB, false), Ui.wide(this, 10));
-        body.addView(data, Ui.wide(this, 8));
 
-        // ---- advanced: the limits DVINE works within, all changeable
-        section("Advanced");
-        LinearLayout adv = card();
-        adv.addView(Ui.text(this, "The numbers DVINE works with. Each provider's own settings (images, reasoning, length, time,"
-                + " extra request fields) are under AI providers \u203A a provider \u203A Advanced.", 13, Ui.SUB, false));
+        // ---- advanced: the limits DVINE works within. Closed until opened on purpose; each number is a row, changed only
+        // in its own editor (a slider in a scrolling list moved whenever a finger scrolled past it)
+        LinearLayout adv = group("Advanced", "Reply lengths, agent steps, offline memory and other limits");
+        adv.addView(Ui.text(this, "The numbers DVINE works with. The defaults suit most people: change one only for a reason."
+                + " Each provider's own settings are under AI providers › a provider › Advanced.", 13, Ui.SUB, false));
         for (final ai.dvine.chat.Tuning.Knob k : ai.dvine.chat.Tuning.ALL) {
-            // a slider for each number: its name with the value beside it, what it does, and the range under it
-            LinearLayout head = new LinearLayout(this);
-            head.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            head.addView(Ui.text(this, k.name.replace(" (0 = automatic)", ""), 15, Ui.TEXT, false),
-                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            final TextView value = Ui.text(this, label(k, k.get(prefs)), 15, Ui.ACCENT, true);
-            head.addView(value);
-            adv.addView(head, Ui.wide(this, 16));
-            adv.addView(Ui.text(this, k.about, 12, Ui.SUB, false));
-            final int[] stops = k.stops();
-            final android.widget.SeekBar bar = new android.widget.SeekBar(this);
-            bar.setMax(stops.length - 1);
-            bar.setProgress(k.stopFor(k.get(prefs)));
-            bar.setContentDescription(k.name);
-            bar.setProgressTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
-            bar.setThumbTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
-            bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
-                @Override
-                public void onProgressChanged(android.widget.SeekBar b, int at, boolean byUser) {
-                    int v = stops[Math.max(0, Math.min(stops.length - 1, at))];
-                    value.setText(k.shown(v));
-                    if (byUser) {
-                        prefs.edit().putInt(k.key, v).apply(); // kept as it moves
-                    }
-                }
-
-                @Override
-                public void onStartTrackingTouch(android.widget.SeekBar b) {
-                }
-
-                @Override
-                public void onStopTrackingTouch(android.widget.SeekBar b) {
-                    prefs.edit().putInt(k.key, stops[b.getProgress()]).apply();
-                }
-            });
-            knobs.put(k, bar);
-            adv.addView(bar, Ui.wide(this, 6));
-            LinearLayout ends = new LinearLayout(this);
-            ends.addView(Ui.text(this, k.shown(k.min), 11, Ui.SUB, false), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            ends.addView(Ui.text(this, "default " + k.shown(k.def), 11, Ui.SUB, false));
-            TextView hi = Ui.text(this, k.shown(k.max), 11, Ui.SUB, false);
-            hi.setGravity(android.view.Gravity.END);
-            ends.addView(hi, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            adv.addView(ends);
+            adv.addView(knobRow(k), Ui.wide(this, 4));
         }
         TextView reset = Ui.text(this, "Back to the defaults", 15, Ui.ACCENT, false);
-        reset.setPadding(0, Ui.dp(this, 14), 0, 0);
-        reset.setOnClickListener(x -> {
+        reset.setPadding(0, Ui.dp(this, 16), 0, Ui.dp(this, 4));
+        reset.setOnClickListener(x -> confirm("Put every advanced number back to its default?", () -> {
             android.content.SharedPreferences.Editor e = prefs.edit();
             for (ai.dvine.chat.Tuning.Knob k : ai.dvine.chat.Tuning.ALL) {
                 e.remove(k.key);
             }
             e.apply();
-            knobs.clear();
             fill();
-        });
+        }));
         adv.addView(reset);
-        body.addView(adv, Ui.wide(this, 8));
 
         // ---- about
         section("About");
@@ -304,8 +242,152 @@ public final class SettingsActivity extends AppCompatActivity {
         body.addView(about, Ui.wide(this, 8));
     }
 
-    private final java.util.Map<ai.dvine.chat.Tuning.Knob, android.widget.SeekBar> knobs =
-            new java.util.LinkedHashMap<ai.dvine.chat.Tuning.Knob, android.widget.SeekBar>();
+    /** The groups the user opened, kept while the screen is rebuilt. */
+    private final java.util.Set<String> opened = new java.util.HashSet<String>();
+
+    /**
+     * A section folded to one row (its title, a line saying what is inside, and a chevron); the settings show only
+     * after a tap, so a scrolling finger never lands on them. Returns the box to put the settings in.
+     */
+    private LinearLayout group(final String title, String summary) {
+        final LinearLayout c = card();
+        c.setPadding(0, 0, 0, 0);
+        final LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        int p = Ui.dp(this, 18);
+        head.setPadding(p, Ui.dp(this, 16), p, Ui.dp(this, 16));
+        head.setMinimumHeight(Ui.dp(this, 64));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(Ui.text(this, title, 16, Ui.TEXT, true));
+        words.addView(Ui.text(this, summary, 13, Ui.SUB, false), Ui.wide(this, 2));
+        head.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        final TextView chevron = Ui.text(this, opened.contains(title) ? "⌃" : "⌄", 18, Ui.SUB, false);
+        head.addView(chevron);
+        head.setContentDescription(title);
+        c.addView(head);
+        final LinearLayout inside = new LinearLayout(this);
+        inside.setOrientation(LinearLayout.VERTICAL);
+        inside.setPadding(p, 0, p, p);
+        inside.setVisibility(opened.contains(title) ? View.VISIBLE : View.GONE);
+        c.addView(inside);
+        head.setOnClickListener(v -> {
+            boolean open = inside.getVisibility() != View.VISIBLE;
+            inside.setVisibility(open ? View.VISIBLE : View.GONE);
+            chevron.setText(open ? "⌃" : "⌄");
+            if (open) {
+                opened.add(title);
+            } else {
+                opened.remove(title);
+            }
+        });
+        body.addView(c, Ui.wide(this, 10));
+        return inside;
+    }
+
+    /** One advanced number as a row: its name and value; a tap opens its editor. Nothing changes from the list itself. */
+    private View knobRow(final ai.dvine.chat.Tuning.Knob k) {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setMinimumHeight(Ui.dp(this, 52));
+        r.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+        int now = k.get(prefs);
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(Ui.text(this, plainName(k), 15, Ui.TEXT, false));
+        if (now != k.def) {
+            words.addView(Ui.text(this, "changed (default " + label(k, k.def) + ")", 12, Ui.SUB, false));
+        }
+        r.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        r.addView(Ui.text(this, label(k, now) + "  ›", 15, now != k.def ? Ui.ACCENT : Ui.SUB, now != k.def));
+        r.setContentDescription(k.name);
+        r.setOnClickListener(v -> editKnob(k));
+        return r;
+    }
+
+    /** A knob's name without the "(0 = automatic)" style note, which the value already shows. */
+    static String plainName(ai.dvine.chat.Tuning.Knob k) {
+        return k.name.replaceAll("\\s*\\(0[^)]*\\)\\s*$", "");
+    }
+
+    /** The editor for one number: what it does, minus and plus, a slider, Default; kept only with Save. */
+    private void editKnob(final ai.dvine.chat.Tuning.Knob k) {
+        final int[] stops = k.stops();
+        final int[] at = {k.stopFor(k.get(prefs))};
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = Ui.dp(this, 22);
+        box.setPadding(p, Ui.dp(this, 8), p, 0);
+        box.addView(Ui.text(this, k.about, 13, Ui.SUB, false));
+        final TextView value = Ui.text(this, label(k, stops[at[0]]), 26, Ui.TEXT, true);
+        value.setGravity(Gravity.CENTER);
+        LinearLayout step = new LinearLayout(this);
+        step.setGravity(Gravity.CENTER_VERTICAL);
+        TextView minus = Ui.button(this, "−", false);
+        TextView plus = Ui.button(this, "+", false);
+        step.addView(minus, new LinearLayout.LayoutParams(Ui.dp(this, 56), LinearLayout.LayoutParams.WRAP_CONTENT));
+        step.addView(value, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        step.addView(plus, new LinearLayout.LayoutParams(Ui.dp(this, 56), LinearLayout.LayoutParams.WRAP_CONTENT));
+        box.addView(step, Ui.wide(this, 16));
+        final android.widget.SeekBar bar = new android.widget.SeekBar(this);
+        bar.setMax(stops.length - 1);
+        bar.setProgress(at[0]);
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
+        bar.setThumbTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
+        box.addView(bar, Ui.wide(this, 14));
+        LinearLayout ends = new LinearLayout(this);
+        ends.addView(Ui.text(this, label(k, k.min), 11, Ui.SUB, false), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        ends.addView(Ui.text(this, "default " + label(k, k.def), 11, Ui.SUB, false));
+        TextView hi = Ui.text(this, label(k, k.max), 11, Ui.SUB, false);
+        hi.setGravity(Gravity.END);
+        ends.addView(hi, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        box.addView(ends);
+        final Runnable show = () -> {
+            value.setText(label(k, stops[at[0]]));
+            if (bar.getProgress() != at[0]) {
+                bar.setProgress(at[0]);
+            }
+        };
+        minus.setOnClickListener(v -> {
+            at[0] = Math.max(0, at[0] - 1);
+            show.run();
+        });
+        plus.setOnClickListener(v -> {
+            at[0] = Math.min(stops.length - 1, at[0] + 1);
+            show.run();
+        });
+        bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar b, int i, boolean byUser) {
+                if (byUser) {
+                    at[0] = i;
+                    value.setText(label(k, stops[i]));
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(android.widget.SeekBar b) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(android.widget.SeekBar b) {
+            }
+        });
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(plainName(k))
+                .setView(box)
+                .setPositiveButton("Save", (d, w) -> {
+                    prefs.edit().putInt(k.key, stops[at[0]]).apply();
+                    fill();
+                })
+                .setNeutralButton("Default", (d, w) -> {
+                    prefs.edit().remove(k.key).apply();
+                    fill();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
 
     /** Keeps a number, brought into its range (the field shows what was kept). */
     /** A switch row kept in the preferences; {@code changed} also runs when it flips. */
@@ -694,7 +776,14 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** The number beside a slider. A tier shows Automatic, Fast, Small, Big or Strong instead of a raw count. */
-    private static String label(ai.dvine.chat.Tuning.Knob k, int value) {
+    static String label(ai.dvine.chat.Tuning.Knob k, int value) {
+        if (k == ai.dvine.chat.Tuning.RUN_MODE) {
+            String[] modes = {"Quick", "Balanced", "Deep", "Extended", "Autonomous"};
+            return modes[Math.max(0, Math.min(modes.length - 1, value))];
+        }
+        if (k == ai.dvine.chat.Tuning.MODEL_THREADS && value == 0) {
+            return "Automatic";
+        }
         if (k != null && k.tier) {
             String name = ai.dvine.chat.Tuning.tierName(null, value);
             if (name != null) {

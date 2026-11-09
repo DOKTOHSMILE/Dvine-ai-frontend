@@ -37,25 +37,51 @@ public class TuningSliderTest {
     }
 
     @Test
-    public void movingASliderKeepsTheValue() throws Exception {
+    public void aNumberChangesOnlyInItsEditorAndOnlyWithSave() throws Exception {
         ActivityController<ai.dvine.chat.ui.SettingsActivity> c = Robolectric.buildActivity(ai.dvine.chat.ui.SettingsActivity.class)
                 .create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         SharedPreferences prefs = c.get().getSharedPreferences("dvine", 0);
+        android.view.View root = c.get().getWindow().getDecorView();
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
-        c.get().getWindow().getDecorView().findViewsWithText(found, Tuning.AGENT_TOKENS.name, android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        root.findViewsWithText(found, "Advanced", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        found.get(0).performClick(); // Advanced is closed until opened
+        found.clear();
+        root.findViewsWithText(found, Tuning.AGENT_TOKENS.name, android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         assertEquals(1, found.size());
-        SeekBar bar = (SeekBar) found.get(0);
+        assertTrue("a row, not a slider a finger can move while scrolling", !(found.get(0) instanceof SeekBar));
+        found.get(0).performClick();
+        ShadowLooper.idleMainLooper();
+        androidx.appcompat.app.AlertDialog d = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        SeekBar bar = findBar(d.getWindow().getDecorView());
         int[] stops = Tuning.AGENT_TOKENS.stops();
         assertEquals(4000, stops[bar.getProgress()]); // the default
         bar.setProgress(Tuning.AGENT_TOKENS.stopFor(8000));
-        org.robolectric.Shadows.shadowOf(bar).getOnSeekBarChangeListener().onStopTrackingTouch(bar); // the finger lifts
+        org.robolectric.Shadows.shadowOf(bar).getOnSeekBarChangeListener().onProgressChanged(bar, bar.getProgress(), true);
+        assertEquals("nothing is kept before Save", 4000, Tuning.AGENT_TOKENS.get(prefs));
+        d.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
         assertEquals(8000, Tuning.AGENT_TOKENS.get(prefs));
         java.util.ArrayList<android.view.View> shown = new java.util.ArrayList<android.view.View>();
         c.get().getWindow().getDecorView().findViewsWithText(shown, "8,000", android.view.View.FIND_VIEWS_WITH_TEXT);
-        assertTrue(!shown.isEmpty()); // the value beside the name follows
+        assertTrue(!shown.isEmpty()); // the row shows the new value
         prefs.edit().remove(Tuning.AGENT_TOKENS.key).commit();
         c.pause().stop().destroy();
+    }
+
+    private static SeekBar findBar(android.view.View v) {
+        if (v instanceof SeekBar) {
+            return (SeekBar) v;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            for (int i = 0; i < ((android.view.ViewGroup) v).getChildCount(); i++) {
+                SeekBar s = findBar(((android.view.ViewGroup) v).getChildAt(i));
+                if (s != null) {
+                    return s;
+                }
+            }
+        }
+        return null;
     }
 
     private static android.widget.ScrollView find(android.view.View v) {

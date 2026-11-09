@@ -50,6 +50,23 @@ public final class DetailSheet {
         head.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         box.addView(head);
 
+        if (!d.diff() && !d.lines.isEmpty()) {
+            // a file or an output: the code viewer, with its own line numbers and colours
+            ScrollView down = new ScrollView(a);
+            LinearLayout pane = new LinearLayout(a);
+            pane.setOrientation(LinearLayout.VERTICAL);
+            pane.setPadding(0, Ui.dp(a, 8), 0, Ui.dp(a, 24));
+            pane.addView(ai.dvine.ui.CodeView.of(a, d.title, ai.dvine.ui.NumberedCode.of(d.lines, false, 0), 12.5f));
+            down.addView(pane);
+            box.addView(down, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+            dialog.setContentView(box);
+            Window w = dialog.getWindow();
+            if (w != null) {
+                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            }
+            dialog.show();
+            return;
+        }
         ScrollView down = new ScrollView(a);
         HorizontalScrollView across = new HorizontalScrollView(a);
         LinearLayout code = new LinearLayout(a);

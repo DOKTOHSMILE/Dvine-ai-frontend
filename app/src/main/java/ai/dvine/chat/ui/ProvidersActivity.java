@@ -88,8 +88,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         // automatic switching between up to three APIs
         LinearLayout auto = new LinearLayout(this);
         auto.setGravity(Gravity.CENTER_VERTICAL);
-        auto.setBackground(Ui.round(this, Ui.CARD, Ui.BORDER, 16));
-        auto.setPadding(Ui.dp(this, 16), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10));
+        auto.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), Ui.dp(this, 10), Ui.dp(this, 8));
         LinearLayout autoText = new LinearLayout(this);
         autoText.setOrientation(LinearLayout.VERTICAL);
         autoText.addView(Ui.text(this, "Switch automatically", 16, Ui.TEXT, true));
@@ -108,13 +107,13 @@ public final class ProvidersActivity extends AppCompatActivity {
         auto.addView(toggle);
         LinearLayout settings = new LinearLayout(this);
         settings.setOrientation(LinearLayout.VERTICAL);
+        settings.setBackground(Ui.round(this, Ui.CARD, Ui.BORDER, 16));
         settings.addView(auto);
 
         // simple questions to the fast model, real work to the strong one
         LinearLayout route = new LinearLayout(this);
         route.setGravity(Gravity.CENTER_VERTICAL);
-        route.setBackground(Ui.round(this, Ui.CARD, Ui.BORDER, 16));
-        route.setPadding(Ui.dp(this, 16), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10));
+        route.setPadding(Ui.dp(this, 16), Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 12));
         LinearLayout routeText = new LinearLayout(this);
         routeText.setOrientation(LinearLayout.VERTICAL);
         routeText.addView(Ui.text(this, "Fast model for simple questions", 16, Ui.TEXT, true));
@@ -127,7 +126,7 @@ public final class ProvidersActivity extends AppCompatActivity {
                 new int[]{Ui.CORAL, Ui.FIELD}));
         routeToggle.setOnCheckedChangeListener((b, on) -> store.setSmartRouting(on));
         route.addView(routeToggle);
-        settings.addView(route, Ui.wide(this, 8));
+        settings.addView(route);
 
         ScrollView scroll = new ScrollView(this);
         LinearLayout inner = new LinearLayout(this);
@@ -238,8 +237,11 @@ public final class ProvidersActivity extends AppCompatActivity {
         });
         keyBox.addView(show, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.CENTER_VERTICAL));
-        card.addView(keyBox, Ui.wide(this, 14));
+        TextView keyLabel = Ui.text(this, "API key", 13, Ui.SUB, false);
+        card.addView(keyLabel, Ui.wide(this, 14));
+        card.addView(keyBox, Ui.wide(this, 6));
         if (p == Providers.DVINE_SERVER) {
+            keyLabel.setVisibility(View.GONE);
             // no key: the phone signs in to its own DVINE server; the address is that server's unless changed
             keyBox.setVisibility(View.GONE);
             card.addView(Ui.text(this, ai.dvine.llm.ProviderStore.serverSession != null
@@ -266,7 +268,8 @@ public final class ProvidersActivity extends AppCompatActivity {
         card.addView(f.backup, Ui.wide(this, 10));
 
         f.address = Ui.field(this, "https://… (the API's base address)", store.address(p), false, false);
-        card.addView(f.address, Ui.wide(this, 12));
+        card.addView(Ui.text(this, "Address", 13, Ui.SUB, false), Ui.wide(this, 12));
+        card.addView(f.address, Ui.wide(this, 6));
         card.addView(Ui.text(this, "Model for real work", 13, Ui.SUB, false), Ui.wide(this, 12));
         f.model = Ui.field(this, "Model", store.model(p), false, false);
         card.addView(f.model, Ui.wide(this, 6));
@@ -292,11 +295,8 @@ public final class ProvidersActivity extends AppCompatActivity {
             chipsScroll.addView(chips);
             card.addView(chipsScroll, Ui.wide(this, 8));
         }
-        advanced(card, p, f);
         f.ca = Ui.field(this, "CA certificate (optional)", store.certificate(p), false, true);
-        card.addView(f.ca, Ui.wide(this, 12));
-        card.addView(Ui.text(this, "Paste a CA certificate (PEM) only if the endpoint uses a private or regional CA not trusted by the"
-                + " system. It is trusted in addition to the system CAs; the chain is still verified.", 13, Ui.SUB, true), Ui.wide(this, 10));
+        advanced(card, p, f);
         if (p == Providers.ANTHROPIC) {
             card.addView(Ui.text(this, "Claude Opus 5.5, Opus 5, Sonnet 5.5 and Fable 5.1 are asked with Anthropic's refusal fallback on:"
                     + " if the model declines, Anthropic answers with another model in the same call.", 13, Ui.SUB, false), Ui.wide(this, 8));
@@ -467,6 +467,10 @@ public final class ProvidersActivity extends AppCompatActivity {
         box.addView(f.window, Ui.wide(this, 8));
         f.extra = Ui.field(this, "Extra request fields, JSON, e.g. {\"temperature\": 0.3}", store.extra(p), false, true);
         box.addView(f.extra, Ui.wide(this, 8));
+        // a private CA is rare: kept here, out of the way
+        box.addView(Ui.text(this, "CA certificate (PEM), only if the endpoint uses a private or regional CA the system doesn't"
+                + " trust. It is trusted in addition to the system's; the chain is still checked.", 13, Ui.SUB, false), Ui.wide(this, 12));
+        box.addView(f.ca, Ui.wide(this, 6));
         card.addView(box);
     }
 

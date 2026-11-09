@@ -148,7 +148,27 @@ public final class Tuning {
     public static final Knob RUN_MODE = new Knob("adv_run_mode", "How long a job may run (0 quick … 4 autonomous)",
             "0 quick, 1 balanced (today's limits), 2 deep reasoning, 3 extended project, 4 autonomous development."
                     + " Deep and above do not use the short reply timer. Android can still stop the app; the Scribe record is what resumes.",
-            1, 0, 4);
+            2, 0, 4); // deep by default: the short reply timer stopped long jobs that were still working
+
+    /** Marks that the one-time reset below has run. */
+    static final String RESET_MARK = "adv_reset_0966";
+
+    /**
+     * Once, on the version that took the sliders out of the Settings list: every advanced number back to its default.
+     * A slider in a scrolling list moved whenever a finger scrolled past it, so stored values may never have been
+     * chosen. True when it ran now.
+     */
+    public static boolean resetOnce(SharedPreferences p) {
+        if (p == null || p.getBoolean(RESET_MARK, false)) {
+            return false;
+        }
+        SharedPreferences.Editor e = p.edit();
+        for (Knob k : ALL) {
+            e.remove(k.key);
+        }
+        e.putBoolean(RESET_MARK, true).apply();
+        return true;
+    }
 
     public static final Knob[] ALL = {CHAT_TOKENS, BIG_TOKENS, AGENT_STEPS, AGENT_TOKENS, PASTE_CHARS, IMAGE_SIDE, WEB_RESULTS, WEB_PAGES, WORKERS, CLONE_FILES, OFFLINE_CONTEXT, SLOW_SPEED, MODEL_THREADS, TASK_TIER, BRAIN_TIER, RUN_MODE};
 
