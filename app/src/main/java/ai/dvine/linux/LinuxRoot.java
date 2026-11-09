@@ -1,8 +1,6 @@
 package ai.dvine.linux;
 
 import android.content.Context;
-
-import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;

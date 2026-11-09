@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import ai.dvine.linux.AlpineRun;
+import ai.dvine.linux.Complete;
 import ai.dvine.linux.Guest;
 import ai.dvine.linux.LinuxRoot;
 import ai.dvine.linux.ProotSession;
@@ -54,6 +55,9 @@ public final class TerminalActivity extends AppCompatActivity {
     private ProotSession live;
     /** The shell process stayed open and answered, so later commands reuse it. */
     private boolean shellReady;
+    /** True while the lasting shell is still being opened. A command typed then is kept, not dropped. */
+    private volatile boolean opening;
+    private String held;
     private String cwd = "/root";
     private volatile boolean closed;
     private volatile boolean linuxUp;
@@ -326,7 +330,7 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         if ("TAB".equals(label)) {
-            insert("\t");
+            complete();
             return;
         }
         insert(label);
@@ -358,7 +362,17 @@ public final class TerminalActivity extends AppCompatActivity {
                 editing = true;
                 input.setText("");
                 editing = false;
-                paint(false);
+            } else if (ch == 'a' || ch == 'A') {
+                input.setSelection(0);
+            } else if (ch == 'e' || ch == 'E') {
+                input.setSelection(input.getText().length());
+            } else if (ch == 'w' || ch == 'W') {
+                eraseWord();
+            } else if (ch == 'l' || ch == 'L') {
+                log.setLength(0);
+                screen.clear();
+                transcript.setText("");
+                keep();
             }
             return;
         }
@@ -437,12 +451,15 @@ public final class TerminalActivity extends AppCompatActivity {
                 if (empty) {
                     runOnUiThread(() -> append(WELCOME));
                 }
+                runOnUiThread(() -> linuxUp = true);
+                opening = true;
                 ProotSession opened = null;
                 try {
                     opened = ProotSession.open(TerminalActivity.this, LinuxRoot.root(TerminalActivity.this));
                 } catch (Exception ignored) {
                     opened = null;
                 }
+                opening = false;
                 final ProotSession use = opened;
                 runOnUiThread(() -> startShell(use));
             } catch (Exception e) {
@@ -483,6 +500,14 @@ public final class TerminalActivity extends AppCompatActivity {
         }
         if ("exit".equals(trimmed)) {
             finish();
+            return;
+        }
+        dispatch(line);
+    }
+
+    private void dispatch(String line) {
+        if (!shellReady && (opening || live != null)) {
+            held = line;
             return;
         }
         if (shellReady && live != null && live.alive()) {
@@ -559,6 +584,7 @@ public final class TerminalActivity extends AppCompatActivity {
                 opened.close();
             }
             linuxUp = true;
+            release();
             return;
         }
         live = opened;
@@ -569,6 +595,7 @@ public final class TerminalActivity extends AppCompatActivity {
             opened.close();
             live = null;
             linuxUp = true;
+            release();
             return;
         }
         if (transcript != null) {
@@ -585,6 +612,7 @@ public final class TerminalActivity extends AppCompatActivity {
             live = null;
         }
         linuxUp = true;
+        release();
     }
 
     private void onShell(String chunk) {
@@ -593,6 +621,7 @@ public final class TerminalActivity extends AppCompatActivity {
             shellReady = false;
             busy = false;
             linuxUp = true;
+            release();
             return;
         }
         incoming.append(chunk);
@@ -613,7 +642,49 @@ public final class TerminalActivity extends AppCompatActivity {
                 prompt.setText(promptText());
             }
             keep();
+            release();
         }
+    }
+
+    private void release() {
+        if (held == null || busy) {
+            return;
+        }
+        String line = held;
+        held = null;
+        dispatch(line);
+    }
+
+    private void complete() {
+        int at = input.getSelectionStart();
+        Complete.Hit hit = Complete.tab(LinuxRoot.root(this), cwd, input.getText().toString(), at);
+        if (hit.line != null && !hit.line.equals(input.getText().toString())) {
+            editing = true;
+            input.setText(hit.line);
+            int caret = Math.max(0, Math.min(hit.line.length(), hit.cursor));
+            input.setSelection(caret);
+            editing = false;
+        }
+        if (hit.shown != null && !hit.shown.isEmpty()) {
+            append(hit.shown + "\n");
+        }
+    }
+
+    private void eraseWord() {
+        int at = input.getSelectionStart();
+        if (at < 0) {
+            at = input.getText().length();
+        }
+        int start = at;
+        while (start > 0 && Character.isWhitespace(input.getText().charAt(start - 1))) {
+            start--;
+        }
+        while (start > 0 && !Character.isWhitespace(input.getText().charAt(start - 1))) {
+            start--;
+        }
+        editing = true;
+        input.getText().delete(start, at);
+        editing = false;
     }
 
     private File kept(String name) {

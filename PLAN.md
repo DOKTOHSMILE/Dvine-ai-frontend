@@ -1,3 +1,9 @@
+# Typing (0.99.32)
+
+- [x] The prompt accepts a command while the shell is still starting, and runs it when the shell is ready.
+- [x] Tab completes a command or a file name from the Linux files. Several matches are listed.
+- [x] CTRL-A, CTRL-E, CTRL-W and CTRL-L move to the start, the end, delete a word, and clear the screen.
+
 # Terminal text (0.99.31)
 
 - [x] Output is drawn like a terminal. Colors show, a line can rewrite itself, and `clear` wipes the screen instead of printing control codes.
