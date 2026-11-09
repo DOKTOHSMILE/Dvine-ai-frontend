@@ -103,6 +103,18 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    /** The brain's reply written as the suit's code (as a model would), carried out by the suit. */
+    private static void brainSays(ActivityController<MainActivity> c, String code) throws Exception {
+        java.lang.reflect.Method m = MainActivity.class.getDeclaredMethod("carryOut", String.class, String.class,
+                ai.dvine.llm.BrainOrder.class);
+        m.setAccessible(true);
+        java.lang.reflect.Field st = MainActivity.class.getDeclaredField("stage");
+        st.setAccessible(true);
+        String agent = ((ai.dvine.stage.StageView) st.get(c.get())).agent();
+        m.invoke(c.get(), agent, "", ai.dvine.llm.BrainOrder.leading(code));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     @Test
     public void aDoubleTapOnSendSendsOnceAndCancelsNothing() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
@@ -332,38 +344,34 @@ public class LaunchTest {
     }
 
     @Test
-    public void aRephrasedCommandIsActedOnByItsMeaning() throws Exception {
+    public void wordsAloneNeverRunAFunction() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        // Ibiko has work under way, and "where are we with that" was understood before as "give me the result"
-        c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
-        java.lang.reflect.Field bookF = MainActivity.class.getDeclaredField("chats");
-        bookF.setAccessible(true);
-        String chatId = ((ai.dvine.chat.ChatBook) bookF.get(c.get())).current().id; // the work is kept per chat
-        java.nio.file.Files.write(new java.io.File(c.get().getFilesDir(), "agent-ibiko-" + chatId + ".txt").toPath(),
-                "Task: audit the repo\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        // a meaning remembered from before no longer acts on the words: only the brain's code does
         android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
         ai.dvine.turn.Meaning.Memory m = new ai.dvine.turn.Meaning.Memory();
         m.put("Where are we with that?", ai.dvine.turn.Meaning.Command.RESULT);
+        m.put("start over", ai.dvine.turn.Meaning.Command.NEW_CHAT);
         prefs.edit().putString("meanings", m.write()).commit();
-        java.lang.reflect.Field mf = MainActivity.class.getDeclaredField("meanings");
-        mf.setAccessible(true);
-        mf.set(c.get(), null); // read again from the phone
-        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
-        field.setText("where are we with that");
-        c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
-        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        android.widget.TextView note = c.get().findViewById(ai.dvine.R.id.composer_note);
-        org.junit.Assert.assertEquals("Understood as \u201cgive me the result\u201d", note.getText().toString());
-        // the user's own words stay in the chat
         java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
         cf.setAccessible(true);
         ai.dvine.chat.ChatBook chats = (ai.dvine.chat.ChatBook) cf.get(c.get());
+        String before = chats.current().id;
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        android.view.View send = c.get().findViewById(ai.dvine.R.id.btn_send);
+        for (String words : new String[]{"where are we with that", "start over", "stop", "new chat", "\u00A7NC"}) {
+            field.setText(words);
+            send.performClick();
+            ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        android.widget.TextView note = c.get().findViewById(ai.dvine.R.id.composer_note);
+        org.junit.Assert.assertFalse(note.getText().toString().startsWith("Understood as"));
+        org.junit.Assert.assertEquals("no word started a new chat", before, chats.current().id);
         boolean kept = false;
         for (ai.dvine.chat.ChatBook.Message msg : chats.current().messages) {
             kept |= "user".equals(msg.role) && "where are we with that".equals(msg.body);
         }
-        org.junit.Assert.assertTrue(kept);
+        org.junit.Assert.assertTrue("the user's own words stay in the chat", kept);
         c.pause().stop().destroy();
     }
 
@@ -377,12 +385,14 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(3, java.util.concurrent.TimeUnit.SECONDS);
         java.lang.reflect.Field pb = MainActivity.class.getDeclaredField("pendingBuild");
         pb.setAccessible(true);
+        org.junit.Assert.assertNull("the words alone build nothing", pb.get(c.get()));
+        brainSays(c, "\u00A7BD build a house for my family"); // the brain decided: a 3D build
         org.junit.Assert.assertEquals("build a house for my family", pb.get(c.get()));
         java.lang.reflect.Method gate = MainActivity.class.getDeclaredMethod("messageGate");
         gate.setAccessible(true);
         ai.dvine.gate.BrainGateway g = (ai.dvine.gate.BrainGateway) gate.invoke(c.get());
         java.util.List<ai.dvine.gate.BrainGateway.Decision> d = g.recent();
-        org.junit.Assert.assertEquals("brain \u2192 a known order", d.get(d.size() - 2).toString());
+        org.junit.Assert.assertFalse("no route acts on the wording", g.order().contains("a known order"));
         ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
         // the build lights up the stage; without a GPU its frames would keep the looper busy forever
         java.lang.reflect.Field st = MainActivity.class.getDeclaredField("stage");
@@ -446,65 +456,42 @@ public class LaunchTest {
         java.lang.reflect.Method gate = MainActivity.class.getDeclaredMethod("messageGate");
         gate.setAccessible(true);
         ai.dvine.gate.BrainGateway g = (ai.dvine.gate.BrainGateway) gate.invoke(c.get());
-        // one route: the brain stage gives the order (here at once, the words leave no doubt) and DVINE carries it out
+        // one route: the words go to the brain (here none is plugged in, so the Cortex answers what it can);
+        // nothing acts on the wording itself
         org.junit.Assert.assertEquals("message \u2192 brain", g.last().toString());
-        org.junit.Assert.assertEquals("brain \u2192 a known order", g.recent().get(g.recent().size() - 2).toString());
+        org.junit.Assert.assertEquals("brain \u2192 no model", g.recent().get(g.recent().size() - 2).toString());
         field.setText("Explain how compound interest works in a few sentences");
         c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         // an ordinary question: the brain reads what it means (as before the gateway), recorded like any other
-        org.junit.Assert.assertEquals("message \u2192 read the meaning", g.last().toString());
+        org.junit.Assert.assertEquals("message \u2192 brain", g.last().toString());
         org.junit.Assert.assertEquals("Explain how compound interest works in a few sentences", g.last().text);
         // pause and stop are not chat routes: only an authorized command (DvineCommandGateway) controls a task
         org.junit.Assert.assertFalse(g.order().contains("pause"));
-        org.junit.Assert.assertEquals("retry", g.order().get(0));
+        org.junit.Assert.assertFalse(g.order().contains("retry"));
+        org.junit.Assert.assertFalse(g.order().contains("read the meaning"));
+        org.junit.Assert.assertEquals("model command", g.order().get(0));
         org.junit.Assert.assertEquals("brain", g.order().get(g.order().size() - 1));
         c.pause().stop().destroy();
     }
 
     @Test
-    public void rephrasedAppCommandsRunTheirOwnActions() throws Exception {
+    public void theBrainsCodesRunTheSuitsControls() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
-        ai.dvine.turn.Meaning.Memory m = new ai.dvine.turn.Meaning.Memory();
-        m.put("let me talk to the research one", ai.dvine.turn.Meaning.Command.SWITCH_OBI);
-        m.put("let ibiko just do things", ai.dvine.turn.Meaning.Command.AUTO_ON);
-        m.put("wipe everything you cloned", ai.dvine.turn.Meaning.Command.CLEAR_WORKSPACE);
-        prefs.edit().putString("meanings", m.write()).putBoolean("auto_accept", false).commit();
-        java.lang.reflect.Field mf = MainActivity.class.getDeclaredField("meanings");
-        mf.setAccessible(true);
-        mf.set(c.get(), null);
+        prefs.edit().putBoolean("auto_accept", false).commit();
         android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
-        android.view.View send = c.get().findViewById(ai.dvine.R.id.btn_send);
-
-        field.setText("Let me talk to the research one");
-        send.performClick();
+        field.setText("let ibiko just do things");
+        c.get().findViewById(ai.dvine.R.id.btn_send).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertFalse("words change no setting", prefs.getBoolean("auto_accept", false));
+        brainSays(c, "\u00A7SW obi");
         org.junit.Assert.assertEquals("Obi", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabObi)).getText().toString());
-
-        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS); // past the double-tap guard
-        field.setText("let Ibiko just do things");
-        send.performClick();
-        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        brainSays(c, "\u00A7AO");
         org.junit.Assert.assertTrue(prefs.getBoolean("auto_accept", false));
-
-        java.io.File ws = new java.io.File(c.get().getFilesDir(), "ibiko/sandbox/demo");
-        ws.mkdirs();
-        java.nio.file.Files.write(new java.io.File(ws, "main.py").toPath(), "print(1)\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
-        field.setText("wipe everything you cloned");
-        send.performClick();
-        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        // it can't be undone, so it asks first
-        ((androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog())
-                .getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
-        java.io.File root = new java.io.File(c.get().getFilesDir(), "ibiko");
-        for (int i = 0; i < 40 && root.exists(); i++) {
-            Thread.sleep(50);
-            ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS);
-        }
-        org.junit.Assert.assertFalse(root.exists());
+        brainSays(c, "\u00A7AF");
+        org.junit.Assert.assertFalse(prefs.getBoolean("auto_accept", false));
         c.pause().stop().destroy();
     }
 
@@ -808,10 +795,12 @@ public class LaunchTest {
         while (org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity() != null) {
             // the first-run setup screen and the like, opened at start
         }
-        org.junit.Assert.assertFalse(MainActivity.looksLikeAction("share your thoughts on AI")); // a question, not a post
-        org.junit.Assert.assertTrue(MainActivity.looksLikeAction("post on X: Big news today"));
         answer.invoke(c.get(), "post on X: Big news today");
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertFalse("the words alone stage nothing",
+                org.robolectric.shadows.ShadowDialog.getLatestDialog() instanceof androidx.appcompat.app.AlertDialog
+                        && org.robolectric.shadows.ShadowDialog.getLatestDialog().isShowing());
+        brainSays(c, "\u00A7AC post on X: Big news today"); // the brain decided: stage a post
         androidx.appcompat.app.AlertDialog card = (androidx.appcompat.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
         android.widget.TextView msg = card.findViewById(android.R.id.message);
         org.junit.Assert.assertTrue(String.valueOf(msg.getText()), msg.getText().toString().startsWith("Big news today")
@@ -823,7 +812,7 @@ public class LaunchTest {
         org.junit.Assert.assertTrue(log.toString(), log.get(0).contains("share\tX\tapproved") && log.get(0).endsWith("Big news today"));
         // auto-approve: no card, straight to the app, logged as such
         c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).edit().putBoolean("actions_auto", true).commit();
-        answer.invoke(c.get(), "copy: the meeting is at 5");
+        brainSays(c, "\u00A7AC copy: the meeting is at 5");
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         log = ai.dvine.act.ActionLog.read(c.get().getFilesDir());
         org.junit.Assert.assertTrue(log.toString(), log.get(0).contains("copy\tyour share menu\tauto-approved\tdone"));

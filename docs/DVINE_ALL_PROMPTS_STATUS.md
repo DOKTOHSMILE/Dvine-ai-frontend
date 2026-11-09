@@ -185,6 +185,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 152 | Redesign Settings (no sliders a finger moves by accident, sections hidden until opened, proper defaults), providers and drawer; code viewer with colours and line numbers | P12 | Built (device check pending) | 0.97.0 |
 | 153 | Media picker like the photo picker; every offline model listed (download/delete, memory needs), folded; offline models dropped from memory with an API; DVINE's own offline brain that learns the interactions and acts fast | P12 | Built (foundation; device check pending) | 0.97.1 |
 | 154 | Pages under the status bar; double reads and RAM; the API (or offline model) alone triggers app functions, the brain box never clashes with an API and keeps learning; drawer newest first; a deep analysis of the build | P12 | Built (device check pending) | 0.98.0 |
+| 155 | DVINE as a suit (the brain is the model, the user the pilot); functions only by machine code from the brain, never by words; arithmetic, language, comprehension; learning, evolving, deep thinking | P12 | Built (foundation; deep thinking is switched on per chat in the next version) | 0.99.0 |
 
 ## Still open, in the order that matters
 
