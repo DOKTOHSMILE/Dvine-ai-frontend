@@ -30,15 +30,22 @@ public final class Knowledge {
         public final String question, answer;
         public final Kind kind;
         final List<String> meaning;
-        /** True when the pilot confirmed it; false when the pilot said it was wrong. */
+        /** True when the pilot confirmed it (or it was learned and not yet checked); false when said to be wrong. */
         public final boolean right;
+        /** True when the pilot confirmed it; false for what DVINE learned by itself (overnight) and not yet checked. */
+        public final boolean sure;
 
         Fact(String question, String answer, Kind kind, List<String> meaning, boolean right) {
+            this(question, answer, kind, meaning, right, right);
+        }
+
+        Fact(String question, String answer, Kind kind, List<String> meaning, boolean right, boolean sure) {
             this.question = question;
             this.answer = answer;
             this.kind = kind;
             this.meaning = meaning;
             this.right = right;
+            this.sure = sure;
         }
     }
 
@@ -108,7 +115,7 @@ public final class Knowledge {
     public synchronized int size() {
         int n = 0;
         for (Fact f : facts) {
-            if (f.right) {
+            if (f.sure) {
                 n++;
             }
         }
@@ -118,6 +125,31 @@ public final class Knowledge {
     /** The pilot confirmed an answer (thumbs up): it is kept for this intent, replacing an older one. */
     public synchronized void confirm(String question, String answer) {
         keep(question, answer, true);
+    }
+
+    /**
+     * Something DVINE learned by itself (night learning): kept for this intent, offered with "accurate?" until the
+     * pilot confirms it; never replaces a confirmed answer or brings back one the pilot said was wrong.
+     */
+    public synchronized boolean learnUnchecked(String question, String answer) {
+        String a = answer == null ? "" : answer.trim();
+        List<String> meaning = meaning(question);
+        if (meaning.isEmpty() || a.isEmpty()) {
+            return false;
+        }
+        Kind k = kind(question);
+        for (Fact f : facts) {
+            if (f.kind == k && f.meaning.equals(meaning) && (f.sure || f.answer.equals(a))) {
+                return false; // already confirmed, already known, or said to be wrong
+            }
+        }
+        facts.removeIf(f -> f.right && !f.sure && f.kind == k && f.meaning.equals(meaning));
+        facts.add(new Fact(question.trim(), a, k, meaning, true, false));
+        while (facts.size() > MOST) {
+            facts.remove(0);
+        }
+        save();
+        return true;
     }
 
     /** The pilot said the answer was wrong (thumbs down): it is never offered for this intent again. */
@@ -159,7 +191,7 @@ public final class Knowledge {
             if (!f.right || !compatible(k, f.kind)) {
                 continue;
             }
-            double s = similarity(m, f.meaning);
+            double s = similarity(m, f.meaning) + (f.sure ? 0.001 : 0); // a confirmed answer wins a tie
             if (s > top) {
                 top = s;
                 best = f;
@@ -184,7 +216,7 @@ public final class Knowledge {
     public synchronized List<Fact> confirmed() {
         List<Fact> out = new ArrayList<Fact>();
         for (Fact f : facts) {
-            if (f.right) {
+            if (f.sure) {
                 out.add(f);
             }
         }
@@ -373,7 +405,7 @@ public final class Knowledge {
                     k = Kind.OTHER;
                 }
                 String q = p[2].replace(' ', '\n');
-                facts.add(new Fact(q, p[3].replace(' ', '\n'), k, meaning(q), "+".equals(p[0])));
+                facts.add(new Fact(q, p[3].replace(' ', '\n'), k, meaning(q), !"-".equals(p[0]), "+".equals(p[0])));
             }
         } catch (IOException e) {
             facts.clear();
@@ -386,7 +418,7 @@ public final class Knowledge {
         }
         StringBuilder b = new StringBuilder();
         for (Fact f : facts) {
-            b.append(f.right ? "+" : "-").append('\t').append(f.kind.name()).append('\t')
+            b.append(f.sure ? "+" : f.right ? "~" : "-").append('\t').append(f.kind.name()).append('\t')
                     .append(f.question.replace('\n', ' ').replace('\t', ' ')).append('\t')
                     .append(f.answer.replace('\n', ' ').replace('\t', ' ')).append('\n');
         }

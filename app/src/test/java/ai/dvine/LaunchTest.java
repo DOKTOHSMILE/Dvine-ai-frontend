@@ -248,7 +248,7 @@ public class LaunchTest {
     }
 
     @Test
-    public void thePersonasHaveIconsAndTheChosenOneItsName() throws Exception {
+    public void thePersonasAreNamedPagesWithIcons() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
@@ -258,7 +258,9 @@ public class LaunchTest {
             assertNotNull(tab.getCompoundDrawablesRelative()[0]); // graphics, chat, tools
         }
         org.junit.Assert.assertEquals("Ibiko", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabIbiko)).getText().toString());
-        org.junit.Assert.assertEquals("", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabObi)).getText().toString());
+        // three named pages of one chat: the ones not open keep their names too (0.99.8)
+        org.junit.Assert.assertEquals("Obi", ((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabObi)).getText().toString());
+        org.junit.Assert.assertTrue(((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tabIbiko)).isSelected());
         // the model under the title opens a switch: the offline models on the phone, every model, the API providers
         c.get().findViewById(ai.dvine.R.id.tv_header_sub).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
@@ -945,6 +947,47 @@ public class LaunchTest {
         String said = (String) about.invoke(c.get(), "What have you learned so far?");
         org.junit.Assert.assertTrue(said, said.contains("A pig is an animal"));
         org.junit.Assert.assertNull(about.invoke(c.get(), "What is a pig?"));
+        c.pause().stop().destroy();
+    }
+
+    /** Obi, Ivie and Ibiko are three named pages of one chat; DVINE 1 thinks in steps; night learning is set from the picker. */
+    @Test(timeout = 120000)
+    public void pagesThinkingAndNightLearning() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.TextView ivie = c.get().findViewById(R.id.tabIvie), ibiko = c.get().findViewById(R.id.tabIbiko);
+        org.junit.Assert.assertEquals("every page is named, open or not", "Ivie", ivie.getText().toString());
+        org.junit.Assert.assertEquals("Ibiko", ibiko.getText().toString());
+        org.junit.Assert.assertEquals("ivie", MainActivity.pageBeside("obi", 1));
+        org.junit.Assert.assertEquals("ibiko", MainActivity.pageBeside("obi", -1));
+
+        c.get().getSharedPreferences("dvine", 0).edit().putString("brain_pick", "dvine").apply();
+        java.lang.reflect.Method ans = MainActivity.class.getDeclaredMethod("dvineAnswer", String.class);
+        ans.setAccessible(true);
+        ans.invoke(c.get(), "what is 12 times 7");
+        java.lang.reflect.Field bf = MainActivity.class.getDeclaredField("chats");
+        bf.setAccessible(true);
+        ai.dvine.chat.ChatBook book = (ai.dvine.chat.ChatBook) bf.get(c.get());
+        int before = book.current().messages.size();
+        ShadowLooper.idleMainLooper(300, java.util.concurrent.TimeUnit.MILLISECONDS);
+        org.junit.Assert.assertEquals("it thinks first", before, book.current().messages.size());
+        ShadowLooper.idleMainLooper(5, java.util.concurrent.TimeUnit.SECONDS);
+        StringBuilder all = new StringBuilder();
+        for (ai.dvine.chat.ChatBook.Message m : book.current().messages) {
+            all.append(m.body).append('\n');
+        }
+        org.junit.Assert.assertTrue(all.toString(), all.toString().contains("= 84"));
+
+        c.get().findViewById(R.id.tv_header_sub).performClick();
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        assertNotNull(find(sheet.getWindow().getDecorView(), "Night learning  \u203A"));
+        ai.dvine.learn.NightLearnJob.setPlan(c.get(), new ai.dvine.learn.NightLearn.Plan(true, 23 * 60, 6 * 60, true, true, 40));
+        android.app.job.JobScheduler js = c.get().getSystemService(android.app.job.JobScheduler.class);
+        org.junit.Assert.assertEquals(1, js.getAllPendingJobs().size());
+        org.junit.Assert.assertTrue(js.getAllPendingJobs().get(0).isRequireCharging());
+        ai.dvine.learn.NightLearnJob.setPlan(c.get(), ai.dvine.learn.NightLearn.Plan.defaults());
+        org.junit.Assert.assertEquals("off: nothing waits", 0, js.getAllPendingJobs().size());
+        sheet.dismiss();
         c.pause().stop().destroy();
     }
 

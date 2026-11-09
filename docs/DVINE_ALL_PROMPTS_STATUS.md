@@ -193,6 +193,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 160 | No emoji for rating: custom check and cancel icons | P12 | Built | 0.99.5 |
 | 161 | Check for correct, cancel for wrong (keeps learning); build what's left on the list; keep the internet alive when minimised, keep replies for when the screen is opened, say when there's no internet | P12 | Built (JVM and Robolectric; device check pending). From the list: brain box shapes and the pilot profile built; parallel brains, splitting MainActivity, the SSH terminal and voice polish not done (see handbook §10) | 0.99.6 |
 | 162 | Screenshot: DVINE 1's wrong answers for "what is a pig", searching statements and "what have you learned" | P12 | Built (fixture from the live encyclopedia; device check pending) | 0.99.7 |
+| 163 | Rating icons beside Copy and Listen; DVINE's own model thinks with steps; Obi, Ivie and Ibiko as 3 pages of 1 chat; bedtime auto-learning | P12 | Built (JVM and Robolectric; a real night pending) | 0.99.8 |
 
 ## Still open, in the order that matters
 

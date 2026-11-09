@@ -60,6 +60,11 @@ public final class PersonaTabs {
 
         /** Put lines on screen as a spoken turn. */
         void play(java.util.List<ai.dvine.turn.TurnLine> next, Runnable done);
+
+        /** True when this persona's page of the chat has something new the pilot hasn't seen. */
+        default boolean unread(String persona) {
+            return false;
+        }
     }
 
     private final Host host;
@@ -128,20 +133,31 @@ public final class PersonaTabs {
 
     /** Light the chosen tab and rest the other two. */
     public void update(String persona) {
-        set(host.find(ai.dvine.R.id.tabIvie), "ivie".equalsIgnoreCase(persona));
-        set(host.find(ai.dvine.R.id.tabObi), "obi".equalsIgnoreCase(persona));
-        set(host.find(ai.dvine.R.id.tabIbiko), "ibiko".equalsIgnoreCase(persona));
+        set(host.find(ai.dvine.R.id.tabIvie), "ivie".equalsIgnoreCase(persona), host.unread("ivie"));
+        set(host.find(ai.dvine.R.id.tabObi), "obi".equalsIgnoreCase(persona), host.unread("obi"));
+        set(host.find(ai.dvine.R.id.tabIbiko), "ibiko".equalsIgnoreCase(persona), host.unread("ibiko"));
     }
 
-    /** One tab: an icon each, the chosen one also showing its name, in the chosen colour and weight. */
-    private void set(android.widget.TextView tab, boolean selected) {
+    /**
+     * One page of the chat: its icon and name always (Obi, Ivie, Ibiko are three pages of one conversation), the open
+     * one lit, and a dot in the accent colour on a page with something new.
+     */
+    private void set(android.widget.TextView tab, boolean selected, boolean unread) {
         if (tab == null)
             return;
-        // an icon each (graphics for Ivie, chat for Obi, tools for Ibiko); the chosen one also shows its name
         CharSequence name = tab.getContentDescription();
-        tab.setText(selected && name != null ? name : "");
-        tab.setCompoundDrawablePadding(
-                selected ? Math.round(4 * host.resources().getDisplayMetrics().density) : 0);
+        String n = name == null ? "" : name.toString().replace(", new", "");
+        if (unread && !selected) {
+            android.text.SpannableString t = new android.text.SpannableString(n + " \u25CF");
+            t.setSpan(new android.text.style.ForegroundColorSpan(host.color(ai.dvine.R.color.accent)), n.length() + 1, t.length(), 0);
+            t.setSpan(new android.text.style.RelativeSizeSpan(0.7f), n.length() + 1, t.length(), 0);
+            tab.setText(t);
+            tab.setContentDescription(n + ", new");
+        } else {
+            tab.setText(n);
+            tab.setContentDescription(n);
+        }
+        tab.setCompoundDrawablePadding(Math.round(4 * host.resources().getDisplayMetrics().density));
         tab.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(host.color(
                 selected ? ai.dvine.R.color.text_primary : ai.dvine.R.color.text_secondary)));
         tab.setTextColor(host
