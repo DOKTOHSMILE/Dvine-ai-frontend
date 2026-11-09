@@ -1,3 +1,7 @@
+# Scroll (0.99.26)
+
+- [x] The session no longer redraws on a timer, and a sideways scroller no longer sits inside the vertical one. A drag scrolls. It is not pulled back down unless you were already at the bottom.
+
 # Standard terminal (0.99.25)
 
 - [x] The title bar and the separate command box are gone. The prompt and the block cursor are the last line of the session, as in a normal terminal.

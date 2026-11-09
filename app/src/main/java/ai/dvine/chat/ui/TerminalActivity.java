@@ -1,8 +1,6 @@
 package ai.dvine.chat.ui;
 
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
@@ -12,7 +10,6 @@ import android.view.ScaleGestureDetector;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -42,7 +39,6 @@ public final class TerminalActivity extends AppCompatActivity {
     private final StringBuilder log = new StringBuilder();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final List<String> history = new ArrayList<String>();
-    private final Handler blinker = new Handler(Looper.getMainLooper());
     private int historyAt = 0;
     private AlpineRun.Job job;
     private String cwd = "/root";
@@ -52,21 +48,15 @@ public final class TerminalActivity extends AppCompatActivity {
     /** Follow new lines. Turned off when the user scrolls up to read. */
     private boolean stick = true;
     private boolean moving;
-    private boolean cursorOn = true;
+    private boolean touching;
+    private float downX;
+    private float downY;
     private boolean ctrl;
     private boolean alt;
     private boolean editing;
     private float textSp = 14f;
     private TextView ctrlKey;
     private TextView altKey;
-    private final Runnable blink = new Runnable() {
-        @Override
-        public void run() {
-            cursorOn = !cursorOn;
-            paint(false);
-            blinker.postDelayed(this, 530);
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,21 +70,13 @@ public final class TerminalActivity extends AppCompatActivity {
         scroll = new ZoomScroll(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(0xFF000000);
-        HorizontalScrollView wide = new HorizontalScrollView(this);
-        wide.setFillViewport(true);
         transcript = Ui.text(this, "", textSp, 0xFFE6E6E6, false);
         transcript.setTypeface(android.graphics.Typeface.MONOSPACE);
-        transcript.setTextIsSelectable(true);
+        transcript.setTextIsSelectable(false);
+        transcript.setHorizontallyScrolling(false);
         int pad = Ui.dp(this, 8);
         transcript.setPadding(pad, pad, pad, pad);
-        transcript.setOnClickListener(v -> keyboard());
-        transcript.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-            if (bottom != oldBottom) {
-                follow();
-            }
-        });
-        wide.addView(transcript);
-        scroll.addView(wide);
+        scroll.addView(transcript, new ScrollView.LayoutParams(-1, -2));
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         LinearLayout bar = new LinearLayout(this);
@@ -146,7 +128,6 @@ public final class TerminalActivity extends AppCompatActivity {
         page.addView(input, new LinearLayout.LayoutParams(1, 1));
         setContentView(page);
         Ui.fitInsets(page);
-        blinker.postDelayed(blink, 530);
         boot();
     }
 
@@ -174,8 +155,7 @@ public final class TerminalActivity extends AppCompatActivity {
 
                     @Override
                     public boolean onSingleTapUp(android.view.MotionEvent e) {
-                        keyboard();
-                        return true;
+                        return false;
                     }
                 });
 
@@ -184,10 +164,27 @@ public final class TerminalActivity extends AppCompatActivity {
         }
 
         @Override
-        public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
-            taps.onTouchEvent(ev);
-            scale.onTouchEvent(ev);
-            return super.dispatchTouchEvent(ev);
+        public boolean onTouchEvent(android.view.MotionEvent ev) {
+            int action = ev.getActionMasked();
+            if (action == android.view.MotionEvent.ACTION_DOWN) {
+                touching = true;
+                downX = ev.getX();
+                downY = ev.getY();
+            } else if (action == android.view.MotionEvent.ACTION_MOVE) {
+                touching = true;
+            } else if (action == android.view.MotionEvent.ACTION_UP || action == android.view.MotionEvent.ACTION_CANCEL) {
+                touching = false;
+                float dx = Math.abs(ev.getX() - downX);
+                float dy = Math.abs(ev.getY() - downY);
+                if (action == android.view.MotionEvent.ACTION_UP && dx < 16 && dy < 16) {
+                    keyboard();
+                }
+            }
+            if (ev.getPointerCount() >= 2) {
+                scale.onTouchEvent(ev);
+                taps.onTouchEvent(ev);
+            }
+            return super.onTouchEvent(ev);
         }
 
         @Override
@@ -379,14 +376,18 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         String typed = input == null || busy ? "" : input.getText().toString();
-        String live = busy ? "" : promptText() + typed + (cursorOn ? "\u2588" : "\u2591");
-        int y = scroll == null ? 0 : scroll.getScrollY();
+        String live = busy ? "" : promptText() + typed + "\u2588";
+        int kept = scroll == null ? 0 : scroll.getScrollY();
         transcript.setText(log.toString() + live);
-        if (jump) {
+        if (jump && !touching) {
             stick = true;
             follow();
-        } else if (scroll != null && !stick) {
-            scroll.post(() -> scroll.scrollTo(0, y));
+        } else if (scroll != null) {
+            scroll.post(() -> {
+                if (!stick) {
+                    scroll.scrollTo(0, kept);
+                }
+            });
         }
     }
 
@@ -468,13 +469,12 @@ public final class TerminalActivity extends AppCompatActivity {
         if (log.length() > 180000) {
             log.delete(0, log.length() - 140000);
         }
-        stick = true;
-        paint(true);
+        paint(stick && !touching);
     }
 
     /** scrollTo after layout. fullScroll runs too early and never reaches the new line. */
     private void follow() {
-        if (!stick || scroll == null) {
+        if (!stick || touching || scroll == null) {
             return;
         }
         scroll.post(() -> {
@@ -501,7 +501,6 @@ public final class TerminalActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         closed = true;
-        blinker.removeCallbacks(blink);
         if (job != null) {
             job.cancel();
         }
