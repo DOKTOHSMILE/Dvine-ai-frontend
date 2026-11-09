@@ -63,6 +63,31 @@ public final class Actions {
         }
     }
 
+    /**
+     * The intent that hands a post to its network's app with the text ready (for a notification, which must open it
+     * directly): the app when it is installed, X's web composer, else the share menu.
+     */
+    public static Intent shareIntent(Context context, PendingAction a) {
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType("text/plain");
+        send.putExtra(Intent.EXTRA_TEXT, a.content);
+        send.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        String pkg = packageFor(a.app);
+        if (pkg != null) {
+            Intent direct = new Intent(send).setPackage(pkg);
+            if (direct.resolveActivity(context.getPackageManager()) != null) {
+                return direct;
+            }
+        }
+        if ("x".equals(a.app)) {
+            return new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/intent/tweet?text=" + Uri.encode(a.content)))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
+        Intent chooser = Intent.createChooser(send, "Post with");
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return chooser;
+    }
+
     static String packageFor(String app) {
         if (app == null) {
             return null;
@@ -74,6 +99,7 @@ public final class Actions {
             case "instagram": return "com.instagram.android";
             case "linkedin": return "com.linkedin.android";
             case "telegram": return "org.telegram.messenger";
+            case "reddit": return "com.reddit.frontpage";
             default: return null;
         }
     }

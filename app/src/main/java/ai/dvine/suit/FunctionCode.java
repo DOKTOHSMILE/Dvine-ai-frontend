@@ -18,6 +18,8 @@ public enum FunctionCode {
     SO("SOCIAL", "the pilot's social accounts", "SEARCH <network>: <words> | TRENDING <network> | CONNECT <network> | POST <network>: <about>"),
     SI("SOCIALINTEL", "social intelligence: investigate posts, find similar posts, public sentiment, profiles",
             "<capability> <arguments>"),
+    SP("SCHEDULEPOST", "schedule a post on the pilot's own account, once or repeating; the pilot sees it and says yes first."
+            + " LIST shows the scheduled posts", "<network> <yyyy-MM-dd HH:mm | HH:mm | in 2h> [daily|weekly|weekdays|every 6h]: <text> | LIST"),
     MF("MAKEFILE", "make a file of the last answer", "<pdf|docx|xlsx|csv|md|html|txt>"),
     AC("ACTION", "share, post or copy text through the device's apps (shown first; the pilot says yes)",
             "<post on <network>: text | share: text | copy: text>"),

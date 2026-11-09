@@ -894,17 +894,39 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         c.get().findViewById(R.id.tv_header_sub).performClick();
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        android.view.View row = described(sheet.getWindow().getDecorView(), "DVINE 1.0");
+        android.view.View row = described(sheet.getWindow().getDecorView(), MainActivity.DVINE_OWN);
         assertNotNull("DVINE's own brain is in the list", row);
         row.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         org.junit.Assert.assertEquals("dvine", c.get().getSharedPreferences("dvine", 0).getString("brain_pick", ""));
         android.widget.TextView sub = c.get().findViewById(R.id.tv_header_sub);
-        org.junit.Assert.assertTrue(sub.getText().toString(), sub.getText().toString().endsWith("DVINE 1.0"));
+        org.junit.Assert.assertTrue(sub.getText().toString(), sub.getText().toString().endsWith(MainActivity.DVINE_OWN));
         c.get().findViewById(R.id.tv_header_sub).performClick();
         sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        assertNotNull("the one in use is marked", described(sheet.getWindow().getDecorView(), "DVINE 1.0, in use"));
+        assertNotNull("the one in use is marked", described(sheet.getWindow().getDecorView(), MainActivity.DVINE_OWN + ", in use"));
         sheet.dismiss();
+        c.pause().stop().destroy();
+    }
+
+    /** DVINE 1 asks whether its answer was right; 👍🏽 saves it to its memory, found again for the same question reworded. */
+    @Test(timeout = 120000)
+    public void aThumbsUpTeachesDvine() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
+        String answer = "Microsoft was founded by Bill Gates and Paul Allen in 1975.";
+        pane.assistant("obi", "Here's what I found: " + answer + "\n\nIs this accurate?");
+        pane.askRating("Who founded Microsoft?", answer);
+        android.view.View root = c.get().getWindow().getDecorView();
+        assertNotNull(described(root, "Wrong"));
+        described(root, "Correct").performClick();
+        org.junit.Assert.assertNull("the buttons go once it is rated", described(root, "Correct"));
+        org.junit.Assert.assertFalse(pane.ratingWaiting());
+        ai.dvine.learn.Knowledge k = new ai.dvine.learn.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        assertNotNull(k.recall("who created microsoft"));
+        org.junit.Assert.assertEquals(answer, k.recall("Who's the founder of Microsoft?").answer);
         c.pause().stop().destroy();
     }
 

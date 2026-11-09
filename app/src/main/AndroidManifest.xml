@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Optional. Termux must be installed and the user must grant this in Termux's own settings. -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
@@ -24,6 +25,14 @@
             <action android:name="android.speech.RecognitionService" />
         </intent>
         <package android:name="com.termux" />
+        <!-- the networks a post is handed to, scheduled or now -->
+        <package android:name="com.twitter.android" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.linkedin.android" />
+        <package android:name="org.telegram.messenger" />
+        <package android:name="com.whatsapp" />
+        <package android:name="com.reddit.frontpage" />
     </queries>
 
     <application
@@ -123,5 +132,12 @@
             android:name=".llm.ReplyService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <receiver
+            android:name=".social.PostAlarm"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

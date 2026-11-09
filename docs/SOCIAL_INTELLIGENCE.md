@@ -92,6 +92,17 @@ pilot's yes.
 | 11 | Responsive during long searches | Built (worker thread, the page's own job) |
 | 12 | Regression tests | `SocialIntelTest` (8 tests, fake providers); not yet run against live platforms from a device |
 
+## Posting for the pilot (0.99.4)
+
+* **Scheduled and recurring posts** (`§SP`, `social/PostPlan`, `social/PostAlarm`): once, daily, weekly, weekdays or
+  every N hours on X, Facebook, Instagram, LinkedIn, Telegram, WhatsApp or Reddit. Shown first and kept only on the
+  pilot's yes. When due, a notification opens the network's app with the text ready; the pilot presses post (fully
+  hands-free posting needs each platform's official posting API and keys). `§SP LIST` shows them, each with cancel.
+* **Engagement**: the brain reads comments or a trend and drafts replies in the pilot's own voice, each offered with
+  `§AC` and approved one by one.
+* **Not built, on purpose**: shilling. No fake personas or posing as an independent fan, no hidden paid promotion,
+  no mass identical replies: these break every platform's rules and get accounts banned.
+
 ## Next
 
 * A social intelligence dashboard (saved investigations, reports, accounts) reading the registry JSON.
