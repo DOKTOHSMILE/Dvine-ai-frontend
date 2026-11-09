@@ -18,6 +18,24 @@ public final class AlpineRun {
     static final int MOST = 64 * 1024;
     private static final long WAIT_MS = 180_000;
 
+    /** A command that can be stopped. */
+    public static final class Job {
+        private volatile Process proc;
+        private volatile boolean stopped;
+
+        public void cancel() {
+            stopped = true;
+            Process running = proc;
+            if (running != null) {
+                running.destroy();
+            }
+        }
+
+        public boolean stopped() {
+            return stopped;
+        }
+    }
+
     private AlpineRun() {
     }
 
@@ -31,15 +49,26 @@ public final class AlpineRun {
 
     /** Null when Alpine is not installed. Otherwise what the command printed. */
     public static LinuxEngine.Result run(Context c, String command, File work) {
+        return run(c, command, work, null, MOST);
+    }
+
+    /**
+     * As {@link #run(Context, String, File)}, with a way to stop it and a cap on how much text is kept.
+     * The phone's shared storage is mounted at {@code /storage} when that folder exists.
+     */
+    public static LinuxEngine.Result run(Context c, String command, File work, Job job, int cap) {
         if (!ready(c) || command == null || command.trim().isEmpty()) {
             return null;
         }
+        int limit = cap <= 0 ? MOST : cap;
         File rootfs = LinuxRoot.root(c);
         File proot = LinuxRoot.proot(c);
         if (work != null && !work.isDirectory()) {
             work.mkdirs();
         }
         List<String> cmd = ProotCommand.once(proot, rootfs, work, command);
+        mount(cmd, "/storage", "/storage");
+        mount(cmd, "/sdcard", "/sdcard");
         File tmp = new File(c.getCacheDir(), "proot-tmp");
         tmp.mkdirs();
         try {
@@ -61,13 +90,23 @@ public final class AlpineRun {
             env.remove("LD_PRELOAD");
             env.remove("LD_LIBRARY_PATH");
             Process proc = pb.start();
+            if (job != null) {
+                job.proc = proc;
+                if (job.stopped) {
+                    proc.destroy();
+                }
+            }
             ByteArrayOutputStream captured = new ByteArrayOutputStream();
-            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured), "dvine-linux-out");
+            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit), "dvine-linux-out");
             pump.setDaemon(true);
             pump.start();
             long deadline = System.currentTimeMillis() + WAIT_MS;
             boolean finished = false;
             while (System.currentTimeMillis() < deadline) {
+                if (job != null && job.stopped) {
+                    proc.destroy();
+                    break;
+                }
                 try {
                     proc.exitValue();
                     finished = true;
@@ -92,8 +131,12 @@ public final class AlpineRun {
             synchronized (captured) {
                 text = new String(captured.toByteArray(), StandardCharsets.UTF_8);
             }
+            boolean stopped = job != null && job.stopped;
             int code = finished ? proc.exitValue() : 124;
-            if (!finished) {
+            if (stopped) {
+                text = text + "\n[stopped]";
+                code = 130;
+            } else if (!finished) {
                 text = text + "\n[stopped: it ran longer than 3 minutes]";
             } else if (code != 0) {
                 text = text + "\n[exit " + code + "]";
@@ -106,14 +149,24 @@ public final class AlpineRun {
         }
     }
 
-    private static void drain(InputStream in, ByteArrayOutputStream out) {
+    /** Mount a phone folder into the guest, just before the shell, when it exists. */
+    private static void mount(List<String> cmd, String hostPath, String guest) {
+        if (!new File(hostPath).exists() || cmd.size() < 3) {
+            return;
+        }
+        int at = cmd.size() - 3;
+        cmd.add(at, "-b");
+        cmd.add(at + 1, hostPath + ":" + guest);
+    }
+
+    private static void drain(InputStream in, ByteArrayOutputStream out, int cap) {
         byte[] buf = new byte[4096];
         try {
             int n;
             while ((n = in.read(buf)) > 0) {
                 synchronized (out) {
-                    if (out.size() < MOST) {
-                        out.write(buf, 0, (int) Math.min(n, MOST - out.size()));
+                    if (out.size() < cap) {
+                        out.write(buf, 0, (int) Math.min(n, cap - out.size()));
                     }
                 }
             }

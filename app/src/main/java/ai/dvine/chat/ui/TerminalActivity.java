@@ -22,8 +22,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ai.dvine.linux.AlpineRun;
+import ai.dvine.linux.Guest;
 import ai.dvine.linux.LinuxRoot;
-import ai.dvine.linux.ProotSession;
 
 /**
  * A Linux terminal inside the app: Alpine, with {@code pkg} for installing programs, extra keys
@@ -42,18 +43,24 @@ public final class TerminalActivity extends AppCompatActivity {
             + "\n"
             + "For example:  pkg install python3 git openssh\n"
             + "\n"
+            + "Your folder is kept between commands. /work is this app's files. /storage is the phone's storage when it is allowed.\n"
+            + "\n"
             + "Pinch with two fingers to zoom.\n"
             + "CTRL, then C, stops a running command.\n"
             + "\n";
 
     private TextView transcript;
+    private TextView prompt;
     private EditText input;
     private ScrollView scroll;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final List<String> history = new ArrayList<String>();
     private int historyAt = 0;
-    private ProotSession session;
+    private AlpineRun.Job job;
+    private String cwd = "/root";
     private volatile boolean closed;
+    private volatile boolean linuxUp;
+    private volatile boolean busy;
     private boolean ctrl;
     private boolean alt;
     private boolean editing;
@@ -103,7 +110,7 @@ public final class TerminalActivity extends AppCompatActivity {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Ui.dp(this, 4), 0, 0);
-        TextView prompt = Ui.text(this, "$", 15, 0xFFB8F5C8, true);
+        prompt = Ui.text(this, "~ $", 15, 0xFFB8F5C8, true);
         prompt.setTypeface(android.graphics.Typeface.MONOSPACE);
         prompt.setPadding(Ui.dp(this, 4), 0, Ui.dp(this, 8), 0);
         row.addView(prompt);
@@ -290,8 +297,8 @@ public final class TerminalActivity extends AppCompatActivity {
             ctrl = false;
             paintMod(ctrlKey, false);
             if (ch == 'c' || ch == 'C') {
-                if (session != null) {
-                    session.interrupt();
+                if (job != null) {
+                    job.cancel();
                 }
                 append("^C\n");
             } else if (ch == 'd' || ch == 'D') {
@@ -348,16 +355,7 @@ public final class TerminalActivity extends AppCompatActivity {
                 if (closed) {
                     return;
                 }
-                ProotSession opened = ProotSession.open(this, LinuxRoot.root(this));
-                opened.pump(chunk -> runOnUiThread(() -> {
-                    if (chunk == null) {
-                        session = null;
-                        append("\n[session ended]\n");
-                        return;
-                    }
-                    append(chunk);
-                }));
-                session = opened;
+                linuxUp = true;
                 runOnUiThread(() -> append(WELCOME));
             } catch (Exception e) {
                 String why = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
@@ -368,8 +366,12 @@ public final class TerminalActivity extends AppCompatActivity {
 
     private void runLine() {
         String line = input.getText().toString();
-        if (session == null || !session.alive()) {
-            append("Linux is not running yet.\n");
+        if (!linuxUp) {
+            append("Linux is not ready yet.\n");
+            return;
+        }
+        if (busy) {
+            append("Still running. CTRL, then C, stops it.\n");
             return;
         }
         editing = true;
@@ -379,12 +381,30 @@ public final class TerminalActivity extends AppCompatActivity {
             history.add(line);
             historyAt = history.size();
         }
-        append("$ " + line + "\n");
-        try {
-            session.send(line);
-        } catch (Exception e) {
-            append("Couldn't send that: " + e.getMessage() + "\n");
-        }
+        append(Guest.prompt(cwd) + " $ " + line + "\n");
+        busy = true;
+        final String ran = line;
+        final AlpineRun.Job current = new AlpineRun.Job();
+        job = current;
+        worker.execute(() -> {
+            ai.dvine.linux.LinuxEngine.Result result = AlpineRun.run(this, Guest.wrap(cwd, ran),
+                    new File(getFilesDir(), "linux"), current, 256 * 1024);
+            Guest.Answer answer = Guest.split(result == null ? "" : result.text, cwd);
+            runOnUiThread(() -> {
+                if (closed) {
+                    return;
+                }
+                cwd = answer.cwd;
+                prompt.setText(Guest.prompt(cwd) + " $");
+                if (!answer.text.isEmpty()) {
+                    append(answer.text);
+                }
+                busy = false;
+                if (job == current) {
+                    job = null;
+                }
+            });
+        });
     }
 
     private void append(String more) {
@@ -402,8 +422,8 @@ public final class TerminalActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         closed = true;
-        if (session != null) {
-            session.close();
+        if (job != null) {
+            job.cancel();
         }
         worker.shutdownNow();
         super.onDestroy();

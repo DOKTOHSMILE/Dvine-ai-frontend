@@ -1,3 +1,10 @@
+# Linux terminal (0.99.22)
+
+- [x] Each command finishes and prints, instead of a pipe that can hold the output back.
+- [x] The folder stays between commands. The prompt shows it (`~` is `/root`).
+- [x] `/work` is the app's files. `/storage` and `/sdcard` are mounted when the phone has them.
+- [x] CTRL then C stops the command that is running.
+
 # Linux terminal (0.99.21)
 
 - [x] The shell screen compiles on CodeAssist. Stopping a command does not call `Process.pid()`, which that Android library does not have.
