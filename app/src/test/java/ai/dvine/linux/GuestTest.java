@@ -1,6 +1,7 @@
 package ai.dvine.linux;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -19,6 +20,19 @@ public class GuestTest {
         assertEquals(0, answer.exit);
         assertEquals("~/bin", Guest.prompt("/root/bin"));
         assertEquals("~", Guest.prompt("/root"));
+    }
+
+    @Test
+    public void aStatusLineEndsTheCommandAndAPartialOneIsHeld() {
+        Guest.Stream held = Guest.drain("hello\nDVINE_STAT", "/root");
+        assertEquals("hello\n", held.show);
+        assertEquals("DVINE_STAT", held.rest);
+        assertFalse(held.done);
+        Guest.Stream done = Guest.drain("hello\n" + Guest.MARK + "0__/usr\n", "/root");
+        assertEquals("hello\n", done.show);
+        assertEquals("/usr", done.cwd);
+        assertTrue(done.done);
+        assertEquals("", done.rest);
     }
 
     @Test

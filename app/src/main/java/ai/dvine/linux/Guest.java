@@ -30,6 +30,76 @@ public final class Guest {
                 + "exit $status\n";
     }
 
+    /**
+     * Take finished lines out of text that is still arriving. A line {@code DVINE_STATUS:code__folder}
+     * is the shell saying the command ended. A tail that might be the start of that line is kept in
+     * {@link Stream#rest} and not shown yet.
+     */
+    public static Stream drain(String buffered, String previousCwd) {
+        String previous = previousCwd == null || previousCwd.isEmpty() ? "/root" : previousCwd;
+        if (buffered == null || buffered.isEmpty()) {
+            return new Stream("", "", null, false);
+        }
+        StringBuilder show = new StringBuilder();
+        String cwd = null;
+        boolean done = false;
+        int i = 0;
+        while (true) {
+            int nl = buffered.indexOf('\n', i);
+            if (nl < 0) {
+                String tail = buffered.substring(i);
+                if (tail.startsWith(MARK) || MARK.startsWith(tail)) {
+                    return new Stream(show.toString(), tail, cwd, done);
+                }
+                show.append(tail);
+                return new Stream(show.toString(), "", cwd, done);
+            }
+            String line = buffered.substring(i, nl);
+            i = nl + 1;
+            if (line.startsWith(MARK)) {
+                Answer answer = marker(line, previous);
+                cwd = answer.cwd;
+                done = true;
+            } else {
+                show.append(line).append('\n');
+            }
+        }
+    }
+
+    /** {@code DVINE_STATUS:0__/usr} */
+    static Answer marker(String line, String previous) {
+        String body = line.substring(MARK.length());
+        int sep = body.indexOf("__");
+        int code = 1;
+        String cwd = previous;
+        if (sep >= 0) {
+            try {
+                code = Integer.parseInt(body.substring(0, sep).trim());
+            } catch (NumberFormatException ignored) {
+                code = 1;
+            }
+            String dir = body.substring(sep + 2).trim();
+            if (dir.startsWith("/")) {
+                cwd = dir;
+            }
+        }
+        return new Answer("", cwd, code);
+    }
+
+    public static final class Stream {
+        public final String show;
+        public final String rest;
+        public final String cwd;
+        public final boolean done;
+
+        Stream(String show, String rest, String cwd, boolean done) {
+            this.show = show;
+            this.rest = rest;
+            this.cwd = cwd;
+            this.done = done;
+        }
+    }
+
     /** What {@link #wrap} printed, split into the text to show, the folder, and the exit code. */
     public static Answer split(String raw, String previousCwd) {
         String previous = previousCwd == null || previousCwd.isEmpty() ? "/root" : previousCwd;

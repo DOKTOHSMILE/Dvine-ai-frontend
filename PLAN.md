@@ -1,3 +1,9 @@
+# Lasting shell (0.99.30)
+
+- [x] When the phone allows a terminal device, one Alpine shell stays open. `cd` and variables last, and the next command does not start Linux again.
+- [x] Ctrl-C is sent to that program. If a terminal device cannot be opened, each command still runs on its own, as before.
+- [x] `/work`, and `/storage` or `/sdcard` when they exist, are visible inside the shell.
+
 # Session (0.99.29)
 
 - [x] New output is added on the end. The session is not rebuilt, so it does not jump.

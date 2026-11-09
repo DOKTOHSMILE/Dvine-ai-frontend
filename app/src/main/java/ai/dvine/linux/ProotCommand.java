@@ -36,6 +36,11 @@ public final class ProotCommand {
     }
 
     public static List<String> line(File proot, File rootfs) {
+        return line(proot, rootfs, null);
+    }
+
+    /** The long-lived shell. {@code work} is mounted at {@code /work} when it is given. */
+    public static List<String> line(File proot, File rootfs, File work) {
         List<String> c = new ArrayList<String>();
         c.add(proot.getAbsolutePath());
         c.add("--link2symlink");
@@ -48,6 +53,18 @@ public final class ProotCommand {
         c.add("/proc");
         c.add("-b");
         c.add("/sys");
+        if (work != null) {
+            c.add("-b");
+            c.add(work.getAbsolutePath() + ":/work");
+        }
+        if (new File("/storage").isDirectory()) {
+            c.add("-b");
+            c.add("/storage");
+        }
+        if (new File("/sdcard").isDirectory()) {
+            c.add("-b");
+            c.add("/sdcard");
+        }
         c.add("-w");
         c.add("/root");
         c.add("/bin/sh");

@@ -4,6 +4,7 @@ import android.content.Context;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -17,11 +18,19 @@ import java.util.function.Consumer;
 public final class ProotSession {
     private final Process proc;
     private final OutputStream stdin;
+    private final InputStream stdout;
+    private final boolean tty;
     private volatile boolean closed;
 
-    private ProotSession(Process proc) {
+    private ProotSession(Process proc, OutputStream stdin, InputStream stdout, boolean tty) {
         this.proc = proc;
-        this.stdin = proc.getOutputStream();
+        this.stdin = stdin;
+        this.stdout = stdout;
+        this.tty = tty;
+    }
+
+    public boolean tty() {
+        return tty;
     }
 
     public static ProotSession open(Context c, File rootfs) throws IOException {
@@ -31,9 +40,27 @@ public final class ProotSession {
         }
         File tmp = new File(c.getCacheDir(), "proot-tmp");
         tmp.mkdirs();
-        List<String> cmd = ProotCommand.line(proot, rootfs);
-        ProcessBuilder pb = new ProcessBuilder(cmd);
+        List<String> cmd = ProotCommand.line(proot, rootfs, new File(c.getFilesDir(), "linux"));
+        Pty pty = Pty.tryOpen();
+        if (pty != null) {
+            try {
+                ProcessBuilder pb = builder(c, cmd, tmp);
+                pb.redirectInput(ProcessBuilder.Redirect.from(new File(pty.slave)));
+                pb.redirectOutput(ProcessBuilder.Redirect.to(new File(pty.slave)));
+                pb.redirectError(ProcessBuilder.Redirect.to(new File(pty.slave)));
+                return new ProotSession(pb.start(), pty.out(), pty.in(), true);
+            } catch (Throwable ignored) {
+                // this phone opened a tty but would not attach it; use a pipe
+            }
+        }
+        ProcessBuilder pb = builder(c, cmd, tmp);
         pb.redirectErrorStream(true);
+        Process proc = pb.start();
+        return new ProotSession(proc, proc.getOutputStream(), proc.getInputStream(), false);
+    }
+
+    private static ProcessBuilder builder(Context c, List<String> cmd, File tmp) {
+        ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(new File(c.getFilesDir(), "linux"));
         Map<String, String> env = pb.environment();
         env.put("PROOT_TMP_DIR", tmp.getAbsolutePath());
@@ -49,7 +76,7 @@ public final class ProotSession {
         env.put("LANG", "C.UTF-8");
         env.remove("LD_PRELOAD");
         env.remove("LD_LIBRARY_PATH");
-        return new ProotSession(pb.start());
+        return pb;
     }
 
     public void send(String line) throws IOException {
@@ -60,8 +87,17 @@ public final class ProotSession {
         stdin.flush();
     }
 
-    /** CTRL-C. {@code Process.pid()} is not in every build tool's Android library, so the id is read by reflection. */
+    /** CTRL-C. On a real tty this is the interrupt character. Otherwise the process is signalled. */
     public void interrupt() {
+        if (tty) {
+            try {
+                stdin.write(3);
+                stdin.flush();
+                return;
+            } catch (IOException ignored) {
+                // fall through
+            }
+        }
         long pid = pidOf(proc);
         if (pid > 0) {
             try {
@@ -105,7 +141,7 @@ public final class ProotSession {
             byte[] buf = new byte[4096];
             try {
                 int n;
-                while ((n = proc.getInputStream().read(buf)) > 0) {
+                while ((n = stdout.read(buf)) > 0) {
                     out.accept(new String(buf, 0, n, StandardCharsets.UTF_8));
                 }
             } catch (IOException ignored) {

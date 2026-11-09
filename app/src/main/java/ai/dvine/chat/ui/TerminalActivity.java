@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import ai.dvine.linux.AlpineRun;
 import ai.dvine.linux.Guest;
 import ai.dvine.linux.LinuxRoot;
+import ai.dvine.linux.ProotSession;
 
 /**
  * A normal terminal. The prompt and the cursor are the last line of the session, not a separate box.
@@ -40,10 +41,14 @@ public final class TerminalActivity extends AppCompatActivity {
     private ScrollView scroll;
     private final StringBuilder log = new StringBuilder();
     private final StringBuilder liveOut = new StringBuilder();
+    private final StringBuilder incoming = new StringBuilder();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final List<String> history = new ArrayList<String>();
     private int historyAt = 0;
     private AlpineRun.Job job;
+    private ProotSession live;
+    /** The shell process stayed open and answered, so later commands reuse it. */
+    private boolean shellReady;
     private String cwd = "/root";
     private volatile boolean closed;
     private volatile boolean linuxUp;
@@ -335,6 +340,9 @@ public final class TerminalActivity extends AppCompatActivity {
             ctrl = false;
             paintMod(ctrlKey, false);
             if (ch == 'c' || ch == 'C') {
+                if (live != null) {
+                    live.interrupt();
+                }
                 if (job != null) {
                     job.cancel();
                 }
@@ -428,13 +436,23 @@ public final class TerminalActivity extends AppCompatActivity {
                 if (closed) {
                     return;
                 }
-                linuxUp = true;
                 if (empty) {
                     runOnUiThread(() -> append(WELCOME));
                 }
+                ProotSession opened = null;
+                try {
+                    opened = ProotSession.open(TerminalActivity.this, LinuxRoot.root(TerminalActivity.this));
+                } catch (Exception ignored) {
+                    opened = null;
+                }
+                final ProotSession use = opened;
+                runOnUiThread(() -> startShell(use));
             } catch (Exception e) {
                 String why = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-                runOnUiThread(() -> append("Linux did not start: " + why + "\n"));
+                runOnUiThread(() -> {
+                    append("Linux did not start: " + why + "\n");
+                    linuxUp = true;
+                });
             }
         });
     }
@@ -468,9 +486,25 @@ public final class TerminalActivity extends AppCompatActivity {
             finish();
             return;
         }
+        if (shellReady && live != null && live.alive()) {
+            busy = true;
+            paint(true);
+            try {
+                live.send(line + "\necho " + Guest.MARK + "$?__$(pwd)");
+            } catch (Exception e) {
+                shellReady = false;
+                busy = false;
+                oneShot(line);
+            }
+            return;
+        }
+        oneShot(line);
+    }
+
+    /** One command in its own Linux, used when a lasting shell could not be opened. */
+    private void oneShot(String ran) {
         busy = true;
         paint(true);
-        final String ran = line;
         final AlpineRun.Job current = new AlpineRun.Job();
         job = current;
         worker.execute(() -> {
@@ -523,6 +557,75 @@ public final class TerminalActivity extends AppCompatActivity {
             return new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim();
         } catch (Exception e) {
             return "";
+        }
+    }
+
+    private void startShell(ProotSession opened) {
+        if (closed) {
+            if (opened != null) {
+                opened.close();
+            }
+            return;
+        }
+        if (opened == null || !opened.tty()) {
+            if (opened != null) {
+                opened.close();
+            }
+            linuxUp = true;
+            return;
+        }
+        live = opened;
+        opened.pump(chunk -> runOnUiThread(() -> onShell(chunk)));
+        try {
+            opened.send("stty -echo >/dev/null 2>&1\necho " + Guest.MARK + "0__$(pwd)");
+        } catch (Exception e) {
+            opened.close();
+            live = null;
+            linuxUp = true;
+            return;
+        }
+        if (transcript != null) {
+            transcript.postDelayed(this::giveUpOnShell, 4000);
+        }
+    }
+
+    private void giveUpOnShell() {
+        if (shellReady || closed) {
+            return;
+        }
+        if (live != null) {
+            live.close();
+            live = null;
+        }
+        linuxUp = true;
+    }
+
+    private void onShell(String chunk) {
+        if (chunk == null) {
+            live = null;
+            shellReady = false;
+            busy = false;
+            linuxUp = true;
+            return;
+        }
+        incoming.append(chunk);
+        Guest.Stream part = Guest.drain(incoming.toString(), cwd);
+        incoming.setLength(0);
+        incoming.append(part.rest);
+        if (!part.show.isEmpty()) {
+            append(part.show);
+        }
+        if (part.cwd != null) {
+            cwd = part.cwd;
+        }
+        if (part.done) {
+            shellReady = true;
+            linuxUp = true;
+            busy = false;
+            if (prompt != null) {
+                prompt.setText(promptText());
+            }
+            keep();
         }
     }
 
@@ -623,6 +726,9 @@ public final class TerminalActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         closed = true;
+        if (live != null) {
+            live.close();
+        }
         if (job != null) {
             job.cancel();
         }
