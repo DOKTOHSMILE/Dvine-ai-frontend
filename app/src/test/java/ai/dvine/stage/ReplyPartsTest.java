@@ -36,8 +36,8 @@ public class ReplyPartsTest {
         assertEquals(0, rows.get(0).from);
         assertEquals(2, rows.get(0).to);
         assertEquals("one file edited is named", "Edited Main.java", rows.get(1).label);
-        // five plain steps in a row fold into one row
-        assertEquals("Searching the web for x and 4 more steps", rows.get(2).label);
+        // five plain steps in a row fold into one row, named by the latest step (never "and 4 more steps")
+        assertEquals("d", rows.get(2).label);
         assertEquals(3, rows.get(2).from);
         assertEquals(8, rows.get(2).to);
         assertEquals(3, rows.size());

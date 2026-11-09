@@ -1,12 +1,5 @@
 # DVINE's on-device language model: llama.cpp (MIT, vendored under llama.cpp/) on the CPU, plus the Java bridge.
 #
-# llama.cpp builds ggml as its own project in the upstream tree (it is a sibling CMake project). Both of the ways
-# it finds that project fail here, so ggml is added as a subdirectory first and llama.cpp is pointed at the target
-# ggml just made with a cached variable — the same thing the sibling layout does.
-#
-# ggml (MIT) is vendored with llama.cpp because a phone cannot fetch it, and it carries no submodules here: everything
-# the CPU build needs is in the tree. Upstream ggml is a standalone CMake project, so it configures on its own
-# (it starts with cmake_minimum_required and project()) and works as a subdirectory too.
 cmake_minimum_required(VERSION 3.22.1)
 project(dvine_llm C CXX)
 
@@ -25,6 +18,7 @@ set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_APP OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_HTML OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(LLAMA_OPENSSL OFF CACHE BOOL "" FORCE)
 set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SQLITE OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -58,15 +52,7 @@ if(ANDROID_ABI STREQUAL "arm64-v8a")
     set(GGML_CPU_KLEIDIAI OFF CACHE BOOL "" FORCE)
 endif()
 
-# ggml first: llama.cpp would otherwise look for an installed ggml or for a ggml/ subdirectory next to itself and
-# fail. ggml defines the library target `ggml` (plus ggml-cpu, ggml-base).
-add_subdirectory(ggml)
-
-# ggml is built right above this line, so there is no installed ggml for llama.cpp's find_package(ggml) to use and
-# no reason to build ggml a second time from inside llama.cpp — which is also why that second build has to be told
-# to skip ggml, its tools and its tests. The option only exists in llama.cpp b4606 and up (its first build flags);
-# the copy here is from b4748, which reads exactly these names.
-set(LLAMA_SKIP_GGML ON CACHE BOOL "" FORCE)
+# llama.cpp builds its own vendored ggml (llama.cpp/ggml) with the flags above, as it finds no ggml target.
 add_subdirectory(llama.cpp)
 
 add_library(dvine_llm SHARED dvine_llm.cpp dvine_llm_jni.cpp)

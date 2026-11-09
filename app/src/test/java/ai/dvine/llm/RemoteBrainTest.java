@@ -60,8 +60,8 @@ public class RemoteBrainTest {
         assertEquals("Bearer sk-test", f.headers.get(0).get("Authorization"));
         Map<String, Object> req = MiniJson.obj(MiniJson.parse(f.bodies.get(0)));
         assertEquals("openai/gpt-5-mini", req.get("model"));
-        // a reasoning model, short question: room to think, but not an 8,000-token reservation
-        assertEquals(2048.0, MiniJson.num(req.get("max_completion_tokens"), 0), 0);
+        // a reasoning model: room for its hidden thinking, or the visible answer comes back empty
+        assertEquals(16_384.0, MiniJson.num(req.get("max_completion_tokens"), 0), 0);
         assertFalse(f.bodies.get(0).contains("temperature"));
         assertFalse(f.bodies.get(0).contains("no_think"));
         assertEquals(31, b.used().promptTokens);
@@ -319,7 +319,7 @@ public class RemoteBrainTest {
         assertTrue(gpt5.reasoning());
         String body = new String(gpt5.body("sys", java.util.Collections.singletonList(new String[]{"user", "hi"}), 2000, 0.7f, 2),
                 java.nio.charset.StandardCharsets.UTF_8);
-        assertTrue(body, body.contains("\"max_completion_tokens\":8000") && body.contains("\"reasoning_effort\":\"low\""));
+        assertTrue(body, body.contains("\"max_completion_tokens\":16384") && body.contains("\"reasoning_effort\":\"medium\""));
         assertTrue(body, !body.contains("temperature"));
         RemoteBrain plain = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-4.1", "k", "", null);
         org.junit.Assert.assertFalse(plain.reasoning());

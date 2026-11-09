@@ -121,6 +121,9 @@ public final class Connectors {
                     try {
                         out.append(GitHubLogin.access(http, token)).append("\n");
                     } catch (IOException e) {
+                        if (String.valueOf(e.getMessage()).contains("refused the token")) {
+                            throw e; // a refused token lists nothing: say so once, without a second call
+                        }
                         out.append(e.getMessage()).append("\n");
                     }
                 } else {

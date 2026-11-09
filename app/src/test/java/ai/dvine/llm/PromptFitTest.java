@@ -59,8 +59,8 @@ public class PromptFitTest {
         assertEquals(160, PromptFit.outputTokens(160, false, 0));
         assertEquals(1500, PromptFit.outputTokens(1500, false, 0));
         assertEquals(4000, PromptFit.outputTokens(48, true, 4000)); // the user's cap is not raised
-        assertEquals(2048, PromptFit.completionTokens(48, true, 0));
-        assertEquals(8000, PromptFit.completionTokens(2000, true, 0));
+        assertEquals(16_384, PromptFit.completionTokens(48, true, 0)); // room for hidden thinking
+        assertEquals(16_384, PromptFit.completionTokens(2000, true, 0));
         assertEquals(4000, PromptFit.completionTokens(48, true, 4000));
     }
 
