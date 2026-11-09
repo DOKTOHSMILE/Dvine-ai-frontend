@@ -6,12 +6,17 @@ name = "app"
 languageLevel = "JAVA_17"
 output = "build/classes"
 
+[sourceSets.androidTest]
+scope = "TEST_IMPLEMENTATION"
+java = ["src/androidTest/java", "src/androidTest/kotlin"]
+resources = ["src/androidTest/resources"]
+
 [sourceSets.main]
 scope = "IMPLEMENTATION"
-java = ["src/main/java", "src/main/kotlin"]
-res = ["src/main/res"]
 assets = ["src/main/assets"]
+java = ["src/main/java", "src/main/kotlin"]
 jniLibs = ["src/main/jniLibs"]
+res = ["src/main/res"]
 resources = ["src/main/resources"]
 
 [sourceSets.test]
@@ -19,16 +24,8 @@ scope = "TEST_IMPLEMENTATION"
 java = ["src/test/java", "src/test/kotlin"]
 resources = ["src/test/resources"]
 
-[sourceSets.androidTest]
-scope = "TEST_IMPLEMENTATION"
-java = ["src/androidTest/java", "src/androidTest/kotlin"]
-resources = ["src/androidTest/resources"]
-
 [dependencies]
-implementation = [
-    "androidx.appcompat:appcompat:1.6.1",
-    "androidx.core:core:1.12.0"
-]
+implementation = ["androidx.appcompat:appcompat:1.6.1", "androidx.core:core:1.12.0"]
 
 [android]
 namespace = "ai.dvine"
