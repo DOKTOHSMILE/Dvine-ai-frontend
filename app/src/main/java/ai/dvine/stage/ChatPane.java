@@ -81,52 +81,6 @@ public final class ChatPane extends LinearLayout {
         return rateAnswer != null;
     }
 
-    /** The Correct and Wrong buttons: one tap teaches DVINE, then they say what it learned. */
-    private View rating() {
-        final LinearLayout bar = new LinearLayout(getContext());
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        bar.setPadding(0, 0, 0, dp(10));
-        TextView ask = new TextView(getContext());
-        ask.setText("Accurate?");
-        ask.setTextSize(13f);
-        ask.setTextColor(getContext().getColor(R.color.text_secondary));
-        ask.setPadding(dp(4), 0, dp(8), 0);
-        bar.addView(ask);
-        final String q = rateQuestion, a = rateAnswer;
-        bar.addView(rateButton(R.drawable.ic_rate_right, "Correct", 0xFF1E9E5A, v -> rated(q, a, true)));
-        bar.addView(rateButton(R.drawable.ic_rate_wrong, "Wrong", 0xFFD93A3A, v -> rated(q, a, false)));
-        return bar;
-    }
-
-    /** A rating chip: DVINE's own icon (a check or a cross in a ring) and its word, outlined in its colour. */
-    private View rateButton(int icon, String label, int color, View.OnClickListener click) {
-        TextView t = new TextView(getContext());
-        t.setText(label);
-        t.setTextSize(13f);
-        t.setTextColor(color);
-        t.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        android.graphics.drawable.Drawable d = getContext().getDrawable(icon);
-        if (d != null) {
-            d.setBounds(0, 0, dp(18), dp(18));
-            t.setCompoundDrawables(d, null, null, null);
-            t.setCompoundDrawablePadding(dp(6));
-        }
-        t.setPadding(dp(10), dp(6), dp(12), dp(6));
-        t.setMinHeight(dp(40));
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setCornerRadius(dp(20));
-        bg.setColor((color & 0x00FFFFFF) | 0x14000000);
-        bg.setStroke(dp(1), (color & 0x00FFFFFF) | 0x66000000);
-        t.setBackground(bg);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = dp(8);
-        t.setLayoutParams(lp);
-        t.setContentDescription(label);
-        t.setOnClickListener(click);
-        return t;
-    }
-
     private void rated(String q, String a, boolean right) {
         ratedAnswer = a;
         rateQuestion = null;
@@ -276,12 +230,12 @@ public final class ChatPane extends LinearLayout {
                 // at the end: Copy for the whole reply at once, and Listen to all of it, as icons
                 boolean lastReply = i == cur.messages.size() - 1;
                 if (rateAnswer != null && lastReply && reply.toString().contains(rateAnswer)) {
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString())));
-                    thread.addView(rating()); // DVINE asks whether its answer was right
+                    // DVINE asks whether its answer was right: check and cancel beside Copy and Listen
+                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), rateQuestion, rateAnswer));
                 } else if (lastReply && lastAsked != null && !reply.toString().equals(ratedReply)
                         && (ratedAnswer == null || !reply.toString().contains(ratedAnswer))) {
                     // every answer can be marked right or wrong, whichever model wrote it: DVINE keeps learning
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), lastAsked));
+                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), lastAsked, stripCode(reply.toString()).trim()));
                 } else {
                     thread.addView(actions(reply.toString(), stripCode(reply.toString())));
                 }
@@ -1371,6 +1325,21 @@ public final class ChatPane extends LinearLayout {
         String named = s.title == null || s.title.trim().isEmpty() || s.title.matches("(?i)^(chat|new chat)$")
                 ? (preview.isEmpty() ? "New chat" : preview) : s.title;
         TextView row = drawerRow(named, s.pinned ? R.drawable.ic_pin : 0, on);
+        java.util.List<String> pages = book.pagesOf(s.group);
+        if (pages.size() > 1) {
+            // one chat, its persona pages under its name: "Obi · Ivie · Ibiko"
+            StringBuilder names = new StringBuilder();
+            for (String p : pages) {
+                names.append(names.length() == 0 ? "" : " \u00B7 ").append(Character.toUpperCase(p.charAt(0))).append(p.substring(1));
+            }
+            android.text.SpannableStringBuilder two = new android.text.SpannableStringBuilder(named + "\n" + names);
+            two.setSpan(new android.text.style.RelativeSizeSpan(0.78f), named.length() + 1, two.length(), 0);
+            two.setSpan(new android.text.style.ForegroundColorSpan(color(R.color.text_secondary)), named.length() + 1, two.length(), 0);
+            row.setSingleLine(false);
+            row.setMaxLines(2);
+            row.setText(two);
+            row.setPadding(row.getPaddingLeft(), dp(6), row.getPaddingRight(), dp(6));
+        }
         row.setContentDescription(named + (s.pinned ? ", pinned" : "") + (s.project != null ? ", in " + s.project : "")
                 + ". Hold for rename, pin, project and delete.");
         row.setOnLongClickListener(v -> { // hold a chat: rename, pin, move to a project, delete
@@ -1826,18 +1795,15 @@ public final class ChatPane extends LinearLayout {
     }
 
     /** Copy and Listen, then a check (right) and a cancel (wrong) that teach DVINE from this answer. */
-    private View actions(final String all, final String spoken, final String question) {
+    private View actions(final String all, final String spoken, final String question, final String answer) {
         LinearLayout bar = (LinearLayout) actions(all, spoken);
-        final String answer = stripCode(all).trim();
         bar.addView(icon(R.drawable.ic_rate_right, "Correct", v -> {
             ratedReply = all;
-            host.onRate(question, answer, true);
-            show();
+            rated(question, answer, true);
         }));
         bar.addView(icon(R.drawable.ic_rate_wrong, "Wrong", v -> {
             ratedReply = all;
-            host.onRate(question, answer, false);
-            show();
+            rated(question, answer, false);
         }));
         return bar;
     }

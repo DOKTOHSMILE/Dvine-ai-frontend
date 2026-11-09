@@ -132,6 +132,10 @@
             android:name=".llm.ReplyService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name=".learn.NightLearnJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <receiver
             android:name=".social.PostAlarm"
             android:exported="false">

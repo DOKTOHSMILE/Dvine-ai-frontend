@@ -723,6 +723,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
 
         @Override
+        public boolean unread(String persona) {
+            return unreadPages.contains(persona);
+        }
+
+        @Override
         public void chatsForPersona(String persona) {
             if (chats != null) {
                 chats.forPersona(persona);
@@ -778,13 +783,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     };
     private final ai.dvine.main.PersonaTabs personaTabs = new ai.dvine.main.PersonaTabs(personaTabsHost);
 
+    /** The persona pages of the open chat with a reply the pilot hasn't seen (a dot on their tab). */
+    private final java.util.Set<String> unreadPages = new java.util.HashSet<String>();
+
     private void selectPersona(String persona) {
+        unreadPages.remove(persona);
         leavePage(persona);
         personaTabs.select(persona);
         enterPage(persona);
     }
 
     private void selectPersona(String persona, boolean fromTap) {
+        unreadPages.remove(persona);
         leavePage(persona);
         personaTabs.select(persona, fromTap);
         enterPage(persona);
@@ -1319,6 +1329,42 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** Where a swipe began, and whether it is the drawer's (from the left edge to open, leftwards to close). */
     private float swipeX = -1, swipeY;
     private boolean swipeOpen;
+    /** A swipe across the chat: left for the next persona's page (Obi, Ivie, Ibiko), right for the one before. */
+    private float pageX = -1, pageY;
+    private long pageAt;
+
+    static final String[] PAGES = { "obi", "ivie", "ibiko" };
+
+    /** The persona page {@code step} away from this one (wrapping round), or null. */
+    static String pageBeside(String persona, int step) {
+        for (int i = 0; i < PAGES.length; i++) {
+            if (PAGES[i].equals(persona)) {
+                return PAGES[(i + step + PAGES.length) % PAGES.length];
+            }
+        }
+        return null;
+    }
+
+    /** True when (x, y) is over something that scrolls sideways itself (code, pills): its swipe is its own. */
+    private boolean sidewaysScroller(android.view.View v, float x, float y) {
+        int[] at = new int[2];
+        v.getLocationOnScreen(at);
+        if (v.getVisibility() != android.view.View.VISIBLE || x < at[0] || y < at[1] || x > at[0] + v.getWidth() || y > at[1] + v.getHeight()) {
+            return false;
+        }
+        if (v instanceof android.widget.HorizontalScrollView || v.canScrollHorizontally(1) || v.canScrollHorizontally(-1)) {
+            return true;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                if (sidewaysScroller(g.getChildAt(i), x, y)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     @Override
     public boolean dispatchTouchEvent(android.view.MotionEvent e) {
@@ -1329,6 +1375,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 swipeOpen = !drawerOpen();
                 swipeX = !designFull && (drawerOpen() || e.getX() <= edge) ? e.getX() : -1;
                 swipeY = e.getY();
+                pageX = swipeX < 0 && !designFull && !drawerOpen() && chatPane != null && chatPane.isShown()
+                        && !sidewaysScroller(chatPane, e.getRawX(), e.getRawY()) ? e.getX() : -1;
+                pageY = e.getY();
+                pageAt = e.getEventTime();
+                break;
+            case android.view.MotionEvent.ACTION_UP:
+                if (pageX >= 0 && stage != null) {
+                    float dx = e.getX() - pageX, dy = Math.abs(e.getY() - pageY);
+                    if (Math.abs(dx) > far * 1.5f && Math.abs(dx) > dy * 2.5f && e.getEventTime() - pageAt < 600) {
+                        String next = pageBeside(stage.agent(), dx < 0 ? 1 : -1);
+                        pageX = -1;
+                        if (next != null) {
+                            selectPersona(next, "ibiko".equals(next)); // the next page of this chat
+                        }
+                    }
+                }
+                pageX = -1;
+                swipeX = -1;
                 break;
             case android.view.MotionEvent.ACTION_MOVE:
                 if (swipeX >= 0) {
@@ -1476,6 +1540,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             public void onSection(ai.dvine.chat.ChatBook.Section section) {
                 if (section == null || section.persona == null)
                     return;
+                unreadPages.clear(); // another chat: its own pages
                 selectPersona(section.persona);
                 examiner.clearTopic();
                 handler.postDelayed(MainActivity.this::sendWaiting, 300); // a message that waited here for the internet
@@ -1703,6 +1768,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             : null);
         });
         applyProvider();
+        ai.dvine.learn.NightLearnJob.schedule(this); // night learning, if the pilot turned it on
 
         stage.wake();
         handler.postDelayed(this::greetOnOpen, 700);
@@ -2475,83 +2541,204 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String who = stage.agent();
         ai.dvine.suit.Comprehension c = ai.dvine.suit.Comprehension.of(t);
         if (c.math != null && c.mathValue != null && !c.mathValue.isEmpty()) {
-            play(LocalTurn.speakAs(who, c.math + " = " + c.mathValue), null);
+            final String sum = c.math + " = " + c.mathValue;
+            dvineThink(java.util.Arrays.asList("Reading your question", "Working it out exactly"), () -> dvineSays(who, sum));
             return;
         }
         if (c.act == ai.dvine.suit.Comprehension.Act.GREETING) {
-            play(LocalTurn.speakAs(who, "Hello, I'm " + DVINE_OWN + ". Ask me anything: I answer what I know, research what I"
-                    + " don't, and learn when you tell me Correct or Wrong."), null);
+            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSays(who, "Hello, I'm " + DVINE_OWN
+                    + ". Ask me anything: I answer what I know, research what I don't, and learn when you tell me Correct or Wrong."));
             return;
         }
-        String self = aboutDvine(t);
+        final String self = aboutDvine(t);
         if (self != null) {
-            play(LocalTurn.speakAs(who, self), null); // a question about DVINE itself: answered from its own memory
+            // a question about DVINE itself: answered from its own memory
+            dvineThink(java.util.Arrays.asList("Reading your question", "Looking through my memory"), () -> dvineSays(who, self));
             return;
         }
         if (!t.trim().endsWith("?") && c.act != ai.dvine.suit.Comprehension.Act.QUESTION
-                && c.act != ai.dvine.suit.Comprehension.Act.REQUEST) {
-            play(LocalTurn.speakAs(who, learnStatement(t)), null); // a statement teaches; it isn't researched
+                && c.act != ai.dvine.suit.Comprehension.Act.REQUEST && c.act != ai.dvine.suit.Comprehension.Act.THANKS) {
+            // a statement teaches; it isn't researched
+            dvineThink(java.util.Arrays.asList("Reading what you said", "Saving it to memory"), () -> dvineSays(who, learnStatement(t)));
             return;
         }
         if (c.act == ai.dvine.suit.Comprehension.Act.THANKS) {
-            play(LocalTurn.speakAs(who, "You're welcome."), null);
+            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSays(who, "You're welcome."));
             return;
         }
-        ai.dvine.learn.Knowledge.Fact known = knowledge().recall(t);
+        final ai.dvine.learn.Knowledge.Fact known = knowledge().recall(t);
         if (known != null) {
-            play(LocalTurn.speakAs(who, known.answer), null); // confirmed before: no need to ask again
+            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
+                    known.sure ? "Found it: you confirmed this before" : "Found it: I learned this overnight"), () -> {
+                        if (known.sure) {
+                            dvineSays(who, known.answer); // confirmed before: no need to ask again
+                        } else {
+                            dvineSays(who, known.answer + "\n(Learned overnight; not checked yet.)");
+                            ratingQuestion = t;
+                            chatPane.askRating(t, known.answer);
+                        }
+                    });
             return;
         }
-        String learned = brainBox().recallTalk(t);
+        final String learned = brainBox().recallTalk(t);
         if (learned != null && !knowledge().rejected(t, learned)) {
-            final String said = learned;
-            play(LocalTurn.speakAs(who, said + "\n(Learned from an earlier model.)"), null);
-            ratingQuestion = t;
-            if (chatPane != null) {
-                chatPane.askRating(t, said);
-            }
+            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
+                    "Found an answer an earlier model gave"), () -> {
+                        dvineSays(who, learned + "\n(Learned from an earlier model.)");
+                        ratingQuestion = t;
+                        chatPane.askRating(t, learned);
+                    });
             return;
         }
         if (connectivity != null && !connectivity.isOnline()) {
-            play(LocalTurn.speakAs(who, "I don't know that yet, and I need the network to research it. Ask me again when you're online."), null);
+            ai.dvine.learn.NightLearnJob.remember(this, t); // learned tonight, if night learning is on
+            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know"), () -> dvineSays(who,
+                    "I don't know that yet, and there's no internet connection to research it. I've kept the question:"
+                            + " ask me again when you're online" + (ai.dvine.learn.NightLearnJob.plan(this).on ? ", or I'll learn it tonight." : ".")));
             return;
         }
-        if (chatPane != null) {
-            chatPane.activityStep("Researching: " + t);
+        final String subject = ai.dvine.suit.ResearchAnswer.subject(t);
+        dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
+                subject != null ? "Not in my memory: looking up \u201c" + subject + "\u201d" : "Not in my memory: searching the web"), () -> {
+                    final int token = dvineToken;
+                    new Thread(() -> {
+                        ai.dvine.suit.ResearchAnswer r = ai.dvine.learn.NightLearnJob.research(this, t);
+                        final ai.dvine.suit.ResearchAnswer answer = r != null && knowledge().rejected(t, r.shown()) ? null : r;
+                        runOnUiThread(() -> {
+                            if (token != dvineToken) {
+                                return; // a newer message took over
+                            }
+                            if (answer == null) {
+                                ai.dvine.learn.NightLearnJob.remember(this, t);
+                                dvineThink(java.util.Arrays.asList("Nothing I found answers it"), () -> dvineSays(who,
+                                        "I don't know that yet, and what I found didn't answer it. Try asking it another way, or pick an API"
+                                                + " or offline model for this one: I learn from their answers too."
+                                                + (ai.dvine.learn.NightLearnJob.plan(this).on ? " I've also kept it to learn tonight." : "")), false);
+                                return;
+                            }
+                            final String shown = answer.shown();
+                            java.util.List<String> more = new java.util.ArrayList<String>();
+                            more.add("Reading " + (answer.sources.isEmpty() ? "what I found" : String.join(", ", answer.sources)));
+                            more.add("Writing the answer");
+                            dvineThink(more, () -> {
+                                dvineSays(who, shown); // one block; the check and cancel ask underneath
+                                ratingQuestion = t;
+                                chatPane.askRating(t, shown);
+                            }, false);
+                        });
+                    }, "dvine-research").start();
+                });
+    }
+
+    /** DVINE 1's own answers, numbered: a newer message makes an older one's steps stop. */
+    private int dvineToken;
+
+    /** DVINE 1 thinks visibly, like the models: its steps show one by one, then it answers. */
+    private void dvineThink(java.util.List<String> steps, Runnable then) {
+        dvineThink(steps, then, true);
+    }
+
+    private void dvineThink(final java.util.List<String> steps, final Runnable then, boolean fresh) {
+        final int token = fresh ? ++dvineToken : dvineToken;
+        for (int i = 0; i < steps.size(); i++) {
+            final String step = steps.get(i);
+            handler.postDelayed(() -> {
+                if (token == dvineToken && chatPane != null) {
+                    chatPane.activityStep(step);
+                }
+            }, 120 + i * 650L);
         }
-        new Thread(() -> {
-            ai.dvine.suit.ResearchAnswer r = null;
-            String subject = ai.dvine.suit.ResearchAnswer.subject(t);
-            if (subject != null) {
-                // "what is a pig": the subject's own encyclopedia entry, not pages that merely mention the word
-                ai.dvine.net.WebGet.Page page = ai.dvine.net.WebGet.page(ai.dvine.suit.ResearchAnswer.summaryUrl(subject), 12_000, 200_000);
-                r = page.status == 200 ? ai.dvine.suit.ResearchAnswer.fromSummary(page.body) : null;
+        handler.postDelayed(() -> {
+            if (token == dvineToken) {
+                then.run();
             }
-            if (r == null) {
-                String found;
-                try {
-                    found = new ai.dvine.connect.ConnectorStore(this).research(t, 2, 8000);
-                } catch (RuntimeException e) {
-                    found = null;
-                }
-                r = ai.dvine.suit.ResearchAnswer.from(t, found);
-            }
-            final ai.dvine.suit.ResearchAnswer answer = r != null && knowledge().rejected(t, r.shown()) ? null : r;
-            runOnUiThread(() -> {
-                if (chatPane != null) {
-                    chatPane.activityEnd();
-                }
-                if (answer == null) {
-                    play(LocalTurn.speakAs(who, "I don't know that yet, and what I found didn't answer it. Try asking it another way,"
-                            + " or pick an API or offline model for this one: I learn from their answers too."), null);
-                    return;
-                }
-                String shown = answer.shown();
-                play(LocalTurn.speakAs(who, shown), null); // one block; the Accurate? buttons ask underneath
-                ratingQuestion = t;
-                chatPane.askRating(t, shown);
-            });
-        }, "dvine-research").start();
+        }, 120 + steps.size() * 650L + 250);
+    }
+
+    /** DVINE 1's answer, after its steps. */
+    private void dvineSays(String who, String text) {
+        if (chatPane != null) {
+            chatPane.activityEnd();
+        }
+        play(LocalTurn.speakAs(who, text), null);
+    }
+
+    /** In the morning: what DVINE learned overnight, said once in the chat. */
+    private void morningReport() {
+        if (ai.dvine.learn.NightLearnJob.reportSeen(this) || stage == null) {
+            return;
+        }
+        java.util.List<String> learned = ai.dvine.learn.NightLearnJob.report(this);
+        ai.dvine.learn.NightLearnJob.markReportSeen(this);
+        if (learned.isEmpty()) {
+            return;
+        }
+        StringBuilder b = new StringBuilder("While you slept I learned " + learned.size() + (learned.size() == 1 ? " new thing" : " new things") + ":");
+        for (int i = 0; i < learned.size() && i < 12; i++) {
+            b.append("\n- ").append(learned.get(i));
+        }
+        if (learned.size() > 12) {
+            b.append("\n\u2026and ").append(learned.size() - 12).append(" more.");
+        }
+        b.append("\nAsk me about any of them; tap the check when I get one right.");
+        play(LocalTurn.speakAs(stage.agent(), b.toString()), null);
+    }
+
+    /** Night learning's settings: on or off, the hours, Wi-Fi only, charging only. */
+    private void showNightLearning() {
+        final ai.dvine.learn.NightLearn.Plan was = ai.dvine.learn.NightLearnJob.plan(this);
+        final int[] start = { was.start }, end = { was.end };
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        android.widget.TextView about = new android.widget.TextView(this);
+        about.setText("While you sleep, " + DVINE_OWN + " goes online and learns: first what it couldn't answer today, then what"
+                + " you're into, then the day's notable topics. In the morning it tells you what it learned, and asks you to"
+                + " check each answer the first time it uses it.");
+        about.setTextColor(getColor(R.color.text_secondary));
+        about.setTextSize(13f);
+        box.addView(about);
+        final android.widget.Switch on = new android.widget.Switch(this);
+        on.setText("Learn at night");
+        on.setChecked(was.on);
+        on.setTextSize(16f);
+        on.setPadding(0, dp(16), 0, dp(8));
+        box.addView(on);
+        final android.widget.Button from = new android.widget.Button(this);
+        final android.widget.Button to = new android.widget.Button(this);
+        from.setText("Starts " + ai.dvine.learn.NightLearn.Plan.clock(start[0]));
+        to.setText("Ends " + ai.dvine.learn.NightLearn.Plan.clock(end[0]));
+        from.setOnClickListener(v -> new android.app.TimePickerDialog(this, (tp, h, m) -> {
+            start[0] = h * 60 + m;
+            from.setText("Starts " + ai.dvine.learn.NightLearn.Plan.clock(start[0]));
+        }, start[0] / 60, start[0] % 60, true).show());
+        to.setOnClickListener(v -> new android.app.TimePickerDialog(this, (tp, h, m) -> {
+            end[0] = h * 60 + m;
+            to.setText("Ends " + ai.dvine.learn.NightLearn.Plan.clock(end[0]));
+        }, end[0] / 60, end[0] % 60, true).show());
+        android.widget.LinearLayout times = new android.widget.LinearLayout(this);
+        times.addView(from, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        times.addView(to, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        box.addView(times);
+        final android.widget.CheckBox wifi = new android.widget.CheckBox(this);
+        wifi.setText("Only on Wi-Fi");
+        wifi.setChecked(was.wifiOnly);
+        box.addView(wifi);
+        final android.widget.CheckBox charging = new android.widget.CheckBox(this);
+        charging.setText("Only while charging");
+        charging.setChecked(was.chargingOnly);
+        box.addView(charging);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Night learning")
+                .setView(box)
+                .setPositiveButton("Save", (d, w) -> {
+                    ai.dvine.learn.NightLearn.Plan p = new ai.dvine.learn.NightLearn.Plan(on.isChecked(), start[0], end[0],
+                            wifi.isChecked(), charging.isChecked(), was.most);
+                    ai.dvine.learn.NightLearnJob.setPlan(this, p);
+                    note(p.on ? "Night learning is on: " + p.words() + "." : "Night learning is off.");
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     /** The question DVINE 1 last asked "accurate?" about, for a correction the pilot types instead of tapping. */
@@ -2629,6 +2816,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         } else {
             knowledge().reject(question, answer);
             brainBox().forgetTalk(question);
+            ai.dvine.learn.NightLearnJob.remember(this, question); // tried again tonight, from other sources
             note("Got it: DVINE won't give that answer again.");
         }
     }
@@ -4703,6 +4891,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     if (chats != null && !kept.isEmpty()) {
                         chats.replyToPage(agent, kept);
+                        unreadPages.add(agent); // a dot on that page's tab
+                        personaTabs.update(stage.agent());
                     }
                     return;
                 }
@@ -5146,6 +5336,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }));
         }
         list.addView(brainHeader("More"));
+        ai.dvine.learn.NightLearn.Plan night = ai.dvine.learn.NightLearnJob.plan(this);
+        list.addView(brainLink("Night learning", night.on ? "On, " + night.words() : "Off. Let " + DVINE_OWN + " learn while you sleep",
+                () -> {
+                    sheet[0].dismiss();
+                    showNightLearning();
+                }));
         list.addView(brainLink("All offline models", "Download another family or size, or delete one",
                 () -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class))));
         list.addView(brainLink("AI providers", "API models and keys", this::openProviders));
@@ -6369,6 +6565,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         connectivity.start();
         ai.dvine.llm.ReplyNotice.clear(this);
         handler.postDelayed(this::sendWaiting, 1000);
+        handler.postDelayed(this::morningReport, 1500);
         if (chatPane != null) {
             chatPane.show(); // replies that came in while DVINE was in the background are in the chat
         }

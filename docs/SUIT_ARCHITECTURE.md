@@ -78,6 +78,9 @@ model's memory. The pick is kept as `brain_pick` (`dvine`, `api`, `device`).
 4. Otherwise it researches the web and answers from the sources' own sentences (`suit/ResearchAnswer`), naming them,
    and asks Correct / Wrong. Correct saves it; Wrong marks that answer wrong for that intent.
 
+5. At night (if the pilot turned night learning on) it learns what it missed, the pilot's interests and the day's
+   topics; those answers are offered with the check and cancel until confirmed.
+
 It does not reason the way a language model does: it retrieves, checks and remembers. Reasoning it can't do yet is
 the selected model's, and what that model answers is learned too.
 

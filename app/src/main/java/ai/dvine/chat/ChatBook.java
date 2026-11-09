@@ -208,6 +208,20 @@ public final class ChatBook {
         return openIn(title, p, group);
     }
 
+    /** The persona pages of a conversation that have messages, in page order (Obi, Ivie, Ibiko). */
+    public synchronized List<String> pagesOf(String group) {
+        List<String> out = new ArrayList<String>();
+        for (String p : new String[] { "obi", "ivie", "ibiko" }) {
+            for (Section s : sections) {
+                if (!s.archived && p.equals(s.persona) && group != null && group.equals(s.group) && !s.messages.isEmpty()) {
+                    out.add(p);
+                    break;
+                }
+            }
+        }
+        return out;
+    }
+
     /** True when no page of this conversation has a message yet. */
     private boolean groupQuiet(String group) {
         if (group == null) {
