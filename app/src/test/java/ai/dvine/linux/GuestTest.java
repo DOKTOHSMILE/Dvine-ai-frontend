@@ -11,7 +11,8 @@ public class GuestTest {
         String script = Guest.wrap("/root", "cd /usr && echo hi");
         assertTrue(script.contains("cd '/root'"));
         assertTrue(script.contains("echo hi"));
-        assertTrue(script.contains("echo " + Guest.MARK + "$status"));
+        assertTrue(script.contains("pwd > /root/.dvine_cwd"));
+        assertTrue(!script.contains("echo " + Guest.MARK));
         Guest.Answer answer = Guest.split("hi\n/usr\n" + Guest.MARK + "0\nThis ran in DVINE's Linux.\n", "/root");
         assertEquals("hi\n", answer.text);
         assertEquals("/usr", answer.cwd);

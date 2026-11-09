@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * One command in Alpine, for chat and Ibiko. Returns null when Linux has not been set up yet, so the
@@ -57,6 +58,14 @@ public final class AlpineRun {
      * The phone's shared storage is mounted at {@code /storage} when that folder exists.
      */
     public static LinuxEngine.Result run(Context c, String command, File work, Job job, int cap) {
+        return run(c, command, work, job, cap, null);
+    }
+
+    /**
+     * As {@link #run(Context, String, File, Job, int)}. {@code live} is given each piece of output as it
+     * is written, from a background thread, so a long install is not silent until the end.
+     */
+    public static LinuxEngine.Result run(Context c, String command, File work, Job job, int cap, Consumer<String> live) {
         if (!ready(c) || command == null || command.trim().isEmpty()) {
             return null;
         }
@@ -100,7 +109,7 @@ public final class AlpineRun {
                 }
             }
             ByteArrayOutputStream captured = new ByteArrayOutputStream();
-            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit), "dvine-linux-out");
+            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit, live), "dvine-linux-out");
             pump.setDaemon(true);
             pump.start();
             long deadline = System.currentTimeMillis() + WAIT_MS;
@@ -162,7 +171,7 @@ public final class AlpineRun {
         cmd.add(at + 1, hostPath + ":" + guest);
     }
 
-    private static void drain(InputStream in, ByteArrayOutputStream out, int cap) {
+    private static void drain(InputStream in, ByteArrayOutputStream out, int cap, Consumer<String> live) {
         byte[] buf = new byte[4096];
         try {
             int n;
@@ -171,6 +180,9 @@ public final class AlpineRun {
                     if (out.size() < cap) {
                         out.write(buf, 0, (int) Math.min(n, cap - out.size()));
                     }
+                }
+                if (live != null) {
+                    live.accept(new String(buf, 0, n, StandardCharsets.UTF_8));
                 }
             }
         } catch (IOException ignored) {

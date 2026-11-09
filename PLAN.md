@@ -1,3 +1,7 @@
+# Live output (0.99.27)
+
+- [x] A command's text is shown as it is written, not only after it finishes. The folder is saved to a file, so that marker is not mixed into the output.
+
 # Scroll (0.99.26)
 
 - [x] The session no longer redraws on a timer, and a sideways scroller no longer sits inside the vertical one. A drag scrolls. It is not pulled back down unless you were already at the bottom.

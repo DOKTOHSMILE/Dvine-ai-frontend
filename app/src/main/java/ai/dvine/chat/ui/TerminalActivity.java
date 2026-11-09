@@ -37,6 +37,7 @@ public final class TerminalActivity extends AppCompatActivity {
     private EditText input;
     private ScrollView scroll;
     private final StringBuilder log = new StringBuilder();
+    private final StringBuilder liveOut = new StringBuilder();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final List<String> history = new ArrayList<String>();
     private int historyAt = 0;
@@ -176,6 +177,9 @@ public final class TerminalActivity extends AppCompatActivity {
                 touching = false;
                 float dx = Math.abs(ev.getX() - downX);
                 float dy = Math.abs(ev.getY() - downY);
+                if (busy) {
+                    paint(stick);
+                }
                 if (action == android.view.MotionEvent.ACTION_UP && dx < 16 && dy < 16) {
                     keyboard();
                 }
@@ -376,7 +380,7 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         String typed = input == null || busy ? "" : input.getText().toString();
-        String live = busy ? "" : promptText() + typed + "\u2588";
+        String live = busy ? liveOut.toString() : promptText() + typed + "\u2588";
         int kept = scroll == null ? 0 : scroll.getScrollY();
         transcript.setText(log.toString() + live);
         if (jump && !touching) {
@@ -441,24 +445,55 @@ public final class TerminalActivity extends AppCompatActivity {
         final AlpineRun.Job current = new AlpineRun.Job();
         job = current;
         worker.execute(() -> {
-            ai.dvine.linux.LinuxEngine.Result result = AlpineRun.run(this, Guest.wrap(cwd, ran),
-                    new File(getFilesDir(), "linux"), current, 256 * 1024);
-            Guest.Answer answer = Guest.split(result == null ? "" : result.text, cwd);
+            AlpineRun.run(this, Guest.wrap(cwd, ran), new File(getFilesDir(), "linux"), current, 256 * 1024, chunk -> {
+                if (chunk == null || chunk.isEmpty()) {
+                    return;
+                }
+                runOnUiThread(() -> {
+                    if (closed) {
+                        return;
+                    }
+                    liveOut.append(chunk);
+                    if (liveOut.length() > 260000) {
+                        liveOut.delete(0, liveOut.length() - 200000);
+                    }
+                    if (!touching) {
+                        paint(stick);
+                    }
+                });
+            });
+            String folder = readSmall("root/.dvine_cwd");
             runOnUiThread(() -> {
                 if (closed) {
                     return;
                 }
-                cwd = answer.cwd;
-                if (!answer.text.isEmpty()) {
-                    append(answer.text);
+                if (folder.startsWith("/")) {
+                    cwd = folder;
+                }
+                String shown = liveOut.toString();
+                liveOut.setLength(0);
+                if (!shown.isEmpty()) {
+                    log.append(shown.endsWith("\n") ? shown : shown + "\n");
+                    if (log.length() > 180000) {
+                        log.delete(0, log.length() - 140000);
+                    }
                 }
                 busy = false;
                 if (job == current) {
                     job = null;
                 }
-                paint(true);
+                paint(stick && !touching);
             });
         });
+    }
+
+    private String readSmall(String name) {
+        try {
+            byte[] bytes = java.nio.file.Files.readAllBytes(new File(LinuxRoot.root(this), name).toPath());
+            return new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private void append(String more) {

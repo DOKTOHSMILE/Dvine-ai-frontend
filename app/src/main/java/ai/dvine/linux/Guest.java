@@ -17,16 +17,16 @@ public final class Guest {
     }
 
     /**
-     * The script Alpine runs. It starts in {@code cwd}, runs the line, then prints the new folder and
-     * {@code DVINE_STATUS:exit}.
+     * The script Alpine runs. It starts in {@code cwd}, runs the line, and writes the new folder and the
+     * exit code to files. The command's own text is the only thing printed, so it can be shown as it arrives.
      */
     public static String wrap(String cwd, String line) {
         String dir = cwd != null && cwd.startsWith("/") ? cwd : "/root";
         return "cd " + quote(dir) + " || cd /root\n"
                 + (line == null ? "" : line) + "\n"
                 + "status=$?\n"
-                + "pwd\n"
-                + "echo " + MARK + "$status\n"
+                + "pwd > /root/.dvine_cwd\n"
+                + "echo $status > /root/.dvine_status\n"
                 + "exit $status\n";
     }
 
