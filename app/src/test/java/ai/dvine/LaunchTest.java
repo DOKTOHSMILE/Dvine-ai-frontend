@@ -268,6 +268,11 @@ public class LaunchTest {
         ai.dvine.llm.ModelHub hub = ai.dvine.llm.ModelHub.get(c.get());
         try {
             java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+            // the sections are closed until tapped: open Models first
+            c.get().getWindow().getDecorView().findViewsWithText(found, "Models", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+            org.junit.Assert.assertFalse(found.isEmpty());
+            found.get(0).performClick();
+            found.clear();
             c.get().getWindow().getDecorView().findViewsWithText(found, "Change the offline model", android.view.View.FIND_VIEWS_WITH_TEXT);
             org.junit.Assert.assertFalse(found.isEmpty());
             android.view.View v = found.get(0);

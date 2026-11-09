@@ -723,6 +723,23 @@ public final class ChatPane extends LinearLayout {
             cmd.setMaxLines(12);
             box.addView(cmd);
         }
+        if (!d.diff() && it.kind != ai.dvine.agent.StepGroups.Kind.COMMAND) {
+            // a file read: numbers in their own column, the code coloured, long lines scrolled sideways
+            ai.dvine.ui.NumberedCode nc = ai.dvine.ui.NumberedCode.of(lines, false, CODE_LINES);
+            box.addView(ai.dvine.ui.CodeView.of(getContext(), d.title, nc, 12f));
+            int total = ai.dvine.ui.NumberedCode.count(lines, false);
+            if (total > CODE_LINES) {
+                TextView more = plain("Show all " + total + " lines  \u203A");
+                more.setTextSize(12f);
+                more.setTextColor(color(R.color.accent));
+                more.setPadding(dp(12), dp(6), dp(12), dp(8));
+                more.setOnClickListener(v -> ai.dvine.chat.ui.DetailSheet.show((Activity) getContext(), words, d));
+                box.addView(more);
+            } else {
+                box.addView(new View(getContext()), new LayoutParams(1, dp(6)));
+            }
+            return box;
+        }
         int shown = 0;
         for (String l : lines) {
             if (shown >= CODE_LINES) {
