@@ -54,10 +54,117 @@ public final class BrainBox {
 
     private final File file;
     private final List<Example> examples = new ArrayList<Example>();
+    /** Conversation it has learned: a question's words and the answer a model gave, newest last. */
+    private final List<Example> talk = new ArrayList<Example>();
+    /** How many answers are kept, and how long one may be. */
+    public static final int MOST_TALK = 3000;
+    static final int ANSWER_CHARS = 1500;
+    /** How close a question must be to answer it from what was learned (only when no model can). */
+    static final double CLOSE_TALK = 0.8;
 
     public BrainBox(File file) {
         this.file = file;
         load();
+        loadTalk();
+    }
+
+    /** How many answers it has learned. */
+    public synchronized int talkSize() {
+        return talk.size();
+    }
+
+    /**
+     * Learns an answer a model gave (any model, API or on the device), so DVINE grows with every conversation. Very
+     * short or very long answers, and answers about the moment (time, today, news, prices), are not kept.
+     */
+    public synchronized void learnTalk(String question, String answer) {
+        List<String> words = words(question);
+        String a = answer == null ? "" : answer.trim();
+        if (words.isEmpty() || a.length() < 2 || a.length() > ANSWER_CHARS
+                || (question + " " + a).toLowerCase(Locale.US).matches("(?s).*\\b(today|tonight|now|current|latest|news|price|weather|yesterday|tomorrow)\\b.*")) {
+            return;
+        }
+        for (int i = talk.size() - 1; i >= 0; i--) {
+            if (talk.get(i).words.equals(words)) {
+                talk.remove(i);
+            }
+        }
+        talk.add(new Example(words, a.replace('\n', '\u2028')));
+        while (talk.size() > MOST_TALK) {
+            talk.remove(0);
+        }
+        saveTalk();
+    }
+
+    /** An answer learned for a question like this one, or null. For when no model can answer. */
+    public synchronized String recallTalk(String question) {
+        Example best = nearest(talk, words(question));
+        return best == null || score < CLOSE_TALK ? null : best.order.replace('\u2028', '\n');
+    }
+
+    /**
+     * The user said it was wrong: what was learned for these words is forgotten, so the same mistake is not made
+     * again (the model decides the next time, and teaches it afresh).
+     */
+    public synchronized boolean forget(String text) {
+        List<String> words = words(text);
+        boolean gone = false;
+        for (int i = examples.size() - 1; i >= 0; i--) {
+            if (examples.get(i).words.equals(words) || cosineOf(words, examples.get(i).words, examples) >= CLOSE) {
+                examples.remove(i);
+                gone = true;
+            }
+        }
+        if (gone) {
+            save();
+        }
+        return gone;
+    }
+
+    /** True when the user's words say the last thing done was not what they meant. */
+    public static boolean correction(String text) {
+        String t = text == null ? "" : text.trim().toLowerCase(Locale.US).replaceAll("[.!?]+$", "");
+        String rest = t.replaceFirst("^(no|nope)\\b[,!.]*\\s*", "");
+        if (rest.isEmpty()) {
+            return true; // just "no"
+        }
+        return rest.matches("^(wrong|that'?s wrong|not that|that'?s not (it|right|what i (meant|asked|wanted))"
+                + "|i (didn'?t|did not) (mean|ask for) that|you got it wrong)$");
+    }
+
+    /** The score of the last {@link #nearest} call. */
+    private double score;
+
+    private Example nearest(List<Example> from, List<String> words) {
+        score = 0;
+        if (words.isEmpty() || from.isEmpty()) {
+            return null;
+        }
+        Map<String, Integer> df = df(from);
+        Example best = null;
+        for (int i = from.size() - 1; i >= 0; i--) {
+            double s = cosine(words, from.get(i).words, df, from.size());
+            if (s > score + 1e-9) {
+                score = s;
+                best = from.get(i);
+            }
+        }
+        return best;
+    }
+
+    private static Map<String, Integer> df(List<Example> from) {
+        Map<String, Integer> df = new HashMap<String, Integer>();
+        for (Example e : from) {
+            for (String w : new HashSet<String>(e.words)) {
+                Integer n = df.get(w);
+                df.put(w, n == null ? 1 : n + 1);
+            }
+        }
+        return df;
+    }
+
+    private static double cosineOf(List<String> a, List<String> b, List<Example> from) {
+        return cosine(a, b, df(from), from.size());
     }
 
     /** How many examples it has learned. */
@@ -132,7 +239,50 @@ public final class BrainBox {
     /** Forgets everything learned. */
     public synchronized void clear() {
         examples.clear();
+        talk.clear();
         save();
+        saveTalk();
+    }
+
+    private File talkFile() {
+        return file == null ? null : new File(file.getPath().replaceAll("\\.tsv$", "") + "-talk.tsv");
+    }
+
+    private void loadTalk() {
+        File f = talkFile();
+        if (f == null || !f.isFile()) {
+            return;
+        }
+        try {
+            for (String line : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
+                int tab = line.indexOf('\t');
+                if (tab > 0) {
+                    talk.add(new Example(new ArrayList<String>(java.util.Arrays.asList(line.substring(0, tab).split(" "))),
+                            line.substring(tab + 1)));
+                }
+            }
+        } catch (IOException e) {
+            talk.clear();
+        }
+    }
+
+    private void saveTalk() {
+        File f = talkFile();
+        if (f == null) {
+            return;
+        }
+        StringBuilder b = new StringBuilder();
+        for (Example e : talk) {
+            b.append(String.join(" ", e.words)).append('\t').append(e.order.replace('\n', '\u2028').replace('\t', ' ')).append('\n');
+        }
+        try {
+            if (f.getParentFile() != null) {
+                f.getParentFile().mkdirs();
+            }
+            Files.write(f.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // kept in memory for this run
+        }
     }
 
     // ------------------------------------------------------------ pieces

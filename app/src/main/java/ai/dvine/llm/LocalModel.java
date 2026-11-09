@@ -492,7 +492,7 @@ public final class LocalModel {
         final int room = PromptFit.localReplyTokens(localWindow(), maxTokens, false);
         asked = fit(asked, PromptFit.localPromptChars(localWindow(), room, system == null ? 0 : system.length()));
         ai.dvine.learn.LearningLog l = learning;
-        String learned = l == null ? "" : l.examplesFor(question, 2, 1400);
+        String learned = l == null ? "" : l.examplesFor(question, 1, 700);
         step("Answering with the model on this device");
         if (!learned.isEmpty()) {
             step("Recalled similar answers I learned before");

@@ -25,6 +25,7 @@ public final class MediaPlayActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_media_play);
+        Ui.fitInsets(((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0)); // below the status bar, above the navigation bar
         TextView back = findViewById(R.id.media_back);
         if (back != null) {
             back.setOnClickListener(v -> finish());

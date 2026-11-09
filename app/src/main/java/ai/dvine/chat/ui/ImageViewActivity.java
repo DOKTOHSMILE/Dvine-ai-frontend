@@ -43,6 +43,7 @@ public final class ImageViewActivity extends AppCompatActivity {
         cp.setMargins(m, m + Ui.dp(this, 24), m, m);
         root.addView(close, cp);
         setContentView(root);
+        Ui.fitInsets(((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0)); // below the status bar, above the navigation bar
 
         String path = getIntent().getStringExtra(EXTRA_PATH);
         Bitmap bitmap = decode(path == null ? "" : path, Math.max(getResources().getDisplayMetrics().widthPixels,

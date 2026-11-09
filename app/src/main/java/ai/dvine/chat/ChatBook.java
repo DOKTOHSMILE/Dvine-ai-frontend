@@ -713,7 +713,18 @@ public final class ChatBook {
                 pick.put(s.group, s);
             }
         }
-        return new ArrayList<Section>(pick.values());
+        List<Section> out = new ArrayList<Section>(pick.values());
+        // newest first, oldest last (pinned ones stay on top): a chat's number grows with each new chat
+        java.util.Collections.sort(out, (x, y) -> x.pinned != y.pinned ? (x.pinned ? -1 : 1)
+                : Integer.compare(number(y.id), number(x.id)));
+        return out;
+    }
+
+    /** The projects, newest first. */
+    public synchronized List<String> projectsNewestFirst() {
+        List<String> out = new ArrayList<String>(projects);
+        java.util.Collections.reverse(out);
+        return out;
     }
 
     private static int groupScore(Section s) {

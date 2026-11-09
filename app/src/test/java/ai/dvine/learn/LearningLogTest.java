@@ -35,7 +35,7 @@ public class LearningLogTest {
         log.record("sys", ask("nothing"), "  ", "OpenAI (y)", "FAST", 4); // empty replies aren't kept
         assertEquals(3, log.count());
 
-        String ex = log.examplesFor("how long to boil an egg", 2, 1400);
+        String ex = log.examplesFor("how long to boil an egg", 1, 700);
         assertTrue(ex, ex.contains("boil an egg perfectly") && ex.contains("9 minutes"));
         assertTrue(ex, !ex.contains("Abuja"));
         assertEquals("", log.examplesFor("open the camera now", 2, 1400)); // orders aren't imitated
