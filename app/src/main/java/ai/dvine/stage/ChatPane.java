@@ -68,6 +68,14 @@ public final class ChatPane extends LinearLayout {
         show();
     }
 
+    /** The pilot answered the question by typing: the buttons go. */
+    public void clearRating() {
+        ratedAnswer = rateAnswer;
+        rateQuestion = null;
+        rateAnswer = null;
+        show();
+    }
+
     /** True while an answer waits for Correct or Wrong. */
     public boolean ratingWaiting() {
         return rateAnswer != null;

@@ -25,9 +25,73 @@ public final class ResearchAnswer {
         this.sources = sources;
     }
 
-    /** The answer for the pilot: the sentences, then the sources. */
+    /** The answer for the pilot: the sentences, then the sources, as one block. */
     public String shown() {
-        return text + (sources.isEmpty() ? "" : "\n\nSources: " + String.join(", ", sources));
+        return text + (sources.isEmpty() ? "" : "\nSource: " + String.join(", ", sources));
+    }
+
+    private static final Pattern ASKS_WHAT = Pattern.compile("(?i)^\\s*(?:what|who)(?:'s| is| are| was| were)\\s+(.+?)\\s*\\??$");
+    private static final Pattern ASKS_ABOUT = Pattern.compile("(?i)^\\s*(?:tell me about|define|explain|describe|what does|what do)\\s+(.+?)(?:\\s+mean)?\\s*[?.!]*$");
+
+    /**
+     * What a "what is X" / "who is X" / "tell me about X" question is about ("a pig" → "pig"), or null for any other
+     * question. These are answered from the subject's own encyclopedia entry first, not from pages that merely
+     * mention the word ("pig-butchering", "Pig Latin", "guinea pig").
+     */
+    public static String subject(String question) {
+        String q = question == null ? "" : question.trim();
+        Matcher m = ASKS_WHAT.matcher(q);
+        if (!m.matches()) {
+            m = ASKS_ABOUT.matcher(q);
+            if (!m.matches()) {
+                return null;
+            }
+        }
+        String s = m.group(1).replaceFirst("(?i)^(?:a|an|the)\\s+", "").replaceAll("[?.!]+$", "").trim();
+        if (s.isEmpty() || s.split("\\s+").length > 6 || s.matches("(?i).*\\b(you|your|i|me|my|it|this|that|they|we)\\b.*")) {
+            return null; // about the pilot, DVINE or "it": not an encyclopedia subject
+        }
+        return s;
+    }
+
+    /** The encyclopedia address of a subject's short summary (Wikipedia follows "pigs" to "Pig" by itself). */
+    public static String summaryUrl(String subject) {
+        String t = subject.trim().replace(' ', '_');
+        t = Character.toUpperCase(t.charAt(0)) + t.substring(1);
+        try {
+            return "https://en.wikipedia.org/api/rest_v1/page/summary/" + java.net.URLEncoder.encode(t, "UTF-8").replace("+", "_");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return "https://en.wikipedia.org/api/rest_v1/page/summary/" + t;
+        }
+    }
+
+    /** The answer from a subject's summary (its first two or three sentences), or null for a list of meanings or nothing. */
+    public static ResearchAnswer fromSummary(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            java.util.Map<String, Object> m = ai.dvine.brain.MiniJson.obj(ai.dvine.brain.MiniJson.parse(json));
+            String type = ai.dvine.brain.MiniJson.str(m.get("type"), "");
+            String extract = ai.dvine.brain.MiniJson.str(m.get("extract"), "").replaceAll("\\s+", " ").trim();
+            if (!"standard".equals(type) || extract.length() < 20) {
+                return null; // a disambiguation page or nothing found
+            }
+            StringBuilder b = new StringBuilder();
+            int n = 0;
+            for (String sentence : extract.split("(?<=[.!?])\\s+(?=[A-Z])")) {
+                if (n == 3 || b.length() + sentence.length() > 480 && n > 0) {
+                    break;
+                }
+                b.append(n == 0 ? "" : " ").append(sentence);
+                n++;
+            }
+            List<String> src = new ArrayList<String>();
+            src.add("en.wikipedia.org");
+            return new ResearchAnswer(b.toString(), src);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static final Pattern SOURCE = Pattern.compile("\\[(\\d+)] [^\\n]*? — (https?://[^\\s]+)");
@@ -83,6 +147,24 @@ public final class ResearchAnswer {
         }
         if (all.isEmpty()) {
             return null;
+        }
+        String subject = subject(question);
+        if (subject != null) {
+            // "what is a pig": only sentences that say what the subject itself is, never one where the word is part
+            // of another name ("Pig Latin is", "the guinea pig is", "a pig-butchering scam is")
+            String head = Pattern.quote(subject.toLowerCase(java.util.Locale.US).replaceAll("s$", ""));
+            Pattern defines = Pattern.compile("(?i)^(?:the |a |an )?" + head + "(?:e?s)?(?:\\s*\\([^)]*\\))?(?:,[^,]{0,80},)?\\s+"
+                    + "(?:is|are|was|were|refers to|means)\\b.*");
+            List<Scored> keep = new ArrayList<Scored>();
+            for (Scored sc : all) {
+                if (defines.matcher(sc.text).matches()) {
+                    keep.add(sc);
+                }
+            }
+            if (keep.isEmpty()) {
+                return null; // nothing says what it is: better no answer than a wrong one
+            }
+            all = keep;
         }
         java.util.Collections.sort(all, (a, b) -> a.score != b.score ? Double.compare(b.score, a.score) : Integer.compare(a.order, b.order));
         if (all.get(0).score < 0.34) {
