@@ -2444,7 +2444,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** DVINE's own light brain in the suit: reads every message and works out arithmetic exactly, for any model. */
     private ai.dvine.learn.Knowledge knowledge;
 
-    /** What DVINE 1 knows for sure: answers the pilot confirmed with 👍🏽, found again by intent. */
+    /** What DVINE 1 knows for sure: answers the pilot confirmed with Correct, found again by intent. */
     private synchronized ai.dvine.learn.Knowledge knowledge() {
         if (knowledge == null) {
             knowledge = new ai.dvine.learn.Knowledge(new java.io.File(getFilesDir(), "brain/knowledge.tsv"));
@@ -2455,7 +2455,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /**
      * DVINE 1 answers on its own: exact sums, a greeting, what the pilot confirmed before (asked any way), what it
      * learned from the models; otherwise it researches the web and answers from what it found, in the sources' own
-     * words, and asks whether that was right (👍🏽 / 👎🏽). Nothing is made up.
+     * words, and asks whether that was right (Correct / Wrong). Nothing is made up.
      */
     private void dvineAnswer(final String t) {
         final String who = stage.agent();
@@ -2466,7 +2466,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (c.act == ai.dvine.suit.Comprehension.Act.GREETING) {
             play(LocalTurn.speakAs(who, "Hello, I'm " + DVINE_OWN + ". Ask me anything: I answer what I know, research what I"
-                    + " don't, and learn from your \uD83D\uDC4D\uD83C\uDFFD and \uD83D\uDC4E\uD83C\uDFFD."), null);
+                    + " don't, and learn when you tell me Correct or Wrong."), null);
             return;
         }
         if (c.act == ai.dvine.suit.Comprehension.Act.THANKS) {
@@ -2519,7 +2519,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }, "dvine-research").start();
     }
 
-    /** 👍🏽 keeps the answer for this intent (and as talk the brain box knows); 👎🏽 marks it wrong, never given again. */
+    /** Correct keeps the answer for this intent (and as talk the brain box knows); Wrong marks it wrong, never given again. */
     private void rate(String question, String answer, boolean right) {
         if (question == null || answer == null) {
             return;

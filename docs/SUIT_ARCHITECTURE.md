@@ -74,9 +74,9 @@ model's memory. The pick is kept as `brain_pick` (`dvine`, `api`, `device`).
 1. Exact sums, greetings and thanks: the Cortex.
 2. Confirmed answers (`learn/Knowledge`): found by intent (what kind of answer, the meaning words with synonyms, endings
    and small typos folded), so a question asked another way gets the same answer, without asking again.
-3. Answers learned from earlier models (`BrainBox` talk): given, with "Is it accurate?" and 👍🏽 / 👎🏽.
+3. Answers learned from earlier models (`BrainBox` talk): given, with "Is it accurate?" and Correct / Wrong.
 4. Otherwise it researches the web and answers from the sources' own sentences (`suit/ResearchAnswer`), naming them,
-   and asks 👍🏽 / 👎🏽. 👍🏽 saves it; 👎🏽 marks that answer wrong for that intent.
+   and asks Correct / Wrong. Correct saves it; Wrong marks that answer wrong for that intent.
 
 It does not reason the way a language model does: it retrieves, checks and remembers. Reasoning it can't do yet is
 the selected model's, and what that model answers is learned too.
