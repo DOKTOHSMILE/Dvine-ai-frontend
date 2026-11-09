@@ -1,3 +1,9 @@
+# Linux terminal (0.99.21)
+
+- [x] The shell screen compiles on CodeAssist. Stopping a command does not call `Process.pid()`, which that Android library does not have.
+- [x] Once Alpine is installed, chat and Ibiko's `run` use it. Until then they keep the small Java shell.
+- [x] A hard link that appears in the archive before its file is still unpacked, so Alpine's own tools are not dropped.
+
 # Linux terminal (0.99.20)
 
 The shell screen is Alpine Linux, not the short Java command list. Termux is not opened.

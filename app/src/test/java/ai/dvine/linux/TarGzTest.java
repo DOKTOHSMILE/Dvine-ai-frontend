@@ -31,6 +31,20 @@ public class TarGzTest {
     }
 
     @Test
+    public void aHardLinkThatArrivesBeforeItsFileIsStillCopied() throws Exception {
+        byte[] gz = gzip(tar(
+                entry("bin/ls", "", '1', 0755, "bin/busybox"),
+                entry("bin/busybox", "box", '0', 0755, "")));
+        File dest = Files.createTempDirectory("dvine-link").toFile();
+        TarGz.extract(new ByteArrayInputStream(gz), dest);
+        assertEquals("box", new String(Files.readAllBytes(new File(dest, "bin/ls").toPath()), StandardCharsets.UTF_8));
+        java.util.List<String> once = ProotCommand.once(new File("/lib/libproot.so"), dest, new File("/work"), "pkg install python3");
+        assertTrue(once.contains("-c"));
+        assertTrue(once.contains("pkg install python3"));
+        assertTrue(once.contains("/work:/work") || once.contains(new File("/work").getAbsolutePath() + ":/work"));
+    }
+
+    @Test
     public void thePackageCommandIsApkUnderTheTermuxNames() {
         assertTrue(ProotCommand.PKG.contains("apk add"));
         assertTrue(ProotCommand.PKG.contains("pkg install"));

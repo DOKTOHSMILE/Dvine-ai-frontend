@@ -28,10 +28,11 @@ public final class TarGz {
         byte[] header = new byte[512];
         String longName = null;
         String longLink = null;
+        java.util.List<String[]> later = new java.util.ArrayList<String[]>();
         while (true) {
             int n = readHeader(in, header);
             if (n == 0 || zero(header)) {
-                return;
+                break;
             }
             if (n < 512) {
                 throw new IOException("The archive ended in the middle of a header.");
@@ -86,11 +87,8 @@ public final class TarGz {
                 Files.deleteIfExists(out.toPath());
                 if (type == '2') {
                     Files.createSymbolicLink(out.toPath(), Paths.get(link));
-                } else {
-                    File target = new File(dest, link);
-                    if (target.isFile()) {
-                        Files.copy(target.toPath(), out.toPath());
-                    }
+                } else if (!copyLink(dest, out, link)) {
+                    later.add(new String[] { out.getAbsolutePath(), link });
                 }
                 skip(in, size);
             } else if (type == '0' || type == 0) {
@@ -112,6 +110,29 @@ public final class TarGz {
             }
             skipPad(in, size);
         }
+        for (String[] link : later) {
+            copyLink(dest, new File(link[0]), link[1]);
+        }
+    }
+
+    /** A hard link's target is often stored later in the archive. */
+    private static boolean copyLink(File dest, File out, String link) throws IOException {
+        File target = new File(dest, link);
+        if (!target.isFile()) {
+            File beside = new File(out.getParentFile(), link);
+            if (beside.isFile()) {
+                target = beside;
+            }
+        }
+        if (!target.isFile()) {
+            return false;
+        }
+        Files.deleteIfExists(out.toPath());
+        Files.copy(target.toPath(), out.toPath());
+        if (target.canExecute()) {
+            out.setExecutable(true, false);
+        }
+        return true;
     }
 
     /** A path that stays inside the destination. */

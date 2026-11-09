@@ -60,13 +60,44 @@ public final class ProotSession {
         stdin.flush();
     }
 
-    /** CTRL-C. If the phone has no kill program, the session is closed instead. */
+    /** CTRL-C. {@code Process.pid()} is not in every build tool's Android library, so the id is read by reflection. */
     public void interrupt() {
-        try {
-            new ProcessBuilder("/system/bin/kill", "-INT", Long.toString(proc.pid())).start();
-        } catch (IOException e) {
-            proc.destroy();
+        long pid = pidOf(proc);
+        if (pid > 0) {
+            try {
+                new ProcessBuilder("/system/bin/kill", "-INT", Long.toString(pid)).start();
+                return;
+            } catch (Throwable ignored) {
+                // fall through and close the session
+            }
         }
+        proc.destroy();
+    }
+
+    /** The process id, or -1 when this Android library does not expose it. */
+    static long pidOf(Process proc) {
+        if (proc == null) {
+            return -1;
+        }
+        try {
+            Object v = Process.class.getMethod("pid").invoke(proc);
+            if (v instanceof Number) {
+                return ((Number) v).longValue();
+            }
+        } catch (Throwable ignored) {
+            // compiled against an Android library older than the method
+        }
+        try {
+            java.lang.reflect.Field field = proc.getClass().getDeclaredField("pid");
+            field.setAccessible(true);
+            Object v = field.get(proc);
+            if (v instanceof Number) {
+                return ((Number) v).longValue();
+            }
+        } catch (Throwable ignored) {
+            // a different Process implementation
+        }
+        return -1;
     }
 
     public void pump(Consumer<String> out) {
@@ -88,7 +119,15 @@ public final class ProotSession {
     }
 
     public boolean alive() {
-        return !closed && proc.isAlive();
+        if (closed) {
+            return false;
+        }
+        try {
+            proc.exitValue();
+            return false;
+        } catch (IllegalThreadStateException still) {
+            return true;
+        }
     }
 
     public void close() {

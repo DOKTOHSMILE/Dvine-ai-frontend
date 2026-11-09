@@ -53,4 +53,33 @@ public final class ProotCommand {
         c.add("/bin/sh");
         return c;
     }
+
+    /** One command, with the phone folder mounted at {@code /work} so the shell can see those files. */
+    public static List<String> once(File proot, File rootfs, File work, String command) {
+        List<String> c = new ArrayList<String>();
+        c.add(proot.getAbsolutePath());
+        c.add("--link2symlink");
+        c.add("-0");
+        c.add("-r");
+        c.add(rootfs.getAbsolutePath());
+        c.add("-b");
+        c.add("/dev");
+        c.add("-b");
+        c.add("/proc");
+        c.add("-b");
+        c.add("/sys");
+        if (work != null) {
+            c.add("-b");
+            c.add(work.getAbsolutePath() + ":/work");
+            c.add("-w");
+            c.add("/work");
+        } else {
+            c.add("-w");
+            c.add("/root");
+        }
+        c.add("/bin/sh");
+        c.add("-c");
+        c.add(command == null ? "" : command);
+        return c;
+    }
 }

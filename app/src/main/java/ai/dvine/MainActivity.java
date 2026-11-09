@@ -3292,7 +3292,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             handler.post(() -> activity("Ran " + cmd + " in DVINE"));
             java.io.File linux = new java.io.File(getFilesDir(), "linux");
             ai.dvine.linux.WorkspaceManager.ensure(linux);
-            ai.dvine.linux.LinuxEngine.Result ran = ai.dvine.linux.LinuxEngine.run(cmd, linux, shellRoots());
+            ai.dvine.linux.LinuxEngine.Result ran = ai.dvine.linux.AlpineRun.run(this, cmd, linux);
+            if (ran == null) {
+                ran = ai.dvine.linux.LinuxEngine.run(cmd, linux, shellRoots());
+            }
             String out = ran == null ? "The shell didn't run that." : ran.text;
             final String result = out == null || out.trim().isEmpty() ? "(no output)" : out;
             String answer = model == null || !model.ready() ? null

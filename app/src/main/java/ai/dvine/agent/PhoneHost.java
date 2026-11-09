@@ -94,6 +94,10 @@ public final class PhoneHost implements CodeAgent.Host {
         try {
             onCommand(command);
             File where = dir != null ? dir : new File(activity.getFilesDir(), "linux");
+            ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
+            if (alpine != null) {
+                return alpine.text;
+            }
             ai.dvine.linux.LinuxEngine.Result own = ai.dvine.linux.LinuxEngine.run(command, where, null);
             return own == null ? "The shell didn't run that." : own.text;
         } catch (Throwable e) {
@@ -103,13 +107,17 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public boolean termuxReady() {
-        return false; // the shell is inside DVINE; Termux is not offered
+        return ai.dvine.linux.AlpineRun.ready(activity);
     }
 
     @Override
     public String termux(String command, File folder) {
         onCommand(command);
         File where = folder != null ? folder : new File(activity.getFilesDir(), "linux");
+        ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
+        if (alpine != null) {
+            return alpine.text;
+        }
         ai.dvine.linux.LinuxEngine.Result ran = ai.dvine.linux.LinuxEngine.run(command, where, null);
         return ran == null ? "The shell didn't run that." : ran.text;
     }

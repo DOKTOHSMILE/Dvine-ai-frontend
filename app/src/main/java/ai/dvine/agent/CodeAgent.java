@@ -323,16 +323,19 @@ public final class CodeAgent {
                 + "<tool name=\"search\" query=\"text to find\" path=\"(optional folder)\"/> (searches every source file on the device,"
                 + " a line at a time, and reports file:line:text. query=\"name:Main.java\" finds a file by its name and does not open it."
                 + " No shell and no Termux)\n"
-                + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command\"/> (DVINE's own shell, no Termux:"
+                + (readOnly ? "" : host.termuxReady()
+                        ? "<tool name=\"run\" command=\"one shell command\"/> (Alpine Linux inside DVINE, not the Termux app:"
+                        + " sh, pkg install, apk, python3, git and a compiler once pkg has installed them. Pipes and redirects work."
+                        + " The command runs in the workspace folder. The device asks first unless auto-accept is on.)\n"
+                        : "<tool name=\"run\" command=\"one shell command\"/> (DVINE's own shell, no Termux:"
                         + " ls cat grep find wc head tail mkdir cp mv rm unzip echo and the rest of help."
                         + " Runs in the workspace folder, as the app, so only the app's own files are touched."
-                        + " A chain like a && b, a pipe, or > is fine. python, git, pkg and compilers are not bundled:"
+                        + " A chain like a && b, a pipe, or > is fine. python, git, pkg and compilers are not bundled"
+                        + " until Linux is set up from Tools › Commands on this device:"
                         + " the result says so, it does not pretend. The device asks first unless auto-accept is on.)\n")
-                + (readOnly || !host.termuxReady() ? "" : "<tool name=\"termux\" path=\"FOLDER\" command=\"python3 main.py\"/> (a real"
-                        + " Linux shell in Termux on the device: python3, node, gcc, clang, java, git, make, pip, npm and any"
-                        + " pkg install; works with no internet once installed. The project FOLDER is copied there first and the"
-                        + " command runs inside it, up to 3 minutes; use it to run, build and test code. Files it makes stay in"
-                        + " Termux: change the project with write_file and edit_file. Asked first, like run.)\n")
+                + (readOnly || !host.termuxReady() ? "" : "<tool name=\"termux\" path=\"FOLDER\" command=\"python3 main.py\"/> (the same"
+                        + " Alpine Linux as run, inside DVINE. The Termux app is not opened. path is the folder it runs in."
+                        + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
                         + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
@@ -1213,7 +1216,7 @@ public final class CodeAgent {
                 List<String> shown = new ArrayList<String>();
                 shown.add("$ " + cmd);
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
-                host.step(CommandWords.describe(cmd) + " in Termux", "$ " + clip(cmd, 80), shown, -1, -1);
+                host.step(CommandWords.describe(cmd) + " in Linux", "$ " + clip(cmd, 80), shown, -1, -1);
                 return out == null ? "Termux gave nothing back." : clipResult(out, RESULT_CHARS);
             }
             case "fetch": {
