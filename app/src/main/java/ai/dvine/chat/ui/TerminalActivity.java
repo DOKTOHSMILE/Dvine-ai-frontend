@@ -3,7 +3,10 @@ package ai.dvine.chat.ui;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.ScaleGestureDetector;
@@ -27,6 +30,7 @@ import ai.dvine.linux.AlpineRun;
 import ai.dvine.linux.Guest;
 import ai.dvine.linux.LinuxRoot;
 import ai.dvine.linux.ProotSession;
+import ai.dvine.linux.TermScreen;
 
 /**
  * A normal terminal. The prompt and the cursor are the last line of the session, not a separate box.
@@ -42,6 +46,7 @@ public final class TerminalActivity extends AppCompatActivity {
     private final StringBuilder log = new StringBuilder();
     private final StringBuilder liveOut = new StringBuilder();
     private final StringBuilder incoming = new StringBuilder();
+    private final TermScreen screen = new TermScreen();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final List<String> history = new ArrayList<String>();
     private int historyAt = 0;
@@ -409,17 +414,10 @@ public final class TerminalActivity extends AppCompatActivity {
         if (transcript == null) {
             return;
         }
-        String extra = busy ? liveOut.toString() : "";
         if (prompt != null) {
-            prompt.setText(promptText());
-        }
-        String next = log.toString() + extra;
-        String have = transcript.getText().toString();
-        if (!next.equals(have)) {
-            if (!have.isEmpty() && next.startsWith(have)) {
-                transcript.append(next.substring(have.length()));
-            } else {
-                transcript.setText(next);
+            String shown = promptText();
+            if (!shown.contentEquals(prompt.getText())) {
+                prompt.setText(shown);
             }
         }
         if (jump && !touching) {
@@ -478,7 +476,8 @@ public final class TerminalActivity extends AppCompatActivity {
         if ("clear".equals(trimmed)) {
             log.setLength(0);
             liveOut.setLength(0);
-            paint(true);
+            screen.clear();
+            transcript.setText("");
             keep();
             return;
         }
@@ -517,12 +516,7 @@ public final class TerminalActivity extends AppCompatActivity {
                         return;
                     }
                     liveOut.append(chunk);
-                    if (liveOut.length() > 260000) {
-                        liveOut.delete(0, liveOut.length() - 200000);
-                    }
-                    if (!touching) {
-                        paint(stick);
-                    }
+                    append(chunk);
                 });
             });
             String folder = readSmall("root/.dvine_cwd");
@@ -533,14 +527,7 @@ public final class TerminalActivity extends AppCompatActivity {
                 if (folder.startsWith("/")) {
                     cwd = folder;
                 }
-                String shown = liveOut.toString();
                 liveOut.setLength(0);
-                if (!shown.isEmpty()) {
-                    log.append(shown.endsWith("\n") ? shown : shown + "\n");
-                    if (log.length() > 180000) {
-                        log.delete(0, log.length() - 140000);
-                    }
-                }
                 busy = false;
                 if (job == current) {
                     job = null;
@@ -643,6 +630,10 @@ public final class TerminalActivity extends AppCompatActivity {
                     text = text.substring(text.length() - 140000);
                 }
                 log.append(text);
+                screen.write(text);
+                if (transcript != null) {
+                    transcript.setText(drawn(screen.pieces()));
+                }
                 paint(true);
             }
             File past = kept("history.txt");
@@ -693,8 +684,40 @@ public final class TerminalActivity extends AppCompatActivity {
         log.append(more);
         if (log.length() > 180000) {
             log.delete(0, log.length() - 140000);
+            screen.clear();
+            screen.write(log.toString());
+            if (transcript != null) {
+                transcript.setText(drawn(screen.pieces()));
+            }
+        } else {
+            java.util.List<TermScreen.Piece> added = screen.write(more);
+            if (transcript != null) {
+                if (added == null) {
+                    transcript.setText(drawn(screen.pieces()));
+                } else if (!added.isEmpty()) {
+                    transcript.append(drawn(added));
+                }
+            }
         }
         paint(stick && !touching);
+    }
+
+    private CharSequence drawn(java.util.List<TermScreen.Piece> pieces) {
+        SpannableStringBuilder out = new SpannableStringBuilder();
+        if (pieces == null) {
+            return out;
+        }
+        for (TermScreen.Piece piece : pieces) {
+            int start = out.length();
+            out.append(piece.text);
+            out.setSpan(new ForegroundColorSpan(piece.color), start, out.length(),
+                    SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (piece.bold) {
+                out.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), start, out.length(),
+                        SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        return out;
     }
 
     /** scrollTo after layout. fullScroll runs too early and never reaches the new line. */

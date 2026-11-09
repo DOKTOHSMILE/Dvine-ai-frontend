@@ -1,3 +1,7 @@
+# Terminal text (0.99.31)
+
+- [x] Output is drawn like a terminal. Colors show, a line can rewrite itself, and `clear` wipes the screen instead of printing control codes.
+
 # Lasting shell (0.99.30)
 
 - [x] When the phone allows a terminal device, one Alpine shell stays open. `cd` and variables last, and the next command does not start Linux again.
