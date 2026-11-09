@@ -36,6 +36,52 @@ public final class BrainOrder {
                 + tools + " /no_think";
     }
 
+    /**
+     * For one call that both answers and acts (no separate routing call): what the model may make DVINE do. It
+     * answers as it would; only when the user clearly wants one of these done does it put the order alone on the
+     * first line, which DVINE hides and carries out. The user's words never trigger these by themselves: the model
+     * decides from the meaning and the context.
+     */
+    public static String actions(String tools) {
+        String t = tools == null || tools.trim().isEmpty() ? "" : " DO TOOL <tool> <argument>, one of:" + tools + ".";
+        return "\n\nYou can make DVINE act on this device. Only when the user clearly wants one of these done (judge"
+                + " from what they mean and the conversation, not from single words), write the order alone on the"
+                + " first line, then a short sentence for them: DO SEARCH <words> (look it up on the web),"
+                + " DO SHELL <one shell command that does what they asked>, DO PHOTO <subject>, DO BUILD <thing to"
+                + " model in 3D, with every size they gave>, DO TIME, DO NAME <what to call them>, DO UNZIP, DO FINDZIP,"
+                + " DO SOCIAL SEARCH <network>: <words>, DO SOCIAL TRENDING <network>, DO SOCIAL CONNECT <network>,"
+                + " DO SOCIAL POST <network>: <what about>." + t
+                + " Otherwise just answer, with no order line. Never claim something was done: DVINE does it after your"
+                + " order and shows the result.";
+    }
+
+    /** The order on a reply's first line ("DO SEARCH weather"), or null when the reply is only an answer. */
+    public static BrainOrder leading(String reply) {
+        if (reply == null) {
+            return null;
+        }
+        String first = reply.trim();
+        int nl = first.indexOf('\n');
+        if (nl >= 0) {
+            first = first.substring(0, nl).trim();
+        }
+        if (!first.toUpperCase(java.util.Locale.US).startsWith("DO ")) {
+            return null;
+        }
+        BrainOrder o = read(first);
+        return o == null || o.kind == Kind.SAY || o.kind == Kind.CANNOT ? null : o;
+    }
+
+    /** The reply without its order line. */
+    public static String withoutOrder(String reply) {
+        if (leading(reply) == null) {
+            return reply;
+        }
+        String t = reply.trim();
+        int nl = t.indexOf('\n');
+        return nl < 0 ? "" : t.substring(nl + 1).trim();
+    }
+
     private static String basePrompt() {
         return "You are the brain. The user speaks only to you. DVINE does not answer them."
                 + " Read their words and reply with exactly one line."
@@ -103,6 +149,9 @@ public final class BrainOrder {
             }
             if ("SHELL".equals(code) && !arg.isEmpty()) {
                 return new BrainOrder(Kind.SHELL, arg, "");
+            }
+            if ("SEARCH".equals(code) && !arg.isEmpty()) {
+                return new BrainOrder(Kind.SEARCH, arg, ""); // look it up on the web: the model asked for it
             }
             if ("TOOL".equals(code) && !arg.isEmpty()) {
                 return new BrainOrder(Kind.TOOL, arg, "");

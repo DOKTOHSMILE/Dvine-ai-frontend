@@ -1830,6 +1830,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private String lastAsked;
 
     private void askTheBrain(String question) {
+        boxBefore = actedFromBox; // only the very next message can say the brain got it wrong
+        actedFromBox = null;
         lastAsked = question;
         brainAsked = question; // as said: "carry on" is read as the agent's own work going on
         String bare = question.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
@@ -1873,9 +1875,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return modelCommand(control(t));
                 })
                 .route("measurements for the build", this::measurementsGiven)
-                .route("post, share or copy", this::stagedAction) // shown first, carried out on a yes (or auto-approve)
+                .route("post, share or copy", t -> stagedAction(t)) // shown first, carried out on a yes (or auto-approve)
                 .route("make a file", this::makeDocument) // "make a PDF of that": the model writes, DVINE makes the file
                 .route("read the meaning", t -> {
+                    if (apiDirect()) {
+                        return false; // the API reads the meaning itself, in the one call that answers
+                    }
                     ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
                     if (fromBrain || carriesOn(t) || !ai.dvine.turn.Meaning.worthReading(t)
                             || known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY && known.kind != ai.dvine.llm.BrainOrder.Kind.SEARCH) {
@@ -1910,6 +1915,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("who am I", t -> {
+                    if (apiDirect()) {
+                        return false;
+                    }
                     String who = ai.dvine.llm.PersonaPrompt.introduce(stage.agent(), t);
                     if (who == null) {
                         return false;
@@ -1938,7 +1946,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("hand to Ibiko", t -> {
-                    if ("ibiko".equals(stage.agent()) || !prefs.getBoolean("handoff", true) || !ai.dvine.agent.Handoff.forIbiko(t)) {
+                    if (apiDirect() || "ibiko".equals(stage.agent()) || !prefs.getBoolean("handoff", true) || !ai.dvine.agent.Handoff.forIbiko(t)) {
                         return false;
                     }
                     offerHandoff(stage.agent(), t); // Ibiko's work: Obi or Ivie offer to hand it to him
@@ -1949,7 +1957,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             || t.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
                         return false; // "think together" in Ibiko's chat: the council
                     }
-                    ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
+                    ai.dvine.llm.BrainOrder known = apiDirect() ? null : ai.dvine.llm.BrainOrder.decide(t, null);
                     boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
                             || known.kind == ai.dvine.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.dvine.llm.BrainOrder.Kind.TIME
                             || known.kind == ai.dvine.llm.BrainOrder.Kind.NAME || known.kind == ai.dvine.llm.BrainOrder.Kind.SOCIAL
@@ -1961,6 +1969,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("a known order", t -> {
+                    if (apiDirect()) {
+                        return false; // with an API, the API decides every action, not the wording
+                    }
                     ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
                     if (known == null || known.kind == ai.dvine.llm.BrainOrder.Kind.SAY) {
                         return false;
@@ -1968,8 +1979,27 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     carryOut(stage.agent(), t, known);
                     return true;
                 })
+                .route("correct the brain", t -> {
+                    // the brain acted from what it learned and the user says that was wrong: it forgets that lesson
+                    // and the model is asked properly (it teaches the box afresh)
+                    String wrong = boxBefore;
+                    boxBefore = null;
+                    if (wrong == null || !ai.dvine.learn.BrainBox.correction(t)) {
+                        return false;
+                    }
+                    brainBox().forget(wrong);
+                    if (chatPane != null) {
+                        chatPane.activityStep("Forgot that; asking the model instead");
+                    }
+                    askLocal(wrong, null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs), true);
+                    return true;
+                })
                 .route("learned", t -> {
-                    // DVINE's own brain: an action it learned from the models, carried out without asking one
+                    // DVINE's own brain: an action it learned from the models, carried out without asking one.
+                    // Not while an API is selected: then the API decides (the box keeps learning from it)
+                    if (apiDirect()) {
+                        return false;
+                    }
                     String learned = brainBox().recall(t);
                     ai.dvine.llm.BrainOrder order = learned == null ? null : ai.dvine.llm.BrainOrder.decide(t, learned);
                     if (order == null || order.kind == ai.dvine.llm.BrainOrder.Kind.SAY
@@ -1979,6 +2009,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (chatPane != null) {
                         chatPane.activityStep("Done from what DVINE learned (no model needed)");
                     }
+                    actedFromBox = t;
                     carryOut(stage.agent(), t, order);
                     return true;
                 })
@@ -1986,17 +2017,26 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (modelOn()) {
                         return false;
                     }
+                    // no model to ask: what DVINE learned from earlier conversations, said as such
+                    String learnedAnswer = brainBox().recallTalk(t);
+                    if (learnedAnswer != null) {
+                        play(LocalTurn.speakAs(stage.agent(), "From what I learned earlier: " + learnedAnswer), null);
+                        return true;
+                    }
                     carryOut(stage.agent(), t, null);
                     return true;
                 })
                 .route("think together", t -> {
-                    if (!ai.dvine.agent.Council.wanted(t, prefs.getBoolean("think_together", true)) || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
+                    if (!ai.dvine.agent.Council.wanted(t, prefs.getBoolean("think_together", false)) || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
                         return false;
                     }
                     thinkTogether(t, stage.agent()); // a weighty question: Obi, Ivie and Ibiko work on it, one answer
                     return true;
                 })
                 .route("full answer", t -> {
+                    if (apiDirect()) {
+                        return false; // the one call below answers in full, and may act
+                    }
                     if (ai.dvine.llm.TaskSize.of(t, false) != ai.dvine.llm.TaskSize.Tier.STRONG || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
                         return false;
                     }
@@ -2005,13 +2045,27 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("the model decides", t -> {
-                    routeWithModel(t, stage.agent());
+                    // one call: the model answers, and gives an order on its first line when it decides DVINE should
+                    // act. Real work gets the long allowance, talk the everyday one
+                    boolean big = ai.dvine.llm.TaskSize.of(t, false) == ai.dvine.llm.TaskSize.Tier.STRONG;
+                    askLocal(t, null, false, big ? ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs)
+                            : ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs), true);
                     return true;
                 });
         return brainGate;
     }
 
     private ai.dvine.learn.BrainBox brainBox;
+    /** The words the brain last acted on from what it learned, until the next message (for "no, that's wrong"). */
+    private String actedFromBox, boxBefore;
+
+    /**
+     * An API is selected and reachable: the user talks to it directly. It reads the meaning and decides every action
+     * of the app; no rule, learned shortcut or separate classifying call acts on the words first.
+     */
+    private boolean apiDirect() {
+        return model != null && model.remoteOn();
+    }
 
     /** DVINE's own light brain: how the user's words became actions, learned from every model it works with. */
     private synchronized ai.dvine.learn.BrainBox brainBox() {
@@ -2025,46 +2079,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return model != null && model.ready() && prefs.getBoolean("llm_on", true);
     }
 
-    /** The model reads the message and says what to do with it (an order, or just talk). */
-    private void routeWithModel(final String finalQuestion, final String agent) {
-        final int id = ++askId;
-        stopPlay();
-        stage.setMode(StageMode.THINKING);
-        armThink("Thinking\u2026", "Thinking\u2026");
-        hub.worker.execute(() -> {
-            final String all = model.reply(ai.dvine.llm.BrainOrder.prompt(connectorTools()), finalQuestion, 48,
-                    piece -> {
-                        if (!modelPiece(id, piece)) {
-                            return false;
-                        }
-                        return id == askId;
-                    });
-            handler.post(() -> {
-                if (id != askId || isFinishing()) {
-                    return;
-                }
-                endThink();
-                ai.dvine.llm.BrainOrder order = ai.dvine.llm.BrainOrder.decide(finalQuestion, all);
-                if (order != null && all != null) {
-                    final String line = all;
-                    hub.worker.execute(() -> brainBox().learn(finalQuestion, line)); // the next time, no model call
-                }
-                if (order == null && all != null && !all.trim().isEmpty()) {
-                    // the model wrote no usable order (a bare "SAY"): it is asked for a plain answer instead
-                    askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
-                    return;
-                }
-                boolean talk = order == null || order.kind == ai.dvine.llm.BrainOrder.Kind.SAY;
-                if (talk && ai.dvine.llm.TaskSize.of(finalQuestion, false) == ai.dvine.llm.TaskSize.Tier.STRONG) {
-                    // real work, not small talk: the strong model writes the whole answer, not one line
-                    askLocal(finalQuestion, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
-                    return;
-                }
-                carryOut(agent, finalQuestion, order);
-            });
-        });
-    }
-
     /**
      * The phone's model reads its instructions ahead of the first question: the routing call's, then the persona's
      * (kept side by side in its memory), so a question is answered without first reading them. Off the main thread.
@@ -2073,13 +2087,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (model == null || !model.localReady() || model.remoteOn() || stage == null || isFinishing()) {
             return;
         }
-        final String router = ai.dvine.llm.BrainOrder.prompt(connectorTools());
+        // the one prompt every message now uses (the persona with the orders it may give): read once, ahead of time.
+        // The separate routing prompt is gone, so it is not read into memory any more
         final String persona = ai.dvine.llm.PersonaPrompt.system(stage.agent(), brain.userName(),
-                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet());
-        hub.worker.execute(() -> {
-            model.warm(router);
-            model.warm(persona);
-        });
+                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet())
+                + ai.dvine.llm.BrainOrder.actions(connectorTools());
+        hub.worker.execute(() -> model.warm(persona));
     }
 
     private void carryOut(String agent, String question, ai.dvine.llm.BrainOrder order) {
@@ -2592,7 +2605,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * when the answer holds up.
      */
     private void factCheck(final int id, final String persona, final String question, final String answer) {
-        if (!prefs.getBoolean("fact_check", true) || connectivity == null || !connectivity.isOnline() || model == null
+        if (!prefs.getBoolean("fact_check", false) || connectivity == null || !connectivity.isOnline() || model == null
                 || !ai.dvine.llm.FactCheck.worth(question, answer)) {
             return;
         }
@@ -3127,8 +3140,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(stage.agent(), "Cancelled. Nothing was sent."), null);
             return true;
         }
-        if (!looksLikeAction(text)) {
-            return false;
+        if (apiDirect() || !looksLikeAction(text)) {
+            return false; // with an API, a new post or share comes from the API's own order, not from the wording
         }
         PendingAction p = stager.plan(text.trim(), lastReply(), now);
         if (p == null) {
@@ -3802,6 +3815,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** {@code length}: the most the reply may run to (tokens); a big task gets room for a full answer. */
     private boolean askLocal(final String question, final BrainAnswer offline,
             final boolean research, final int length) {
+        return askLocal(question, offline, research, length, false);
+    }
+
+    /**
+     * {@code acts}: one call that answers and may act. The model reads the message once, with the persona and the
+     * orders it may give; an order on its reply's first line is hidden and carried out. This replaces a routing
+     * call followed by a second call for the answer (the message read twice, the instructions twice).
+     */
+    private boolean askLocal(final String question, final BrainAnswer offline,
+            final boolean research, final int length, final boolean acts) {
         final int id = ++askId;
         final boolean ivie = stage.isIvie();
         final String agent = stage.agent();
@@ -3814,7 +3837,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
                 new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK)
                         .format(new java.util.Date()),
-                selfSheet());
+                selfSheet()) + (acts ? ai.dvine.llm.BrainOrder.actions(connectorTools()) : "");
         final java.util.List<String> taught;
         synchronized (brain) {
             taught = brain.taughtFor(question, 6);
@@ -3890,14 +3913,41 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             backupPartial(ai.dvine.llm.ActionTags.strip(soFar)); // a crash doesn't lose what was written
                         }
                     });
+            // an order line at the start ("DO SEARCH …") is held back: it is for DVINE, not shown or spoken
+            final StringBuilder head = new StringBuilder();
+            final int[] gate = {acts ? 0 : 1}; // 0 deciding, 1 showing, 2 inside the order line
             final ai.dvine.llm.NativeLlm.Sink sink = text -> {
                 if (!modelPiece(id, text)) {
                     return false;
                 }
                 if (text != null && !"\u0001".equals(text)) {
-                    tags.add(text);
+                    String piece = text;
+                    if (gate[0] != 1) {
+                        head.append(text);
+                        String h = head.toString().replaceFirst("^\\s+", "");
+                        if (gate[0] == 0) {
+                            if (h.length() < 3 && !h.contains("\n")) {
+                                return id == askId; // too short to tell yet
+                            }
+                            gate[0] = h.toUpperCase(java.util.Locale.US).startsWith("DO ") ? 2 : 1;
+                        }
+                        if (gate[0] == 2) {
+                            int nl = h.indexOf('\n');
+                            if (nl < 0) {
+                                return id == askId; // still the order line
+                            }
+                            gate[0] = 1;
+                            piece = h.substring(nl + 1);
+                        } else {
+                            piece = h;
+                        }
+                        if (piece.isEmpty()) {
+                            return id == askId;
+                        }
+                    }
+                    tags.add(piece);
                     if (lang == null) {
-                        live.piece(text);
+                        live.piece(piece);
                     }
                 }
                 return id == askId;
@@ -3905,6 +3955,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String raw = model.reply(system, english, context, length, sink);
             raw = foldSteer(id, system, english, context, length, raw, sink);
             tags.flush();
+            final ai.dvine.llm.BrainOrder order = acts ? ai.dvine.llm.BrainOrder.leading(raw) : null;
+            if (order != null) {
+                final String line = raw.trim().split("\n", 2)[0];
+                final String q = question;
+                hub.worker.execute(() -> brainBox().learn(q, line)); // DVINE's own brain learns how this became an action
+                raw = ai.dvine.llm.BrainOrder.withoutOrder(raw);
+            }
             String back = null;
             if (lang != null && raw != null && id == askId) {
                 activity("Putting the answer in " + lang.shown);
@@ -3926,6 +3983,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 endThink();
                 String body = all == null ? ""
                         : ai.dvine.llm.ReplyLayout.join(ai.dvine.llm.ActionTags.strip(all));
+                if (order != null) {
+                    // the model asked DVINE to act: its short sentence (if any) is shown, then the order is carried out
+                    if (!body.isEmpty()) {
+                        stream.add(new TurnLine(agent, "SAY", body));
+                    }
+                    streamOpen = false;
+                    carryOut(agent, question, order);
+                    return;
+                }
                 if (body.isEmpty()) {
                     String said = null;
                     for (TurnLine line : offline == null ? new ArrayList<TurnLine>() : offline.lines) {
@@ -3949,6 +4015,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     stream.add(said);
                     // after it is shown: a correction follows only if one is needed (checked in English)
                     factCheck(id, agent, english, lang == null ? body : englishBody);
+                    final String learnQ = question, learnA = body;
+                    hub.worker.execute(() -> brainBox().learnTalk(learnQ, learnA)); // DVINE grows with every answer
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     walker.setAfter(() -> switchFace(switchTo, true));
@@ -5066,8 +5134,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             for (android.net.Uri uri : uris) {
                 try {
-                    getContentResolver().takePersistableUriPermission(uri, data.getFlags()
-                            & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    getContentResolver().takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 } catch (SecurityException ignored) {
                 }
             }
@@ -5083,7 +5150,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 for (android.net.Uri u : picked) {
                     try {
                         getContentResolver().takePersistableUriPermission(u,
-                                data.getFlags() & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     } catch (SecurityException ignored) {
                     }
                     attachPicked(u); // each waits in the box for the user's instructions
@@ -5102,7 +5169,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         pickerLearn = false;
         try {
             getContentResolver().takePersistableUriPermission(uri,
-                    data.getFlags() & android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (SecurityException ignored) {
         }
         if (!learn && attachments != null) {

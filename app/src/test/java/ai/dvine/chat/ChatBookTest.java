@@ -137,4 +137,22 @@ public class ChatBookTest {
         }
         org.junit.Assert.assertTrue(kept);
     }
+
+    /** The drawer lists chats and projects newest first, oldest last; pinned chats stay on top. */
+    @org.junit.Test
+    public void theDrawerIsNewestFirst() throws Exception {
+        ChatBook b = new ChatBook(new File(java.nio.file.Files.createTempDirectory("book").toFile(), "chats.json"));
+        b.open("first", "obi").pinned = false;
+        b.open("second", "obi");
+        ChatBook.Section third = b.open("third", "obi");
+        java.util.List<String> titles = new java.util.ArrayList<String>();
+        for (ChatBook.Section s : b.groups()) {
+            titles.add(s.title);
+        }
+        org.junit.Assert.assertTrue(titles.toString(), titles.indexOf("third") < titles.indexOf("second")
+                && titles.indexOf("second") < titles.indexOf("first"));
+        b.addProject("Old project");
+        b.addProject("New project");
+        org.junit.Assert.assertEquals("New project", b.projectsNewestFirst().get(0));
+    }
 }

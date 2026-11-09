@@ -23,6 +23,7 @@ public final class CodeViewActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_code_view);
+        Ui.fitInsets(((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0)); // below the status bar, above the navigation bar
         final String code = getIntent().getStringExtra(EXTRA_CODE);
         String lang = getIntent().getStringExtra(EXTRA_LANG);
         TextView title = findViewById(R.id.code_lang);

@@ -85,11 +85,11 @@ public final class SettingsActivity extends AppCompatActivity {
         chat.addView(toggle("Enter sends the message", "Off: Enter starts a new line; send with the arrow.", "send_enter", false, null));
         chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: Obi, Ivie and Ibiko each"
                 + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",
-                "think_together", true, null));
+                "think_together", false, null));
         chat.addView(toggle("Clear working memory when full", "The ring at the top shows how full the model's memory is. Past 85%,"
                 + " the conversation is summed up and the rest cleared, so replies stay quick.", "auto_clear", true, null));
         chat.addView(toggle("Fact-check answers", "Online: names, numbers and dates in a factual answer are looked up after it is"
-                + " shown; a correction follows only if something was wrong.", "fact_check", true, null));
+                + " shown; a correction follows only if something was wrong.", "fact_check", false, null));
         chat.addView(toggle("Interpreter for Pidgin, Yoruba and French", "A message in Pidgin, Yoruba or French is put into"
                 + " English for the model, and the answer put back into your language. Models think best in English; it takes"
                 + " a little longer.", "interpreter", true, null));

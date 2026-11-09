@@ -45,4 +45,23 @@ public class BrainBoxTest {
         b.clear();
         assertEquals(0, b.size());
     }
+
+    /** It grows with every conversation, keeps nothing about the moment, and forgets a lesson the user says is wrong. */
+    @Test
+    public void itLearnsConversationAndForgetsWhatWasWrong() throws Exception {
+        File f = file();
+        BrainBox b = new BrainBox(f);
+        b.learnTalk("What is the capital of Kenya?", "Nairobi is the capital of Kenya.");
+        b.learnTalk("What's the weather today?", "Sunny.");               // about the moment: not kept
+        assertEquals(1, b.talkSize());
+        assertEquals("Nairobi is the capital of Kenya.", b.recallTalk("capital of Kenya"));
+        assertNull(b.recallTalk("capital of Ghana"));
+        assertEquals("kept on the device", 1, new BrainBox(f).talkSize());
+
+        b.learn("what's the time", "DO TIME");
+        org.junit.Assert.assertTrue(BrainBox.correction("No, that's not what I meant"));
+        org.junit.Assert.assertFalse(BrainBox.correction("no worries, thanks for the time"));
+        org.junit.Assert.assertTrue(b.forget("what's the time"));
+        assertNull(b.recall("time"));
+    }
 }

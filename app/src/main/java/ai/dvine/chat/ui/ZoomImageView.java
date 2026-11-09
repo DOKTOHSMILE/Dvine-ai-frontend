@@ -7,13 +7,12 @@ import android.graphics.drawable.Drawable;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import android.widget.ImageView;
 
 /**
  * A picture that opens fitted to the screen and centred; pinch to zoom (up to {@link #MOST} times), drag to move
  * around it (never past its edges), double-tap to zoom in or back to fit, as in a gallery app.
  */
-public final class ZoomImageView extends ImageView {
+public final class ZoomImageView extends androidx.appcompat.widget.AppCompatImageView {
     /** The most it zooms in, relative to fitting the screen. */
     static final float MOST = 6f;
 

@@ -23,6 +23,7 @@ public final class HistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
+        Ui.fitInsets(((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0)); // below the status bar, above the navigation bar
         book = ChatBook.open(new File(getFilesDir(), "chats.json"));
         TextView back = findViewById(R.id.history_back);
         if (back != null) {

@@ -60,6 +60,7 @@ public final class DetailSheet {
             down.addView(pane);
             box.addView(down, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
             dialog.setContentView(box);
+        Ui.fitInsets(box);
             Window w = dialog.getWindow();
             if (w != null) {
                 w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -108,6 +109,7 @@ public final class DetailSheet {
         down.addView(across);
         box.addView(down, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         dialog.setContentView(box);
+        Ui.fitInsets(box);
         Window w = dialog.getWindow();
         if (w != null) {
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);

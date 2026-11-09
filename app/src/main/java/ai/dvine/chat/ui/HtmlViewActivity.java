@@ -22,6 +22,7 @@ public final class HtmlViewActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_html_view);
+        Ui.fitInsets(((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0)); // below the status bar, above the navigation bar
         web = findViewById(R.id.html_web);
         TextView back = findViewById(R.id.html_back);
         if (back != null) {

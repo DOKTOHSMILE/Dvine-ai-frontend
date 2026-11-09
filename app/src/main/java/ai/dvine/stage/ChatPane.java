@@ -1198,8 +1198,8 @@ public final class ChatPane extends LinearLayout {
         }
         LinearLayout list = (LinearLayout) found;
         list.removeAllViews();
-        // as in Claude: Projects, then Pinned, then Recents
-        List<String> projects = book.projects();
+        // as in Claude: Projects, then Pinned, then Recents; each newest first, oldest last
+        List<String> projects = book.projectsNewestFirst();
         if (!projects.isEmpty()) {
             list.addView(drawerHeader("Projects"));
             for (final String p : projects) {
