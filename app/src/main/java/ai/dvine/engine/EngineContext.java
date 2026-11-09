@@ -216,14 +216,24 @@ public final class EngineContext {
         return cfg;
     }
 
+    /** The next smaller context. Always lower than {@code ctx}, so the fit loop cannot spin. */
     private static int step(int ctx) {
+        if (ctx > 16384) {
+            return 16384;
+        }
         if (ctx > 8192) {
-            return 1024;
+            return 8192;
+        }
+        if (ctx > 4096) {
+            return 4096;
         }
         if (ctx > 2048) {
-            return 256;
+            return 2048;
         }
-        return 128;
+        if (ctx > MIN_CTX) {
+            return MIN_CTX;
+        }
+        return ctx - 1;
     }
 
     private static long mb(long bytes) {

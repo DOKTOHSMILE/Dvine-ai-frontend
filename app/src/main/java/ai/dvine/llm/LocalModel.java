@@ -84,12 +84,12 @@ public final class LocalModel {
     static final int FIT_TRIES = 4;
 
     /**
-     * The model's work runs at foreground priority: its threads (llama.cpp's own are started from this one and take
-     * its priority) aren't pushed aside by the phone's background work, which made replies lag.
+     * The model's work stays at normal priority. Foreground priority held the cores at full speed,
+     * which is the hum, and it did not make the answer faster on the slow cores.
      */
     static void raisePriority() {
         try {
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND);
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DEFAULT);
         } catch (Throwable ignored) {
             // not on a phone (desktop tests) or not allowed: the default priority still works
         }
@@ -351,6 +351,8 @@ public final class LocalModel {
 
     /** Loads {@code tokens} of cache, never above the user's ceiling and never below {@link #LOCAL_WINDOW}. */
     private synchronized boolean loadSized(int threads, int tokens) {
+        // Two threads is the cap. More pins the slow cores, the phone hums, and the answer waits on the slowest one.
+        threads = Math.max(1, Math.min(2, threads));
         int want = Math.max(LOCAL_WINDOW, Math.min(contextTokens, tokens));
         if (state == State.READY && handle != 0 && loadedThreads == threads && loadedContext == want) {
             return true;
@@ -1104,10 +1106,10 @@ public final class LocalModel {
         return arm64 && cpuinfo != null && java.util.regex.Pattern.compile("(?m)^Features\\s*:.*\\basimddp\\b").matcher(cpuinfo).find();
     }
 
-    /** How many threads to answer with: the phone's big cores, between 2 and 4. */
+    /** How many threads to answer with: two fast cores. More than that makes the phone hum and does not go faster. */
     public static int threads(int cores) {
         int fast = fastCores(clusters());
-        return fast > 0 ? Math.max(2, Math.min(4, fast)) : Math.max(2, Math.min(4, cores / 2));
+        return fast > 0 ? Math.max(1, Math.min(2, fast)) : Math.max(1, Math.min(2, Math.max(1, cores / 2)));
     }
 
     /**

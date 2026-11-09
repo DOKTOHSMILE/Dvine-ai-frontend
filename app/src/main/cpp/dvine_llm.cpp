@@ -33,9 +33,10 @@ bool Engine::load(const std::string & path, int n_ctx, int n_threads) {
         error_ = "the model file could not be read";
         return false;
     }
-    // A short window does not need a 512-wide compute graph. The graph is the other big allocation
-    // beside the KV cache, and a greeting only reads a few dozen tokens at a time.
-    int batch = n_ctx <= 2048 ? 128 : n_ctx <= 4096 ? 256 : 512;
+    // A wide batch is the other thing that pins every core at once. 256 is enough for a phone and stays quieter.
+    int batch = n_ctx <= 2048 ? 64 : 128;
+    if (n_threads > 2) n_threads = 2;
+    if (n_threads < 1) n_threads = 1;
     if (batch > n_ctx) batch = n_ctx;
     if (batch < 32) batch = 32;
     batch_tokens_ = batch;
