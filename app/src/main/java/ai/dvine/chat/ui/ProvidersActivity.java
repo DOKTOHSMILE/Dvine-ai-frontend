@@ -451,7 +451,7 @@ public final class ProvidersActivity extends AppCompatActivity {
                 false, false);
         f.maxOut.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         box.addView(f.maxOut, Ui.wide(this, 10));
-        f.timeout = Ui.field(this, "Time a reply may take, seconds", String.valueOf(store.timeout(p)), false, false);
+        f.timeout = Ui.field(this, "Seconds the connection may stay silent", String.valueOf(store.timeout(p)), false, false);
         f.timeout.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         box.addView(f.timeout, Ui.wide(this, 8));
         f.window = Ui.field(this, "Context window, tokens", String.valueOf(store.window(p)), false, false);
@@ -510,7 +510,7 @@ public final class ProvidersActivity extends AppCompatActivity {
                             android.widget.Toast.LENGTH_LONG).show();
                     extra = store.extra(e.getKey());
                 }
-                store.saveAdvanced(e.getKey(), f.vision[0], f.reasoning[0], number(f.maxOut, 0), number(f.timeout, 180), extra,
+                store.saveAdvanced(e.getKey(), f.vision[0], f.reasoning[0], number(f.maxOut, 0), number(f.timeout, RemoteBrain.DEFAULT_TIMEOUT_S), extra,
                         number(f.window, e.getKey().window));
             }
             store.save(e.getKey(), f.address.getText().toString(), f.model.getText().toString(), f.key.getText().toString(),

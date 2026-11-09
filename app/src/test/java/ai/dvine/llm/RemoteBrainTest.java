@@ -496,4 +496,52 @@ public class RemoteBrainTest {
         assertEquals("Part one, part two.", b.chat("s", ask("write"), 1500, 0.7f, null));
         assertEquals(2, calls[0]);
     }
+
+    /** Large thinking models behind any OpenAI form get room to think; a small plain model keeps its small allowance. */
+    @Test
+    public void largeThinkingModelsGetRoomAndSmallOnesStaySmall() {
+        String[] big = {"google/gemini-2.5-pro", "x-ai/grok-4", "openai/gpt-oss-120b", "qwen/qwen3-235b-a22b",
+                "z-ai/glm-4.6", "deepseek/deepseek-v3.1-terminus", "moonshotai/kimi-k2-thinking", "gemini-3-pro-preview"};
+        for (String m : big) {
+            RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", m, "k", "", null);
+            assertTrue(m, b.thinks());
+            String body = new String(b.body("sys", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8);
+            assertTrue(m + " " + body, body.contains("\"max_tokens\":16384"));
+        }
+        for (String m : new String[]{"openai/gpt-4o-mini", "meta-llama/llama-3.1-8b-instruct", "mistralai/mistral-small"}) {
+            RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", m, "k", "", null);
+            assertFalse(m, b.thinks());
+            assertTrue(m, new String(b.body("sys", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8).contains("\"max_tokens\":48"));
+        }
+        RemoteBrain off = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "qwen/qwen3-32b", "k", "", null)
+                .options("auto", "off", 0, 0, "");
+        assertFalse("the user turned reasoning off", off.thinks());
+    }
+
+    /** All of the allowance went on thinking and nothing was written: asked once more with room, not a failure. */
+    @Test
+    public void anAnswerLostToThinkingIsAskedAgainWithRoom() {
+        Fake f = new Fake().reply(200, "data: {\"choices\":[{\"delta\":{\"reasoning\":\"hmm\"},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n")
+                .reply(200, OPENAI_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "openai/gpt-4o-mini", "k", "", f);
+        String said = b.chat("sys", ask("hi"), 100, 0.7f, null);
+        assertEquals(b.problem() + " " + f.bodies, "Hello there.", said);
+        assertEquals(2, f.bodies.size());
+        assertTrue(f.bodies.get(1), f.bodies.get(1).contains("\"max_tokens\":4096"));
+    }
+
+    /** A large model may think for minutes before its first word: the connection waits ten minutes by default. */
+    @Test
+    public void theConnectionWaitsForASlowThinker() {
+        final int[] waited = {0};
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://x.ai/v1", "grok-4", "k", "", (url, h, body, t) -> {
+            waited[0] = t;
+            return new RemoteBrain.Response(200, new ByteArrayInputStream(OPENAI_STREAM.getBytes(StandardCharsets.UTF_8)));
+        });
+        b.chat("sys", ask("hi"), 100, 0.7f, null);
+        assertEquals(600_000, waited[0]);
+        b.options("auto", "auto", 0, 180, "");
+        b.chat("sys", ask("hi"), 100, 0.7f, null);
+        assertEquals("a value the user typed is kept", 180_000, waited[0]);
+    }
 }

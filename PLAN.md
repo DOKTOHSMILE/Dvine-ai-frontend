@@ -1,12 +1,22 @@
+# Checked against the code (0.96.4)
+
+- [x] Unit tests compile and pass: 0.96.3 brought `CrewTest`/`PlanTest` back in line; the full suite runs on every release.
+- [x] The APK builds with the native engine. The ready-built engine in `jniLibs` was from 0.85.0 (KleidiAI on, the wide batch), so the 0.96.2 "stop pinning every core" C++ never shipped; it is refreshed now (`gradle --no-configuration-cache :app:refreshNativeEngine`).
+- [x] Large API models: thinking models outside GPT-5/o-series/R1 got a short-answer allowance and came back empty; a reply was cut at 3 minutes of writing; the connection gave up after 180 s of silence. Fixed in 0.96.4 (see `docs/BUILD_STATUS.md`).
+- [x] PR #140 conflicted with main: its `EngineContext` rewrite removed `decide()` (used by the tests and the offline memory sizing) and nothing called its replacement; its other changes were already on main. The useful `RemoteBrain` parts are in 0.96.4.
+- [ ] Items below marked "not in the repo" were written as done but no code for them exists. Treat them as open.
+- [ ] `T20c.kt` and `T20main.kt` are not in the repository (already gone).
+
+
 # Model Registry and task/brain tiers (0.96.0)
 
-- [x] `config/model-registry.toml` at the repo root: models (id, name, provider, api,
+- [ ] (not in the repo, checked 0.96.4) `config/model-registry.toml` at the repo root: models (id, name, provider, api,
       contextWindow, reasoning, needsApiKey), agents (id, name, brain, provider, maxSteps,
       maxTokens, side, description), providers (id, api key env, docs).
-- [x] `app/src/main/java/ai/dvine/config/ModelRegistry.java`: reads that file from the app's own
+- [ ] (checked 0.96.4: `ModelRegistry` is a fixed table of three agents, Obi 20 steps, Ivie 20, Ibiko 40; no file, no `Toml` reader) `app/src/main/java/ai/dvine/config/ModelRegistry.java`: reads that file from the app's own
       files (or `~/Dvine/config/`), copies the bundled one on first launch, parses TOML with a
       small `Toml` reader (`T[]` arrays of tables, `#` comments, quotes, escapes).
-- [x] `ModelBrain`: one object per agent row, so the crew runs several brains at once.
+- [ ] (no `ModelBrain` class, checked 0.96.4) `ModelBrain`: one object per agent row, so the crew runs several brains at once.
 - [x] `Tuning.TASK_TIER` and `Tuning.BRAIN_TIER`: both default to 0 = `auto` (the old behaviour).
 - [x] `MainActivity`: a heavy job takes the crew workers, side and step count from its own agent
       row, not from the model's row; a message inside a run goes to the active agent (the step's
@@ -32,7 +42,7 @@
 - [x] 2. `MainActivity` — read the knob (`final int workers = Math.max(1, Tuning.WORKERS.get(prefs))`),
       build the worker `CodeAgent` when `workers > 1` (was `side`), and pass `workers` to
       `Crew.run(...)` instead of `side ? 3 : 1`.
-- [x] 3. `Crew` — honour a count above `MOST`: the planner prompt must be able to ask for up to
+- [~] 3. (0.96.4: `Crew` is one agent again — `plan(workers)` sets how many parts the plan may have, the parts run one after another; there is no thread pool) `Crew` — honour a count above `MOST`: the planner prompt must be able to ask for up to
       `max(MOST, side)` parts, so 8 workers are not silently 5. Keep the pool size `min(side, parts)`.
       Done: `Crew.plan(workers)` returns `max(MOST, workers)` and `planPrompt(workers)` writes that
       number; `run` passes `plan(workers)` to the planner and keeps `min(side, parts.size())` for the pool.
@@ -145,13 +155,13 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [x] The silence cutoff only applies when the job has no text at all, does not reset itself on a phase change, and the native watch does not cancel a call that has not produced its first token.
 - [x] A reply over 16,000 characters is streamed a chunk at a time, and a reply over 2,000 characters says how long it is before the chunks start.
 - [x] A local PDF, spreadsheet, email, or plain text can be read by the tools, and the tool list says so.
-- [x] A document built with `make_file` is saved and shared through a UI action, not only handed back to the model. Done: `Download` saves it to `Downloads` with a share link and a toast.
-- [x] A Termux session is watched on screen, so a command that is still running can be seen, stopped, and resumed. Done: `TermuxActivity` lists RUNNING and STALE sessions, shows the command, can cancel one and relaunch it; the workload sheet points there.
+- [ ] (no Download action for `make_file` found, checked 0.96.4) A document built with `make_file` is saved and shared through a UI action, not only handed back to the model. Done: `Download` saves it to `Downloads` with a share link and a toast.
+- [ ] (no `TermuxActivity`, checked 0.96.4; the workload sheet shows an unfinished command's line) A Termux session is watched on screen, so a command that is still running can be seen, stopped, and resumed. Done: `TermuxActivity` lists RUNNING and STALE sessions, shows the command, can cancel one and relaunch it; the workload sheet points there.
 - [x] The chat shows which model and which provider are in use, so an empty or wrong reply can be blamed on the right one. Done: the toolbar line shows the brain and provider, and the offline banner names the brain.
 - [x] The wording around connection and account: the app works and answers on its own, and without the connection the app uses the small local model for free, with no account required. The connection and account are what unlock the capable cloud model, not the local one.
 - [ ] Native llama.cpp KV-cache and thread affinity were not retuned on a device. The thread knob already exists.
 - [ ] The unit tests were run in this pass as a compile of the new record test; the full suite runs at the next build.
 
-Additions from the 0.95.6 audit: `ToolTimeouts` runs the command on a daemon thread so a download, a kill, or a cancel reaches the phone inside the timeout; `ProviderCredentials` now covers the GitHub token, the Dvine key, the OpenAI key and the session token, and `Scribe` strips them from every line it records; the on-disk record uses the local model path in the app's own files. `T20c.kt` and `T20main.kt` at the workspace root are stray test files from an earlier run and are not part of the app; they should be deleted with the user's consent.
+Additions from the 0.95.6 audit (checked 0.96.4: `ToolTimeouts` and `ProviderCredentials` are not in the code, so none of this landed): `ToolTimeouts` runs the command on a daemon thread so a download, a kill, or a cancel reaches the phone inside the timeout; `ProviderCredentials` now covers the GitHub token, the Dvine key, the OpenAI key and the session token, and `Scribe` strips them from every line it records; the on-disk record uses the local model path in the app's own files. `T20c.kt` and `T20main.kt` at the workspace root are stray test files from an earlier run and are not part of the app; they should be deleted with the user's consent.
 
 The full directive's phases that need a device (Termux sessions, GitHub push of a real repo, JNI benchmarks) are not claimed as tested here. The unit test covers the record, redaction, and the deep-mode budgets.

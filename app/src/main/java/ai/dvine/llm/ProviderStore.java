@@ -202,9 +202,13 @@ public final class ProviderStore {
         return prefs.getInt(p.name() + ".max_out", 0);
     }
 
-    /** Seconds a reply may take. */
+    /**
+     * Seconds the connection may stay silent. 180 was the old default, kept on every sheet that was saved: it cut off
+     * large models that think for minutes before writing, so it reads as the new default.
+     */
     public int timeout(Providers p) {
-        return prefs.getInt(p.name() + ".timeout", 180);
+        int s = prefs.getInt(p.name() + ".timeout", RemoteBrain.DEFAULT_TIMEOUT_S);
+        return s == 180 ? RemoteBrain.DEFAULT_TIMEOUT_S : s;
     }
 
     /** Extra request fields, JSON ("" for none). */
