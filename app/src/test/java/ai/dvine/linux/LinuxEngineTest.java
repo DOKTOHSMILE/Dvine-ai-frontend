@@ -2,7 +2,6 @@ package ai.dvine.linux;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -15,13 +14,16 @@ import org.junit.Test;
 
 public class LinuxEngineTest {
     @Test
-    public void onlyUnzipIsItsFunction() {
+    public void theShellKnowsItsOwnCommandsOnly() {
         assertTrue(LinuxEngine.knows("unzip report.zip"));
         assertTrue(LinuxEngine.knows("unzip -n report.zip -d out"));
-        assertFalse(LinuxEngine.knows("ls"));
+        assertTrue(LinuxEngine.knows("ls"));
+        assertTrue(LinuxEngine.knows("pwd && ls"));
+        assertTrue(LinuxEngine.knows("echo hello > notes.txt"));
         assertFalse(LinuxEngine.knows("unzip ../report.zip"));
         assertFalse(LinuxEngine.knows("unzip report.zip && rm -rf x"));
-        assertNull(LinuxEngine.run("ls", new File("."), null));
+        assertFalse(LinuxEngine.knows("python3 demo.py"));
+        assertFalse(LinuxEngine.updatesEnvironment("pkg update && pkg upgrade -y"));
     }
 
     @Test
@@ -52,5 +54,26 @@ public class LinuxEngineTest {
         assertFalse(ran.ok);
         assertTrue(ran.text.contains("outside"));
         assertFalse(new File(root.getParentFile(), "outside.txt").exists());
+    }
+
+    @Test
+    public void aShellChainPipesAndRedirects() throws Exception {
+        File root = Files.createTempDirectory("dvine-shell").toFile();
+        LinuxEngine.Result wrote = LinuxEngine.run("mkdir box && echo hello > box/note.txt && cat box/note.txt", root, null);
+        assertTrue(wrote.text, wrote.ok);
+        assertEquals("hello", new String(Files.readAllBytes(new File(root, "box/note.txt").toPath())).trim());
+        LinuxEngine.Result piped = LinuxEngine.run("printf 'b\\na\\n' | sort", root, null);
+        assertTrue(piped.text, piped.ok);
+        assertTrue(piped.text.startsWith("a\nb\n"));
+        LinuxEngine.Result recovered = LinuxEngine.run("rm missing.txt || echo recovered", root, null);
+        assertTrue(recovered.ok);
+        assertTrue(recovered.text.contains("recovered"));
+        LinuxEngine.Result home = LinuxEngine.run("echo $HOME", root, null);
+        assertTrue(home.text.contains(root.getAbsolutePath()));
+        LinuxEngine.Result missing = LinuxEngine.run("python3 --version", root, null);
+        assertFalse(missing.ok);
+        assertTrue(missing.text.contains("[exit 127]"));
+        assertTrue(missing.text.contains("not bundled"));
+        assertTrue(new File(root, "workspace/projects").isDirectory());
     }
 }

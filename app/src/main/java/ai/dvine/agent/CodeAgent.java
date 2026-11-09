@@ -323,13 +323,11 @@ public final class CodeAgent {
                 + "<tool name=\"search\" query=\"text to find\" path=\"(optional folder)\"/> (searches every source file on the device,"
                 + " a line at a time, and reports file:line:text. query=\"name:Main.java\" finds a file by its name and does not open it."
                 + " No shell and no Termux)\n"
-                + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command\"/> (sh with toybox: ls cat grep sed"
-                        + " find wc head tail mkdir cp mv rm… — run in the workspace folder, as the app, so only the"
-                        + " app's own files are touched; one command per tool call (a chain like a && b is fine);"
-                        + " up to 30 seconds, longer runs are"
-                        + " stopped and reported as such; output beyond 8000 characters is cut short. The device asks"
-                        + " you first (Run / Always run / Don't run) unless auto-accept is on, and a refused command"
-                        + " comes back as not allowed.)\n")
+                + (readOnly ? "" : "<tool name=\"run\" command=\"one shell command\"/> (DVINE's own shell, no Termux:"
+                        + " ls cat grep find wc head tail mkdir cp mv rm unzip echo and the rest of help."
+                        + " Runs in the workspace folder, as the app, so only the app's own files are touched."
+                        + " A chain like a && b, a pipe, or > is fine. python, git, pkg and compilers are not bundled:"
+                        + " the result says so, it does not pretend. The device asks first unless auto-accept is on.)\n")
                 + (readOnly || !host.termuxReady() ? "" : "<tool name=\"termux\" path=\"FOLDER\" command=\"python3 main.py\"/> (a real"
                         + " Linux shell in Termux on the device: python3, node, gcc, clang, java, git, make, pip, npm and any"
                         + " pkg install; works with no internet once installed. The project FOLDER is copied there first and the"

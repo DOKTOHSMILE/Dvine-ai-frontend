@@ -1,9 +1,12 @@
-# DVINE's own Linux (0.99.16)
+# DVINE's own shell (0.99.17)
 
-The app should run Linux itself. Termux stays a fallback for what this engine does not know yet.
+The shell runs inside the app. Termux is not required and is not opened.
 
-- [x] One function: `unzip`. It runs inside the app (`linux/LinuxEngine`), refuses a path with `..` or a shell command, and does not open Termux. Chat and Ibiko's `run` tool both use it first.
-- [ ] The next functions (list, read, copy) are not built. Python, node, git and a compiler still need Termux.
+- [x] `ShellSession` runs these commands for real: cd, pwd, ls, mkdir, rmdir, touch, cat, cp, mv, rm, find, grep, echo, printf, head, tail, sort, wc, chmod, date, env, which, clear, help, unzip.
+- [x] Chains `&&` `||` `;`, pipes `|`, redirects `>` `>>` `<`, and `$NAME`. Paths stay inside the workspace. `..` and `rm -r` are refused.
+- [x] The workspace folders (projects, scripts, downloads, temporary, memory, logs) are created on the device.
+- [x] Chat and Ibiko's `run` tool both use this shell. A program that is not bundled (python, node, git, pkg, a compiler) returns exit 127. It is not pretended and not sent to Termux.
+- [ ] No BusyBox binary and no JNI process bridge. Those are not in this build. A terminal screen is not built yet.
 
 # MainActivity split (0.99.15)
 

@@ -92,55 +92,22 @@ public final class PhoneHost implements CodeAgent.Host {
     @Override
     public String run(String command, File dir) {
         onCommand(command);
-        ai.dvine.linux.LinuxEngine.Result own = ai.dvine.linux.LinuxEngine.run(command, dir, null);
-        if (own != null) {
-            return own.text;
-        }
-        long ms = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs)).shellMs;
-        return SandboxShell.run(command, dir, ms, 8000);
+        File where = dir != null ? dir : new File(activity.getFilesDir(), "linux");
+        ai.dvine.linux.LinuxEngine.Result own = ai.dvine.linux.LinuxEngine.run(command, where, null);
+        return own == null ? "The shell didn't run that." : own.text;
     }
 
     @Override
     public boolean termuxReady() {
-        return TermuxRunner.usable(activity);
+        return false; // the shell is inside DVINE; Termux is not offered
     }
 
     @Override
     public String termux(String command, File folder) {
         onCommand(command);
-        long ms = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs)).termuxMs;
-        ai.dvine.ops.termux.TermuxSessionLog log = new ai.dvine.ops.termux.TermuxSessionLog(
-                new File(activity.getFilesDir(), "ibiko/memory/termux"));
-        String id = log.open("termux", command);
-        String out;
-        try {
-            out = TermuxRunner.run(activity, command, folder, folder.getName(), ms);
-        } catch (RuntimeException e) {
-            log.close(id, "DISCONNECTED", -1);
-            return "Termux disconnected before the command finished. It is not verified, and it was not resumed mid-way.";
-        }
-        if (out == null) {
-            log.close(id, "DISCONNECTED", -1);
-            return "Termux gave nothing back. The command is not verified.";
-        }
-        boolean waiting = out.contains("may still be running") || out.contains("didn't answer");
-        log.close(id, waiting ? "TIMED_OUT" : out.startsWith("Stopped.") ? "STOPPED" : "FINISHED", waiting ? -1 : exitCode(out));
-        if (waiting) {
-            return out + "\nThis session is not verified. The command may still be running, and it was not resumed mid-way.";
-        }
-        return out;
-    }
-
-    private static int exitCode(String out) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[exit code (-?\\d+)").matcher(out);
-        if (!m.find()) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(m.group(1));
-        } catch (NumberFormatException e) {
-            return -1;
-        }
+        File where = folder != null ? folder : new File(activity.getFilesDir(), "linux");
+        ai.dvine.linux.LinuxEngine.Result ran = ai.dvine.linux.LinuxEngine.run(command, where, null);
+        return ran == null ? "The shell didn't run that." : ran.text;
     }
 
     @Override
