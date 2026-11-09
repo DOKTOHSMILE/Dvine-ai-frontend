@@ -1,3 +1,10 @@
+# MainActivity split (0.99.14)
+
+The order is in `docs/DVINE_MASTER_BUILD_HANDBOOK.md` §10. The canvas is the next piece after the drawer, the tools sheet, the model menu and DVINE 1.
+
+- [x] Ivie's 3D canvas and its full-screen mode live in `main/IvieCanvas.java`. `MainActivity` still decides when to show it, and Back still leaves full screen first.
+- [ ] The gateway routes, `carryOut` and the social flow are still in `MainActivity`.
+
 # Social Intelligence System (0.99.2)
 
 Design and status: `docs/SOCIAL_INTELLIGENCE.md`.

@@ -467,134 +467,46 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** The GL scene under the stage; both go into Ivie's 3D canvas when she shows something. */
     private ai.dvine.render.PodView podView;
 
-    /**
-     * Ivie's 3D canvas: the card above her chat where what she draws and builds turns, can be dragged and pinched.
-     * Built on first use; shown on Ivie's tab while there is something to see, hidden on Obi's and Ibiko's.
-     */
+    /** Ivie's 3D canvas and its full-screen mode ({@link ai.dvine.main.IvieCanvas}). */
+    private final ai.dvine.main.IvieCanvas ivieCanvas = new ai.dvine.main.IvieCanvas(new ai.dvine.main.IvieCanvas.Host() {
+        @Override
+        public <T extends android.view.View> T find(int id) {
+            return findViewById(id);
+        }
+
+        @Override
+        public android.content.res.Resources getResources() {
+            return MainActivity.this.getResources();
+        }
+
+        @Override
+        public int color(int id) {
+            return getColor(id);
+        }
+
+        @Override
+        public android.view.Window getWindow() {
+            return MainActivity.this.getWindow();
+        }
+
+        @Override
+        public ai.dvine.stage.StageView stage() {
+            return stage;
+        }
+
+        @Override
+        public ai.dvine.render.PodView podView() {
+            return podView;
+        }
+    });
+
     private void showIvieCanvas(boolean on) {
-        android.widget.FrameLayout canvas = findViewById(R.id.ivieCanvas);
-        if (canvas == null || stage == null) {
-            return;
-        }
-        if (on && canvas.getChildCount() == 0) {
-            canvas.setClipToOutline(true);
-            if (podView != null && podView.getParent() == null) {
-                canvas.addView(podView, new android.widget.FrameLayout.LayoutParams(-1, -1));
-            }
-            if (stage.getParent() == null) {
-                canvas.addView(stage, new android.widget.FrameLayout.LayoutParams(-1, -1));
-            }
-            android.widget.TextView close = new android.widget.TextView(this);
-            close.setText("\u2715");
-            close.setTextSize(16f);
-            close.setTextColor(getColor(R.color.text_primary));
-            close.setGravity(android.view.Gravity.CENTER);
-            close.setContentDescription("Hide the 3D view");
-            close.setOnClickListener(v -> showIvieCanvas(false));
-            int s = Math.round(36 * getResources().getDisplayMetrics().density);
-            canvas.addView(close, new android.widget.FrameLayout.LayoutParams(s, s, android.view.Gravity.END | android.view.Gravity.TOP));
-            // full screen: the design space covers the whole screen with the message box inside it (tap again to shrink)
-            android.widget.ImageView full = new android.widget.ImageView(this);
-            full.setImageResource(R.drawable.ic_fullscreen);
-            full.setColorFilter(getColor(R.color.text_primary));
-            int pad = Math.round(8 * getResources().getDisplayMetrics().density);
-            full.setPadding(pad, pad, pad, pad);
-            full.setContentDescription("Full screen");
-            full.setOnClickListener(v -> designFullScreen(!designFull));
-            android.widget.FrameLayout.LayoutParams fl = new android.widget.FrameLayout.LayoutParams(s, s, android.view.Gravity.END | android.view.Gravity.TOP);
-            fl.rightMargin = s;
-            canvas.addView(full, fl);
-        }
-        if (!on && designFull) {
-            designFullScreen(false);
-        }
-        canvas.setVisibility(on ? android.view.View.VISIBLE : android.view.View.GONE);
+        ivieCanvas.show(on);
     }
 
-    private boolean designFull;
-
-    /** The design space full screen (between the title and the message box), or back to its card above the chat. */
-    /**
-     * Full screen: the 3D space covers the whole screen, edge to edge, with the phone's bars hidden (a swipe from the
-     * edge shows them for a moment), and the message box floats inside it at the bottom, so the user keeps talking to
-     * Ivie over the scene. The title bar and the chat are hidden until the user shrinks it again (the button, or Back).
-     * The message box moves, not the 3D view: moving a GL view would rebuild its surface.
-     */
     private void designFullScreen(boolean on) {
-        android.widget.FrameLayout canvas = findViewById(R.id.ivieCanvas);
-        android.view.View chat = findViewById(R.id.chatPaneHost);
-        android.view.View composer = findViewById(R.id.composerBar);
-        android.widget.LinearLayout root = findViewById(R.id.chatScreenRoot);
-        if (canvas == null || chat == null || composer == null || root == null || on == designFull) {
-            return;
-        }
-        designFull = on;
-        int[] hide = {R.id.chatHeader, R.id.banner_crash};
-        android.widget.LinearLayout.LayoutParams lp = (android.widget.LinearLayout.LayoutParams) canvas.getLayoutParams();
-        int side = Math.round(16 * getResources().getDisplayMetrics().density);
-        if (on) {
-            canvasBackground = canvas.getBackground();
-            hidden.clear();
-            for (int id : hide) {
-                android.view.View v = findViewById(id);
-                if (v != null && v.getVisibility() == android.view.View.VISIBLE) {
-                    hidden.add(v);
-                    v.setVisibility(android.view.View.GONE);
-                }
-            }
-            chat.setVisibility(android.view.View.GONE);
-            lp.height = 0;
-            lp.weight = 1f;
-            lp.setMargins(0, 0, 0, 0);
-            canvas.setBackground(null); // edge to edge: no card, no rounded corners
-            canvas.setClipToOutline(false);
-            composerAt = root.indexOfChild(composer);
-            composerParams = composer.getLayoutParams();
-            root.removeView(composer);
-            composerBackground = composer.getBackground();
-            composer.setBackground(null); // only the rounded message box floats over the scene, not a bar
-            canvas.addView(composer, new android.widget.FrameLayout.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-                    android.view.Gravity.BOTTOM));
-        } else {
-            for (android.view.View v : hidden) {
-                v.setVisibility(android.view.View.VISIBLE);
-            }
-            hidden.clear();
-            chat.setVisibility(android.view.View.VISIBLE);
-            lp.height = Math.round(300 * getResources().getDisplayMetrics().density);
-            lp.weight = 0f;
-            lp.setMargins(side, 0, side, Math.round(8 * getResources().getDisplayMetrics().density));
-            canvas.setBackground(canvasBackground);
-            canvas.setClipToOutline(true);
-            canvas.removeView(composer);
-            composer.setBackground(composerBackground);
-            root.addView(composer, Math.min(Math.max(0, composerAt), root.getChildCount()), composerParams);
-        }
-        canvas.setLayoutParams(lp);
-        androidx.core.view.WindowInsetsControllerCompat bars = androidx.core.view.WindowCompat.getInsetsController(getWindow(), root);
-        if (bars != null) {
-            if (on) {
-                bars.setSystemBarsBehavior(androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                bars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-            } else {
-                bars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-            }
-        }
-        for (int i = 0; i < canvas.getChildCount(); i++) {
-            android.view.View c = canvas.getChildAt(i);
-            if ("Full screen".contentEquals(String.valueOf(c.getContentDescription())) || "Shrink".contentEquals(String.valueOf(c.getContentDescription()))) {
-                ((android.widget.ImageView) c).setImageResource(on ? R.drawable.ic_fullscreen_exit : R.drawable.ic_fullscreen);
-                c.setContentDescription(on ? "Shrink" : "Full screen");
-            }
-        }
+        ivieCanvas.fullScreen(on);
     }
-
-    /** What full screen hid or moved, to put back. */
-    private final java.util.List<android.view.View> hidden = new java.util.ArrayList<android.view.View>();
-    private android.graphics.drawable.Drawable canvasBackground, composerBackground;
-    private int composerAt = -1;
-    private android.view.ViewGroup.LayoutParams composerParams;
 
     /**
      * Ivie does the graphics: on her tab a drawing, a 3D build, an edit of what is on show ("make the wheels bigger"),
@@ -1297,7 +1209,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         @Override
         public boolean blocked() {
-            return designFull;
+            return ivieCanvas.isFull();
         }
 
         @Override
@@ -1395,7 +1307,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     @Override
     public void onBackPressed() {
-        if (designFull) {
+        if (ivieCanvas.isFull()) {
             designFullScreen(false); // Back leaves full screen first
             return;
         }
