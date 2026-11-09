@@ -497,8 +497,11 @@ public final class RemoteBrain {
                 // answer comes back empty ("the model didn't answer"). The user's own cap is not multiplied.
                 int completion = PromptFit.completionTokens(maxTokens, thinking, maxOutput);
                 req.put("max_completion_tokens", (double) completion);
-                if (small || reasoning()) {
-                    req.put("reasoning_effort", small || allowance <= 4_000 ? "low" : "medium");
+                if (small) {
+                    req.put("reasoning_effort", "low"); // a small local-class model spends less time thinking
+                } else if (reasoning()) {
+                    // medium, not low: low reasoning on a large model is what came back empty.
+                    req.put("reasoning_effort", "medium");
                 }
             } else {
                 req.put("max_tokens", (double) allowance);

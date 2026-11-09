@@ -1,4 +1,12 @@
 # DVINE's on-device language model: llama.cpp (MIT, vendored under llama.cpp/) on the CPU, plus the Java bridge.
+#
+# llama.cpp builds ggml as its own project in the upstream tree (it is a sibling CMake project). Both of the ways
+# it finds that project fail here, so ggml is added as a subdirectory first and llama.cpp is pointed at the target
+# ggml just made with a cached variable — the same thing the sibling layout does.
+#
+# ggml (MIT) is vendored with llama.cpp because a phone cannot fetch it, and it carries no submodules here: everything
+# the CPU build needs is in the tree. Upstream ggml is a standalone CMake project, so it configures on its own
+# (it starts with cmake_minimum_required and project()) and works as a subdirectory too.
 cmake_minimum_required(VERSION 3.22.1)
 project(dvine_llm C CXX)
 
@@ -6,7 +14,9 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# only the library: no tools, tests, server, downloads or OpenMP, so it also builds offline on the phone
+# llama.cpp reads these at its own project() (this file's project() is too late for them), so they have to be
+# cache variables set before add_subdirectory(llama.cpp). Only the library: no tools, tests, server, downloads or
+# OpenMP, so it also builds offline on the phone.
 set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
@@ -14,8 +24,9 @@ set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_APP OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_HTML OFF CACHE BOOL "" FORCE)
-set(LLAMA_OPENSSL OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SQLITE OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 # Arm's KleidiAI matrix kernels (MIT/Apache-2.0, vendored under third_party/kleidiai, v1.32.0): picked at run time by
@@ -27,12 +38,35 @@ set(FETCHCONTENT_SOURCE_DIR_KLEIDIAI "${CMAKE_CURRENT_SOURCE_DIR}/third_party/kl
 set(KLEIDIAI_BUILD_EXPERIMENTAL_OPS OFF CACHE BOOL "" FORCE)
 set(GGML_BACKEND_DL OFF CACHE BOOL "" FORCE)
 set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+# every ggml backend except CPU is off for the phone: no CUDA, HIP, Metal, Vulkan, SYCL, CANN, OpenCL, OpenVINO,
+# WebGPU, Vulkan compute, BLAS, RPC or dynamic backend loading — the CPU is all this app uses, and the rest of the
+# tree (vendor/, cmake/, include/llama/, samples/) is not compiled at all.
+set(GGML_CUDA OFF CACHE BOOL "" FORCE)
+set(GGML_HIP OFF CACHE BOOL "" FORCE)
+set(GGML_METAL OFF CACHE BOOL "" FORCE)
+set(GGML_VULKAN OFF CACHE BOOL "" FORCE)
+set(GGML_SYCL OFF CACHE BOOL "" FORCE)
+set(GGML_CANN OFF CACHE BOOL "" FORCE)
+set(GGML_OPENCL OFF CACHE BOOL "" FORCE)
+set(GGML_OPENVINO OFF CACHE BOOL "" FORCE)
+set(GGML_WEBGPU OFF CACHE BOOL "" FORCE)
+set(GGML_BLAS OFF CACHE BOOL "" FORCE)
+set(GGML_RPC OFF CACHE BOOL "" FORCE)
 if(ANDROID_ABI STREQUAL "arm64-v8a")
     # dot-product instructions (2018+ phones); the app checks the CPU for them before loading this library
     set(GGML_CPU_ARM_ARCH "armv8.2-a+dotprod+fp16" CACHE STRING "" FORCE)
     set(GGML_CPU_KLEIDIAI ON CACHE BOOL "" FORCE)
 endif()
 
+# ggml first: llama.cpp would otherwise look for an installed ggml or for a ggml/ subdirectory next to itself and
+# fail. ggml defines the library target `ggml` (plus ggml-cpu, ggml-base).
+add_subdirectory(ggml)
+
+# ggml is built right above this line, so there is no installed ggml for llama.cpp's find_package(ggml) to use and
+# no reason to build ggml a second time from inside llama.cpp — which is also why that second build has to be told
+# to skip ggml, its tools and its tests. The option only exists in llama.cpp b4606 and up (its first build flags);
+# the copy here is from b4748, which reads exactly these names.
+set(LLAMA_SKIP_GGML ON CACHE BOOL "" FORCE)
 add_subdirectory(llama.cpp)
 
 add_library(dvine_llm SHARED dvine_llm.cpp dvine_llm_jni.cpp)
