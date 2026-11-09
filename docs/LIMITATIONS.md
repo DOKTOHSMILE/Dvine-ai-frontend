@@ -6,6 +6,12 @@ reference. The rank (P1–P5) is at the end, together with the order of work.
 
 Nothing here is fixed yet. This file is the backlog.
 
+> **Checked against this repository (0.96.6): none of the 18 items apply here.** Every file they name
+> (`DvineAgent/*`, `DocumentTools`, `Documents.java`, `llama_jni.cpp`, `Models.kt`, `Net.java`, `HttpFetcher`,
+> `CommandRunner`, `TermuxSessionStore`, `ToolTimeouts`, `ProviderCredentials`, `AttachmentTools`) is absent,
+> `app/build.gradle` has no `--add-exports` flag, and `run_crew_tests.sh` is empty. The list describes another
+> codebase. Kept for the record; the real open work is in `docs/DVINE_MASTER_BUILD_HANDBOOK.md` §10 and `PLAN.md`.
+
 ---
 
 ## 1. `make_file` cannot write into the user's own project folder (P1)

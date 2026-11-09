@@ -19,7 +19,7 @@ public enum Providers {
     OPENROUTER("OpenRouter", RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "openai/gpt-5", "openai/gpt-5-mini", 400_000,
             "Hundreds of models behind one key. Key from openrouter.ai."),
     CUSTOM("Custom gateway", RemoteBrain.Protocol.OPENAI, "", "", "", 128_000,
-            "OpenAI-compatible: OpenRouter, LiteLLM, or a self-hosted endpoint."),
+            "Any gateway in OpenAI's or Anthropic's format: OpenRouter, LiteLLM, a Claude relay, or a self-hosted endpoint."),
     DVINE_SERVER("DVINE server", RemoteBrain.Protocol.OPENAI, "", "qwen3-14b", "", 16_384,
             "DVINE's own online model: a big model (Qwen3 14B, 32B…) on your DVINE server. No key: the app signs in to"
                     + " the server it already uses.");

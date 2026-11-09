@@ -53,7 +53,12 @@ public final class RemoteBrain {
     /** Claude models that take Anthropic's server-side fallback when a request is declined. */
     private static final String FALLBACK_MODELS = "^claude-(opus-5-5|opus-5|fable-5-1|sonnet-5-5)$";
 
-    public final Protocol protocol;
+    /** The request format. A custom gateway on Auto may move to the other one once (see {@link #autoFormat}). */
+    public volatile Protocol protocol;
+    /** A custom gateway whose format the user left on Auto: a "not found" for one format tries the other, once. */
+    private volatile boolean autoFormat;
+    /** The format each Auto gateway turned out to speak, so the next request goes straight to it. */
+    private static final java.util.Map<String, Protocol> DETECTED = new java.util.concurrent.ConcurrentHashMap<String, Protocol>();
     public final String baseUrl, model;
     private final String key, backupKey;
     private final Transport transport;
@@ -313,6 +318,25 @@ public final class RemoteBrain {
         return model != null && model.toLowerCase(java.util.Locale.US).matches("(.*/)?claude-.*");
     }
 
+    /**
+     * A custom gateway on Auto: it may speak OpenAI's form (…/chat/completions) or Anthropic's (…/messages). The
+     * format it answered to before is used at once; otherwise a 404 or 405 for one form tries the other.
+     */
+    public RemoteBrain autoFormat(boolean on) {
+        autoFormat = on;
+        Protocol known = on ? DETECTED.get(baseUrl) : null;
+        if (known != null) {
+            protocol = known;
+        }
+        return this;
+    }
+
+    /** The format a custom gateway's address names: …/messages or an "anthropic" address is Anthropic's, else OpenAI's. */
+    public static Protocol formatOf(String address) {
+        String a = address == null ? "" : address.trim().toLowerCase(Locale.US).replaceAll("/+$", "");
+        return a.endsWith("/messages") || a.contains("anthropic") ? Protocol.ANTHROPIC : Protocol.OPENAI;
+    }
+
     /** Stops the reply being written (from any thread); the stream is abandoned at the next piece. */
     public void cancel() {
         cancelled = true;
@@ -421,6 +445,7 @@ public final class RemoteBrain {
             // a reasoning model gets its own form first (no temperature, room to think), saving two refused requests
             dropImages = false;
             dropFiles = false;
+            boolean switched = false;
             for (int form = reasoning() ? 2 : 0; form < (protocol == Protocol.ANTHROPIC ? 2 : 3); form++) {
                 Response r;
                 try {
@@ -431,6 +456,14 @@ public final class RemoteBrain {
                     return null;
                 }
                 try (InputStream in = r.body) {
+                    if ((r.status == 404 || r.status == 405) && autoFormat && !switched) {
+                        // this gateway doesn't have that path: it speaks the other format
+                        switched = true;
+                        protocol = protocol == Protocol.ANTHROPIC ? Protocol.OPENAI : Protocol.ANTHROPIC;
+                        DETECTED.put(baseUrl, protocol);
+                        form = (reasoning() ? 2 : 0) - 1;
+                        continue;
+                    }
                     if ((r.status == 400 || r.status == 422) && takesFiles() && hasFiles(turns)) {
                         // a model that takes no documents: the same request with the pages as pictures (or a note)
                         NO_FILES.add(baseUrl + "|" + model);
@@ -479,6 +512,9 @@ public final class RemoteBrain {
         h.put("Accept", "text/event-stream");
         if (protocol == Protocol.ANTHROPIC) {
             h.put("x-api-key", apiKey);
+            if (!host().equalsIgnoreCase("api.anthropic.com")) {
+                h.put("Authorization", "Bearer " + apiKey); // most Anthropic-format gateways and relays read this one
+            }
             h.put("anthropic-version", ANTHROPIC_VERSION);
             if (form == 0 && model.matches(FALLBACK_MODELS)) {
                 h.put("anthropic-beta", "server-side-fallback-2026-07-01");
