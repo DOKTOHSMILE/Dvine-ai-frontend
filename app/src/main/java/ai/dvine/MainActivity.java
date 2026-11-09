@@ -3597,6 +3597,60 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             + " paragraphs, - lists, and | tables | where they help. Write the whole document and nothing else (no"
             + " greeting, no note about the file). /no_think";
 
+    /** The brain's SOCIAL order ({@link ai.dvine.main.SocialFlow}). */
+    private final ai.dvine.main.SocialFlow socialFlow = new ai.dvine.main.SocialFlow(new ai.dvine.main.SocialFlow.Host() {
+        @Override
+        public String agent() {
+            return stage.agent();
+        }
+
+        @Override
+        public void say(String line) {
+            play(LocalTurn.speakAs(stage.agent(), line), null);
+        }
+
+        @Override
+        public void openAccounts() {
+            startActivity(new android.content.Intent(MainActivity.this, ai.dvine.chat.ui.SocialActivity.class));
+        }
+
+        @Override
+        public void openLogin(ai.dvine.social.Platform platform) {
+            startActivity(new android.content.Intent(MainActivity.this, ai.dvine.chat.ui.SocialLoginActivity.class)
+                    .putExtra(ai.dvine.chat.ui.SocialLoginActivity.EXTRA_PLATFORM, platform.name()));
+        }
+
+        @Override
+        public boolean signedIn(ai.dvine.social.Platform platform) {
+            return ai.dvine.social.SocialWeb.accounts(MainActivity.this).inUse(platform) != null;
+        }
+
+        @Override
+        public boolean anySignedIn() {
+            return !ai.dvine.social.SocialWeb.accounts(MainActivity.this).ready().isEmpty();
+        }
+
+        @Override
+        public boolean online() {
+            return connectivity == null || connectivity.isOnline();
+        }
+
+        @Override
+        public void writePost(String prompt, int tokens) {
+            askLocal(prompt, null, false, tokens);
+        }
+
+        @Override
+        public int chatTokens() {
+            return ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs);
+        }
+
+        @Override
+        public void search(String question, String call) {
+            useConnector(question, call);
+        }
+    });
+
     /**
      * The brain's SOCIAL order, carried out: connect (the sign-in page), help (how to use the accounts), post (the
      * model writes it; "post it on …" then opens the app with it), search and trending (read with the user's own
@@ -3604,62 +3658,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * {@code arg}: "connect facebook", "help", "post facebook: our sale", "search x: fuel price", "trending reddit".
      */
     private void social(String question, String arg) {
-        String a = arg == null ? "" : arg.trim();
-        String verb = a.contains(" ") ? a.substring(0, a.indexOf(' ')) : a;
-        String rest = a.length() > verb.length() ? a.substring(verb.length()).trim() : "";
-        String net = rest.contains(":") ? rest.substring(0, rest.indexOf(':')).trim() : rest.split("\\s+")[0];
-        String words = rest.contains(":") ? rest.substring(rest.indexOf(':') + 1).trim() : "";
-        ai.dvine.social.Platform p = ai.dvine.social.Platform.named(net);
-        switch (verb) {
-            case "connect": {
-                if (p == null) {
-                    startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class));
-                    play(LocalTurn.speakAs(stage.agent(), "Here are your social accounts: sign in to any of them."), null);
-                    return;
-                }
-                boolean has = ai.dvine.social.SocialWeb.accounts(this).inUse(p) != null;
-                play(LocalTurn.speakAs(stage.agent(), has ? "You're already signed in to " + p.shown + ". Here are your accounts: add another,"
-                        + " rename one, or switch it off in Connectors." : "Sign in to " + p.shown + " on the page I'm opening. Your password"
-                        + " goes only to " + p.shown + "; I keep the sign-in on this device, encrypted."), null);
-                startActivity(has ? new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class)
-                        : new android.content.Intent(this, ai.dvine.chat.ui.SocialLoginActivity.class)
-                                .putExtra(ai.dvine.chat.ui.SocialLoginActivity.EXTRA_PLATFORM, p.name()));
-                return;
-            }
-            case "help":
-                play(LocalTurn.speakAs(stage.agent(), "Sign in to your accounts first: menu, Connectors, then Facebook, X, Instagram or Reddit"
-                        + " (or say “connect my Facebook”). Then ask me: “search X for the fuel price”, “what are people"
-                        + " saying on Reddit about Flutter”, “check trending posts on X”, or “write a post for Facebook about"
-                        + " our sale”, then “post it on Facebook” to open Facebook with it ready. I also check facts against what people post."), null);
-                return;
-            case "post": {
-                String where = p == null ? "social media" : p.shown;
-                // the model writes the post; "post it on Facebook" then opens the app with it ready (posting for you comes next)
-                askLocal("Write one ready-to-post " + where + " post" + (words.isEmpty() ? "" : " about " + words)
-                        + ": the post text only, natural and engaging, the right length for " + where + ", with a few hashtags if"
-                        + " they suit it. Then one short line: say “post it on " + where + "” and I'll open " + where + " with it ready.",
-                        null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
-                return;
-            }
-            default: {
-                boolean trending = "trending".equals(verb);
-                String where = p == null ? "social media" : p.shown;
-                ai.dvine.social.SocialAccounts accounts = ai.dvine.social.SocialWeb.accounts(this);
-                boolean none = p == null ? accounts.ready().isEmpty() : accounts.inUse(p) == null;
-                if (none) {
-                    play(LocalTurn.speakAs(stage.agent(), "I need you signed in to " + where + " first: open the menu, then Connectors,"
-                            + " and sign in there. Your password goes only to the site."), null);
-                    return;
-                }
-                if (connectivity != null && !connectivity.isOnline()) {
-                    play(LocalTurn.speakAs(stage.agent(), "I need the network to read " + where + "."), null);
-                    return;
-                }
-                String n = p == null ? "" : p.name().toLowerCase(java.util.Locale.ROOT);
-                useConnector(question, trending ? "social.trending " + n
-                        : "social.search " + (n.isEmpty() ? "" : n + ": ") + (words.isEmpty() ? question : words));
-            }
-        }
+        socialFlow.run(question, arg);
     }
 
     /** The build waiting for its measurements (asked once): the user's words, or null. */
