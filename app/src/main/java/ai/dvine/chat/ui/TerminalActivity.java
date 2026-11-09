@@ -7,6 +7,7 @@ import android.text.TextWatcher;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.ScaleGestureDetector;
+import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -34,6 +35,7 @@ public final class TerminalActivity extends AppCompatActivity {
     private static final String WELCOME = "Alpine Linux 3.22.5\n";
 
     private TextView transcript;
+    private TextView prompt;
     private EditText input;
     private ScrollView scroll;
     private final StringBuilder log = new StringBuilder();
@@ -50,8 +52,6 @@ public final class TerminalActivity extends AppCompatActivity {
     private boolean stick = true;
     private boolean moving;
     private boolean touching;
-    private float downX;
-    private float downY;
     private boolean ctrl;
     private boolean alt;
     private boolean editing;
@@ -80,25 +80,34 @@ public final class TerminalActivity extends AppCompatActivity {
         scroll.addView(transcript, new ScrollView.LayoutParams(-1, -2));
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.VERTICAL);
-        bar.setBackgroundColor(0xFF111111);
-        bar.addView(keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP"));
-        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN"));
-        page.addView(bar);
-
+        LinearLayout line = new LinearLayout(this);
+        line.setGravity(Gravity.CENTER_VERTICAL);
+        line.setBackgroundColor(0xFF000000);
+        line.setPadding(pad, 0, pad, Ui.dp(this, 4));
+        prompt = Ui.text(this, "localhost:~# ", textSp, 0xFFE6E6E6, false);
+        prompt.setTypeface(android.graphics.Typeface.MONOSPACE);
+        line.addView(prompt);
         input = new EditText(this);
         input.setSingleLine(true);
-        input.setBackgroundColor(0);
-        input.setTextColor(0);
-        input.setHintTextColor(0);
-        input.setCursorVisible(false);
-        input.setAlpha(0f);
+        input.setBackgroundColor(0xFF000000);
+        input.setTextColor(0xFFE6E6E6);
+        input.setHintTextColor(0xFF6E6E78);
+        input.setTypeface(android.graphics.Typeface.MONOSPACE);
+        input.setTextSize(textSp);
+        input.setCursorVisible(true);
+        input.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        input.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        input.setImeOptions(EditorInfo.IME_ACTION_GO);
         input.setOnEditorActionListener((v, action, event) -> {
-            if (action == EditorInfo.IME_ACTION_DONE || action == EditorInfo.IME_ACTION_GO
+            if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE
                     || action == EditorInfo.IME_ACTION_SEND) {
+                runLine();
+                return true;
+            }
+            return false;
+        });
+        input.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_DOWN) {
                 runLine();
                 return true;
             }
@@ -123,12 +132,20 @@ public final class TerminalActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable s) {
-                paint(false);
             }
         });
-        page.addView(input, new LinearLayout.LayoutParams(1, 1));
+        line.addView(input, new LinearLayout.LayoutParams(0, -2, 1f));
+        page.addView(line);
+
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.VERTICAL);
+        bar.setBackgroundColor(0xFF111111);
+        bar.addView(keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP"));
+        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN"));
+        page.addView(bar);
         setContentView(page);
         Ui.fitInsets(page);
+        input.requestFocus();
         boot();
     }
 
@@ -140,6 +157,12 @@ public final class TerminalActivity extends AppCompatActivity {
                     public boolean onScale(ScaleGestureDetector detector) {
                         textSp = Math.max(8f, Math.min(28f, textSp * detector.getScaleFactor()));
                         transcript.setTextSize(textSp);
+                        if (input != null) {
+                            input.setTextSize(textSp);
+                        }
+                        if (prompt != null) {
+                            prompt.setTextSize(textSp);
+                        }
                         getPreferences(MODE_PRIVATE).edit().putFloat("text_sp", textSp).apply();
                         return true;
                     }
@@ -150,6 +173,12 @@ public final class TerminalActivity extends AppCompatActivity {
                     public boolean onDoubleTap(android.view.MotionEvent e) {
                         textSp = 14f;
                         transcript.setTextSize(textSp);
+                        if (input != null) {
+                            input.setTextSize(textSp);
+                        }
+                        if (prompt != null) {
+                            prompt.setTextSize(textSp);
+                        }
                         getPreferences(MODE_PRIVATE).edit().putFloat("text_sp", textSp).apply();
                         return true;
                     }
@@ -167,21 +196,12 @@ public final class TerminalActivity extends AppCompatActivity {
         @Override
         public boolean onTouchEvent(android.view.MotionEvent ev) {
             int action = ev.getActionMasked();
-            if (action == android.view.MotionEvent.ACTION_DOWN) {
-                touching = true;
-                downX = ev.getX();
-                downY = ev.getY();
-            } else if (action == android.view.MotionEvent.ACTION_MOVE) {
+            if (action == android.view.MotionEvent.ACTION_DOWN || action == android.view.MotionEvent.ACTION_MOVE) {
                 touching = true;
             } else if (action == android.view.MotionEvent.ACTION_UP || action == android.view.MotionEvent.ACTION_CANCEL) {
                 touching = false;
-                float dx = Math.abs(ev.getX() - downX);
-                float dy = Math.abs(ev.getY() - downY);
                 if (busy) {
                     paint(stick);
-                }
-                if (action == android.view.MotionEvent.ACTION_UP && dx < 16 && dy < 16) {
-                    keyboard();
                 }
             }
             if (ev.getPointerCount() >= 2) {
@@ -379,19 +399,17 @@ public final class TerminalActivity extends AppCompatActivity {
         if (transcript == null) {
             return;
         }
-        String typed = input == null || busy ? "" : input.getText().toString();
-        String live = busy ? liveOut.toString() : promptText() + typed + "\u2588";
-        int kept = scroll == null ? 0 : scroll.getScrollY();
-        transcript.setText(log.toString() + live);
+        String extra = busy ? liveOut.toString() : "";
+        if (prompt != null) {
+            prompt.setText(promptText());
+        }
+        String next = log.toString() + extra;
+        if (!next.equals(transcript.getText().toString())) {
+            transcript.setText(next);
+        }
         if (jump && !touching) {
             stick = true;
             follow();
-        } else if (scroll != null) {
-            scroll.post(() -> {
-                if (!stick) {
-                    scroll.scrollTo(0, kept);
-                }
-            });
         }
     }
 

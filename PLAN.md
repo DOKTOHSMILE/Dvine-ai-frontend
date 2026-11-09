@@ -1,3 +1,7 @@
+# Keyboard (0.99.28)
+
+- [x] Keys go to a real prompt line. The session is not redrawn on every letter, so the screen stays still and the keyboard stays open.
+
 # Live output (0.99.27)
 
 - [x] A command's text is shown as it is written, not only after it finishes. The folder is saved to a file, so that marker is not mixed into the output.
