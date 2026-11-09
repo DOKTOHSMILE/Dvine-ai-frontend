@@ -61,6 +61,9 @@ public final class TerminalActivity extends AppCompatActivity {
     private volatile boolean closed;
     private volatile boolean linuxUp;
     private volatile boolean busy;
+    /** Follow new lines. Turned off when the user scrolls up to read. */
+    private boolean stick = true;
+    private boolean moving;
     private boolean ctrl;
     private boolean alt;
     private boolean editing;
@@ -100,6 +103,11 @@ public final class TerminalActivity extends AppCompatActivity {
         transcript = Ui.text(this, "", textSp, 0xFFE6E6E6, false);
         transcript.setTypeface(android.graphics.Typeface.MONOSPACE);
         transcript.setTextIsSelectable(true);
+        transcript.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (bottom != oldBottom) {
+                follow();
+            }
+        });
         wide.addView(transcript);
         scroll.addView(wide);
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
@@ -195,6 +203,20 @@ public final class TerminalActivity extends AppCompatActivity {
             taps.onTouchEvent(ev);
             scale.onTouchEvent(ev);
             return super.dispatchTouchEvent(ev);
+        }
+
+        @Override
+        protected void onScrollChanged(int left, int top, int oldLeft, int oldTop) {
+            super.onScrollChanged(left, top, oldLeft, oldTop);
+            if (moving) {
+                return;
+            }
+            android.view.View child = getChildAt(0);
+            if (child == null) {
+                return;
+            }
+            int gap = child.getBottom() - (getScrollY() + getHeight());
+            stick = gap < Ui.dp(TerminalActivity.this, 64);
         }
     }
 
@@ -381,6 +403,7 @@ public final class TerminalActivity extends AppCompatActivity {
             history.add(line);
             historyAt = history.size();
         }
+        stick = true;
         append(Guest.prompt(cwd) + " $ " + line + "\n");
         busy = true;
         final String ran = line;
@@ -416,7 +439,33 @@ public final class TerminalActivity extends AppCompatActivity {
             CharSequence rest = transcript.getText().subSequence(transcript.length() - 140000, transcript.length());
             transcript.setText(rest);
         }
-        scroll.post(() -> scroll.fullScroll(ScrollView.FOCUS_DOWN));
+        follow();
+    }
+
+    /** scrollTo after layout. fullScroll runs too early and never reaches the new line. */
+    private void follow() {
+        if (!stick || scroll == null) {
+            return;
+        }
+        scroll.post(() -> {
+            android.view.View child = scroll.getChildAt(0);
+            if (child == null || !stick) {
+                return;
+            }
+            int y = Math.max(0, child.getBottom() - scroll.getHeight());
+            moving = true;
+            scroll.scrollTo(0, y);
+            moving = false;
+            scroll.post(() -> {
+                android.view.View again = scroll.getChildAt(0);
+                if (again == null || !stick) {
+                    return;
+                }
+                moving = true;
+                scroll.scrollTo(0, Math.max(0, again.getBottom() - scroll.getHeight()));
+                moving = false;
+            });
+        });
     }
 
     @Override

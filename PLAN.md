@@ -1,3 +1,7 @@
+# Terminal scroll (0.99.24)
+
+- [x] New output scrolls to the last line after the text has been measured. Scrolling up to read stays put until the next command.
+
 # Package install (0.99.23)
 
 `pkg install` failed with "Function not implemented" and then "DNS: transient error". Alpine 3.24's package tool uses calls this phone rejects, and DNS was pointed at public servers the network can block.
