@@ -122,9 +122,13 @@ public class LaunchTest {
             }
         }
         org.junit.Assert.assertEquals(1, asked);
-        java.lang.reflect.Field at = MainActivity.class.getDeclaredField("lastSendAt");
+        // the guard lives in main/SendQueue since the send path left MainActivity
+        java.lang.reflect.Field qf = MainActivity.class.getDeclaredField("sendQueue");
+        qf.setAccessible(true);
+        Object queue = qf.get(c.get());
+        java.lang.reflect.Field at = ai.dvine.main.SendQueue.class.getDeclaredField("lastSendAt");
         at.setAccessible(true);
-        org.junit.Assert.assertTrue((long) at.get(c.get()) >= 0);
+        org.junit.Assert.assertTrue((long) at.get(queue) >= 0);
         c.pause().stop().destroy();
     }
 
@@ -443,7 +447,9 @@ public class LaunchTest {
         // an ordinary question: the brain reads what it means (as before the gateway), recorded like any other
         org.junit.Assert.assertEquals("message \u2192 read the meaning", g.last().toString());
         org.junit.Assert.assertEquals("Explain how compound interest works in a few sentences", g.last().text);
-        org.junit.Assert.assertEquals("pause", g.order().get(0));
+        // pause and stop are not chat routes: only an authorized command (DvineCommandGateway) controls a task
+        org.junit.Assert.assertFalse(g.order().contains("pause"));
+        org.junit.Assert.assertEquals("retry", g.order().get(0));
         org.junit.Assert.assertEquals("brain", g.order().get(g.order().size() - 1));
         c.pause().stop().destroy();
     }

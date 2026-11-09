@@ -4,7 +4,7 @@ The app's JNI library is `dvine_llm`, built from this directory by
 `app/build.gradle` → `externalNativeBuild { cmake { path … } }`.
 
 ```
-CMakeLists.txt            top level: options, add_subdirectory(ggml), add_subdirectory(llama.cpp), dvine_llm
+CMakeLists.txt            top level: options, add_subdirectory(llama.cpp), dvine_llm
 dvine_llm.cpp             the model runner (ggml + llama, KV cache, sampling)
 dvine_llm_jni.cpp         Java entry points: open / stop / decode
 llama.cpp/                llama.cpp b4748 (ggml/ tree: ggml.h, ggml-common.h, ggml-alloc, ggml-backend, …)
@@ -31,14 +31,15 @@ and llama.cpp's vendored helpers are not built (see `llama.cpp/vendor/`).
 arm64-v8a   armeabi-v7a   x86   x86_64
 ```
 
-arm64 builds with `-march=armv8.2-a+dotprod+fp16` and KleiderAI kernels;
+arm64 builds with `-march=armv8.2-a+dotprod+fp16` (KleidiAI kernels off: they pinned every core);
 the other ABIs build the plain ARMv7/NEON or x86 paths. The Kotlin side
 checks `android.cpu.features` (ARMv8.2 dotprod / AES) before loading
 `libdvine_llm.so`.
 
-## Why ggml is added here and not inside llama.cpp
+## Where ggml comes from
 
-`add_subdirectory(ggml)` runs first, so the ggml targets exist by the time
-`llama.cpp` is configured; its `if (NOT TARGET ggml …)` branch then skips its
-own copy. `LLAMA_SKIP_GGML` is also set so llama.cpp does not re-add ggml,
-tools or tests.
+ggml is vendored inside `llama.cpp/ggml`. `CMakeLists.txt` only sets the
+options and calls `add_subdirectory(llama.cpp)`; llama.cpp finds no `ggml`
+target yet (`if (NOT TARGET ggml …)`) and adds its own `ggml/` with those
+options. There is no `ggml/` folder beside `CMakeLists.txt`, so it must not be
+added here (0.96.2 tried, and the native build stopped configuring).

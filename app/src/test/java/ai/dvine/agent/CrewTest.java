@@ -82,7 +82,7 @@ public class CrewTest {
         assertTrue(r.contains("done 0"));
         assertTrue(r.contains("done 1"));
         assertTrue(r.contains("done 2"));
-        assertEquals(3, Crew.plan(8));
+        assertEquals(8, Crew.plan(8));
         assertTrue(Crew.plan(2) >= 3);
     }
 

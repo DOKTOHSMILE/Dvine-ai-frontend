@@ -1,4 +1,4 @@
-package ai.dvine.crew;
+package ai.dvine.agent;
 
 import org.junit.Test;
 
@@ -59,7 +59,7 @@ public class PlanTest {
     /** A plan with no steps at all is refused, so nothing runs against a blank order. */
     @Test
     public void aPlanWithNoStepsIsRefused() {
-        List<PlanStep> none = Crew.partsOf("");
+        List<Crew.PlanStep> none = Crew.partsOf("");
         assertTrue(none.isEmpty());
         none = Crew.partsOf("### \n");
         assertTrue(none.isEmpty());
@@ -68,7 +68,7 @@ public class PlanTest {
     /** Parts come back in the order they were planned, never reordered by the pool. */
     @Test
     public void everyPartComesBackInOrder() throws Exception {
-        List<PlanStep> parts = Crew.partsOf(Crew.planPrompt("Read, then fix, then check"));
+        List<Crew.PlanStep> parts = Crew.partsOf(Crew.planPrompt("Read, then fix, then check"));
         assertEquals(3, parts.size());
         assertEquals("Step 1", parts.get(0).name);
         assertEquals("Step 3", parts.get(2).name);

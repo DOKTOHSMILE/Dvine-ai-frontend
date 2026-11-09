@@ -58,8 +58,12 @@ public class EngineTest {
         e.tick(5000);
         assertEquals(Command.Status.EXPIRED, e.supervisor.history().get(e.supervisor.history().size() - 1).status);
 
-        // "stop" cancels everything and stands up
-        e.perform(answer(b, "stop"), 6000);
+        // the word "stop" in chat is only words: the body is stopped by an authorized command, never by text
+        BrainAnswer said = answer(b, "stop");
+        e.perform(said, 6000);
+        assertEquals("pose pushups", body.last());
+        said.command = "STOP"; // what the command gateway hands the engine
+        e.perform(said, 6000);
         assertEquals("pose stand", body.last());
         assertNull(e.supervisor.active(Command.Channel.BODY));
     }

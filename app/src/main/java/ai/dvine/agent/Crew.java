@@ -51,24 +51,48 @@ public final class Crew {
         return Math.max(MOST, workers);
     }
 
-    /** How many parts a plan may have on this job: at least MOST, and however many workers were asked for. */
+    /** Number words a job may use for its count ("eight workers"). */
+    private static final String[] COUNTS = {"zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+            "nine", "ten", "eleven", "twelve"};
+
+    /** How many parts a plan may have on this job: at least MOST, and however many workers or parts were asked for. */
     public static int plan(String instruction) {
-        String s = instruction == null ? "" : instruction;
+        String s = instruction == null ? "" : instruction.toLowerCase(Locale.US);
         java.util.regex.Matcher m = java.util.regex.Pattern.compile(
-                "(?i)([1-9][0-9]?)[ \\-]*(workers?|parts?|agents?)").matcher(s);
+                "\\b([1-9][0-9]?|" + String.join("|", COUNTS) + ")[ \\-]*(workers?|parts?|agents?|steps?|things?)\\b")
+                .matcher(s);
         int asked = 0;
         while (m.find()) {
-            asked = Math.max(asked, Integer.parseInt(m.group(1)));
+            String n = m.group(1);
+            int v = java.util.Arrays.asList(COUNTS).indexOf(n);
+            asked = Math.max(asked, v >= 0 ? v : Integer.parseInt(n));
         }
         return plan(asked);
     }
 
-    /** The plan the model is asked for on a job: the parts, named and in order, never the finished file. */
+    /**
+     * The plan for a job: how many parts it may have, then the job's own order as "### Step N" sections (one per
+     * clause: "read, then fix, then check" is three). The plan is the order of the work, never the work itself.
+     */
     static String planPrompt(String instruction) {
-        return "You are planning a job on the phone. Write the plan only: " + plan(instruction) + " parts as"
-                + " sections named \"### Step 1\", \"### Step 2\", …, in the order they have to happen, each part"
-                + " short enough for one worker to do alone. The plan is the order of the work — never the work"
-                + " itself, never a finished file, never code or tool names. No other text.";
+        int most = plan(instruction);
+        StringBuilder b = new StringBuilder("There are " + most + " parts at most on this job. Write the plan only,"
+                + " in no more than " + most + " parts, as sections named \"### Step 1\", \"### Step 2\", \u2026 in the"
+                + " order they have to happen, each part short enough for one worker to do alone. The plan is the order"
+                + " of the work \u2014 never the work itself, never a finished file, never code or tool names. No other"
+                + " text.\n\nThe job, in its own order:\n");
+        String job = instruction == null ? "" : instruction.trim();
+        int n = 0;
+        for (String part : job.split("(?i)\\s*(?:,\\s*)?\\bthen\\b\\s*|\\s*;\\s*")) {
+            String p = part.replaceAll("^[,\\s]+|[,\\s]+$", "");
+            if (!p.isEmpty() && n < most) {
+                b.append("\n### Step ").append(++n).append('\n').append(p).append('\n');
+            }
+        }
+        if (n == 0) {
+            b.append("\n### Step 1\n(the job)\n");
+        }
+        return b.toString();
     }
 
     static String planPrompt() {
@@ -101,7 +125,7 @@ public final class Crew {
 
     /** The plan the single agent asks for on a heavy job: numbered steps in the order they have to be done. */
     static String runPlanPrompt() {
-        return "You are an agent working on this job on the phone, one step at a time. Write a numbered plan first"
+        return "You are the planner and the agent on this job on the device, one step at a time. Write a numbered plan first"
                 + " (1. 2. 3.) of the steps it takes — each small enough for one short answer: what to look at, what"
                 + " to do — in the order they have to happen, then the first step on its own after PLAN. No other text."
                 + " /no_think";
@@ -172,6 +196,15 @@ public final class Crew {
             progress.finished(result);
         }
         return done.length() == 0 ? job : done.toString().trim();
+    }
+
+    /**
+     * The same job with a number of workers asked for. One model answers one request at a time, so the parts still
+     * run one after another, in the planned order, and every part comes back; the count only sets how many parts the
+     * plan may have.
+     */
+    public static String run(Brain brain, String task, Progress progress, BooleanSupplier stopped, int workers) {
+        return run(brain, task, progress, stopped);
     }
 
     /** A step finished: its number, how many there are, what it was, and what was found. */

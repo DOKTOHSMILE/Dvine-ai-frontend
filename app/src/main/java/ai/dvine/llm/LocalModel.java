@@ -373,6 +373,23 @@ public final class LocalModel {
             return false;
         }
         state = State.LOADING;
+        // the model's own limit and the device's free memory, read before loading: never ask past what the model
+        // was trained for, and step down before the load instead of failing it
+        ai.dvine.bridge.Probe probe = ai.dvine.engine.GgufProbe.of(file);
+        if (probe.contextLength > 0) {
+            long free = ai.dvine.engine.GgufProbe.freeBytes();
+            ai.dvine.engine.EngineConfig fit = ai.dvine.engine.EngineContext.decide(probe, null, file.length(), free,
+                    threads, false);
+            if (fit.nCtx > 0 && fit.nCtx < want) {
+                int was = want;
+                want = fit.nCtx;
+                if (fit.reason.contains("free memory")) {
+                    memoryNote = "There wasn't enough free memory for " + String.format(java.util.Locale.US, "%,d", was)
+                            + " tokens, so " + spec.weights + " runs with " + String.format(java.util.Locale.US, "%,d", want)
+                            + " (Settings › Advanced › Offline model memory).";
+                }
+            }
+        }
         askedAtLoad = contextTokens;
         loadedThreads = threads;
         raisePriority();

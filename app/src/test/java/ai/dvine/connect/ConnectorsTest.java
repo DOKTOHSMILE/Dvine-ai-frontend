@@ -60,12 +60,16 @@ public class ConnectorsTest {
     @Test
     public void gitHubIssuesAndRepos() throws IOException {
         Fake f = new Fake().reply(200, "[{\"number\":12,\"title\":\"Crash on start\"},{\"number\":13,\"title\":\"A pull\",\"pull_request\":{}}]")
-                .reply(200, "[{\"full_name\":\"me/app\",\"private\":true,\"description\":\"My app\"}]");
+                .reply(200, "{\"login\":\"me\"}", "X-OAuth-Scopes", "repo, read:user")
+                .reply(200, "[{\"full_name\":\"me/app\",\"private\":true,\"permissions\":{\"push\":true},\"description\":\"My app\"}]");
         String issues = Connectors.github(f, "ghp_x", "github.issues", "https://github.com/me/app");
         assertEquals("- #12 Crash on start", issues.trim()); // a pull request isn't an issue
         assertEquals("GET https://api.github.com/repos/me/app/issues?state=open&per_page=15", f.urls.get(0));
         assertEquals("Bearer ghp_x", f.headers.get(0).get("Authorization"));
-        assertTrue(Connectors.github(f, "ghp_x", "github.repos", "").contains("me/app (private): My app"));
+        String repos = Connectors.github(f, "ghp_x", "github.repos", "");
+        assertTrue(repos, repos.contains("Signed in as @me with repo access"));
+        assertTrue(repos, repos.contains("me/app (private), push: My app"));
+        assertTrue(f.urls.get(2), f.urls.get(2).contains("affiliation=owner,collaborator,organization_member"));
         assertEquals("Say which repository, as owner/repo.", Connectors.github(new Fake(), "t", "github.issues", "not a repo"));
         try {
             Connectors.github(new Fake().reply(401, "{}"), "bad", "github.repos", "");
