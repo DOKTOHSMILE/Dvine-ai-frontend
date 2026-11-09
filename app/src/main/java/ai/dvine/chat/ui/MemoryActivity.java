@@ -100,14 +100,14 @@ public final class MemoryActivity extends AppCompatActivity {
         }
 
         // ---- answers confirmed with the check
-        final ai.dvine.learn.Knowledge known = new ai.dvine.learn.Knowledge(new File(getFilesDir(), "brain/knowledge.tsv"));
-        List<ai.dvine.learn.Knowledge.Fact> sure = known.confirmed();
+        final ai.dvine.dvine1.Knowledge known = new ai.dvine.dvine1.Knowledge(new File(getFilesDir(), "brain/knowledge.tsv"));
+        List<ai.dvine.dvine1.Knowledge.Fact> sure = known.confirmed();
         LinearLayout kc = section("Answers you marked correct", sure.size(), "Forget every answer you marked correct?", known::clear);
         if (sure.isEmpty()) {
             empty(kc, "None yet. Tap the check under an answer that's right: DVINE answers it again however it's asked.");
         }
         for (int i = sure.size() - 1; i >= 0; i--) {
-            final ai.dvine.learn.Knowledge.Fact f = sure.get(i);
+            final ai.dvine.dvine1.Knowledge.Fact f = sure.get(i);
             kc.addView(row("“" + f.question + "”", f.answer.length() > 140 ? f.answer.substring(0, 140) + "…" : f.answer,
                     () -> known.forget(f.question)));
         }

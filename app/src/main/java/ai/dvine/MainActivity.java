@@ -41,9 +41,15 @@ import ai.dvine.voice.TalkBridge;
  * No screen UI. One persona on black; touch and hold to speak, double-tap to type. Anything that leaves the app is asked out loud first and runs only after a spoken yes.
  */
 public final class MainActivity extends AppCompatActivity implements StageListener, ListenCallback {
+    /** The model menu under the title (ModelMenu.java). */
+    final ModelMenu modelMenu = new ModelMenu(this);
+
+    /** The tools button by the microphone (ToolsMenu.java). */
+    final ToolsMenu toolsMenu = new ToolsMenu(this);
+
     private static final int MIC = 21;
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
+    final Handler handler = new Handler(Looper.getMainLooper());
     /** The on-device brain-and-body control engine (primary functions; runs offline). */
     private ai.dvine.engine.Engine engine;
     /** Behaviour rate: about 10 Hz, between the 60 Hz frame loop and the slower brain. */
@@ -54,7 +60,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             handler.postDelayed(this, 100L);
         }
     };
-    private StageView stage;
+    StageView stage;
     private TalkBridge talk;
     private ListenBridge listen;
     private AmbientPad ambient;
@@ -65,7 +71,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private ai.dvine.stage.TypeBar typeBar;
 
     // the on-device language model (llama.cpp + Qwen3 1.7B): answers what the offline brain can't, offline
-    private ai.dvine.llm.LocalModel model;
+    ai.dvine.llm.LocalModel model;
     private boolean confirmModelDownload, confirmModelRemove, streamOpen;
     /** The message came from the microphone: the reply is spoken too, sentence by sentence as it is written. */
     private boolean voiceTurn;
@@ -174,7 +180,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     };
     private final ai.dvine.main.PlayStep walker = new ai.dvine.main.PlayStep(walkHost);
-    private ai.dvine.llm.ModelHub hub;
+    ai.dvine.llm.ModelHub hub;
     private ai.dvine.llm.DownloadStatus.Phase lastPhase = ai.dvine.llm.DownloadStatus.Phase.IDLE;
     private boolean downloadBarHidden;
     private static final int NOTIFY = 22;
@@ -611,7 +617,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return create(text);
     }
     private ai.dvine.net.WebClient web;
-    private SharedPreferences prefs;
+    SharedPreferences prefs;
 
     private List<TurnLine> paused;
     /** Dual-AI: the discussion in progress (cancelled by any new input). */
@@ -902,7 +908,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             });
         android.view.View header = findViewById(R.id.tv_header_sub);
         if (header != null)
-            header.setOnClickListener(v -> showModelSwitch());
+            header.setOnClickListener(v -> modelMenu.showModelSwitch());
         android.view.View manage = findViewById(R.id.btnManageChats);
         if (manage != null)
             manage.setOnClickListener(v -> openHistory());
@@ -965,7 +971,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View attach = findViewById(R.id.btn_attach);
         android.view.View toolsButton = findViewById(R.id.btn_tools);
         if (toolsButton != null) {
-            toolsButton.setOnClickListener(v -> showToolsSheet());
+            toolsButton.setOnClickListener(v -> toolsMenu.showToolsSheet());
         }
         if (field != null) {
             field.setOnEditorActionListener((v, actionId, event) -> {
@@ -1277,38 +1283,74 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         closeDrawer();
     }
 
-    private void toggleDrawer() {
-        android.view.View drawer = findViewById(R.id.historyDrawer);
-        if (drawer == null) {
-            return;
+    /** The drawer, dragged open and shut like any Android drawer (main/DrawerController). */
+    private final ai.dvine.main.DrawerController drawer = new ai.dvine.main.DrawerController(new ai.dvine.main.DrawerController.Host() {
+        @Override
+        public android.view.View drawer() {
+            return findViewById(R.id.historyDrawer);
         }
-        if (drawer.getVisibility() == android.view.View.VISIBLE) {
-            closeDrawer();
-        } else {
-            openDrawer();
-        }
-    }
 
-    /** The drawer slides out over the chat; the keyboard goes away first, so it never squeezes the drawer. */
-    private void openDrawer() {
-        android.view.View drawer = findViewById(R.id.historyDrawer);
-        if (drawer == null || drawer.getVisibility() == android.view.View.VISIBLE) {
-            return;
+        @Override
+        public android.view.View scrim() {
+            return findViewById(R.id.drawerScrim);
         }
-        hideKeyboard();
-        {
+
+        @Override
+        public boolean blocked() {
+            return designFull;
+        }
+
+        @Override
+        public void beforeOpen() {
+            hideKeyboard();
             if (chatPane != null) {
                 chatPane.show();
             }
-            drawer.setVisibility(android.view.View.VISIBLE);
-            android.view.View scrim = findViewById(R.id.drawerScrim);
-            if (scrim != null) {
-                scrim.setVisibility(android.view.View.VISIBLE);
-            }
-            drawer.bringToFront();
-            placeDrawer(drawer, -drawerWidth(drawer)); // slides out from the left, as on any Android app
-            settleDrawer(drawer, true);
         }
+
+        @Override
+        public void cancel(android.view.MotionEvent e) {
+            android.view.MotionEvent cancel = android.view.MotionEvent.obtain(e);
+            cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
+            MainActivity.super.dispatchTouchEvent(cancel);
+            cancel.recycle();
+        }
+
+        @Override
+        public android.view.View root() {
+            return getWindow().getDecorView();
+        }
+
+        @Override
+        public float density() {
+            return getResources().getDisplayMetrics().density;
+        }
+
+        @Override
+        public int touchSlop() {
+            return android.view.ViewConfiguration.get(MainActivity.this).getScaledTouchSlop();
+        }
+    });
+
+    private void toggleDrawer() {
+        drawer.toggle();
+    }
+
+    private void openDrawer() {
+        drawer.open();
+    }
+
+    private void closeDrawer() {
+        drawer.close();
+    }
+
+    private boolean drawerOpen() {
+        return drawer.isOpen();
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        return drawer.onTouch(e) || super.dispatchTouchEvent(e);
     }
 
     private void hideKeyboard() {
@@ -1321,189 +1363,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (focus != null) {
             focus.clearFocus();
         }
-    }
-
-    private boolean drawerOpen() {
-        android.view.View drawer = findViewById(R.id.historyDrawer);
-        return drawer != null && drawer.getVisibility() == android.view.View.VISIBLE;
-    }
-
-    /** Where a swipe began, and whether it is the drawer's (from the left edge to open, leftwards to close). */
-    private float swipeX = -1, swipeY;
-    private boolean swipeOpen;
-    /** The views that saw the start of a swipe that became the drawer's are told it was cancelled. */
-    private void cancelTouch(android.view.MotionEvent e) {
-        android.view.MotionEvent cancel = android.view.MotionEvent.obtain(e);
-        cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
-        super.dispatchTouchEvent(cancel);
-        cancel.recycle();
-    }
-
-    /** True when (x, y) is over something that scrolls sideways itself (code, pills): its swipe is its own. */
-    private boolean sidewaysScroller(android.view.View v, float x, float y) {
-        int[] at = new int[2];
-        v.getLocationOnScreen(at);
-        if (v.getVisibility() != android.view.View.VISIBLE || x < at[0] || y < at[1] || x > at[0] + v.getWidth() || y > at[1] + v.getHeight()) {
-            return false;
-        }
-        if (v instanceof android.widget.HorizontalScrollView || v instanceof android.view.SurfaceView || v instanceof android.view.TextureView
-                || v.canScrollHorizontally(1) || v.canScrollHorizontally(-1)) {
-            return true;
-        }
-        if (v instanceof android.view.ViewGroup) {
-            android.view.ViewGroup g = (android.view.ViewGroup) v;
-            for (int i = 0; i < g.getChildCount(); i++) {
-                if (sidewaysScroller(g.getChildAt(i), x, y)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /** While a finger drags the drawer: where the drawer started (0 open, -width closed), and the finger's speed. */
-    private boolean dragging;
-    private float dragFrom;
-    private android.view.VelocityTracker velocity;
-
-    private float drawerWidth(android.view.View drawer) {
-        return drawer.getWidth() > 0 ? drawer.getWidth() : 304 * getResources().getDisplayMetrics().density;
-    }
-
-    /** The drawer at {@code offset} (−width shut, 0 open), the scrim darkening with it. */
-    private void placeDrawer(android.view.View drawer, float offset) {
-        float w = drawerWidth(drawer);
-        float x = Math.max(-w, Math.min(0f, offset));
-        drawer.setTranslationX(x);
-        android.view.View scrim = findViewById(R.id.drawerScrim);
-        if (scrim != null) {
-            scrim.setAlpha(1f + x / w);
-        }
-    }
-
-    /**
-     * The standard Android drawer: a finger dragging left to right (from anywhere but over something that scrolls
-     * sideways) pulls the drawer out with it, the chat darkening as it comes; on letting go it settles open or shut by
-     * how far it came and how fast the finger was moving. Dragging the open drawer to the left pushes it back.
-     */
-    @Override
-    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
-        float edge = 24 * getResources().getDisplayMetrics().density;
-        float slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
-        android.view.View drawer = findViewById(R.id.historyDrawer);
-        switch (e.getActionMasked()) {
-            case android.view.MotionEvent.ACTION_DOWN:
-                dragging = false;
-                swipeOpen = !drawerOpen();
-                swipeX = !designFull && drawer != null && (drawerOpen() || e.getX() <= edge
-                        || !sidewaysScroller(getWindow().getDecorView(), e.getRawX(), e.getRawY())) ? e.getX() : -1;
-                swipeY = e.getY();
-                if (velocity != null) {
-                    velocity.recycle();
-                }
-                velocity = android.view.VelocityTracker.obtain();
-                velocity.addMovement(e);
-                break;
-            case android.view.MotionEvent.ACTION_MOVE:
-                if (velocity != null) {
-                    velocity.addMovement(e);
-                }
-                if (swipeX >= 0 && drawer != null) {
-                    float dx = e.getX() - swipeX, dy = Math.abs(e.getY() - swipeY);
-                    if (!dragging && Math.abs(dx) > slop && Math.abs(dx) > dy * 1.5f && (swipeOpen ? dx > 0 : dx < 0)) {
-                        dragging = true; // the drawer is the finger's now
-                        cancelTouch(e);
-                        drawer.animate().cancel();
-                        if (swipeOpen) {
-                            hideKeyboard();
-                            if (chatPane != null) {
-                                chatPane.show();
-                            }
-                            drawer.setVisibility(android.view.View.VISIBLE);
-                            android.view.View scrim = findViewById(R.id.drawerScrim);
-                            if (scrim != null) {
-                                scrim.setVisibility(android.view.View.VISIBLE);
-                            }
-                            drawer.bringToFront();
-                            dragFrom = -drawerWidth(drawer);
-                        } else {
-                            dragFrom = 0f;
-                        }
-                        swipeX = e.getX();
-                        dx = 0;
-                    }
-                    if (dragging) {
-                        placeDrawer(drawer, dragFrom + dx);
-                        return true;
-                    }
-                }
-                break;
-            case android.view.MotionEvent.ACTION_UP:
-            case android.view.MotionEvent.ACTION_CANCEL:
-                if (dragging && drawer != null) {
-                    dragging = false;
-                    float vx = 0;
-                    if (velocity != null) {
-                        velocity.addMovement(e);
-                        velocity.computeCurrentVelocity(1000);
-                        vx = velocity.getXVelocity();
-                    }
-                    float fling = 800 * getResources().getDisplayMetrics().density;
-                    float w = drawerWidth(drawer);
-                    boolean open = vx > fling || vx > -fling && drawer.getTranslationX() > -w / 2;
-                    swipeX = -1;
-                    if (open) {
-                        settleDrawer(drawer, true);
-                    } else {
-                        settleDrawer(drawer, false);
-                    }
-                    return true;
-                }
-                swipeX = -1;
-                break;
-            default:
-                break;
-        }
-        return super.dispatchTouchEvent(e);
-    }
-
-    /** The drawer glides the rest of the way, open or shut. */
-    private void settleDrawer(final android.view.View drawer, final boolean open) {
-        float w = drawerWidth(drawer);
-        final android.view.View scrim = findViewById(R.id.drawerScrim);
-        long ms = (long) (220 * Math.abs((open ? 0 : -w) - drawer.getTranslationX()) / w) + 60;
-        drawer.animate().cancel();
-        drawer.animate().translationX(open ? 0 : -w).setDuration(ms)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator())
-                .setUpdateListener(a -> {
-                    if (scrim != null) {
-                        scrim.setAlpha(1f + drawer.getTranslationX() / w);
-                    }
-                })
-                .withEndAction(() -> {
-                    if (!open) {
-                        drawer.setVisibility(android.view.View.GONE);
-                        if (scrim != null) {
-                            scrim.setVisibility(android.view.View.GONE);
-                        }
-                    }
-                    drawer.setTranslationX(open ? 0 : 0); // shut: hidden at its place, so the next open starts clean
-                    if (scrim != null) {
-                        scrim.setAlpha(1f);
-                    }
-                }).start();
-    }
-
-    private void closeDrawer() {
-        android.view.View drawer = findViewById(R.id.historyDrawer);
-        if (drawer == null || drawer.getVisibility() != android.view.View.VISIBLE) {
-            android.view.View scrim = findViewById(R.id.drawerScrim);
-            if (scrim != null) {
-                scrim.setVisibility(android.view.View.GONE);
-            }
-            return;
-        }
-        settleDrawer(drawer, false); // slides away, as it came
     }
 
     private void showAttachMenu(android.view.View anchor) {
@@ -1646,7 +1505,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
             @Override
             public void onRate(String question, String answer, boolean right) {
-                rate(question, answer, right);
+                dvine1().rate(question, answer, right);
             }
 
             @Override
@@ -1847,7 +1706,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             : null);
         });
         applyProvider();
-        ai.dvine.learn.NightLearnJob.schedule(this); // night learning, if the pilot turned it on
+        ai.dvine.dvine1.LearningJob.schedule(this); // night learning, if the pilot turned it on
 
         stage.wake();
         handler.postDelayed(this::greetOnOpen, 700);
@@ -2019,7 +1878,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     };
 
     /** A short line above the message box for a few seconds ("…, so OpenAI did."). */
-    private void note(String text) {
+    void note(String text) {
         android.widget.TextView n = findViewById(R.id.composer_note);
         if (n == null) {
             return;
@@ -2301,7 +2160,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         return false;
                     }
                     if (dvineOwn()) {
-                        dvineAnswer(t); // DVINE 1: what it knows, or it researches and asks whether it got it right
+                        dvine1().answer(t); // DVINE 1: what it knows, or it researches and asks whether it got it right
                         return true;
                     }
                     // no model in the suit: DVINE's own Cortex answers what it can (exact sums, greetings, what it learned)
@@ -2343,11 +2202,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** The tools this chat page lets its brain use (per conversation and persona), from the tools button. */
-    private ai.dvine.suit.ChatTools chatTools(String persona) {
+    ai.dvine.suit.ChatTools chatTools(String persona) {
         return ai.dvine.suit.ChatTools.read(persona, prefs.getString(toolsKey(persona), null));
     }
 
-    private String toolsKey(String persona) {
+    String toolsKey(String persona) {
         String group = chats == null ? "" : chats.current().group;
         return "tools:" + group + ":" + persona;
     }
@@ -2402,7 +2261,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** The scheduled posts, next first, each with Cancel. */
-    private void showScheduledPosts() {
+    void showScheduledPosts() {
         java.util.List<ai.dvine.social.PostPlan> plans = ai.dvine.social.PostAlarm.plans(this);
         if (plans.isEmpty()) {
             play(LocalTurn.speakAs(stage.agent(), "No posts are scheduled."), null);
@@ -2415,7 +2274,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         java.text.DateFormat f = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT);
         for (final ai.dvine.social.PostPlan p : plans) {
             String where = new ai.dvine.brain.PendingAction(ai.dvine.brain.PendingAction.Kind.SHARE, p.text, p.network, 0).appName();
-            final android.view.View row = brainLink(where + " \u00B7 " + f.format(new java.util.Date(p.at)) + " \u00B7 " + p.repeatWords(),
+            final android.view.View row = modelMenu.brainLink(where + " \u00B7 " + f.format(new java.util.Date(p.at)) + " \u00B7 " + p.repeatWords(),
                     p.text + "\nTap to cancel", null);
             row.setOnClickListener(v -> {
                 ai.dvine.social.PostAlarm.cancel(this, p.id);
@@ -2484,194 +2343,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         });
     }
 
-    /**
-     * The tools button beside the microphone: the tools this persona offers, each with a switch, for this chat page
-     * only. GitHub opens a list of the account's repositories to choose from (several at once).
-     */
-    private void showToolsSheet() {
-        final String persona = stage.agent();
-        final ai.dvine.suit.ChatTools tools = chatTools(persona);
-        final android.widget.LinearLayout box = new android.widget.LinearLayout(this);
-        box.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        box.setPadding(pad, 0, pad, pad);
-        final android.app.Dialog[] sheet = new android.app.Dialog[1];
-        for (final ai.dvine.suit.ChatTools.Tool t : ai.dvine.suit.ChatTools.offered(persona)) {
-            android.widget.LinearLayout row = new android.widget.LinearLayout(this);
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setMinimumHeight(pad * 4);
-            // the tool's icon, tinted like the rest of the app
-            android.widget.ImageView icon = new android.widget.ImageView(this);
-            icon.setImageResource(toolIcon(t));
-            icon.setColorFilter(getColor(R.color.text_primary));
-            android.widget.LinearLayout.LayoutParams ip = new android.widget.LinearLayout.LayoutParams(dp(22), dp(22));
-            ip.rightMargin = dp(14);
-            row.addView(icon, ip);
-            android.widget.LinearLayout words = new android.widget.LinearLayout(this);
-            words.setOrientation(android.widget.LinearLayout.VERTICAL);
-            android.widget.TextView name = new android.widget.TextView(this);
-            name.setText(t.title);
-            name.setTextSize(16f);
-            name.setTextColor(getColor(R.color.text_primary));
-            words.addView(name);
-            final android.widget.TextView about = new android.widget.TextView(this);
-            about.setTextSize(13f);
-            about.setTextColor(getColor(R.color.text_secondary));
-            about.setText(t == ai.dvine.suit.ChatTools.Tool.GITHUB && !tools.repos().isEmpty()
-                    ? String.join(", ", tools.repos()) + "  \u00B7  change" : t.about);
-            words.addView(about);
-            row.addView(words, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            final Runnable inner = toolSettings(t, persona, tools, about, sheet);
-            if (inner != null) {
-                // a tool with settings of its own: its name opens them (the switch still turns it on and off)
-                name.setText(t.title + "  \u203A");
-                words.setOnClickListener(v -> inner.run());
-                words.setContentDescription(t.title + " settings");
-                android.util.TypedValue ripple = new android.util.TypedValue();
-                getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
-                words.setBackgroundResource(ripple.resourceId);
-            }
-            android.widget.Switch sw = new android.widget.Switch(this);
-            sw.setChecked(tools.isOn(t));
-            sw.setContentDescription(t.title);
-            sw.setOnCheckedChangeListener((b, on) -> {
-                tools.set(t, on);
-                prefs.edit().putString(toolsKey(persona), tools.write()).apply();
-                if (on && t == ai.dvine.suit.ChatTools.Tool.GITHUB && tools.repos().isEmpty()) {
-                    chooseRepos(persona, tools, about);
-                }
-            });
-            row.addView(sw);
-            box.addView(row);
-        }
-        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
-        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(this, who + "'s tools in this chat", box);
-    }
 
-    /** Each tool's icon. */
-    static int toolIcon(ai.dvine.suit.ChatTools.Tool t) {
-        switch (t) {
-            case GITHUB: return R.drawable.ic_branch;
-            case SHELL: return R.drawable.ic_terminal;
-            case WEB: return R.drawable.ic_search;
-            case CONNECTORS: return R.drawable.ic_plug;
-            case PHOTOS: return R.drawable.ic_image;
-            case DESIGN3D: return R.drawable.ic_cube;
-            case FILES: return R.drawable.ic_file;
-            case SHARE: return R.drawable.ic_share;
-            case SOCIAL: return R.drawable.ic_people;
-            default: return R.drawable.ic_deep;
-        }
-    }
 
-    /** What a tool's name opens: its own settings, or null when it has none. */
-    private Runnable toolSettings(final ai.dvine.suit.ChatTools.Tool t, final String persona, final ai.dvine.suit.ChatTools tools,
-            final android.widget.TextView about, final android.app.Dialog[] sheet) {
-        switch (t) {
-            case GITHUB:
-                return () -> chooseRepos(persona, tools, about); // the repositories this chat works on
-            case CONNECTORS:
-                return () -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ConnectorsActivity.class));
-            case WEB:
-            case SHELL:
-                return () -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
-            case SOCIAL:
-                return () -> ai.dvine.chat.ui.BottomSheet.show(this, "Social accounts", new ai.dvine.chat.ui.BottomSheet.Item[] {
-                        new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_people, "Your accounts", "Sign in, switch or remove accounts"),
-                        new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_send, "Scheduled posts", "See or cancel what is planned") }, which -> {
-                            if (sheet[0] != null) {
-                                sheet[0].dismiss();
-                            }
-                            if (which == 0) {
-                                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class));
-                            } else {
-                                showScheduledPosts();
-                            }
-                        });
-            case SHARE:
-                return () -> {
-                    final android.widget.Switch auto = new android.widget.Switch(this);
-                    auto.setText("Share and post without asking me first");
-                    auto.setChecked(prefs.getBoolean("actions_auto", false));
-                    auto.setPadding(dp(20), dp(12), dp(20), dp(4));
-                    new androidx.appcompat.app.AlertDialog.Builder(this)
-                            .setTitle("Share, post or copy")
-                            .setMessage("Off (recommended): each share, post or copy is shown first and waits for your yes.")
-                            .setView(auto)
-                            .setPositiveButton("Save", (d, w) -> prefs.edit().putBoolean("actions_auto", auto.isChecked()).apply())
-                            .setNegativeButton("Cancel", null)
-                            .show();
-                };
-            default:
-                return null;
-        }
-    }
 
-    /** The account's repositories, to choose the ones this chat works on (several at once). */
-    private void chooseRepos(final String persona, final ai.dvine.suit.ChatTools tools, final android.widget.TextView about) {
-        final ai.dvine.connect.ConnectorStore store = new ai.dvine.connect.ConnectorStore(this);
-        final String token = store.token(ai.dvine.connect.ConnectorStore.Kind.GITHUB);
-        if (token == null || token.isEmpty()) {
-            note("Sign in to GitHub first: Connectors \u203A GitHub.");
-            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ConnectorsActivity.class));
-            return;
-        }
-        note("Fetching your repositories\u2026");
-        hub.worker.execute(() -> {
-            final java.util.List<String> names = new java.util.ArrayList<String>();
-            String why = null;
-            try {
-                for (int page = 1; page <= 5; page++) {
-                    String list = ai.dvine.connect.Connectors.github(ai.dvine.connect.Connectors.https(), token, "github.repos",
-                            String.valueOf(page));
-                    int before = names.size();
-                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?m)^- ([\\w.-]+/[\\w.-]+)").matcher(list);
-                    while (m.find()) {
-                        names.add(m.group(1));
-                    }
-                    if (names.size() - before < 100) {
-                        break;
-                    }
-                }
-            } catch (java.io.IOException | RuntimeException e) {
-                why = e.getMessage();
-            }
-            final String problem = why;
-            handler.post(() -> {
-                if (isFinishing()) {
-                    return;
-                }
-                if (names.isEmpty()) {
-                    note(problem == null ? "No repositories on this account." : "GitHub didn't answer: " + problem);
-                    return;
-                }
-                final String[] items = names.toArray(new String[0]);
-                final boolean[] picked = new boolean[items.length];
-                java.util.List<String> had = tools.repos();
-                for (int i = 0; i < items.length; i++) {
-                    picked[i] = had.contains(items[i]);
-                }
-                new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("Repositories for this chat")
-                        .setMultiChoiceItems(items, picked, (d, i, on) -> picked[i] = on)
-                        .setPositiveButton("Use these", (d, w) -> {
-                            java.util.List<String> chosen = new java.util.ArrayList<String>();
-                            for (int i = 0; i < items.length; i++) {
-                                if (picked[i]) {
-                                    chosen.add(items[i]);
-                                }
-                            }
-                            tools.setRepos(chosen);
-                            tools.set(ai.dvine.suit.ChatTools.Tool.GITHUB, !chosen.isEmpty() || tools.isOn(ai.dvine.suit.ChatTools.Tool.GITHUB));
-                            prefs.edit().putString(toolsKey(persona), tools.write()).apply();
-                            about.setText(chosen.isEmpty() ? ai.dvine.suit.ChatTools.Tool.GITHUB.about
-                                    : String.join(", ", chosen) + "  \u00B7  change");
-                        })
-                        .setNegativeButton("Cancel", null)
-                        .show();
-            });
-        });
-    }
 
     private ai.dvine.learn.BrainBox brainBox;
     private ai.dvine.suit.Cortex cortex;
@@ -2687,405 +2361,77 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return pilotProfile;
     }
 
-    private ai.dvine.learn.Facts facts;
-    private ai.dvine.learn.Lexicon lexicon;
-
-    /** The facts DVINE 1 has read, kept by the language formulas. */
-    private synchronized ai.dvine.learn.Facts facts() {
-        if (facts == null) {
-            facts = new ai.dvine.learn.Facts(new java.io.File(getFilesDir(), "brain/facts.tsv"));
-        }
-        return facts;
-    }
-
-    /** DVINE 1's own dictionary. */
-    private synchronized ai.dvine.learn.Lexicon lexicon() {
-        if (lexicon == null) {
-            lexicon = new ai.dvine.learn.Lexicon(new java.io.File(getFilesDir(), "brain/words.tsv"));
-        }
-        return lexicon;
-    }
-
-    private ai.dvine.learn.Knowledge knowledge;
-
-    /** What DVINE 1 knows for sure: answers the pilot confirmed with Correct, found again by intent. */
-    private synchronized ai.dvine.learn.Knowledge knowledge() {
-        if (knowledge == null) {
-            knowledge = new ai.dvine.learn.Knowledge(new java.io.File(getFilesDir(), "brain/knowledge.tsv"));
-        }
-        return knowledge;
-    }
-
-    /**
-     * DVINE 1 answers on its own: exact sums, a greeting, what the pilot confirmed before (asked any way), what it
-     * learned from the models; otherwise it researches the web and answers from what it found, in the sources' own
-     * words, and asks whether that was right (Correct / Wrong). Nothing is made up.
-     */
-    private void dvineAnswer(final String t) {
-        final String who = stage.agent();
-        if (dvineWorker != null) {
-            ai.dvine.agent.AgentBoard.end(dvineWorker, ai.dvine.agent.AgentBoard.Outcome.STOPPED); // a newer message took over
-        }
-        dvineWorker = ai.dvine.agent.AgentBoard.start(cap(who) + " \u00B7 " + DVINE_OWN, t, DVINE_OWN);
-        dvineHow = ai.dvine.llm.UsageLog.Own.OTHER;
-        ai.dvine.suit.Comprehension c = ai.dvine.suit.Comprehension.of(t);
-        if (c.math != null && c.mathValue != null && !c.mathValue.isEmpty()) {
-            final String sum = c.math + " = " + c.mathValue;
-            dvineThink(java.util.Arrays.asList("Reading your question", "Working it out exactly"), () -> dvineSays(who, sum));
-            return;
-        }
-        if (c.act == ai.dvine.suit.Comprehension.Act.GREETING) {
-            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSaysPlain(who, "Hello, I'm " + DVINE_OWN
-                    + ". Ask me anything: I answer what I know, research what I don't, and learn when you tell me Correct or Wrong."));
-            return;
-        }
-        final String self = aboutDvine(t);
-        if (self != null) {
-            // a question about DVINE itself: answered from its own memory
-            dvineThink(java.util.Arrays.asList("Reading your question", "Looking through my memory"), () -> dvineSaysPlain(who, self));
-            return;
-        }
-        if (!t.trim().endsWith("?") && c.act != ai.dvine.suit.Comprehension.Act.QUESTION
-                && c.act != ai.dvine.suit.Comprehension.Act.REQUEST && c.act != ai.dvine.suit.Comprehension.Act.THANKS) {
-            // a statement teaches; it isn't researched
-            dvineThink(java.util.Arrays.asList("Reading what you said", "Saving it to memory"), () -> dvineSaysPlain(who, learnStatement(t)));
-            return;
-        }
-        if (c.act == ai.dvine.suit.Comprehension.Act.THANKS) {
-            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSaysPlain(who, "You're welcome."));
-            return;
-        }
-        final ai.dvine.learn.Knowledge.Fact known = knowledge().recall(t);
-        if (known != null) {
-            dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
-            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
-                    known.sure ? "Found it: you confirmed this before" : "Found it: I learned this in a learning session"), () -> {
-                        if (known.sure) {
-                            dvineSays(who, known.answer); // confirmed before: no need to ask again
-                        } else {
-                            dvineSays(who, known.answer + "\n(Learned in a learning session; not checked yet.)");
-                            ratingQuestion = t;
-                            chatPane.askRating(t, known.answer);
-                        }
-                    });
-            return;
-        }
-        // a word's meaning: from DVINE's own dictionary, or learned from Wiktionary now
-        final String word = ai.dvine.learn.Lexicon.asked(t);
-        if (word != null) {
-            final ai.dvine.learn.Lexicon.Word w = lexicon().get(word);
-            if (w != null) {
-                dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
-                dvineThink(java.util.Arrays.asList("Reading your question", "Looking up \u201c" + word + "\u201d in my dictionary"), () -> {
-                    dvineSays(who, w.said());
-                    ratingQuestion = t;
-                    chatPane.askRating(t, w.said());
-                });
-                return;
-            }
-        }
-        // the language formulas: the question parsed, matched to a fact DVINE read, the answer said as a sentence
-        final String formed = facts().answer(t);
-        if (formed != null && !knowledge().rejected(t, formed)) {
-            dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
-            dvineThink(java.util.Arrays.asList("Reading your question", "Parsing what it asks", "Found it in what I've read",
-                    "Putting it into a sentence"), () -> {
-                        dvineSays(who, formed);
-                        ratingQuestion = t;
-                        chatPane.askRating(t, formed);
-                    });
-            return;
-        }
-        final String learned = brainBox().recallTalk(t);
-        if (learned != null && !knowledge().rejected(t, learned)) {
-            dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
-            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
-                    "Found an answer an earlier model gave"), () -> {
-                        dvineSays(who, learned + "\n(Learned from an earlier model.)");
-                        ratingQuestion = t;
-                        chatPane.askRating(t, learned);
-                    });
-            return;
-        }
-        if (connectivity != null && !connectivity.isOnline()) {
-            ai.dvine.learn.NightLearnJob.remember(this, t); // learned tonight, if night learning is on
-            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know"), () -> dvineSaysPlain(who,
-                    "I don't know that yet, and there's no internet connection to research it. I've kept the question:"
-                            + " ask me again when you're online" + (ai.dvine.learn.NightLearnJob.plan(this).on ? ", or I'll learn it in my next learning session." : ".")));
-            return;
-        }
-        final String subject = ai.dvine.suit.ResearchAnswer.subject(t);
-        dvineHow = ai.dvine.llm.UsageLog.Own.RESEARCH;
-        dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
-                subject != null ? "Not in my memory: looking up \u201c" + subject + "\u201d" : "Not in my memory: searching the web"), () -> {
-                    final int token = dvineToken;
-                    new Thread(() -> {
-                        ai.dvine.suit.ResearchAnswer r = null;
-                        if (word != null) {
-                            // a word DVINE doesn't know yet: its meaning from Wiktionary, kept in the dictionary
-                            ai.dvine.net.WebGet.Page page = ai.dvine.net.WebGet.page(ai.dvine.learn.Lexicon.url(word), 12_000, 400_000);
-                            if (page.status == 200 && lexicon().learn(word, page.body) && lexicon().get(word) != null) {
-                                r = ai.dvine.suit.ResearchAnswer.of(lexicon().get(word).said(), "en.wiktionary.org");
-                            }
-                        }
-                        if (r == null) {
-                            r = ai.dvine.learn.NightLearnJob.research(this, t);
-                        }
-                        if (r != null) {
-                            facts().learn(r.text, ai.dvine.suit.ResearchAnswer.subject(t)); // learning while being used
-                        }
-                        final ai.dvine.suit.ResearchAnswer answer = r != null && knowledge().rejected(t, r.shown()) ? null : r;
-                        runOnUiThread(() -> {
-                            if (token != dvineToken) {
-                                return; // a newer message took over
-                            }
-                            if (answer == null) {
-                                ai.dvine.learn.NightLearnJob.remember(this, t);
-                                dvineThink(java.util.Arrays.asList("Nothing I found answers it"), () -> dvineSaysPlain(who,
-                                        "I don't know that yet, and what I found didn't answer it. Try asking it another way, or pick an API"
-                                                + " or offline model for this one: I learn from their answers too."
-                                                + (ai.dvine.learn.NightLearnJob.plan(this).on ? " I've also kept it for my next learning session." : "")), false);
-                                return;
-                            }
-                            final String shown = answer.shown();
-                            java.util.List<String> more = new java.util.ArrayList<String>();
-                            more.add("Reading " + (answer.sources.isEmpty() ? "what I found" : String.join(", ", answer.sources)));
-                            more.add("Writing the answer");
-                            dvineThink(more, () -> {
-                                dvineSays(who, shown); // one block; the check and cancel ask underneath
-                                ratingQuestion = t;
-                                chatPane.askRating(t, shown);
-                            }, false);
-                        });
-                    }, "dvine-research").start();
-                });
-    }
-
-    /** DVINE 1's own answers, numbered: a newer message makes an older one's steps stop. */
-    private int dvineToken;
-
-    /** DVINE 1 thinks visibly, like the models: its steps show one by one, then it answers. */
-    private void dvineThink(java.util.List<String> steps, Runnable then) {
-        dvineThink(steps, then, true);
-    }
-
-    private void dvineThink(final java.util.List<String> steps, final Runnable then, boolean fresh) {
-        final int token = fresh ? ++dvineToken : dvineToken;
-        for (int i = 0; i < steps.size(); i++) {
-            final String step = steps.get(i);
-            handler.postDelayed(() -> {
-                if (token == dvineToken && chatPane != null) {
-                    chatPane.activityStep(step);
-                    if (dvineWorker != null) {
-                        ai.dvine.agent.AgentBoard.step(dvineWorker, step);
-                    }
-                }
-            }, 120 + i * 650L);
-        }
-        handler.postDelayed(() -> {
-            if (token == dvineToken) {
-                then.run();
-            }
-        }, 120 + steps.size() * 650L + 250);
-    }
-
-    /** DVINE 1's worker on the board, and how it is answering (for Usage). */
-    private String dvineWorker;
-    private ai.dvine.llm.UsageLog.Own dvineHow = ai.dvine.llm.UsageLog.Own.OTHER;
-
-    /**
-     * DVINE 1's own set replies (a greeting, its memory list, "noted", "I don't know"): shown without check and cancel,
-     * since there is nothing in them to learn.
-     */
-    private void dvineSaysPlain(String who, String text) {
-        if (chatPane != null) {
-            chatPane.noRating(text);
-        }
-        dvineSays(who, text);
-    }
-
-    /** DVINE 1's answer, after its steps: counted in today's use, its worker done, the ring updated. */
-    private void dvineSays(String who, String text) {
-        if (chatPane != null) {
-            chatPane.activityEnd();
-        }
-        if (dvineWorker != null) {
-            ai.dvine.agent.AgentBoard.end(dvineWorker);
-            dvineWorker = null;
-        }
-        if (model != null) {
-            model.usage.recordOwn(dvineHow, System.currentTimeMillis());
-        }
-        play(LocalTurn.speakAs(who, text), null);
-        checkWorkload();
-    }
-
-    /** After a learning session: what DVINE learned, said once in the chat. */
+    /** After a learning session: what DVINE 1 learned, said once in the chat. */
     private void morningReport() {
-        if (ai.dvine.learn.NightLearnJob.reportSeen(this) || stage == null) {
-            return;
+        String said = stage == null ? null : dvine1().report();
+        if (said != null) {
+            play(LocalTurn.speakAs(stage.agent(), said), null);
         }
-        java.util.List<String> learned = ai.dvine.learn.NightLearnJob.report(this);
-        ai.dvine.learn.NightLearnJob.markReportSeen(this);
-        if (learned.isEmpty()) {
-            return;
-        }
-        StringBuilder b = new StringBuilder("In my last learning session I learned " + learned.size() + (learned.size() == 1 ? " new thing" : " new things") + ":");
-        for (int i = 0; i < learned.size() && i < 12; i++) {
-            b.append("\n- ").append(learned.get(i));
-        }
-        if (learned.size() > 12) {
-            b.append("\n\u2026and ").append(learned.size() - 12).append(" more.");
-        }
-        b.append("\nAsk me about any of them; tap the check when I get one right.");
-        play(LocalTurn.speakAs(stage.agent(), b.toString()), null);
     }
 
-    /** The learning schedule: on or off, the hours (any of the day), Wi-Fi only, charging only, and Learn now. */
-    private void showNightLearning() {
-        final ai.dvine.learn.NightLearn.Plan was = ai.dvine.learn.NightLearnJob.plan(this);
-        final int[] start = { was.start }, end = { was.end };
-        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
-        box.setOrientation(android.widget.LinearLayout.VERTICAL);
-        box.setPadding(dp(20), dp(8), dp(20), 0);
-        android.widget.TextView about = new android.widget.TextView(this);
-        about.setText("At the hours you choose (any time of day), " + DVINE_OWN + " goes online and learns only from how you use"
-                + " it: the questions it couldn't answer or got wrong, what you asked about, what you're into, and the words in your"
-                + " messages it doesn't know yet. It reads what it finds with its language formulas: sentences into who did"
-                + " what to what, when and where, kept as facts it can answer from in its own sentences. Afterwards it tells you"
-                + " what it learned, and asks you to check each answer the first time it uses it.");
-        about.setTextColor(getColor(R.color.text_secondary));
-        about.setTextSize(13f);
-        box.addView(about);
-        final android.widget.Switch on = new android.widget.Switch(this);
-        on.setText("Learn on a schedule");
-        on.setChecked(was.on);
-        on.setTextSize(16f);
-        on.setPadding(0, dp(16), 0, dp(8));
-        box.addView(on);
-        final android.widget.Button from = new android.widget.Button(this);
-        final android.widget.Button to = new android.widget.Button(this);
-        from.setText("Starts " + ai.dvine.learn.NightLearn.Plan.clock(start[0]));
-        to.setText("Ends " + ai.dvine.learn.NightLearn.Plan.clock(end[0]));
-        from.setOnClickListener(v -> new android.app.TimePickerDialog(this, (tp, h, m) -> {
-            start[0] = h * 60 + m;
-            from.setText("Starts " + ai.dvine.learn.NightLearn.Plan.clock(start[0]));
-        }, start[0] / 60, start[0] % 60, true).show());
-        to.setOnClickListener(v -> new android.app.TimePickerDialog(this, (tp, h, m) -> {
-            end[0] = h * 60 + m;
-            to.setText("Ends " + ai.dvine.learn.NightLearn.Plan.clock(end[0]));
-        }, end[0] / 60, end[0] % 60, true).show());
-        android.widget.LinearLayout times = new android.widget.LinearLayout(this);
-        times.addView(from, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        times.addView(to, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        box.addView(times);
-        final android.widget.CheckBox wifi = new android.widget.CheckBox(this);
-        wifi.setText("Only on Wi-Fi");
-        wifi.setChecked(was.wifiOnly);
-        box.addView(wifi);
-        final android.widget.CheckBox charging = new android.widget.CheckBox(this);
-        charging.setText("Only while charging");
-        charging.setChecked(was.chargingOnly);
-        box.addView(charging);
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Learning schedule")
-                .setView(box)
-                .setPositiveButton("Save", (d, w) -> {
-                    ai.dvine.learn.NightLearn.Plan p = new ai.dvine.learn.NightLearn.Plan(on.isChecked(), start[0], end[0],
-                            wifi.isChecked(), charging.isChecked(), was.most);
-                    ai.dvine.learn.NightLearnJob.setPlan(this, p);
-                    note(p.on ? "Learning is scheduled: " + p.words() + "." : "Scheduled learning is off.");
-                })
-                .setNeutralButton("Learn now", (d, w) -> {
-                    ai.dvine.learn.NightLearnJob.learnNow(this);
-                    note(DVINE_OWN + " is learning now. The Workload sheet shows what it's on.");
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+
+    private ai.dvine.dvine1.Dvine1 dvine1;
+
+    /** DVINE 1 · 0.1, DVINE's own model (its whole code is in the dvine1 folder), plugged into this screen. */
+    private synchronized ai.dvine.dvine1.Dvine1 dvine1() {
+        if (dvine1 == null) {
+            dvine1 = new ai.dvine.dvine1.Dvine1(new ai.dvine.main.Dvine1Screen(this, dvineScreen), getFilesDir());
+        }
+        return dvine1;
     }
 
-    /** The question DVINE 1 last asked "accurate?" about, for a correction the pilot types instead of tapping. */
-    private String ratingQuestion;
+    /** What DVINE 1 is given of this screen (see main/Dvine1Screen). */
+    private final ai.dvine.main.Dvine1Screen.Parts dvineScreen = new ai.dvine.main.Dvine1Screen.Parts() {
+        @Override
+        public String persona() {
+            return stage.agent();
+        }
 
-    /** Questions about DVINE itself: what it learned, what it knows, who it is. Null for anything else. */
-    private String aboutDvine(String t) {
-        String q = t.toLowerCase(java.util.Locale.US);
-        // "what do you know about shoes" is a question about shoes, not about DVINE's memory
-        if (q.matches("(?s).*\\bwhat (have|did) you (learn|learned|learnt)\\b(?!.*\\babout\\b).*"
-                + "|.*\\bwhat do you (know|remember)\\b(?!.*\\babout\\b).*|.*\\bwhat have you (remembered|saved|kept)\\b(?!.*\\babout\\b).*")) {
-            java.util.List<ai.dvine.learn.Knowledge.Fact> sure = knowledge().confirmed();
-            java.util.List<String> me = pilotProfile().lines();
-            StringBuilder b = new StringBuilder();
-            b.append(sure.isEmpty() ? "No answers confirmed yet: tap the check under an answer that's right and I keep it."
-                    : "Answers you confirmed (" + sure.size() + "):");
-            for (int i = sure.size() - 1, n = 0; i >= 0 && n < 8; i--, n++) {
-                ai.dvine.learn.Knowledge.Fact f = sure.get(i);
-                String a = f.answer.replaceAll("\\s+", " ");
-                b.append("\n- ").append(f.question).append(" \u2192 ").append(a.length() > 90 ? a.substring(0, 90) + "\u2026" : a);
+        @Override
+        public ai.dvine.stage.ChatPane chat() {
+            return chatPane;
+        }
+
+        @Override
+        public void say(String persona, String text) {
+            play(LocalTurn.speakAs(persona, text), null);
+        }
+
+        @Override
+        public boolean online() {
+            return connectivity == null || connectivity.isOnline();
+        }
+
+        @Override
+        public ai.dvine.learn.BrainBox brainBox() {
+            return MainActivity.this.brainBox();
+        }
+
+        @Override
+        public java.util.List<String> aboutPilot() {
+            return pilotProfile().lines();
+        }
+
+        @Override
+        public void answered(ai.dvine.dvine1.Dvine1.How how) {
+            if (model != null) {
+                model.usage.recordOwn(how == ai.dvine.dvine1.Dvine1.How.MEMORY ? ai.dvine.llm.UsageLog.Own.MEMORY
+                        : how == ai.dvine.dvine1.Dvine1.How.RESEARCH ? ai.dvine.llm.UsageLog.Own.RESEARCH : ai.dvine.llm.UsageLog.Own.OTHER,
+                        System.currentTimeMillis());
             }
-            if (!me.isEmpty()) {
-                b.append("\nAbout you: ").append(String.join("; ", me)).append('.');
-            }
-            b.append("\nRead and understood: ").append(facts().size()).append(facts().size() == 1 ? " fact, " : " facts, ")
-                    .append(lexicon().size()).append(lexicon().size() == 1 ? " word." : " words.");
-            int talk = brainBox().talkSize(), shapes = brainBox().templateCount();
-            if (talk + shapes > 0) {
-                b.append("\nFrom the models you used: ").append(talk).append(talk == 1 ? " answer" : " answers").append(" and ")
-                        .append(shapes).append(shapes == 1 ? " action shape." : " action shapes.");
-            }
-            return b.toString();
+            checkWorkload();
         }
-        if (q.matches("(?s)\\s*(who|what) are you\\??\\s*|.*\\bwhat can you do\\b.*")) {
-            return "I'm " + DVINE_OWN + ", DVINE's own brain, running on this device with no model loaded. I work out sums exactly,"
-                    + " answer what you've confirmed before however it's asked, research what I don't know and learn from your"
-                    + " check and cancel. For open-ended writing or reasoning, pick an API or offline model: I learn from them too.";
-        }
-        return null;
-    }
 
-    /**
-     * A statement in DVINE 1's chat: right after an answer it asked about, it is taken as the right answer to that
-     * question; "a pig is an animal" on its own is kept as what a pig is. Nothing is searched.
-     */
-    private String learnStatement(String t) {
-        String said = t.trim();
-        if (ratingQuestion != null && chatPane != null && chatPane.ratingWaiting()) {
-            String q = ratingQuestion;
-            ratingQuestion = null;
-            chatPane.clearRating();
-            knowledge().confirm(q, said);
-            brainBox().learnTalk(q, said);
-            return "Got it. When you ask \u201c" + q + "\u201d, I'll answer: " + said;
+        @Override
+        public void note(String text) {
+            MainActivity.this.note(text);
         }
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)^(?:(the|a|an) )?(.{2,60}?) (is|are|was|were) (.{2,300}?)[.!]*$").matcher(said);
-        if (m.matches()) {
-            String subject = (m.group(1) == null ? "" : m.group(1) + " ") + m.group(2);
-            String verb = m.group(3).toLowerCase(java.util.Locale.US);
-            knowledge().confirm("What " + verb + " " + subject + "?", said);
-            if (Character.isUpperCase(m.group(2).charAt(0)) && m.group(1) == null) {
-                knowledge().confirm("Who " + verb + " " + subject + "?", said); // a name: kept for "who" too
-            }
-            return "Noted. Ask me what " + verb + " " + subject + " and I'll remember.";
-        }
-        return "Noted.";
-    }
 
-    /** Correct keeps the answer for this intent (and as talk the brain box knows); Wrong marks it wrong, never given again. */
-    private void rate(String question, String answer, boolean right) {
-        if (question == null || answer == null) {
-            return;
+        @Override
+        public android.os.Handler handler() {
+            return handler;
         }
-        if (right) {
-            knowledge().confirm(question, answer);
-            brainBox().learnTalk(question, answer);
-            note("Saved to DVINE's memory: it will answer this, however it's asked.");
-        } else {
-            knowledge().reject(question, answer);
-            brainBox().forgetTalk(question);
-            ai.dvine.learn.NightLearnJob.remember(this, question); // tried again tonight, from other sources
-            note("Got it: DVINE won't give that answer again.");
-        }
-    }
+    };
 
     private synchronized ai.dvine.suit.Cortex cortex() {
         if (cortex == null) {
@@ -4180,9 +3526,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             new Thread(() -> {
                 pilotProfile().notice(said); // what the pilot says about themselves
                 // what the pilot asks about, with any model: learned at night if DVINE 1 doesn't know it yet
-                if (ai.dvine.suit.ResearchAnswer.subject(said) != null && knowledge().recall(said) == null) {
-                    ai.dvine.learn.NightLearnJob.remember(this, said);
-                }
+                dvine1().noticeQuestion(said);
             }, "dvine-profile").start();
         }
         if (!interpreted && needsInternet() && (connectivity == null || !connectivity.isOnline())) {
@@ -4937,7 +4281,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
 
-    private void reportModel() {
+    void reportModel() {
         String line;
         if (model.state() == ai.dvine.llm.LocalModel.State.UNSUPPORTED) {
             line = model.problem();
@@ -5478,7 +4822,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * The brain the user chose on the AI providers sheet: an API answers while the phone is online (the phone's own
      * brain, when installed, answers when it isn't); "On this device" uses only the phone's.
      */
-    private void applyProvider() {
+    void applyProvider() {
         if (model == null) {
             return;
         }
@@ -5541,222 +4885,27 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * download), or go to every model, or to the AI providers (API models).
      */
     /** Which brain the user picked: "dvine" (DVINE's own), "device" (the offline model) or "api" (the default). */
-    private String brainPick() {
+    String brainPick() {
         return prefs == null ? "api" : prefs.getString("brain_pick", "api");
     }
 
     /** DVINE 1.0: DVINE's own intelligence (the Cortex and what it learned), with no model loaded at all. */
-    private boolean dvineOwn() {
+    boolean dvineOwn() {
         return "dvine".equals(brainPick());
     }
 
     static final String DVINE_OWN = "DVINE 1 \u00B7 0.1";
 
-    /**
-     * The model under the title, tapped: every brain to pick from, the one in use clearly marked (a filled radio with a
-     * check, a tinted row, "In use"): DVINE 1.0 (DVINE's own), the API models set up, the offline models on the device.
-     */
-    private void showModelSwitch() {
-        final ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
-        final String pick = brainPick();
-        final android.widget.LinearLayout list = new android.widget.LinearLayout(this);
-        list.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = dp(16);
-        list.setPadding(pad, 0, pad, pad);
-        final android.app.Dialog[] sheet = new android.app.Dialog[1];
-        list.addView(brainHeader("DVINE"));
-        list.addView(brainRow(DVINE_OWN, "DVINE's own intelligence: built in, no download, instant. Exact sums, reading what"
-                + " you mean, and everything it learned from the models you used.", dvineOwn(), () -> {
-                    prefs.edit().putString("brain_pick", "dvine").apply();
-                    applyProvider();
-                    if (model != null) {
-                        final ai.dvine.llm.LocalModel leaving = model;
-                        hub.worker.execute(leaving::releaseIfIdle); // no model in memory: DVINE thinks on its own
-                    }
-                    note(DVINE_OWN + " is answering.");
-                    sheet[0].dismiss();
-                }));
-        java.util.List<ai.dvine.llm.Providers> apis = providers.usable();
-        if (!apis.isEmpty()) {
-            list.addView(brainHeader("API models"));
-            for (int i = 0; i < apis.size(); i++) {
-                final ai.dvine.llm.Providers p = apis.get(i);
-                boolean on = "api".equals(pick) && i == 0;
-                list.addView(brainRow(providers.model(p), p.title + (i == 0 ? " \u00B7 primary" : " \u00B7 backup"), on, () -> {
-                    providers.setActive(p);
-                    prefs.edit().putString("brain_pick", "api").apply();
-                    applyProvider();
-                    note(providers.model(p) + " is answering.");
-                    sheet[0].dismiss();
-                }));
-            }
-        }
-        boolean anyHere = false;
-        for (final ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.ALL) {
-            if (model == null || !model.has(m)) {
-                continue;
-            }
-            if (!anyHere) {
-                list.addView(brainHeader("Offline models on this device"));
-                anyHere = true;
-            }
-            boolean on = "device".equals(pick) && m.file.equals(hub.chosen().file)
-                    || "api".equals(pick) && apis.isEmpty() && m.file.equals(hub.chosen().file);
-            list.addView(brainRow(m.weights, "Offline, on this device. " + m.about + " Needs " + m.ramGb + " GB of memory.", on, () -> {
-                prefs.edit().putString("brain_pick", "device").putBoolean("llm_on", true).apply();
-                applyProvider();
-                if (m.file.equals(hub.chosen().file)) {
-                    if (!model.localReady()) {
-                        loadModel(true);
-                    }
-                    note(m.weights + " is answering.");
-                } else {
-                    switchOfflineModel(m);
-                }
-                sheet[0].dismiss();
-            }));
-        }
-        list.addView(brainHeader("More"));
-        ai.dvine.learn.NightLearn.Plan night = ai.dvine.learn.NightLearnJob.plan(this);
-        list.addView(brainLink("Learning schedule", night.on ? "On, " + night.words() : "Off. Let " + DVINE_OWN + " learn at the hours you choose",
-                () -> {
-                    sheet[0].dismiss();
-                    showNightLearning();
-                }));
-        list.addView(brainLink("All offline models", "Download another family or size, or delete one",
-                () -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class))));
-        list.addView(brainLink("AI providers", "API models and keys", this::openProviders));
-        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(this, "Choose the brain", list);
-    }
 
-    private int dp(int v) {
+    int dp(int v) {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
-    private android.widget.TextView brainHeader(String name) {
-        android.widget.TextView t = new android.widget.TextView(this);
-        t.setText(name);
-        t.setTextSize(13f);
-        t.setTextColor(getColor(R.color.text_secondary));
-        t.setPadding(dp(4), dp(14), 0, dp(6));
-        return t;
-    }
 
-    /**
-     * One brain to pick: a radio circle (filled with the accent and a check when it is the one in use), the name and
-     * what it is; the row in use is tinted with an accent edge and says "In use", so it can't be missed.
-     */
-    private android.view.View brainRow(String name, String about, boolean selected, final Runnable pick) {
-        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
-        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(12), dp(12), dp(12), dp(12));
-        row.setMinimumHeight(dp(64));
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setCornerRadius(dp(16));
-        int accent = getColor(R.color.accent);
-        if (selected) {
-            bg.setColor((accent & 0x00FFFFFF) | 0x24000000);
-            bg.setStroke(dp(2), accent);
-        } else {
-            bg.setColor(0x00000000);
-        }
-        row.setBackground(bg);
-        // the radio: an empty ring, or a filled accent circle with a white check
-        android.widget.TextView radio = new android.widget.TextView(this);
-        radio.setGravity(android.view.Gravity.CENTER);
-        radio.setTextSize(13f);
-        radio.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
-        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        if (selected) {
-            dot.setColor(accent);
-            radio.setText("\u2713");
-            radio.setTextColor(getColor(R.color.on_accent));
-        } else {
-            dot.setColor(0x00000000);
-            dot.setStroke(dp(2), getColor(R.color.text_secondary));
-        }
-        radio.setBackground(dot);
-        android.widget.LinearLayout.LayoutParams rp = new android.widget.LinearLayout.LayoutParams(dp(24), dp(24));
-        rp.rightMargin = dp(14);
-        row.addView(radio, rp);
-        android.widget.LinearLayout words = new android.widget.LinearLayout(this);
-        words.setOrientation(android.widget.LinearLayout.VERTICAL);
-        android.widget.TextView title = new android.widget.TextView(this);
-        title.setText(name);
-        title.setTextSize(16f);
-        title.setTextColor(getColor(selected ? R.color.accent : R.color.text_primary));
-        title.setTypeface(selected ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);
-        words.addView(title);
-        android.widget.TextView sub = new android.widget.TextView(this);
-        sub.setText(about);
-        sub.setTextSize(12.5f);
-        sub.setTextColor(getColor(R.color.text_secondary));
-        words.addView(sub);
-        row.addView(words, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (selected) {
-            android.widget.TextView inUse = new android.widget.TextView(this);
-            inUse.setText("In use");
-            inUse.setTextSize(12f);
-            inUse.setTextColor(getColor(R.color.on_accent));
-            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable();
-            pill.setColor(accent);
-            pill.setCornerRadius(dp(10));
-            inUse.setBackground(pill);
-            inUse.setPadding(dp(8), dp(3), dp(8), dp(3));
-            android.widget.LinearLayout.LayoutParams ip = new android.widget.LinearLayout.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-            ip.leftMargin = dp(8);
-            row.addView(inUse, ip);
-        }
-        row.setContentDescription(name + (selected ? ", in use" : ""));
-        row.setOnClickListener(v -> pick.run());
-        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dp(6);
-        row.setLayoutParams(lp);
-        return row;
-    }
 
-    private android.view.View brainLink(String name, String about, Runnable open) {
-        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
-        row.setOrientation(android.widget.LinearLayout.VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        android.widget.TextView t = new android.widget.TextView(this);
-        t.setText(name + "  \u203A");
-        t.setTextSize(15f);
-        t.setTextColor(getColor(R.color.accent));
-        row.addView(t);
-        android.widget.TextView a = new android.widget.TextView(this);
-        a.setText(about);
-        a.setTextSize(12.5f);
-        a.setTextColor(getColor(R.color.text_secondary));
-        row.addView(a);
-        row.setOnClickListener(v -> open.run());
-        return row;
-    }
 
-    /** Switches to an offline model that is already on the phone, keeping the other file, and loads it. */
-    private void switchOfflineModel(ai.dvine.llm.ModelSpec next) {
-        if (next.file.equals(hub.chosen().file)) {
-            return;
-        }
-        if (hub.downloading()) {
-            note("Pause the model download first, then switch.");
-            return;
-        }
-        new ai.dvine.llm.ModelGuard(prefs).clear(next.file); // chosen on purpose: tried again
-        hub.choose(this, next, false);
-        modelGeneration = hub.generation;
-        reportModel();
-        note("Switching to " + next.weights + "\u2026");
-        applyProvider(); // the header names the model now in use
-        if (prefs.getBoolean("llm_on", true)) {
-            loadModel(false);
-        }
-    }
 
-    private void openProviders() {
+    void openProviders() {
         startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ProvidersActivity.class));
     }
 
@@ -5788,9 +4937,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** The model choice this screen loaded ({@link ai.dvine.llm.ModelHub#generation}). */
-    private int modelGeneration;
+    int modelGeneration;
 
-    private void loadModel(final boolean tell) {
+    void loadModel(final boolean tell) {
         if (!tell && dvineOwn()) {
             return; // DVINE 1.0 answers on its own: no model is loaded
         }

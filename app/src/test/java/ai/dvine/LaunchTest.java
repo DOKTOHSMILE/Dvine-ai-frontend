@@ -927,7 +927,7 @@ public class LaunchTest {
         assertNotNull(described(root, "Wrong"));
         described(root, "Correct").performClick();
         org.junit.Assert.assertNull("marked once", described(root, "Correct"));
-        ai.dvine.learn.Knowledge k = new ai.dvine.learn.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        ai.dvine.dvine1.Knowledge k = new ai.dvine.dvine1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
         org.junit.Assert.assertEquals("The capital of Kenya is Nairobi.", k.recall("Kenya's capital city?").answer);
         c.pause().stop().destroy();
     }
@@ -937,18 +937,15 @@ public class LaunchTest {
     public void dvineLearnsFromStatementsAndSaysWhatItLearned() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        java.lang.reflect.Method learn = MainActivity.class.getDeclaredMethod("learnStatement", String.class);
-        learn.setAccessible(true);
-        org.junit.Assert.assertTrue(((String) learn.invoke(c.get(), "A pig is an animal")).startsWith("Noted."));
-        ai.dvine.learn.Knowledge k = new ai.dvine.learn.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        ai.dvine.dvine1.Dvine1 dvine = dvine1(c.get());
+        org.junit.Assert.assertTrue(dvine.learnStatement("A pig is an animal").startsWith("Noted."));
+        ai.dvine.dvine1.Knowledge k = new ai.dvine.dvine1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
         org.junit.Assert.assertEquals("A pig is an animal", k.recall("what's a pig?").answer);
-        java.lang.reflect.Method about = MainActivity.class.getDeclaredMethod("aboutDvine", String.class);
-        about.setAccessible(true);
-        String said = (String) about.invoke(c.get(), "What have you learned so far?");
+        String said = dvine.aboutMe("What have you learned so far?");
         org.junit.Assert.assertTrue(said, said.contains("A pig is an animal"));
-        org.junit.Assert.assertNull(about.invoke(c.get(), "What is a pig?"));
-        org.junit.Assert.assertNull("a question about shoes", about.invoke(c.get(), "What do you know about a shoe?"));
-        org.junit.Assert.assertNotNull(about.invoke(c.get(), "What do you know?"));
+        org.junit.Assert.assertNull(dvine.aboutMe("What is a pig?"));
+        org.junit.Assert.assertNull("a question about shoes", dvine.aboutMe("What do you know about a shoe?"));
+        org.junit.Assert.assertNotNull(dvine.aboutMe("What do you know?"));
         c.pause().stop().destroy();
     }
 
@@ -972,9 +969,7 @@ public class LaunchTest {
         org.junit.Assert.assertEquals("the page stays", "obi", c.get().getSharedPreferences("dvine", 0).getString("face", "obi"));
 
         c.get().getSharedPreferences("dvine", 0).edit().putString("brain_pick", "dvine").apply();
-        java.lang.reflect.Method ans = MainActivity.class.getDeclaredMethod("dvineAnswer", String.class);
-        ans.setAccessible(true);
-        ans.invoke(c.get(), "what is 12 times 7");
+        dvine1(c.get()).answer("what is 12 times 7");
         java.lang.reflect.Field bf = MainActivity.class.getDeclaredField("chats");
         bf.setAccessible(true);
         ai.dvine.chat.ChatBook book = (ai.dvine.chat.ChatBook) bf.get(c.get());
@@ -991,11 +986,11 @@ public class LaunchTest {
         c.get().findViewById(R.id.tv_header_sub).performClick();
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
         assertNotNull(find(sheet.getWindow().getDecorView(), "Learning schedule  \u203A"));
-        ai.dvine.learn.NightLearnJob.setPlan(c.get(), new ai.dvine.learn.NightLearn.Plan(true, 23 * 60, 6 * 60, true, true, 40));
+        ai.dvine.dvine1.LearningJob.setPlan(c.get(), new ai.dvine.dvine1.LearningSchedule.Plan(true, 23 * 60, 6 * 60, true, true, 40));
         android.app.job.JobScheduler js = c.get().getSystemService(android.app.job.JobScheduler.class);
         org.junit.Assert.assertEquals(1, js.getAllPendingJobs().size());
         org.junit.Assert.assertTrue(js.getAllPendingJobs().get(0).isRequireCharging());
-        ai.dvine.learn.NightLearnJob.setPlan(c.get(), ai.dvine.learn.NightLearn.Plan.defaults());
+        ai.dvine.dvine1.LearningJob.setPlan(c.get(), ai.dvine.dvine1.LearningSchedule.Plan.defaults());
         org.junit.Assert.assertEquals("off: nothing waits", 0, js.getAllPendingJobs().size());
         sheet.dismiss();
         c.pause().stop().destroy();
@@ -1062,7 +1057,7 @@ public class LaunchTest {
         described(root, "Correct").performClick();
         org.junit.Assert.assertNull("the buttons go once it is rated", described(root, "Correct"));
         org.junit.Assert.assertFalse(pane.ratingWaiting());
-        ai.dvine.learn.Knowledge k = new ai.dvine.learn.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        ai.dvine.dvine1.Knowledge k = new ai.dvine.dvine1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
         assertNotNull(k.recall("who created microsoft"));
         org.junit.Assert.assertEquals(answer, k.recall("Who's the founder of Microsoft?").answer);
         c.pause().stop().destroy();
@@ -1099,6 +1094,13 @@ public class LaunchTest {
         }
         row.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    /** DVINE 1 as plugged into the screen. */
+    private static ai.dvine.dvine1.Dvine1 dvine1(MainActivity a) throws Exception {
+        java.lang.reflect.Method m = MainActivity.class.getDeclaredMethod("dvine1");
+        m.setAccessible(true);
+        return (ai.dvine.dvine1.Dvine1) m.invoke(a);
     }
 
     private static void collect(android.view.View v, Class<?> kind, java.util.List<android.view.View> into) {
@@ -1195,7 +1197,7 @@ public class LaunchTest {
         org.junit.Assert.assertTrue("an icon a tool", icons.size() >= ai.dvine.suit.ChatTools.offered("ibiko").size());
         org.junit.Assert.assertNotNull(described(sheet.getWindow().getDecorView(), "Connectors settings"));
         org.junit.Assert.assertNull("deep thinking has no settings of its own", described(sheet.getWindow().getDecorView(), "Deep thinking settings"));
-        org.junit.Assert.assertEquals(R.drawable.ic_branch, MainActivity.toolIcon(ai.dvine.suit.ChatTools.Tool.GITHUB));
+        org.junit.Assert.assertEquals(R.drawable.ic_branch, ToolsMenu.toolIcon(ai.dvine.suit.ChatTools.Tool.GITHUB));
         sheet.dismiss();
 
         android.view.View drawer = c.get().findViewById(ai.dvine.R.id.historyDrawer);

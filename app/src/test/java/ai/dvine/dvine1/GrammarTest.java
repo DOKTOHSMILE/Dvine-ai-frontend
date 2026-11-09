@@ -1,4 +1,4 @@
-package ai.dvine.suit;
+package ai.dvine.dvine1;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -9,8 +9,8 @@ import java.util.List;
 
 import org.junit.Test;
 
-import ai.dvine.learn.Facts;
-import ai.dvine.learn.Lexicon;
+
+
 
 /** DVINE 1's language formulas: reading intent and parts, reading facts from text, and saying answers as sentences. */
 public class GrammarTest {

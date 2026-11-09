@@ -1,4 +1,4 @@
-package ai.dvine.learn;
+package ai.dvine.dvine1;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * DVINE 1's own dictionary: words it met while being used, each with its part of speech and meaning, learned from
  * Wiktionary in a learning session. It answers "what does X mean" and "define X", and tells the {@link
- * ai.dvine.suit.Grammar} formulas which words are verbs. Kept in a file on the device.
+ * Grammar} formulas which words are verbs. Kept in a file on the device.
  */
 public final class Lexicon {
     public static final class Word {
@@ -43,6 +43,11 @@ public final class Lexicon {
 
     public synchronized Word get(String word) {
         return words.get(key(word));
+    }
+
+    /** Every word it knows. */
+    public synchronized java.util.List<Word> words() {
+        return new java.util.ArrayList<Word>(words.values());
     }
 
     public synchronized boolean knows(String word) {
@@ -96,12 +101,12 @@ public final class Lexicon {
             return null;
         }
         try {
-            Map<String, Object> m = ai.dvine.brain.MiniJson.obj(ai.dvine.brain.MiniJson.parse(json));
-            for (Object o : ai.dvine.brain.MiniJson.list(m.get("en"))) {
-                Map<String, Object> usage = ai.dvine.brain.MiniJson.obj(o);
-                String part = ai.dvine.brain.MiniJson.str(usage.get("partOfSpeech"), "");
-                for (Object d : ai.dvine.brain.MiniJson.list(usage.get("definitions"))) {
-                    String text = ai.dvine.brain.MiniJson.str(ai.dvine.brain.MiniJson.obj(d).get("definition"), "")
+            Map<String, Object> m = Json.obj(Json.parse(json));
+            for (Object o : Json.list(m.get("en"))) {
+                Map<String, Object> usage = Json.obj(o);
+                String part = Json.str(usage.get("partOfSpeech"), "");
+                for (Object d : Json.list(usage.get("definitions"))) {
+                    String text = Json.str(Json.obj(d).get("definition"), "")
                             .replaceAll("<[^>]+>", "").replaceAll("&nbsp;", " ").replaceAll("&amp;", "&").replaceAll("\\s+", " ").trim();
                     if (text.length() > 3 && !part.isEmpty()) {
                         return new Word(key(word), part, text.endsWith(".") ? text : text + ".");
