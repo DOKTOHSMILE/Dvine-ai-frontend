@@ -98,6 +98,7 @@ public final class TerminalActivity extends AppCompatActivity {
         input.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         input.setImeOptions(EditorInfo.IME_ACTION_GO);
+        input.setImportantForAutofill(android.view.View.IMPORTANT_FOR_AUTOFILL_NO);
         input.setOnEditorActionListener((v, action, event) -> {
             if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE
                     || action == EditorInfo.IME_ACTION_SEND) {
@@ -146,6 +147,7 @@ public final class TerminalActivity extends AppCompatActivity {
         setContentView(page);
         Ui.fitInsets(page);
         input.requestFocus();
+        loadKept();
         boot();
     }
 
@@ -404,8 +406,13 @@ public final class TerminalActivity extends AppCompatActivity {
             prompt.setText(promptText());
         }
         String next = log.toString() + extra;
-        if (!next.equals(transcript.getText().toString())) {
-            transcript.setText(next);
+        String have = transcript.getText().toString();
+        if (!next.equals(have)) {
+            if (!have.isEmpty() && next.startsWith(have)) {
+                transcript.append(next.substring(have.length()));
+            } else {
+                transcript.setText(next);
+            }
         }
         if (jump && !touching) {
             stick = true;
@@ -414,7 +421,7 @@ public final class TerminalActivity extends AppCompatActivity {
     }
 
     private void boot() {
-        append("Preparing Linux…\n");
+        final boolean empty = log.length() == 0;
         worker.execute(() -> {
             try {
                 LinuxRoot.install(this, line -> runOnUiThread(() -> append(line + "\n")));
@@ -422,7 +429,9 @@ public final class TerminalActivity extends AppCompatActivity {
                     return;
                 }
                 linuxUp = true;
-                runOnUiThread(() -> append(WELCOME));
+                if (empty) {
+                    runOnUiThread(() -> append(WELCOME));
+                }
             } catch (Exception e) {
                 String why = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
                 runOnUiThread(() -> append("Linux did not start: " + why + "\n"));
@@ -450,7 +459,9 @@ public final class TerminalActivity extends AppCompatActivity {
         String trimmed = line.trim();
         if ("clear".equals(trimmed)) {
             log.setLength(0);
+            liveOut.setLength(0);
             paint(true);
+            keep();
             return;
         }
         if ("exit".equals(trimmed)) {
@@ -501,6 +512,7 @@ public final class TerminalActivity extends AppCompatActivity {
                     job = null;
                 }
                 paint(stick && !touching);
+                keep();
             });
         });
     }
@@ -512,6 +524,63 @@ public final class TerminalActivity extends AppCompatActivity {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private File kept(String name) {
+        return new File(new File(getFilesDir(), "linux"), name);
+    }
+
+    /** The session and the recalled commands survive leaving the screen. */
+    private void loadKept() {
+        try {
+            File session = kept("session.txt");
+            if (session.isFile()) {
+                String text = new String(java.nio.file.Files.readAllBytes(session.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                if (text.length() > 140000) {
+                    text = text.substring(text.length() - 140000);
+                }
+                log.append(text);
+                paint(true);
+            }
+            File past = kept("history.txt");
+            if (past.isFile()) {
+                String[] lines = new String(java.nio.file.Files.readAllBytes(past.toPath()), java.nio.charset.StandardCharsets.UTF_8).split("\n");
+                for (String line : lines) {
+                    if (!line.isEmpty()) {
+                        history.add(line);
+                    }
+                }
+                historyAt = history.size();
+            }
+        } catch (Exception ignored) {
+            // a missing session just starts empty
+        }
+    }
+
+    private void keep() {
+        final String text = log.toString();
+        final java.util.ArrayList<String> past = new java.util.ArrayList<String>(history);
+        new Thread(() -> {
+            try {
+                File dir = new File(getFilesDir(), "linux");
+                dir.mkdirs();
+                java.nio.file.Files.write(kept("session.txt").toPath(), text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                StringBuilder out = new StringBuilder();
+                int from = Math.max(0, past.size() - 200);
+                for (int i = from; i < past.size(); i++) {
+                    out.append(past.get(i)).append('\n');
+                }
+                java.nio.file.Files.write(kept("history.txt").toPath(), out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (Exception ignored) {
+                // the session still works if it cannot be saved
+            }
+        }, "dvine-term-keep").start();
+    }
+
+    @Override
+    protected void onPause() {
+        keep();
+        super.onPause();
     }
 
     private void append(String more) {

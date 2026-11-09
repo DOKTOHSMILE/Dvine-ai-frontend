@@ -1,3 +1,9 @@
+# Session (0.99.29)
+
+- [x] New output is added on the end. The session is not rebuilt, so it does not jump.
+- [x] The session and the up-arrow history are still there after you leave the screen.
+- [x] Opening the shell again does not print the welcome a second time. Autofill does not cover the prompt.
+
 # Keyboard (0.99.28)
 
 - [x] Keys go to a real prompt line. The session is not redrawn on every letter, so the screen stays still and the keyboard stays open.
