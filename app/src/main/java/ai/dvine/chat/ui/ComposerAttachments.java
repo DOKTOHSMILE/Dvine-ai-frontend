@@ -69,24 +69,22 @@ public final class ComposerAttachments {
 
     /** The message for the model: the words, then each attachment (images as markers, texts as data blocks). */
     public String forModel(String words) {
-        StringBuilder b = new StringBuilder(words == null || words.trim().isEmpty()
-                ? (items.size() == 1 && "image".equals(items.get(0).kind) ? "What do you make of this image?" : "Look at the attachment.")
-                : words.trim());
+        String said = words == null ? "" : words.trim();
+        if (said.isEmpty()) {
+            // No words yet: say what there is, singular or plural, instead of one fixed line.
+            said = items.isEmpty() ? "Look at the attachment."
+                    : items.size() == 1 && "image".equals(items.get(0).kind)
+                    ? "What do you make of this image?" : "Look at the attachments.";
+        }
+        StringBuilder b = new StringBuilder(said);
         for (Item it : items) {
             b.append("\n\n");
             if ("image".equals(it.kind)) {
                 b.append(Attachments.image(it.path));
             } else if ("doc".equals(it.kind)) {
-                java.util.List<String> pages = new java.util.ArrayList<String>();
-                for (String p : it.text.split("\n")[0].split(";")) {
-                    if (!p.isEmpty()) {
-                        pages.add(p);
-                    }
-                }
-                String[] meta = it.text.split("\n");
-                b.append(Attachments.file(it.path, meta.length > 2 ? meta[2] : "application/octet-stream", it.name, pages));
+                b.append(Attachments.file(it.path, mime(it), it.name, pageList(it)));
             } else {
-                b.append(Attachments.text(it.name, it.text));
+                b.append(Attachments.text(it.name, it.text == null ? "" : it.text));
             }
         }
         return b.toString();
@@ -94,8 +92,53 @@ public final class ComposerAttachments {
 
     /** What kind of file it is ("PDF · 12 pages", "Spreadsheet", "Video"). */
     public static String pages(Item it) {
-        String[] lines = it.text == null ? new String[0] : it.text.split("\n");
+        String[] lines = meta(it);
         return lines.length > 1 ? lines[1].trim() : "File";
+    }
+
+    /** The doc's three metadata lines: page list, human label, mime (missing lines read as empty). */
+    private static String[] meta(Item it) {
+        return it == null || it.text == null ? new String[0] : it.text.split("\n");
+    }
+
+    private static String mime(Item it) {
+        String[] lines = meta(it);
+        return lines.length > 2 && !lines[2].isEmpty() ? lines[2] : "application/octet-stream";
+    }
+
+    /** The page list the reader recorded ("1;2;5"), as individual entries. */
+    private static List<String> pageList(Item it) {
+        List<String> pages = new ArrayList<String>();
+        String[] lines = meta(it);
+        if (lines.length > 0) {
+            for (String p : lines[0].split(";")) {
+                if (!p.isEmpty()) {
+                    pages.add(p);
+                }
+            }
+        }
+        return pages;
+    }
+
+    /** The thumbnail, decoded at about the size it is shown rather than a fixed quarter scale. */
+    private Bitmap thumb(Item it) {
+        if (it.path == null || it.path.isEmpty()) {
+            return null;
+        }
+        int target = Math.max(Ui.dp(context, 64), 1);
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(it.path, bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            return null; // not an image the decoder understands
+        }
+        int sample = 1;
+        while (bounds.outWidth / (sample * 2) >= target && bounds.outHeight / (sample * 2) >= target) {
+            sample *= 2;
+        }
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inSampleSize = sample;
+        return BitmapFactory.decodeFile(it.path, o);
     }
 
     private void render() {
@@ -106,12 +149,11 @@ public final class ComposerAttachments {
             if ("image".equals(it.kind)) {
                 ImageView img = new ImageView(context);
                 img.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                BitmapFactory.Options o = new BitmapFactory.Options();
-                o.inSampleSize = 4;
-                Bitmap bmp = BitmapFactory.decodeFile(it.path, o);
+                Bitmap bmp = thumb(it);
                 if (bmp != null) {
                     img.setImageBitmap(bmp);
                 }
+                img.setContentDescription("Attached " + (it.name == null ? "image" : it.name));
                 img.setBackground(Ui.round(context, Ui.FIELD, 0, 12));
                 img.setClipToOutline(true);
                 face = img;
@@ -121,11 +163,13 @@ public final class ComposerAttachments {
                 card.setOrientation(LinearLayout.VERTICAL);
                 card.setBackground(Ui.round(context, Ui.FIELD, Ui.LINE, 12));
                 card.setPadding(Ui.dp(context, 10), Ui.dp(context, 8), Ui.dp(context, 22), Ui.dp(context, 8));
-                TextView n = Ui.text(context, it.name, 13, Ui.TEXT, true);
+                TextView n = Ui.text(context, it.name == null ? "Attachment" : it.name, 13, Ui.TEXT, true);
                 n.setSingleLine(true);
                 n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
                 card.addView(n);
-                card.addView(Ui.text(context, "text".equals(it.kind) ? Attachments.lines(it.text) : "doc".equals(it.kind) ? pages(it) : "file",
+                card.addView(Ui.text(context, "text".equals(it.kind)
+                                ? Attachments.lines(it.text)
+                                : "doc".equals(it.kind) ? pages(it) : "File",
                         12, Ui.SUB, false));
                 face = card;
                 box.addView(face, new FrameLayout.LayoutParams(Ui.dp(context, 150), Ui.dp(context, 64)));
@@ -133,7 +177,7 @@ public final class ComposerAttachments {
             TextView x = Ui.text(context, "✕", 11, Ui.TEXT, true);
             x.setGravity(Gravity.CENTER);
             x.setBackground(Ui.round(context, Ui.SURFACE, Ui.LINE, 10));
-            x.setContentDescription("Remove " + it.name);
+            x.setContentDescription("Remove " + (it.name == null ? "attachment" : it.name));
             x.setOnClickListener(v -> {
                 items.remove(it);
                 render();
