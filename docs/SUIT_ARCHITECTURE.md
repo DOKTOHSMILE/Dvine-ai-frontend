@@ -78,8 +78,19 @@ model's memory. The pick is kept as `brain_pick` (`dvine`, `api`, `device`).
 4. Otherwise it researches the web and answers from the sources' own sentences (`suit/ResearchAnswer`), naming them,
    and asks Correct / Wrong. Correct saves it; Wrong marks that answer wrong for that intent.
 
-5. At night (if the pilot turned night learning on) it learns only from usage: what it missed or got wrong, what the
+5. In its learning sessions (the hours the pilot chose, or Learn now) it learns only from usage: what it missed or got wrong, what the
    pilot asked about, and the pilot's interests; those answers are offered with the check and cancel until confirmed.
+
+### Language formulas (`suit/Grammar`, `learn/Facts`, `learn/Lexicon`)
+
+| Formula | Reads | Example |
+|---|---|---|
+| Intent | greeting, thanks, question, command, statement | "Tell me about volcanoes" → command, about volcanoes |
+| Wants | person, thing, time, place, reason, way, number, yes/no | "What year did the war end?" → time |
+| F1–F4 focus | what a question is about, its action and object | "When was Microsoft founded?" → Microsoft, found, passive |
+| T1–T5 facts | any text into (subject, relation, object) | "Bell invented the telephone in 1876." → (telephone, invent by, Bell), (telephone, invent in, 1876) |
+| Say | a fact back as a sentence of its own | "Alexander Graham Bell invented the telephone." |
+| Words | "what does X mean", "define X" | from its dictionary, learned from Wiktionary |
 
 It does not reason the way a language model does: it retrieves, checks and remembers. Reasoning it can't do yet is
 the selected model's, and what that model answers is learned too.

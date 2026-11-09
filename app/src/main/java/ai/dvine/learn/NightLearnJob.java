@@ -49,6 +49,27 @@ public final class NightLearnJob extends JobService {
         schedule(c);
     }
 
+    static final int JOB_NOW = 7021;
+
+    /** Learn now, whatever the hours: on the network the pilot allowed, without waiting to charge. */
+    public static void learnNow(Context c) {
+        JobScheduler js = c.getSystemService(JobScheduler.class);
+        if (js == null) {
+            return;
+        }
+        NightLearn.Plan p = plan(c);
+        android.os.PersistableBundle now = new android.os.PersistableBundle();
+        now.putBoolean("now", true);
+        try {
+            js.schedule(new JobInfo.Builder(JOB_NOW, new ComponentName(c, NightLearnJob.class))
+                    .setRequiredNetworkType(p.wifiOnly ? JobInfo.NETWORK_TYPE_UNMETERED : JobInfo.NETWORK_TYPE_ANY)
+                    .setExtras(now)
+                    .build());
+        } catch (RuntimeException e) {
+            // the scheduler refused (rare)
+        }
+    }
+
     /** One job: no earlier than the window's start, on the network and charge the pilot allowed. */
     public static void schedule(Context c) {
         JobScheduler js = c.getSystemService(JobScheduler.class);
@@ -152,17 +173,18 @@ public final class NightLearnJob extends JobService {
 
     @Override
     public boolean onStartJob(final JobParameters params) {
-        final NightLearn.Plan p = plan(this);
+        final boolean now = params.getExtras() != null && params.getExtras().getBoolean("now", false);
+        final NightLearn.Plan p = now ? new NightLearn.Plan(true, 0, 0, false, false, plan(this).most) : plan(this);
         if (!p.on) {
             return false;
         }
-        if (!p.inWindow(System.currentTimeMillis(), TimeZone.getDefault())) {
+        if (!now && !p.inWindow(System.currentTimeMillis(), TimeZone.getDefault())) {
             schedule(this); // woke outside the window: wait for tonight's
             return false;
         }
         stopped = false;
         worker = new Thread(() -> {
-            String board = ai.dvine.agent.AgentBoard.start("Night learner", "learning from today's questions while you sleep", "DVINE 1 \u00B7 0.1");
+            String board = ai.dvine.agent.AgentBoard.start("Learner", "learning from your questions: facts and words", "DVINE 1 \u00B7 0.1");
             boarded = board;
             try {
                 learnTonight(p);
@@ -185,6 +207,8 @@ public final class NightLearnJob extends JobService {
     private void learnTonight(NightLearn.Plan p) {
         TimeZone zone = TimeZone.getDefault();
         final Knowledge k = new Knowledge(new File(dir(this), "knowledge.tsv"));
+        final Facts facts = new Facts(new File(dir(this), "facts.tsv"));
+        final Lexicon words = new Lexicon(new File(dir(this), "words.tsv"));
         List<String> unanswered = read(new File(dir(this), "to-learn.txt"));
         PilotProfile profile = new PilotProfile(new File(dir(this), "pilot.tsv"));
         List<String> interests = new ArrayList<String>();
@@ -200,7 +224,7 @@ public final class NightLearnJob extends JobService {
         List<String> learned = new ArrayList<String>();
         List<String> stillToLearn = new ArrayList<String>(unanswered);
         for (String topic : topics) {
-            if (stopped || !p.inWindow(System.currentTimeMillis(), zone)) {
+            if (stopped || !(p.start == p.end || p.inWindow(System.currentTimeMillis(), zone))) {
                 break;
             }
             boolean asked = unanswered.contains(topic);
@@ -212,6 +236,7 @@ public final class NightLearnJob extends JobService {
             if (r == null || k.rejected(q, r.shown())) {
                 continue;
             }
+            facts.learn(r.text, ai.dvine.suit.ResearchAnswer.subject(q) == null ? topic : ai.dvine.suit.ResearchAnswer.subject(q));
             if (k.learnUnchecked(q, r.shown())) {
                 if (!asked && topic.matches("[A-Z][\\p{L}'-]+( [A-Z][\\p{L}'-]+)+")) {
                     k.learnUnchecked("Who is " + topic + "?", r.shown()); // a name: asked about with "who" too
@@ -226,6 +251,26 @@ public final class NightLearnJob extends JobService {
             }
         }
         write(new File(dir(this), "to-learn.txt"), stillToLearn);
+        // words from the pilot's questions DVINE doesn't know yet: their meanings, from Wiktionary
+        int newWords = 0;
+        for (String w : unknownWords(unanswered, words, 20)) {
+            if (stopped || !(p.start == p.end || p.inWindow(System.currentTimeMillis(), zone))) {
+                break;
+            }
+            if (boarded != null) {
+                ai.dvine.agent.AgentBoard.step(boarded, "Learning the word \u201c" + w + "\u201d");
+            }
+            ai.dvine.net.WebGet.Page page = ai.dvine.net.WebGet.page(Lexicon.url(w), 12_000, 400_000);
+            if (page.status == 200 && words.learn(w, page.body)) {
+                newWords++;
+                learned.add("the word \u201c" + w + "\u201d");
+            }
+            try {
+                Thread.sleep(800);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
         if (!learned.isEmpty()) {
             List<String> report = new ArrayList<String>(report(this));
             if (reportSeen(this)) {
@@ -238,15 +283,35 @@ public final class NightLearnJob extends JobService {
         }
     }
 
-    /** A quiet notification: nothing rings at night; it is there in the morning. */
+    /** Words from the pilot's questions that DVINE's dictionary doesn't have yet (no small or common words). */
+    static List<String> unknownWords(List<String> questions, Lexicon known, int most) {
+        java.util.Set<String> common = new java.util.HashSet<String>(java.util.Arrays.asList("what", "which", "when", "where", "who",
+                "whom", "whose", "why", "how", "does", "did", "the", "this", "that", "these", "those", "with", "from", "about", "into",
+                "your", "have", "been", "were", "they", "there", "their", "them", "then", "than", "will", "would", "could", "should",
+                "mean", "means", "tell", "know", "many", "much", "some", "any", "made", "make", "first", "most", "more", "very", "also"));
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<String>();
+        for (String q : questions) {
+            for (String w : q.toLowerCase(java.util.Locale.US).split("[^a-z]+")) {
+                if (w.length() >= 5 && !common.contains(w) && !known.knows(w)) {
+                    out.add(w);
+                }
+                if (out.size() >= most) {
+                    return new ArrayList<String>(out);
+                }
+            }
+        }
+        return new ArrayList<String>(out);
+    }
+
+    /** A quiet notification: nothing rings while the pilot may be asleep; it is there afterwards. */
     private void notifyLearned(int n) {
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm == null) {
             return;
         }
         if (nm.getNotificationChannel(CHANNEL) == null) {
-            NotificationChannel ch = new NotificationChannel(CHANNEL, "Night learning", NotificationManager.IMPORTANCE_LOW);
-            ch.setDescription("What DVINE learned while you slept");
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "Learning", NotificationManager.IMPORTANCE_LOW);
+            ch.setDescription("What DVINE learned in a learning session");
             ch.setSound(null, null);
             nm.createNotificationChannel(ch);
         }
@@ -257,7 +322,7 @@ public final class NightLearnJob extends JobService {
         PendingIntent tap = PendingIntent.getActivity(this, 4, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification note = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(ai.dvine.R.drawable.ic_send)
-                .setContentTitle("DVINE learned " + n + (n == 1 ? " new thing" : " new things") + " overnight")
+                .setContentTitle("DVINE learned " + n + (n == 1 ? " new thing" : " new things"))
                 .setContentText("Open DVINE to see what it learned.")
                 .setContentIntent(tap)
                 .setAutoCancel(true)

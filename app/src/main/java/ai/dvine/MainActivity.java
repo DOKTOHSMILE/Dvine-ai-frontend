@@ -1306,6 +1306,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 scrim.setVisibility(android.view.View.VISIBLE);
             }
             drawer.bringToFront();
+            placeDrawer(drawer, -drawerWidth(drawer)); // slides out from the left, as on any Android app
+            settleDrawer(drawer, true);
         }
     }
 
@@ -1359,51 +1361,149 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return false;
     }
 
+    /** While a finger drags the drawer: where the drawer started (0 open, -width closed), and the finger's speed. */
+    private boolean dragging;
+    private float dragFrom;
+    private android.view.VelocityTracker velocity;
+
+    private float drawerWidth(android.view.View drawer) {
+        return drawer.getWidth() > 0 ? drawer.getWidth() : 304 * getResources().getDisplayMetrics().density;
+    }
+
+    /** The drawer at {@code offset} (−width shut, 0 open), the scrim darkening with it. */
+    private void placeDrawer(android.view.View drawer, float offset) {
+        float w = drawerWidth(drawer);
+        float x = Math.max(-w, Math.min(0f, offset));
+        drawer.setTranslationX(x);
+        android.view.View scrim = findViewById(R.id.drawerScrim);
+        if (scrim != null) {
+            scrim.setAlpha(1f + x / w);
+        }
+    }
+
+    /**
+     * The standard Android drawer: a finger dragging left to right (from anywhere but over something that scrolls
+     * sideways) pulls the drawer out with it, the chat darkening as it comes; on letting go it settles open or shut by
+     * how far it came and how fast the finger was moving. Dragging the open drawer to the left pushes it back.
+     */
     @Override
     public boolean dispatchTouchEvent(android.view.MotionEvent e) {
         float edge = 24 * getResources().getDisplayMetrics().density;
-        float far = 64 * getResources().getDisplayMetrics().density;
+        float slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
+        android.view.View drawer = findViewById(R.id.historyDrawer);
         switch (e.getActionMasked()) {
             case android.view.MotionEvent.ACTION_DOWN:
+                dragging = false;
                 swipeOpen = !drawerOpen();
-                // a swipe from left to right anywhere on the screen opens the drawer (not over code or anything that
-                // scrolls sideways itself); the persona pages are switched only by their buttons
-                swipeX = !designFull && (drawerOpen() || e.getX() <= edge
+                swipeX = !designFull && drawer != null && (drawerOpen() || e.getX() <= edge
                         || !sidewaysScroller(getWindow().getDecorView(), e.getRawX(), e.getRawY())) ? e.getX() : -1;
                 swipeY = e.getY();
+                if (velocity != null) {
+                    velocity.recycle();
+                }
+                velocity = android.view.VelocityTracker.obtain();
+                velocity.addMovement(e);
                 break;
             case android.view.MotionEvent.ACTION_MOVE:
-                if (swipeX >= 0) {
+                if (velocity != null) {
+                    velocity.addMovement(e);
+                }
+                if (swipeX >= 0 && drawer != null) {
                     float dx = e.getX() - swipeX, dy = Math.abs(e.getY() - swipeY);
-                    if (swipeOpen && dx > far && dx > dy * 1.5f) {
-                        swipeX = -1;
-                        cancelTouch(e); // what was under the finger doesn't get a tap or a scroll
-                        openDrawer(); // a swipe from left to right
-                        return true;
+                    if (!dragging && Math.abs(dx) > slop && Math.abs(dx) > dy * 1.5f && (swipeOpen ? dx > 0 : dx < 0)) {
+                        dragging = true; // the drawer is the finger's now
+                        cancelTouch(e);
+                        drawer.animate().cancel();
+                        if (swipeOpen) {
+                            hideKeyboard();
+                            if (chatPane != null) {
+                                chatPane.show();
+                            }
+                            drawer.setVisibility(android.view.View.VISIBLE);
+                            android.view.View scrim = findViewById(R.id.drawerScrim);
+                            if (scrim != null) {
+                                scrim.setVisibility(android.view.View.VISIBLE);
+                            }
+                            drawer.bringToFront();
+                            dragFrom = -drawerWidth(drawer);
+                        } else {
+                            dragFrom = 0f;
+                        }
+                        swipeX = e.getX();
+                        dx = 0;
                     }
-                    if (!swipeOpen && -dx > far && -dx > dy * 1.5f) {
-                        swipeX = -1;
-                        closeDrawer(); // a swipe to the left over the open drawer
+                    if (dragging) {
+                        placeDrawer(drawer, dragFrom + dx);
                         return true;
                     }
                 }
                 break;
-            default:
+            case android.view.MotionEvent.ACTION_UP:
+            case android.view.MotionEvent.ACTION_CANCEL:
+                if (dragging && drawer != null) {
+                    dragging = false;
+                    float vx = 0;
+                    if (velocity != null) {
+                        velocity.addMovement(e);
+                        velocity.computeCurrentVelocity(1000);
+                        vx = velocity.getXVelocity();
+                    }
+                    float fling = 800 * getResources().getDisplayMetrics().density;
+                    float w = drawerWidth(drawer);
+                    boolean open = vx > fling || vx > -fling && drawer.getTranslationX() > -w / 2;
+                    swipeX = -1;
+                    if (open) {
+                        settleDrawer(drawer, true);
+                    } else {
+                        settleDrawer(drawer, false);
+                    }
+                    return true;
+                }
                 swipeX = -1;
+                break;
+            default:
                 break;
         }
         return super.dispatchTouchEvent(e);
     }
 
+    /** The drawer glides the rest of the way, open or shut. */
+    private void settleDrawer(final android.view.View drawer, final boolean open) {
+        float w = drawerWidth(drawer);
+        final android.view.View scrim = findViewById(R.id.drawerScrim);
+        long ms = (long) (220 * Math.abs((open ? 0 : -w) - drawer.getTranslationX()) / w) + 60;
+        drawer.animate().cancel();
+        drawer.animate().translationX(open ? 0 : -w).setDuration(ms)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .setUpdateListener(a -> {
+                    if (scrim != null) {
+                        scrim.setAlpha(1f + drawer.getTranslationX() / w);
+                    }
+                })
+                .withEndAction(() -> {
+                    if (!open) {
+                        drawer.setVisibility(android.view.View.GONE);
+                        if (scrim != null) {
+                            scrim.setVisibility(android.view.View.GONE);
+                        }
+                    }
+                    drawer.setTranslationX(open ? 0 : 0); // shut: hidden at its place, so the next open starts clean
+                    if (scrim != null) {
+                        scrim.setAlpha(1f);
+                    }
+                }).start();
+    }
+
     private void closeDrawer() {
         android.view.View drawer = findViewById(R.id.historyDrawer);
-        android.view.View scrim = findViewById(R.id.drawerScrim);
-        if (drawer != null) {
-            drawer.setVisibility(android.view.View.GONE);
+        if (drawer == null || drawer.getVisibility() != android.view.View.VISIBLE) {
+            android.view.View scrim = findViewById(R.id.drawerScrim);
+            if (scrim != null) {
+                scrim.setVisibility(android.view.View.GONE);
+            }
+            return;
         }
-        if (scrim != null) {
-            scrim.setVisibility(android.view.View.GONE);
-        }
+        settleDrawer(drawer, false); // slides away, as it came
     }
 
     private void showAttachMenu(android.view.View anchor) {
@@ -2587,6 +2687,25 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return pilotProfile;
     }
 
+    private ai.dvine.learn.Facts facts;
+    private ai.dvine.learn.Lexicon lexicon;
+
+    /** The facts DVINE 1 has read, kept by the language formulas. */
+    private synchronized ai.dvine.learn.Facts facts() {
+        if (facts == null) {
+            facts = new ai.dvine.learn.Facts(new java.io.File(getFilesDir(), "brain/facts.tsv"));
+        }
+        return facts;
+    }
+
+    /** DVINE 1's own dictionary. */
+    private synchronized ai.dvine.learn.Lexicon lexicon() {
+        if (lexicon == null) {
+            lexicon = new ai.dvine.learn.Lexicon(new java.io.File(getFilesDir(), "brain/words.tsv"));
+        }
+        return lexicon;
+    }
+
     private ai.dvine.learn.Knowledge knowledge;
 
     /** What DVINE 1 knows for sure: answers the pilot confirmed with Correct, found again by intent. */
@@ -2640,14 +2759,40 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (known != null) {
             dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
             dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
-                    known.sure ? "Found it: you confirmed this before" : "Found it: I learned this overnight"), () -> {
+                    known.sure ? "Found it: you confirmed this before" : "Found it: I learned this in a learning session"), () -> {
                         if (known.sure) {
                             dvineSays(who, known.answer); // confirmed before: no need to ask again
                         } else {
-                            dvineSays(who, known.answer + "\n(Learned overnight; not checked yet.)");
+                            dvineSays(who, known.answer + "\n(Learned in a learning session; not checked yet.)");
                             ratingQuestion = t;
                             chatPane.askRating(t, known.answer);
                         }
+                    });
+            return;
+        }
+        // a word's meaning: from DVINE's own dictionary, or learned from Wiktionary now
+        final String word = ai.dvine.learn.Lexicon.asked(t);
+        if (word != null) {
+            final ai.dvine.learn.Lexicon.Word w = lexicon().get(word);
+            if (w != null) {
+                dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
+                dvineThink(java.util.Arrays.asList("Reading your question", "Looking up \u201c" + word + "\u201d in my dictionary"), () -> {
+                    dvineSays(who, w.said());
+                    ratingQuestion = t;
+                    chatPane.askRating(t, w.said());
+                });
+                return;
+            }
+        }
+        // the language formulas: the question parsed, matched to a fact DVINE read, the answer said as a sentence
+        final String formed = facts().answer(t);
+        if (formed != null && !knowledge().rejected(t, formed)) {
+            dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
+            dvineThink(java.util.Arrays.asList("Reading your question", "Parsing what it asks", "Found it in what I've read",
+                    "Putting it into a sentence"), () -> {
+                        dvineSays(who, formed);
+                        ratingQuestion = t;
+                        chatPane.askRating(t, formed);
                     });
             return;
         }
@@ -2666,7 +2811,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             ai.dvine.learn.NightLearnJob.remember(this, t); // learned tonight, if night learning is on
             dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know"), () -> dvineSaysPlain(who,
                     "I don't know that yet, and there's no internet connection to research it. I've kept the question:"
-                            + " ask me again when you're online" + (ai.dvine.learn.NightLearnJob.plan(this).on ? ", or I'll learn it tonight." : ".")));
+                            + " ask me again when you're online" + (ai.dvine.learn.NightLearnJob.plan(this).on ? ", or I'll learn it in my next learning session." : ".")));
             return;
         }
         final String subject = ai.dvine.suit.ResearchAnswer.subject(t);
@@ -2675,7 +2820,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 subject != null ? "Not in my memory: looking up \u201c" + subject + "\u201d" : "Not in my memory: searching the web"), () -> {
                     final int token = dvineToken;
                     new Thread(() -> {
-                        ai.dvine.suit.ResearchAnswer r = ai.dvine.learn.NightLearnJob.research(this, t);
+                        ai.dvine.suit.ResearchAnswer r = null;
+                        if (word != null) {
+                            // a word DVINE doesn't know yet: its meaning from Wiktionary, kept in the dictionary
+                            ai.dvine.net.WebGet.Page page = ai.dvine.net.WebGet.page(ai.dvine.learn.Lexicon.url(word), 12_000, 400_000);
+                            if (page.status == 200 && lexicon().learn(word, page.body) && lexicon().get(word) != null) {
+                                r = ai.dvine.suit.ResearchAnswer.of(lexicon().get(word).said(), "en.wiktionary.org");
+                            }
+                        }
+                        if (r == null) {
+                            r = ai.dvine.learn.NightLearnJob.research(this, t);
+                        }
+                        if (r != null) {
+                            facts().learn(r.text, ai.dvine.suit.ResearchAnswer.subject(t)); // learning while being used
+                        }
                         final ai.dvine.suit.ResearchAnswer answer = r != null && knowledge().rejected(t, r.shown()) ? null : r;
                         runOnUiThread(() -> {
                             if (token != dvineToken) {
@@ -2686,7 +2844,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                 dvineThink(java.util.Arrays.asList("Nothing I found answers it"), () -> dvineSaysPlain(who,
                                         "I don't know that yet, and what I found didn't answer it. Try asking it another way, or pick an API"
                                                 + " or offline model for this one: I learn from their answers too."
-                                                + (ai.dvine.learn.NightLearnJob.plan(this).on ? " I've also kept it to learn tonight." : "")), false);
+                                                + (ai.dvine.learn.NightLearnJob.plan(this).on ? " I've also kept it for my next learning session." : "")), false);
                                 return;
                             }
                             final String shown = answer.shown();
@@ -2762,7 +2920,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         checkWorkload();
     }
 
-    /** In the morning: what DVINE learned overnight, said once in the chat. */
+    /** After a learning session: what DVINE learned, said once in the chat. */
     private void morningReport() {
         if (ai.dvine.learn.NightLearnJob.reportSeen(this) || stage == null) {
             return;
@@ -2772,7 +2930,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (learned.isEmpty()) {
             return;
         }
-        StringBuilder b = new StringBuilder("While you slept I learned " + learned.size() + (learned.size() == 1 ? " new thing" : " new things") + ":");
+        StringBuilder b = new StringBuilder("In my last learning session I learned " + learned.size() + (learned.size() == 1 ? " new thing" : " new things") + ":");
         for (int i = 0; i < learned.size() && i < 12; i++) {
             b.append("\n- ").append(learned.get(i));
         }
@@ -2783,7 +2941,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         play(LocalTurn.speakAs(stage.agent(), b.toString()), null);
     }
 
-    /** Night learning's settings: on or off, the hours, Wi-Fi only, charging only. */
+    /** The learning schedule: on or off, the hours (any of the day), Wi-Fi only, charging only, and Learn now. */
     private void showNightLearning() {
         final ai.dvine.learn.NightLearn.Plan was = ai.dvine.learn.NightLearnJob.plan(this);
         final int[] start = { was.start }, end = { was.end };
@@ -2791,14 +2949,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
         box.setPadding(dp(20), dp(8), dp(20), 0);
         android.widget.TextView about = new android.widget.TextView(this);
-        about.setText("While you sleep, " + DVINE_OWN + " goes online and learns only from how you use it: the questions it"
-                + " couldn't answer or got wrong, what you asked about, and what you're into. In the morning it tells you what it"
-                + " learned, and asks you to check each answer the first time it uses it.");
+        about.setText("At the hours you choose (any time of day), " + DVINE_OWN + " goes online and learns only from how you use"
+                + " it: the questions it couldn't answer or got wrong, what you asked about, what you're into, and the words in your"
+                + " messages it doesn't know yet. It reads what it finds with its language formulas: sentences into who did"
+                + " what to what, when and where, kept as facts it can answer from in its own sentences. Afterwards it tells you"
+                + " what it learned, and asks you to check each answer the first time it uses it.");
         about.setTextColor(getColor(R.color.text_secondary));
         about.setTextSize(13f);
         box.addView(about);
         final android.widget.Switch on = new android.widget.Switch(this);
-        on.setText("Learn at night");
+        on.setText("Learn on a schedule");
         on.setChecked(was.on);
         on.setTextSize(16f);
         on.setPadding(0, dp(16), 0, dp(8));
@@ -2828,13 +2988,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         charging.setChecked(was.chargingOnly);
         box.addView(charging);
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Night learning")
+                .setTitle("Learning schedule")
                 .setView(box)
                 .setPositiveButton("Save", (d, w) -> {
                     ai.dvine.learn.NightLearn.Plan p = new ai.dvine.learn.NightLearn.Plan(on.isChecked(), start[0], end[0],
                             wifi.isChecked(), charging.isChecked(), was.most);
                     ai.dvine.learn.NightLearnJob.setPlan(this, p);
-                    note(p.on ? "Night learning is on: " + p.words() + "." : "Night learning is off.");
+                    note(p.on ? "Learning is scheduled: " + p.words() + "." : "Scheduled learning is off.");
+                })
+                .setNeutralButton("Learn now", (d, w) -> {
+                    ai.dvine.learn.NightLearnJob.learnNow(this);
+                    note(DVINE_OWN + " is learning now. The Workload sheet shows what it's on.");
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -2862,6 +3026,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (!me.isEmpty()) {
                 b.append("\nAbout you: ").append(String.join("; ", me)).append('.');
             }
+            b.append("\nRead and understood: ").append(facts().size()).append(facts().size() == 1 ? " fact, " : " facts, ")
+                    .append(lexicon().size()).append(lexicon().size() == 1 ? " word." : " words.");
             int talk = brainBox().talkSize(), shapes = brainBox().templateCount();
             if (talk + shapes > 0) {
                 b.append("\nFrom the models you used: ").append(talk).append(talk == 1 ? " answer" : " answers").append(" and ")
@@ -5452,7 +5618,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         list.addView(brainHeader("More"));
         ai.dvine.learn.NightLearn.Plan night = ai.dvine.learn.NightLearnJob.plan(this);
-        list.addView(brainLink("Night learning", night.on ? "On, " + night.words() : "Off. Let " + DVINE_OWN + " learn while you sleep",
+        list.addView(brainLink("Learning schedule", night.on ? "On, " + night.words() : "Off. Let " + DVINE_OWN + " learn at the hours you choose",
                 () -> {
                     sheet[0].dismiss();
                     showNightLearning();

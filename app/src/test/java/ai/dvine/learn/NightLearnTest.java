@@ -65,4 +65,12 @@ public class NightLearnTest {
         k.reject("What is a pulsar?", "A pulsar is a kind of quasar.");
         assertFalse("nor brought back once said to be wrong", k.learnUnchecked("What is a pulsar?", "A pulsar is a kind of quasar."));
     }
+
+    @Test
+    public void wordsItDoesntKnowAreLearnedFromTheQuestions() {
+        Lexicon l = new Lexicon(null);
+        l.learn("photosynthesis", "{\"en\":[{\"partOfSpeech\":\"Noun\",\"definitions\":[{\"definition\":\"How plants make food.\"}]}]}");
+        assertEquals(Arrays.asList("ephemeral", "serendipity"), NightLearnJob.unknownWords(
+                Arrays.asList("What does ephemeral mean?", "Is serendipity about photosynthesis?"), l, 10));
+    }
 }
