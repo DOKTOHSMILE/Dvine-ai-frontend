@@ -28,6 +28,20 @@ public final class Dvine1Screen implements Dvine1.Host {
         void note(String text);
 
         android.os.Handler handler();
+
+        boolean allows(String code);
+
+        void act(String message, String codeLine);
+    }
+
+    @Override
+    public boolean allows(String code) {
+        return parts.allows(code);
+    }
+
+    @Override
+    public void act(String message, String codeLine) {
+        parts.act(message, codeLine);
     }
 
     private final android.app.Activity activity;

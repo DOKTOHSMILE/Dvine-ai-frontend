@@ -77,6 +77,22 @@ public final class Dvine1 {
         void onScreen(Runnable r);
 
         android.content.Context context();
+
+        /** Whether this chat's tools allow a function code ("SR"). */
+        default boolean allows(String code) {
+            return false;
+        }
+
+        /** Carries out a function code line ("§SR weather in Lagos") through the app's gate for every model. */
+        default void act(String message, String codeLine) {
+        }
+    }
+
+    private final Endpoint endpoint = new Endpoint(this);
+
+    /** The door the app talks to DVINE 1 through. */
+    public Endpoint endpoint() {
+        return endpoint;
     }
 
     private final Host host;
@@ -143,6 +159,20 @@ public final class Dvine1 {
         if (parse.intent == Grammar.Intent.GREETING) {
             think(Arrays.asList("Reading your message"), () -> saysPlain(who, "Hello, I'm " + NAME
                     + ". Ask me anything: I answer what I know, research what I don't, and learn when you tell me Correct or Wrong."));
+            return;
+        }
+        // a clear command: DVINE 1 operates the app like any model, by writing one of its function codes
+        final String code = Commands.code(t, host::allows);
+        if (code != null) {
+            think(Arrays.asList("Reading your message", "That's something the app does: " + code), () -> {
+                host.stepsDone();
+                if (worker != null) {
+                    Plug.workers.end(worker, true);
+                    worker = null;
+                }
+                host.answered(How.OTHER);
+                host.act(t, code);
+            });
             return;
         }
         final String self = aboutMe(t);

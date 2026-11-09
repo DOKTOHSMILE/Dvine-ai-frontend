@@ -99,8 +99,37 @@ public final class AmbientPad implements Runnable {
         float level = 0f;
         float mixIvie = ivie ? 1f : 0f;
         AudioTrack out = track;
+        boolean playing = true;
         while (running && out != null) {
             float goal = enabled ? target : 0f;
+            if (goal == 0f && level < 0.002f) {
+                // silent: the audio stream is paused, so the device's speaker and amplifier can sleep (an open stream
+                // of silence keeps them powered and can hum on some devices)
+                level = 0f;
+                if (playing) {
+                    try {
+                        out.pause();
+                        out.flush();
+                    } catch (RuntimeException released) {
+                        return;
+                    }
+                    playing = false;
+                }
+                try {
+                    Thread.sleep(150);
+                } catch (InterruptedException stopped) {
+                    return;
+                }
+                continue;
+            }
+            if (!playing) {
+                try {
+                    out.play();
+                } catch (RuntimeException released) {
+                    return;
+                }
+                playing = true;
+            }
             for (int i = 0; i < buf.length; i += 2) {
                 level += (goal - level) * 0.00004f;
                 mixIvie += ((ivie ? 1f : 0f) - mixIvie) * 0.00002f;

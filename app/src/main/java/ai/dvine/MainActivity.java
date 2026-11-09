@@ -1505,7 +1505,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
             @Override
             public void onRate(String question, String answer, boolean right) {
-                dvine1().rate(question, answer, right);
+                dvine1().endpoint().feedback(question, answer, right);
             }
 
             @Override
@@ -1577,7 +1577,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
         ambient = new AmbientPad();
-        ambient.setEnabled(prefs.getBoolean("music", true));
+        ambient.setEnabled(prefs.getBoolean("music", false)); // the low pad under the voice: off unless asked for
         stage.setSubtitles(prefs.getBoolean("subtitles", true));
         stage.ensureFace(StageView.OBI, null); // Obi greets on opening
         talk.setTuning(false,
@@ -2160,7 +2160,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         return false;
                     }
                     if (dvineOwn()) {
-                        dvine1().answer(t); // DVINE 1: what it knows, or it researches and asks whether it got it right
+                        dvine1().endpoint().chat(t); // DVINE 1, through its endpoint: what it knows, or it researches and asks whether it got it right
                         return true;
                     }
                     // no model in the suit: DVINE's own Cortex answers what it can (exact sums, greetings, what it learned)
@@ -2430,6 +2430,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public android.os.Handler handler() {
             return handler;
+        }
+
+        @Override
+        public boolean allows(String code) {
+            try {
+                return chatTools(stage.agent()).allowedCodes().contains(ai.dvine.suit.FunctionCode.valueOf(code));
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
+        }
+
+        @Override
+        public void act(String message, String codeLine) {
+            // the same gate every model's code goes through
+            ai.dvine.llm.BrainOrder order = ai.dvine.llm.BrainOrder.leading(codeLine);
+            if (order != null) {
+                carryOut(stage.agent(), message, order);
+            }
         }
     };
 

@@ -225,6 +225,15 @@ public final class PhoneHost implements CodeAgent.Host {
         });
     }
 
+    /** What a step looked for and found, in the chat between the steps (Settings › Ibiko › Say what each step found). */
+    @Override
+    public void found(String line) {
+        if (prefs != null && !prefs.getBoolean("narrate_steps", true)) {
+            return;
+        }
+        note(line);
+    }
+
     @Override
     public boolean stopped() {
         return id != current.getAsInt();
