@@ -1,3 +1,21 @@
+# PLAN — DVINE independent learner (per memory/projects/independent-learner/DESIGN.md)
+
+Design is settled. This checklist is the build order; tick each item when its test passes.
+
+- [ ] **T1 — T7 confidence.** `LearnerFacts`: fact strength `n` and confirmation time `t` as two extra tab columns on the existing `facts` file, backward compatible (3-column lines load as strength 1). Rules: first sight 1, repeat +1 (cap 5), contradiction −2 then drop at 0, accepted answer +1, corrected answer −2, 30-day decay −1. Answer from strongest with n ≥ 2; tie within 1 → "which is right?".
+- [ ] **T2 — T8 feedback.** Correction within two messages *and* mentioning the answer → −2 and a miss; acceptance → +1 and a hit. `learner-answers.jsonl` ring buffer of 2000. Open-question queue `learner-open.json`, cleared when a fact reaches n ≥ 2; asked 3× with no fact → logged as unknown.
+- [ ] **T3 — T6 shape learner.** Candidate values (proper noun, quoted phrase, number/date, noun phrase after a known verb) → shape with the value masked; caps: ≤2 words each side, no wildcard-heavy shape, no question/negation, 200 rules, 4000 pattern chars, PII masked first. Promote at seen ≥ 6, hit/seen ≥ 0.5, rejected/seen < 0.4; prune at seen ≥ 20 & hit/seen < 0.25 or 30 days idle past 60 days old. File `learner-rules.json`.
+- [ ] **T4 — T9 consolidation.** `NightLearnJob` review pass, ~2s CPU budget: promote/prune, decay >30d, merge duplicate objects, reorder profile brief by strength, one `LearningLog` paragraph.
+- [ ] **T5 — T10 score.** `score = 100*(0.45*A + 0.25*K + 0.15*R + 0.15*U)`, A Laplace-smoothed `(correct+1)/(answered+2)`. Render at `MainActivity.java:5548` with the four counts.
+- [ ] **T6 — wiring.** Feed the message pipeline (Facts/Knowledge/PilotProfile path) into the learner; `clear()` wipes rules/answers/open queue too.
+- [ ] **T7 — tests.** Plain JUnit under `app/src/test/java/ai/dvine/learn/`: smoothing, contradiction, correction window, queue fill/clear, rule promote/prune, PII mask, backward-compatible load. Run `./gradlew testDebugUnitTest` if available.
+
+Tests live in `app/src/test/java/ai/dvine/learn/`. No new dependencies.
+
+---
+
+## Project plan (from main)
+
 # Social Intelligence System (0.99.2)
 
 Design and status: `docs/SOCIAL_INTELLIGENCE.md`.
