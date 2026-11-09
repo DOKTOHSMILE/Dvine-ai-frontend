@@ -93,6 +93,10 @@ public final class PhoneHost implements CodeAgent.Host {
     public String run(String command, File dir) {
         try {
             onCommand(command);
+            String shared = ai.dvine.linux.LinuxHub.ask(command);
+            if (shared != null) {
+                return shared;
+            }
             File where = dir != null ? dir : new File(activity.getFilesDir(), "linux");
             ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity,
                     ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(activity), command), where);
@@ -114,6 +118,10 @@ public final class PhoneHost implements CodeAgent.Host {
     @Override
     public String termux(String command, File folder) {
         onCommand(command);
+        String shared = ai.dvine.linux.LinuxHub.ask(command);
+        if (shared != null) {
+            return shared;
+        }
         File where = folder != null ? folder : new File(activity.getFilesDir(), "linux");
         ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity,
                 ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(activity), command), where);

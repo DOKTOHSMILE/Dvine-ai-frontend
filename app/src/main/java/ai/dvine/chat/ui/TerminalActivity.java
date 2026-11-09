@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 import ai.dvine.linux.AlpineRun;
 import ai.dvine.linux.Complete;
 import ai.dvine.linux.Guest;
+import ai.dvine.linux.LinuxHub;
 import ai.dvine.linux.LinuxRoot;
 import ai.dvine.linux.ProotSession;
 import ai.dvine.linux.TermScreen;
@@ -61,6 +62,10 @@ public final class TerminalActivity extends AppCompatActivity {
     /** True while the lasting shell is still being opened. A command typed then is kept, not dropped. */
     private volatile boolean opening;
     private String held;
+    private boolean capturing;
+    private boolean foreignRunning;
+    private final java.util.ArrayDeque<Foreign> chatQueue = new java.util.ArrayDeque<Foreign>();
+    private Foreign chatNow;
     private String running = "";
     private String huntQuery;
     private int huntFrom = -1;
@@ -188,6 +193,7 @@ public final class TerminalActivity extends AppCompatActivity {
         Ui.fitInsets(page);
         input.requestFocus();
         loadKept();
+        LinuxHub.attach(this::fromChat);
         prompt.postDelayed(busyTick, 1000);
         boot();
     }
@@ -649,9 +655,13 @@ public final class TerminalActivity extends AppCompatActivity {
                 if (dir.startsWith("/")) {
                     cwd = dir;
                 }
-                busy = false;
-                paint(stick && !touching);
-                keep();
+                int code = 0;
+                try {
+                    code = Integer.parseInt(readSmall("root/.dvine_status"));
+                } catch (NumberFormatException ignored) {
+                    code = pipeStop ? 130 : 0;
+                }
+                ended(code);
             });
         }, "dvine-pipe").start();
     }
@@ -746,12 +756,16 @@ public final class TerminalActivity extends AppCompatActivity {
                     cwd = folder;
                 }
                 liveOut.setLength(0);
-                busy = false;
                 if (job == current) {
                     job = null;
                 }
-                paint(stick && !touching);
-                keep();
+                int code = 0;
+                try {
+                    code = Integer.parseInt(readSmall("root/.dvine_status"));
+                } catch (NumberFormatException ignored) {
+                    code = 0;
+                }
+                ended(code);
             });
         });
     }
@@ -850,17 +864,67 @@ public final class TerminalActivity extends AppCompatActivity {
         if (part.done) {
             shellReady = true;
             linuxUp = true;
-            busy = false;
-            if (prompt != null) {
-                prompt.setText(promptText());
-            }
-            keep();
-            release();
+            ended(part.exit);
         }
     }
 
+    /** A command from chat, answered by this shell so a second Linux is not started. */
+    private String fromChat(String command) {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper() || closed) {
+            return null;
+        }
+        Foreign job = new Foreign(command);
+        runOnUiThread(() -> {
+            if (closed) {
+                job.latch.countDown();
+                return;
+            }
+            chatQueue.add(job);
+            if (!busy && !opening) {
+                release();
+            }
+        });
+        try {
+            job.latch.await(3, java.util.concurrent.TimeUnit.MINUTES);
+        } catch (InterruptedException ignored) {
+            // the text collected so far is still returned
+        }
+        return job.out.toString();
+    }
+
+    private void ended(int code) {
+        if (code != 0) {
+            append("[exit " + code + "]\n");
+        }
+        busy = false;
+        paint(stick && !touching);
+        keep();
+        if (foreignRunning) {
+            foreignRunning = false;
+            capturing = false;
+            if (chatNow != null) {
+                chatNow.latch.countDown();
+                chatNow = null;
+            }
+        }
+        release();
+    }
+
     private void release() {
-        if (held == null || busy) {
+        if (busy || opening) {
+            return;
+        }
+        if (chatNow == null && !chatQueue.isEmpty() && (shellReady || live == null)) {
+            Foreign next = chatQueue.poll();
+            running = word(next.command);
+            append(promptText() + next.command + "\n");
+            chatNow = next;
+            foreignRunning = true;
+            capturing = true;
+            dispatch(next.command);
+            return;
+        }
+        if (held == null) {
             return;
         }
         String line = held;
@@ -966,6 +1030,9 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         log.append(more);
+        if (capturing && chatNow != null) {
+            chatNow.out.append(more);
+        }
         if (log.length() > 180000) {
             log.delete(0, log.length() - 140000);
             screen.clear();
@@ -1033,6 +1100,13 @@ public final class TerminalActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         closed = true;
+        LinuxHub.detach(this::fromChat);
+        if (chatNow != null) {
+            chatNow.latch.countDown();
+        }
+        while (!chatQueue.isEmpty()) {
+            chatQueue.poll().latch.countDown();
+        }
         if (prompt != null) {
             prompt.removeCallbacks(busyTick);
         }
@@ -1044,5 +1118,16 @@ public final class TerminalActivity extends AppCompatActivity {
         }
         worker.shutdownNow();
         super.onDestroy();
+    }
+
+    /** One command chat asked this shell to run. */
+    private static final class Foreign {
+        final String command;
+        final StringBuilder out = new StringBuilder();
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+
+        Foreign(String command) {
+            this.command = command;
+        }
     }
 }

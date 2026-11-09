@@ -1,3 +1,9 @@
+# One shell (0.99.35)
+
+- [x] While the shell screen is open, a command from chat runs in that shell. A second Linux is not started.
+- [x] The text appears in the session, and chat gets the same text back.
+- [x] A command that fails shows its exit code, for example `[exit 1]`.
+
 # Search and one folder (0.99.34)
 
 - [x] CTRL-R recalls an older command that contains what you typed. FIND scrolls to the next match in the session.

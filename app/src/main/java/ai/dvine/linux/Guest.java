@@ -48,27 +48,29 @@ public final class Guest {
     public static Stream drain(String buffered, String previousCwd) {
         String previous = previousCwd == null || previousCwd.isEmpty() ? "/root" : previousCwd;
         if (buffered == null || buffered.isEmpty()) {
-            return new Stream("", "", null, false);
+            return new Stream("", "", null, false, 0);
         }
         StringBuilder show = new StringBuilder();
         String cwd = null;
         boolean done = false;
+        int exit = 0;
         int i = 0;
         while (true) {
             int nl = buffered.indexOf('\n', i);
             if (nl < 0) {
                 String tail = buffered.substring(i);
                 if (tail.startsWith(MARK) || MARK.startsWith(tail)) {
-                    return new Stream(show.toString(), tail, cwd, done);
+                    return new Stream(show.toString(), tail, cwd, done, exit);
                 }
                 show.append(tail);
-                return new Stream(show.toString(), "", cwd, done);
+                return new Stream(show.toString(), "", cwd, done, exit);
             }
             String line = buffered.substring(i, nl);
             i = nl + 1;
             if (line.startsWith(MARK)) {
                 Answer answer = marker(line, previous);
                 cwd = answer.cwd;
+                exit = answer.exit;
                 done = true;
             } else {
                 show.append(line).append('\n');
@@ -101,12 +103,14 @@ public final class Guest {
         public final String rest;
         public final String cwd;
         public final boolean done;
+        public final int exit;
 
-        Stream(String show, String rest, String cwd, boolean done) {
+        Stream(String show, String rest, String cwd, boolean done, int exit) {
             this.show = show;
             this.rest = rest;
             this.cwd = cwd;
             this.done = done;
+            this.exit = exit;
         }
     }
 

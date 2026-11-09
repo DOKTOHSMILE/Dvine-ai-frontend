@@ -35,6 +35,7 @@ public class GuestTest {
         assertEquals("hello\n", done.show);
         assertEquals("/usr", done.cwd);
         assertTrue(done.done);
+        assertEquals(0, done.exit);
         assertEquals("", done.rest);
     }
 
