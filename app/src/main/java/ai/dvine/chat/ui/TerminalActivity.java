@@ -55,6 +55,9 @@ public final class TerminalActivity extends AppCompatActivity {
     private ProotSession live;
     /** The shell process stayed open and answered, so later commands reuse it. */
     private boolean shellReady;
+    /** A lasting shell with no terminal device: each command's text is read from a file. */
+    private boolean pipe;
+    private volatile boolean pipeStop;
     /** True while the lasting shell is still being opened. A command typed then is kept, not dropped. */
     private volatile boolean opening;
     private String held;
@@ -62,6 +65,21 @@ public final class TerminalActivity extends AppCompatActivity {
     private volatile boolean closed;
     private volatile boolean linuxUp;
     private volatile boolean busy;
+    private long busyAt;
+    private final Runnable busyTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!closed && prompt != null && busy) {
+                String next = promptText();
+                if (!next.contentEquals(prompt.getText())) {
+                    prompt.setText(next);
+                }
+            }
+            if (!closed && prompt != null) {
+                prompt.postDelayed(this, 1000);
+            }
+        }
+    };
     /** Follow new lines. Turned off when the user scrolls up to read. */
     private boolean stick = true;
     private boolean moving;
@@ -156,12 +174,13 @@ public final class TerminalActivity extends AppCompatActivity {
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.setBackgroundColor(0xFF111111);
         bar.addView(keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP"));
-        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN"));
+        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN", "COPY"));
         page.addView(bar);
         setContentView(page);
         Ui.fitInsets(page);
         input.requestFocus();
         loadKept();
+        prompt.postDelayed(busyTick, 1000);
         boot();
     }
 
@@ -329,6 +348,10 @@ public final class TerminalActivity extends AppCompatActivity {
             scroll.scrollBy(0, scroll.getHeight() / 2);
             return;
         }
+        if ("COPY".equals(label)) {
+            copySession();
+            return;
+        }
         if ("TAB".equals(label)) {
             complete();
             return;
@@ -349,6 +372,7 @@ public final class TerminalActivity extends AppCompatActivity {
             ctrl = false;
             paintMod(ctrlKey, false);
             if (ch == 'c' || ch == 'C') {
+                pipeStop = true;
                 if (live != null) {
                     live.interrupt();
                 }
@@ -420,7 +444,7 @@ public final class TerminalActivity extends AppCompatActivity {
     }
 
     private String promptText() {
-        return "localhost:" + Guest.prompt(cwd) + "# ";
+        return "localhost:" + Guest.prompt(cwd) + "# " + (busy ? ((System.currentTimeMillis() - busyAt) / 1000) + "s " : "");
     }
 
     /** The session, then the line being typed with a cursor. The cursor is not a separate field. */
@@ -459,7 +483,6 @@ public final class TerminalActivity extends AppCompatActivity {
                 } catch (Exception ignored) {
                     opened = null;
                 }
-                opening = false;
                 final ProotSession use = opened;
                 runOnUiThread(() -> startShell(use));
             } catch (Exception e) {
@@ -511,8 +534,11 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         if (shellReady && live != null && live.alive()) {
-            busy = true;
-            paint(true);
+            if (pipe) {
+                pipeRun(line);
+                return;
+            }
+            markBusy();
             try {
                 live.send(line + "\necho " + Guest.MARK + "$?__$(pwd)");
             } catch (Exception e) {
@@ -525,10 +551,108 @@ public final class TerminalActivity extends AppCompatActivity {
         oneShot(line);
     }
 
+    private void markBusy() {
+        busy = true;
+        busyAt = System.currentTimeMillis();
+        paint(true);
+    }
+
+    /** The shell stayed open without a terminal device, so the command's text is read from its file. */
+    private void pipeRun(String line) {
+        pipeStop = false;
+        markBusy();
+        File root = LinuxRoot.root(this);
+        File out = new File(root, "root/.dvine_out");
+        File status = new File(root, "root/.dvine_status");
+        File cwdFile = new File(root, "root/.dvine_cwd");
+        out.delete();
+        status.delete();
+        try {
+            live.send(Guest.pipe(line));
+        } catch (Exception e) {
+            pipe = false;
+            shellReady = false;
+            busy = false;
+            oneShot(line);
+            return;
+        }
+        final long began = System.currentTimeMillis();
+        new Thread(() -> {
+            long seen = 0;
+            boolean ended = false;
+            while (!closed && !pipeStop && System.currentTimeMillis() - began < 180000) {
+                try {
+                    if (out.isFile()) {
+                        java.io.RandomAccessFile raf = new java.io.RandomAccessFile(out, "r");
+                        try {
+                            if (raf.length() > seen) {
+                                raf.seek(seen);
+                                byte[] buf = new byte[(int) Math.min(8192, raf.length() - seen)];
+                                int n = raf.read(buf);
+                                if (n > 0) {
+                                    seen += n;
+                                    String more = new String(buf, 0, n, java.nio.charset.StandardCharsets.UTF_8);
+                                    runOnUiThread(() -> {
+                                        if (!closed) {
+                                            append(more);
+                                        }
+                                    });
+                                }
+                            }
+                        } finally {
+                            raf.close();
+                        }
+                    }
+                    if (status.isFile() && status.length() > 0) {
+                        ended = true;
+                        break;
+                    }
+                    if (live == null || !live.alive()) {
+                        break;
+                    }
+                    Thread.sleep(120);
+                } catch (Exception ignored) {
+                    break;
+                }
+            }
+            String folder = "";
+            try {
+                if (cwdFile.isFile()) {
+                    folder = new String(java.nio.file.Files.readAllBytes(cwdFile.toPath()),
+                            java.nio.charset.StandardCharsets.UTF_8).trim();
+                }
+            } catch (Exception ignored) {
+                folder = "";
+            }
+            final String dir = folder;
+            runOnUiThread(() -> {
+                if (closed) {
+                    return;
+                }
+                if (dir.startsWith("/")) {
+                    cwd = dir;
+                }
+                busy = false;
+                paint(stick && !touching);
+                keep();
+            });
+        }, "dvine-pipe").start();
+    }
+
+    private void copySession() {
+        if (transcript == null) {
+            return;
+        }
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            return;
+        }
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("linux", transcript.getText()));
+    }
+
     /** One command in its own Linux, used when a lasting shell could not be opened. */
     private void oneShot(String ran) {
-        busy = true;
-        paint(true);
+        markBusy();
         final AlpineRun.Job current = new AlpineRun.Job();
         job = current;
         worker.execute(() -> {
@@ -573,16 +697,36 @@ public final class TerminalActivity extends AppCompatActivity {
     }
 
     private void startShell(ProotSession opened) {
+        opening = false;
         if (closed) {
             if (opened != null) {
                 opened.close();
             }
             return;
         }
-        if (opened == null || !opened.tty()) {
-            if (opened != null) {
-                opened.close();
-            }
+        if (opened == null) {
+            linuxUp = true;
+            release();
+            return;
+        }
+        if (!opened.tty()) {
+            live = opened;
+            pipe = true;
+            shellReady = true;
+            opened.pump(chunk -> runOnUiThread(() -> {
+                if (chunk == null) {
+                    live = null;
+                    shellReady = false;
+                    pipe = false;
+                    busy = false;
+                    linuxUp = true;
+                    release();
+                    return;
+                }
+                if (!chunk.isEmpty()) {
+                    append(chunk);
+                }
+            }));
             linuxUp = true;
             release();
             return;
@@ -820,6 +964,9 @@ public final class TerminalActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         closed = true;
+        if (prompt != null) {
+            prompt.removeCallbacks(busyTick);
+        }
         if (live != null) {
             live.close();
         }

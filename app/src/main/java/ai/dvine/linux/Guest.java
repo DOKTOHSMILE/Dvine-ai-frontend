@@ -31,6 +31,16 @@ public final class Guest {
     }
 
     /**
+     * A command for a shell that stays open but has no terminal device. The text goes to a file the phone
+     * can read while it runs. The status file is written last, so its appearance means the command ended.
+     */
+    public static String pipe(String line) {
+        return "eval " + quote(line) + " > /root/.dvine_out 2>&1\n"
+                + "pwd > /root/.dvine_cwd\n"
+                + "echo $? > /root/.dvine_status\n";
+    }
+
+    /**
      * Take finished lines out of text that is still arriving. A line {@code DVINE_STATUS:code__folder}
      * is the shell saying the command ended. A tail that might be the start of that line is kept in
      * {@link Stream#rest} and not shown yet.

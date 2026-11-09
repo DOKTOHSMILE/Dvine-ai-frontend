@@ -1,3 +1,9 @@
+# Shell without a terminal device (0.99.33)
+
+- [x] When the phone will not open a terminal device, the shell still stays open. The folder and variables last. Each command's text is read from a file while it runs.
+- [x] The prompt shows how many seconds a command has been running.
+- [x] COPY puts the session on the clipboard.
+
 # Typing (0.99.32)
 
 - [x] The prompt accepts a command while the shell is still starting, and runs it when the shell is ready.

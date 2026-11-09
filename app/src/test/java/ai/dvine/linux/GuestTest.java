@@ -20,6 +20,9 @@ public class GuestTest {
         assertEquals(0, answer.exit);
         assertEquals("~/bin", Guest.prompt("/root/bin"));
         assertEquals("~", Guest.prompt("/root"));
+        String piped = Guest.pipe("cd /usr && echo hi");
+        assertTrue(piped.startsWith("eval 'cd /usr && echo hi' > /root/.dvine_out"));
+        assertTrue(piped.indexOf(".dvine_cwd") < piped.indexOf(".dvine_status"));
     }
 
     @Test
