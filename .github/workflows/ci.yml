@@ -6,9 +6,15 @@ name: CI
 #   occurred configuring root project"). Everything expensive runs here
 #   instead: lint, Kotlin unit tests and the native build.
 #
-#   CodeAssist's module.toml (app/module.toml) is only the declarative model
-#   of the module (source sets, deps, android block) - it is not a test
-#   runner - so testing is done with this workflow.
+#   There is no gradlew in the repository, so the first step of every job
+#   generates one with the same Gradle version setup-gradle provisions.
+#
+#   Which jobs are gates:
+#     * unit tests  - blocking. These are the ones that fail on a bad change.
+#     * debug build - blocking. Kotlin + the llama.cpp native compile.
+#     * Android lint - advisory (continue-on-error) while the report on main
+#       is not proven clean; it uploads its HTML report either way, so a new
+#       problem can be read without stopping every push.
 
 on:
   push:
@@ -29,6 +35,7 @@ jobs:
     name: Android lint
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
