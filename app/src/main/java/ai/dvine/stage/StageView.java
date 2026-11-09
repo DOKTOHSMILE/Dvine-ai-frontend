@@ -492,6 +492,11 @@ public final class StageView extends View implements Choreographer.FrameCallback
     public void doFrame(long nanos) {
         float dt = lastNanos == 0L ? 0.016f : Math.min(0.05f, (nanos - lastNanos) / 1_000_000_000f);
         lastNanos = nanos;
+        if (!isShown()) {
+            // hidden (the 3D view was closed): no particles, no drawing, no frames until it is shown again
+            framePosted = false;
+            return;
+        }
         tick(dt);
         invalidate();
         if (framePosted) {
@@ -890,6 +895,15 @@ public final class StageView extends View implements Choreographer.FrameCallback
         framePosted = true;
         lastNanos = 0L;
         choreographer.postFrameCallback(this);
+    }
+
+    /** Shown again (the 3D view reopened): the frames start again. */
+    @Override
+    protected void onVisibilityChanged(android.view.View changed, int visibility) {
+        super.onVisibilityChanged(changed, visibility);
+        if (visibility == VISIBLE && isAttachedToWindow() && getWindowVisibility() == VISIBLE && isShown()) {
+            startFrames();
+        }
     }
 
     private void stopFrames() {
