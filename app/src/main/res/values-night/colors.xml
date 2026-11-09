@@ -28,6 +28,7 @@
     <color name="line">#2E2D3A</color>
     <color name="line_strong">#3A3948</color>
     <color name="selected">#1E1E28</color>
+    <color name="segment_track">#1E1E28</color>
     <color name="segment_on">#3A3948</color>
     <color name="send_off">#3A3946</color>
     <color name="scrim">#99000000</color>
