@@ -192,6 +192,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 159 | Posts on the user's behalf (scheduled, recurring), smart engagement; DVINE 1 researches what it doesn't know, asks 👍🏽/👎🏽 and learns by intent | P12 | Built (JVM and Robolectric tests; device check pending). Shilling (undisclosed promotion, fake personas) declined | 0.99.4 |
 | 160 | No emoji for rating: custom check and cancel icons | P12 | Built | 0.99.5 |
 | 161 | Check for correct, cancel for wrong (keeps learning); build what's left on the list; keep the internet alive when minimised, keep replies for when the screen is opened, say when there's no internet | P12 | Built (JVM and Robolectric; device check pending). From the list: brain box shapes and the pilot profile built; parallel brains, splitting MainActivity, the SSH terminal and voice polish not done (see handbook §10) | 0.99.6 |
+| 162 | Screenshot: DVINE 1's wrong answers for "what is a pig", searching statements and "what have you learned" | P12 | Built (fixture from the live encyclopedia; device check pending) | 0.99.7 |
 
 ## Still open, in the order that matters
 

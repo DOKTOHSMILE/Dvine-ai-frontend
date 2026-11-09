@@ -2483,6 +2483,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     + " don't, and learn when you tell me Correct or Wrong."), null);
             return;
         }
+        String self = aboutDvine(t);
+        if (self != null) {
+            play(LocalTurn.speakAs(who, self), null); // a question about DVINE itself: answered from its own memory
+            return;
+        }
+        if (!t.trim().endsWith("?") && c.act != ai.dvine.suit.Comprehension.Act.QUESTION
+                && c.act != ai.dvine.suit.Comprehension.Act.REQUEST) {
+            play(LocalTurn.speakAs(who, learnStatement(t)), null); // a statement teaches; it isn't researched
+            return;
+        }
         if (c.act == ai.dvine.suit.Comprehension.Act.THANKS) {
             play(LocalTurn.speakAs(who, "You're welcome."), null);
             return;
@@ -2495,7 +2505,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         String learned = brainBox().recallTalk(t);
         if (learned != null && !knowledge().rejected(t, learned)) {
             final String said = learned;
-            play(LocalTurn.speakAs(who, said + "\n\nI learned this from an earlier model. Is it accurate?"), null);
+            play(LocalTurn.speakAs(who, said + "\n(Learned from an earlier model.)"), null);
+            ratingQuestion = t;
             if (chatPane != null) {
                 chatPane.askRating(t, said);
             }
@@ -2509,13 +2520,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             chatPane.activityStep("Researching: " + t);
         }
         new Thread(() -> {
-            String found = null;
-            try {
-                found = new ai.dvine.connect.ConnectorStore(this).research(t, 2, 8000);
-            } catch (RuntimeException e) {
-                found = null;
+            ai.dvine.suit.ResearchAnswer r = null;
+            String subject = ai.dvine.suit.ResearchAnswer.subject(t);
+            if (subject != null) {
+                // "what is a pig": the subject's own encyclopedia entry, not pages that merely mention the word
+                ai.dvine.net.WebGet.Page page = ai.dvine.net.WebGet.page(ai.dvine.suit.ResearchAnswer.summaryUrl(subject), 12_000, 200_000);
+                r = page.status == 200 ? ai.dvine.suit.ResearchAnswer.fromSummary(page.body) : null;
             }
-            ai.dvine.suit.ResearchAnswer r = ai.dvine.suit.ResearchAnswer.from(t, found);
+            if (r == null) {
+                String found;
+                try {
+                    found = new ai.dvine.connect.ConnectorStore(this).research(t, 2, 8000);
+                } catch (RuntimeException e) {
+                    found = null;
+                }
+                r = ai.dvine.suit.ResearchAnswer.from(t, found);
+            }
             final ai.dvine.suit.ResearchAnswer answer = r != null && knowledge().rejected(t, r.shown()) ? null : r;
             runOnUiThread(() -> {
                 if (chatPane != null) {
@@ -2527,10 +2547,74 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 String shown = answer.shown();
-                play(LocalTurn.speakAs(who, "Here's what I found: " + shown + "\n\nIs this accurate?"), null);
+                play(LocalTurn.speakAs(who, shown), null); // one block; the Accurate? buttons ask underneath
+                ratingQuestion = t;
                 chatPane.askRating(t, shown);
             });
         }, "dvine-research").start();
+    }
+
+    /** The question DVINE 1 last asked "accurate?" about, for a correction the pilot types instead of tapping. */
+    private String ratingQuestion;
+
+    /** Questions about DVINE itself: what it learned, what it knows, who it is. Null for anything else. */
+    private String aboutDvine(String t) {
+        String q = t.toLowerCase(java.util.Locale.US);
+        if (q.matches("(?s).*\\bwhat (have|did) you (learn|learned|learnt)\\b.*|.*\\bwhat do you (know|remember)\\b.*"
+                + "|.*\\bwhat have you (remembered|saved|kept)\\b.*")) {
+            java.util.List<ai.dvine.learn.Knowledge.Fact> sure = knowledge().confirmed();
+            java.util.List<String> me = pilotProfile().lines();
+            StringBuilder b = new StringBuilder();
+            b.append(sure.isEmpty() ? "No answers confirmed yet: tap the check under an answer that's right and I keep it."
+                    : "Answers you confirmed (" + sure.size() + "):");
+            for (int i = sure.size() - 1, n = 0; i >= 0 && n < 8; i--, n++) {
+                ai.dvine.learn.Knowledge.Fact f = sure.get(i);
+                String a = f.answer.replaceAll("\\s+", " ");
+                b.append("\n- ").append(f.question).append(" \u2192 ").append(a.length() > 90 ? a.substring(0, 90) + "\u2026" : a);
+            }
+            if (!me.isEmpty()) {
+                b.append("\nAbout you: ").append(String.join("; ", me)).append('.');
+            }
+            int talk = brainBox().talkSize(), shapes = brainBox().templateCount();
+            if (talk + shapes > 0) {
+                b.append("\nFrom the models you used: ").append(talk).append(talk == 1 ? " answer" : " answers").append(" and ")
+                        .append(shapes).append(shapes == 1 ? " action shape." : " action shapes.");
+            }
+            return b.toString();
+        }
+        if (q.matches("(?s)\\s*(who|what) are you\\??\\s*|.*\\bwhat can you do\\b.*")) {
+            return "I'm " + DVINE_OWN + ", DVINE's own brain, running on this device with no model loaded. I work out sums exactly,"
+                    + " answer what you've confirmed before however it's asked, research what I don't know and learn from your"
+                    + " check and cancel. For open-ended writing or reasoning, pick an API or offline model: I learn from them too.";
+        }
+        return null;
+    }
+
+    /**
+     * A statement in DVINE 1's chat: right after an answer it asked about, it is taken as the right answer to that
+     * question; "a pig is an animal" on its own is kept as what a pig is. Nothing is searched.
+     */
+    private String learnStatement(String t) {
+        String said = t.trim();
+        if (ratingQuestion != null && chatPane != null && chatPane.ratingWaiting()) {
+            String q = ratingQuestion;
+            ratingQuestion = null;
+            chatPane.clearRating();
+            knowledge().confirm(q, said);
+            brainBox().learnTalk(q, said);
+            return "Got it. When you ask \u201c" + q + "\u201d, I'll answer: " + said;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)^(?:(the|a|an) )?(.{2,60}?) (is|are|was|were) (.{2,300}?)[.!]*$").matcher(said);
+        if (m.matches()) {
+            String subject = (m.group(1) == null ? "" : m.group(1) + " ") + m.group(2);
+            String verb = m.group(3).toLowerCase(java.util.Locale.US);
+            knowledge().confirm("What " + verb + " " + subject + "?", said);
+            if (Character.isUpperCase(m.group(2).charAt(0)) && m.group(1) == null) {
+                knowledge().confirm("Who " + verb + " " + subject + "?", said); // a name: kept for "who" too
+            }
+            return "Noted. Ask me what " + verb + " " + subject + " and I'll remember.";
+        }
+        return "Noted.";
     }
 
     /** Correct keeps the answer for this intent (and as talk the brain box knows); Wrong marks it wrong, never given again. */

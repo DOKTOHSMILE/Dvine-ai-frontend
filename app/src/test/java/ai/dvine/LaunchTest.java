@@ -930,6 +930,24 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    /** DVINE 1: a statement teaches (it isn't searched), and "what have you learned" is answered from its memory. */
+    @Test(timeout = 120000)
+    public void dvineLearnsFromStatementsAndSaysWhatItLearned() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Method learn = MainActivity.class.getDeclaredMethod("learnStatement", String.class);
+        learn.setAccessible(true);
+        org.junit.Assert.assertTrue(((String) learn.invoke(c.get(), "A pig is an animal")).startsWith("Noted."));
+        ai.dvine.learn.Knowledge k = new ai.dvine.learn.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        org.junit.Assert.assertEquals("A pig is an animal", k.recall("what's a pig?").answer);
+        java.lang.reflect.Method about = MainActivity.class.getDeclaredMethod("aboutDvine", String.class);
+        about.setAccessible(true);
+        String said = (String) about.invoke(c.get(), "What have you learned so far?");
+        org.junit.Assert.assertTrue(said, said.contains("A pig is an animal"));
+        org.junit.Assert.assertNull(about.invoke(c.get(), "What is a pig?"));
+        c.pause().stop().destroy();
+    }
+
     /** No internet with an API picked: the message waits and DVINE says the connection is missing, not the API. */
     @Test(timeout = 120000)
     public void noInternetIsSaidAndTheMessageWaits() throws Exception {

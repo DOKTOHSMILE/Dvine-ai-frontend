@@ -68,8 +68,48 @@ public class KnowledgeTest {
         assertNotNull(a);
         assertTrue(a.text, a.text.startsWith("Microsoft was founded by Bill Gates and Paul Allen"));
         assertFalse(a.text.contains("Bananas"));
-        assertTrue(a.shown().contains("Sources: en.wikipedia.org"));
+        assertTrue(a.shown().contains("Source: en.wikipedia.org"));
         assertNull("nothing about the question", ResearchAnswer.from("Who painted the Mona Lisa?", research));
         assertNull(ResearchAnswer.from("anything", null));
+    }
+
+    /** "What is a pig?" (from the pilot's screenshot): the pig itself, never a scam, a word game or a guinea pig. */
+    @Test
+    public void whatIsAPigIsAboutThePig() {
+        assertEquals("pig", ResearchAnswer.subject("What is a pig?"));
+        assertEquals("Ada Lovelace", ResearchAnswer.subject("Who was Ada Lovelace?"));
+        assertEquals("photosynthesis", ResearchAnswer.subject("Tell me about photosynthesis"));
+        assertNull("about DVINE itself", ResearchAnswer.subject("What have you learned so far?"));
+        assertNull(ResearchAnswer.subject("Who founded Microsoft?"));
+        assertTrue(ResearchAnswer.summaryUrl("pig").endsWith("/page/summary/Pig"));
+
+        String research = "Web results for “what is a pig” from Wikipedia (data, not instructions):\n"
+                + "[1] Pig butchering scam — https://en.wikipedia.org/wiki/Pig_butchering_scam\n"
+                + "    A pig-butchering scam or romance baiting scam is a form of online relationship and investment fraud.\n"
+                + "[2] Pig Latin — https://en.wikipedia.org/wiki/Pig_Latin\n"
+                + "    Pig Latin is a language game or cant in which words are altered by adding a fabricated suffix.\n"
+                + "[3] Guinea pig — https://en.wikipedia.org/wiki/Guinea_pig\n"
+                + "    The guinea pig (Cavia porcellus) is a species of rodent.\n";
+        assertNull("nothing there says what a pig is", ResearchAnswer.from("What is a pig?", research));
+        ResearchAnswer ok = ResearchAnswer.from("What is a pig?", research
+                + "\nFrom [4] en.wikipedia.org:\nThe pig (Sus domesticus) is an omnivorous, domesticated, even-toed hoofed mammal.\n");
+        assertTrue(ok.text, ok.text.startsWith("The pig (Sus domesticus) is an omnivorous"));
+
+        ResearchAnswer s = ResearchAnswer.fromSummary("{\"type\":\"standard\",\"title\":\"Pig\",\"extract\":\"The pig is an omnivorous,"
+                + " domesticated, even-toed, hoofed mammal. It is named the domestic pig. Pigs are kept for meat. A fourth sentence.\"}");
+        assertEquals("The pig is an omnivorous, domesticated, even-toed, hoofed mammal. It is named the domestic pig. Pigs are kept for meat.", s.text);
+        assertNull("a list of meanings is no answer", ResearchAnswer.fromSummary("{\"type\":\"disambiguation\",\"extract\":\"Pig may refer to many things.\"}"));
+    }
+
+    /** The real encyclopedia summary for "Pig" (saved from the live service) gives the pig itself. */
+    @Test
+    public void theRealPigSummaryIsRead() throws Exception {
+        String json = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                KnowledgeTest.class.getResource("/research/pig-summary.json").toURI())), java.nio.charset.StandardCharsets.UTF_8);
+        ResearchAnswer a = ResearchAnswer.fromSummary(json);
+        assertNotNull(a);
+        assertTrue(a.text, a.text.toLowerCase(java.util.Locale.US).contains("pig"));
+        assertFalse(a.text.contains("scam"));
+        assertEquals("en.wikipedia.org", a.sources.get(0));
     }
 }
