@@ -883,7 +883,7 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
-        sheet.getWindow().getDecorView().findViewsWithText(found, "Agents working now", android.view.View.FIND_VIEWS_WITH_TEXT);
+        sheet.getWindow().getDecorView().findViewsWithText(found, "Workers", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertFalse("the workload sheet", found.isEmpty());
         sheet.dismiss();
         c.pause().stop().destroy();
@@ -947,6 +947,8 @@ public class LaunchTest {
         String said = (String) about.invoke(c.get(), "What have you learned so far?");
         org.junit.Assert.assertTrue(said, said.contains("A pig is an animal"));
         org.junit.Assert.assertNull(about.invoke(c.get(), "What is a pig?"));
+        org.junit.Assert.assertNull("a question about shoes", about.invoke(c.get(), "What do you know about a shoe?"));
+        org.junit.Assert.assertNotNull(about.invoke(c.get(), "What do you know?"));
         c.pause().stop().destroy();
     }
 
@@ -994,6 +996,28 @@ public class LaunchTest {
         ai.dvine.learn.NightLearnJob.setPlan(c.get(), ai.dvine.learn.NightLearn.Plan.defaults());
         org.junit.Assert.assertEquals("off: nothing waits", 0, js.getAllPendingJobs().size());
         sheet.dismiss();
+        c.pause().stop().destroy();
+    }
+
+    /** The Workload sheet: the brain answering, DVINE 1's memory, each worker's details, and today's DVINE 1 answers. */
+    @Test(timeout = 120000)
+    public void theWorkloadSheetShowsWorkersInFull() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        c.get().getSharedPreferences("dvine", 0).edit().putString("brain_pick", "dvine").apply();
+        String w = ai.dvine.agent.AgentBoard.start("Obi \u00B7 reply", "What is a quasar?", "Claude Opus 5.5");
+        ai.dvine.agent.AgentBoard.step(w, "Reading en.wikipedia.org");
+        c.get().findViewById(R.id.workload).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.view.View sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog().getWindow().getDecorView();
+        for (String text : new String[] { MainActivity.DVINE_OWN, "never fills", w, "Claude Opus 5.5", "Reading en.wikipedia.org",
+                "What is a quasar?", "working", "DVINE 1 answers" }) {
+            java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+            sheet.findViewsWithText(found, text, android.view.View.FIND_VIEWS_WITH_TEXT);
+            org.junit.Assert.assertFalse(text, found.isEmpty());
+        }
+        ai.dvine.agent.AgentBoard.end(w);
+        org.robolectric.shadows.ShadowDialog.getLatestDialog().dismiss();
         c.pause().stop().destroy();
     }
 
@@ -1075,6 +1099,18 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
     }
 
+    private static void collect(android.view.View v, Class<?> kind, java.util.List<android.view.View> into) {
+        if (kind.isInstance(v) && !(v instanceof android.widget.ImageButton)) {
+            into.add(v);
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                collect(g.getChildAt(i), kind, into);
+            }
+        }
+    }
+
     private static android.view.View described(android.view.View v, String what) {
         if (what.contentEquals(v.getContentDescription() == null ? "" : v.getContentDescription())) {
             return v;
@@ -1151,6 +1187,13 @@ public class LaunchTest {
         org.junit.Assert.assertFalse(found.isEmpty());
         ((android.widget.Switch) found.get(0)).setChecked(true);
         org.junit.Assert.assertTrue(c.get().getSharedPreferences("dvine", 0).getAll().toString().contains("DEEP"));
+        // every tool has its icon; one with settings of its own opens them from its name
+        java.util.ArrayList<android.view.View> icons = new java.util.ArrayList<android.view.View>();
+        collect(sheet.getWindow().getDecorView(), android.widget.ImageView.class, icons);
+        org.junit.Assert.assertTrue("an icon a tool", icons.size() >= ai.dvine.suit.ChatTools.offered("ibiko").size());
+        org.junit.Assert.assertNotNull(described(sheet.getWindow().getDecorView(), "Connectors settings"));
+        org.junit.Assert.assertNull("deep thinking has no settings of its own", described(sheet.getWindow().getDecorView(), "Deep thinking settings"));
+        org.junit.Assert.assertEquals(R.drawable.ic_branch, MainActivity.toolIcon(ai.dvine.suit.ChatTools.Tool.GITHUB));
         sheet.dismiss();
 
         android.view.View drawer = c.get().findViewById(ai.dvine.R.id.historyDrawer);

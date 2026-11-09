@@ -195,6 +195,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 162 | Screenshot: DVINE 1's wrong answers for "what is a pig", searching statements and "what have you learned" | P12 | Built (fixture from the live encyclopedia; device check pending) | 0.99.7 |
 | 163 | Rating icons beside Copy and Listen; DVINE's own model thinks with steps; Obi, Ivie and Ibiko as 3 pages of 1 chat; bedtime auto-learning | P12 | Built (JVM and Robolectric; a real night pending) | 0.99.8 |
 | 164 | Learn only from usage, nothing saved as a test feature; swipe left to right opens the drawer; no swipe between persona pages | P12 | Built (JVM and Robolectric; device check pending) | 0.99.9 |
+| 165 | Workload, Usage and the workers display wired properly; the shoe screenshot; icons on the tools and their inner settings | P12 | Built (JVM and Robolectric; device check pending) | 0.99.10 |
 
 ## Still open, in the order that matters
 

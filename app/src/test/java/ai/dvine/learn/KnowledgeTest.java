@@ -114,4 +114,18 @@ public class KnowledgeTest {
         assertFalse(a.text.contains("scam"));
         assertEquals("en.wikipedia.org", a.sources.get(0));
     }
+
+    /** From the pilot's screenshot: "what do you know about a shoe" is about shoes; greetings are never kept as answers. */
+    @Test
+    public void aQuestionAboutAThingIsNotAQuestionAboutDvine() {
+        assertEquals("shoe", ResearchAnswer.subject("What do you know about a shoe?"));
+        Knowledge k = new Knowledge(null);
+        k.confirm("What is a shoe?", "A shoe is an item of footwear.");
+        assertEquals("A shoe is an item of footwear.", k.recall("What do you know about a shoe?").answer);
+        k.confirm("Hello", "Hello, I'm DVINE 1 \u00B7 0.1. Ask me anything.");
+        k.confirm("What have you learned so far?", "Records was in Europe.");
+        assertEquals("only the real answer is kept", 1, k.confirmed().size());
+        assertTrue(Knowledge.notKnowledge("Good afternoon", "Hi"));
+        assertFalse(Knowledge.notKnowledge("What do you know about Lagos?", "Lagos is a city."));
+    }
 }

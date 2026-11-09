@@ -94,7 +94,7 @@ public final class UsageActivity extends AppCompatActivity {
             }
             ctx.addView(legend(Ui.TRACK, "Free space", Math.max(0, window - used), window), Ui.wide(this, 10));
             divider(ctx);
-            ctx.addView(row("Answered by", c.brain), Ui.wide(this, 10));
+            ctx.addView(row("Answered by", c.brain + ", " + WorkloadSheet.ago(now - c.at)), Ui.wide(this, 10));
             ctx.addView(row("Speed", c.speed() <= 0 ? "-" : String.format(Locale.US, "%.1f tokens a second", c.speed())), Ui.wide(this, 8));
         }
         body.addView(ctx, Ui.wide(this, 8));
@@ -108,6 +108,9 @@ public final class UsageActivity extends AppCompatActivity {
         float speed = log.speedToday(now);
         today.addView(row("Average speed", speed <= 0 ? "-" : String.format(Locale.US, "%.1f tokens a second", speed)), Ui.wide(this, 8));
         today.addView(row("Failed replies", String.valueOf(log.failedToday(now))), Ui.wide(this, 8));
+        today.addView(row("DVINE 1 answers", String.valueOf(log.ownToday(now))), Ui.wide(this, 8));
+        today.addView(row("  from its memory", String.valueOf(log.ownMemoryToday(now))), Ui.wide(this, 6));
+        today.addView(row("  researched", String.valueOf(log.ownResearchToday(now))), Ui.wide(this, 6));
         today.addView(Ui.text(this, "Resets at midnight. API spending and limits are on your provider's own dashboard.", 13, Ui.SUB, false),
                 Ui.wide(this, 12));
         body.addView(today, Ui.wide(this, 8));
@@ -115,11 +118,18 @@ public final class UsageActivity extends AppCompatActivity {
         // ---- model
         section("Model");
         LinearLayout brain = card();
-        String answers = active.api() ? active.title + ": " + store.model(active) + (store.connected(active) ? "" : " (not tested yet)")
+        // the brain the pilot picked in the model menu: DVINE 1, the offline model, or the API models
+        String pick = getSharedPreferences("dvine", MODE_PRIVATE).getString("brain_pick", "api");
+        java.util.List<Providers> apis = store.usable();
+        boolean api = "api".equals(pick) && !apis.isEmpty();
+        String answers = "dvine".equals(pick) ? "DVINE 1 \u00B7 0.1 (DVINE's own)"
+                : api ? apis.get(0).title + ": " + store.model(apis.get(0)) + (store.connected(apis.get(0)) ? "" : " (not tested yet)")
+                        + (apis.size() > 1 ? " +" + (apis.size() - 1) + " backup" : "")
                 : "On this device: " + hub.model.spec.weights;
         brain.addView(row("Chosen", answers));
-        brain.addView(row("On this device", phoneState(m)), Ui.wide(this, 8));
-        brain.addView(row("Context window", tokens(active.api() ? store.window(active) : hub.model.localWindow()) + " tokens"), Ui.wide(this, 8));
+        brain.addView(row("Offline model", phoneState(m)), Ui.wide(this, 8));
+        brain.addView(row("Context window", "dvine".equals(pick) ? "none (answers from memory and research)"
+                : tokens(api ? store.window(apis.get(0)) : hub.model.localWindow()) + " tokens"), Ui.wide(this, 8));
         TextView change = Ui.text(this, "Change the model", 15, Ui.ACCENT, false);
         change.setPadding(0, Ui.dp(this, 14), 0, 0);
         change.setOnClickListener(v -> startActivity(new android.content.Intent(this, ProvidersActivity.class)));

@@ -31,7 +31,7 @@ public final class ResearchAnswer {
     }
 
     private static final Pattern ASKS_WHAT = Pattern.compile("(?i)^\\s*(?:what|who)(?:'s| is| are| was| were)\\s+(.+?)\\s*\\??$");
-    private static final Pattern ASKS_ABOUT = Pattern.compile("(?i)^\\s*(?:tell me about|define|explain|describe|what does|what do)\\s+(.+?)(?:\\s+mean)?\\s*[?.!]*$");
+    private static final Pattern ASKS_ABOUT = Pattern.compile("(?i)^\\s*(?:(?:tell me |say )?what (?:do|did) you (?:know|learn(?:ed|t)?) about|tell me about|define|explain|describe|what does|what do)\\s+(.+?)(?:\\s+mean)?\\s*[?.!]*$");
 
     /**
      * What a "what is X" / "who is X" / "tell me about X" question is about ("a pig" → "pig"), or null for any other

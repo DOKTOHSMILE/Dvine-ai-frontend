@@ -68,6 +68,11 @@ public final class ChatPane extends LinearLayout {
         show();
     }
 
+    /** A reply with nothing to learn in it (a greeting, a memory list): no check and cancel under it. */
+    public void noRating(String reply) {
+        ratedAnswer = reply == null ? null : reply.trim();
+    }
+
     /** The pilot answered the question by typing: the buttons go. */
     public void clearRating() {
         ratedAnswer = rateAnswer;

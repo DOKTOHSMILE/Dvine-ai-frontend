@@ -197,17 +197,46 @@ public final class Scribe {
 
     /** One line of the project list. {@code next} is the first step still outstanding. */
     public static final class Job {
+        public final String id;
         public final String title;
         public final String state;
         public final String next;
         public final boolean open;
+        /** Steps done and still to do, and when it last changed. */
+        public final int done, left;
+        public final long updated;
 
-        Job(String title, String state, String next, boolean open) {
+        Job(String id, String title, String state, String next, boolean open, int done, int left, long updated) {
+            this.id = id;
             this.title = title;
             this.state = state;
             this.next = next;
             this.open = open;
+            this.done = done;
+            this.left = left;
+            this.updated = updated;
         }
+    }
+
+    /** A title for people: pasted attachments and tags out, one line. */
+    public static String readable(String text) {
+        String t = text == null ? "" : text.replaceAll("(?is)<attachment[^>]*>.*?(</attachment>|$)", " ")
+                .replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+        return t.isEmpty() ? "Untitled task" : t;
+    }
+
+    /** The pilot closed a task that won't be resumed: it is kept as cancelled. True when it was there and open. */
+    public static boolean close(File workspace, String id) {
+        TaskStateRepository tasks = new TaskStateRepository(new File(workspace, "memory/tasks"));
+        TaskRecord r = tasks.load(id);
+        if (r == null || r.state == null || !r.state.open()) {
+            return false;
+        }
+        r.state = TaskState.CANCELLED;
+        r.cancelStatus = "closed by you";
+        r.updatedAt = System.currentTimeMillis();
+        tasks.save(r);
+        return true;
     }
 
     /** Open jobs first, then the latest closed ones. At most eight. */
@@ -239,10 +268,11 @@ public final class Scribe {
     }
 
     private static Job job(TaskRecord r) {
-        String title = r.description == null || r.description.isEmpty() ? r.instruction : r.description;
+        String title = readable(r.description == null || r.description.isEmpty() ? r.instruction : r.description);
         String state = r.state == null ? "unknown" : r.state.name().toLowerCase(Locale.US).replace('_', ' ');
-        String next = r.remaining.isEmpty() ? "Nothing outstanding in the record." : r.remaining.get(0);
-        return new Job(clip(title, 120), state, clip(next, 160), r.state != null && r.state.open());
+        String next = r.remaining.isEmpty() ? "Nothing outstanding in the record." : readable(r.remaining.get(0));
+        return new Job(r.id, clip(title, 120), state, clip(next, 160), r.state != null && r.state.open(), r.completed.size(),
+                r.remaining.size(), r.updatedAt > 0 ? r.updatedAt : r.createdAt);
     }
 
     private String execution() {

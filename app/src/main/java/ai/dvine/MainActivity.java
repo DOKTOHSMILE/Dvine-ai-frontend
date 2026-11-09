@@ -851,7 +851,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (workload != null)
             workload.setOnClickListener(v -> {
                 if (model != null) {
-                    ai.dvine.chat.ui.WorkloadSheet.show(this, model); // the context window, the agents at work, today
+                    ai.dvine.chat.ui.WorkloadSheet.show(this, model, brainLabel(), dvineOwn()); // the context window, the agents at work, today
                 }
             });
         android.view.View projects = findViewById(R.id.btnDrawerProjects);
@@ -1847,9 +1847,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** One step of what DVINE is doing, shown live in the chat ("Searching the web for …"); any thread. */
+    /** The reply being written on each job, as a worker on the board. */
+    private final java.util.Map<Integer, String> replyWorkers = new java.util.concurrent.ConcurrentHashMap<Integer, String>();
+
+    private static String cap(String persona) {
+        return persona == null || persona.isEmpty() ? "DVINE" : Character.toUpperCase(persona.charAt(0)) + persona.substring(1);
+    }
+
     private void activity(final String line) {
         if (line == null || line.trim().isEmpty()) {
             return;
+        }
+        Integer job = stage == null ? null : latestOf.get(stage.agent());
+        String w = job == null ? null : replyWorkers.get(job);
+        if (w != null) {
+            ai.dvine.agent.AgentBoard.step(w, line); // the worker's current step, on the Workload sheet
         }
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
             handler.post(() -> activity(line));
@@ -2383,10 +2395,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         box.setPadding(pad, 0, pad, pad);
+        final android.app.Dialog[] sheet = new android.app.Dialog[1];
         for (final ai.dvine.suit.ChatTools.Tool t : ai.dvine.suit.ChatTools.offered(persona)) {
             android.widget.LinearLayout row = new android.widget.LinearLayout(this);
             row.setGravity(android.view.Gravity.CENTER_VERTICAL);
             row.setMinimumHeight(pad * 4);
+            // the tool's icon, tinted like the rest of the app
+            android.widget.ImageView icon = new android.widget.ImageView(this);
+            icon.setImageResource(toolIcon(t));
+            icon.setColorFilter(getColor(R.color.text_primary));
+            android.widget.LinearLayout.LayoutParams ip = new android.widget.LinearLayout.LayoutParams(dp(22), dp(22));
+            ip.rightMargin = dp(14);
+            row.addView(icon, ip);
             android.widget.LinearLayout words = new android.widget.LinearLayout(this);
             words.setOrientation(android.widget.LinearLayout.VERTICAL);
             android.widget.TextView name = new android.widget.TextView(this);
@@ -2401,6 +2421,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     ? String.join(", ", tools.repos()) + "  \u00B7  change" : t.about);
             words.addView(about);
             row.addView(words, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            final Runnable inner = toolSettings(t, persona, tools, about, sheet);
+            if (inner != null) {
+                // a tool with settings of its own: its name opens them (the switch still turns it on and off)
+                name.setText(t.title + "  \u203A");
+                words.setOnClickListener(v -> inner.run());
+                words.setContentDescription(t.title + " settings");
+                android.util.TypedValue ripple = new android.util.TypedValue();
+                getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
+                words.setBackgroundResource(ripple.resourceId);
+            }
             android.widget.Switch sw = new android.widget.Switch(this);
             sw.setChecked(tools.isOn(t));
             sw.setContentDescription(t.title);
@@ -2412,13 +2442,69 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
             });
             row.addView(sw);
-            if (t == ai.dvine.suit.ChatTools.Tool.GITHUB) {
-                words.setOnClickListener(v -> chooseRepos(persona, tools, about));
-            }
             box.addView(row);
         }
         String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
-        ai.dvine.chat.ui.BottomSheet.showView(this, who + "'s tools in this chat", box);
+        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(this, who + "'s tools in this chat", box);
+    }
+
+    /** Each tool's icon. */
+    static int toolIcon(ai.dvine.suit.ChatTools.Tool t) {
+        switch (t) {
+            case GITHUB: return R.drawable.ic_branch;
+            case SHELL: return R.drawable.ic_terminal;
+            case WEB: return R.drawable.ic_search;
+            case CONNECTORS: return R.drawable.ic_plug;
+            case PHOTOS: return R.drawable.ic_image;
+            case DESIGN3D: return R.drawable.ic_cube;
+            case FILES: return R.drawable.ic_file;
+            case SHARE: return R.drawable.ic_share;
+            case SOCIAL: return R.drawable.ic_people;
+            default: return R.drawable.ic_deep;
+        }
+    }
+
+    /** What a tool's name opens: its own settings, or null when it has none. */
+    private Runnable toolSettings(final ai.dvine.suit.ChatTools.Tool t, final String persona, final ai.dvine.suit.ChatTools tools,
+            final android.widget.TextView about, final android.app.Dialog[] sheet) {
+        switch (t) {
+            case GITHUB:
+                return () -> chooseRepos(persona, tools, about); // the repositories this chat works on
+            case CONNECTORS:
+                return () -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ConnectorsActivity.class));
+            case WEB:
+            case SHELL:
+                return () -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
+            case SOCIAL:
+                return () -> ai.dvine.chat.ui.BottomSheet.show(this, "Social accounts", new ai.dvine.chat.ui.BottomSheet.Item[] {
+                        new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_people, "Your accounts", "Sign in, switch or remove accounts"),
+                        new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_send, "Scheduled posts", "See or cancel what is planned") }, which -> {
+                            if (sheet[0] != null) {
+                                sheet[0].dismiss();
+                            }
+                            if (which == 0) {
+                                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class));
+                            } else {
+                                showScheduledPosts();
+                            }
+                        });
+            case SHARE:
+                return () -> {
+                    final android.widget.Switch auto = new android.widget.Switch(this);
+                    auto.setText("Share and post without asking me first");
+                    auto.setChecked(prefs.getBoolean("actions_auto", false));
+                    auto.setPadding(dp(20), dp(12), dp(20), dp(4));
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("Share, post or copy")
+                            .setMessage("Off (recommended): each share, post or copy is shown first and waits for your yes.")
+                            .setView(auto)
+                            .setPositiveButton("Save", (d, w) -> prefs.edit().putBoolean("actions_auto", auto.isChecked()).apply())
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                };
+            default:
+                return null;
+        }
     }
 
     /** The account's repositories, to choose the ones this chat works on (several at once). */
@@ -2518,6 +2604,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     private void dvineAnswer(final String t) {
         final String who = stage.agent();
+        if (dvineWorker != null) {
+            ai.dvine.agent.AgentBoard.end(dvineWorker, ai.dvine.agent.AgentBoard.Outcome.STOPPED); // a newer message took over
+        }
+        dvineWorker = ai.dvine.agent.AgentBoard.start(cap(who) + " \u00B7 " + DVINE_OWN, t, DVINE_OWN);
+        dvineHow = ai.dvine.llm.UsageLog.Own.OTHER;
         ai.dvine.suit.Comprehension c = ai.dvine.suit.Comprehension.of(t);
         if (c.math != null && c.mathValue != null && !c.mathValue.isEmpty()) {
             final String sum = c.math + " = " + c.mathValue;
@@ -2525,28 +2616,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         if (c.act == ai.dvine.suit.Comprehension.Act.GREETING) {
-            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSays(who, "Hello, I'm " + DVINE_OWN
+            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSaysPlain(who, "Hello, I'm " + DVINE_OWN
                     + ". Ask me anything: I answer what I know, research what I don't, and learn when you tell me Correct or Wrong."));
             return;
         }
         final String self = aboutDvine(t);
         if (self != null) {
             // a question about DVINE itself: answered from its own memory
-            dvineThink(java.util.Arrays.asList("Reading your question", "Looking through my memory"), () -> dvineSays(who, self));
+            dvineThink(java.util.Arrays.asList("Reading your question", "Looking through my memory"), () -> dvineSaysPlain(who, self));
             return;
         }
         if (!t.trim().endsWith("?") && c.act != ai.dvine.suit.Comprehension.Act.QUESTION
                 && c.act != ai.dvine.suit.Comprehension.Act.REQUEST && c.act != ai.dvine.suit.Comprehension.Act.THANKS) {
             // a statement teaches; it isn't researched
-            dvineThink(java.util.Arrays.asList("Reading what you said", "Saving it to memory"), () -> dvineSays(who, learnStatement(t)));
+            dvineThink(java.util.Arrays.asList("Reading what you said", "Saving it to memory"), () -> dvineSaysPlain(who, learnStatement(t)));
             return;
         }
         if (c.act == ai.dvine.suit.Comprehension.Act.THANKS) {
-            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSays(who, "You're welcome."));
+            dvineThink(java.util.Arrays.asList("Reading your message"), () -> dvineSaysPlain(who, "You're welcome."));
             return;
         }
         final ai.dvine.learn.Knowledge.Fact known = knowledge().recall(t);
         if (known != null) {
+            dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
             dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
                     known.sure ? "Found it: you confirmed this before" : "Found it: I learned this overnight"), () -> {
                         if (known.sure) {
@@ -2561,6 +2653,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final String learned = brainBox().recallTalk(t);
         if (learned != null && !knowledge().rejected(t, learned)) {
+            dvineHow = ai.dvine.llm.UsageLog.Own.MEMORY;
             dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
                     "Found an answer an earlier model gave"), () -> {
                         dvineSays(who, learned + "\n(Learned from an earlier model.)");
@@ -2571,12 +2664,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (connectivity != null && !connectivity.isOnline()) {
             ai.dvine.learn.NightLearnJob.remember(this, t); // learned tonight, if night learning is on
-            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know"), () -> dvineSays(who,
+            dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know"), () -> dvineSaysPlain(who,
                     "I don't know that yet, and there's no internet connection to research it. I've kept the question:"
                             + " ask me again when you're online" + (ai.dvine.learn.NightLearnJob.plan(this).on ? ", or I'll learn it tonight." : ".")));
             return;
         }
         final String subject = ai.dvine.suit.ResearchAnswer.subject(t);
+        dvineHow = ai.dvine.llm.UsageLog.Own.RESEARCH;
         dvineThink(java.util.Arrays.asList("Reading your question", "Checking what I already know",
                 subject != null ? "Not in my memory: looking up \u201c" + subject + "\u201d" : "Not in my memory: searching the web"), () -> {
                     final int token = dvineToken;
@@ -2589,7 +2683,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             }
                             if (answer == null) {
                                 ai.dvine.learn.NightLearnJob.remember(this, t);
-                                dvineThink(java.util.Arrays.asList("Nothing I found answers it"), () -> dvineSays(who,
+                                dvineThink(java.util.Arrays.asList("Nothing I found answers it"), () -> dvineSaysPlain(who,
                                         "I don't know that yet, and what I found didn't answer it. Try asking it another way, or pick an API"
                                                 + " or offline model for this one: I learn from their answers too."
                                                 + (ai.dvine.learn.NightLearnJob.plan(this).on ? " I've also kept it to learn tonight." : "")), false);
@@ -2624,6 +2718,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             handler.postDelayed(() -> {
                 if (token == dvineToken && chatPane != null) {
                     chatPane.activityStep(step);
+                    if (dvineWorker != null) {
+                        ai.dvine.agent.AgentBoard.step(dvineWorker, step);
+                    }
                 }
             }, 120 + i * 650L);
         }
@@ -2634,12 +2731,35 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }, 120 + steps.size() * 650L + 250);
     }
 
-    /** DVINE 1's answer, after its steps. */
+    /** DVINE 1's worker on the board, and how it is answering (for Usage). */
+    private String dvineWorker;
+    private ai.dvine.llm.UsageLog.Own dvineHow = ai.dvine.llm.UsageLog.Own.OTHER;
+
+    /**
+     * DVINE 1's own set replies (a greeting, its memory list, "noted", "I don't know"): shown without check and cancel,
+     * since there is nothing in them to learn.
+     */
+    private void dvineSaysPlain(String who, String text) {
+        if (chatPane != null) {
+            chatPane.noRating(text);
+        }
+        dvineSays(who, text);
+    }
+
+    /** DVINE 1's answer, after its steps: counted in today's use, its worker done, the ring updated. */
     private void dvineSays(String who, String text) {
         if (chatPane != null) {
             chatPane.activityEnd();
         }
+        if (dvineWorker != null) {
+            ai.dvine.agent.AgentBoard.end(dvineWorker);
+            dvineWorker = null;
+        }
+        if (model != null) {
+            model.usage.recordOwn(dvineHow, System.currentTimeMillis());
+        }
         play(LocalTurn.speakAs(who, text), null);
+        checkWorkload();
     }
 
     /** In the morning: what DVINE learned overnight, said once in the chat. */
@@ -2726,8 +2846,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** Questions about DVINE itself: what it learned, what it knows, who it is. Null for anything else. */
     private String aboutDvine(String t) {
         String q = t.toLowerCase(java.util.Locale.US);
-        if (q.matches("(?s).*\\bwhat (have|did) you (learn|learned|learnt)\\b.*|.*\\bwhat do you (know|remember)\\b.*"
-                + "|.*\\bwhat have you (remembered|saved|kept)\\b.*")) {
+        // "what do you know about shoes" is a question about shoes, not about DVINE's memory
+        if (q.matches("(?s).*\\bwhat (have|did) you (learn|learned|learnt)\\b(?!.*\\babout\\b).*"
+                + "|.*\\bwhat do you (know|remember)\\b(?!.*\\babout\\b).*|.*\\bwhat have you (remembered|saved|kept)\\b(?!.*\\babout\\b).*")) {
             java.util.List<ai.dvine.learn.Knowledge.Fact> sure = knowledge().confirmed();
             java.util.List<String> me = pilotProfile().lines();
             StringBuilder b = new StringBuilder();
@@ -3156,7 +3277,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     .compact(model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             ai.dvine.llm.ReplyService.hold(this);
             markRunning(persona, task); // if the app is closed or crashes, the next start offers to carry on
-            final String lead = ai.dvine.agent.AgentBoard.start(who + (planning ? " \u00B7 planner" : readOnly ? " \u00B7 reader" : " \u00B7 lead"), task);
+            final String lead = ai.dvine.agent.AgentBoard.start(who + (planning ? " \u00B7 planner" : readOnly ? " \u00B7 reader" : " \u00B7 lead"), task, brainLabel());
             final java.util.List<String> changed = new java.util.ArrayList<String>();
             ai.dvine.agent.CodeAgent agent = make.get();
             String result;
@@ -3347,7 +3468,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String context = chats == null ? "" : chats.transcript(model.remoteOn() ? 6000 : 1500, model.remoteOn() ? 1500 : 300);
         hub.worker.execute(() -> {
             ai.dvine.llm.ReplyService.hold(this);
-            final String council = ai.dvine.agent.AgentBoard.start("Council \u00B7 Obi, Ivie, Ibiko", question);
+            final String council = ai.dvine.agent.AgentBoard.start("Council \u00B7 Obi, Ivie, Ibiko", question, brainLabel());
             ai.dvine.agent.Council.Result r;
             try {
                 r = ai.dvine.agent.Council.run((system, prompt) -> model.task(system, prompt,
@@ -3407,7 +3528,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (!alive(id)) {
                 return; // a new question came first
             }
-            final String checker = ai.dvine.agent.AgentBoard.start("Fact checker", question);
+            final String checker = ai.dvine.agent.AgentBoard.start("Fact checker", question, brainLabel());
             ai.dvine.llm.FactCheck.Result r;
             try {
                 // the web first; with signed-in social accounts (and the setting on), what people post on one of them
@@ -3481,11 +3602,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (model == null) {
             return;
         }
-        final float load = model.workload();
+        // DVINE 1 has no context window to fill; the models' is the last call's
+        final float load = dvineOwn() ? 0f : model.workload();
         if (g != null) {
             g.set(load);
         }
-        if (load < ai.dvine.stage.WorkloadGauge.HOT || compacting || model.coding || !prefs.getBoolean("auto_clear", true)) {
+        prefs.edit().putString("usage_today", model.usage.save()).apply(); // today's numbers survive a closed app
+        if (dvineOwn() || load < ai.dvine.stage.WorkloadGauge.HOT || compacting || model.coding || !prefs.getBoolean("auto_clear", true)) {
             return;
         }
         compacting = true;
@@ -3496,7 +3619,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 handler.post(() -> compacting = false); // too little to sum up
                 return;
             }
-            final String keeper = ai.dvine.agent.AgentBoard.start("Memory keeper", "summing up the conversation to clear memory");
+            final String keeper = ai.dvine.agent.AgentBoard.start("Memory keeper", "summing up the conversation to clear memory", brainLabel());
             String summary;
             try {
                 summary = model.task(SUM_UP, said.length() > 20000 ? said.substring(said.length() - 20000) : said, 400, null);
@@ -4693,6 +4816,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         writing.add(id);
         final boolean ivie = stage.isIvie();
         final String agent = stage.agent();
+        final String worker = ai.dvine.agent.AgentBoard.start(cap(agent) + " \u00B7 reply", question, brainLabel());
+        replyWorkers.put(id, worker);
         stopPlay();
         stage.setMode(StageMode.THINKING);
         stage.activity("MODEL", "thinking offline");
@@ -4862,6 +4987,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final String switchTo = tags.switchTo();
             handler.post(() -> {
                 writing.remove(id);
+                String w = replyWorkers.remove(id);
+                if (w != null) {
+                    ai.dvine.agent.AgentBoard.end(w, !alive(id) ? ai.dvine.agent.AgentBoard.Outcome.STOPPED
+                            : all == null || all.trim().isEmpty() ? ai.dvine.agent.AgentBoard.Outcome.FAILED : ai.dvine.agent.AgentBoard.Outcome.DONE);
+                }
                 if (!alive(id)) {
                     return;
                 }
@@ -6551,6 +6681,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         ai.dvine.llm.ReplyNotice.clear(this);
         handler.postDelayed(this::sendWaiting, 1000);
         handler.postDelayed(this::morningReport, 1500);
+        handler.post(this::checkWorkload); // the ring shows the brain in use as soon as the chat is back
         if (chatPane != null) {
             chatPane.show(); // replies that came in while DVINE was in the background are in the chat
         }

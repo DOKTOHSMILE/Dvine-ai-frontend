@@ -33,6 +33,7 @@ public final class NightLearnJob extends JobService {
     static final String CHANNEL = "night_learning";
 
     private volatile boolean stopped;
+    private volatile String boarded;
     private Thread worker;
 
     // ------------------------------------------------------------ the pilot's plan
@@ -161,9 +162,12 @@ public final class NightLearnJob extends JobService {
         }
         stopped = false;
         worker = new Thread(() -> {
+            String board = ai.dvine.agent.AgentBoard.start("Night learner", "learning from today's questions while you sleep", "DVINE 1 \u00B7 0.1");
+            boarded = board;
             try {
                 learnTonight(p);
             } finally {
+                ai.dvine.agent.AgentBoard.end(board, stopped ? ai.dvine.agent.AgentBoard.Outcome.STOPPED : ai.dvine.agent.AgentBoard.Outcome.DONE);
                 jobFinished(params, false);
                 schedule(NightLearnJob.this); // the next night
             }
@@ -200,6 +204,9 @@ public final class NightLearnJob extends JobService {
                 break;
             }
             boolean asked = unanswered.contains(topic);
+            if (boarded != null) {
+                ai.dvine.agent.AgentBoard.step(boarded, "Learning: " + topic);
+            }
             String q = asked ? topic : NightLearn.question(topic);
             ai.dvine.suit.ResearchAnswer r = research(this, q);
             if (r == null || k.rejected(q, r.shown())) {
