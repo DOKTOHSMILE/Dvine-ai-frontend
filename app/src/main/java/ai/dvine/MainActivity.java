@@ -57,7 +57,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public void run() {
             engine.tick(android.os.SystemClock.uptimeMillis());
-            handler.postDelayed(this, 100L);
+            handler.postDelayed(this, 500L); // twice a second is plenty; ten times kept the processor from resting
         }
     };
     StageView stage;
@@ -1467,6 +1467,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         updateThoughtStatus("Thinking…", false);
 
         chats = ai.dvine.chat.ChatBook.open(new File(getFilesDir(), "chats.json"));
+        chats.coalesce(!"robolectric".equals(android.os.Build.FINGERPRINT)); // gathered saves on a device; tests read at once
         chatPane = new ai.dvine.stage.ChatPane(this, chats, new ai.dvine.stage.ChatPane.Host() {
             @Override
             public void onSend(String text) {
@@ -5999,6 +6000,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onPause() {
         inFront = false;
+        if (chats != null) {
+            chats.flush(); // nothing waits unsaved once the app leaves the screen
+        }
         if (model != null && prefs != null) {
             prefs.edit().putString("usage_today", model.usage.save()).apply();
         }

@@ -502,7 +502,7 @@ public final class ChatPane extends LinearLayout {
         }
     };
     /** A character every this many milliseconds: the typewriter's pace. */
-    static final long TYPE_MS = 18;
+    static final long TYPE_MS = 40; // 25 times a second reads as typing; 60 only warms the device
 
     /** Types {@code words} into the live line, a character at a time; the same words again are left as they are. */
     private void type(String words) {
@@ -1163,8 +1163,8 @@ public final class ChatPane extends LinearLayout {
     }
 
     /** At least this many characters a frame (about 500 a second at 60 frames), in whole words, as ChatGPT streams. */
-    static final int LIVE_CHARS_PER_TICK = 8;
-    static final long LIVE_TICK_MS = 16;
+    static final int LIVE_CHARS_PER_TICK = 20; // 25 redraws a second, 20 characters each: the same 500 a second
+    static final long LIVE_TICK_MS = 40; // as above: the live reply is redrawn 25 times a second at most
 
     /**
      * Where the typewriter stops next: a few characters on, more the further behind it is (a third of the gap a

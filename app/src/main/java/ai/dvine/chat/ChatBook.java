@@ -907,7 +907,48 @@ public final class ChatBook {
         }
     }
 
+    /** While long work adds a line every few seconds, the whole book is written at most about once a second. */
+    private static final java.util.concurrent.ScheduledExecutorService WRITER = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "dvine-chats-save");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+    private volatile boolean coalesce, writeWaiting;
+
+    /**
+     * The chat screen turns this on: saves are gathered and written off the screen's thread, at most about once a
+     * second (every chat is one file, so writing it on each line of a long task kept the processor and storage busy
+     * and warmed the device). {@link #flush} writes at once (when the app leaves the screen).
+     */
+    public void coalesce(boolean on) {
+        coalesce = on;
+    }
+
+    /** Writes now whatever is waiting. */
+    public synchronized void flush() {
+        if (writeWaiting) {
+            writeWaiting = false;
+            writeNow();
+        }
+    }
+
     private void save() {
+        if (file == null) {
+            return;
+        }
+        if (!coalesce) {
+            writeNow();
+            return;
+        }
+        if (writeWaiting) {
+            return; // one write is already on its way and will carry this change
+        }
+        writeWaiting = true;
+        WRITER.schedule(this::flush, 900, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    private void writeNow() {
         if (file == null) {
             return;
         }
