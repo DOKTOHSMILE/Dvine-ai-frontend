@@ -1,3 +1,10 @@
+# DVINE's own Linux (0.99.16)
+
+The app should run Linux itself. Termux stays a fallback for what this engine does not know yet.
+
+- [x] One function: `unzip`. It runs inside the app (`linux/LinuxEngine`), refuses a path with `..` or a shell command, and does not open Termux. Chat and Ibiko's `run` tool both use it first.
+- [ ] The next functions (list, read, copy) are not built. Python, node, git and a compiler still need Termux.
+
 # MainActivity split (0.99.15)
 
 The order is in `docs/DVINE_MASTER_BUILD_HANDBOOK.md` §10. The canvas is the next piece after the drawer, the tools sheet, the model menu and DVINE 1.

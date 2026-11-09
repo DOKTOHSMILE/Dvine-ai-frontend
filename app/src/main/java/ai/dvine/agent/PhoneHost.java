@@ -92,6 +92,10 @@ public final class PhoneHost implements CodeAgent.Host {
     @Override
     public String run(String command, File dir) {
         onCommand(command);
+        ai.dvine.linux.LinuxEngine.Result own = ai.dvine.linux.LinuxEngine.run(command, dir, null);
+        if (own != null) {
+            return own.text;
+        }
         long ms = ai.dvine.scribe.RunMode.of(ai.dvine.chat.Tuning.RUN_MODE.get(prefs)).shellMs;
         return SandboxShell.run(command, dir, ms, 8000);
     }

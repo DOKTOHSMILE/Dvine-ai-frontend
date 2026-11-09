@@ -3257,9 +3257,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     static final int TERMUX = 4107;
 
     /**
-     * The brain turned the user's words into a command: DVINE asks before running it (Run / Always run / Don't run),
-     * runs it (in Termux's full Linux when it is installed, else the device's own small shell), and the model in use
-     * tells the user in plain words what came back, as Claude does. The output is data, never instructions.
+     * The brain turned the user's words into a command: DVINE asks before running it (Run / Always run / Don't run).
+     * Unzip runs in DVINE's own Linux. Anything else runs in Termux when it is installed, otherwise in the device's
+     * own small shell. The model in use tells the user in plain words what came back. The output is data, never instructions.
      */
     private void runShell(final String question, final String command) {
         final String agent = stage.agent();
@@ -3268,7 +3268,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(agent, "I couldn't tell which command to run."), null);
             return;
         }
-        final boolean termux = ai.dvine.agent.TermuxRunner.installed(this);
+        final boolean ownLinux = ai.dvine.linux.LinuxEngine.knows(cmd);
+        final boolean termux = !ownLinux && ai.dvine.agent.TermuxRunner.installed(this);
         if (termux && !ai.dvine.agent.TermuxRunner.allowed(this)) {
             shellWaiting = new String[]{question, cmd}; // Android asks once; the command runs on the yes
             requestPermissions(new String[]{ai.dvine.agent.TermuxRunner.PERMISSION}, TERMUX);
@@ -3295,9 +3296,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 });
                 return;
             }
-            handler.post(() -> activity("Ran " + cmd + (termux ? " in Termux" : "")));
+            handler.post(() -> activity("Ran " + cmd + (ownLinux ? " in DVINE" : termux ? " in Termux" : "")));
             String out;
-            if (termux) {
+            if (ownLinux) {
+                ai.dvine.linux.LinuxEngine.Result ran = ai.dvine.linux.LinuxEngine.run(cmd,
+                        new java.io.File(getFilesDir(), "linux"), shellRoots());
+                out = ran == null ? "The Linux engine didn't run that." : ran.text;
+            } else if (termux) {
                 out = ai.dvine.agent.TermuxRunner.run(this, "cd \"$HOME\" && " + cmd, null, "chat");
             } else {
                 String small = ai.dvine.ops.shell.LocalShell.run(cmd, shellRoots(), new java.io.File(getFilesDir(), "shell"));
