@@ -57,7 +57,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public void run() {
             engine.tick(android.os.SystemClock.uptimeMillis());
-            handler.postDelayed(this, 100L); // the engine keeps its own pace; ten ticks a second keep streaming smooth
+            handler.postDelayed(this, 500L); // twice a second is plenty; ten times kept the processor from resting
         }
     };
     StageView stage;
