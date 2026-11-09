@@ -7,7 +7,7 @@ public final class BrainOrder {
     public enum Kind {
         SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, BUILD, SOCIAL, CANNOT,
         // the suit's controls, only ever from a brain's code (never from the user's words)
-        CALC, MAKEFILE, STAGE, NEWCHAT, SWITCH, PLANMODE, AUTOON, AUTOOFF, RETRY, SETTINGS
+        CALC, MAKEFILE, STAGE, SOCIALINTEL, NEWCHAT, SWITCH, PLANMODE, AUTOON, AUTOOFF, RETRY, SETTINGS
     }
 
     public final Kind kind;
@@ -65,6 +65,7 @@ public final class BrainOrder {
             case CA: return new BrainOrder(Kind.CALC, c.args, "");
             case MF: return new BrainOrder(Kind.MAKEFILE, c.args.isEmpty() ? "pdf" : c.args.trim().split("\\s+")[0], "");
             case AC: return new BrainOrder(Kind.STAGE, c.args, "");
+            case SI: return new BrainOrder(Kind.SOCIALINTEL, c.args, "");
             case NC: return new BrainOrder(Kind.NEWCHAT, "", "");
             case SW: return new BrainOrder(Kind.SWITCH, c.args.trim().toLowerCase(java.util.Locale.US), "");
             case PM: return new BrainOrder(Kind.PLANMODE, "", "");

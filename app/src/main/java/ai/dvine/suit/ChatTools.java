@@ -132,6 +132,9 @@ public final class ChatTools {
                 s.add(FunctionCode.TL); // GitHub's own tools go through the connector code
             }
         }
+        if (on.contains(Tool.SOCIAL)) {
+            s.add(FunctionCode.SI); // the social intelligence capabilities
+        }
         if (on.contains(Tool.SHELL)) {
             s.add(FunctionCode.PM);
             s.add(FunctionCode.AO);

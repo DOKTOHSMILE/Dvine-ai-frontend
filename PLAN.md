@@ -1,3 +1,19 @@
+# Social Intelligence System (0.99.2)
+
+Design and status: `docs/SOCIAL_INTELLIGENCE.md`.
+
+- [x] M1 Repository audit: `social/Platform`, `SocialWeb`, `SocialLimits`, `SocialPage`, `SocialAccounts` and the `social.*` connector tools exist and are reused.
+- [x] M2 Data models (`SocialPost`, `SocialProfile`, `SentimentReport`, `InvestigationReport`) and `SocialCapabilityRegistry` (9 capabilities, availability, JSON).
+- [x] M3 Provider framework: `SocialProvider`; `RedditPublicProvider` (public API), `AccountProvider` (the user's signed-in X, Instagram, Facebook, Reddit), `UnsupportedProvider` (TikTok). Credentials stay in `SocialWeb`.
+- [x] M4 Post investigation (`ClaimExtractor`, web evidence per factual claim, earliest close match as possible original).
+- [x] M5 Similar posts (`SemanticPostMatcher`: TF-IDF cosine, duplicates removed).
+- [x] M6 Sentiment (`SentimentReport`: negation-aware word list, themes, concerns, questions, sample disclosure).
+- [x] M7 Own profile (`social.profile.read_own`, the user's sign-in; no business insights).
+- [x] M8 Public profile (`social.profile.read_public`; private accounts reported, not bypassed).
+- [x] M9 Chat integration: the brain's code `§SI`, told only when the chat's Social accounts tool is on; results back to the same brain.
+- [~] M10 Security and tests: `SocialPrivacyGuard`, `SocialIntelTest` with fake providers. Not yet run against live platforms from a device (Reddit refuses the build server's network).
+- [ ] Dashboard; official API adapters (need the user's registered apps).
+
 # Checked against the code (0.96.4)
 
 - [x] Unit tests compile and pass: 0.96.3 brought `CrewTest`/`PlanTest` back in line; the full suite runs on every release.
