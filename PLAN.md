@@ -1,3 +1,14 @@
+# Linux terminal (0.99.20)
+
+The shell screen is Alpine Linux, not the short Java command list. Termux is not opened.
+
+- [x] First open downloads Alpine 3.24 (about 4 MB) and unpacks it inside the app.
+- [x] `proot` and its loader ship in the app (`libproot.so`, `libproot_loader.so`) so the phone can run them.
+- [x] `pkg search`, `pkg install`, `pkg upgrade`, `pkg uninstall` and `pkg list` run Alpine's `apk`.
+- [x] The screen has the extra keys (ESC, CTRL, ALT, arrows, home, end, page) and pinches to zoom. Double-tap sets the size back.
+- [x] CTRL then C stops the running command. The shell stays open, so `cd` and installed packages last.
+- [ ] python, git and ssh are not preinstalled. `pkg install python3 git openssh` adds them. The agent's `run` tool still uses the small Java shell.
+
 # Shell crash (0.99.19)
 
 A command with a single `&` (a background job, or a link like `a=1&b=2`) made the shell add tokens forever on the agent thread until the phone ran out of memory. The main thread was not running the shell. It froze because the process was out of memory.
