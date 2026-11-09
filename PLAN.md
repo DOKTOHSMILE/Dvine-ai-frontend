@@ -1,3 +1,8 @@
+# Standard terminal (0.99.25)
+
+- [x] The title bar and the separate command box are gone. The prompt and the block cursor are the last line of the session, as in a normal terminal.
+- [x] The extra keys are a plain bar, not buttons. `clear` and `exit` do what they say. Tap the session to open the keyboard.
+
 # Terminal scroll (0.99.24)
 
 - [x] New output scrolls to the last line after the text has been measured. Scrolling up to read stays put until the next command.

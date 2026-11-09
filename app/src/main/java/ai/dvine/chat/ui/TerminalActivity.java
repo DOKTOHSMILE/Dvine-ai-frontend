@@ -1,6 +1,8 @@
 package ai.dvine.chat.ui;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
@@ -8,6 +10,7 @@ import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.ScaleGestureDetector;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -27,34 +30,19 @@ import ai.dvine.linux.Guest;
 import ai.dvine.linux.LinuxRoot;
 
 /**
- * A Linux terminal inside the app: Alpine, with {@code pkg} for installing programs, extra keys
- * (ESC, CTRL, arrows) and pinch-to-zoom. Termux is not opened.
+ * A normal terminal. The prompt and the cursor are the last line of the session, not a separate box.
+ * Alpine runs the commands. Termux is not opened.
  */
 public final class TerminalActivity extends AppCompatActivity {
-    private static final String WELCOME = "Welcome to DVINE Linux.\n"
-            + "\n"
-            + "Alpine Linux is running inside this app.\n"
-            + "Termux is not opened. Packages install here.\n"
-            + "\n"
-            + "Working with packages:\n"
-            + " - Search:    pkg search <query>\n"
-            + " - Install:   pkg install <package>\n"
-            + " - Upgrade:   pkg upgrade\n"
-            + "\n"
-            + "For example:  pkg install python3 git openssh\n"
-            + "\n"
-            + "Your folder is kept between commands. /work is this app's files. /storage is the phone's storage when it is allowed.\n"
-            + "\n"
-            + "Pinch with two fingers to zoom.\n"
-            + "CTRL, then C, stops a running command.\n"
-            + "\n";
+    private static final String WELCOME = "Alpine Linux 3.22.5\n";
 
     private TextView transcript;
-    private TextView prompt;
     private EditText input;
     private ScrollView scroll;
+    private final StringBuilder log = new StringBuilder();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final List<String> history = new ArrayList<String>();
+    private final Handler blinker = new Handler(Looper.getMainLooper());
     private int historyAt = 0;
     private AlpineRun.Job job;
     private String cwd = "/root";
@@ -64,45 +52,42 @@ public final class TerminalActivity extends AppCompatActivity {
     /** Follow new lines. Turned off when the user scrolls up to read. */
     private boolean stick = true;
     private boolean moving;
+    private boolean cursorOn = true;
     private boolean ctrl;
     private boolean alt;
     private boolean editing;
-    private float textSp = 13f;
+    private float textSp = 14f;
     private TextView ctrlKey;
     private TextView altKey;
+    private final Runnable blink = new Runnable() {
+        @Override
+        public void run() {
+            cursorOn = !cursorOn;
+            paint(false);
+            blinker.postDelayed(this, 530);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Ui.init(this);
-        textSp = getPreferences(MODE_PRIVATE).getFloat("text_sp", 13f);
-        int pad = Ui.dp(this, 10);
+        textSp = getPreferences(MODE_PRIVATE).getFloat("text_sp", 14f);
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setBackgroundColor(0xFF000000);
-        page.setPadding(pad, Ui.dp(this, 8), pad, pad);
-
-        LinearLayout head = new LinearLayout(this);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView close = Ui.text(this, "✕", 20, 0xFFE8E8E8, false);
-        close.setContentDescription("Close");
-        close.setOnClickListener(v -> finish());
-        head.addView(close);
-        TextView title = Ui.text(this, "Linux", 16, 0xFFE8E8E8, true);
-        title.setGravity(Gravity.CENTER);
-        head.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
-        TextView clear = Ui.text(this, "Clear", 14, Ui.ACCENT, true);
-        clear.setOnClickListener(v -> transcript.setText(""));
-        head.addView(clear);
-        page.addView(head);
 
         scroll = new ZoomScroll(this);
         scroll.setFillViewport(true);
+        scroll.setBackgroundColor(0xFF000000);
         HorizontalScrollView wide = new HorizontalScrollView(this);
         wide.setFillViewport(true);
         transcript = Ui.text(this, "", textSp, 0xFFE6E6E6, false);
         transcript.setTypeface(android.graphics.Typeface.MONOSPACE);
         transcript.setTextIsSelectable(true);
+        int pad = Ui.dp(this, 8);
+        transcript.setPadding(pad, pad, pad, pad);
+        transcript.setOnClickListener(v -> keyboard());
         transcript.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (bottom != oldBottom) {
                 follow();
@@ -112,29 +97,24 @@ public final class TerminalActivity extends AppCompatActivity {
         scroll.addView(wide);
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        page.addView(keys("ESC", "/", "-", "HOME", "↑", "END", "PGUP"));
-        page.addView(keys("TAB", "CTRL", "ALT", "←", "↓", "→", "PGDN"));
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.VERTICAL);
+        bar.setBackgroundColor(0xFF111111);
+        bar.addView(keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP"));
+        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN"));
+        page.addView(bar);
 
-        LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, Ui.dp(this, 4), 0, 0);
-        prompt = Ui.text(this, "~ $", 15, 0xFFB8F5C8, true);
-        prompt.setTypeface(android.graphics.Typeface.MONOSPACE);
-        prompt.setPadding(Ui.dp(this, 4), 0, Ui.dp(this, 8), 0);
-        row.addView(prompt);
         input = new EditText(this);
         input.setSingleLine(true);
-        input.setTextColor(0xFFE6E6E6);
-        input.setHintTextColor(0xFF6E6E78);
-        input.setHint("command");
-        input.setBackgroundColor(0xFF000000);
-        input.setTypeface(android.graphics.Typeface.MONOSPACE);
-        input.setTextSize(textSp);
+        input.setBackgroundColor(0);
+        input.setTextColor(0);
+        input.setHintTextColor(0);
+        input.setCursorVisible(false);
+        input.setAlpha(0f);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        input.setImeOptions(EditorInfo.IME_ACTION_GO);
-        input.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+        input.setImeOptions(EditorInfo.IME_ACTION_DONE);
         input.setOnEditorActionListener((v, action, event) -> {
-            if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE
+            if (action == EditorInfo.IME_ACTION_DONE || action == EditorInfo.IME_ACTION_GO
                     || action == EditorInfo.IME_ACTION_SEND) {
                 runLine();
                 return true;
@@ -160,12 +140,13 @@ public final class TerminalActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable s) {
+                paint(false);
             }
         });
-        row.addView(input, new LinearLayout.LayoutParams(0, -2, 1f));
-        page.addView(row);
+        page.addView(input, new LinearLayout.LayoutParams(1, 1));
         setContentView(page);
         Ui.fitInsets(page);
+        blinker.postDelayed(blink, 530);
         boot();
     }
 
@@ -177,7 +158,6 @@ public final class TerminalActivity extends AppCompatActivity {
                     public boolean onScale(ScaleGestureDetector detector) {
                         textSp = Math.max(8f, Math.min(28f, textSp * detector.getScaleFactor()));
                         transcript.setTextSize(textSp);
-                        input.setTextSize(textSp);
                         getPreferences(MODE_PRIVATE).edit().putFloat("text_sp", textSp).apply();
                         return true;
                     }
@@ -186,10 +166,15 @@ public final class TerminalActivity extends AppCompatActivity {
                 new GestureDetector.SimpleOnGestureListener() {
                     @Override
                     public boolean onDoubleTap(android.view.MotionEvent e) {
-                        textSp = 13f;
+                        textSp = 14f;
                         transcript.setTextSize(textSp);
-                        input.setTextSize(textSp);
                         getPreferences(MODE_PRIVATE).edit().putFloat("text_sp", textSp).apply();
+                        return true;
+                    }
+
+                    @Override
+                    public boolean onSingleTapUp(android.view.MotionEvent e) {
+                        keyboard();
                         return true;
                     }
                 });
@@ -220,19 +205,23 @@ public final class TerminalActivity extends AppCompatActivity {
         }
     }
 
+    private void keyboard() {
+        input.requestFocus();
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
     private LinearLayout keys(String... labels) {
         LinearLayout row = new LinearLayout(this);
-        row.setPadding(0, Ui.dp(this, 4), 0, 0);
+        row.setBackgroundColor(0xFF111111);
         for (String label : labels) {
-            TextView key = Ui.text(this, label, 11, 0xFFD0D0D0, true);
+            TextView key = Ui.text(this, label, 12, 0xFFB0B0B0, false);
             key.setGravity(Gravity.CENTER);
-            key.setBackgroundColor(0xFF1A1A1A);
-            key.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10));
+            key.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
             key.setOnClickListener(v -> onKey(label, key));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);
-            lp.leftMargin = Ui.dp(this, 2);
-            lp.rightMargin = Ui.dp(this, 2);
-            row.addView(key, lp);
+            row.addView(key, new LinearLayout.LayoutParams(0, -2, 1f));
             if ("CTRL".equals(label)) {
                 ctrlKey = key;
             }
@@ -244,10 +233,10 @@ public final class TerminalActivity extends AppCompatActivity {
     }
 
     private void onKey(String label, TextView key) {
+        keyboard();
         if ("CTRL".equals(label)) {
             ctrl = !ctrl;
-            key.setTextColor(ctrl ? 0xFF101010 : 0xFFD0D0D0);
-            key.setBackgroundColor(ctrl ? Ui.ACCENT : 0xFF1A1A1A);
+            paintMod(key, ctrl);
             if (ctrl && alt) {
                 alt = false;
                 paintMod(altKey, false);
@@ -264,7 +253,10 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         if ("ESC".equals(label)) {
+            editing = true;
             input.setText("");
+            editing = false;
+            paint(false);
             return;
         }
         if ("HOME".equals(label)) {
@@ -275,23 +267,24 @@ public final class TerminalActivity extends AppCompatActivity {
             input.setSelection(input.getText().length());
             return;
         }
-        if ("↑".equals(label)) {
+        if ("\u2191".equals(label)) {
             recall(-1);
             return;
         }
-        if ("↓".equals(label)) {
+        if ("\u2193".equals(label)) {
             recall(1);
             return;
         }
-        if ("←".equals(label)) {
+        if ("\u2190".equals(label)) {
             nudge(-1);
             return;
         }
-        if ("→".equals(label)) {
+        if ("\u2192".equals(label)) {
             nudge(1);
             return;
         }
         if ("PGUP".equals(label)) {
+            stick = false;
             scroll.scrollBy(0, -scroll.getHeight() / 2);
             return;
         }
@@ -310,8 +303,8 @@ public final class TerminalActivity extends AppCompatActivity {
         if (key == null) {
             return;
         }
-        key.setTextColor(on ? 0xFF101010 : 0xFFD0D0D0);
-        key.setBackgroundColor(on ? Ui.ACCENT : 0xFF1A1A1A);
+        key.setTextColor(on ? 0xFF111111 : 0xFFB0B0B0);
+        key.setBackgroundColor(on ? 0xFFB0B0B0 : 0xFF111111);
     }
 
     private void modified(char ch) {
@@ -325,6 +318,11 @@ public final class TerminalActivity extends AppCompatActivity {
                 append("^C\n");
             } else if (ch == 'd' || ch == 'D') {
                 runLine();
+            } else if (ch == 'u' || ch == 'U') {
+                editing = true;
+                input.setText("");
+                editing = false;
+                paint(false);
             }
             return;
         }
@@ -340,6 +338,7 @@ public final class TerminalActivity extends AppCompatActivity {
         editing = true;
         input.getText().insert(at, text);
         editing = false;
+        paint(false);
     }
 
     private void nudge(int by) {
@@ -367,6 +366,28 @@ public final class TerminalActivity extends AppCompatActivity {
         input.setText(historyAt >= history.size() ? "" : history.get(historyAt));
         input.setSelection(input.getText().length());
         editing = false;
+        paint(true);
+    }
+
+    private String promptText() {
+        return "localhost:" + Guest.prompt(cwd) + "# ";
+    }
+
+    /** The session, then the line being typed with a cursor. The cursor is not a separate field. */
+    private void paint(boolean jump) {
+        if (transcript == null) {
+            return;
+        }
+        String typed = input == null || busy ? "" : input.getText().toString();
+        String live = busy ? "" : promptText() + typed + (cursorOn ? "\u2588" : "\u2591");
+        int y = scroll == null ? 0 : scroll.getScrollY();
+        transcript.setText(log.toString() + live);
+        if (jump) {
+            stick = true;
+            follow();
+        } else if (scroll != null && !stick) {
+            scroll.post(() -> scroll.scrollTo(0, y));
+        }
     }
 
     private void boot() {
@@ -389,11 +410,9 @@ public final class TerminalActivity extends AppCompatActivity {
     private void runLine() {
         String line = input.getText().toString();
         if (!linuxUp) {
-            append("Linux is not ready yet.\n");
             return;
         }
         if (busy) {
-            append("Still running. CTRL, then C, stops it.\n");
             return;
         }
         editing = true;
@@ -404,8 +423,19 @@ public final class TerminalActivity extends AppCompatActivity {
             historyAt = history.size();
         }
         stick = true;
-        append(Guest.prompt(cwd) + " $ " + line + "\n");
+        append(promptText() + line + "\n");
+        String trimmed = line.trim();
+        if ("clear".equals(trimmed)) {
+            log.setLength(0);
+            paint(true);
+            return;
+        }
+        if ("exit".equals(trimmed)) {
+            finish();
+            return;
+        }
         busy = true;
+        paint(true);
         final String ran = line;
         final AlpineRun.Job current = new AlpineRun.Job();
         job = current;
@@ -418,7 +448,6 @@ public final class TerminalActivity extends AppCompatActivity {
                     return;
                 }
                 cwd = answer.cwd;
-                prompt.setText(Guest.prompt(cwd) + " $");
                 if (!answer.text.isEmpty()) {
                     append(answer.text);
                 }
@@ -426,6 +455,7 @@ public final class TerminalActivity extends AppCompatActivity {
                 if (job == current) {
                     job = null;
                 }
+                paint(true);
             });
         });
     }
@@ -434,12 +464,12 @@ public final class TerminalActivity extends AppCompatActivity {
         if (more == null || more.isEmpty()) {
             return;
         }
-        transcript.append(more);
-        if (transcript.length() > 180000) {
-            CharSequence rest = transcript.getText().subSequence(transcript.length() - 140000, transcript.length());
-            transcript.setText(rest);
+        log.append(more);
+        if (log.length() > 180000) {
+            log.delete(0, log.length() - 140000);
         }
-        follow();
+        stick = true;
+        paint(true);
     }
 
     /** scrollTo after layout. fullScroll runs too early and never reaches the new line. */
@@ -471,6 +501,7 @@ public final class TerminalActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         closed = true;
+        blinker.removeCallbacks(blink);
         if (job != null) {
             job.cancel();
         }
