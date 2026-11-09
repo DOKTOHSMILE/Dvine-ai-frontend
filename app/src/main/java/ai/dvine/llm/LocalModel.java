@@ -641,10 +641,22 @@ public final class LocalModel {
      * A token resets the quiet timer. The reason it stopped is kept in {@link #problem}.
      */
     private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call) {
+        return withTimeout(sink, call, false);
+    }
+
+    /** How long an API reply may go quiet between words before it counts as stuck. */
+    static final long REMOTE_IDLE_MS = 120_000;
+
+    /**
+     * {@code remote}: an API reply has no cap on writing. A large model writing a long answer took more than three
+     * minutes and was cut off while it was still writing; only silence ({@link #REMOTE_IDLE_MS}) or Stop ends it.
+     */
+    private String withTimeout(NativeLlm.Sink sink, java.util.function.Function<NativeLlm.Sink, String> call,
+            boolean remote) {
         final int mine = replies.open();
         // silence between words, and a cap on writing. Reading the prompt has no clock: that wait is the work.
-        long idle = watchIdleMs > 0 ? watchIdleMs : IDLE_MS;
-        long cap = watchCapMs > 0 ? watchCapMs : 180_000;
+        long idle = remote ? Math.max(REMOTE_IDLE_MS, watchIdleMs) : watchIdleMs > 0 ? watchIdleMs : IDLE_MS;
+        long cap = remote ? Long.MAX_VALUE / 4 : watchCapMs > 0 ? watchCapMs : 180_000;
         long read = watchReadMs > 0 ? watchReadMs : READ_MS;
         final ReplyWatch watch = new ReplyWatch(idle, cap, read, System.currentTimeMillis());
         final int ticket = epoch.get();
@@ -759,7 +771,8 @@ public final class LocalModel {
             final int[] pieces = {0};
             final long began = System.currentTimeMillis();
             problem = null;
-            String answer = withTimeout(counting(sink, pieces), wrapped -> r.chat(system, fitted, maxTokens, temperature, wrapped));
+            String answer = withTimeout(counting(sink, pieces), wrapped -> r.chat(system, fitted, maxTokens, temperature, wrapped),
+                    true);
             boolean timedOut = problem != null && problem.startsWith("the reply");
             if (ticket != epoch.get() && !timedOut) {
                 problem = "stopped"; // the user stopped it: nothing more is asked

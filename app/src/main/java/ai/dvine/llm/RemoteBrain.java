@@ -69,7 +69,12 @@ public final class RemoteBrain {
     private String reasoningMode = "auto";
     /** The most the model may write, in tokens; 0 lets DVINE decide per request. */
     private int maxOutput;
-    private int timeoutMs = 180_000;
+    /**
+     * How long the connection may stay silent (one read), not how long a reply may take. A large model that thinks
+     * before it writes sends nothing for minutes; 180 seconds cut it off and the request was sent again.
+     */
+    public static final int DEFAULT_TIMEOUT_S = 600;
+    private int timeoutMs = DEFAULT_TIMEOUT_S * 1000;
     /** Extra fields put into every request as they are (temperature, top_p, provider routing…), from JSON. */
     private Map<String, Object> extra = new LinkedHashMap<String, Object>();
     /** Models that refused an image this session: they get a note instead. */
@@ -86,7 +91,7 @@ public final class RemoteBrain {
         this.vision = vision == null || vision.isEmpty() ? "auto" : vision;
         this.reasoningMode = reasoning == null || reasoning.isEmpty() ? "auto" : reasoning;
         this.maxOutput = Math.max(0, maxOutput);
-        this.timeoutMs = Math.max(10, timeoutSeconds <= 0 ? 180 : timeoutSeconds) * 1000;
+        this.timeoutMs = Math.max(10, timeoutSeconds <= 0 ? DEFAULT_TIMEOUT_S : timeoutSeconds) * 1000;
         this.extra = new LinkedHashMap<String, Object>();
         if (extraJson != null && !extraJson.trim().isEmpty()) {
             try {
@@ -273,6 +278,25 @@ public final class RemoteBrain {
         return model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gpt-5.*|o[1-9](-.*)?|.*-r1.*|.*reason.*|.*thinking.*|qwq.*)");
     }
 
+    /**
+     * A large model that thinks before it answers by default, behind any provider's OpenAI form (OpenRouter, Groq,
+     * Together, xAI, Google's OpenAI endpoint…): Gemini 2.5 and 3, Grok 3 mini and 4, gpt-oss, Qwen3, GLM 4.5 and up,
+     * DeepSeek V3.1+ and R1, Kimi and Claude thinking, MiniMax M1/M2, Magistral. Its hidden thinking is spent from the
+     * same token allowance as the answer, so the small allowance a short question gets came back empty: these get the
+     * reasoning room ({@link PromptFit#completionTokens}) even when they don't take the reasoning form.
+     */
+    boolean thinks() {
+        if (reasoning()) {
+            return true;
+        }
+        if (model == null || "off".equals(reasoningMode)) {
+            return false;
+        }
+        return model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gemini-(2\\.5|[3-9]).*|grok-(3-mini|[4-9]).*|gpt-oss.*"
+                + "|qwen3.*|qwq.*|glm-(4\\.[5-9]|[5-9]).*|deepseek-(v3\\.[1-9]|v[4-9]|r1|reasoner).*|kimi-.*thinking.*"
+                + "|claude-.*thinking.*|minimax-m[1-9].*|magistral.*|.*thinking.*|.*reason.*)");
+    }
+
     /** Stops the reply being written (from any thread); the stream is abandoned at the next piece. */
     public void cancel() {
         cancelled = true;
@@ -295,7 +319,13 @@ public final class RemoteBrain {
         String out = chatRetrying(system, turns, maxTokens, temperature, sink);
         // the model was cut off by its allowance, not finished: it writes on from where it stopped, until it ends
         // by itself (the server's own stop reason says which), and the pieces are one reply
-        for (int more = 0; out != null && cutOff && more < MAX_CONTINUATIONS && !cancelled && maxTokens > 256; more++) {
+        if (out == null && cutOff && !cancelled && maxOutput <= 0) {
+            // the allowance ran out while it was still thinking: nothing was written, so ask once more with room
+            out = chatRetrying(system, turns, Math.max(4096, maxTokens * 4), temperature, sink);
+        }
+        // only when the server's own stop reason says the allowance ran out (cutOff is cleared on every request)
+        // a one-line order (256 tokens or fewer) that fills its cap is done, not carried on
+        for (int more = 0; out != null && cutOff && !cancelled && more < MAX_CONTINUATIONS && maxTokens > 256; more++) {
             List<String[]> next = new ArrayList<String[]>(turns);
             next.add(new String[]{"assistant", out});
             next.add(new String[]{"user", CONTINUE});
@@ -504,7 +534,9 @@ public final class RemoteBrain {
                     req.put("reasoning_effort", "medium");
                 }
             } else {
-                req.put("max_tokens", (double) allowance);
+                // a thinking model in the plain form still spends its hidden thinking from max_tokens
+                int room = thinks() ? PromptFit.completionTokens(maxTokens, true, maxOutput) : allowance;
+                req.put("max_tokens", (double) room);
                 req.put("temperature", Math.round(temperature * 100) / 100.0);
             }
             if (form == 0) {
@@ -647,7 +679,11 @@ public final class RemoteBrain {
             }
             String t = line.trim();
             if (!t.startsWith("data:")) {
-                plain.append(line).append('\n'); // a server that ignored "stream" sends one JSON body
+                // a server that ignored "stream" sends one JSON body; the stream's blank separators and keep-alive
+                // comments (": OPENROUTER PROCESSING") are not part of any body
+                if (!t.isEmpty() && !t.startsWith(":") && !t.startsWith("event:") && !t.startsWith("id:")) {
+                    plain.append(line).append('\n');
+                }
                 continue;
             }
             String data = t.substring(5).trim();
@@ -683,7 +719,7 @@ public final class RemoteBrain {
             Map<String, Object> o = parse(plain.toString());
             List<Object> choices = o == null ? new ArrayList<Object>() : MiniJson.list(o.get("choices"));
             String text = choices.isEmpty() ? "" : MiniJson.str(MiniJson.obj(MiniJson.obj(choices.get(0)).get("message")).get("content"), "");
-            cutOff = !choices.isEmpty() && "length".equals(MiniJson.str(MiniJson.obj(choices.get(0)).get("finish_reason"), ""));
+            cutOff = cutOff || !choices.isEmpty() && "length".equals(MiniJson.str(MiniJson.obj(choices.get(0)).get("finish_reason"), ""));
             if (!text.isEmpty() && sink != null) {
                 sink.onText(text);
             }
@@ -777,10 +813,17 @@ public final class RemoteBrain {
     private String failure(int status, InputStream in, String usedKey) {
         String said = "";
         try {
-            byte[] b = readUpTo(in, 4096);
-            Map<String, Object> o = parse(new String(b, StandardCharsets.UTF_8));
+            byte[] b = readUpTo(in, 65536);
+            String raw = new String(b, StandardCharsets.UTF_8);
+            Map<String, Object> o = parse(raw);
             if (o != null) {
                 said = MiniJson.str(MiniJson.obj(o.get("error")).get("message"), MiniJson.str(o.get("message"), ""));
+            } else {
+                // a body cut mid-JSON, or plain text: take the message anyway so busy() can still classify it
+                said = raw.replaceAll("(?s)\\\\\"", "\"").replaceAll("[\\r\\n]+", " ").trim();
+                if (said.length() > 400) {
+                    said = said.substring(0, 400);
+                }
             }
         } catch (IOException e) {
             // no readable message
