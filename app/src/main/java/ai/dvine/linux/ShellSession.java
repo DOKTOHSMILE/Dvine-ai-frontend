@@ -46,6 +46,10 @@ public final class ShellSession {
         }
     }
 
+    public String where() {
+        return cwd == null ? "" : cwd.getPath();
+    }
+
     public void cancel() {
         cancelled = true;
     }

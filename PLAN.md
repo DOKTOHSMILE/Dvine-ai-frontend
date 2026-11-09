@@ -6,7 +6,8 @@ The shell runs inside the app. Termux is not required and is not opened.
 - [x] Chains `&&` `||` `;`, pipes `|`, redirects `>` `>>` `<`, and `$NAME`. Paths stay inside the workspace. `..` and `rm -r` are refused.
 - [x] The workspace folders (projects, scripts, downloads, temporary, memory, logs) are created on the device.
 - [x] Chat and Ibiko's `run` tool both use this shell. A program that is not bundled (python, node, git, pkg, a compiler) returns exit 127. It is not pretended and not sent to Termux.
-- [ ] No BusyBox binary and no JNI process bridge. Those are not in this build. A terminal screen is not built yet.
+- [x] The terminal screen is `chat/ui/TerminalActivity`. Tools › Commands on this device opens it. Run, Stop and Clear use the same shell.
+- [ ] No BusyBox binary and no JNI process bridge. Python, git and compilers are not bundled.
 
 # MainActivity split (0.99.15)
 

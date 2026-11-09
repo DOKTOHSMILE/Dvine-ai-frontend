@@ -99,8 +99,9 @@ final class ToolsMenu {
             case CONNECTORS:
                 return () -> a.startActivity(new android.content.Intent(a, ai.dvine.chat.ui.ConnectorsActivity.class));
             case WEB:
-            case SHELL:
                 return () -> a.startActivity(new android.content.Intent(a, ai.dvine.chat.ui.SettingsActivity.class));
+            case SHELL:
+                return () -> a.startActivity(new android.content.Intent(a, ai.dvine.chat.ui.TerminalActivity.class));
             case SOCIAL:
                 return () -> ai.dvine.chat.ui.BottomSheet.show(a, "Social accounts", new ai.dvine.chat.ui.BottomSheet.Item[] {
                         new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_people, "Your accounts", "Sign in, switch or remove accounts"),

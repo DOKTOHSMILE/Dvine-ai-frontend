@@ -18,7 +18,7 @@ public final class ChatTools {
     /** A tool a chat can switch on or off. */
     public enum Tool {
         GITHUB("GitHub", "Work on the repositories you choose", null),
-        SHELL("Commands on this device", "Run shell commands (you approve each)", FunctionCode.SH),
+        SHELL("Commands on this device", "Open the shell", FunctionCode.SH),
         WEB("Web search", "Look things up on the web", FunctionCode.SR),
         CONNECTORS("Connectors", "Gmail, docs, calendar, Notion and others you connected", FunctionCode.TL),
         PHOTOS("Photos", "Show real photographs", FunctionCode.PH),
