@@ -294,7 +294,23 @@ public final class RemoteBrain {
         }
         return model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gemini-(2\\.5|[3-9]).*|grok-(3-mini|[4-9]).*|gpt-oss.*"
                 + "|qwen3.*|qwq.*|glm-(4\\.[5-9]|[5-9]).*|deepseek-(v3\\.[1-9]|v[4-9]|r1|reasoner).*|kimi-.*thinking.*"
-                + "|claude-.*thinking.*|minimax-m[1-9].*|magistral.*|.*thinking.*|.*reason.*)");
+                + "|claude-.*thinking.*|minimax-m[1-9].*|magistral.*|.*thinking.*|.*reason.*)")
+                || claudeThinksByDefault();
+    }
+
+    /**
+     * Claude models that think by default and spend it from max_tokens: Opus 5 and up (on Opus 5.5 it can't be turned
+     * off), Sonnet 5.5, Haiku 5.5, Fable and Mythos. A short-answer max_tokens came back with no text at all. Opus 4.x
+     * and older think only when asked, so they keep the short allowance.
+     */
+    boolean claudeThinksByDefault() {
+        String m = model == null ? "" : model.toLowerCase(java.util.Locale.US);
+        return m.matches("(.*/)?claude-(opus-[5-9]|sonnet-(5[-.][5-9]|[6-9])|haiku-(5[-.][5-9]|[6-9])|fable|mythos).*");
+    }
+
+    /** Claude (Opus 4.7 and later, every model from API version 2026-10-21) refuses temperature with a 400. */
+    boolean takesNoTemperature() {
+        return model != null && model.toLowerCase(java.util.Locale.US).matches("(.*/)?claude-.*");
     }
 
     /** Stops the reply being written (from any thread); the stream is abandoned at the next piece. */
@@ -489,7 +505,8 @@ public final class RemoteBrain {
         boolean small = maxTokens <= 256;
         List<Object> messages = new ArrayList<Object>();
         if (protocol == Protocol.ANTHROPIC) {
-            req.put("max_tokens", (double) allowance);
+            req.put("max_tokens", (double) (claudeThinksByDefault() ? PromptFit.completionTokens(maxTokens, true, maxOutput)
+                    : allowance));
             if (!sys.isEmpty()) {
                 req.put("system", sys);
             }
@@ -537,7 +554,9 @@ public final class RemoteBrain {
                 // a thinking model in the plain form still spends its hidden thinking from max_tokens
                 int room = thinks() ? PromptFit.completionTokens(maxTokens, true, maxOutput) : allowance;
                 req.put("max_tokens", (double) room);
-                req.put("temperature", Math.round(temperature * 100) / 100.0);
+                if (!takesNoTemperature()) {
+                    req.put("temperature", Math.round(temperature * 100) / 100.0);
+                }
             }
             if (form == 0) {
                 Map<String, Object> opts = new LinkedHashMap<String, Object>();
