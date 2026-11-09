@@ -229,6 +229,56 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private final java.util.concurrent.ExecutorService buildThread = java.util.concurrent.Executors
             .newSingleThreadExecutor();
     private volatile int askId;
+    /** Which page (persona) each job belongs to, and each page's latest job: a page's job runs on its own. */
+    private final java.util.Map<Integer, String> jobOf = new java.util.concurrent.ConcurrentHashMap<Integer, String>();
+    private final java.util.Map<String, Integer> latestOf = new java.util.concurrent.ConcurrentHashMap<String, Integer>();
+    /** Jobs still writing a reply (to show "Still working" when their page is opened again). */
+    private final java.util.Set<Integer> writing = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<Integer, Boolean>());
+
+    /** A new job for the page on screen. It replaces that page's earlier job, never another page's. */
+    private synchronized int nextAsk() {
+        int id = ++askId;
+        String page = stage == null ? "" : stage.agent();
+        jobOf.put(id, page);
+        latestOf.put(page, id);
+        return id;
+    }
+
+    /** The job is still its page's latest (not replaced by a new message there, not stopped). */
+    private boolean alive(int id) {
+        String page = jobOf.get(id);
+        if (page == null) {
+            return id == askId;
+        }
+        Integer latest = latestOf.get(page);
+        return latest != null && latest == id;
+    }
+
+    /** The job's page is the one on screen: only then does it draw, speak or show its progress. */
+    private boolean visible(int id) {
+        String page = jobOf.get(id);
+        return page == null || stage == null || page.equals(stage.agent());
+    }
+
+    /** The latest job of this job's page (for the agent's "was I stopped or replaced?" check). */
+    private int latestJob(int id) {
+        String page = jobOf.get(id);
+        Integer latest = page == null ? Integer.valueOf(askId) : latestOf.get(page);
+        return latest == null ? -1 : latest;
+    }
+
+    /** Stop: the job of the page on screen stops; another page's job keeps running. */
+    private void stopVisibleJob() {
+        String page = stage == null ? "" : stage.agent();
+        latestOf.remove(page);
+        boolean others = false;
+        for (java.util.Map.Entry<String, Integer> e : latestOf.entrySet()) {
+            others |= writing.contains(e.getValue());
+        }
+        if (model != null && !others) {
+            model.cancel(); // the call running is this page's (no other page has a reply being written)
+        }
+    }
     private String activeQuestion;
     private volatile int readToken;
     private volatile ai.dvine.llm.ThinkPace thinkPace;
@@ -342,7 +392,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return false; // the creation engine builds this kind of thing itself
             }
         }
-        final int id = ++askId;
+        final int id = nextAsk();
         stopPlay();
         armThink(edit ? "Changing the parts" : "Planning the parts of " + ai.dvine.llm.DrawPrompt.article(subject),
                 edit ? "Changing the parts" : "Planning the parts");
@@ -350,7 +400,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         buildThread.execute(() -> {
             final ai.dvine.create.IvieStudio.Result r = edit ? studio.edit(text, tokens) : studio.draw(subject, null, tokens);
             handler.post(() -> {
-                if (id != askId || isFinishing()) {
+                if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -729,11 +779,37 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private final ai.dvine.main.PersonaTabs personaTabs = new ai.dvine.main.PersonaTabs(personaTabsHost);
 
     private void selectPersona(String persona) {
+        leavePage(persona);
         personaTabs.select(persona);
+        enterPage(persona);
     }
 
     private void selectPersona(String persona, boolean fromTap) {
+        leavePage(persona);
         personaTabs.select(persona, fromTap);
+        enterPage(persona);
+    }
+
+    /** Leaving a page: its job keeps running, but its live text and progress leave the screen with it. */
+    private void leavePage(String next) {
+        if (stage == null || next == null || next.equals(stage.agent())) {
+            return;
+        }
+        Integer job = latestOf.get(stage.agent());
+        if (job != null && writing.contains(job)) {
+            if (chatPane != null) {
+                chatPane.setLive(null);
+            }
+            endThink();
+        }
+    }
+
+    /** Opening a page whose job is still writing: it says so (its reply lands here when it is done). */
+    private void enterPage(String page) {
+        Integer job = latestOf.get(page);
+        if (job != null && writing.contains(job)) {
+            armThink("Still working\u2026", "Still working\u2026");
+        }
     }
 
     private void offerTermux() {
@@ -836,6 +912,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void bindComposer() {
         android.widget.EditText field = findViewById(R.id.et_message);
         if (field != null) {
+            field.setOnFocusChangeListener((v, focused) -> {
+                if (focused && drawerOpen()) {
+                    closeDrawer(); // typing: the drawer folds away, the keyboard has the screen
+                }
+            });
             field.addTextChangedListener(new android.text.TextWatcher() {
                 @Override
                 public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -872,6 +953,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View send = findViewById(R.id.btn_send);
         android.view.View voice = findViewById(R.id.btn_voice);
         android.view.View attach = findViewById(R.id.btn_attach);
+        android.view.View toolsButton = findViewById(R.id.btn_tools);
+        if (toolsButton != null) {
+            toolsButton.setOnClickListener(v -> showToolsSheet());
+        }
         if (field != null) {
             field.setOnEditorActionListener((v, actionId, event) -> {
                 if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
@@ -1190,6 +1275,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (drawer.getVisibility() == android.view.View.VISIBLE) {
             closeDrawer();
         } else {
+            openDrawer();
+        }
+    }
+
+    /** The drawer slides out over the chat; the keyboard goes away first, so it never squeezes the drawer. */
+    private void openDrawer() {
+        android.view.View drawer = findViewById(R.id.historyDrawer);
+        if (drawer == null || drawer.getVisibility() == android.view.View.VISIBLE) {
+            return;
+        }
+        hideKeyboard();
+        {
             if (chatPane != null) {
                 chatPane.show();
             }
@@ -1200,6 +1297,59 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             drawer.bringToFront();
         }
+    }
+
+    private void hideKeyboard() {
+        android.view.View focus = getCurrentFocus();
+        android.view.inputmethod.InputMethodManager im =
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (im != null) {
+            im.hideSoftInputFromWindow((focus != null ? focus : getWindow().getDecorView()).getWindowToken(), 0);
+        }
+        if (focus != null) {
+            focus.clearFocus();
+        }
+    }
+
+    private boolean drawerOpen() {
+        android.view.View drawer = findViewById(R.id.historyDrawer);
+        return drawer != null && drawer.getVisibility() == android.view.View.VISIBLE;
+    }
+
+    /** Where a swipe began, and whether it is the drawer's (from the left edge to open, leftwards to close). */
+    private float swipeX = -1, swipeY;
+    private boolean swipeOpen;
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        float edge = 24 * getResources().getDisplayMetrics().density;
+        float far = 64 * getResources().getDisplayMetrics().density;
+        switch (e.getActionMasked()) {
+            case android.view.MotionEvent.ACTION_DOWN:
+                swipeOpen = !drawerOpen();
+                swipeX = !designFull && (drawerOpen() || e.getX() <= edge) ? e.getX() : -1;
+                swipeY = e.getY();
+                break;
+            case android.view.MotionEvent.ACTION_MOVE:
+                if (swipeX >= 0) {
+                    float dx = e.getX() - swipeX, dy = Math.abs(e.getY() - swipeY);
+                    if (swipeOpen && dx > far && dx > dy * 1.5f) {
+                        swipeX = -1;
+                        openDrawer(); // a swipe from the left edge to the right
+                        return true;
+                    }
+                    if (!swipeOpen && -dx > far && -dx > dy * 1.5f) {
+                        swipeX = -1;
+                        closeDrawer(); // a swipe to the left over the open drawer
+                        return true;
+                    }
+                }
+                break;
+            default:
+                swipeX = -1;
+                break;
+        }
+        return super.dispatchTouchEvent(e);
     }
 
     private void closeDrawer() {
@@ -1732,10 +1882,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** Drops the reply on screen and tells the model to stop, so a new message can start. */
     private void interruptReply() {
         readToken++;
-        askId++;
-        if (model != null) {
-            model.cancel();
-        }
+        stopVisibleJob();
         walker.abandon();
         streamOpen = false;
         endThink();
@@ -1783,10 +1930,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     private void stopGeneration() {
         readToken++;
-        askId++;
-        if (model != null) {
-            model.cancel();
-        }
+        stopVisibleJob();
         endThink();
         keepAwake(false);
         stopPlay();
@@ -2028,6 +2172,136 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return brainGate;
     }
 
+    /** The tools this chat page lets its brain use (per conversation and persona), from the tools button. */
+    private ai.dvine.suit.ChatTools chatTools(String persona) {
+        return ai.dvine.suit.ChatTools.read(persona, prefs.getString(toolsKey(persona), null));
+    }
+
+    private String toolsKey(String persona) {
+        String group = chats == null ? "" : chats.current().group;
+        return "tools:" + group + ":" + persona;
+    }
+
+    /** The suit's codes this page's brain is told about: only the tools switched on, and the suit's own controls. */
+    private String suitCodes(String persona) {
+        return ai.dvine.suit.FunctionCode.instructions(connectorTools(), chatTools(persona).allowedCodes());
+    }
+
+    /**
+     * The tools button beside the microphone: the tools this persona offers, each with a switch, for this chat page
+     * only. GitHub opens a list of the account's repositories to choose from (several at once).
+     */
+    private void showToolsSheet() {
+        final String persona = stage.agent();
+        final ai.dvine.suit.ChatTools tools = chatTools(persona);
+        final android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, 0, pad, pad);
+        for (final ai.dvine.suit.ChatTools.Tool t : ai.dvine.suit.ChatTools.offered(persona)) {
+            android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(pad * 4);
+            android.widget.LinearLayout words = new android.widget.LinearLayout(this);
+            words.setOrientation(android.widget.LinearLayout.VERTICAL);
+            android.widget.TextView name = new android.widget.TextView(this);
+            name.setText(t.title);
+            name.setTextSize(16f);
+            name.setTextColor(getColor(R.color.text_primary));
+            words.addView(name);
+            final android.widget.TextView about = new android.widget.TextView(this);
+            about.setTextSize(13f);
+            about.setTextColor(getColor(R.color.text_secondary));
+            about.setText(t == ai.dvine.suit.ChatTools.Tool.GITHUB && !tools.repos().isEmpty()
+                    ? String.join(", ", tools.repos()) + "  \u00B7  change" : t.about);
+            words.addView(about);
+            row.addView(words, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            android.widget.Switch sw = new android.widget.Switch(this);
+            sw.setChecked(tools.isOn(t));
+            sw.setContentDescription(t.title);
+            sw.setOnCheckedChangeListener((b, on) -> {
+                tools.set(t, on);
+                prefs.edit().putString(toolsKey(persona), tools.write()).apply();
+                if (on && t == ai.dvine.suit.ChatTools.Tool.GITHUB && tools.repos().isEmpty()) {
+                    chooseRepos(persona, tools, about);
+                }
+            });
+            row.addView(sw);
+            if (t == ai.dvine.suit.ChatTools.Tool.GITHUB) {
+                words.setOnClickListener(v -> chooseRepos(persona, tools, about));
+            }
+            box.addView(row);
+        }
+        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
+        ai.dvine.chat.ui.BottomSheet.showView(this, who + "'s tools in this chat", box);
+    }
+
+    /** The account's repositories, to choose the ones this chat works on (several at once). */
+    private void chooseRepos(final String persona, final ai.dvine.suit.ChatTools tools, final android.widget.TextView about) {
+        final ai.dvine.connect.ConnectorStore store = new ai.dvine.connect.ConnectorStore(this);
+        final String token = store.token(ai.dvine.connect.ConnectorStore.Kind.GITHUB);
+        if (token == null || token.isEmpty()) {
+            note("Sign in to GitHub first: Connectors \u203A GitHub.");
+            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ConnectorsActivity.class));
+            return;
+        }
+        note("Fetching your repositories\u2026");
+        hub.worker.execute(() -> {
+            final java.util.List<String> names = new java.util.ArrayList<String>();
+            String why = null;
+            try {
+                for (int page = 1; page <= 5; page++) {
+                    String list = ai.dvine.connect.Connectors.github(ai.dvine.connect.Connectors.https(), token, "github.repos",
+                            String.valueOf(page));
+                    int before = names.size();
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?m)^- ([\\w.-]+/[\\w.-]+)").matcher(list);
+                    while (m.find()) {
+                        names.add(m.group(1));
+                    }
+                    if (names.size() - before < 100) {
+                        break;
+                    }
+                }
+            } catch (java.io.IOException | RuntimeException e) {
+                why = e.getMessage();
+            }
+            final String problem = why;
+            handler.post(() -> {
+                if (isFinishing()) {
+                    return;
+                }
+                if (names.isEmpty()) {
+                    note(problem == null ? "No repositories on this account." : "GitHub didn't answer: " + problem);
+                    return;
+                }
+                final String[] items = names.toArray(new String[0]);
+                final boolean[] picked = new boolean[items.length];
+                java.util.List<String> had = tools.repos();
+                for (int i = 0; i < items.length; i++) {
+                    picked[i] = had.contains(items[i]);
+                }
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Repositories for this chat")
+                        .setMultiChoiceItems(items, picked, (d, i, on) -> picked[i] = on)
+                        .setPositiveButton("Use these", (d, w) -> {
+                            java.util.List<String> chosen = new java.util.ArrayList<String>();
+                            for (int i = 0; i < items.length; i++) {
+                                if (picked[i]) {
+                                    chosen.add(items[i]);
+                                }
+                            }
+                            tools.setRepos(chosen);
+                            tools.set(ai.dvine.suit.ChatTools.Tool.GITHUB, !chosen.isEmpty() || tools.isOn(ai.dvine.suit.ChatTools.Tool.GITHUB));
+                            prefs.edit().putString(toolsKey(persona), tools.write()).apply();
+                            about.setText(chosen.isEmpty() ? ai.dvine.suit.ChatTools.Tool.GITHUB.about
+                                    : String.join(", ", chosen) + "  \u00B7  change");
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+        });
+    }
+
     private ai.dvine.learn.BrainBox brainBox;
     private ai.dvine.suit.Cortex cortex;
 
@@ -2073,7 +2347,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // The separate routing prompt is gone, so it is not read into memory any more
         final String persona = ai.dvine.llm.PersonaPrompt.system(stage.agent(), brain.userName(),
                 new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet())
-                + ai.dvine.llm.BrainOrder.actions(connectorTools());
+                + suitCodes(stage.agent());
         hub.worker.execute(() -> model.warm(persona));
     }
 
@@ -2213,7 +2487,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * step shows in the chat. The strong model does the work; the stop button stops it between steps.
      */
     private void runIbiko(final String task) {
-        runAgent(task, "ibiko", false);
+        String repos = chatTools("ibiko").brief();
+        runAgent(repos.isEmpty() ? task : task + "\n\n(" + repos + ")", "ibiko", false);
     }
 
     /**
@@ -2248,7 +2523,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // Ibiko in Plan mode reads and hands in a plan; "continue" carries on with the same planning
         final boolean planning = !onlyReading && "ibiko".equals(persona) && ai.dvine.agent.IbikoMode.of(prefs) == ai.dvine.agent.IbikoMode.PLAN;
         final boolean readOnly = onlyReading || planning;
-        final int id = ++askId;
+        final int id = nextAsk();
         final long since = System.currentTimeMillis(); // what this reply opens or makes is shown under it
         stopPlay();
         stage.setMode(StageMode.THINKING);
@@ -2268,7 +2543,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 : (taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier) : ai.dvine.llm.TaskSize.Tier.FAST);
         final ai.dvine.llm.TaskSize.Tier reportTier = taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier)
                 : ai.dvine.llm.TaskSize.Tier.STRONG;
-        final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> askId,
+        final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> latestJob(id),
                 line -> {
                     if (chatPane != null) {
                         chatPane.activityStep(line); // with its detail, opened by a tap
@@ -2305,7 +2580,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                 live.setLength(0);
                             }
                             handler.post(() -> {
-                                if (id == askId && chatPane != null) {
+                                if (alive(id) && chatPane != null) {
                                     chatPane.setLive(null);
                                 }
                             });
@@ -2314,7 +2589,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     return false;
                                 }
                                 if (piece == null || "\u0001".equals(piece)) {
-                                    return id == askId;
+                                    return alive(id);
                                 }
                                 final String sofar;
                                 synchronized (live) {
@@ -2328,19 +2603,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                 if (!tool && t.length() > 0 && now - shown[0] > 120) {
                                     shown[0] = now;
                                     handler.post(() -> {
-                                        if (id == askId && chatPane != null) {
+                                        if (alive(id) && chatPane != null) {
                                             chatPane.setLive(t);
                                         }
                                     });
                                 } else if (tool && now - shown[0] > 120) {
                                     shown[0] = now;
                                     handler.post(() -> {
-                                        if (id == askId && chatPane != null) {
+                                        if (alive(id) && chatPane != null) {
                                             chatPane.setLive(null);
                                         }
                                     });
                                 }
-                                return id == askId;
+                                return alive(id);
                             }, tier);
                         }
 
@@ -2363,7 +2638,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             scribe.begin(persona, task);
             if (ai.dvine.scribe.Scribe.worth(task)) {
                 handler.post(() -> {
-                    if (id == askId && chatPane != null) {
+                    if (alive(id) && chatPane != null) {
                         chatPane.activityStep("Scribe opened the project record");
                     }
                 });
@@ -2396,7 +2671,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : task;
                 if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
                     handler.post(() -> {
-                        if (id == askId && chatPane != null) {
+                        if (alive(id) && chatPane != null) {
                             chatPane.activityStep("Planning");
                         }
                     });
@@ -2410,7 +2685,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         @Override
                         public void plan(String plan) {
                             handler.post(() -> {
-                                if (id == askId && chatPane != null) {
+                                if (alive(id) && chatPane != null) {
                                     chatPane.activityStep("Planning");
                                 }
                             });
@@ -2466,7 +2741,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             handler.post(() -> {
                 model.coding = false;
-                if (id != askId || isFinishing()) {
+                if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -2565,7 +2840,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * a step a tap opens; the answer is remembered in the conversation like any other.
      */
     private void thinkTogether(final String question, final String speaker) {
-        final int id = ++askId;
+        final int id = nextAsk();
         stopPlay();
         stage.setMode(StageMode.THINKING);
         armThink("Thinking together", "Writing one answer");
@@ -2576,23 +2851,23 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             ai.dvine.agent.Council.Result r;
             try {
                 r = ai.dvine.agent.Council.run((system, prompt) -> model.task(system, prompt,
-                        ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs) * 2, piece -> modelPiece(id, piece) && id == askId),
+                        ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs) * 2, piece -> modelPiece(id, piece) && alive(id)),
                         question, context, speaker, (line, who, said) -> {
                             String detail = ai.dvine.agent.StepDetail.save(getFilesDir(), who + "'s view",
                                     java.util.Arrays.asList(said.split("\n")), -1, -1);
                             handler.post(() -> {
-                                if (id == askId && chatPane != null) {
+                                if (alive(id) && chatPane != null) {
                                     chatPane.activityStep(line + ai.dvine.agent.StepDetail.mark(detail));
                                 }
                             });
-                        }, () -> id != askId);
+                        }, () -> !alive(id));
             } finally {
                 ai.dvine.llm.ReplyService.release(this);
                 ai.dvine.agent.AgentBoard.end(council);
             }
             final ai.dvine.agent.Council.Result done = r;
             handler.post(() -> {
-                if (id != askId || isFinishing()) {
+                if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -2629,7 +2904,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final ai.dvine.connect.ConnectorStore web = new ai.dvine.connect.ConnectorStore(this);
         hub.worker.execute(() -> {
-            if (id != askId) {
+            if (!alive(id)) {
                 return; // a new question came first
             }
             final String checker = ai.dvine.agent.AgentBoard.start("Fact checker", question);
@@ -2640,12 +2915,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         ? ai.dvine.social.SocialWeb.accounts(this).ready() : new java.util.ArrayList<ai.dvine.social.Platform>();
                 r = ai.dvine.llm.FactCheck.run((system, prompt) -> model.task(system, prompt, 300, null), claim -> {
                     String found = web.research(claim, 1, 3000);
-                    if (social.isEmpty() || id != askId) {
+                    if (social.isEmpty() || !alive(id)) {
                         return found;
                     }
                     String posts = ai.dvine.social.SocialWeb.search(this, social.get(0), claim, 1500);
                     return (found == null ? "" : found + "\n\n") + posts;
-                }, question, answer, () -> id != askId);
+                }, question, answer, () -> !alive(id));
             } finally {
                 ai.dvine.agent.AgentBoard.end(checker);
             }
@@ -2758,7 +3033,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * sees what is happening without waiting for the end; the work goes on underneath.
      */
     private void progressNote(int id, String persona, int round, String note) {
-        if (id != askId || chatPane == null || note == null || note.trim().isEmpty()) {
+        if (!alive(id) || chatPane == null || note == null || note.trim().isEmpty()) {
             return;
         }
         chatPane.assistant(persona, note.trim());
@@ -2878,7 +3153,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(agent, "I couldn't tell which tool to use."), null);
             return;
         }
-        final int id = ++askId;
+        final int id = nextAsk();
         stopPlay();
         armThink("Using " + c[0], "Replying");
         stage.activity("TOOL", c[0] + (c[1].isEmpty() ? "" : " " + clip(c[1])));
@@ -2897,7 +3172,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             answer = foldSteer(id, system, question, "Result of " + c[0] + ":\n" + result, 600, answer, piece -> modelPiece(id, piece));
             final String folded = answer;
             handler.post(() -> {
-                if (id != askId || isFinishing()) {
+                if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -2933,10 +3208,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             requestPermissions(new String[]{ai.dvine.agent.TermuxRunner.PERMISSION}, TERMUX);
             return;
         }
-        final int id = ++askId;
+        final int id = nextAsk();
         stopPlay();
         armThink("Running " + clip(cmd), "Replying");
-        final ai.dvine.agent.PhoneHost ask = new ai.dvine.agent.PhoneHost(this, prefs, handler, new ai.dvine.connect.ConnectorStore(this), id, () -> askId,
+        final ai.dvine.agent.PhoneHost ask = new ai.dvine.agent.PhoneHost(this, prefs, handler, new ai.dvine.connect.ConnectorStore(this), id, () -> latestJob(id),
                 line -> { }, () -> showIbikoMode("ibiko".equals(stage.agent())));
         final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
                 new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet())
@@ -2947,7 +3222,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         hub.worker.execute(() -> {
             if (!ask.allowRun(cmd)) {
                 handler.post(() -> {
-                    if (id == askId) {
+                    if (alive(id)) {
                         endThink();
                         play(LocalTurn.speakAs(agent, "Okay, I didn't run it."), null);
                     }
@@ -2971,7 +3246,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     piece -> modelPiece(id, piece));
             final String folded = answer;
             handler.post(() -> {
-                if (id != askId || isFinishing()) {
+                if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -2983,7 +3258,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private void lookUpAnswer(final String question) {
-        final int id = ++askId;
+        final int id = nextAsk();
         final String agent = stage.agent();
         boolean online = connectivity != null && connectivity.isOnline();
         if (!online) {
@@ -3015,7 +3290,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
             }, System.currentTimeMillis());
             handler.post(() -> {
-                if (id != askId || isFinishing()) {
+                if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -3052,8 +3327,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private volatile boolean writingShown, reasoningShown;
 
     private boolean modelPiece(int id, String text) {
-        if (id != askId) {
+        if (!alive(id)) {
             return false;
+        }
+        if (!visible(id)) {
+            return true; // its page isn't on screen: it keeps writing, without drawing on this page
         }
         ai.dvine.llm.ThinkPace pace = thinkPace;
         if (pace != null && text != null) {
@@ -3073,7 +3351,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 pace.addText(text);
             }
             handler.post(() -> {
-                if (id == askId && thinkPace != null) {
+                if (alive(id) && thinkPace != null) {
                     stage.progress(thinkPace.line());
                     updateThoughtStatus(thinkPace.line(), true);
                 }
@@ -3326,7 +3604,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final boolean ofThat = lower.matches("(?s).*\\b(of|from|as|into|turn|convert|save|export|put) (that|this|it|the above|your (answer|reply))\\b.*")
                 || lower.matches("(?s).*\\b(that|this|it) (as|into|to) (a |an )?(pdf|word|docx|excel|spreadsheet|html|csv|markdown|text|json)\\b.*");
         final String persona = stage.agent();
-        final int id = ++askId;
+        final int id = nextAsk();
         final long since = System.currentTimeMillis();
         stopPlay();
         armThink("Writing the document", "Making the " + fmt.extension.toUpperCase(java.util.Locale.US));
@@ -3341,7 +3619,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     });
                     return;
                 }
-                content = model.task(WRITE_DOC, text, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs), piece -> id == askId);
+                content = model.task(WRITE_DOC, text, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs), piece -> alive(id));
                 content = content == null ? "" : content.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
             }
             final String body = content;
@@ -3374,7 +3652,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             final String reply = said;
             handler.post(() -> {
-                if (id != askId) {
+                if (!alive(id)) {
                     return;
                 }
                 endThink();
@@ -3755,7 +4033,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private String foldSteer(int id, String system, String question, String context, int length, String soFar,
             ai.dvine.llm.NativeLlm.Sink sink) {
         String raw = soFar;
-        for (int extra = 0; extra < 4 && id == askId && steer.pending(); extra++) {
+        for (int extra = 0; extra < 4 && alive(id) && steer.pending(); extra++) {
             String more = steer.drain();
             if (more == null || more.isEmpty()) {
                 break;
@@ -3847,7 +4125,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     private boolean askLocal(final String question, final BrainAnswer offline,
             final boolean research, final int length, final boolean acts) {
-        final int id = ++askId;
+        final int id = nextAsk();
+        writing.add(id);
         final boolean ivie = stage.isIvie();
         final String agent = stage.agent();
         stopPlay();
@@ -3859,7 +4138,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
                 new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK)
                         .format(new java.util.Date()),
-                selfSheet()) + (acts ? ai.dvine.llm.BrainOrder.actions(connectorTools()) : "");
+                selfSheet()) + (acts ? suitCodes(agent) : "");
+        final ai.dvine.suit.ChatTools pageTools = chatTools(agent);
         final java.util.List<String> taught;
         synchronized (brain) {
             taught = brain.taughtFor(question, 6);
@@ -3873,7 +4153,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String around = situation(ivie);
         hub.worker.execute(() -> {
             String asked = question;
-            if (lang != null && id == askId) {
+            if (lang != null && alive(id)) {
                 activity("Reading your " + lang.shown + " in English");
                 String en = ai.dvine.llm.Interpreter.toEnglish((s, t, n) -> model.task(s, t, n, null), lang, question);
                 if (en != null) {
@@ -3887,9 +4167,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 activity("Searching the web for \u201c" + clip(english) + "\u201d");
             }
             // the web: search results and the best pages (a small model gets a shorter extract)
-            String found = look && id == askId ? new ai.dvine.connect.ConnectorStore(this).research(english,
+            String found = look && alive(id) ? new ai.dvine.connect.ConnectorStore(this).research(english,
                     model.remoteOn() ? 3 : 1, model.remoteOn() ? 6000 : 1500) : null;
-            if (found == null && look && id == askId) {
+            if (found == null && look && alive(id)) {
                 found = ai.dvine.ops.mind.CitedReference.collect(english, url -> {
                     ai.dvine.net.WebGet.Page p = ai.dvine.net.WebGet.page(url, 6000, 400_000);
                     return p.body;
@@ -3899,7 +4179,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (look) {
                 final String hosts = reference == null ? "" : ai.dvine.net.WebSearch.hosts(reference);
                 handler.post(() -> {
-                    if (id == askId) {
+                    if (alive(id)) {
                         activity(reference == null ? "Nothing current found; answering from what I know"
                                 : hosts.isEmpty() ? "Found results" : "Read " + hosts);
                     }
@@ -3912,7 +4192,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     model.remoteOn() ? 2400 : 1200);
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around)
                     + (older.isEmpty() ? "" : "\n" + older)
-                    + "\n" + cortex().context(english); // DVINE's reading of the message and any exact arithmetic
+                    + "\n" + cortex().context(english) // DVINE's reading of the message and any exact arithmetic
+                    + (pageTools.brief().isEmpty() ? "" : "\n" + pageTools.brief());
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
             final boolean ivieVoice = "ivie".equals(agent);
             // interpreted: the English isn't shown or spoken as it comes; the translation is, when it is done
@@ -3920,7 +4201,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     new ai.dvine.chat.LiveReply.Out() {
                         @Override
                         public boolean current() {
-                            return id == askId;
+                            return alive(id) && visible(id);
                         }
 
                         @Override
@@ -3950,14 +4231,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         String h = head.toString().replaceFirst("^\\s+", "");
                         if (gate[0] == 0) {
                             if (h.length() < 3 && !h.contains("\n")) {
-                                return id == askId; // too short to tell yet
+                                return alive(id); // too short to tell yet
                             }
                             gate[0] = ai.dvine.suit.FunctionCode.startsLikeCode(h) ? 2 : 1;
                         }
                         if (gate[0] == 2) {
                             int nl = h.indexOf('\n');
                             if (nl < 0) {
-                                return id == askId; // still the order line
+                                return alive(id); // still the order line
                             }
                             gate[0] = 1;
                             piece = h.substring(nl + 1);
@@ -3965,7 +4246,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             piece = h;
                         }
                         if (piece.isEmpty()) {
-                            return id == askId;
+                            return alive(id);
                         }
                     }
                     tags.add(piece);
@@ -3973,9 +4254,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         live.piece(piece);
                     }
                 }
-                return id == askId;
+                return alive(id);
             };
-            String raw = model.reply(system, english, context, length, sink);
+            String raw;
+            if (pageTools.deep()) {
+                // deep thinking, switched on for this chat: the same brain plans, drafts, checks and revises
+                raw = ai.dvine.suit.DeepThink.think((sys, prompt) -> model.task(sys, prompt, length, null), system,
+                        context + "\n\nThe user says: " + english, 3,
+                        (pass, result) -> handler.post(() -> {
+                            if (alive(id)) {
+                                activity(pass);
+                            }
+                        }), () -> !alive(id));
+                if (raw != null) {
+                    sink.onText(raw);
+                }
+            } else {
+                raw = model.reply(system, english, context, length, sink);
+            }
             raw = foldSteer(id, system, english, context, length, raw, sink);
             tags.flush();
             final ai.dvine.llm.BrainOrder order = acts ? ai.dvine.llm.BrainOrder.leading(raw) : null;
@@ -3986,7 +4282,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 raw = ai.dvine.llm.BrainOrder.withoutOrder(raw);
             }
             String back = null;
-            if (lang != null && raw != null && id == askId) {
+            if (lang != null && raw != null && alive(id)) {
                 activity("Putting the answer in " + lang.shown);
                 back = ai.dvine.llm.Interpreter.fromEnglish((s, t, n) -> model.task(s, t, n, null), lang,
                         ai.dvine.llm.ActionTags.strip(raw));
@@ -4000,12 +4296,25 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final boolean spokeLive = live.end(all);
             final String switchTo = tags.switchTo();
             handler.post(() -> {
-                if (id != askId) {
+                writing.remove(id);
+                if (!alive(id)) {
+                    return;
+                }
+                String body = all == null ? ""
+                        : ai.dvine.llm.ReplyLayout.join(ai.dvine.llm.ActionTags.strip(all));
+                if (!visible(id)) {
+                    // finished while another page is on screen: the reply goes to its own page, quietly
+                    String kept = body;
+                    if (order != null) {
+                        kept = (kept.isEmpty() ? "" : kept + "\n\n") + "(Ready to " + order.kind.name().toLowerCase(java.util.Locale.US)
+                                + (order.arg.isEmpty() ? "" : " \u201c" + order.arg + "\u201d") + ". Ask again here to carry it out.)";
+                    }
+                    if (chats != null && !kept.isEmpty()) {
+                        chats.replyToPage(agent, kept);
+                    }
                     return;
                 }
                 endThink();
-                String body = all == null ? ""
-                        : ai.dvine.llm.ReplyLayout.join(ai.dvine.llm.ActionTags.strip(all));
                 if (order != null) {
                     // the model asked DVINE to act: its short sentence (if any) is shown, then the order is carried out
                     if (!body.isEmpty()) {
@@ -4053,7 +4362,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private final java.util.LinkedHashSet<String> shownPhotos = new java.util.LinkedHashSet<String>();
 
     private void lookUpPhotos(final String subject) {
-        final int id = ++askId;
+        final int id = nextAsk();
         final boolean online = connectivity != null && connectivity.isOnline()
                 && prefs.getBoolean("fresh_facts", true);
         stopPlay();
@@ -4089,7 +4398,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     8);
                     found = Math.max(found, shots.size());
                     for (ai.dvine.render.field.PhotoLookup.Shot shot : shots) {
-                        if (id != askId) {
+                        if (!alive(id)) {
                             return;
                         }
                         if (shownPhotos.contains(shot.url)) {
@@ -4110,7 +4419,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     java.util.List<String> loose = ai.dvine.render.field.PhotoLookup.urls(json, 4);
                     found = Math.max(found, loose.size());
                     for (String url : loose) {
-                        if (id != askId || shownPhotos.contains(url)) {
+                        if (!alive(id) || shownPhotos.contains(url)) {
                             continue;
                         }
                         bytes = ai.dvine.net.WebGet.get(url, 12000, 3 * 1024 * 1024);
@@ -4134,7 +4443,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final int count = found;
             final String chosen = used;
             handler.post(() -> {
-                if (id != askId || isFinishing()) {
+                if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -4711,7 +5020,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             endThink();
             return true;
         }
-        final int id = ++askId;
+        final int id = nextAsk();
         stopPlay();
         String phase = r.kind == ai.dvine.create.ObjectRequestInterpreter.Kind.IMAGE
                 ? "Drawing the picture"
@@ -4728,7 +5037,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             final ai.dvine.create.CreationDirector.Outcome o = made;
             handler.post(() -> {
-                if (id == askId && !isFinishing()) {
+                if (alive(id) && !isFinishing()) {
                     endThink();
                     applyCreation(o);
                 }
@@ -4779,11 +5088,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final ai.dvine.turn.DualAgentCoordinator c = new ai.dvine.turn.DualAgentCoordinator(
                 agentFor("obi", online), agentFor("ivie", online));
         discussion = c;
-        final int id = ++askId;
+        final int id = nextAsk();
         deskThread.execute(() -> {
             final List<TurnLine> out = c.discuss(r.question, first, r.mode, null);
             handler.post(() -> {
-                if (id != askId || discussion != c || isFinishing()) {
+                if (!alive(id) || discussion != c || isFinishing()) {
                     return;
                 }
                 endThink();
@@ -5162,7 +5471,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
             }
             armThink("Reading the photographs", "Triangulating views");
-            final int token = ++askId;
+            final int token = nextAsk();
             final java.util.List<android.net.Uri> chosen = uris;
             new Thread(() -> deliverReconstruction(chosen, token), "dvine-recon").start();
             return;
@@ -5201,7 +5510,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         stage.innerVoice("Reading the file");
         stage.activity("FILE", "Reading the file");
-        final int token = ++askId;
+        final int token = nextAsk();
         new Thread(() -> deliverFile(uri, learn, token), "dvine-file").start();
     }
 
@@ -5226,7 +5535,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void deliverReconstruction(java.util.List<android.net.Uri> uris, int token) {
         java.util.ArrayList<ai.dvine.ops.recon.RasterImage> images = new java.util.ArrayList<ai.dvine.ops.recon.RasterImage>();
         for (android.net.Uri uri : uris) {
-            if (token != askId) {
+            if (!alive(token)) {
                 handler.post(this::endThink);
                 return;
             }
@@ -5238,7 +5547,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final ai.dvine.ops.recon.PhotoReconstruction.Built built = ai.dvine.ops.recon.PhotoReconstruction
                 .from(images);
         handler.post(() -> {
-            if (token != askId) {
+            if (!alive(token)) {
                 return;
             }
             endThink();
@@ -5328,7 +5637,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final ai.dvine.ops.vision.FileIntake.Report done = report;
         final String shown = name;
         handler.post(() -> {
-            if (token != askId) {
+            if (!alive(token)) {
                 return;
             }
             if (learn && done.note != null && journal != null) {

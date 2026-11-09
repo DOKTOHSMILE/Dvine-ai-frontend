@@ -955,4 +955,59 @@ public class LaunchTest {
         }
         return null;
     }
+
+    /** A job on Obi's page keeps running when a message is sent on Ivie's; Stop on Ivie stops only Ivie's. */
+    @Test
+    public void eachPageRunsItsOwnJob() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Method next = MainActivity.class.getDeclaredMethod("nextAsk");
+        java.lang.reflect.Method alive = MainActivity.class.getDeclaredMethod("alive", int.class);
+        java.lang.reflect.Method stop = MainActivity.class.getDeclaredMethod("stopVisibleJob");
+        next.setAccessible(true);
+        alive.setAccessible(true);
+        stop.setAccessible(true);
+        c.get().findViewById(ai.dvine.R.id.tabObi).performClick();
+        int obiJob = (Integer) next.invoke(c.get());
+        c.get().findViewById(ai.dvine.R.id.tabIvie).performClick();
+        int ivieJob = (Integer) next.invoke(c.get());
+        org.junit.Assert.assertTrue("Obi's job survives a message on Ivie's page", (Boolean) alive.invoke(c.get(), obiJob));
+        org.junit.Assert.assertTrue((Boolean) alive.invoke(c.get(), ivieJob));
+        stop.invoke(c.get());
+        org.junit.Assert.assertFalse((Boolean) alive.invoke(c.get(), ivieJob));
+        org.junit.Assert.assertTrue("Stop on Ivie leaves Obi's job running", (Boolean) alive.invoke(c.get(), obiJob));
+        c.pause().stop().destroy();
+    }
+
+    /** The tools button beside the mic lists this persona's tools; a swipe from the left edge opens the drawer. */
+    @Test
+    public void theToolsButtonAndTheDrawerSwipe() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
+        c.get().findViewById(ai.dvine.R.id.btn_tools).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+        sheet.getWindow().getDecorView().findViewsWithText(found, "GitHub", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertFalse("Ibiko offers GitHub", found.isEmpty());
+        found.clear();
+        sheet.getWindow().getDecorView().findViewsWithText(found, "Deep thinking", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        org.junit.Assert.assertFalse(found.isEmpty());
+        ((android.widget.Switch) found.get(0)).setChecked(true);
+        org.junit.Assert.assertTrue(c.get().getSharedPreferences("dvine", 0).getAll().toString().contains("DEEP"));
+        sheet.dismiss();
+
+        android.view.View drawer = c.get().findViewById(ai.dvine.R.id.historyDrawer);
+        org.junit.Assert.assertNotEquals(android.view.View.VISIBLE, drawer.getVisibility());
+        long t = android.os.SystemClock.uptimeMillis();
+        float dp = c.get().getResources().getDisplayMetrics().density;
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, 4 * dp, 400, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_MOVE, 120 * dp, 410, 0));
+        org.junit.Assert.assertEquals("a swipe from the left edge opens it", android.view.View.VISIBLE, drawer.getVisibility());
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 100, android.view.MotionEvent.ACTION_DOWN, 200 * dp, 400, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 150, android.view.MotionEvent.ACTION_MOVE, 60 * dp, 405, 0));
+        org.junit.Assert.assertNotEquals("a swipe to the left closes it", android.view.View.VISIBLE, drawer.getVisibility());
+        c.pause().stop().destroy();
+    }
 }

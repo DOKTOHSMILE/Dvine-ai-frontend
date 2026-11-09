@@ -28,6 +28,7 @@
     <color name="line">#DCDBE6</color>
     <color name="line_strong">#CBCADA</color>
     <color name="selected">#E4E3EF</color>
+    <color name="segment_track">#EEEEF5</color>
     <color name="segment_on">#FFFFFF</color>
     <color name="send_off">#CFCEDB</color>
     <color name="scrim">#66000000</color>

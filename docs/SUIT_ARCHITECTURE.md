@@ -72,8 +72,8 @@ in the pilot's hands.
 
 ## What comes next
 
-* **Tools per chat** (the tools button): which functions and connectors a chat's brain may use; the brain is only
-  told about those codes (`FunctionCode.instructions(tools, allowed)` already takes the set).
-* **Deep thinking per chat**, from the same tools sheet.
+* ~~Tools per chat~~ and ~~deep thinking per chat~~: built in 0.99.1 (`suit/ChatTools`, the tools button).
+* **Parallel brains**: one model answers one call at a time (`LocalModel.reply` holds a lock), so a second page's
+  message waits for the first. A lock per provider would let an API serve two pages at once.
 * **Templates in the brain box**, so a learned `§SR {words}` works for new words.
 * **A pilot profile** the Cortex keeps (names, places, projects the pilot mentions), given to every brain.

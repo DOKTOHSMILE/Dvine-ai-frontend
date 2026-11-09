@@ -155,4 +155,16 @@ public class ChatBookTest {
         b.addProject("New project");
         org.junit.Assert.assertEquals("New project", b.projectsNewestFirst().get(0));
     }
+
+    /** A job that finishes while another page is open writes its reply on its own page; the open page stays open. */
+    @org.junit.Test
+    public void aBackgroundReplyLandsOnItsOwnPage() throws Exception {
+        ChatBook b = new ChatBook(new File(java.nio.file.Files.createTempDirectory("book").toFile(), "chats.json"));
+        ChatBook.Section obi = b.forPersona("obi");
+        ChatBook.Section ivie = b.forPersona("ivie");
+        b.replyToPage("obi", "Obi's answer");
+        org.junit.Assert.assertEquals(ivie.id, b.current().id);
+        org.junit.Assert.assertEquals("Obi's answer", obi.messages.get(obi.messages.size() - 1).body);
+        org.junit.Assert.assertTrue(ivie.messages.isEmpty());
+    }
 }

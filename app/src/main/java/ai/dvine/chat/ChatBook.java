@@ -294,6 +294,37 @@ public final class ChatBook {
         }
     }
 
+    /**
+     * A reply for one persona's page of the open conversation, written there even when another page is on screen
+     * (a job that finished in the background). The open page stays open.
+     */
+    public synchronized void replyToPage(String persona, String text) {
+        String p = personaOf(persona);
+        Section cur = current();
+        Section page = p.equals(cur.persona) ? cur : null;
+        for (int i = sections.size() - 1; page == null && i >= 0; i--) {
+            Section s = sections.get(i);
+            if (!s.archived && p.equals(s.persona) && cur.group.equals(s.group)) {
+                page = s;
+            }
+        }
+        if (page == null) {
+            page = new Section("c" + next++, cur.title, p);
+            page.group = cur.group;
+            sections.add(page);
+        }
+        boolean wrote = false;
+        for (Message m : blocks("assistant", p, text)) {
+            if (!m.body.trim().isEmpty()) {
+                page.messages.add(m);
+                wrote = true;
+            }
+        }
+        if (wrote) {
+            save();
+        }
+    }
+
     /** A fact every section can see. Empty and duplicate notes are ignored. */
     public synchronized boolean remember(String text) {
         String t = text == null ? "" : text.trim();
