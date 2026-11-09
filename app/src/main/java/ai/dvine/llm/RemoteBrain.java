@@ -295,7 +295,9 @@ public final class RemoteBrain {
         String out = chatRetrying(system, turns, maxTokens, temperature, sink);
         // the model was cut off by its allowance, not finished: it writes on from where it stopped, until it ends
         // by itself (the server's own stop reason says which), and the pieces are one reply
-        for (int more = 0; out != null && cutOff && more < MAX_CONTINUATIONS && !cancelled && maxTokens > 256; more++) {
+        // only when the server's own stop reason says the allowance ran out: a transport error that happens to
+        // leave the flag set would carry the chat on after the reply that reached the user
+        for (int more = 0; out != null && cutOff && !cancelled && more < MAX_CONTINUATIONS; more++) {
             List<String[]> next = new ArrayList<String[]>(turns);
             next.add(new String[]{"assistant", out});
             next.add(new String[]{"user", CONTINUE});
@@ -468,7 +470,8 @@ public final class RemoteBrain {
             }
             req.put("messages", messages);
             req.put("stream", Boolean.TRUE);
-            if (small && form == 0) {
+            // no effort cap on the plain form either: low effort on a thinking model is what came back empty
+            if (small) {
                 Map<String, Object> out = new LinkedHashMap<String, Object>();
                 out.put("effort", "low");
                 req.put("output_config", out);
@@ -777,10 +780,17 @@ public final class RemoteBrain {
     private String failure(int status, InputStream in, String usedKey) {
         String said = "";
         try {
-            byte[] b = readUpTo(in, 4096);
-            Map<String, Object> o = parse(new String(b, StandardCharsets.UTF_8));
+            byte[] b = readUpTo(in, 65536);
+            String raw = new String(b, StandardCharsets.UTF_8);
+            Map<String, Object> o = parse(raw);
             if (o != null) {
                 said = MiniJson.str(MiniJson.obj(o.get("error")).get("message"), MiniJson.str(o.get("message"), ""));
+            } else {
+                // a body cut mid-JSON, or plain text: take the message anyway so busy() can still classify it
+                said = raw.replaceAll("(?s)\\\\\"", "\"").replaceAll("[\\r\\n]+", " ").trim();
+                if (said.length() > 400) {
+                    said = said.substring(0, 400);
+                }
             }
         } catch (IOException e) {
             // no readable message

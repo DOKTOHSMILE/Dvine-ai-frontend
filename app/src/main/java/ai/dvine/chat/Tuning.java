@@ -116,8 +116,8 @@ public final class Tuning {
             "When the device's own model writes slower than this, DVINE suggests a smaller size or less memory.", 4, 1, 50);
 
     public static final Knob MODEL_THREADS = new Knob("adv_model_threads", "Offline model threads (0 = automatic)",
-            "How many of the device's cores the offline model uses. Automatic takes the fast cores only (more threads on slow"
-                    + " cores makes it slower). Compare with Settings \u203A Test the speed.", 0, 0, 8);
+            "How many cores the offline model uses. Automatic uses two. More than two makes the phone hum and does not go faster.",
+            0, 0, 2);
 
     /**
      * The name the app answers to and the one it works for. It is text rather than a number, so it has no range: the
@@ -162,7 +162,8 @@ public final class Tuning {
     /** The threads for the phone's own model: the setting, or the fast cores when it is automatic. */
     public static int modelThreads(android.content.SharedPreferences p) {
         int set = MODEL_THREADS.get(p);
-        return set > 0 ? set : ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors());
+        int chosen = set > 0 ? set : ai.dvine.llm.LocalModel.threads(Runtime.getRuntime().availableProcessors());
+        return Math.max(1, Math.min(2, chosen));
     }
 
     private Tuning() {
