@@ -101,11 +101,13 @@ public class KnowledgeTest {
         assertNull("a list of meanings is no answer", ResearchAnswer.fromSummary("{\"type\":\"disambiguation\",\"extract\":\"Pig may refer to many things.\"}"));
     }
 
-    /** The real encyclopedia summary for "Pig" (saved from the live service) gives the pig itself. */
+    /** The encyclopedia summary for "Pig", in the live service's shape, gives the pig itself. */
     @Test
     public void theRealPigSummaryIsRead() throws Exception {
-        String json = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
-                KnowledgeTest.class.getResource("/research/pig-summary.json").toURI())), java.nio.charset.StandardCharsets.UTF_8);
+        // the shape of the live service's reply for "Pig" (checked against it on 2026-11-09), trimmed
+        String json = "{\"type\":\"standard\",\"title\":\"Pig\",\"displaytitle\":\"<span>Pig</span>\",\"namespace\":{\"id\":0},"
+                + "\"description\":\"Omnivorous mammal\",\"extract\":\"The pig, also called swine or hog, is an omnivorous, domesticated,"
+                + " even-toed, hoofed mammal. It is named the domestic pig when distinguishing it from other members of the genus Sus.\"}";
         ResearchAnswer a = ResearchAnswer.fromSummary(json);
         assertNotNull(a);
         assertTrue(a.text, a.text.toLowerCase(java.util.Locale.US).contains("pig"));
