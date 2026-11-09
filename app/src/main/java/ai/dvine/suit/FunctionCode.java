@@ -35,6 +35,29 @@ public enum FunctionCode {
     RT("RETRY", "ask the last question again", ""),
     OS("SETTINGS", "open Settings", "");
 
+    /**
+     * The app's functions as a document any model (or person) can read: docs/APP_FUNCTIONS.md is this text, checked by a
+     * test so it never drifts from the code.
+     */
+    public static String document() {
+        StringBuilder b = new StringBuilder("# DVINE app functions\n\n"
+                + "Generated from `suit/FunctionCode.java` (`FunctionCode.document()`); a test keeps this file in step. Do not edit by hand.\n\n"
+                + "Every model that drives DVINE (an API model, the offline model, DVINE 1) controls the app the same way: it"
+                + " writes one function code alone on the first line of its reply, then a short sentence for the user. DVINE"
+                + " carries the function out and shows the result. The user's own words never run a function; a chat's tools"
+                + " (the tools button) decide which codes that chat may use.\n\n"
+                + "Accepted forms on the first line: `\u00A7XX arguments`, `[[XX]] arguments`, `\u27E6XX\u27E7 arguments`.\n\n"
+                + "| Code | Function | What it does | Arguments |\n|---|---|---|---|\n");
+        for (FunctionCode c : values()) {
+            b.append("| `").append(c.code()).append("` | ").append(c.function).append(" | ").append(c.does).append(" | ")
+                    .append(c.args.isEmpty() ? "none" : "`" + c.args.replace("|", "\\|") + "`").append(" |\n");
+        }
+        b.append("\nExamples: `\u00A7SR weather in Lagos` \u00B7 `\u00A7SW ibiko` \u00B7 `\u00A7MF pdf` \u00B7 `\u00A7SP x 9am daily: Good morning`"
+                + " \u00B7 `\u00A7AC post on x: We're live`.\n\nRules: one code a reply; arithmetic goes to `\u00A7CA`; never claim a function ran"
+                + " (DVINE runs it after the code and shows the result); shell commands, posts and shares wait for the user's yes.\n");
+        return b.toString();
+    }
+
     /** The mark that starts a code. */
     public static final String MARK = "§";
 

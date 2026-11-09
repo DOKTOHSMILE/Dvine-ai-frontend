@@ -1,4 +1,4 @@
-package ai.dvine.suit;
+package ai.dvine.dvine1;
 
 import java.util.ArrayList;
 import java.util.Arrays;

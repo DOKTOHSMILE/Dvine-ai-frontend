@@ -197,6 +197,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 164 | Learn only from usage, nothing saved as a test feature; swipe left to right opens the drawer; no swipe between persona pages | P12 | Built (JVM and Robolectric; device check pending) | 0.99.9 |
 | 165 | Workload, Usage and the workers display wired properly; the shoe screenshot; icons on the tools and their inner settings | P12 | Built (JVM and Robolectric; device check pending) | 0.99.10 |
 | 166 | Learning at any time, not only at night; formulas for language understanding, sentence formulation and intent to parse any information; a standard drag drawer | P12 | Built (JVM and Robolectric; device check pending) | 0.99.11 |
+| 167 | Split MainActivity; DVINE model code in one detachable folder with its own endpoint, linked to the app-functions file; easier taps; narrate work and end with a summary; Settings in step; the ohmmm sound | P12 | Built (JVM and Robolectric; device check pending). MainActivity split is partial: drawer, tools, model menu and DVINE 1 moved; the rest still to do | 0.99.12 |
 
 ## Still open, in the order that matters
 

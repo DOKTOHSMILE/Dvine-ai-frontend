@@ -1,4 +1,4 @@
-package ai.dvine.learn;
+package ai.dvine.dvine1;
 
 import java.io.File;
 import java.io.IOException;
@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import ai.dvine.suit.Grammar;
+
 
 /**
  * What DVINE 1 has read, kept as facts (subject, relation, object) by the {@link Grammar} formulas, and answered from
@@ -153,6 +153,37 @@ public final class Facts {
     static String sentence(String s) {
         String t = s.replaceAll("\\s+", " ").trim();
         return t.isEmpty() ? t : Character.toUpperCase(t.charAt(0)) + t.substring(1);
+    }
+
+    /** The answer to {@code question} from one fact, said as a sentence, or null. */
+    public String answerFrom(String question, Grammar.Triple t) {
+        return match(Grammar.parse(question), t);
+    }
+
+    /** Every fact, oldest first. */
+    public synchronized List<Grammar.Triple> all() {
+        return new ArrayList<Grammar.Triple>(all);
+    }
+
+    /** A question each fact answers, by the focus formulas in reverse ("Who invented the telephone?"), or null. */
+    public static String question(Grammar.Triple t) {
+        String r = t.relation;
+        if (r.equals("is") || r.endsWith(" of")) {
+            return "What is " + noun(t.subject) + "?";
+        }
+        if (r.equals("born in")) {
+            return "Where was " + t.subject + " born?";
+        }
+        if (r.equals("born on")) {
+            return "When was " + t.subject + " born?";
+        }
+        if (r.endsWith(" by")) {
+            return "Who " + t.surface + " " + (Character.isUpperCase(t.subject.charAt(0)) ? t.subject : "the " + t.subject) + "?";
+        }
+        if (r.endsWith(" in")) {
+            return (t.object.matches(".*\\d{4}.*") ? "When" : "Where") + " was " + t.subject + " " + t.surface + "?";
+        }
+        return null;
     }
 
     public synchronized void clear() {

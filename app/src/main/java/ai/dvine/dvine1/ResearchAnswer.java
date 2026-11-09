@@ -1,4 +1,4 @@
-package ai.dvine.suit;
+package ai.dvine.dvine1;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import ai.dvine.learn.Knowledge;
+
 
 /**
  * DVINE 1's answer from research, with no language model: the sentences from the web results that best answer the
@@ -80,9 +80,9 @@ public final class ResearchAnswer {
             return null;
         }
         try {
-            java.util.Map<String, Object> m = ai.dvine.brain.MiniJson.obj(ai.dvine.brain.MiniJson.parse(json));
-            String type = ai.dvine.brain.MiniJson.str(m.get("type"), "");
-            String extract = ai.dvine.brain.MiniJson.str(m.get("extract"), "").replaceAll("\\s+", " ").trim();
+            java.util.Map<String, Object> m = Json.obj(Json.parse(json));
+            String type = Json.str(m.get("type"), "");
+            String extract = Json.str(m.get("extract"), "").replaceAll("\\s+", " ").trim();
             if (!"standard".equals(type) || extract.length() < 20) {
                 return null; // a disambiguation page or nothing found
             }

@@ -1,4 +1,4 @@
-package ai.dvine.learn;
+package ai.dvine.dvine1;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -22,11 +22,11 @@ import java.util.List;
 import java.util.TimeZone;
 
 /**
- * Runs night learning ({@link NightLearn}) in the pilot's window: the device's job scheduler starts it when the window
+ * Runs DVINE 1's learning sessions ({@link LearningSchedule}) in the pilot's hours (or now): the job scheduler starts it when the hours
  * opens and the network (Wi-Fi if asked) and charging (if asked) allow; it learns one topic at a time, stops when the
- * window closes or Android asks, writes a morning report, and plans the next night.
+ * hours end or Android asks, writes a report for afterwards, and plans the next session.
  */
-public final class NightLearnJob extends JobService {
+public final class LearningJob extends JobService {
     static final int JOB = 7020;
     public static final String PREFS = "dvine";
     public static final String KEY = "night_learn";
@@ -38,13 +38,13 @@ public final class NightLearnJob extends JobService {
 
     // ------------------------------------------------------------ the pilot's plan
 
-    public static NightLearn.Plan plan(Context c) {
+    public static LearningSchedule.Plan plan(Context c) {
         String line = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null);
-        return line == null ? NightLearn.Plan.defaults() : NightLearn.Plan.read(line);
+        return line == null ? LearningSchedule.Plan.defaults() : LearningSchedule.Plan.read(line);
     }
 
     /** Keeps the plan and schedules (or cancels) the next night. */
-    public static void setPlan(Context c, NightLearn.Plan p) {
+    public static void setPlan(Context c, LearningSchedule.Plan p) {
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, p.write()).apply();
         schedule(c);
     }
@@ -57,11 +57,11 @@ public final class NightLearnJob extends JobService {
         if (js == null) {
             return;
         }
-        NightLearn.Plan p = plan(c);
+        LearningSchedule.Plan p = plan(c);
         android.os.PersistableBundle now = new android.os.PersistableBundle();
         now.putBoolean("now", true);
         try {
-            js.schedule(new JobInfo.Builder(JOB_NOW, new ComponentName(c, NightLearnJob.class))
+            js.schedule(new JobInfo.Builder(JOB_NOW, new ComponentName(c, LearningJob.class))
                     .setRequiredNetworkType(p.wifiOnly ? JobInfo.NETWORK_TYPE_UNMETERED : JobInfo.NETWORK_TYPE_ANY)
                     .setExtras(now)
                     .build());
@@ -76,13 +76,13 @@ public final class NightLearnJob extends JobService {
         if (js == null) {
             return;
         }
-        NightLearn.Plan p = plan(c);
+        LearningSchedule.Plan p = plan(c);
         if (!p.on) {
             js.cancel(JOB);
             return;
         }
         long wait = Math.max(0, p.untilStart(System.currentTimeMillis(), TimeZone.getDefault()));
-        JobInfo.Builder b = new JobInfo.Builder(JOB, new ComponentName(c, NightLearnJob.class))
+        JobInfo.Builder b = new JobInfo.Builder(JOB, new ComponentName(c, LearningJob.class))
                 .setMinimumLatency(wait)
                 .setRequiredNetworkType(p.wifiOnly ? JobInfo.NETWORK_TYPE_UNMETERED : JobInfo.NETWORK_TYPE_ANY)
                 .setRequiresCharging(p.chargingOnly)
@@ -150,21 +150,20 @@ public final class NightLearnJob extends JobService {
      * DVINE 1's research for one question: the subject's own encyclopedia summary for "what/who is X", else the web
      * search's sentences that answer it. Blocking; off the main thread.
      */
-    public static ai.dvine.suit.ResearchAnswer research(Context c, String question) {
-        ai.dvine.suit.ResearchAnswer r = null;
-        String subject = ai.dvine.suit.ResearchAnswer.subject(question);
+    public static ResearchAnswer research(Context c, String question) {
+        ResearchAnswer r = null;
+        String subject = ResearchAnswer.subject(question);
         if (subject != null) {
-            ai.dvine.net.WebGet.Page page = ai.dvine.net.WebGet.page(ai.dvine.suit.ResearchAnswer.summaryUrl(subject), 12_000, 200_000);
-            r = page.status == 200 ? ai.dvine.suit.ResearchAnswer.fromSummary(page.body) : null;
+            r = ResearchAnswer.fromSummary(Plug.web.get(ResearchAnswer.summaryUrl(subject)));
         }
         if (r == null) {
             String found;
             try {
-                found = new ai.dvine.connect.ConnectorStore(c).research(question, 2, 8000);
+                found = Plug.web.search(question);
             } catch (RuntimeException e) {
                 found = null;
             }
-            r = ai.dvine.suit.ResearchAnswer.from(question, found);
+            r = ResearchAnswer.from(question, found);
         }
         return r;
     }
@@ -174,7 +173,7 @@ public final class NightLearnJob extends JobService {
     @Override
     public boolean onStartJob(final JobParameters params) {
         final boolean now = params.getExtras() != null && params.getExtras().getBoolean("now", false);
-        final NightLearn.Plan p = now ? new NightLearn.Plan(true, 0, 0, false, false, plan(this).most) : plan(this);
+        final LearningSchedule.Plan p = now ? new LearningSchedule.Plan(true, 0, 0, false, false, plan(this).most) : plan(this);
         if (!p.on) {
             return false;
         }
@@ -184,14 +183,14 @@ public final class NightLearnJob extends JobService {
         }
         stopped = false;
         worker = new Thread(() -> {
-            String board = ai.dvine.agent.AgentBoard.start("Learner", "learning from your questions: facts and words", "DVINE 1 \u00B7 0.1");
+            String board = Plug.workers.start("Learner", "learning from your questions: facts and words", Dvine1.NAME);
             boarded = board;
             try {
-                learnTonight(p);
+                learnSession(p);
             } finally {
-                ai.dvine.agent.AgentBoard.end(board, stopped ? ai.dvine.agent.AgentBoard.Outcome.STOPPED : ai.dvine.agent.AgentBoard.Outcome.DONE);
+                Plug.workers.end(board, !stopped);
                 jobFinished(params, false);
-                schedule(NightLearnJob.this); // the next night
+                schedule(LearningJob.this); // the next night
             }
         }, "dvine-night-learning");
         worker.start();
@@ -204,23 +203,16 @@ public final class NightLearnJob extends JobService {
         return true; // try again while the window is open
     }
 
-    private void learnTonight(NightLearn.Plan p) {
+    private void learnSession(LearningSchedule.Plan p) {
         TimeZone zone = TimeZone.getDefault();
         final Knowledge k = new Knowledge(new File(dir(this), "knowledge.tsv"));
         final Facts facts = new Facts(new File(dir(this), "facts.tsv"));
         final Lexicon words = new Lexicon(new File(dir(this), "words.tsv"));
         List<String> unanswered = read(new File(dir(this), "to-learn.txt"));
-        PilotProfile profile = new PilotProfile(new File(dir(this), "pilot.tsv"));
-        List<String> interests = new ArrayList<String>();
-        for (String key : new String[] { "building", "likes", "works as", "works at", "home", "from" }) {
-            String v = profile.get(key);
-            if (v != null) {
-                interests.add(v);
-            }
-        }
+        List<String> interests = new ArrayList<String>(Plug.interests.get()); // what the pilot is into, from the app
         // only what came from using DVINE: no outside lists of topics
-        List<String> topics = NightLearn.topics(unanswered, interests,
-                t -> k.recall(unanswered.contains(t) ? t : NightLearn.question(t)) != null, p.most);
+        List<String> topics = LearningSchedule.topics(unanswered, interests,
+                t -> k.recall(unanswered.contains(t) ? t : LearningSchedule.question(t)) != null, p.most);
         List<String> learned = new ArrayList<String>();
         List<String> stillToLearn = new ArrayList<String>(unanswered);
         for (String topic : topics) {
@@ -229,14 +221,14 @@ public final class NightLearnJob extends JobService {
             }
             boolean asked = unanswered.contains(topic);
             if (boarded != null) {
-                ai.dvine.agent.AgentBoard.step(boarded, "Learning: " + topic);
+                Plug.workers.step(boarded, "Learning: " + topic);
             }
-            String q = asked ? topic : NightLearn.question(topic);
-            ai.dvine.suit.ResearchAnswer r = research(this, q);
+            String q = asked ? topic : LearningSchedule.question(topic);
+            ResearchAnswer r = research(this, q);
             if (r == null || k.rejected(q, r.shown())) {
                 continue;
             }
-            facts.learn(r.text, ai.dvine.suit.ResearchAnswer.subject(q) == null ? topic : ai.dvine.suit.ResearchAnswer.subject(q));
+            facts.learn(r.text, ResearchAnswer.subject(q) == null ? topic : ResearchAnswer.subject(q));
             if (k.learnUnchecked(q, r.shown())) {
                 if (!asked && topic.matches("[A-Z][\\p{L}'-]+( [A-Z][\\p{L}'-]+)+")) {
                     k.learnUnchecked("Who is " + topic + "?", r.shown()); // a name: asked about with "who" too
@@ -258,10 +250,10 @@ public final class NightLearnJob extends JobService {
                 break;
             }
             if (boarded != null) {
-                ai.dvine.agent.AgentBoard.step(boarded, "Learning the word \u201c" + w + "\u201d");
+                Plug.workers.step(boarded, "Learning the word \u201c" + w + "\u201d");
             }
-            ai.dvine.net.WebGet.Page page = ai.dvine.net.WebGet.page(Lexicon.url(w), 12_000, 400_000);
-            if (page.status == 200 && words.learn(w, page.body)) {
+            String page = Plug.web.get(Lexicon.url(w));
+            if (page != null && words.learn(w, page)) {
                 newWords++;
                 learned.add("the word \u201c" + w + "\u201d");
             }
@@ -321,7 +313,7 @@ public final class NightLearnJob extends JobService {
         }
         PendingIntent tap = PendingIntent.getActivity(this, 4, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification note = new Notification.Builder(this, CHANNEL)
-                .setSmallIcon(ai.dvine.R.drawable.ic_send)
+                .setSmallIcon(Plug.icon)
                 .setContentTitle("DVINE learned " + n + (n == 1 ? " new thing" : " new things"))
                 .setContentText("Open DVINE to see what it learned.")
                 .setContentIntent(tap)
