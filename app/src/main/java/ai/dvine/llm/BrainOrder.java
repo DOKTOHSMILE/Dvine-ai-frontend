@@ -5,7 +5,9 @@ package ai.dvine.llm;
  */
 public final class BrainOrder {
     public enum Kind {
-        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, BUILD, SOCIAL, CANNOT
+        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, BUILD, SOCIAL, CANNOT,
+        // the suit's controls, only ever from a brain's code (never from the user's words)
+        CALC, MAKEFILE, STAGE, NEWCHAT, SWITCH, PLANMODE, AUTOON, AUTOOFF, RETRY, SETTINGS
     }
 
     public final Kind kind;
@@ -37,49 +39,51 @@ public final class BrainOrder {
     }
 
     /**
-     * For one call that both answers and acts (no separate routing call): what the model may make DVINE do. It
-     * answers as it would; only when the user clearly wants one of these done does it put the order alone on the
-     * first line, which DVINE hides and carries out. The user's words never trigger these by themselves: the model
-     * decides from the meaning and the context.
+     * For one call that both answers and acts: the suit's functions and their machine codes, which only the brain
+     * writes (on its reply's first line) after reading what the user means. See {@link ai.dvine.suit.FunctionCode}.
      */
     public static String actions(String tools) {
-        String t = tools == null || tools.trim().isEmpty() ? "" : " DO TOOL <tool> <argument>, one of:" + tools + ".";
-        return "\n\nYou can make DVINE act on this device. Only when the user clearly wants one of these done (judge"
-                + " from what they mean and the conversation, not from single words), write the order alone on the"
-                + " first line, then a short sentence for them: DO SEARCH <words> (look it up on the web),"
-                + " DO SHELL <one shell command that does what they asked>, DO PHOTO <subject>, DO BUILD <thing to"
-                + " model in 3D, with every size they gave>, DO TIME, DO NAME <what to call them>, DO UNZIP, DO FINDZIP,"
-                + " DO SOCIAL SEARCH <network>: <words>, DO SOCIAL TRENDING <network>, DO SOCIAL CONNECT <network>,"
-                + " DO SOCIAL POST <network>: <what about>." + t
-                + " Otherwise just answer, with no order line. Never claim something was done: DVINE does it after your"
-                + " order and shows the result.";
+        return ai.dvine.suit.FunctionCode.instructions(tools, null);
     }
 
-    /** The order on a reply's first line ("DO SEARCH weather"), or null when the reply is only an answer. */
+    /** The order a brain's code stands for. */
+    public static BrainOrder fromCode(ai.dvine.suit.FunctionCode.Call c) {
+        if (c == null) {
+            return null;
+        }
+        switch (c.code) {
+            case SR: return new BrainOrder(Kind.SEARCH, c.args, "");
+            case SH: return new BrainOrder(Kind.SHELL, c.args, "");
+            case TL: return new BrainOrder(Kind.TOOL, c.args, "");
+            case PH: return new BrainOrder(Kind.PHOTO, c.args, "");
+            case BD: return new BrainOrder(Kind.BUILD, c.args, "");
+            case SO: return read("DO SOCIAL " + c.args);
+            case TM: return new BrainOrder(Kind.TIME, "", "");
+            case NM: return new BrainOrder(Kind.NAME, c.args, "");
+            case UZ: return new BrainOrder(Kind.UNZIP, "", "");
+            case FZ: return new BrainOrder(Kind.FINDZIP, "", "");
+            case CA: return new BrainOrder(Kind.CALC, c.args, "");
+            case MF: return new BrainOrder(Kind.MAKEFILE, c.args.isEmpty() ? "pdf" : c.args.trim().split("\\s+")[0], "");
+            case AC: return new BrainOrder(Kind.STAGE, c.args, "");
+            case NC: return new BrainOrder(Kind.NEWCHAT, "", "");
+            case SW: return new BrainOrder(Kind.SWITCH, c.args.trim().toLowerCase(java.util.Locale.US), "");
+            case PM: return new BrainOrder(Kind.PLANMODE, "", "");
+            case AO: return new BrainOrder(Kind.AUTOON, "", "");
+            case AF: return new BrainOrder(Kind.AUTOOFF, "", "");
+            case RT: return new BrainOrder(Kind.RETRY, "", "");
+            case OS: return new BrainOrder(Kind.SETTINGS, "", "");
+            default: return null;
+        }
+    }
+
+    /** The order on a reply's first line, written as the suit's code ("§SR weather"); null for a plain answer. */
     public static BrainOrder leading(String reply) {
-        if (reply == null) {
-            return null;
-        }
-        String first = reply.trim();
-        int nl = first.indexOf('\n');
-        if (nl >= 0) {
-            first = first.substring(0, nl).trim();
-        }
-        if (!first.toUpperCase(java.util.Locale.US).startsWith("DO ")) {
-            return null;
-        }
-        BrainOrder o = read(first);
-        return o == null || o.kind == Kind.SAY || o.kind == Kind.CANNOT ? null : o;
+        return fromCode(ai.dvine.suit.FunctionCode.parse(reply));
     }
 
-    /** The reply without its order line. */
+    /** The reply without its code line. */
     public static String withoutOrder(String reply) {
-        if (leading(reply) == null) {
-            return reply;
-        }
-        String t = reply.trim();
-        int nl = t.indexOf('\n');
-        return nl < 0 ? "" : t.substring(nl + 1).trim();
+        return ai.dvine.suit.FunctionCode.withoutCode(reply);
     }
 
     private static String basePrompt() {

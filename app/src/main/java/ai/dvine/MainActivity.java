@@ -1861,14 +1861,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return messageGate;
         }
         messageGate = new ai.dvine.gate.BrainGateway("message")
-                .route("retry", t -> {
-                    if (!control(t).matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
-                        return false;
-                    }
-                    retryLast();
-                    return true;
-                })
                 .route("model command", t -> {
+                    if (modelOn() || apiDirect()) {
+                        return false; // a brain is in the suit: it reads the words, nothing else does
+                    }
                     paused = null; // anything else lets a paused reply go
                     // the one thing that can't wait for the brain: getting the brain ("download your brain", the yes
                     // to it, pause / continue / show the download). Without it there is nothing to read the words.
@@ -1876,19 +1872,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 })
                 .route("measurements for the build", this::measurementsGiven)
                 .route("post, share or copy", t -> stagedAction(t)) // shown first, carried out on a yes (or auto-approve)
-                .route("make a file", this::makeDocument) // "make a PDF of that": the model writes, DVINE makes the file
-                .route("read the meaning", t -> {
-                    if (apiDirect()) {
-                        return false; // the API reads the meaning itself, in the one call that answers
-                    }
-                    ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
-                    if (fromBrain || carriesOn(t) || !ai.dvine.turn.Meaning.worthReading(t)
-                            || known != null && known.kind != ai.dvine.llm.BrainOrder.Kind.SAY && known.kind != ai.dvine.llm.BrainOrder.Kind.SEARCH) {
-                        return false; // the brain already knows the order from the words: no reading of the meaning first
-                    }
-                    understand(t); // the words didn't match a command's wording: the brain reads what they mean
-                    return true;
-                })
+                // no "make a file", "retry" or "read the meaning" by wording: the brain gives those as codes
                 .route("brain", t -> {
                     askTheBrain(t);
                     return true;
@@ -1957,7 +1941,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             || t.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
                         return false; // "think together" in Ibiko's chat: the council
                     }
-                    ai.dvine.llm.BrainOrder known = apiDirect() ? null : ai.dvine.llm.BrainOrder.decide(t, null);
+                    ai.dvine.llm.BrainOrder known = null; // Ibiko's own brain reads the words: no wording shortcut
                     boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
                             || known.kind == ai.dvine.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.dvine.llm.BrainOrder.Kind.TIME
                             || known.kind == ai.dvine.llm.BrainOrder.Kind.NAME || known.kind == ai.dvine.llm.BrainOrder.Kind.SOCIAL
@@ -1966,17 +1950,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         return false;
                     }
                     runIbiko(t); // Ibiko codes: the agent works on it, step by step
-                    return true;
-                })
-                .route("a known order", t -> {
-                    if (apiDirect()) {
-                        return false; // with an API, the API decides every action, not the wording
-                    }
-                    ai.dvine.llm.BrainOrder known = ai.dvine.llm.BrainOrder.decide(t, null);
-                    if (known == null || known.kind == ai.dvine.llm.BrainOrder.Kind.SAY) {
-                        return false;
-                    }
-                    carryOut(stage.agent(), t, known);
                     return true;
                 })
                 .route("correct the brain", t -> {
@@ -2001,7 +1974,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         return false;
                     }
                     String learned = brainBox().recall(t);
-                    ai.dvine.llm.BrainOrder order = learned == null ? null : ai.dvine.llm.BrainOrder.decide(t, learned);
+                    ai.dvine.llm.BrainOrder order = learned == null ? null : ai.dvine.llm.BrainOrder.leading(learned);
                     if (order == null || order.kind == ai.dvine.llm.BrainOrder.Kind.SAY
                             || order.kind == ai.dvine.llm.BrainOrder.Kind.CANNOT) {
                         return false;
@@ -2017,10 +1990,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (modelOn()) {
                         return false;
                     }
-                    // no model to ask: what DVINE learned from earlier conversations, said as such
-                    String learnedAnswer = brainBox().recallTalk(t);
-                    if (learnedAnswer != null) {
-                        play(LocalTurn.speakAs(stage.agent(), "From what I learned earlier: " + learnedAnswer), null);
+                    // no model in the suit: DVINE's own Cortex answers what it can (exact sums, greetings, what it learned)
+                    String alone = cortex().answerAlone(t);
+                    if (alone != null) {
+                        play(LocalTurn.speakAs(stage.agent(), alone), null);
                         return true;
                     }
                     carryOut(stage.agent(), t, null);
@@ -2056,6 +2029,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private ai.dvine.learn.BrainBox brainBox;
+    private ai.dvine.suit.Cortex cortex;
+
+    /** DVINE's own light brain in the suit: reads every message and works out arithmetic exactly, for any model. */
+    private synchronized ai.dvine.suit.Cortex cortex() {
+        if (cortex == null) {
+            cortex = new ai.dvine.suit.Cortex(q -> brainBox().recallTalk(q));
+        }
+        return cortex;
+    }
     /** The words the brain last acted on from what it learned, until the next message (for "no, that's wrong"). */
     private String actedFromBox, boxBefore;
 
@@ -2179,6 +2161,42 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             case BUILD:
                 build(order.arg);
+                return;
+            case CALC: {
+                // exact arithmetic by the suit: the model asked, DVINE computes, nothing is guessed
+                java.math.BigDecimal v = ai.dvine.suit.Arithmetic.eval(order.arg);
+                play(LocalTurn.speakAs(agent, v == null ? "I couldn't work out \u201c" + order.arg + "\u201d."
+                        : order.arg + " = " + ai.dvine.suit.Arithmetic.show(v)), null);
+                return;
+            }
+            case MAKEFILE:
+                makeDocument("make a " + order.arg + " of that");
+                return;
+            case STAGE:
+                stageAction(order.arg);
+                return;
+            case NEWCHAT:
+                startNewChatSafely();
+                return;
+            case SWITCH:
+                if (order.arg.matches("ivie|obi|ibiko")) {
+                    selectPersona(order.arg, "ibiko".equals(order.arg));
+                }
+                return;
+            case PLANMODE:
+                command(ai.dvine.turn.Meaning.Command.MODE_PLAN);
+                return;
+            case AUTOON:
+                command(ai.dvine.turn.Meaning.Command.AUTO_ON);
+                return;
+            case AUTOOFF:
+                command(ai.dvine.turn.Meaning.Command.AUTO_OFF);
+                return;
+            case RETRY:
+                retryLast();
+                return;
+            case SETTINGS:
+                command(ai.dvine.turn.Meaning.Command.OPEN_SETTINGS);
                 return;
             case CANNOT:
             default:
@@ -3140,21 +3158,25 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(stage.agent(), "Cancelled. Nothing was sent."), null);
             return true;
         }
-        if (apiDirect() || !looksLikeAction(text)) {
-            return false; // with an API, a new post or share comes from the API's own order, not from the wording
-        }
-        PendingAction p = stager.plan(text.trim(), lastReply(), now);
+        // a new post or share comes only from the brain's own code (§AC), never from the wording; this route only
+        // answers the yes or no to one already shown
+        return false;
+    }
+
+    /** The brain asked to share, post or copy (§AC): the action is shown first, and waits for the pilot's yes. */
+    private void stageAction(String what) {
+        PendingAction p = stager.plan(what == null ? "" : what.trim(), lastReply(), System.currentTimeMillis());
         if (p == null) {
-            return false;
+            play(LocalTurn.speakAs(stage.agent(), "I couldn't tell what to share or where."), null);
+            return;
         }
         if (prefs.getBoolean("actions_auto", false)) {
             stager.take();
             doAction(p, true); // the user chose auto-approve
-            return true;
+            return;
         }
         showStaged(p);
         play(LocalTurn.speakAs(stage.agent(), ai.dvine.brain.ActionPlanner.question(p)), null);
-        return true;
     }
 
     /** "make a PDF of that", "save this as a Word document", "write a spreadsheet of …": a file to make. */
@@ -3889,7 +3911,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String older = chats == null ? "" : chats.olderNotes(ai.dvine.llm.LocalModel.HISTORY_TURNS + 1,
                     model.remoteOn() ? 2400 : 1200);
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around)
-                    + (older.isEmpty() ? "" : "\n" + older);
+                    + (older.isEmpty() ? "" : "\n" + older)
+                    + "\n" + cortex().context(english); // DVINE's reading of the message and any exact arithmetic
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
             final boolean ivieVoice = "ivie".equals(agent);
             // interpreted: the English isn't shown or spoken as it comes; the translation is, when it is done
@@ -3929,7 +3952,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             if (h.length() < 3 && !h.contains("\n")) {
                                 return id == askId; // too short to tell yet
                             }
-                            gate[0] = h.toUpperCase(java.util.Locale.US).startsWith("DO ") ? 2 : 1;
+                            gate[0] = ai.dvine.suit.FunctionCode.startsLikeCode(h) ? 2 : 1;
                         }
                         if (gate[0] == 2) {
                             int nl = h.indexOf('\n');
