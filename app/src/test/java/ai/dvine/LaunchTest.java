@@ -958,8 +958,14 @@ public class LaunchTest {
         android.widget.TextView ivie = c.get().findViewById(R.id.tabIvie), ibiko = c.get().findViewById(R.id.tabIbiko);
         org.junit.Assert.assertEquals("every page is named, open or not", "Ivie", ivie.getText().toString());
         org.junit.Assert.assertEquals("Ibiko", ibiko.getText().toString());
-        org.junit.Assert.assertEquals("ivie", MainActivity.pageBeside("obi", 1));
-        org.junit.Assert.assertEquals("ibiko", MainActivity.pageBeside("obi", -1));
+        // a swipe from left to right in the middle of the chat opens the drawer; it never changes the page
+        android.view.View deco = c.get().getWindow().getDecorView();
+        long t0 = android.os.SystemClock.uptimeMillis();
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0, android.view.MotionEvent.ACTION_DOWN, 400, 1000, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0 + 50, android.view.MotionEvent.ACTION_MOVE, 700, 1010, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0 + 80, android.view.MotionEvent.ACTION_UP, 700, 1010, 0));
+        org.junit.Assert.assertEquals(android.view.View.VISIBLE, c.get().findViewById(R.id.historyDrawer).getVisibility());
+        org.junit.Assert.assertEquals("the page stays", "obi", c.get().getSharedPreferences("dvine", 0).getString("face", "obi"));
 
         c.get().getSharedPreferences("dvine", 0).edit().putString("brain_pick", "dvine").apply();
         java.lang.reflect.Method ans = MainActivity.class.getDeclaredMethod("dvineAnswer", String.class);

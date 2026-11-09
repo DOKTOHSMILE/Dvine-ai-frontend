@@ -1329,20 +1329,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** Where a swipe began, and whether it is the drawer's (from the left edge to open, leftwards to close). */
     private float swipeX = -1, swipeY;
     private boolean swipeOpen;
-    /** A swipe across the chat: left for the next persona's page (Obi, Ivie, Ibiko), right for the one before. */
-    private float pageX = -1, pageY;
-    private long pageAt;
-
-    static final String[] PAGES = { "obi", "ivie", "ibiko" };
-
-    /** The persona page {@code step} away from this one (wrapping round), or null. */
-    static String pageBeside(String persona, int step) {
-        for (int i = 0; i < PAGES.length; i++) {
-            if (PAGES[i].equals(persona)) {
-                return PAGES[(i + step + PAGES.length) % PAGES.length];
-            }
-        }
-        return null;
+    /** The views that saw the start of a swipe that became the drawer's are told it was cancelled. */
+    private void cancelTouch(android.view.MotionEvent e) {
+        android.view.MotionEvent cancel = android.view.MotionEvent.obtain(e);
+        cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
+        super.dispatchTouchEvent(cancel);
+        cancel.recycle();
     }
 
     /** True when (x, y) is over something that scrolls sideways itself (code, pills): its swipe is its own. */
@@ -1352,7 +1344,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (v.getVisibility() != android.view.View.VISIBLE || x < at[0] || y < at[1] || x > at[0] + v.getWidth() || y > at[1] + v.getHeight()) {
             return false;
         }
-        if (v instanceof android.widget.HorizontalScrollView || v.canScrollHorizontally(1) || v.canScrollHorizontally(-1)) {
+        if (v instanceof android.widget.HorizontalScrollView || v instanceof android.view.SurfaceView || v instanceof android.view.TextureView
+                || v.canScrollHorizontally(1) || v.canScrollHorizontally(-1)) {
             return true;
         }
         if (v instanceof android.view.ViewGroup) {
@@ -1373,33 +1366,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         switch (e.getActionMasked()) {
             case android.view.MotionEvent.ACTION_DOWN:
                 swipeOpen = !drawerOpen();
-                swipeX = !designFull && (drawerOpen() || e.getX() <= edge) ? e.getX() : -1;
+                // a swipe from left to right anywhere on the screen opens the drawer (not over code or anything that
+                // scrolls sideways itself); the persona pages are switched only by their buttons
+                swipeX = !designFull && (drawerOpen() || e.getX() <= edge
+                        || !sidewaysScroller(getWindow().getDecorView(), e.getRawX(), e.getRawY())) ? e.getX() : -1;
                 swipeY = e.getY();
-                pageX = swipeX < 0 && !designFull && !drawerOpen() && chatPane != null && chatPane.isShown()
-                        && !sidewaysScroller(chatPane, e.getRawX(), e.getRawY()) ? e.getX() : -1;
-                pageY = e.getY();
-                pageAt = e.getEventTime();
-                break;
-            case android.view.MotionEvent.ACTION_UP:
-                if (pageX >= 0 && stage != null) {
-                    float dx = e.getX() - pageX, dy = Math.abs(e.getY() - pageY);
-                    if (Math.abs(dx) > far * 1.5f && Math.abs(dx) > dy * 2.5f && e.getEventTime() - pageAt < 600) {
-                        String next = pageBeside(stage.agent(), dx < 0 ? 1 : -1);
-                        pageX = -1;
-                        if (next != null) {
-                            selectPersona(next, "ibiko".equals(next)); // the next page of this chat
-                        }
-                    }
-                }
-                pageX = -1;
-                swipeX = -1;
                 break;
             case android.view.MotionEvent.ACTION_MOVE:
                 if (swipeX >= 0) {
                     float dx = e.getX() - swipeX, dy = Math.abs(e.getY() - swipeY);
                     if (swipeOpen && dx > far && dx > dy * 1.5f) {
                         swipeX = -1;
-                        openDrawer(); // a swipe from the left edge to the right
+                        cancelTouch(e); // what was under the finger doesn't get a tap or a scroll
+                        openDrawer(); // a swipe from left to right
                         return true;
                     }
                     if (!swipeOpen && -dx > far && -dx > dy * 1.5f) {
@@ -2692,9 +2671,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
         box.setPadding(dp(20), dp(8), dp(20), 0);
         android.widget.TextView about = new android.widget.TextView(this);
-        about.setText("While you sleep, " + DVINE_OWN + " goes online and learns: first what it couldn't answer today, then what"
-                + " you're into, then the day's notable topics. In the morning it tells you what it learned, and asks you to"
-                + " check each answer the first time it uses it.");
+        about.setText("While you sleep, " + DVINE_OWN + " goes online and learns only from how you use it: the questions it"
+                + " couldn't answer or got wrong, what you asked about, and what you're into. In the morning it tells you what it"
+                + " learned, and asks you to check each answer the first time it uses it.");
         about.setTextColor(getColor(R.color.text_secondary));
         about.setTextSize(13f);
         box.addView(about);
@@ -3909,7 +3888,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!interpreted && !resending) {
             noteUser(text);
             final String said = text;
-            new Thread(() -> pilotProfile().notice(said), "dvine-profile").start(); // what the pilot says about themselves
+            new Thread(() -> {
+                pilotProfile().notice(said); // what the pilot says about themselves
+                // what the pilot asks about, with any model: learned at night if DVINE 1 doesn't know it yet
+                if (ai.dvine.suit.ResearchAnswer.subject(said) != null && knowledge().recall(said) == null) {
+                    ai.dvine.learn.NightLearnJob.remember(this, said);
+                }
+            }, "dvine-profile").start();
         }
         if (!interpreted && needsInternet() && (connectivity == null || !connectivity.isOnline())) {
             waitForInternet(text);

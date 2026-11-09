@@ -42,24 +42,12 @@ public class NightLearnTest {
     }
 
     @Test
-    public void tonightLearnsWhatItMissedFirstThenInterestsThenTheDay() {
-        List<String> t = NightLearn.topics(Arrays.asList("who invented the radio", "What is a quasar?"),
-                Arrays.asList("Afrobeats", "photosynthesis"), Arrays.asList("Quasar", "Photosynthesis", "Lagos", "Kano"),
-                topic -> topic.equals("Lagos"), 5);
-        assertEquals(Arrays.asList("who invented the radio", "What is a quasar?", "Afrobeats", "photosynthesis", "Quasar"), t);
+    public void tonightLearnsOnlyFromUsage() {
+        List<String> t = NightLearn.topics(Arrays.asList("who invented the radio", "What is a quasar?", "What is Lagos?"),
+                Arrays.asList("Afrobeats", "photosynthesis", "Afrobeats"), topic -> topic.equals("What is Lagos?"), 4);
+        assertEquals(Arrays.asList("who invented the radio", "What is a quasar?", "Afrobeats", "photosynthesis"), t);
         assertEquals("What is Afrobeats?", NightLearn.question("Afrobeats"));
         assertEquals("who invented the radio", NightLearn.question("who invented the radio"));
-    }
-
-    @Test
-    public void theDaysFeedIsRead() {
-        String json = "{\"tfa\":{\"title\":\"Great_Barrier_Reef\",\"normalizedtitle\":\"Great Barrier Reef\"},"
-                + "\"mostread\":{\"articles\":[{\"title\":\"Main_Page\",\"normalizedtitle\":\"Main Page\"},"
-                + "{\"title\":\"Chimamanda_Ngozi_Adichie\",\"normalizedtitle\":\"Chimamanda Ngozi Adichie\"},"
-                + "{\"title\":\"Special:Search\"}]}}";
-        assertEquals(Arrays.asList("Great Barrier Reef", "Chimamanda Ngozi Adichie"), NightLearn.featured(json, 10));
-        assertTrue(NightLearn.featuredUrl(at(2, 0), LAGOS).endsWith("/feed/featured/2026/11/09"));
-        assertTrue(NightLearn.featured("not json", 5).isEmpty());
     }
 
     @Test

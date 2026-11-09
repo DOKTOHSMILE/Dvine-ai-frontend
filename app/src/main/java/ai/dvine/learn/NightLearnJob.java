@@ -190,12 +190,8 @@ public final class NightLearnJob extends JobService {
                 interests.add(v);
             }
         }
-        List<String> today = new ArrayList<String>();
-        ai.dvine.net.WebGet.Page feed = ai.dvine.net.WebGet.page(NightLearn.featuredUrl(System.currentTimeMillis(), zone), 15_000, 2_000_000);
-        if (feed.status == 200) {
-            today = NightLearn.featured(feed.body, p.most);
-        }
-        List<String> topics = NightLearn.topics(unanswered, interests, today,
+        // only what came from using DVINE: no outside lists of topics
+        List<String> topics = NightLearn.topics(unanswered, interests,
                 t -> k.recall(unanswered.contains(t) ? t : NightLearn.question(t)) != null, p.most);
         List<String> learned = new ArrayList<String>();
         List<String> stillToLearn = new ArrayList<String>(unanswered);

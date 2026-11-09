@@ -10,8 +10,8 @@ import java.util.TimeZone;
 
 /**
  * Night learning for DVINE 1: while the pilot sleeps (a window they set, e.g. 23:00 to 06:00), DVINE goes online and
- * learns: first what it couldn't answer during the day, then what the pilot is into (their profile), then the day's
- * notable and most-read topics. Each is read from its encyclopedia summary and kept as learned-but-unchecked, so in
+ * learns only from how it was used: first the questions it couldn't answer or got wrong and what the pilot asked
+ * about, then what the pilot is into (their profile). Each is read from its encyclopedia summary and kept as learned-but-unchecked, so in
  * the morning it can answer more, and still asks "accurate?" until the pilot confirms. Pure Java: the plan, the
  * window and the topics; the device's job scheduler runs it.
  */
@@ -98,14 +98,14 @@ public final class NightLearn {
     }
 
     /**
-     * Tonight's topics, in order and without repeats: what DVINE couldn't answer, then the pilot's interests, then the
-     * day's topics; never one it already knows ({@code known}), at most {@code most}.
+     * Tonight's topics, in order and without repeats: what the pilot asked that DVINE couldn't answer, then the
+     * pilot's interests; never one it already knows ({@code known}), at most {@code most}.
      */
-    public static List<String> topics(List<String> unanswered, List<String> interests, List<String> today,
+    public static List<String> topics(List<String> unanswered, List<String> interests,
             java.util.function.Predicate<String> known, int most) {
         Set<String> seen = new LinkedHashSet<String>();
         List<String> out = new ArrayList<String>();
-        for (List<String> source : java.util.Arrays.asList(unanswered, interests, today)) {
+        for (List<String> source : java.util.Arrays.asList(unanswered, interests)) {
             for (String t : source == null ? new ArrayList<String>() : source) {
                 String topic = t == null ? "" : t.trim().replaceAll("\\s+", " ");
                 String key = topic.toLowerCase(Locale.US);
@@ -119,44 +119,6 @@ public final class NightLearn {
             }
         }
         return out;
-    }
-
-    /** The day's notable topics from the encyclopedia's featured feed: the article of the day and the most read. */
-    public static List<String> featured(String json, int most) {
-        List<String> out = new ArrayList<String>();
-        if (json == null || json.isEmpty()) {
-            return out;
-        }
-        try {
-            java.util.Map<String, Object> m = ai.dvine.brain.MiniJson.obj(ai.dvine.brain.MiniJson.parse(json));
-            java.util.Map<String, Object> tfa = ai.dvine.brain.MiniJson.obj(m.get("tfa"));
-            String t = ai.dvine.brain.MiniJson.str(tfa.get("normalizedtitle"), ai.dvine.brain.MiniJson.str(tfa.get("title"), ""));
-            if (!t.isEmpty()) {
-                out.add(t.replace('_', ' '));
-            }
-            java.util.Map<String, Object> read = ai.dvine.brain.MiniJson.obj(m.get("mostread"));
-            for (Object o : ai.dvine.brain.MiniJson.list(read.get("articles"))) {
-                if (out.size() >= most) {
-                    break;
-                }
-                java.util.Map<String, Object> a = ai.dvine.brain.MiniJson.obj(o);
-                String title = ai.dvine.brain.MiniJson.str(a.get("normalizedtitle"), ai.dvine.brain.MiniJson.str(a.get("title"), ""));
-                if (!title.isEmpty() && !title.startsWith("Special:") && !title.contains("Main Page")) {
-                    out.add(title.replace('_', ' '));
-                }
-            }
-        } catch (RuntimeException e) {
-            // an unreadable feed: tonight learns from the other sources
-        }
-        return out;
-    }
-
-    /** The feed's address for a day. */
-    public static String featuredUrl(long day, TimeZone zone) {
-        Calendar c = Calendar.getInstance(zone, Locale.US);
-        c.setTimeInMillis(day);
-        return String.format(Locale.US, "https://en.wikipedia.org/api/rest_v1/feed/featured/%04d/%02d/%02d",
-                c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH));
     }
 
     /** The question a topic is learned for: "Photosynthesis" → "What is Photosynthesis?". */
