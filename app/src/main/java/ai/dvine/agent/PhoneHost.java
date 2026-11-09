@@ -94,7 +94,8 @@ public final class PhoneHost implements CodeAgent.Host {
         try {
             onCommand(command);
             File where = dir != null ? dir : new File(activity.getFilesDir(), "linux");
-            ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
+            ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity,
+                    ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(activity), command), where);
             if (alpine != null) {
                 return alpine.text;
             }
@@ -114,7 +115,8 @@ public final class PhoneHost implements CodeAgent.Host {
     public String termux(String command, File folder) {
         onCommand(command);
         File where = folder != null ? folder : new File(activity.getFilesDir(), "linux");
-        ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
+        ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity,
+                ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(activity), command), where);
         if (alpine != null) {
             return alpine.text;
         }

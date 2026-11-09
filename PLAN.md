@@ -1,3 +1,9 @@
+# Search and one folder (0.99.34)
+
+- [x] CTRL-R recalls an older command that contains what you typed. FIND scrolls to the next match in the session.
+- [x] While a command runs, the prompt shows its name and the seconds.
+- [x] A command from chat starts in the folder the shell was left in, and leaves the folder for the next one.
+
 # Shell without a terminal device (0.99.33)
 
 - [x] When the phone will not open a terminal device, the shell still stays open. The folder and variables last. Each command's text is read from a file while it runs.

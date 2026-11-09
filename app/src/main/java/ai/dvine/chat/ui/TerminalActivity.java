@@ -61,6 +61,10 @@ public final class TerminalActivity extends AppCompatActivity {
     /** True while the lasting shell is still being opened. A command typed then is kept, not dropped. */
     private volatile boolean opening;
     private String held;
+    private String running = "";
+    private String huntQuery;
+    private int huntFrom = -1;
+    private int findFrom;
     private String cwd = "/root";
     private volatile boolean closed;
     private volatile boolean linuxUp;
@@ -153,6 +157,10 @@ public final class TerminalActivity extends AppCompatActivity {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (!editing) {
+                    huntQuery = null;
+                    huntFrom = -1;
+                }
                 if (editing || count != 1 || (!ctrl && !alt)) {
                     return;
                 }
@@ -174,7 +182,7 @@ public final class TerminalActivity extends AppCompatActivity {
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.setBackgroundColor(0xFF111111);
         bar.addView(keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP"));
-        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN", "COPY"));
+        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN", "FIND", "COPY"));
         page.addView(bar);
         setContentView(page);
         Ui.fitInsets(page);
@@ -352,6 +360,10 @@ public final class TerminalActivity extends AppCompatActivity {
             copySession();
             return;
         }
+        if ("FIND".equals(label)) {
+            findInSession();
+            return;
+        }
         if ("TAB".equals(label)) {
             complete();
             return;
@@ -397,6 +409,8 @@ public final class TerminalActivity extends AppCompatActivity {
                 screen.clear();
                 transcript.setText("");
                 keep();
+            } else if (ch == 'r' || ch == 'R') {
+                historySearch();
             }
             return;
         }
@@ -444,7 +458,8 @@ public final class TerminalActivity extends AppCompatActivity {
     }
 
     private String promptText() {
-        return "localhost:" + Guest.prompt(cwd) + "# " + (busy ? ((System.currentTimeMillis() - busyAt) / 1000) + "s " : "");
+        return "localhost:" + Guest.prompt(cwd) + "# "
+                + (busy ? running + " " + ((System.currentTimeMillis() - busyAt) / 1000) + "s " : "");
     }
 
     /** The session, then the line being typed with a cursor. The cursor is not a separate field. */
@@ -511,6 +526,8 @@ public final class TerminalActivity extends AppCompatActivity {
             historyAt = history.size();
         }
         stick = true;
+        running = word(line);
+        huntQuery = null;
         append(promptText() + line + "\n");
         String trimmed = line.trim();
         if ("clear".equals(trimmed)) {
@@ -648,6 +665,58 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("linux", transcript.getText()));
+    }
+
+    private static String word(String line) {
+        String text = line == null ? "" : line.trim();
+        int space = text.indexOf(' ');
+        String word = space < 0 ? text : text.substring(0, space);
+        return word.length() > 24 ? word.substring(0, 24) : word;
+    }
+
+    /** CTRL-R. The words already typed pick an older command. Pressing it again goes further back. */
+    private void historySearch() {
+        if (history.isEmpty()) {
+            return;
+        }
+        if (huntQuery == null) {
+            huntQuery = input.getText().toString().toLowerCase();
+            huntFrom = history.size();
+        }
+        for (int i = huntFrom - 1; i >= 0; i--) {
+            if (huntQuery.isEmpty() || history.get(i).toLowerCase().contains(huntQuery)) {
+                huntFrom = i;
+                editing = true;
+                input.setText(history.get(i));
+                input.setSelection(input.getText().length());
+                editing = false;
+                return;
+            }
+        }
+        huntFrom = history.size();
+    }
+
+    /** FIND. Scrolls to the next place the typed words appear in the session. */
+    private void findInSession() {
+        if (transcript == null || transcript.getLayout() == null) {
+            return;
+        }
+        String query = input.getText().toString().trim().toLowerCase();
+        if (query.isEmpty()) {
+            return;
+        }
+        String all = transcript.getText().toString().toLowerCase();
+        int at = all.indexOf(query, findFrom);
+        if (at < 0) {
+            at = all.indexOf(query);
+        }
+        if (at < 0) {
+            return;
+        }
+        findFrom = at + query.length();
+        int line = transcript.getLayout().getLineForOffset(at);
+        stick = false;
+        scroll.scrollTo(0, Math.max(0, transcript.getLayout().getLineTop(line)));
     }
 
     /** One command in its own Linux, used when a lasting shell could not be opened. */
