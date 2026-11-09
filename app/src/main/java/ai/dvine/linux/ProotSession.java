@@ -21,6 +21,8 @@ public final class ProotSession {
     private final InputStream stdout;
     private final boolean tty;
     private volatile boolean closed;
+    private volatile Consumer<String> ear;
+    private volatile boolean pumping;
 
     private ProotSession(Process proc, OutputStream stdin, InputStream stdout, boolean tty) {
         this.proc = proc;
@@ -136,19 +138,31 @@ public final class ProotSession {
         return -1;
     }
 
+    /** Starts the reader once. A later call only changes where the text is delivered. */
     public void pump(Consumer<String> out) {
+        ear = out;
+        if (pumping) {
+            return;
+        }
+        pumping = true;
         Thread t = new Thread(() -> {
             byte[] buf = new byte[4096];
             try {
                 int n;
                 while ((n = stdout.read(buf)) > 0) {
-                    out.accept(new String(buf, 0, n, StandardCharsets.UTF_8));
+                    Consumer<String> who = ear;
+                    if (who != null) {
+                        who.accept(new String(buf, 0, n, StandardCharsets.UTF_8));
+                    }
                 }
             } catch (IOException ignored) {
                 // the session ended
             }
             closed = true;
-            out.accept(null);
+            Consumer<String> who = ear;
+            if (who != null) {
+                who.accept(null);
+            }
         }, "dvine-linux");
         t.setDaemon(true);
         t.start();

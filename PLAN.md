@@ -1,3 +1,12 @@
+# The shell, as one piece (0.99.36)
+
+DVINE has one Alpine Linux. It is not a picture of a terminal.
+
+- Open **Shell** and type. The prompt is `localhost:~#`. The folder stays (`~` is `/root`). Tab completes a name. CTRL-R recalls an older command. FIND scrolls to a match. COPY copies the session. CTRL-C stops the program. Colors and rewritten progress lines are shown.
+- `pkg install` uses Alpine 3.22, the phone's DNS, and http repositories. `/work` is the app's files. `/storage` and `/sdcard` are there when the phone allows them.
+- Leaving the shell screen does not stop Linux. Opening it again continues the same shell. A command from chat uses that shell too, and a failed command shows `[exit 1]`.
+- A reply is no longer cut off because 3 or 10 minutes passed while it was still working.
+
 # One shell (0.99.35)
 
 - [x] While the shell screen is open, a command from chat runs in that shell. A second Linux is not started.

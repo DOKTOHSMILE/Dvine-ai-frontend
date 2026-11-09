@@ -315,11 +315,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * fixes), each a long answer with no words shown, so the 3-minute "no first word" limit for a reply doesn't apply.
      */
     private volatile boolean designing;
-    /** The longest a 3D design may run before it is given up (an API's long thinking, several calls). */
-    static final long DESIGN_MS = 15 * 60_000L;
 
-    /** How long the phone's own model may sit with no step and no call before the wait is given up. */
-    static final long PHONE_FIRST_WORD_MS = 600_000L;
     /** The last sign of life: a step, a reasoning ping, a word, or the model being inside a call. */
     private long thinkProgressMs;
 
@@ -334,29 +330,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (modelWorking) {
                 thinkProgressMs = System.currentTimeMillis(); // reading a long prompt is still work
             }
-            long limit = designing ? DESIGN_MS : model != null && !model.remoteOn() ? PHONE_FIRST_WORD_MS : 180_000L;
-            if (inFront && ai.dvine.llm.ThinkPace.stalled(pace.wordCount(), System.currentTimeMillis(), thinkProgressMs, modelWorking, limit)) {
-                handler.post(() -> {
-                    if (thinkPace == null) {
-                        return;
-                    }
-                    interruptReply();
-                    String again = activeQuestion;
-                    BrainAnswer noted = again == null ? null : brain.respond(again, stage.agent());
-                    if (noted != null && noted.answered && plain(noted)) {
-                        play(noted.lines, null);
-                    } else {
-                        play(LocalTurn.speakAs(stage.agent(), model != null && !model.remoteOn()
-                                ? model.spec.weights + " didn't start answering in " + PHONE_FIRST_WORD_MS / 60_000 + " minutes on this device. A"
-                                        + " smaller model, fewer threads or less memory (Settings \u203A Test the speed shows which is"
-                                        + " quicker), or an API, would answer sooner."
-                                : designing ? "The design took longer than " + DESIGN_MS / 60_000 + " minutes, so I stopped it. Ask"
-                                        + " again, or for a simpler version first."
-                                : "The model didn't start answering in 3 minutes, so I stopped waiting. Ask again in a moment."), null);
-                    }
-                });
-                return;
-            }
+            // A quiet model is not stopped on a clock. The old 3-minute and 10-minute cutoffs
+            // were ending work that was still going.
             stage.progress(pace.line());
             updateThoughtStatus(pace.line(), true);
             handler.postDelayed(this, 800);

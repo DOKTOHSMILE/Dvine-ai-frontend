@@ -489,6 +489,29 @@ public final class TerminalActivity extends AppCompatActivity {
         final boolean empty = log.length() == 0;
         worker.execute(() -> {
             try {
+                while (LinuxHub.headlessBusy() && !closed) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ignored) {
+                        return;
+                    }
+                }
+                ProotSession parked = LinuxHub.unpark();
+                if (parked != null && parked.alive()) {
+                    runOnUiThread(() -> {
+                        if (closed) {
+                            LinuxHub.park(parked, !parked.tty(), LinuxRoot.root(TerminalActivity.this));
+                            return;
+                        }
+                        linuxUp = true;
+                        startShell(parked);
+                        String missed = LinuxHub.takeUnseen();
+                        if (!missed.isEmpty()) {
+                            append(missed);
+                        }
+                    });
+                    return;
+                }
                 LinuxRoot.install(this, line -> runOnUiThread(() -> append(line + "\n")));
                 if (closed) {
                     return;
@@ -1110,7 +1133,10 @@ public final class TerminalActivity extends AppCompatActivity {
         if (prompt != null) {
             prompt.removeCallbacks(busyTick);
         }
-        if (live != null) {
+        if (live != null && live.alive()) {
+            LinuxHub.park(live, pipe, LinuxRoot.root(this));
+            live = null;
+        } else if (live != null) {
             live.close();
         }
         if (job != null) {
