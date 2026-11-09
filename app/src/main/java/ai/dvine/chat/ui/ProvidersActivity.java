@@ -39,7 +39,7 @@ public final class ProvidersActivity extends AppCompatActivity {
     /** One card's fields. */
     private static final class Form {
         EditText key, backup, address, model, fast, ca, maxOut, timeout, extra, window;
-        final String[] vision = {"auto"}, reasoning = {"auto"};
+        final String[] vision = {"auto"}, reasoning = {"auto"}, format = {"auto"};
     }
 
     @Override
@@ -432,6 +432,7 @@ public final class ProvidersActivity extends AppCompatActivity {
     private void advanced(LinearLayout card, Providers p, final Form f) {
         f.vision[0] = store.vision(p);
         f.reasoning[0] = store.reasoning(p);
+        f.format[0] = store.format(p);
         final LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setVisibility(View.GONE);
@@ -443,6 +444,13 @@ public final class ProvidersActivity extends AppCompatActivity {
             head.setText(open ? "Advanced \u203A" : "Advanced \u2304");
         });
         card.addView(head);
+        if (p == Providers.CUSTOM) {
+            // a gateway may speak OpenAI's form (…/chat/completions) or Anthropic's (…/messages): Auto finds out
+            box.addView(Ui.text(this, "API format (Auto: from the address, and the other one if the gateway says it isn't there)",
+                    13, Ui.SUB, false), Ui.wide(this, 8));
+            box.addView(choice(f.format, new String[]{"auto", "openai", "anthropic"}, new String[]{"Auto", "OpenAI", "Anthropic"}),
+                    Ui.wide(this, 6));
+        }
         box.addView(Ui.text(this, "Sees images (Auto: sends them, and stops if the model refuses)", 13, Ui.SUB, false), Ui.wide(this, 8));
         box.addView(tri(f.vision), Ui.wide(this, 6));
         box.addView(Ui.text(this, "Reasoning model (thinks before answering: more room, no temperature)", 13, Ui.SUB, false), Ui.wide(this, 10));
@@ -464,10 +472,14 @@ public final class ProvidersActivity extends AppCompatActivity {
 
     /** Auto / Yes / No. */
     private View tri(final String[] value) {
+        return choice(value, new String[]{"auto", "on", "off"}, new String[]{"Auto", "Yes", "No"});
+    }
+
+    /** One of a few choices, as a row of pills; {@code value[0]} holds the chosen key. */
+    private View choice(final String[] value, final String[] keys, final String[] names) {
         final LinearLayout row = new LinearLayout(this);
         row.setBackground(Ui.round(this, Ui.FIELD, 0, 14));
         row.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
-        final String[] keys = {"auto", "on", "off"}, names = {"Auto", "Yes", "No"};
         final Runnable[] paint = new Runnable[1];
         paint[0] = () -> {
             row.removeAllViews();
@@ -510,6 +522,7 @@ public final class ProvidersActivity extends AppCompatActivity {
                             android.widget.Toast.LENGTH_LONG).show();
                     extra = store.extra(e.getKey());
                 }
+                store.saveFormat(e.getKey(), f.format[0]);
                 store.saveAdvanced(e.getKey(), f.vision[0], f.reasoning[0], number(f.maxOut, 0), number(f.timeout, RemoteBrain.DEFAULT_TIMEOUT_S), extra,
                         number(f.window, e.getKey().window));
             }

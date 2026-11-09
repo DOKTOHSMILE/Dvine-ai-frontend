@@ -181,6 +181,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 148 | Check the repo after many changes and make sure they are wired properly: tests compile and pass, the APK builds, the engine context sizer is used | P12 | Built | 0.96.3 |
 | 149 | Check PLAN.md, the conflicting merge, and large API models that do not work (only small ones did) | P12 | Built (device check pending) | 0.96.4 |
 | 150 | Close PR #140; a custom API Claude Opus model was failing to answer | P12 | Built (device check pending) | 0.96.5 |
+| 151 | Read the docs for unfinished builds; Claude runs through the custom API (Anthropic format), not the Anthropic card; stop building APKs | P12 | Built (device check pending) | 0.96.6 |
 
 ## Still open, in the order that matters
 

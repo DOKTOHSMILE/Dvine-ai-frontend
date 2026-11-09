@@ -203,6 +203,8 @@ Toolchain: Java 17, AGP 8.7.3, Gradle 8.9, compileSdk/targetSdk 35, minSdk 34, N
 
 ## 7. Testing and release
 
+**From 0.96.6 (the user's request, to save credits): cloud sessions no longer build or ship an APK.** A release is the version bump, the full unit suite, the docs rows, the commit and the merged PR; the APK is built on the device (CodeAssist) or on request.
+
 - **Unit suite:** `gradle :app:testDebugUnitTest` runs JUnit and Robolectric (446 tests at 0.93.1). **Build:** `gradle :app:assembleDebug`.
 - **Real model on a desktop:** set `DVINE_NATIVE_LIB` and `DVINE_MODEL` to run tests against a real model (for example Qwen3 1.7B) through the real JNI bridge.
 - **Robolectric frame trap.** Under Robolectric, the stage's Choreographer frames never settle once a drawing is on stage. Tests that start a build must call `StageView.stopFrames()` before idling the looper. Otherwise the test hangs (fixed in `LaunchTest` at 0.89).
@@ -273,6 +275,6 @@ Retired and not coming back unless asked: faces (line-art, wireframe, hologram, 
 | 0.91 | Google search with no key, Gmail with an app password, Telegram with the user's own account. |
 | 0.92 | Offline developer docs, searched with no internet. |
 | 0.93 | Ibiko codes with a real Linux shell (Termux). 0.93.1: commands from plain words in any chat, the result told in plain words. 0.93.2: Telegram's sign-in check fixed. |
-| 0.94–0.96 | Built on the device (CodeAssist): task control only through the command gateway, git fetch and merge on the device, streamed file reads and search, no 10-minute cutoff, lower offline RAM and token spend, the main screen split into `main/` helpers, the model probe. 0.96.3: everything wired and checked — tests compile and pass again, the native build fixed, the offline memory sized from the model's header before loading. 0.96.4: large API models answer (room to think, no write cap, ten-minute connection wait), the shipped engine refreshed. 0.96.5: Claude Opus answers (room for its thinking, no temperature). |
+| 0.94–0.96 | Built on the device (CodeAssist): task control only through the command gateway, git fetch and merge on the device, streamed file reads and search, no 10-minute cutoff, lower offline RAM and token spend, the main screen split into `main/` helpers, the model probe. 0.96.3: everything wired and checked — tests compile and pass again, the native build fixed, the offline memory sized from the model's header before loading. 0.96.4: large API models answer (room to think, no write cap, ten-minute connection wait), the shipped engine refreshed. 0.96.5: Claude Opus answers (room for its thinking, no temperature). 0.96.6: the custom gateway speaks Anthropic's format too (Auto finds it); no more APKs from cloud sessions. |
 
 The full evidence for every version is in `docs/BUILD_STATUS.md`.

@@ -565,4 +565,41 @@ public class RemoteBrainTest {
         RemoteBrain gpt = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-4.1", "k", "", null);
         assertTrue(new String(gpt.body("sys", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8).contains("temperature"));
     }
+
+    /** A custom gateway in Anthropic's format: named by its address, or found by a "not found" on the OpenAI path. */
+    @Test
+    public void aCustomGatewayInAnthropicsFormatIsFound() {
+        assertEquals(RemoteBrain.Protocol.ANTHROPIC, RemoteBrain.formatOf("https://relay.example.com/v1/messages"));
+        assertEquals(RemoteBrain.Protocol.ANTHROPIC, RemoteBrain.formatOf("https://gw.example.com/anthropic/v1"));
+        assertEquals(RemoteBrain.Protocol.OPENAI, RemoteBrain.formatOf("https://openrouter.ai/api/v1"));
+
+        // Auto, the address says nothing: the OpenAI path is not there, so the Anthropic one is asked, and remembered
+        Fake f = new Fake().reply(404, "{\"error\":{\"message\":\"Not Found\"}}").reply(200, ANTHROPIC_STREAM)
+                .reply(200, ANTHROPIC_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://claude-relay.example.com/v1", "claude-opus-5-5", "sk-relay", "", f)
+                .autoFormat(true);
+        assertNotNull(b.chat("sys", ask("hi"), 100, 0.7f, null));
+        assertEquals("https://claude-relay.example.com/v1/chat/completions", f.urls.get(0));
+        assertEquals("https://claude-relay.example.com/v1/messages", f.urls.get(1));
+        assertEquals("a relay reads the key as a bearer token", "Bearer sk-relay", f.headers.get(1).get("Authorization"));
+        assertEquals("sk-relay", f.headers.get(1).get("x-api-key"));
+        assertTrue(f.bodies.get(1), f.bodies.get(1).contains("\"max_tokens\":16384"));
+        RemoteBrain again = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://claude-relay.example.com/v1", "claude-opus-5-5",
+                "sk-relay", "", f).autoFormat(true);
+        assertEquals(RemoteBrain.Protocol.ANTHROPIC, again.protocol);
+        again.chat("sys", ask("hi"), 100, 0.7f, null);
+        assertEquals("the next request goes straight to the format that worked", 3, f.urls.size());
+
+        // Anthropic itself gets no bearer header (it would read it as a different kind of sign-in)
+        Fake direct = new Fake().reply(200, ANTHROPIC_STREAM);
+        new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "sk-ant", "", direct)
+                .chat("sys", ask("hi"), 100, 0.7f, null);
+        assertNull(direct.headers.get(0).get("Authorization"));
+
+        // a fixed format never switches
+        Fake fixed = new Fake().reply(404, "{}");
+        assertNull(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://other.example.com/v1", "claude-opus-5-5", "k", "", fixed)
+                .chat("sys", ask("hi"), 100, 0.7f, null));
+        assertEquals(1, fixed.urls.size());
+    }
 }

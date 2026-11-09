@@ -193,6 +193,30 @@ public final class ProviderStore {
     }
 
     /** "auto", "on" or "off": whether it is a reasoning model (room to think, no temperature). */
+    /** A custom gateway's request format: "auto", "openai" or "anthropic". Other providers have theirs fixed. */
+    public String format(Providers p) {
+        return p == Providers.CUSTOM ? prefs.getString(p.name() + ".format", "auto") : "fixed";
+    }
+
+    public void saveFormat(Providers p, String format) {
+        if (p == Providers.CUSTOM) {
+            prefs.edit().putString(p.name() + ".format", format == null ? "auto" : format).apply();
+        }
+    }
+
+    /**
+     * The format requests go out in. A custom gateway on Auto starts from its address (…/messages or an "anthropic"
+     * address is Anthropic's) and moves to the other format if the gateway says the path isn't there.
+     */
+    public RemoteBrain.Protocol protocol(Providers p) {
+        if (p != Providers.CUSTOM) {
+            return p.protocol;
+        }
+        String f = format(p);
+        return "anthropic".equals(f) ? RemoteBrain.Protocol.ANTHROPIC : "openai".equals(f) ? RemoteBrain.Protocol.OPENAI
+                : RemoteBrain.formatOf(address(p));
+    }
+
     public String reasoning(Providers p) {
         return prefs.getString(p.name() + ".reasoning", "auto");
     }
@@ -289,8 +313,8 @@ public final class ProviderStore {
         if (!p.api() || RemoteBrain.check(address(p), model(p), key(p)) != null) {
             return null;
         }
-        return signedIn(p, configured(p, new RemoteBrain(p.protocol, address(p), model(p), key(p), backupKey(p),
-                RemoteBrain.https(sockets(certificate(p))))));
+        return signedIn(p, configured(p, new RemoteBrain(protocol(p), address(p), model(p), key(p), backupKey(p),
+                RemoteBrain.https(sockets(certificate(p)))).autoFormat("auto".equals(format(p)))));
     }
 
     /** The DVINE server signs in with the phone's session, fetched at each request; other providers keep their key. */
@@ -305,8 +329,8 @@ public final class ProviderStore {
         if (!smartRouting() || fast.isEmpty() || fast.equals(model(p)) || brain(p) == null) {
             return null;
         }
-        return signedIn(p, configured(p, new RemoteBrain(p.protocol, address(p), fast, key(p), backupKey(p),
-                RemoteBrain.https(sockets(certificate(p))))));
+        return signedIn(p, configured(p, new RemoteBrain(protocol(p), address(p), fast, key(p), backupKey(p),
+                RemoteBrain.https(sockets(certificate(p)))).autoFormat("auto".equals(format(p)))));
     }
 
     /**
