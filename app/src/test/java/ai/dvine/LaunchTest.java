@@ -964,8 +964,10 @@ public class LaunchTest {
         android.view.View deco = c.get().getWindow().getDecorView();
         long t0 = android.os.SystemClock.uptimeMillis();
         c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0, android.view.MotionEvent.ACTION_DOWN, 400, 1000, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0 + 30, android.view.MotionEvent.ACTION_MOVE, 450, 1004, 0));
         c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0 + 50, android.view.MotionEvent.ACTION_MOVE, 700, 1010, 0));
         c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0 + 80, android.view.MotionEvent.ACTION_UP, 700, 1010, 0));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         org.junit.Assert.assertEquals(android.view.View.VISIBLE, c.get().findViewById(R.id.historyDrawer).getVisibility());
         org.junit.Assert.assertEquals("the page stays", "obi", c.get().getSharedPreferences("dvine", 0).getString("face", "obi"));
 
@@ -988,7 +990,7 @@ public class LaunchTest {
 
         c.get().findViewById(R.id.tv_header_sub).performClick();
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        assertNotNull(find(sheet.getWindow().getDecorView(), "Night learning  \u203A"));
+        assertNotNull(find(sheet.getWindow().getDecorView(), "Learning schedule  \u203A"));
         ai.dvine.learn.NightLearnJob.setPlan(c.get(), new ai.dvine.learn.NightLearn.Plan(true, 23 * 60, 6 * 60, true, true, 40));
         android.app.job.JobScheduler js = c.get().getSystemService(android.app.job.JobScheduler.class);
         org.junit.Assert.assertEquals(1, js.getAllPendingJobs().size());
@@ -1201,11 +1203,22 @@ public class LaunchTest {
         long t = android.os.SystemClock.uptimeMillis();
         float dp = c.get().getResources().getDisplayMetrics().density;
         c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, 4 * dp, 400, 0));
-        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_MOVE, 120 * dp, 410, 0));
-        org.junit.Assert.assertEquals("a swipe from the left edge opens it", android.view.View.VISIBLE, drawer.getVisibility());
-        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 100, android.view.MotionEvent.ACTION_DOWN, 200 * dp, 400, 0));
-        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 150, android.view.MotionEvent.ACTION_MOVE, 60 * dp, 405, 0));
-        org.junit.Assert.assertNotEquals("a swipe to the left closes it", android.view.View.VISIBLE, drawer.getVisibility());
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 30, android.view.MotionEvent.ACTION_MOVE, 40 * dp, 402, 0));
+        org.junit.Assert.assertEquals("the drawer comes out with the finger", android.view.View.VISIBLE, drawer.getVisibility());
+        float half = drawer.getTranslationX();
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 60, android.view.MotionEvent.ACTION_MOVE, 120 * dp, 410, 0));
+        org.junit.Assert.assertTrue("it follows the finger", drawer.getTranslationX() > half);
+        org.junit.Assert.assertTrue("not all the way yet", drawer.getTranslationX() < 0);
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 70, android.view.MotionEvent.ACTION_UP, 120 * dp, 410, 0));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("let go fast: it settles open", android.view.View.VISIBLE, drawer.getVisibility());
+        org.junit.Assert.assertEquals(0f, drawer.getTranslationX(), 0.5f);
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t + 1000, t + 1000, android.view.MotionEvent.ACTION_DOWN, 200 * dp, 400, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t + 1000, t + 1030, android.view.MotionEvent.ACTION_MOVE, 120 * dp, 405, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t + 1000, t + 1060, android.view.MotionEvent.ACTION_MOVE, 20 * dp, 405, 0));
+        c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t + 1000, t + 1070, android.view.MotionEvent.ACTION_UP, 20 * dp, 405, 0));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertNotEquals("dragged back to the left: it shuts", android.view.View.VISIBLE, drawer.getVisibility());
         c.pause().stop().destroy();
     }
 }

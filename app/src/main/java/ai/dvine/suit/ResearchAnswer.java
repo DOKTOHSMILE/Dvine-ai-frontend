@@ -25,6 +25,15 @@ public final class ResearchAnswer {
         this.sources = sources;
     }
 
+    /** An answer of one text from one source. */
+    public static ResearchAnswer of(String text, String source) {
+        List<String> src = new ArrayList<String>();
+        if (source != null && !source.isEmpty()) {
+            src.add(source);
+        }
+        return new ResearchAnswer(text, src);
+    }
+
     /** The answer for the pilot: the sentences, then the sources, as one block. */
     public String shown() {
         return text + (sources.isEmpty() ? "" : "\nSource: " + String.join(", ", sources));
