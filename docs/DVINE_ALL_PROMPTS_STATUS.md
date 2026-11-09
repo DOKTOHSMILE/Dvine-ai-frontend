@@ -180,6 +180,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 147 | Telegram asked to save before signing in: the sign-in check fixed, Not yet added | P12 | Built | 0.93.2 |
 | 148 | Check the repo after many changes and make sure they are wired properly: tests compile and pass, the APK builds, the engine context sizer is used | P12 | Built | 0.96.3 |
 | 149 | Check PLAN.md, the conflicting merge, and large API models that do not work (only small ones did) | P12 | Built (device check pending) | 0.96.4 |
+| 150 | Close PR #140; a custom API Claude Opus model was failing to answer | P12 | Built (device check pending) | 0.96.5 |
 
 ## Still open, in the order that matters
 

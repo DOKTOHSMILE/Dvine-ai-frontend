@@ -544,4 +544,25 @@ public class RemoteBrainTest {
         b.chat("sys", ask("hi"), 100, 0.7f, null);
         assertEquals("a value the user typed is kept", 180_000, waited[0]);
     }
+
+    /** Claude Opus 5.5 always thinks: a short-answer max_tokens came back empty. Claude in an OpenAI form takes no temperature. */
+    @Test
+    public void claudeOpusThatAlwaysThinksGetsRoomAndNoTemperature() {
+        for (String m : new String[]{"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-haiku-5-5"}) {
+            RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", m, "k", "", null);
+            String body = new String(b.body("sys", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8);
+            assertTrue(m + " " + body, body.contains("\"max_tokens\":16384"));
+            assertFalse(m, body.contains("temperature"));
+        }
+        RemoteBrain old = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-4-6", "k", "", null);
+        assertTrue("thinks only when asked: keeps the short allowance",
+                new String(old.body("sys", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8).contains("\"max_tokens\":48"));
+        // a custom OpenAI-form endpoint serving Claude (OpenRouter, a proxy)
+        RemoteBrain custom = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://openrouter.ai/api/v1", "anthropic/claude-opus-5.5", "k", "", null);
+        String body = new String(custom.body("sys", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8);
+        assertTrue(body, body.contains("\"max_tokens\":16384"));
+        assertFalse("Opus 4.7 and later refuse temperature", body.contains("temperature"));
+        RemoteBrain gpt = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-4.1", "k", "", null);
+        assertTrue(new String(gpt.body("sys", ask("hi"), 48, 0.7f, 0), StandardCharsets.UTF_8).contains("temperature"));
+    }
 }
