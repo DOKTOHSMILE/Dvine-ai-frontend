@@ -180,6 +180,26 @@ public final class Knowledge {
         return false;
     }
 
+    /** The confirmed answers, oldest first. */
+    public synchronized List<Fact> confirmed() {
+        List<Fact> out = new ArrayList<Fact>();
+        for (Fact f : facts) {
+            if (f.right) {
+                out.add(f);
+            }
+        }
+        return out;
+    }
+
+    /** Forgets one confirmed answer (by the question it was confirmed for). */
+    public synchronized boolean forget(String question) {
+        boolean gone = facts.removeIf(f -> f.right && f.question.equals(question));
+        if (gone) {
+            save();
+        }
+        return gone;
+    }
+
     public synchronized void clear() {
         facts.clear();
         save();

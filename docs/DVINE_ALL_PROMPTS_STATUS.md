@@ -191,6 +191,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 158 | Add DVINE's own intelligence to the model list; mark the pick clearly (radio circle with check, coloured row) | P12 | Built (Robolectric test; device check pending) | 0.99.3 |
 | 159 | Posts on the user's behalf (scheduled, recurring), smart engagement; DVINE 1 researches what it doesn't know, asks 👍🏽/👎🏽 and learns by intent | P12 | Built (JVM and Robolectric tests; device check pending). Shilling (undisclosed promotion, fake personas) declined | 0.99.4 |
 | 160 | No emoji for rating: custom check and cancel icons | P12 | Built | 0.99.5 |
+| 161 | Check for correct, cancel for wrong (keeps learning); build what's left on the list; keep the internet alive when minimised, keep replies for when the screen is opened, say when there's no internet | P12 | Built (JVM and Robolectric; device check pending). From the list: brain box shapes and the pilot profile built; parallel brains, splitting MainActivity, the SSH terminal and voice polish not done (see handbook §10) | 0.99.6 |
 
 ## Still open, in the order that matters
 

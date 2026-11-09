@@ -1478,6 +1478,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 selectPersona(section.persona);
                 examiner.clearTopic();
+                handler.postDelayed(MainActivity.this::sendWaiting, 300); // a message that waited here for the internet
                 refreshSend();
                 handler.post(releaseHeld);
             }
@@ -1690,6 +1691,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }));
         connectivity = new Connectivity(this, online -> {
             stage.setOnline(online);
+            if (online) {
+                handler.postDelayed(this::sendWaiting, 800); // back online: what waited goes now
+            }
             if (online) {
                 sync.kick(brain.pack().version);
             }
@@ -2442,6 +2446,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private ai.dvine.suit.Cortex cortex;
 
     /** DVINE's own light brain in the suit: reads every message and works out arithmetic exactly, for any model. */
+    private ai.dvine.learn.PilotProfile pilotProfile;
+
+    /** What the pilot has said about themselves, kept on the device and told to every brain. */
+    private synchronized ai.dvine.learn.PilotProfile pilotProfile() {
+        if (pilotProfile == null) {
+            pilotProfile = new ai.dvine.learn.PilotProfile(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
+        }
+        return pilotProfile;
+    }
+
     private ai.dvine.learn.Knowledge knowledge;
 
     /** What DVINE 1 knows for sure: answers the pilot confirmed with Correct, found again by intent. */
@@ -3620,8 +3634,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (text == null || text.trim().isEmpty()) {
             return;
         }
-        if (!interpreted) {
+        if (!interpreted && !resending) {
             noteUser(text);
+            final String said = text;
+            new Thread(() -> pilotProfile().notice(said), "dvine-profile").start(); // what the pilot says about themselves
+        }
+        if (!interpreted && needsInternet() && (connectivity == null || !connectivity.isOnline())) {
+            waitForInternet(text);
+            return;
         }
         if (!interpreted && commandSession != null && assistant != null) {
             ai.dvine.ops.task.DvineCommandGateway.VoiceSession session = commandSession;
@@ -3635,6 +3655,58 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
         }
         messageGate().handle(text, System.currentTimeMillis()); // every message takes one way through DVINE
+    }
+
+    /** Messages written while the API was out of reach (no internet): chat id and words, sent when it's back. */
+    private final java.util.List<String[]> waitingOnline = new java.util.ArrayList<String[]>();
+    /** True while a waiting message is sent again (it is already in the chat). */
+    private boolean resending;
+
+    /** The pilot picked an API: it needs the internet to answer. */
+    private boolean needsInternet() {
+        return "api".equals(brainPick()) && !new ai.dvine.llm.ProviderStore(this).usable().isEmpty();
+    }
+
+    /** The name of the API that would answer, for what DVINE says. */
+    private String apiName() {
+        ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
+        java.util.List<ai.dvine.llm.Providers> use = providers.usable();
+        return use.isEmpty() ? "the API" : providers.model(use.get(0));
+    }
+
+    /**
+     * No internet: the message is kept (it is already in the chat) and goes to the API as soon as the connection is
+     * back, and DVINE says so plainly, so a missing connection never looks like a broken API.
+     */
+    private void waitForInternet(String text) {
+        String chat = chats == null || chats.current() == null ? "" : chats.current().id;
+        waitingOnline.add(new String[] { chat, text });
+        play(LocalTurn.speakAs(stage.agent(), "No internet connection. Nothing is wrong with " + apiName() + ": your message is"
+                + " saved and I'll send it the moment you're back online. For an answer now, pick an offline model or "
+                + DVINE_OWN + " from the model menu."), null);
+    }
+
+    /** Back online: the messages that waited are sent, each in the chat it was written in. */
+    private void sendWaiting() {
+        if (waitingOnline.isEmpty() || connectivity == null || !connectivity.isOnline() || runChat != null && !agentWork(stage.agent()).isEmpty()) {
+            return;
+        }
+        String here = chats == null || chats.current() == null ? "" : chats.current().id;
+        for (int i = 0; i < waitingOnline.size(); i++) {
+            String[] w = waitingOnline.get(i);
+            if (!w[0].equals(here)) {
+                continue; // it goes when its chat is open
+            }
+            waitingOnline.remove(i);
+            note("Back online: sending your message to " + apiName() + ".");
+            resending = true;
+            try {
+                answer(w[1], false);
+            } finally {
+                resending = false;
+            }
+            return; // one at a time: the next goes after this answer
+        }
     }
 
     /** Posts, shares and copies waiting for a yes (the spec's staged actions). */
@@ -4428,6 +4500,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around)
                     + (older.isEmpty() ? "" : "\n" + older)
                     + "\n" + cortex().context(english) // DVINE's reading of the message and any exact arithmetic
+                    + pilotProfile().brief() // what the pilot said about themselves, for every brain
                     + (pageTools.brief().isEmpty() ? "" : "\n" + pageTools.brief());
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
             final boolean ivieVoice = "ivie".equals(agent);
@@ -4549,6 +4622,23 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     return;
                 }
+                if (!inFront && order == null && !body.isEmpty()) {
+                    // finished while DVINE is in the background: kept in its chat at once (nothing typed out to an
+                    // empty screen, nothing lost if Android closes the screen), and a notification says it's there
+                    endThink();
+                    streamOpen = false;
+                    if (chatPane != null) {
+                        chatPane.setLive(null);
+                    }
+                    String kept = ai.dvine.gate.ClaimGuard.check(body, false);
+                    if (chats != null) {
+                        chats.replyToPage(agent, kept);
+                    }
+                    ai.dvine.llm.ReplyNotice.show(MainActivity.this, agent, kept);
+                    final String learnQ = question, learnA = kept;
+                    hub.worker.execute(() -> brainBox().learnTalk(learnQ, learnA));
+                    return;
+                }
                 endThink();
                 if (order != null) {
                     // the model asked DVINE to act: its short sentence (if any) is shown, then the order is carried out
@@ -4568,6 +4658,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         }
                     }
                     String why = model == null ? null : model.problem();
+                    if (said == null && needsInternet() && (connectivity == null || !connectivity.isOnline())) {
+                        // the connection dropped while the API was answering: said plainly, and asked again when back
+                        if (chats != null && chats.current() != null) {
+                            waitingOnline.add(new String[] { chats.current().id, question });
+                        }
+                        said = "The internet connection dropped while " + apiName() + " was answering. Nothing is wrong with the"
+                                + " API: I'll ask again the moment you're back online.";
+                    }
                     stream.add(new TurnLine(agent, "SAY", said != null ? said
                             : why != null && !why.isEmpty() && !"stopped".equals(why)
                                     ? "My reply stopped: " + why + ". Say \u201cretry\u201d to ask again."
@@ -6165,9 +6263,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final ai.dvine.llm.LocalModel leaving = model;
             hub.worker.execute(leaving::releaseIfIdle); // the cache is not kept while the app is off screen
         }
-        if (thinkPace == null) {
-            connectivity.stop();
-        }
+        // the connection is watched off screen too: a message waiting for the internet goes as soon as it is back
         ambient.stop();
         super.onStop();
     }
@@ -6187,6 +6283,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         super.onResume();
         inFront = true;
         connectivity.start();
+        ai.dvine.llm.ReplyNotice.clear(this);
+        handler.postDelayed(this::sendWaiting, 1000);
+        if (chatPane != null) {
+            chatPane.show(); // replies that came in while DVINE was in the background are in the chat
+        }
         applyProvider(); // back from the AI providers sheet: the brain the user chose answers
         applySettings(); // back from Settings: name, voice speed, Enter key, deleted chats
         meanings = null; // back from "What DVINE remembers": phrasings it forgot are read again from the phone
@@ -6253,6 +6354,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         keepAwake(false);
         listen.stop();
         sync.shutdown();
+        connectivity.stop();
         deskThread.shutdownNow();
         buildThread.shutdownNow();
         if (model != null) {

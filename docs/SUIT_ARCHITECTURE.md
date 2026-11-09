@@ -94,5 +94,5 @@ the selected model's, and what that model answers is learned too.
 * ~~Tools per chat~~ and ~~deep thinking per chat~~: built in 0.99.1 (`suit/ChatTools`, the tools button).
 * **Parallel brains**: one model answers one call at a time (`LocalModel.reply` holds a lock), so a second page's
   message waits for the first. A lock per provider would let an API serve two pages at once.
-* **Templates in the brain box**, so a learned `§SR {words}` works for new words.
-* **A pilot profile** the Cortex keeps (names, places, projects the pilot mentions), given to every brain.
+* ~~Templates in the brain box~~: built in 0.99.6 (shapes: a learned `§SR weather in {x}` works for new words; never shell, posting or scheduling).
+* ~~A pilot profile~~: built in 0.99.6 (`learn/PilotProfile`, told to every brain, shown in What DVINE remembers).

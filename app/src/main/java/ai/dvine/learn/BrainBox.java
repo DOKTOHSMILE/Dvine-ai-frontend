@@ -66,6 +66,7 @@ public final class BrainBox {
         this.file = file;
         load();
         loadTalk();
+        loadTemplates();
     }
 
     /** How many answers it has learned. */
@@ -117,6 +118,10 @@ public final class BrainBox {
         }
         if (gone) {
             save();
+        }
+        if (templates.removeIf(t -> t.fill(text) != null)) {
+            saveTemplates(); // the shape that gave the wrong order goes too
+            gone = true;
         }
         return gone;
     }
@@ -213,6 +218,126 @@ public final class BrainBox {
             examples.remove(0);
         }
         save();
+        Template t = Template.of(text, order);
+        if (t != null) {
+            templates.removeIf(o -> o.before.equals(t.before) && o.after.equals(t.after));
+            templates.add(t);
+            while (templates.size() > MOST) {
+                templates.remove(0);
+            }
+            saveTemplates();
+        }
+    }
+
+    /** Kinds whose argument may be new words in a learned shape (never shell, posting or scheduling). */
+    private static final Set<String> TEMPLATED = new HashSet<String>(java.util.Arrays.asList(
+            "SR", "SEARCH", "PH", "PHOTO", "CA", "CALC", "BD", "BUILD", "NM", "NAME", "SW", "SWITCH", "MF", "MAKEFILE", "SI", "SOCIALINTEL"));
+
+    /**
+     * A learned shape: "what's the weather in {x}" became "§SR weather in {x}", so "what's the weather in Abuja" becomes
+     * "§SR weather in Abuja" without asking a model. The words before and after the argument must match exactly.
+     */
+    static final class Template {
+        final String before, after, orderBefore, orderAfter;
+
+        Template(String before, String after, String orderBefore, String orderAfter) {
+            this.before = before;
+            this.after = after;
+            this.orderBefore = orderBefore;
+            this.orderAfter = orderAfter;
+        }
+
+        static String plain(String t) {
+            return (t == null ? "" : t).toLowerCase(Locale.US).replaceAll("[?!.,;]+$", "").replaceAll("\\s+", " ").trim();
+        }
+
+        /** The shape of a message and the order it became, or null when the order doesn't carry the user's words. */
+        static Template of(String text, String order) {
+            String k = kind(order);
+            String[] p = order.trim().split("\\s+", order.trim().startsWith("DO ") ? 3 : 2);
+            if (!TEMPLATED.contains(k) || p.length < 2) {
+                return null;
+            }
+            String arg = plain(p[p.length - 1]);
+            String msg = plain(text);
+            int at = arg.length() < 3 ? -1 : msg.indexOf(arg);
+            if (at < 0 || msg.indexOf(arg, at + 1) >= 0) {
+                return null; // the argument isn't the user's words, or appears twice
+            }
+            String before = msg.substring(0, at), after = msg.substring(at + arg.length());
+            if (before.trim().length() < 3) {
+                return null; // too little shape to match on
+            }
+            int oa = order.toLowerCase(Locale.US).lastIndexOf(arg);
+            if (oa < 0) {
+                return null;
+            }
+            return new Template(before, after, order.substring(0, oa), order.substring(oa + arg.length()));
+        }
+
+        /** The order for a message of this shape, or null. */
+        String fill(String text) {
+            String msg = plain(text);
+            if (!msg.startsWith(before) || !msg.endsWith(after) || msg.length() <= before.length() + after.length()) {
+                return null;
+            }
+            // the user's words as they wrote them (names keep their capitals)
+            String as = (text == null ? "" : text).replaceAll("[?!.,;]+$", "").replaceAll("\\s+", " ").trim();
+            String from = as.length() == msg.length() ? as : msg;
+            String middle = from.substring(before.length(), from.length() - after.length()).trim();
+            return middle.isEmpty() || middle.length() > 160 ? null : orderBefore + middle + orderAfter;
+        }
+
+        String write() {
+            return (before + "\t" + after + "\t" + orderBefore + "\t" + orderAfter).replace('\n', ' ');
+        }
+    }
+
+    private final List<Template> templates = new ArrayList<Template>();
+
+    /** How many shapes it has learned. */
+    public synchronized int templateCount() {
+        return templates.size();
+    }
+
+    private File templateFile() {
+        return file == null ? null : new File(file.getPath().replaceAll("\\.tsv$", "") + "-shapes.tsv");
+    }
+
+    private void loadTemplates() {
+        File f = templateFile();
+        if (f == null || !f.isFile()) {
+            return;
+        }
+        try {
+            for (String line : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
+                String[] p = line.split("\t", -1);
+                if (p.length == 4) {
+                    templates.add(new Template(p[0], p[1], p[2], p[3]));
+                }
+            }
+        } catch (IOException e) {
+            templates.clear();
+        }
+    }
+
+    private void saveTemplates() {
+        File f = templateFile();
+        if (f == null) {
+            return;
+        }
+        StringBuilder b = new StringBuilder();
+        for (Template t : templates) {
+            b.append(t.write()).append('\n');
+        }
+        try {
+            if (f.getParentFile() != null) {
+                f.getParentFile().mkdirs();
+            }
+            Files.write(f.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // kept in memory for this run
+        }
     }
 
     /**
@@ -243,21 +368,37 @@ public final class BrainBox {
             }
         }
         if (best == null) {
-            return null;
+            return fromShape(text);
         }
         boolean same = best.words.equals(words);
         if (same) {
             return best.order;
         }
-        return bestScore >= CLOSE && NO_ARGUMENT.contains(kind(best.order)) ? best.order : null;
+        if (bestScore >= CLOSE && NO_ARGUMENT.contains(kind(best.order))) {
+            return best.order;
+        }
+        return fromShape(text);
+    }
+
+    /** An order from a learned shape with the message's own words in it, newest shape first; or null. */
+    private String fromShape(String text) {
+        for (int i = templates.size() - 1; i >= 0; i--) {
+            String o = templates.get(i).fill(text);
+            if (o != null) {
+                return o;
+            }
+        }
+        return null;
     }
 
     /** Forgets everything learned. */
     public synchronized void clear() {
         examples.clear();
         talk.clear();
+        templates.clear();
         save();
         saveTalk();
+        saveTemplates();
     }
 
     private File talkFile() {
