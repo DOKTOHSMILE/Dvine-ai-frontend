@@ -311,6 +311,9 @@ public class LaunchTest {
             java.nio.file.Files.write(kept.toPath(), new byte[2048]);
             c.pause().resume(); // the card is filled again
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+            // every offline model is listed, folded until opened: downloaded ones with Delete, the rest with Download
+            described(c.get().getWindow().getDecorView(), "All offline models").performClick();
+            assertNotNull(described(c.get().getWindow().getDecorView(), "Download Qwen3 8B"));
             android.view.View delete = described(c.get().getWindow().getDecorView(), "Delete Qwen3 4B");
             assertNotNull(delete);
             delete.performClick();

@@ -542,48 +542,130 @@ public final class SettingsActivity extends AppCompatActivity {
     private LinearLayout onPhone;
 
     /** Every model on the phone (whole or part-downloaded) with its size and a Delete, to free the space. */
+    /** The full list of offline models is folded until opened, so Settings stays short. */
+    private boolean modelsOpen;
+
+    /**
+     * Every offline model DVINE offers, downloaded or not: its size, the memory it needs (against this device's) and
+     * its state. A downloaded one has Use and Delete; one not yet here has Download. Folded behind one row.
+     */
     private void fillOnPhone() {
         if (onPhone == null) {
             return;
         }
         onPhone.removeAllViews();
+        int here = 0;
+        for (ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.ALL) {
+            if (hub.model.has(m)) {
+                here++;
+            }
+        }
+        final TextView head = Ui.text(this, "All offline models (" + here + " on this device)  " + (modelsOpen ? "⌃" : "⌄"),
+                15, Ui.ACCENT, false);
+        head.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 10));
+        head.setContentDescription("All offline models");
+        head.setOnClickListener(v -> {
+            modelsOpen = !modelsOpen;
+            fillOnPhone();
+        });
+        onPhone.addView(head);
+        if (!modelsOpen) {
+            return;
+        }
+        long ram = phoneMemoryGb();
+        if (ram > 0) {
+            onPhone.addView(Ui.text(this, "This device has " + ram + " GB of memory. A model that wants more may not start, and a"
+                    + " big one makes the device slow and warm.", 12, Ui.SUB, false), Ui.wide(this, 2));
+        }
         for (final ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.ALL) {
             final long bytes = hub.model.onPhone(m);
-            if (bytes <= 0) {
-                continue;
-            }
-            if (onPhone.getChildCount() == 0) {
-                onPhone.addView(Ui.text(this, "Models on this device", 14, Ui.SUB, false), Ui.wide(this, 8));
-            }
+            final boolean has = hub.model.has(m);
             final boolean using = m.file.equals(hub.chosen().file);
+            final boolean tooBig = ram > 0 && ram < m.ramGb;
             LinearLayout row = new LinearLayout(this);
             row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setMinimumHeight(Ui.dp(this, 48));
-            row.addView(Ui.text(this, m.weights + "  \u00B7  " + bytes(bytes) + (using ? "  \u00B7  in use" : hub.model.has(m) ? "" : "  \u00B7  part"),
-                    15, Ui.TEXT, false), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            TextView delete = Ui.text(this, "Delete", 15, Ui.CORAL, true);
-            delete.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
-            delete.setContentDescription("Delete " + m.weights);
-            delete.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setMessage("Delete " + m.weights + " from this device? It frees " + bytes(bytes) + "."
-                            + (using ? " Answers then need an API until you download a model again." : ""))
-                    .setPositiveButton("Delete", (d, w) -> {
-                        if (using) {
-                            hub.stopDownload();
-                        }
-                        new Thread(() -> {
-                            hub.model.delete(m);
-                            runOnUiThread(() -> {
-                                refreshModel();
-                                toast(m.weights + " deleted.");
-                            });
-                        }, "dvine-delete-model").start();
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show());
-            row.addView(delete);
+            row.setMinimumHeight(Ui.dp(this, 64));
+            row.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+            LinearLayout words = new LinearLayout(this);
+            words.setOrientation(LinearLayout.VERTICAL);
+            words.addView(Ui.text(this, m.weights + (using ? "  ·  in use" : ""), 15, Ui.TEXT, using));
+            String state = has ? "Downloaded" : bytes > 0 ? "Part downloaded (" + bytes(bytes) + ")" : "Not downloaded";
+            words.addView(Ui.text(this, String.format(java.util.Locale.US, "%.1f GB", m.bytes / 1e9) + "  ·  needs "
+                    + m.ramGb + " GB memory  ·  " + state, 12, tooBig ? Ui.CORAL : Ui.SUB, false));
+            if (m.about != null && !m.about.isEmpty()) {
+                words.addView(Ui.text(this, m.about, 12, Ui.SUB, false));
+            }
+            row.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            if (has) {
+                if (!using) {
+                    TextView use = Ui.text(this, "Use", 15, Ui.ACCENT, true);
+                    use.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12));
+                    use.setContentDescription("Use " + m.weights);
+                    use.setOnClickListener(v -> pick(m));
+                    row.addView(use);
+                }
+                TextView delete = Ui.text(this, "Delete", 15, Ui.CORAL, true);
+                delete.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
+                delete.setContentDescription("Delete " + m.weights);
+                delete.setOnClickListener(v -> deleteModel(m, bytes, using));
+                row.addView(delete);
+            } else {
+                TextView get = Ui.text(this, bytes > 0 ? "Resume" : "Download", 15, Ui.ACCENT, true);
+                get.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
+                get.setContentDescription("Download " + m.weights);
+                get.setOnClickListener(v -> downloadModel(m, tooBig, ram));
+                row.addView(get);
+                if (bytes > 0) {
+                    TextView delete = Ui.text(this, "Delete", 15, Ui.CORAL, true);
+                    delete.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
+                    delete.setContentDescription("Delete " + m.weights);
+                    delete.setOnClickListener(v -> deleteModel(m, bytes, using));
+                    row.addView(delete);
+                }
+            }
             onPhone.addView(row);
         }
+    }
+
+    private void deleteModel(final ai.dvine.llm.ModelSpec m, long bytes, final boolean using) {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setMessage("Delete " + m.weights + " from this device? It frees " + bytes(bytes) + "."
+                        + (using ? " Answers then need an API until you download a model again." : ""))
+                .setPositiveButton("Delete", (d, w) -> {
+                    if (using) {
+                        hub.stopDownload();
+                    }
+                    new Thread(() -> {
+                        hub.model.delete(m);
+                        runOnUiThread(() -> {
+                            refreshModel();
+                            toast(m.weights + " deleted.");
+                        });
+                    }, "dvine-delete-model").start();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** Downloads a model that isn't here: it becomes the offline model and its download starts. */
+    private void downloadModel(final ai.dvine.llm.ModelSpec m, boolean tooBig, long ram) {
+        if (hub.downloading()) {
+            toast("One download at a time: pause the one running first.");
+            return;
+        }
+        Runnable go = () -> {
+            new ai.dvine.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE)).clear(m.file);
+            hub.choose(this, m, false);
+            hub.startDownload(this);
+            refreshModel();
+            toast("Downloading " + m.weights + " (" + m.sizeWords() + ").");
+        };
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setMessage("Download " + m.weights + " (" + m.sizeWords() + ", best on Wi-Fi)? It becomes the offline model."
+                        + (tooBig ? " It wants " + m.ramGb + " GB of memory and this device has " + ram + " GB: it may not start." : ""))
+                .setPositiveButton("Download", (d, w) -> go.run())
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private TextView modelTitle, modelAbout, speed;
