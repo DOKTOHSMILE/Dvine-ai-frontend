@@ -1,3 +1,10 @@
+# Shell crash (0.99.19)
+
+A command with a single `&` (a background job, or a link like `a=1&b=2`) made the shell add tokens forever on the agent thread until the phone ran out of memory. The main thread was not running the shell. It froze because the process was out of memory.
+
+- [x] A lone `&` is refused. The splitter stops if it cannot move forward, and a command is refused past 64 KB or 4,096 parts.
+- [x] A failure in the shell is returned as text. It does not kill the agent thread.
+
 # DVINE's own shell (0.99.17)
 
 The shell runs inside the app. Termux is not required and is not opened.

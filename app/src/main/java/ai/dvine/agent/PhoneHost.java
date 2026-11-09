@@ -91,10 +91,14 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public String run(String command, File dir) {
-        onCommand(command);
-        File where = dir != null ? dir : new File(activity.getFilesDir(), "linux");
-        ai.dvine.linux.LinuxEngine.Result own = ai.dvine.linux.LinuxEngine.run(command, where, null);
-        return own == null ? "The shell didn't run that." : own.text;
+        try {
+            onCommand(command);
+            File where = dir != null ? dir : new File(activity.getFilesDir(), "linux");
+            ai.dvine.linux.LinuxEngine.Result own = ai.dvine.linux.LinuxEngine.run(command, where, null);
+            return own == null ? "The shell didn't run that." : own.text;
+        } catch (Throwable e) {
+            return "The shell stopped before it could run that.";
+        }
     }
 
     @Override

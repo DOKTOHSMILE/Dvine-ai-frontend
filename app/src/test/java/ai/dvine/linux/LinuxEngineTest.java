@@ -23,6 +23,7 @@ public class LinuxEngineTest {
         assertFalse(LinuxEngine.knows("unzip ../report.zip"));
         assertFalse(LinuxEngine.knows("unzip report.zip && rm -rf x"));
         assertFalse(LinuxEngine.knows("python3 demo.py"));
+        assertFalse(LinuxEngine.knows("echo hi &"));
         assertFalse(LinuxEngine.updatesEnvironment("pkg update && pkg upgrade -y"));
     }
 
@@ -74,6 +75,12 @@ public class LinuxEngineTest {
         assertFalse(missing.ok);
         assertTrue(missing.text.contains("[exit 127]"));
         assertTrue(missing.text.contains("not bundled"));
+        LinuxEngine.Result background = LinuxEngine.run("echo hi &", root, null);
+        assertFalse(background.ok);
+        assertTrue(background.text, background.text.contains("Background"));
+        LinuxEngine.Result url = LinuxEngine.run("echo http://example.com?a=1&b=2", root, null);
+        assertFalse(url.ok);
+        assertTrue(url.text.contains("Background"));
         assertTrue(new File(root, "workspace/projects").isDirectory());
     }
 }

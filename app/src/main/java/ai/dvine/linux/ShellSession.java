@@ -24,6 +24,10 @@ import ai.dvine.agent.Zips;
  */
 public final class ShellSession {
     static final int MOST_OUT = 64 * 1024;
+    /** A command longer than this is refused. It is never split into tokens. */
+    static final int MOST_LINE = 64 * 1024;
+    /** Enough for a real command. Past this, stop instead of growing without limit. */
+    static final int MOST_TOKENS = 4096;
     private static final String[] NAMES = {
             "cd", "pwd", "ls", "mkdir", "rmdir", "touch", "cat", "cp", "mv", "rm", "find", "grep",
             "echo", "printf", "head", "tail", "sort", "wc", "chmod", "date", "env", "which", "clear", "help", "unzip"
@@ -61,14 +65,17 @@ public final class ShellSession {
     public CommandResult exec(String line, List<File> roots) {
         long start = System.currentTimeMillis();
         extraRoots = roots == null ? Collections.<File>emptyList() : roots;
-        history.add(line == null ? "" : line);
+        if (line == null || line.trim().isEmpty()) {
+            return done(line, 0, "", "", start);
+        }
+        if (line.length() > MOST_LINE) {
+            return done(line, 1, "", "That command is too long to run (" + line.length() + " characters).", start);
+        }
+        history.add(line);
         if (root == null) {
             return done(line, 1, "", "The shell has no folder.", start);
         }
         root.mkdirs();
-        if (line == null || line.trim().isEmpty()) {
-            return done(line, 0, "", "", start);
-        }
         if (line.indexOf('`') >= 0 || line.contains("$(")) {
             return done(line, 1, "", "Command substitution is not run.", start);
         }
@@ -111,7 +118,7 @@ public final class ShellSession {
 
     /** True when every command in the line is one this shell runs, and nothing in it leaves the folder. */
     public static boolean supported(String line) {
-        if (line == null || line.trim().isEmpty() || line.indexOf('`') >= 0 || line.contains("$(")) {
+        if (line == null || line.trim().isEmpty() || line.length() > MOST_LINE || line.indexOf('`') >= 0 || line.contains("$(")) {
             return false;
         }
         List<String> tokens;
@@ -834,22 +841,25 @@ public final class ShellSession {
                 continue;
             }
             if (c == '&' && i + 1 < line.length() && line.charAt(i + 1) == '&') {
-                out.add("&&");
+                add(out, "&&");
                 i += 2;
                 continue;
             }
+            if (c == '&') {
+                throw new IllegalArgumentException("Background jobs (&) are not run.");
+            }
             if (c == '|' && i + 1 < line.length() && line.charAt(i + 1) == '|') {
-                out.add("||");
+                add(out, "||");
                 i += 2;
                 continue;
             }
             if (c == '>' && i + 1 < line.length() && line.charAt(i + 1) == '>') {
-                out.add(">>");
+                add(out, ">>");
                 i += 2;
                 continue;
             }
             if (c == '|' || c == '>' || c == '<' || c == ';') {
-                out.add(String.valueOf(c));
+                add(out, String.valueOf(c));
                 i++;
                 continue;
             }
@@ -864,21 +874,32 @@ public final class ShellSession {
                     throw new IllegalArgumentException("A quote was not closed.");
                 }
                 i++;
-                out.add(q == '"' ? b.toString() : "\u0001" + b.toString());
+                add(out, q == '"' ? b.toString() : "\u0001" + b.toString());
                 continue;
             }
+            int start = i;
             StringBuilder b = new StringBuilder();
             while (i < line.length()) {
                 char d = line.charAt(i);
-                if (Character.isWhitespace(d) || d == '|' || d == '>' || d == '<' || d == ';' || d == '&') {
+                if (Character.isWhitespace(d) || d == '|' || d == '>' || d == '<' || d == ';' || d == '&' || d == '\'' || d == '"') {
                     break;
                 }
                 b.append(d);
                 i++;
             }
-            out.add(b.toString());
+            if (i == start) {
+                throw new IllegalArgumentException("That character is not a command: " + c);
+            }
+            add(out, b.toString());
         }
         return out;
+    }
+
+    private static void add(List<String> out, String token) {
+        if (out.size() >= MOST_TOKENS) {
+            throw new IllegalArgumentException("That command has too many parts to run.");
+        }
+        out.add(token);
     }
 
     private List<String> expand(List<String> tokens) {
