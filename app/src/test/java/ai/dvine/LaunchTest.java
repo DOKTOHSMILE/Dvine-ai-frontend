@@ -887,6 +887,27 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    /** The model picker lists DVINE 1.0 (DVINE's own brain); picking it marks it in use and the header says so. */
+    @Test(timeout = 120000)
+    public void dvinesOwnBrainCanBePicked() {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        c.get().findViewById(R.id.tv_header_sub).performClick();
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.view.View row = described(sheet.getWindow().getDecorView(), "DVINE 1.0");
+        assertNotNull("DVINE's own brain is in the list", row);
+        row.performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("dvine", c.get().getSharedPreferences("dvine", 0).getString("brain_pick", ""));
+        android.widget.TextView sub = c.get().findViewById(R.id.tv_header_sub);
+        org.junit.Assert.assertTrue(sub.getText().toString(), sub.getText().toString().endsWith("DVINE 1.0"));
+        c.get().findViewById(R.id.tv_header_sub).performClick();
+        sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        assertNotNull("the one in use is marked", described(sheet.getWindow().getDecorView(), "DVINE 1.0, in use"));
+        sheet.dismiss();
+        c.pause().stop().destroy();
+    }
+
     private static android.view.View find(android.view.View v, Class<?> kind) {
         if (kind.isInstance(v)) {
             return v;

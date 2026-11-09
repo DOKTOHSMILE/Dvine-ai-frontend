@@ -2392,7 +2392,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     private boolean modelOn() {
-        return model != null && model.ready() && prefs.getBoolean("llm_on", true);
+        return !dvineOwn() && model != null && model.ready() && prefs.getBoolean("llm_on", true);
     }
 
     /**
@@ -4671,8 +4671,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 windows.add(providers.window(p));
             }
         }
+        if (!"api".equals(brainPick())) {
+            // DVINE's own brain, or the offline model, was picked: no API is asked
+            brains.clear();
+            fasts.clear();
+            names.clear();
+            windows.clear();
+        }
         model.useRemotes(brains, fasts, names, windows, () -> connectivity != null && connectivity.isOnline());
-        if (model.remoteOn() && hub != null) {
+        if ((model.remoteOn() || dvineOwn()) && hub != null) {
             // switched to an API: the offline model leaves memory now, not at the next question
             final ai.dvine.llm.LocalModel leaving = model;
             hub.worker.execute(leaving::releaseIfIdle);
@@ -4686,9 +4693,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** What the chat header says answers: the API's model, or the phone's brain. */
     private String brainLabel() {
+        if (dvineOwn()) {
+            return DVINE_OWN;
+        }
         ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
         java.util.List<ai.dvine.llm.Providers> use = providers.usable();
-        if (!use.isEmpty()) {
+        if (!use.isEmpty() && "api".equals(brainPick())) {
             return providers.model(use.get(0)) + (use.size() > 1 ? " +" + (use.size() - 1) : "");
         }
         return hub == null ? "DVINE model" : hub.chosen().weights; // the offline model on the phone, by its own name
@@ -4705,31 +4715,194 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * The model under the title, tapped: switch between the offline models already on the phone (any time, no
      * download), or go to every model, or to the AI providers (API models).
      */
+    /** Which brain the user picked: "dvine" (DVINE's own), "device" (the offline model) or "api" (the default). */
+    private String brainPick() {
+        return prefs == null ? "api" : prefs.getString("brain_pick", "api");
+    }
+
+    /** DVINE 1.0: DVINE's own intelligence (the Cortex and what it learned), with no model loaded at all. */
+    private boolean dvineOwn() {
+        return "dvine".equals(brainPick());
+    }
+
+    static final String DVINE_OWN = "DVINE 1.0";
+
+    /**
+     * The model under the title, tapped: every brain to pick from, the one in use clearly marked (a filled radio with a
+     * check, a tinted row, "In use"): DVINE 1.0 (DVINE's own), the API models set up, the offline models on the device.
+     */
     private void showModelSwitch() {
-        final java.util.List<ai.dvine.llm.ModelSpec> here = new java.util.ArrayList<ai.dvine.llm.ModelSpec>();
-        for (ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.ALL) {
-            if (model != null && model.has(m)) {
-                here.add(m);
+        final ai.dvine.llm.ProviderStore providers = new ai.dvine.llm.ProviderStore(this);
+        final String pick = brainPick();
+        final android.widget.LinearLayout list = new android.widget.LinearLayout(this);
+        list.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = dp(16);
+        list.setPadding(pad, 0, pad, pad);
+        final android.app.Dialog[] sheet = new android.app.Dialog[1];
+        list.addView(brainHeader("DVINE"));
+        list.addView(brainRow(DVINE_OWN, "DVINE's own intelligence: built in, no download, instant. Exact sums, reading what"
+                + " you mean, and everything it learned from the models you used.", dvineOwn(), () -> {
+                    prefs.edit().putString("brain_pick", "dvine").apply();
+                    applyProvider();
+                    if (model != null) {
+                        final ai.dvine.llm.LocalModel leaving = model;
+                        hub.worker.execute(leaving::releaseIfIdle); // no model in memory: DVINE thinks on its own
+                    }
+                    note(DVINE_OWN + " is answering.");
+                    sheet[0].dismiss();
+                }));
+        java.util.List<ai.dvine.llm.Providers> apis = providers.usable();
+        if (!apis.isEmpty()) {
+            list.addView(brainHeader("API models"));
+            for (int i = 0; i < apis.size(); i++) {
+                final ai.dvine.llm.Providers p = apis.get(i);
+                boolean on = "api".equals(pick) && i == 0;
+                list.addView(brainRow(providers.model(p), p.title + (i == 0 ? " \u00B7 primary" : " \u00B7 backup"), on, () -> {
+                    providers.setActive(p);
+                    prefs.edit().putString("brain_pick", "api").apply();
+                    applyProvider();
+                    note(providers.model(p) + " is answering.");
+                    sheet[0].dismiss();
+                }));
             }
         }
-        java.util.List<ai.dvine.chat.ui.BottomSheet.Item> items = new java.util.ArrayList<ai.dvine.chat.ui.BottomSheet.Item>();
-        for (ai.dvine.llm.ModelSpec m : here) {
-            boolean using = m.file.equals(hub.chosen().file);
-            items.add(new ai.dvine.chat.ui.BottomSheet.Item(using ? R.drawable.ic_check : R.drawable.ic_cube,
-                    m.weights + (using ? "  \u00B7 in use" : ""), "Offline, on this device. " + m.about));
-        }
-        items.add(new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_settings, "All offline models",
-                "Download another family or size, or delete one"));
-        items.add(new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_key, "AI providers", "API models and keys"));
-        ai.dvine.chat.ui.BottomSheet.show(this, "Model", items.toArray(new ai.dvine.chat.ui.BottomSheet.Item[0]), which -> {
-            if (which < here.size()) {
-                switchOfflineModel(here.get(which));
-            } else if (which == here.size()) {
-                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
-            } else {
-                openProviders();
+        boolean anyHere = false;
+        for (final ai.dvine.llm.ModelSpec m : ai.dvine.llm.ModelSpec.ALL) {
+            if (model == null || !model.has(m)) {
+                continue;
             }
-        });
+            if (!anyHere) {
+                list.addView(brainHeader("Offline models on this device"));
+                anyHere = true;
+            }
+            boolean on = "device".equals(pick) && m.file.equals(hub.chosen().file)
+                    || "api".equals(pick) && apis.isEmpty() && m.file.equals(hub.chosen().file);
+            list.addView(brainRow(m.weights, "Offline, on this device. " + m.about + " Needs " + m.ramGb + " GB of memory.", on, () -> {
+                prefs.edit().putString("brain_pick", "device").putBoolean("llm_on", true).apply();
+                applyProvider();
+                if (m.file.equals(hub.chosen().file)) {
+                    if (!model.localReady()) {
+                        loadModel(true);
+                    }
+                    note(m.weights + " is answering.");
+                } else {
+                    switchOfflineModel(m);
+                }
+                sheet[0].dismiss();
+            }));
+        }
+        list.addView(brainHeader("More"));
+        list.addView(brainLink("All offline models", "Download another family or size, or delete one",
+                () -> startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class))));
+        list.addView(brainLink("AI providers", "API models and keys", this::openProviders));
+        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(this, "Choose the brain", list);
+    }
+
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
+    }
+
+    private android.widget.TextView brainHeader(String name) {
+        android.widget.TextView t = new android.widget.TextView(this);
+        t.setText(name);
+        t.setTextSize(13f);
+        t.setTextColor(getColor(R.color.text_secondary));
+        t.setPadding(dp(4), dp(14), 0, dp(6));
+        return t;
+    }
+
+    /**
+     * One brain to pick: a radio circle (filled with the accent and a check when it is the one in use), the name and
+     * what it is; the row in use is tinted with an accent edge and says "In use", so it can't be missed.
+     */
+    private android.view.View brainRow(String name, String about, boolean selected, final Runnable pick) {
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(12), dp(12), dp(12));
+        row.setMinimumHeight(dp(64));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(dp(16));
+        int accent = getColor(R.color.accent);
+        if (selected) {
+            bg.setColor((accent & 0x00FFFFFF) | 0x24000000);
+            bg.setStroke(dp(2), accent);
+        } else {
+            bg.setColor(0x00000000);
+        }
+        row.setBackground(bg);
+        // the radio: an empty ring, or a filled accent circle with a white check
+        android.widget.TextView radio = new android.widget.TextView(this);
+        radio.setGravity(android.view.Gravity.CENTER);
+        radio.setTextSize(13f);
+        radio.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
+        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        if (selected) {
+            dot.setColor(accent);
+            radio.setText("\u2713");
+            radio.setTextColor(getColor(R.color.on_accent));
+        } else {
+            dot.setColor(0x00000000);
+            dot.setStroke(dp(2), getColor(R.color.text_secondary));
+        }
+        radio.setBackground(dot);
+        android.widget.LinearLayout.LayoutParams rp = new android.widget.LinearLayout.LayoutParams(dp(24), dp(24));
+        rp.rightMargin = dp(14);
+        row.addView(radio, rp);
+        android.widget.LinearLayout words = new android.widget.LinearLayout(this);
+        words.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.TextView title = new android.widget.TextView(this);
+        title.setText(name);
+        title.setTextSize(16f);
+        title.setTextColor(getColor(selected ? R.color.accent : R.color.text_primary));
+        title.setTypeface(selected ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);
+        words.addView(title);
+        android.widget.TextView sub = new android.widget.TextView(this);
+        sub.setText(about);
+        sub.setTextSize(12.5f);
+        sub.setTextColor(getColor(R.color.text_secondary));
+        words.addView(sub);
+        row.addView(words, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (selected) {
+            android.widget.TextView inUse = new android.widget.TextView(this);
+            inUse.setText("In use");
+            inUse.setTextSize(12f);
+            inUse.setTextColor(getColor(R.color.on_accent));
+            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable();
+            pill.setColor(accent);
+            pill.setCornerRadius(dp(10));
+            inUse.setBackground(pill);
+            inUse.setPadding(dp(8), dp(3), dp(8), dp(3));
+            android.widget.LinearLayout.LayoutParams ip = new android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            ip.leftMargin = dp(8);
+            row.addView(inUse, ip);
+        }
+        row.setContentDescription(name + (selected ? ", in use" : ""));
+        row.setOnClickListener(v -> pick.run());
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = dp(6);
+        row.setLayoutParams(lp);
+        return row;
+    }
+
+    private android.view.View brainLink(String name, String about, Runnable open) {
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        android.widget.TextView t = new android.widget.TextView(this);
+        t.setText(name + "  \u203A");
+        t.setTextSize(15f);
+        t.setTextColor(getColor(R.color.accent));
+        row.addView(t);
+        android.widget.TextView a = new android.widget.TextView(this);
+        a.setText(about);
+        a.setTextSize(12.5f);
+        a.setTextColor(getColor(R.color.text_secondary));
+        row.addView(a);
+        row.setOnClickListener(v -> open.run());
+        return row;
     }
 
     /** Switches to an offline model that is already on the phone, keeping the other file, and loads it. */
@@ -4787,6 +4960,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private int modelGeneration;
 
     private void loadModel(final boolean tell) {
+        if (!tell && dvineOwn()) {
+            return; // DVINE 1.0 answers on its own: no model is loaded
+        }
         if (!tell && model != null && model.remoteOn()) {
             // an API answers (and the user didn't ask to start it): the offline model is not loaded ahead of time. It loads when an answer needs it
             // (offline, or every API failed), and leaves memory again when an API answers
