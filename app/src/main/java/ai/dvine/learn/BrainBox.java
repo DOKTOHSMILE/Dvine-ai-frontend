@@ -76,7 +76,9 @@ public final class BrainBox {
 
     /**
      * Learns an answer a model gave (any model, API or on the device), so DVINE grows with every conversation. Very
-     * short or very long answers, and answers about the moment (time, today, news, prices), are not kept.
+     * short or very long answers, and answers about the moment (time, today, news, prices), are not kept: they are
+     * facts about that day, not wisdom. When the same words are corrected, the newer answer wins; when they recur, the
+     * older answer is strengthened (it stays, and is trusted more the next time).
      */
     public synchronized void learnTalk(String question, String answer) {
         List<String> words = words(question);
@@ -85,22 +87,68 @@ public final class BrainBox {
                 || (question + " " + a).toLowerCase(Locale.US).matches("(?s).*\\b(today|tonight|now|current|latest|news|price|weather|yesterday|tomorrow)\\b.*")) {
             return;
         }
+        long now = System.currentTimeMillis();
+        String kept = a.replace('\n', '\u2028');
         for (int i = talk.size() - 1; i >= 0; i--) {
-            if (talk.get(i).words.equals(words)) {
-                talk.remove(i);
+            Example e = talk.get(i);
+            if (e.words.equals(words)) {
+                if (e.order.equals(kept)) {
+                    e.hits++; // the pilot chose the same answer again: it keeps learning this
+                    e.touched = now;
+                    saveTalk();
+                    return;
+                }
+                talk.remove(i); // a corrected answer replaces the wrong one
+            } else if (cosineOf(words, e.words, talk) >= CLOSE_TALK && e.order.equals(kept)) {
+                e.hits++; // the same answer, in a slightly different wording
+                e.touched = now;
+                saveTalk();
+                return;
             }
         }
-        talk.add(new Example(words, a.replace('\n', '\u2028')));
+        talk.add(new Example(words, kept, now));
         while (talk.size() > MOST_TALK) {
-            talk.remove(0);
+            talk.remove(0); // the oldest, least used learning drops out first
         }
         saveTalk();
     }
 
-    /** An answer learned for a question like this one, or null. For when no model can answer. */
+    /**
+     * An answer learned for a question like this one, or null. For when no model can answer. An older answer is used
+     * only when a clearly better one does not turn up, and one that was corrected never comes back.
+     */
     public synchronized String recallTalk(String question) {
         Example best = nearest(talk, words(question));
-        return best == null || score < CLOSE_TALK ? null : best.order.replace('\u2028', '\n');
+        if (best == null || score < CLOSE_TALK) {
+            return null;
+        }
+        // how the answer looks when its learning is counted
+        int asGood = 0;
+        double adjBest = score * trust(best);
+        for (int i = talk.size() - 1; i >= 0; i--) {
+            Example e = talk.get(i);
+            if (e == best || e.words.equals(best.words)) {
+                continue;
+            }
+            double s = cosineOf(question, String.join(" ", e.words), talk);
+            if (s >= CLOSE_TALK && s > score + 1e-9) {
+                double adj = s * trust(e);
+                if (adj > adjBest + 1e-9) {
+                    return null; // a clearly better answer exists: let the models judge
+                }
+                asGood++;
+            }
+        }
+        // several answers learned for the same shape of question: without a correction, no favourite is taken
+        if (asGood >= 1) {
+            return null;
+        }
+        return best.order.replace('\u2028', '\n');
+    }
+
+    /** How much an answer is trusted: one learned once, or one chosen many times and so tried and true. */
+    private static double trust(Example e) {
+        return 1 + 0.1 * Math.min(20, e.hits);
     }
 
     /**
@@ -293,6 +341,91 @@ public final class BrainBox {
         }
     }
 
+    /**
+     * Learns an order a model invented for this message: the user's words are carried into the new order wherever it
+     * put them, so a later message of the same shape is answered at once with its own words in it. The order is kept
+     * only when it says something about the words it carries (never a bare "DO SEARCH"), never repeats them, and is
+     * short enough to run.
+     */
+    public synchronized String learnShape(String text, String order) {
+        String raw = order == null ? "" : order.trim();
+        String k = kind(raw);
+        if (text == null || text.trim().isEmpty() || raw.isEmpty() || NOT_ACTIONS.contains(k)) {
+            return null;
+        }
+        String msg = plain(text);
+        if (msg.isEmpty()) {
+            return null;
+        }
+        // where the user's words sit in the message (lower case, in the order they were written)
+        String[] parts = msg.split("\\s+", -1);
+        StringBuilder phrase = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (phrase.length() > 0) {
+                phrase.append(' ');
+            }
+            phrase.append(part);
+        }
+        String arg = phrase.toString();
+        if (arg.length() < 3) {
+            return null;
+        }
+        int at = msg.indexOf(arg);
+        if (at < 0 || msg.indexOf(arg, at + 1) >= 0) {
+            return null;
+        }
+        String before = msg.substring(0, at), after = msg.substring(at + arg.length());
+        if (before.trim().length() < 3) {
+            return null; // too little shape to match on
+        }
+        // the same words where the order put them, in the order's own case
+        String lower = raw.toLowerCase(Locale.US);
+        int oa = lower.lastIndexOf(arg);
+        String orderBefore, orderAfter;
+        if (oa >= 0) {
+            orderBefore = raw.substring(0, oa);
+            orderAfter = raw.substring(oa + arg.length());
+        } else {
+            // the words are written differently in the order (capitalised, or with a space where the message has one):
+            // the argument is the order's own last words, so it goes at the end
+            int last = raw.lastIndexOf(' ');
+            oa = last < 0 ? raw.length() : last + 1;
+            orderBefore = raw.substring(0, oa);
+            orderAfter = "";
+        }
+        String kept = (orderBefore + arg + orderAfter).trim();
+        String head = orderBefore.trim();
+        if (head.isEmpty() || kept.length() > 400 || repeats(kept, arg)) {
+            return null;
+        }
+        // the shape is only worth keeping when the order says more than the words it carries
+        String rest = kept.toLowerCase(Locale.US).replace(arg, " ");
+        if (rest.replaceAll("[^a-z0-9]+", "").length() < 2) {
+            return null;
+        }
+        // drop any shape the message already fills with an older order
+        String have = fromShape(text);
+        if (have != null) {
+            return have;
+        }
+        templates.add(new Template(before, after, orderBefore, orderAfter));
+        if (templates.size() > MOST / 4) {
+            templates.remove(0);
+        }
+        saveTemplates();
+        return kept;
+    }
+
+    /** Whether the order says the carried words more than once. */
+    private static boolean repeats(String order, String arg) {
+        String lower = order.toLowerCase(Locale.US);
+        int at = lower.indexOf(arg);
+        return at >= 0 && lower.indexOf(arg, at + arg.length()) >= 0;
+    }
+
     private final List<Template> templates = new ArrayList<Template>();
 
     /** How many shapes it has learned. */
@@ -414,8 +547,24 @@ public final class BrainBox {
             for (String line : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
                 int tab = line.indexOf('\t');
                 if (tab > 0) {
-                    talk.add(new Example(new ArrayList<String>(java.util.Arrays.asList(line.substring(0, tab).split(" "))),
-                            line.substring(tab + 1)));
+                    // words TAB answer TAB hits TAB touched; files without the last two still load
+                    String[] parts = line.split("\t", -1);
+                    Example e = new Example(new ArrayList<String>(java.util.Arrays.asList(parts[0].split(" "))), parts[1]);
+                    if (parts.length > 2) {
+                        try {
+                            e.hits = Integer.parseInt(parts[2]);
+                        } catch (NumberFormatException ignored) {
+                            e.hits = 0;
+                        }
+                    }
+                    if (parts.length > 3) {
+                        try {
+                            e.touched = Long.parseLong(parts[3]);
+                        } catch (NumberFormatException ignored) {
+                            e.touched = 0;
+                        }
+                    }
+                    talk.add(e);
                 }
             }
         } catch (IOException e) {
@@ -430,7 +579,9 @@ public final class BrainBox {
         }
         StringBuilder b = new StringBuilder();
         for (Example e : talk) {
-            b.append(String.join(" ", e.words)).append('\t').append(e.order.replace('\n', '\u2028').replace('\t', ' ')).append('\n');
+            b.append(String.join(" ", e.words)).append('\t')
+                    .append(e.order.replace('\n', '\u2028').replace('\t', ' '))
+                    .append('\t').append(e.hits).append('\t').append(e.touched).append('\n');
         }
         try {
             if (f.getParentFile() != null) {

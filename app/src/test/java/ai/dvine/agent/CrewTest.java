@@ -51,6 +51,20 @@ public class CrewTest {
         assertFalse(Crew.heavy("Fix the typo in README"));
     }
 
+    /**
+     * The deep audit sends "Read the files and write a report". Before 0.94.1
+     * the phrase "and write" made every turn of that audit look like a new
+     * job, so the model planned again from the first step, over and over,
+     * without reading a file. A short turn stays a single turn.
+     */
+    @Test
+    public void readingFilesAndWritingAReportIsOneTurn() {
+        assertFalse(Crew.heavy("Read the files and write a report"));
+        assertFalse(Crew.heavy("Search the code and write the notes"));
+        assertTrue(Crew.heavy("Do a deep audit of every file and write a report"));
+        assertTrue(Crew.heavy("Audit the codebase and write a report"));
+    }
+
     /** Every part the planner asked for comes back, and the count is honoured above MOST. */
     @Test
     public void severalWorkersEachReturnTheirPart() {
