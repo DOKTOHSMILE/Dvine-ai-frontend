@@ -62,6 +62,13 @@ in the pilot's hands.
 | `Cortex` | gives the brain the reading; with no brain answers sums, greetings, thanks and what it learned | makes anything up |
 | `DeepThink` | makes any brain think in passes: plan, draft, critique, revise | runs unless the chat asked for it (each pass is a call) |
 
+## DVINE 1.0 in the brain picker
+
+The model picker (tap the model under the title) lists **DVINE 1.0** first: DVINE's own intelligence, the Cortex and
+the brain box with no model loaded. It answers sums exactly, greetings and thanks, and what it learned from earlier
+brains; it is not a language model and says so when it doesn't know. Picking it asks no API and frees the offline
+model's memory. The pick is kept as `brain_pick` (`dvine`, `api`, `device`).
+
 ## Files
 
 * `suit/FunctionCode.java`: the codes, their parser and the brain's instructions.
