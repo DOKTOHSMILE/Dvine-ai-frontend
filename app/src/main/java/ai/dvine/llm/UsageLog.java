@@ -41,6 +41,37 @@ public final class UsageLog {
     private long day = -1;
     private int calls, tokensIn, tokensOut, failed;
     private long millis;
+    /** DVINE 1's own answers today: all of them, from its memory, from research. */
+    private int own, ownMemory, ownResearch;
+
+    /** How DVINE 1 answered: from what it knows, or by researching. */
+    public enum Own { MEMORY, RESEARCH, OTHER }
+
+    /** DVINE 1 answered (no model call, so no tokens: counted on its own). */
+    public synchronized void recordOwn(Own how, long at) {
+        roll(at);
+        own++;
+        if (how == Own.MEMORY) {
+            ownMemory++;
+        } else if (how == Own.RESEARCH) {
+            ownResearch++;
+        }
+    }
+
+    public synchronized int ownToday(long now) {
+        roll(now);
+        return own;
+    }
+
+    public synchronized int ownMemoryToday(long now) {
+        roll(now);
+        return ownMemory;
+    }
+
+    public synchronized int ownResearchToday(long now) {
+        roll(now);
+        return ownResearch;
+    }
 
     /** About four characters of English (or code) a token: an estimate, marked as one. */
     public static int estimate(String text) {
@@ -91,27 +122,54 @@ public final class UsageLog {
         return millis <= 0 ? 0f : tokensOut * 1000f / millis;
     }
 
-    /** Today's totals as text, to keep across restarts; {@link #restore} reads it back. */
+    /**
+     * Today's totals and the last call as text, to keep across restarts; {@link #restore} reads it back. First line:
+     * the day's totals; second line (when there was a call): the last call, so the context window is still shown after
+     * the app restarts.
+     */
     public synchronized String save() {
-        return day + " " + calls + " " + tokensIn + " " + tokensOut + " " + failed + " " + millis;
+        String totals = day + " " + calls + " " + tokensIn + " " + tokensOut + " " + failed + " " + millis + " " + own + " " + ownMemory
+                + " " + ownResearch;
+        if (last == null) {
+            return totals;
+        }
+        return totals + "\n" + last.brain.replace('\t', ' ').replace('\n', ' ') + "\t" + last.window + "\t" + last.system + "\t"
+                + last.conversation + "\t" + last.message + "\t" + last.reply + "\t" + last.measured + "\t" + last.millis + "\t" + last.at;
     }
 
     public synchronized void restore(String saved, long now) {
         if (saved == null) {
             return;
         }
-        String[] f = saved.trim().split(" ");
+        String[] lines = saved.trim().split("\n");
+        String[] f = lines[0].trim().split(" ");
         try {
-            if (f.length == 6 && Long.parseLong(f[0]) == dayOf(now)) {
+            if ((f.length == 6 || f.length == 9) && Long.parseLong(f[0]) == dayOf(now)) {
                 day = Long.parseLong(f[0]);
                 calls = Integer.parseInt(f[1]);
                 tokensIn = Integer.parseInt(f[2]);
                 tokensOut = Integer.parseInt(f[3]);
                 failed = Integer.parseInt(f[4]);
                 millis = Long.parseLong(f[5]);
+                if (f.length == 9) {
+                    own = Integer.parseInt(f[6]);
+                    ownMemory = Integer.parseInt(f[7]);
+                    ownResearch = Integer.parseInt(f[8]);
+                }
             }
         } catch (NumberFormatException e) {
             // a damaged line: start the day from zero
+        }
+        if (lines.length > 1 && last == null) {
+            String[] c = lines[1].split("\t");
+            try {
+                if (c.length == 9) {
+                    last = new Call(c[0], Integer.parseInt(c[1]), Integer.parseInt(c[2]), Integer.parseInt(c[3]), Integer.parseInt(c[4]),
+                            Integer.parseInt(c[5]), Boolean.parseBoolean(c[6]), Long.parseLong(c[7]), Long.parseLong(c[8]));
+                }
+            } catch (NumberFormatException e) {
+                // the last call is shown again after the next one
+            }
         }
     }
 
@@ -120,9 +178,14 @@ public final class UsageLog {
         long d = dayOf(now);
         if (d != day) {
             day = d;
-            calls = tokensIn = tokensOut = failed = 0;
+            calls = tokensIn = tokensOut = failed = own = ownMemory = ownResearch = 0;
             millis = 0;
         }
+    }
+
+    /** The day number {@link #save} writes, for tests. */
+    public static long dayOfForTest(long millis) {
+        return dayOf(millis);
     }
 
     static long dayOf(long millis) {

@@ -157,8 +157,23 @@ public final class Knowledge {
         keep(question, answer, false);
     }
 
+    /**
+     * Not knowledge: a greeting or thanks, a question about DVINE itself, or DVINE's own set reply. These are never
+     * kept as answers (older versions let a check on them through; they are dropped when the file is read).
+     */
+    static boolean notKnowledge(String question, String answer) {
+        String q = question == null ? "" : question.trim().toLowerCase(Locale.US);
+        String a = answer == null ? "" : answer.trim();
+        return q.matches("(?s)^(hi|hello|hey|yo|good (morning|afternoon|evening|night)|thanks?|thank you|ok|okay)\\b.{0,20}")
+                || q.matches("(?s).*\\b(who are you|what can you do|what (have|did) you (learn|learned|learnt)|what do you (know|remember)\\s*\\??$).*")
+                || a.startsWith("Hello, I'm DVINE") || a.startsWith("Answers you confirmed") || a.startsWith("No answers confirmed");
+    }
+
     private void keep(String question, String answer, boolean right) {
         String a = answer == null ? "" : answer.trim();
+        if (right && notKnowledge(question, a)) {
+            return;
+        }
         List<String> meaning = meaning(question);
         if (meaning.isEmpty() || a.isEmpty()) {
             return;
@@ -403,6 +418,9 @@ public final class Knowledge {
                     k = Kind.valueOf(p[1]);
                 } catch (IllegalArgumentException e) {
                     k = Kind.OTHER;
+                }
+                if (notKnowledge(p[2], p[3])) {
+                    continue; // a greeting or a question about DVINE, kept by an older version
                 }
                 String q = p[2].replace(' ', '\n');
                 facts.add(new Fact(q, p[3].replace(' ', '\n'), k, meaning(q), !"-".equals(p[0]), "+".equals(p[0])));
