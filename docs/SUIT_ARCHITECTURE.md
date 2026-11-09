@@ -62,12 +62,24 @@ in the pilot's hands.
 | `Cortex` | gives the brain the reading; with no brain answers sums, greetings, thanks and what it learned | makes anything up |
 | `DeepThink` | makes any brain think in passes: plan, draft, critique, revise | runs unless the chat asked for it (each pass is a call) |
 
-## DVINE 1.0 in the brain picker
+## DVINE 1 · 0.1 in the brain picker
 
-The model picker (tap the model under the title) lists **DVINE 1.0** first: DVINE's own intelligence, the Cortex and
+The model picker (tap the model under the title) lists **DVINE 1 · 0.1** first: DVINE's own intelligence, the Cortex and
 the brain box with no model loaded. It answers sums exactly, greetings and thanks, and what it learned from earlier
 brains; it is not a language model and says so when it doesn't know. Picking it asks no API and frees the offline
 model's memory. The pick is kept as `brain_pick` (`dvine`, `api`, `device`).
+
+### How DVINE 1 learns
+
+1. Exact sums, greetings and thanks: the Cortex.
+2. Confirmed answers (`learn/Knowledge`): found by intent (what kind of answer, the meaning words with synonyms, endings
+   and small typos folded), so a question asked another way gets the same answer, without asking again.
+3. Answers learned from earlier models (`BrainBox` talk): given, with "Is it accurate?" and 👍🏽 / 👎🏽.
+4. Otherwise it researches the web and answers from the sources' own sentences (`suit/ResearchAnswer`), naming them,
+   and asks 👍🏽 / 👎🏽. 👍🏽 saves it; 👎🏽 marks that answer wrong for that intent.
+
+It does not reason the way a language model does: it retrieves, checks and remembers. Reasoning it can't do yet is
+the selected model's, and what that model answers is learned too.
 
 ## Files
 

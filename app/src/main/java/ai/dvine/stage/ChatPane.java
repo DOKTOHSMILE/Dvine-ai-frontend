@@ -50,10 +50,72 @@ public final class ChatPane extends LinearLayout {
         /** The hand-off button was tapped: the task goes to {@code persona} in a new chat of theirs. */
         default void onHandoff(String persona, String task) {
         }
+
+        /** 👍🏽 ({@code right}) or 👎🏽 on an answer DVINE asked about: it learns from it. */
+        default void onRate(String question, String answer, boolean right) {
+        }
     }
 
     private final ChatBook book;
     private final Host host;
+    /** The answer DVINE asked "is this accurate?" about, and its question; null when none is waiting. */
+    private String rateQuestion, rateAnswer;
+
+    /** Shows 👍🏽 and 👎🏽 under the reply holding {@code answer} until the pilot taps one or the chat moves on. */
+    public void askRating(String question, String answer) {
+        rateQuestion = question;
+        rateAnswer = answer;
+        show();
+    }
+
+    /** True while an answer waits for 👍🏽 or 👎🏽. */
+    public boolean ratingWaiting() {
+        return rateAnswer != null;
+    }
+
+    /** The 👍🏽 and 👎🏽 buttons: one tap teaches DVINE, then they say what it learned. */
+    private View rating() {
+        final LinearLayout bar = new LinearLayout(getContext());
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        bar.setPadding(0, 0, 0, dp(10));
+        TextView ask = new TextView(getContext());
+        ask.setText("Accurate?");
+        ask.setTextSize(13f);
+        ask.setTextColor(getContext().getColor(R.color.text_secondary));
+        ask.setPadding(dp(4), 0, dp(8), 0);
+        bar.addView(ask);
+        final String q = rateQuestion, a = rateAnswer;
+        bar.addView(thumb("\uD83D\uDC4D\uD83C\uDFFD", "Correct", v -> rated(q, a, true)));
+        bar.addView(thumb("\uD83D\uDC4E\uD83C\uDFFD", "Wrong", v -> rated(q, a, false)));
+        return bar;
+    }
+
+    private View thumb(String emoji, String label, View.OnClickListener click) {
+        TextView t = new TextView(getContext());
+        t.setText(emoji);
+        t.setTextSize(20f);
+        t.setGravity(android.view.Gravity.CENTER);
+        t.setMinWidth(dp(48));
+        t.setMinHeight(dp(44));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(dp(22));
+        bg.setStroke(dp(1), getContext().getColor(R.color.text_secondary) & 0x55FFFFFF);
+        t.setBackground(bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = dp(8);
+        t.setLayoutParams(lp);
+        t.setContentDescription(label);
+        t.setOnClickListener(click);
+        return t;
+    }
+
+    private void rated(String q, String a, boolean right) {
+        rateQuestion = null;
+        rateAnswer = null;
+        host.onRate(q, a, right);
+        show();
+    }
     private final LinearLayout thread;
     private final ScrollView scroll;
     private final float density;
@@ -194,6 +256,9 @@ public final class ChatPane extends LinearLayout {
                 }
                 // at the end: Copy for the whole reply at once, and Listen to all of it, as icons
                 thread.addView(actions(reply.toString(), stripCode(reply.toString())));
+                if (rateAnswer != null && i == cur.messages.size() - 1 && reply.toString().contains(rateAnswer)) {
+                    thread.addView(rating()); // DVINE asks whether its answer was right
+                }
                 reply.setLength(0);
                 parts = 0;
                 lastPartBar = null;

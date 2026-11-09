@@ -189,6 +189,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 156 | Each persona page runs its own job; the three personas as one curved toggle; a tools button by the mic (GitHub repositories, each persona its own tools); keyboard and drawer; swipe to open the drawer | P12 | Built (device check pending) | 0.99.1 |
 | 157 | DVINE Social Intelligence System: investigate posts, similar posts, public sentiment, own and target profiles, as tools the selected brain calls | P12 | Built (fake-provider tests; device check pending) | 0.99.2 |
 | 158 | Add DVINE's own intelligence to the model list; mark the pick clearly (radio circle with check, coloured row) | P12 | Built (Robolectric test; device check pending) | 0.99.3 |
+| 159 | Posts on the user's behalf (scheduled, recurring), smart engagement; DVINE 1 researches what it doesn't know, asks 👍🏽/👎🏽 and learns by intent | P12 | Built (JVM and Robolectric tests; device check pending). Shilling (undisclosed promotion, fake personas) declined | 0.99.4 |
 
 ## Still open, in the order that matters
 

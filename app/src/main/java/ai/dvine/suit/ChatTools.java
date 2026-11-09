@@ -25,7 +25,7 @@ public final class ChatTools {
         DESIGN3D("3D design", "Model things in 3D", FunctionCode.BD),
         FILES("Make files", "PDF, Word, spreadsheets and more", FunctionCode.MF),
         SHARE("Share, post or copy", "Through the device's apps (you approve each)", FunctionCode.AC),
-        SOCIAL("Social accounts", "Search, trending and posts on your accounts", FunctionCode.SO),
+        SOCIAL("Social accounts", "Search, trending, posts now or scheduled, and replies you approve", FunctionCode.SO),
         DEEP("Deep thinking", "Plan, draft, check and revise before answering (slower, more calls)", null);
 
         public final String title, about;
@@ -134,6 +134,8 @@ public final class ChatTools {
         }
         if (on.contains(Tool.SOCIAL)) {
             s.add(FunctionCode.SI); // the social intelligence capabilities
+            s.add(FunctionCode.SP); // posts scheduled once or repeating
+            s.add(FunctionCode.AC); // a post or reply now, shown first
         }
         if (on.contains(Tool.SHELL)) {
             s.add(FunctionCode.PM);

@@ -121,6 +121,22 @@ public final class BrainBox {
         return gone;
     }
 
+    /** The pilot said a learned answer was wrong: answers learned for questions like this one are forgotten. */
+    public synchronized boolean forgetTalk(String question) {
+        List<String> words = words(question);
+        boolean gone = false;
+        for (int i = talk.size() - 1; i >= 0; i--) {
+            if (talk.get(i).words.equals(words) || cosineOf(words, talk.get(i).words, talk) >= CLOSE_TALK) {
+                talk.remove(i);
+                gone = true;
+            }
+        }
+        if (gone) {
+            saveTalk();
+        }
+        return gone;
+    }
+
     /** True when the user's words say the last thing done was not what they meant. */
     public static boolean correction(String text) {
         String t = text == null ? "" : text.trim().toLowerCase(Locale.US).replaceAll("[.!?]+$", "");

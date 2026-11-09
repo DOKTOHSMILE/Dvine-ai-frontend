@@ -1500,6 +1500,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public void onRate(String question, String answer, boolean right) {
+                rate(question, answer, right);
+            }
+
+            @Override
             public void onEdit(String before, String edited) {
                 // the old message and its replies are gone from the chat; the model forgets them too, then the
                 // edited message is sent like a new one (a reply still being written to the old one is stopped)
@@ -2134,6 +2139,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (modelOn()) {
                         return false;
                     }
+                    if (dvineOwn()) {
+                        dvineAnswer(t); // DVINE 1: what it knows, or it researches and asks whether it got it right
+                        return true;
+                    }
                     // no model in the suit: DVINE's own Cortex answers what it can (exact sums, greetings, what it learned)
                     String alone = cortex().answerAlone(t);
                     if (alone != null) {
@@ -2187,7 +2196,74 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         java.util.Set<ai.dvine.suit.FunctionCode> allowed = chatTools(persona).allowedCodes();
         return ai.dvine.suit.FunctionCode.instructions(connectorTools(), allowed)
                 + (allowed.contains(ai.dvine.suit.FunctionCode.SI)
-                ? ai.dvine.social.intel.SocialCapabilityRegistry.forBrain(socialIntel().providers()) : "");
+                ? ai.dvine.social.intel.SocialCapabilityRegistry.forBrain(socialIntel().providers()) + ENGAGE : "");
+    }
+
+    /**
+     * How the brain engages on the pilot's behalf: replies and comments as the pilot, in the open, each one approved.
+     * Never fake accounts, hidden paid promotion, mass identical replies, or pretending to be an independent fan.
+     */
+    static final String ENGAGE = " Engagement for the pilot: read the comments on their posts or a trend (§SI or §SO), then"
+            + " draft replies in the pilot's own voice that add something (an answer, thanks, a useful link) and offer each with"
+            + " §AC post on <network>: <reply>, one at a time; the pilot approves every one. Schedule posts with §SP, once or"
+            + " repeating. Never write as a different person, never hide that the pilot benefits from what they promote, never"
+            + " send the same reply to many people, and never pose as an independent fan or customer.";
+
+    /**
+     * The brain's §SP: a post for later on the pilot's own account, shown with its account, time and repeat, kept only
+     * on the pilot's yes. "LIST" shows the scheduled posts, each with Cancel.
+     */
+    private void schedulePost(String arg) {
+        String a = arg == null ? "" : arg.trim();
+        if (a.equalsIgnoreCase("list") || a.isEmpty()) {
+            showScheduledPosts();
+            return;
+        }
+        final ai.dvine.social.PostPlan plan = ai.dvine.social.PostPlan.parse(a, System.currentTimeMillis(), java.util.TimeZone.getDefault());
+        if (plan == null) {
+            play(LocalTurn.speakAs(stage.agent(), "I couldn't tell which account, when, or what to post. Tell me the network, the time and the words."), null);
+            return;
+        }
+        final String where = new ai.dvine.brain.PendingAction(ai.dvine.brain.PendingAction.Kind.SHARE, plan.text, plan.network, 0).appName();
+        String when = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(new java.util.Date(plan.at));
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Schedule this " + where + " post?")
+                .setMessage(plan.text + "\n\nFirst: " + when + "\nRepeats: " + plan.repeatWords()
+                        + "\n\nWhen it's due, DVINE reminds you and opens " + where + " with it ready; you press post.")
+                .setPositiveButton("Schedule", (d, w) -> {
+                    ai.dvine.social.PostAlarm.add(this, plan);
+                    ai.dvine.act.ActionLog.add(getFilesDir(), "schedule", where, "approved", "scheduled", plan.text);
+                    play(LocalTurn.speakAs(stage.agent(), "Scheduled for " + when + (plan.repeat == ai.dvine.social.PostPlan.Repeat.ONCE ? ""
+                            : ", " + plan.repeatWords().toLowerCase(java.util.Locale.US)) + "."), null);
+                })
+                .setNegativeButton("Cancel", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Not scheduled."), null))
+                .show();
+    }
+
+    /** The scheduled posts, next first, each with Cancel. */
+    private void showScheduledPosts() {
+        java.util.List<ai.dvine.social.PostPlan> plans = ai.dvine.social.PostAlarm.plans(this);
+        if (plans.isEmpty()) {
+            play(LocalTurn.speakAs(stage.agent(), "No posts are scheduled."), null);
+            return;
+        }
+        java.util.Collections.sort(plans, (x, y) -> Long.compare(x.at, y.at));
+        final android.widget.LinearLayout list = new android.widget.LinearLayout(this);
+        list.setOrientation(android.widget.LinearLayout.VERTICAL);
+        list.setPadding(dp(16), 0, dp(16), dp(16));
+        java.text.DateFormat f = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT);
+        for (final ai.dvine.social.PostPlan p : plans) {
+            String where = new ai.dvine.brain.PendingAction(ai.dvine.brain.PendingAction.Kind.SHARE, p.text, p.network, 0).appName();
+            final android.view.View row = brainLink(where + " \u00B7 " + f.format(new java.util.Date(p.at)) + " \u00B7 " + p.repeatWords(),
+                    p.text + "\nTap to cancel", null);
+            row.setOnClickListener(v -> {
+                ai.dvine.social.PostAlarm.cancel(this, p.id);
+                list.removeView(row);
+                note("Cancelled the " + where + " post.");
+            });
+            list.addView(row);
+        }
+        ai.dvine.chat.ui.BottomSheet.showView(this, "Scheduled posts", list);
     }
 
     private ai.dvine.social.intel.SocialExecutionEngine socialIntel;
@@ -2366,6 +2442,99 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private ai.dvine.suit.Cortex cortex;
 
     /** DVINE's own light brain in the suit: reads every message and works out arithmetic exactly, for any model. */
+    private ai.dvine.learn.Knowledge knowledge;
+
+    /** What DVINE 1 knows for sure: answers the pilot confirmed with 👍🏽, found again by intent. */
+    private synchronized ai.dvine.learn.Knowledge knowledge() {
+        if (knowledge == null) {
+            knowledge = new ai.dvine.learn.Knowledge(new java.io.File(getFilesDir(), "brain/knowledge.tsv"));
+        }
+        return knowledge;
+    }
+
+    /**
+     * DVINE 1 answers on its own: exact sums, a greeting, what the pilot confirmed before (asked any way), what it
+     * learned from the models; otherwise it researches the web and answers from what it found, in the sources' own
+     * words, and asks whether that was right (👍🏽 / 👎🏽). Nothing is made up.
+     */
+    private void dvineAnswer(final String t) {
+        final String who = stage.agent();
+        ai.dvine.suit.Comprehension c = ai.dvine.suit.Comprehension.of(t);
+        if (c.math != null && c.mathValue != null && !c.mathValue.isEmpty()) {
+            play(LocalTurn.speakAs(who, c.math + " = " + c.mathValue), null);
+            return;
+        }
+        if (c.act == ai.dvine.suit.Comprehension.Act.GREETING) {
+            play(LocalTurn.speakAs(who, "Hello, I'm " + DVINE_OWN + ". Ask me anything: I answer what I know, research what I"
+                    + " don't, and learn from your \uD83D\uDC4D\uD83C\uDFFD and \uD83D\uDC4E\uD83C\uDFFD."), null);
+            return;
+        }
+        if (c.act == ai.dvine.suit.Comprehension.Act.THANKS) {
+            play(LocalTurn.speakAs(who, "You're welcome."), null);
+            return;
+        }
+        ai.dvine.learn.Knowledge.Fact known = knowledge().recall(t);
+        if (known != null) {
+            play(LocalTurn.speakAs(who, known.answer), null); // confirmed before: no need to ask again
+            return;
+        }
+        String learned = brainBox().recallTalk(t);
+        if (learned != null && !knowledge().rejected(t, learned)) {
+            final String said = learned;
+            play(LocalTurn.speakAs(who, said + "\n\nI learned this from an earlier model. Is it accurate?"), null);
+            if (chatPane != null) {
+                chatPane.askRating(t, said);
+            }
+            return;
+        }
+        if (connectivity != null && !connectivity.isOnline()) {
+            play(LocalTurn.speakAs(who, "I don't know that yet, and I need the network to research it. Ask me again when you're online."), null);
+            return;
+        }
+        if (chatPane != null) {
+            chatPane.activityStep("Researching: " + t);
+        }
+        new Thread(() -> {
+            String found = null;
+            try {
+                found = new ai.dvine.connect.ConnectorStore(this).research(t, 2, 8000);
+            } catch (RuntimeException e) {
+                found = null;
+            }
+            ai.dvine.suit.ResearchAnswer r = ai.dvine.suit.ResearchAnswer.from(t, found);
+            final ai.dvine.suit.ResearchAnswer answer = r != null && knowledge().rejected(t, r.shown()) ? null : r;
+            runOnUiThread(() -> {
+                if (chatPane != null) {
+                    chatPane.activityEnd();
+                }
+                if (answer == null) {
+                    play(LocalTurn.speakAs(who, "I don't know that yet, and what I found didn't answer it. Try asking it another way,"
+                            + " or pick an API or offline model for this one: I learn from their answers too."), null);
+                    return;
+                }
+                String shown = answer.shown();
+                play(LocalTurn.speakAs(who, "Here's what I found: " + shown + "\n\nIs this accurate?"), null);
+                chatPane.askRating(t, shown);
+            });
+        }, "dvine-research").start();
+    }
+
+    /** 👍🏽 keeps the answer for this intent (and as talk the brain box knows); 👎🏽 marks it wrong, never given again. */
+    private void rate(String question, String answer, boolean right) {
+        if (question == null || answer == null) {
+            return;
+        }
+        if (right) {
+            knowledge().confirm(question, answer);
+            brainBox().learnTalk(question, answer);
+            note("Saved to DVINE's memory: it will answer this, however it's asked.");
+        } else {
+            knowledge().reject(question, answer);
+            brainBox().forgetTalk(question);
+            note("Got it: DVINE won't give that answer again.");
+        }
+    }
+
     private synchronized ai.dvine.suit.Cortex cortex() {
         if (cortex == null) {
             cortex = new ai.dvine.suit.Cortex(q -> brainBox().recallTalk(q));
@@ -2511,6 +2680,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             case SOCIALINTEL:
                 useSocialIntel(question, order.arg);
+                return;
+            case SCHEDULEPOST:
+                schedulePost(order.arg);
                 return;
             case NEWCHAT:
                 startNewChatSafely();
@@ -4725,7 +4897,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return "dvine".equals(brainPick());
     }
 
-    static final String DVINE_OWN = "DVINE 1.0";
+    static final String DVINE_OWN = "DVINE 1 \u00B7 0.1";
 
     /**
      * The model under the title, tapped: every brain to pick from, the one in use clearly marked (a filled radio with a

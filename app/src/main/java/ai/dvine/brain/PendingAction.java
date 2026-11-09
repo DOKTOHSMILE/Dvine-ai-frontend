@@ -31,6 +31,7 @@ public final class PendingAction {
             case "instagram": return "Instagram";
             case "linkedin": return "LinkedIn";
             case "telegram": return "Telegram";
+            case "reddit": return "Reddit";
             default: return app;
         }
     }
