@@ -16,6 +16,8 @@ public enum FunctionCode {
     PH("PHOTO", "show a real photograph", "<subject>"),
     BD("BUILD", "model a thing in 3D", "<thing, with every size given>"),
     SO("SOCIAL", "the pilot's social accounts", "SEARCH <network>: <words> | TRENDING <network> | CONNECT <network> | POST <network>: <about>"),
+    SI("SOCIALINTEL", "social intelligence: investigate posts, find similar posts, public sentiment, profiles",
+            "<capability> <arguments>"),
     MF("MAKEFILE", "make a file of the last answer", "<pdf|docx|xlsx|csv|md|html|txt>"),
     AC("ACTION", "share, post or copy text through the device's apps (shown first; the pilot says yes)",
             "<post on <network>: text | share: text | copy: text>"),
