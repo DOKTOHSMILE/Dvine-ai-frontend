@@ -82,6 +82,11 @@ public final class SettingsActivity extends AppCompatActivity {
 
         // ---- chat
         LinearLayout chat = group("Chat", "Enter to send, thinking together, fact-checks, working steps");
+        chat.addView(toggle("Group chat", "One conversation with Obi, Ivie and Ibiko, like a group: each reply carries its name, the"
+                + " buttons pick who you talk to (or write @Ivie, @Obi, @Ibiko), and a task for another of them goes to them in the"
+                + " same thread. Off: three separate pages.", "group_chat", true, null));
+        chat.addView(toggle("Send tasks to the right one", "Code goes to Ibiko; stories, scripts and drawings to Ivie; reports and"
+                + " analyses to Obi, whoever you were talking to.", "handoff", true, null));
         chat.addView(toggle("Enter sends the message", "Off: Enter starts a new line; send with the arrow.", "send_enter", false, null));
         chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: Obi, Ivie and Ibiko each"
                 + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",
@@ -210,6 +215,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
         // ---- actions on the user's behalf
         LinearLayout acts = group("Actions", "Whether posts and shares wait for your yes");
+        acts.addView(toggle("Auto-post on your behalf", "Posts and comments you ask for go out from your account at once,"
+                + " without asking first (also in Social accounts). Off: each one waits for your yes.", "social_auto", false, null));
         acts.addView(toggle("Auto-approve actions", "Posts, shares and copies go ahead without asking first. Off: each one is"
                 + " shown with its exact text and where it goes, and waits for your yes.", "actions_auto", false, null));
 

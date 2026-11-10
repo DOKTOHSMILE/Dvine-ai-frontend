@@ -129,6 +129,9 @@ public final class SocialActivity extends AppCompatActivity {
         posting.addView(toggle("Post directly from your account", "After your yes, DVINE types the post into Facebook or X in the"
                 + " account in use and presses Post, then tells you whether the site confirmed it. Off: it opens the app with the"
                 + " post ready, and you press Post.", "social_direct", true), Ui.wide(this, 10));
+        posting.addView(toggle("Auto-post on your behalf", "Posts and comments you ask for go out at once, without asking you"
+                + " first. Still only what you ask for, within the limits below, and never tagging people you didn't name."
+                + " Off: each one waits for your yes.", "social_auto", false), Ui.wide(this, 10));
         posting.addView(toggle("Three versions to pick from", "A post you ask for is written three ways (professional, personal,"
                 + " short); you pick one before anything goes out.", "post_versions", true), Ui.wide(this, 10));
         java.util.List<ai.dvine.social.PostPlan> plans = ai.dvine.social.PostAlarm.plans(this);

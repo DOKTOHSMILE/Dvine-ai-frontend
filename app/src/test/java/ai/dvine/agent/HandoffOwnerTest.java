@@ -46,4 +46,13 @@ public class HandoffOwnerTest {
         assertNull(ai.dvine.social.PostDrafts.tooLong("x", "short"));
         assertTrue(ai.dvine.social.PostDrafts.tooLong("x", new String(new char[300]).replace('\0', 'a')).contains("300 of 280"));
     }
+
+    @Test
+    public void inTheGroupANameAddressesThatPersona() {
+        assertEquals("ivie", Handoff.mentioned("@Ivie draw me a cat"));
+        assertEquals("obi", Handoff.mentioned("Obi, what's the time in Lagos?"));
+        assertEquals("ibiko", Handoff.mentioned("please @ibiko run the tests"));
+        assertNull(Handoff.mentioned("ask obi later"));
+        assertNull(Handoff.mentioned("email me@ivie.com"));
+    }
 }

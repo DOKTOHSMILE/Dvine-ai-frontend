@@ -65,6 +65,16 @@ public final class Handoff {
         return null;
     }
 
+    /** "@Ivie …", "Obi, …": the persona the message names first, or null. */
+    public static String mentioned(String text) {
+        String t = text == null ? "" : text.trim().toLowerCase(Locale.US);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:^|\\s)@(obi|ivie|ibiko)\\b|^(obi|ivie|ibiko)\\s*[,:]").matcher(t);
+        if (m.find()) {
+            return m.group(1) != null ? m.group(1) : m.group(2);
+        }
+        return null;
+    }
+
     /** Why a message went to that persona, in a few words. */
     public static String why(String persona) {
         switch (persona == null ? "" : persona) {

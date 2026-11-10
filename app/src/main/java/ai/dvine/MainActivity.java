@@ -622,8 +622,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         @Override
         public void chatsForPersona(String persona) {
-            if (chats != null) {
-                chats.forPersona(persona);
+            if (chats != null && !groupChat()) {
+                chats.forPersona(persona); // three pages: the persona's own page; the group stays in its one thread
             }
             refreshSend(); // Stop belongs to the page that is working; another page shows Send
             handler.post(releaseHeld); // a message that waited on this page goes out if nothing is running now
@@ -929,11 +929,28 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** The persona whose page the current run belongs to. */
     private String runAgent;
 
+    /**
+     * The group chat (Settings: one thread for Obi, Ivie and Ibiko, like a group of people): the persona buttons pick
+     * who you talk to, and everyone's messages are in the one conversation. Off: three pages, as before.
+     */
+    boolean groupChat() {
+        return prefs == null || prefs.getBoolean("group_chat", true);
+    }
+
+    /**
+     * What one run belongs to: the page (three pages), or the conversation and the persona addressed (the group: Ibiko
+     * coding doesn't make a question to Obi wait as if it were for Ibiko).
+     */
+    private String pageKey() {
+        String id = chats == null || chats.current() == null ? "" : chats.current().id;
+        return groupChat() && stage != null ? id + "#" + stage.agent() : id;
+    }
+
     private boolean thisChatBusy() {
         if (!modelGoing()) {
             return false;
         }
-        String here = chats == null || chats.current() == null ? "" : chats.current().id;
+        String here = pageKey();
         if (runChat != null) {
             return runChat.equals(here);
         }
@@ -945,7 +962,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!modelGoing() || runChat == null || chats == null || chats.current() == null) {
             return false;
         }
-        return !runChat.equals(chats.current().id);
+        return !runChat.equals(pageKey());
     }
 
     private void sendComposer() {
@@ -3458,10 +3475,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!interpreted && !resending && stage != null && prefs.getBoolean("handoff", true)) {
             // a task meant for another persona goes to their page before it is shown anywhere: it is sent there, as if
             // typed there, and the page that got it by mistake keeps nothing of it
-            String owner = ai.dvine.agent.Handoff.owner(text);
+            String mentioned = ai.dvine.agent.Handoff.mentioned(text); // "@Ivie draw a cat": the one named answers
+            String owner = mentioned != null ? mentioned : ai.dvine.agent.Handoff.owner(text);
             if (owner != null && !owner.equals(stage.agent())) {
                 selectPersona(owner);
-                note("Sent to " + labelOf(owner) + ": " + ai.dvine.agent.Handoff.why(owner) + ".");
+                if (!groupChat()) {
+                    note("Sent to " + labelOf(owner) + ": " + ai.dvine.agent.Handoff.why(owner) + ".");
+                }
             }
         }
         if (runningElsewhere()) {
@@ -3470,7 +3490,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 noteUser(text);
             }
             if (chats != null && chats.current() != null) {
-                heldChat.add(new String[] { chats.current().id, text });
+                heldChat.add(new String[] { pageKey(), text });
             }
             // said on this page and kept there, not a notice that fades: the message is waiting, not lost
             String busyWith = runAgent == null ? "Another chat" : labelOf(runAgent);
@@ -3485,7 +3505,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         replacing = true;
         interruptReply();
         replacing = false;
-        runChat = chats == null || chats.current() == null ? null : chats.current().id;
+        runChat = chats == null || chats.current() == null ? null : pageKey();
         runAgent = stage == null ? null : stage.agent();
         if (chats != null && runAgent != null) {
             chats.workOn(runAgent); // its replies, notes and steps go to this page, whatever is on screen when they come
@@ -3625,7 +3645,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(stage.agent(), "I couldn't tell what to share or where."), null);
             return;
         }
-        if (prefs.getBoolean("actions_auto", false)) {
+        if (prefs.getBoolean("actions_auto", false) || autoPost() && p.kind != PendingAction.Kind.COPY) {
             stager.take();
             doAction(p, true); // the user chose auto-approve
             return;
@@ -3902,8 +3922,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 for (int i = 0; i < versions.size(); i++) {
                     shown.append("\n\n**Version ").append(i + 1).append("**\n").append(versions.get(i));
                 }
+                if (autoPost()) {
+                    shown.append("\n\nAuto-post is on, so version 1 is going out now.");
+                }
                 if (chatPane != null) {
                     chatPane.assistant(agent, shown.toString());
+                }
+                if (autoPost()) {
+                    String first = versions.get(0);
+                    String app = platform == ai.dvine.social.Platform.X ? "x" : "facebook";
+                    if (ai.dvine.social.PostDrafts.tooLong(app, first) == null) {
+                        offerOrPost(new PendingAction(PendingAction.Kind.SHARE, first, app, System.currentTimeMillis(), tags, null));
+                        return;
+                    }
                 }
                 pickVersion(platform, versions, tags);
             });
@@ -3918,19 +3949,97 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final android.app.Dialog[] sheet = {null};
         for (int i = 0; i < versions.size(); i++) {
             final String text = versions.get(i);
-            android.view.View row = modelMenu.brainLink("Version " + (i + 1), text, null);
+            String count = ai.dvine.social.PostDrafts.length(platform == ai.dvine.social.Platform.X ? "x" : "facebook", text);
+            android.view.View row = modelMenu.brainLink("Version " + (i + 1) + (count.isEmpty() ? "" : " \u00B7 " + count), text, null);
+            final int n = i + 1;
             row.setOnClickListener(v -> {
                 if (sheet[0] != null) {
                     sheet[0].dismiss();
                 }
-                PendingAction p = new PendingAction(PendingAction.Kind.SHARE, text, platform == ai.dvine.social.Platform.X ? "x" : "facebook",
-                        System.currentTimeMillis(), tags, null);
-                stager.offer(p);
-                showStaged(p);
+                versionChoice(platform, n, text, tags);
             });
             list.addView(row);
         }
         sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(this, "Pick a version", list);
+    }
+
+    /**
+     * The pilot's choice in Social accounts › Posting: posts and comments on their behalf go out without asking each
+     * time. Off (the default): every one waits for their yes.
+     */
+    private boolean autoPost() {
+        return prefs != null && prefs.getBoolean("social_auto", false);
+    }
+
+    /** A post or comment: straight out when auto-post is on, otherwise shown and waiting for the yes. */
+    private void offerOrPost(PendingAction p) {
+        stager.offer(p);
+        if (autoPost()) {
+            stager.take();
+            doAction(p, true);
+            return;
+        }
+        showStaged(p);
+    }
+
+    /** One version picked: post it (after the yes), edit it first, schedule it, or copy it. */
+    private void versionChoice(final ai.dvine.social.Platform platform, int n, final String text, final java.util.List<String> tags) {
+        final String app = platform == ai.dvine.social.Platform.X ? "x" : "facebook";
+        final String tooLong = ai.dvine.social.PostDrafts.tooLong(app, text);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Version " + n)
+                .setMessage(text + (tooLong == null ? "" : "\n\n" + tooLong))
+                .setItems(new String[] {tooLong == null ? "Post it" : "Edit it to fit", "Edit first", "Schedule\u2026", "Copy"}, (d, which) -> {
+                    if (which == 0 && tooLong == null) {
+                        offerOrPost(new PendingAction(PendingAction.Kind.SHARE, text, app, System.currentTimeMillis(), tags, null));
+                    } else if (which <= 1) {
+                        editVersion(platform, text, tags);
+                    } else if (which == 2) {
+                        scheduleVersion(app, text);
+                    } else {
+                        ai.dvine.act.Actions.copy(this, text);
+                        note("Copied.");
+                    }
+                })
+                .show();
+    }
+
+    /** The version in an editor; the edited words then wait for the yes. */
+    private void editVersion(final ai.dvine.social.Platform platform, String text, final java.util.List<String> tags) {
+        final String app = platform == ai.dvine.social.Platform.X ? "x" : "facebook";
+        final android.widget.EditText box = new android.widget.EditText(this);
+        box.setText(text);
+        box.setMinLines(4);
+        box.setGravity(android.view.Gravity.TOP);
+        android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+        wrap.setPadding(dp(20), dp(8), dp(20), 0);
+        wrap.addView(box);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Edit the post")
+                .setView(wrap)
+                .setPositiveButton("Use this", (d, w) -> {
+                    String edited = box.getText().toString().trim();
+                    String tooLong = ai.dvine.social.PostDrafts.tooLong(app, edited);
+                    if (edited.isEmpty() || tooLong != null) {
+                        note(edited.isEmpty() ? "The post is empty." : tooLong);
+                        return;
+                    }
+                    offerOrPost(new PendingAction(PendingAction.Kind.SHARE, edited, app, System.currentTimeMillis(), tags, null));
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** A date and a time for the version, then the usual schedule card (shown, kept on the yes). */
+    private void scheduleVersion(final String app, final String text) {
+        final java.util.Calendar at = java.util.Calendar.getInstance();
+        at.add(java.util.Calendar.HOUR_OF_DAY, 1);
+        new android.app.DatePickerDialog(this, (dp, y, m, day) -> new android.app.TimePickerDialog(this, (tp, h, min) -> {
+            at.set(y, m, day, h, min, 0);
+            String line = app + " " + String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d", y, m + 1, day, h, min) + ": " + text;
+            schedulePost(line);
+        }, at.get(java.util.Calendar.HOUR_OF_DAY), at.get(java.util.Calendar.MINUTE), android.text.format.DateFormat.is24HourFormat(this)).show(),
+                at.get(java.util.Calendar.YEAR), at.get(java.util.Calendar.MONTH), at.get(java.util.Calendar.DAY_OF_MONTH)).show();
     }
 
     /**
@@ -3954,9 +4063,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 PendingAction p = new PendingAction(PendingAction.Kind.COMMENT, text, app, System.currentTimeMillis(), null, link);
-                stager.offer(p);
-                showStaged(p);
-                play(LocalTurn.speakAs(agent, "Here's the comment for that post:\n\n" + text + "\n\nSay yes to post it."), null);
+                play(LocalTurn.speakAs(agent, "Here's the comment for that post:\n\n" + text
+                        + (autoPost() ? "\n\nPosting it now (auto-post is on)." : "\n\nSay yes to post it.")), null);
+                offerOrPost(p);
             });
         }, "dvine-comment").start();
     }
@@ -4388,7 +4497,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 handler.postDelayed(this, 400);
                 return;
             }
-            String here = chats.current().id;
+            String here = pageKey();
             String[] match = null;
             for (String[] h : heldChat) {
                 if (here.equals(h[0])) {
