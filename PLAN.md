@@ -1,3 +1,11 @@
+# Voice, survey readers and posting (0.99.44)
+
+- [x] Dictation keeps what was said before a pause; the mic is the standard icon, red and pulsing while recording.
+- [x] The most natural voice is picked first; online voices and a voice download page in Settings.
+- [x] Several readers survey the code at once in the Blueprint's first phase and write a map.
+- [x] Facebook and X posts go out from the signed-in account after a yes; scheduled ones by themselves.
+- [ ] An on-device neural voice (Piper through sherpa-onnx) for human voices without the internet.
+
 # The Blueprint and a standard shell (0.99.43)
 
 - [x] A real task goes: understand the code, write the blueprint, check it for gaps, build, verify.

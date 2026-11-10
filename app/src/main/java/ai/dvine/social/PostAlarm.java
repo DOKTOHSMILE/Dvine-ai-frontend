@@ -77,7 +77,15 @@ public final class PostAlarm extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context c, Intent intent) {
-        due(c, System.currentTimeMillis());
+        final PendingResult later = goAsync(); // posting waits for the page: off the main thread, the receiver kept alive
+        final Context app = c.getApplicationContext();
+        new Thread(() -> {
+            try {
+                due(app, System.currentTimeMillis());
+            } finally {
+                later.finish();
+            }
+        }, "dvine-post-due").start();
     }
 
     /** Brings back every plan that is due, plans the repeating ones again, and sets the next alarm. */
@@ -88,7 +96,7 @@ public final class PostAlarm extends BroadcastReceiver {
                 keep.add(p);
                 continue;
             }
-            notifyDue(c, p);
+            postOrNotify(c, p);
             PostPlan next = p.next(now, TimeZone.getDefault());
             if (next != null) {
                 keep.add(next);
@@ -96,6 +104,47 @@ public final class PostAlarm extends BroadcastReceiver {
         }
         save(c, keep);
         arm(c);
+    }
+
+    /**
+     * A post that is due: approved when it was scheduled, so DVINE posts it from the signed-in account and says how it
+     * went; when it can't post there itself, the reminder that opens the app with it ready, as before.
+     */
+    static void postOrNotify(Context c, PostPlan p) {
+        Platform net = SocialPoster.direct(p.network);
+        if (net != null && SocialPoster.ready(c, net) && android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            SocialPoster.Result r = SocialPoster.post(c, net, p.text);
+            if (r.posted) {
+                tell(c, p, net.shown + ": " + r.said);
+                return;
+            }
+        }
+        notifyDue(c, p);
+    }
+
+    /** A quiet notification with what happened to a scheduled post. */
+    private static void tell(Context c, PostPlan p, String what) {
+        NotificationManager nm = c.getSystemService(NotificationManager.class);
+        if (nm == null) {
+            return;
+        }
+        if (nm.getNotificationChannel(CHANNEL) == null) {
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "Scheduled posts", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("A post you scheduled is ready to go out");
+            nm.createNotificationChannel(ch);
+        }
+        Notification n = new Notification.Builder(c, CHANNEL)
+                .setSmallIcon(ai.dvine.R.drawable.ic_send)
+                .setContentTitle(what)
+                .setContentText(p.text)
+                .setStyle(new Notification.BigTextStyle().bigText(what + "\n\n" + p.text))
+                .setAutoCancel(true)
+                .build();
+        try {
+            nm.notify(p.id.hashCode(), n);
+        } catch (SecurityException noPermission) {
+            // notifications off: the action log has it
+        }
     }
 
     private static void notifyDue(Context c, PostPlan p) {

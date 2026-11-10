@@ -2166,7 +2166,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Schedule this " + where + " post?")
                 .setMessage(plan.text + "\n\nFirst: " + when + "\nRepeats: " + plan.repeatWords()
-                        + "\n\nWhen it's due, DVINE reminds you and opens " + where + " with it ready; you press post.")
+                        + (ai.dvine.social.SocialPoster.ready(this, ai.dvine.social.SocialPoster.direct(plan.network))
+                                ? "\n\nWhen it's due, DVINE posts it from your signed-in " + where + " account and tells you."
+                                : "\n\nWhen it's due, DVINE reminds you and opens " + where + " with it ready; you press post."))
                 .setPositiveButton("Schedule", (d, w) -> {
                     ai.dvine.social.PostAlarm.add(this, plan);
                     ai.dvine.act.ActionLog.add(getFilesDir(), "schedule", where, "approved", "scheduled", plan.text);
@@ -2637,6 +2639,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             // the final report: room to write all of it, on the strong model
                             return asked(system, transcript, Math.max(12000, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs) * 3),
                                     reportTier);
+                        }
+
+                        @Override
+                        public String askQuiet(String system, String text) {
+                            // a survey reader: its reading is not streamed into the chat, and it stops with the task
+                            return model.task(system, text, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), piece -> alive(id), stepTier);
+                        }
+
+                        @Override
+                        public int readers() {
+                            return model.remoteOn() ? 4 : 1; // the device's own model answers one call at a time
                         }
 
                         /**
@@ -3845,6 +3858,27 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void doAction(PendingAction p, boolean auto) {
         closeStaged();
         if (p == null) {
+            return;
+        }
+        final ai.dvine.social.Platform net = p.kind == PendingAction.Kind.SHARE ? ai.dvine.social.SocialPoster.direct(p.app) : null;
+        if (net != null && ai.dvine.social.SocialPoster.ready(this, net)) {
+            // the pilot said yes: DVINE posts it from their signed-in account, and says only what the network showed
+            final String agent = stage.agent();
+            note("Posting on " + net.shown + "\u2026");
+            new Thread(() -> {
+                ai.dvine.social.SocialPoster.Result r = ai.dvine.social.SocialPoster.post(this, net, p.content);
+                handler.post(() -> {
+                    if (r.posted) {
+                        play(LocalTurn.speakAs(agent, r.said), null);
+                        return;
+                    }
+                    boolean handed = ai.dvine.act.Actions.share(this, p); // couldn't do it here: the app, for the pilot to press Post
+                    ai.dvine.act.ActionLog.add(getFilesDir(), "share", p.appName(), auto ? "auto-approved" : "approved",
+                            handed ? "handed off" : "failed", p.content);
+                    play(LocalTurn.speakAs(agent, r.said + (handed ? " I've opened " + p.appName() + " with it ready; press Post there."
+                            : " Nothing was sent.")), null);
+                });
+            }, "dvine-post").start();
             return;
         }
         boolean ok = p.kind == PendingAction.Kind.COPY ? ai.dvine.act.Actions.copy(this, p.content) : ai.dvine.act.Actions.share(this, p);

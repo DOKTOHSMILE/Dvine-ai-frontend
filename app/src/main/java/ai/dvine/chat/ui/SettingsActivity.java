@@ -104,6 +104,14 @@ public final class SettingsActivity extends AppCompatActivity {
         voice.addView(Ui.text(this, "Speaking speed", 16, Ui.TEXT, false), Ui.wide(this, 14));
         voice.addView(choice(new String[]{"Slower", "Normal", "Faster"}, new String[]{"0.85", "1.0", "1.2"},
                 prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
+        voice.addView(toggle("Natural voices (online)", "Use the device's most human-sounding voices, which need the"
+                + " internet. Off: only voices on the device. Takes effect the next time DVINE opens.", "natural_voices", false, null),
+                Ui.wide(this, 10));
+        android.view.View moreVoices = Ui.button(this, "Download better voices", false);
+        moreVoices.setOnClickListener(v -> ai.dvine.voice.TalkBridge.installVoices(this));
+        voice.addView(moreVoices, Ui.wide(this, 8));
+        voice.addView(Ui.text(this, "Opens the device's voice download page (Google Speech Services): install English (Nigeria),"
+                + " (UK) and (US). DVINE then picks the highest-quality voices it finds.", 13, Ui.SUB, false), Ui.wide(this, 6));
         voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
                 + " no sound but the voice. Takes effect the next time DVINE opens.", "music", false, null), Ui.wide(this, 10));
         voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",

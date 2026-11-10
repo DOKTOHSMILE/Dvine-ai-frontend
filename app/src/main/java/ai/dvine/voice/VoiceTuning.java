@@ -22,11 +22,19 @@ public final class VoiceTuning {
         /** "male", "female", or "" when the engine doesn't say. */
         public final String gender;
 
+        /** The engine's own rating (Android's Voice.QUALITY_*: 500 very high, 400 high, 300 normal, 200 low). */
+        public final int quality;
+
         public Candidate(String name, String country, boolean network, String gender) {
+            this(name, country, network, gender, 300);
+        }
+
+        public Candidate(String name, String country, boolean network, String gender, int quality) {
             this.name = name;
             this.country = country;
             this.network = network;
             this.gender = gender == null ? "" : gender;
+            this.quality = quality;
         }
     }
 
@@ -221,9 +229,18 @@ public final class VoiceTuning {
      * English, then British, then any English.
      */
     public static List<Candidate> rank(List<Candidate> all) {
+        return rank(all, false);
+    }
+
+    /**
+     * The voices best first: the most natural (the engine's quality rating) first, then the accent (Nigerian, other
+     * African, British, any English). {@code natural}: the online voices (the most human-sounding, they need the
+     * internet) may be used too; otherwise only voices on the device.
+     */
+    public static List<Candidate> rank(List<Candidate> all, boolean natural) {
         List<Candidate> out = new ArrayList<Candidate>();
         for (Candidate c : all) {
-            if (!c.network) {
+            if (natural || !c.network) {
                 out.add(c);
             }
         }
@@ -231,11 +248,23 @@ public final class VoiceTuning {
             out.addAll(all);
         }
         Collections.sort(out, (a, b) -> {
+            int qa = band(a.quality), qb = band(b.quality);
+            if (qa != qb) {
+                return qb - qa; // the more natural voice first
+            }
+            if (a.network != b.network) {
+                return a.network ? -1 : 1; // the same rating: the online (neural) one sounds more human
+            }
             int ra = score(a);
             int rb = score(b);
             return ra != rb ? ra - rb : a.name.compareTo(b.name);
         });
         return out;
+    }
+
+    /** Quality in bands, so a small difference in rating doesn't beat the accent: very high, high, the rest. */
+    static int band(int quality) {
+        return quality >= 500 ? 2 : quality >= 400 ? 1 : 0;
     }
 
     /**

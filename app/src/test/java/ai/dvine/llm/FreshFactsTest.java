@@ -35,4 +35,11 @@ public class FreshFactsTest {
         String sys = PersonaPrompt.system(false, "Val", "Tuesday 27 October 2026");
         assertTrue(sys.contains("Today is Tuesday 27 October 2026.") && sys.contains("never argue") && sys.endsWith("/no_think"));
     }
+
+    @Test
+    public void aRequestToWriteIsNotLookedUp() {
+        org.junit.Assert.assertFalse(FreshFacts.worthLooking("Generate a new content about success and post to Facebook"));
+        org.junit.Assert.assertFalse(FreshFacts.worthLooking("write a new caption for my photo"));
+        org.junit.Assert.assertTrue(FreshFacts.worthLooking("who is the current president of Nigeria"));
+    }
 }

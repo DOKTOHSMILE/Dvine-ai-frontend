@@ -44,6 +44,16 @@ public final class CodeAgent {
         default String why() {
             return null;
         }
+
+        /** A call that is not shown in the chat: a survey reader's own reading. */
+        default String askQuiet(String system, String text) {
+            return ask(system, text);
+        }
+
+        /** How many survey readers may ask at once: an API takes several, the device's own model one at a time. */
+        default int readers() {
+            return 1;
+        }
     }
 
     /** What the phone does for the agent. */
@@ -430,7 +440,7 @@ public final class CodeAgent {
             work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
         }
         this.work = work;
-        startBlueprint(task);
+        startBlueprint(task, work);
         String direct = directGit(task);
         if (direct != null) {
             return direct;
@@ -1111,7 +1121,7 @@ public final class CodeAgent {
     private int blueprintNudges;
 
     /** A real task gets a blueprint; one carried on picks up its PLAN.md where it was. */
-    private void startBlueprint(String task) {
+    private void startBlueprint(String task, StringBuilder work) {
         blueprintNudges = 0;
         if (planning || readOnly) {
             blueprint = null; // plan mode has its own rules; reading answers no build
@@ -1136,6 +1146,42 @@ public final class CodeAgent {
         if (line != null) {
             host.step(line);
         }
+        if (kept == null && !host.stopped()) {
+            // understand first: several readers go through the code at once, line by line, and write down what is there
+            File root = projectOf(task);
+            String map = null;
+            try {
+                File keep = new File(workspace, ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()));
+                map = Survey.run(root, keep, task, brain::askQuiet, brain.readers(), host::step);
+            } catch (RuntimeException e) {
+                map = null;
+            }
+            if (map != null) {
+                String rel = ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()) + "/";
+                work.append("\nCodebase map, written by the survey readers (each file read line by line; the notes are in ")
+                        .append(rel).append("). This is what the code is now: use it for '## Found' and '## Reuse',"
+                                + " and read a file yourself only where a note is not enough.\n")
+                        .append(clip(map, Math.max(4000, budgetChars / 3))).append('\n');
+            }
+        }
+    }
+
+    /** The project a task is about: a workspace folder it names, else the whole workspace. */
+    private File projectOf(String task) {
+        File[] in = workspace.listFiles(File::isDirectory);
+        String t = task == null ? "" : task.toLowerCase(Locale.US);
+        if (in != null) {
+            for (File d : in) {
+                String n = d.getName().toLowerCase(Locale.US);
+                if (n.length() > 2 && !n.startsWith(".") && (t.contains(n) || t.contains(n.replace('-', ' ')))) {
+                    return d;
+                }
+            }
+            if (in.length == 1 && !in[0].getName().startsWith(".") && !in[0].getName().equals("sandbox")) {
+                return in[0]; // one project here: that one
+            }
+        }
+        return workspace;
     }
 
     /** The newest PLAN.md in the workspace that is a blueprint, or null. */

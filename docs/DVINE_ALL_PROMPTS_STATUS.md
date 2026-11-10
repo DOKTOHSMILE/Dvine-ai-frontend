@@ -205,6 +205,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 172 | Find the Linux environment I built before this merge and upgrade it: one Linux in the app, not separate ones | P12 | Built (one entry point `LinuxHub.run` for chat, Ibiko, tasks and the Shell screen; Termux removed from the manifest; JVM tests; device check pending) | 0.99.42 |
 | 173 | A map of steps for every task: plan first, understand the task by auditing the codebase, draw a plan, scrutinise it for loopholes, then build fast without circles; user additions go into the plan and it is re-checked; no rewriting code that already exists | P12 | Built (agent/Blueprint, enforced in Ibiko's tool loop; JVM tests; device check pending) | 0.99.43 |
 | 174 | Make the Shell screen standard (screenshot of a standard terminal) | P12 | Built (welcome, ~ $ prompt, two rows of extra keys, long-press copy/paste; device check pending) | 0.99.43 |
+| 175 | Dictation clears old words after a pause; fix the mic icon and the record effect; human-like voices and what to download; the Blueprint with several workers reading the codebase line by line at once and documenting it | P12 | Built (JVM tests; device check pending) | 0.99.44 |
+| 176 | A post to Facebook went to a web search; auto post: post directly from my account on my command | P12 | Built (after the pilot's yes, Facebook and X; device check pending) | 0.99.44 |
 
 ## Still open, in the order that matters
 

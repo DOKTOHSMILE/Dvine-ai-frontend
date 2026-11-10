@@ -176,7 +176,11 @@ public final class TalkBridge extends UtteranceProgressListener {
         words = l;
     }
 
+    /** The online voices (the most human-sounding) may be used: Settings › Voice › Natural voices. */
+    private final boolean natural;
+
     public TalkBridge(Context context) {
+        natural = context.getSharedPreferences("dvine", Context.MODE_PRIVATE).getBoolean("natural_voices", false);
         tts = new TextToSpeech(context.getApplicationContext(), status -> {
             ready = status == TextToSpeech.SUCCESS;
             if (ready) {
@@ -184,6 +188,20 @@ public final class TalkBridge extends UtteranceProgressListener {
             }
         });
         tts.setOnUtteranceProgressListener(this);
+    }
+
+    /** Opens the device's page for downloading voices (Google's voice data: the higher-quality voices). */
+    public static void installVoices(android.app.Activity a) {
+        try {
+            a.startActivity(new android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                    .setPackage("com.google.android.tts"));
+        } catch (RuntimeException noGoogle) {
+            try {
+                a.startActivity(new android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA));
+            } catch (RuntimeException none) {
+                a.startActivity(new android.content.Intent("com.android.settings.TTS_SETTINGS"));
+            }
+        }
     }
 
     /** Restores saved tuning (from preferences); null keeps the defaults. */
@@ -407,9 +425,9 @@ public final class TalkBridge extends UtteranceProgressListener {
             byName.put(v.getName(), v);
             String g = VoiceTuning.genderOf(v.getName(), v.getFeatures());
             genders.put(v.getName(), g);
-            list.add(new VoiceTuning.Candidate(v.getName(), l.getCountry(), v.isNetworkConnectionRequired(), g));
+            list.add(new VoiceTuning.Candidate(v.getName(), l.getCountry(), v.isNetworkConnectionRequired(), g, v.getQuality()));
         }
-        ranked = VoiceTuning.rank(list);
+        ranked = VoiceTuning.rank(list, natural);
         missing = VoiceTuning.missing(ranked);
         String[] picks = VoiceTuning.pick(ranked);
         if (tuning[0].voice == null || !byName.containsKey(tuning[0].voice)) {
