@@ -218,6 +218,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 185 | Tools in the group chat: all tools available, rows to a grid, a small switch top right of each card | P12 | Built (JVM test; device check pending) | 0.99.50 |
 | 186 | Models dispatch multi workers during real work, on command | P12 | Built (`workers` tool, `agent/Squad`; parallel on an API, in turn on the device model; device check pending) | 0.99.50 |
 | 187 | Deep look at the whole UI: every button and widget does and shows what it says | P12 | Partial (static check of switches and buttons, stale texts fixed, hand-off button fixed; not exercised on a device) | 0.99.50 |
+| 188 | When done, compress all reports into one essay-like summary with the process at the top (samples) | P12 | Built (one process row, the answer under it; Ibiko's summary in prose; device check pending) | 0.99.51 |
+| 189 | Tap the text body to show and hide the bottom icons (copy, listen and the rest) | P12 | Built (JVM; device check pending) | 0.99.51 |
+| 190 | DVINE learns without the check being tapped; learns the process behind answers, masters thinking steps, evolves | P12 | Partial (`dvine1/Methods`: ways of reaching answers learned from every reply, strengthened, weakened and dropped; a procedural memory, not model training) | 0.99.51 |
 
 ## Still open, in the order that matters
 

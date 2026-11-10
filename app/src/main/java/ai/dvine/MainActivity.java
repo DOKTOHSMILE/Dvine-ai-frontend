@@ -1449,6 +1449,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public void onWorkSteps(final java.util.List<String> steps) {
+                final String asked = lastAsked;
+                if (asked == null || steps == null || steps.isEmpty()) {
+                    return;
+                }
+                // learned as we go, from every brain's work: how the answer was reached, not only what it was
+                new Thread(() -> dvine1().learnWay(ai.dvine.chat.Attachments.withoutImages(asked)
+                        .replaceAll("(?s)<attachment.*?</attachment>", "").trim(), steps), "dvine-method").start();
+            }
+
+            @Override
             public boolean onReadAloudToggle(String text, String persona) {
                 return readAloudHelper.toggleReading(text, persona);
             }
@@ -2891,7 +2902,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         + " before creating files. If they describe this job, continue them. Do not start a second project."
                         + (already.isEmpty() ? "" : "\n\nAlready done in this project (the Scribe's record of every step)."
                                 + " Do not do these again; build on them:\n" + already)
-                        : task;
+                        : task + dvine1().methods().hint(task).replaceFirst("^ ", "\n\n");
                 if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
                     handler.post(() -> {
                         if (alive(id) && chatPane != null) {
@@ -4787,7 +4798,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final boolean online = prefs.getBoolean("fresh_facts", true) && connectivity != null
                 && connectivity.isOnline();
         armThink("Thinking\u2026", "Thinking\u2026");
-        final String around = situation(ivie);
+        final String around = situation(ivie) + dvine1().methods().hint(question); // and the way that worked before
         hub.worker.execute(() -> {
             String asked = question;
             if (lang != null && alive(id)) {

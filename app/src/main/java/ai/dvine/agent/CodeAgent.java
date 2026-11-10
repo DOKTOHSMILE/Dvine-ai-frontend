@@ -745,12 +745,13 @@ public final class CodeAgent {
      * The shape of the finished answer for long work, like Claude's end-of-task summary: the outcome first, then short
      * sections under bold headings with bullets, and plainly what is left or needs the user.
      */
-    static final String SUMMARY_SHAPE = "Write that final answer as a summary the user can read in one go: first one or two"
-            + " sentences with the outcome (done or not, and the one thing that matters most). Then short sections, each"
-            + " under a bold heading of a few words (**What I found**, **What I changed**, **Checks**, **What's left** or"
-            + " whatever fits), with short bullets: file names, what each change does, what was checked and its result. Say"
-            + " plainly what failed or wasn't done and what you need from the user. No filler, no repeating the steps one by"
-            + " one.\n";
+    static final String SUMMARY_SHAPE = "Write that final answer as ONE summary of the whole job, the only report the user"
+            + " reads (your notes along the way are folded away once you finish): plain flowing paragraphs, like a short essay,"
+            + " not a list of steps and not headings. Open with the outcome in one or two sentences (done or not, and the one"
+            + " thing that matters most). Then say what you found, what you changed and why, naming the files, what you"
+            + " checked and what the check showed, and end with anything that failed, was not done, or that you need from the"
+            + " user. A few bullets are fine only for things that really are a list (files, commands). No filler, and never a"
+            + " replay of the steps one by one.\n";
 
     /** Text without a tool call or <final>: the model is asked, once, which it is. */
     static final String DONE_OR_GO_ON = "You wrote text without a tool call. If the task is finished, give your complete answer"

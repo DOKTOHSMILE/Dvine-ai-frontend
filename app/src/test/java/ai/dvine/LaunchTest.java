@@ -213,7 +213,17 @@ public class LaunchTest {
         android.view.View root = c.get().getWindow().getDecorView();
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
         root.findViewsWithText(found, "Listen to this part", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
-        org.junit.Assert.assertTrue("each part has its own Listen: the note and both paragraphs", found.size() >= 3);
+        // finished: the steps and the note along the way are one process row; the answer's two paragraphs show under it
+        org.junit.Assert.assertEquals("Copy and Listen are out of the way until the reply is tapped", 0, found.size());
+        java.util.ArrayList<android.view.View> said = new java.util.ArrayList<android.view.View>();
+        root.findViewsWithText(said, "I fixed it.", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertFalse(said.isEmpty());
+        said.get(0).performClick();
+        root.findViewsWithText(found, "Listen to this part", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        org.junit.Assert.assertEquals("a tap shows them: each paragraph of the answer has its own Listen", 2, found.size());
+        java.util.ArrayList<android.view.View> process = new java.util.ArrayList<android.view.View>();
+        root.findViewsWithText(process, "open the process", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        org.junit.Assert.assertEquals("one process row for the whole turn", 1, process.size());
         java.util.ArrayList<android.view.View> copies = new java.util.ArrayList<android.view.View>();
         root.findViewsWithText(copies, "Copy", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         org.junit.Assert.assertEquals("one Copy, at the end, for the whole reply", 1, copies.size());

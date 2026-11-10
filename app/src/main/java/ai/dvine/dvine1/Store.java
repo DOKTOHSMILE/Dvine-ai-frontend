@@ -34,6 +34,16 @@ public final class Store {
         return (Knowledge) o;
     }
 
+    public static synchronized Methods methods(File dir) {
+        String k = key(dir, "methods.tsv");
+        Object o = OPEN.get(k);
+        if (o == null) {
+            o = new Methods(new File(dir, "methods.tsv"));
+            OPEN.put(k, o);
+        }
+        return (Methods) o;
+    }
+
     public static synchronized Facts facts(File dir) {
         String k = key(dir, "facts.tsv");
         Object o = OPEN.get(k);
