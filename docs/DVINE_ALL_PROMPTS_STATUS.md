@@ -239,6 +239,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 206 | Check the repo and the user's own changes; keep every document and the README up to date | P12 | Built (0.99.53–0.99.56 recorded; README rewritten; two tests red on main fixed) | 0.99.57 |
 | 207 | Give the AI the ability (a formula) to be premeditative | P12 | Built (`formulas/Foresight` P1–P7: habits of what follows what, the look-before check for every brain, offers never acted on unasked; JVM tests) | 0.99.59 |
 | 208 | Read the requests made while the session was down and implement them | P12 | Built: rows 197, 200 and 205 taken further in 0.99.60; the rest of that batch was already built (198–206) | 0.99.60 |
+| 209 | Audit the chat screen UI/UX: two tools buttons, remake the Tools sheet, remake buttons, solidify the design | P12 | Built (renders checked night and day; one tools button; Tools sheet remade; header, logo and mode pill fixed; JVM tests) | 0.99.61 |
+| 210 | Give the AI a formula to learn from its own interactions and responses | P12 | Built (`formulas/Reflection` R1–R7; JVM tests) | 0.99.61 |
 
 ## Still open, in the order that matters
 

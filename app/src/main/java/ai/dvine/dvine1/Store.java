@@ -34,6 +34,16 @@ public final class Store {
         return (Knowledge) o;
     }
 
+    public static synchronized ai.dvine.dvine1.formulas.Reflection reflection(File dir) {
+        String k = key(dir, "reflection.tsv");
+        Object o = OPEN.get(k);
+        if (o == null) {
+            o = new ai.dvine.dvine1.formulas.Reflection(new File(dir, "reflection.tsv"));
+            OPEN.put(k, o);
+        }
+        return (ai.dvine.dvine1.formulas.Reflection) o;
+    }
+
     public static synchronized ai.dvine.dvine1.formulas.Foresight foresight(File dir) {
         String k = key(dir, "foresight.tsv");
         Object o = OPEN.get(k);

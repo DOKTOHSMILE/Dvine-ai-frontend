@@ -1,3 +1,8 @@
+# Learning from its own replies; the chat screen remade (0.99.61)
+
+- [x] The Reflection formula: every reply judged by what comes next; lessons and taste go with the next request.
+- [x] One tools button; the Tools sheet remade; header, logo and mode pill fixed.
+
 # The hands for writing; population (0.99.60)
 
 - [x] Long pieces written a section a writer, at once, on an API.

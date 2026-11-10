@@ -17,17 +17,17 @@ import java.util.Set;
 public final class ChatTools {
     /** A tool a chat can switch on or off. */
     public enum Tool {
-        GITHUB("GitHub", "Work on the repositories you choose", null),
-        SHELL("Commands on this device", "Open the shell", FunctionCode.SH),
-        WEB("Web search", "Look things up on the web", FunctionCode.SR),
-        CONNECTORS("Connectors", "Gmail, docs, calendar, Notion and others you connected", FunctionCode.TL),
-        PHOTOS("Photos", "Show real photographs", FunctionCode.PH),
-        DESIGN3D("3D design", "Model things in 3D", FunctionCode.BD),
-        FILES("Make files", "PDF, Word, spreadsheets and more", FunctionCode.MF),
-        SHARE("Share, post or copy", "Through the device's apps (you approve each)", FunctionCode.AC),
-        SOCIAL("Social accounts", "Search, trending, posts now or scheduled, and replies you approve", FunctionCode.SO),
-        WORKERS("Workers", "Split a big job among several workers at once", null),
-        DEEP("Deep thinking", "Plan, draft, check and revise before answering (slower, more calls)", null);
+        GITHUB("GitHub", "Clone, change and push your repositories", null),
+        SHELL("Linux shell", "Run commands on this device", FunctionCode.SH),
+        WEB("Web search", "Look up news, prices, anything recent", FunctionCode.SR),
+        CONNECTORS("Connectors", "Gmail, calendar, Notion and more", FunctionCode.TL),
+        PHOTOS("Photos", "Find and show real photographs", FunctionCode.PH),
+        DESIGN3D("3D design", "Model and change things in 3D", FunctionCode.BD),
+        FILES("Make files", "PDF, Word, sheets, web pages", FunctionCode.MF),
+        SHARE("Share and copy", "Through your apps, after your yes", FunctionCode.AC),
+        SOCIAL("Social accounts", "Trends, posts, comments, schedules", FunctionCode.SO),
+        WORKERS("Workers", "Split big jobs to run at once", null),
+        DEEP("Deep thinking", "Plan, check and revise first (slower)", null);
 
         public final String title, about;
         /** The function the tool opens, or null when it isn't a single code (GitHub, deep thinking). */

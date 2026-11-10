@@ -253,7 +253,8 @@ public class ScreenshotTest {
         org.junit.Assert.assertSame(c.get().findViewById(ai.dvine.R.id.btn_attach).getParent(),
                 c.get().findViewById(ai.dvine.R.id.tabIbiko).getParent().getParent());
         org.junit.Assert.assertSame(c.get().findViewById(ai.dvine.R.id.chatHeader), c.get().findViewById(ai.dvine.R.id.ibikoMode).getParent());
-        org.junit.Assert.assertEquals(android.view.View.VISIBLE, c.get().findViewById(ai.dvine.R.id.ibikoMode).getVisibility());
+        // the mode pill shows in the header only while an agent job runs; otherwise it is in the Tools sheet
+        org.junit.Assert.assertEquals(android.view.View.GONE, c.get().findViewById(ai.dvine.R.id.ibikoMode).getVisibility());
         shoot(c.get(), "15_work_chips_night");
         persona.invoke(c.get(), "ivie");
 
@@ -397,6 +398,39 @@ public class ScreenshotTest {
         ShadowLooper.idleMainLooper();
         assertTrue("the message box is back under the chat", composer.getParent() == root);
         assertTrue(a.findViewById(ai.dvine.R.id.chatHeader).getVisibility() == android.view.View.VISIBLE);
+        c.pause().stop().destroy();
+    }
+
+    /** The Tools sheet, at night and by day. */
+    @Test(timeout = 180000)
+    @Config(sdk = 35, qualifiers = "w411dp-h891dp-night-xxhdpi")
+    public void rendersTheToolsSheetAtNight() throws Exception {
+        toolsSheet("20_tools_sheet_night");
+    }
+
+    @Test(timeout = 180000)
+    public void rendersTheToolsSheetByDay() throws Exception {
+        toolsSheet("21_tools_sheet");
+    }
+
+    private static void toolsSheet(String name) throws Exception {
+        OUT.mkdirs();
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        c.get().findViewById(ai.dvine.R.id.chip_tools).performClick();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.view.View sv = sheet.getWindow().getDecorView();
+        int w = 1080;
+        sv.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(2340, android.view.View.MeasureSpec.EXACTLY));
+        sv.layout(0, 0, w, 2340);
+        android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(w, 2340, android.graphics.Bitmap.Config.ARGB_8888);
+        sv.draw(new android.graphics.Canvas(bmp));
+        try (FileOutputStream o = new FileOutputStream(new File(OUT, name + ".png"))) {
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o);
+        }
+        sheet.dismiss();
         c.pause().stop().destroy();
     }
 
