@@ -27,6 +27,9 @@ public final class LinuxRoot {
             "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/aarch64/alpine-minirootfs-3.22.5-aarch64.tar.gz";
     public static final String PROOT_URL =
             "https://skirsten.github.io/proot-portable-android-binaries/aarch64/proot";
+    /** What each download must be, byte for byte (SHA-256). A changed or tampered file is refused. */
+    static final String ROOTFS_SHA256 = "3fbc6285032ed46821b511292633d7b2a6306a2e254f590e92bdafff56cf2f70";
+    static final String PROOT_SHA256 = "c902f35b3bce4013d2e78e3bf360b606523d55ab7b907578938577b243bfca38";
     private static final byte[] ELF = new byte[] {0x7f, 'E', 'L', 'F'};
 
     public interface Progress {
@@ -75,7 +78,7 @@ public final class LinuxRoot {
         ensureProot(c, progress);
         File gz = new File(c.getCacheDir(), "alpine-minirootfs.tar.gz");
         say(progress, "Downloading Alpine Linux…");
-        download(ROOTFS_URL, gz, progress);
+        download(ROOTFS_URL, gz, progress, ROOTFS_SHA256);
         if (rootfs.exists()) {
             deleteTree(rootfs);
         }
@@ -168,7 +171,7 @@ public final class LinuxRoot {
         File dir = new File(c.getFilesDir(), "linux");
         dir.mkdirs();
         File to = new File(dir, "libproot.so");
-        download(PROOT_URL, to, null);
+        download(PROOT_URL, to, null, PROOT_SHA256);
         to.setExecutable(true, false);
         carveIfNeeded(c, to);
     }
@@ -210,7 +213,26 @@ public final class LinuxRoot {
         return -1;
     }
 
-    private static void download(String url, File to, Progress progress) throws IOException {
+    /** The SHA-256 of a file, as lowercase hex. */
+    static String sha256(File f) throws IOException {
+        try (InputStream in = new FileInputStream(f)) {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                md.update(buf, 0, n);
+            }
+            StringBuilder b = new StringBuilder();
+            for (byte x : md.digest()) {
+                b.append(String.format(java.util.Locale.US, "%02x", x & 0xff));
+            }
+            return b.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IOException(e);
+        }
+    }
+
+    private static void download(String url, File to, Progress progress, String sha256) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         conn.setConnectTimeout(20000);
         conn.setReadTimeout(120000);
@@ -241,6 +263,12 @@ public final class LinuxRoot {
             }
         } finally {
             conn.disconnect();
+        }
+        String got = sha256(tmp);
+        if (!got.equals(sha256)) {
+            tmp.delete();
+            throw new IOException("The download of " + to.getName() + " was not the expected file (checksum " + got.substring(0, 12)
+                    + "…). Nothing was installed. Try again on another network.");
         }
         if (to.exists() && !to.delete()) {
             throw new IOException("Couldn't replace " + to.getName());

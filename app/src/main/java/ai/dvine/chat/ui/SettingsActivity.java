@@ -442,8 +442,8 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             int n;
             try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
-                n = ai.dvine.dvine1.Training.write(o, new ai.dvine.dvine1.Knowledge(new java.io.File(dir, "knowledge.tsv")),
-                        new ai.dvine.dvine1.Facts(new java.io.File(dir, "facts.tsv")), new ai.dvine.dvine1.Lexicon(new java.io.File(dir, "words.tsv")));
+                n = ai.dvine.dvine1.Training.write(o, ai.dvine.dvine1.Store.knowledge(dir),
+                        ai.dvine.dvine1.Store.facts(dir), ai.dvine.dvine1.Store.lexicon(dir));
             }
             said = n == 0 ? "Nothing learned yet." : "Saved " + n + " examples to Downloads/DVINE/" + name;
         } catch (java.io.IOException | RuntimeException e) {

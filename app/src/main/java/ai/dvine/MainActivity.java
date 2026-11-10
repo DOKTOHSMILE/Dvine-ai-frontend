@@ -625,6 +625,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (chats != null) {
                 chats.forPersona(persona);
             }
+            refreshSend(); // Stop belongs to the page that is working; another page shows Send
+            handler.post(releaseHeld); // a message that waited on this page goes out if nothing is running now
         }
 
         @Override
@@ -920,12 +922,23 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private final java.util.ArrayDeque<String[]> heldChat = new java.util.ArrayDeque<String[]>();
     private boolean replacing;
 
+    private static String labelOf(String persona) {
+        return persona == null || persona.isEmpty() ? "DVINE" : Character.toUpperCase(persona.charAt(0)) + persona.substring(1);
+    }
+
+    /** The persona whose page the current run belongs to. */
+    private String runAgent;
+
     private boolean thisChatBusy() {
         if (!modelGoing()) {
             return false;
         }
         String here = chats == null || chats.current() == null ? "" : chats.current().id;
-        return runChat == null || runChat.equals(here);
+        if (runChat != null) {
+            return runChat.equals(here);
+        }
+        // work that did not start from a message here (an agent's job): busy only on the page it writes to
+        return chats == null || runAgent == null || chats.onScreen(runAgent);
     }
 
     private boolean runningElsewhere() {
@@ -1890,7 +1903,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void askTheBrain(String question) {
         boxBefore = actedFromBox; // only the very next message can say the brain got it wrong
         actedFromBox = null;
-        lastAsked = question;
+        if (!isRetry(question)) {
+            lastAsked = question; // "try again" is never what a retry asks again: that would ask itself forever
+        }
         brainAsked = question; // as said: "carry on" is read as the agent's own work going on
         String bare = question.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
         boolean carryOnWords = bare.matches("^(continue|go on|carry on|again|keep going)$");
@@ -2245,7 +2260,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** What the pilot has said about themselves, kept on the device and told to every brain. */
     private synchronized ai.dvine.learn.PilotProfile pilotProfile() {
         if (pilotProfile == null) {
-            pilotProfile = new ai.dvine.learn.PilotProfile(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
+            pilotProfile = ai.dvine.learn.PilotProfile.at(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
         }
         return pilotProfile;
     }
@@ -2781,6 +2796,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             handler.post(() -> {
                 model.coding = false;
+                handler.post(releaseHeld); // a message held while Ibiko worked goes now, even if this page moved on
+                refreshSend();
                 if (!alive(id) || isFinishing()) {
                     return;
                 }
@@ -3410,6 +3427,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (chats != null && chats.current() != null) {
                 heldChat.add(new String[] { chats.current().id, text });
             }
+            // said on this page and kept there, not a notice that fades: the message is waiting, not lost
+            String busyWith = runAgent == null ? "Another chat" : labelOf(runAgent);
+            chats.noteHere(stage == null ? null : stage.agent(), "Waiting: " + busyWith + " is still working in another chat. Your message goes out"
+                    + " the moment that finishes. Tap Stop there to end it sooner.");
+            if (chatPane != null) {
+                chatPane.show();
+            }
             note("Sent. This chat answers when the other one finishes.");
             return;
         }
@@ -3417,6 +3441,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         interruptReply();
         replacing = false;
         runChat = chats == null || chats.current() == null ? null : chats.current().id;
+        runAgent = stage == null ? null : stage.agent();
+        if (chats != null && runAgent != null) {
+            chats.workOn(runAgent); // its replies, notes and steps go to this page, whatever is on screen when they come
+        }
+        if (chatPane != null) {
+            chatPane.workFor(runAgent);
+        }
         // a new message ends reading an old reply aloud
         readAloudHelper.stop();
         fromBrain = interpreted;
@@ -3968,31 +3999,31 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
+    /** "Retry", "try again", "ask that again": words that ask for the message before them, never asked again themselves. */
+    static boolean isRetry(String text) {
+        String t = text == null ? "" : text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        return t.matches("^(?:please )?(retry|try (that )?again|again|redo|regenerate|ask (that )?again|one more time)( please)?$");
+    }
+
     /**
      * "Retry", "try again": the user's last message before this one is asked again, as it was (with any file it
      * carried), instead of being read as a new request.
      */
     private void retryLast() {
-        if (lastAsked != null && !lastAsked.trim().isEmpty()) {
+        if (lastAsked != null && !lastAsked.trim().isEmpty() && !isRetry(lastAsked)) {
             String shown = ai.dvine.chat.Attachments.withoutImages(lastAsked).replaceAll("(?s)<attachment.*?</attachment>", "").trim();
             askTheBrain(lastAsked); // the whole question, with the file it carried
             return;
         }
         java.util.List<ai.dvine.chat.ChatBook.Message> msgs = chats == null ? new java.util.ArrayList<ai.dvine.chat.ChatBook.Message>()
                 : chats.current().messages;
-        boolean skippedThis = false;
         for (int i = msgs.size() - 1; i >= 0; i--) {
             ai.dvine.chat.ChatBook.Message m = msgs.get(i);
             if (!"user".equals(m.role) || !"text".equals(m.kind) || m.body == null) {
                 continue;
             }
-            String t = m.body.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
-            if (!skippedThis && t.matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
-                skippedThis = true; // the "retry" itself
-                continue;
-            }
-            if (ai.dvine.turn.Meaning.Command.RETRY == meanings().get(m.body)) {
-                continue;
+            if (isRetry(m.body) || ai.dvine.turn.Meaning.Command.RETRY == meanings().get(m.body)) {
+                continue; // every "retry" is passed over, not only the newest
             }
             askTheBrain(m.body);
             return;
@@ -4765,7 +4796,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
             String face = stage.agent();
-            sub.setText(face.substring(0, 1).toUpperCase() + face.substring(1) + " · " + brainLabel());
+            sub.setText(face.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + face.substring(1) + " · " + brainLabel());
         }
     }
 

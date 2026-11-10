@@ -167,4 +167,29 @@ public class ChatBookTest {
         org.junit.Assert.assertEquals("Obi's answer", obi.messages.get(obi.messages.size() - 1).body);
         org.junit.Assert.assertTrue(ivie.messages.isEmpty());
     }
+
+    @Test
+    public void workWritesToThePageItWasAskedOnWhateverIsOnScreen() throws Exception {
+        File dir = java.nio.file.Files.createTempDirectory("pages").toFile();
+        ChatBook book = new ChatBook(new File(dir, "chats.json"));
+        ChatBook.Section ibikoA = book.forPersona("ibiko");
+        book.add("user", "text", "Update the frontend", "ibiko");
+        book.workOn("ibiko"); // Ibiko starts work on this page
+        // the user opens another conversation and Obi's page there, while Ibiko keeps working
+        ChatBook.Section obiB = book.freshForAll("obi");
+        book.add("user", "text", "Write a post", "obi");
+        book.workOn("obi");
+        book.add("assistant", "activity", "3\nRan 2 commands", "ibiko");
+        book.reply("ibiko", "The handbook has an old merge.");
+        book.reply("obi", "What should the post be about?");
+        assertEquals("the page on screen is Obi's in the new chat", obiB, book.current());
+        assertEquals(2, obiB.messages.size());
+        assertEquals("What should the post be about?", obiB.messages.get(1).body);
+        assertEquals(3, ibikoA.messages.size());
+        assertEquals("The handbook has an old merge.", ibikoA.messages.get(2).body);
+        assertTrue(book.onScreen("obi"));
+        org.junit.Assert.assertFalse(book.onScreen("ibiko"));
+        book.noteHere("obi", "Waiting");
+        assertEquals("Waiting", obiB.messages.get(2).body);
+    }
 }

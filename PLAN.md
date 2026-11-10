@@ -1,3 +1,11 @@
+# Audit fixes (0.99.41)
+
+- [x] A job's replies, notes and steps go to the page it was asked on, never to another chat or page.
+- [x] "Try again" asks the message before it once; it never asks itself.
+- [x] Stop shows only on the page that is working; a held message is sent when the other work ends, and says it is waiting.
+- [ ] Pages run their jobs in parallel (needs the MainActivity split, #73).
+- [ ] Remove the Termux path and the 18 unused classes.
+
 # A real terminal (0.99.40)
 
 - [x] The shell is a terminal device: every key goes to Alpine; vi, nano, top, htop and less draw full screens; CTRL-C and CTRL-Z reach the program.

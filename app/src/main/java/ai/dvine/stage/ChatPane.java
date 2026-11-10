@@ -252,11 +252,11 @@ public final class ChatPane extends LinearLayout {
         title(cur);
         thinkingRow = null;
         liveRow = null;
-        if (working()) {
+        if (working() && workHere()) {
             thinkingRow = activityBlock();
             thread.addView(thinkingRow);
         }
-        if (liveText != null) {
+        if (liveText != null && workHere()) {
             liveRow = liveView(liveText.substring(0, Math.max(0, Math.min(liveShown, liveText.length()))));
             thread.addView(liveRow);
         }
@@ -328,6 +328,24 @@ public final class ChatPane extends LinearLayout {
 
     private boolean working() {
         return thinkingText != null || !steps.isEmpty();
+    }
+
+    /** The persona whose work the live steps belong to (set when the work starts on its page). */
+    private String workPersona;
+
+    /** The work starting now belongs to {@code persona}'s page, the one on screen. */
+    public void workFor(String persona) {
+        workPersona = persona;
+    }
+
+    /** The persona the work in progress writes as, or the page on screen when nothing is working. */
+    private String writer() {
+        return workPersona != null && working() ? workPersona : book.current().persona;
+    }
+
+    /** The work in progress belongs to the page on screen: only then are its live steps drawn here. */
+    private boolean workHere() {
+        return workPersona == null || book.onScreen(workPersona);
     }
 
     /**
@@ -412,7 +430,7 @@ public final class ChatPane extends LinearLayout {
         for (int i = kept; i < timed.size(); i++) {
             body.append(timed.get(i).replace('\n', ' ')).append('\n'); // each with its time after a tab
         }
-        book.add("assistant", "activity", body.toString().trim(), book.current().persona);
+        book.add("assistant", "activity", body.toString().trim(), writer()); // on the page the work was asked on
         kept = steps.size();
     }
 
@@ -422,7 +440,7 @@ public final class ChatPane extends LinearLayout {
             thread.removeViewAt(at);
         }
         thinkingRow = null;
-        if (working()) {
+        if (working() && workHere()) {
             thinkingRow = activityBlock();
             int liveAt = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
             thread.addView(thinkingRow, at >= 0 ? at : liveAt >= 0 ? liveAt : thread.getChildCount());
@@ -1181,6 +1199,9 @@ public final class ChatPane extends LinearLayout {
     }
 
     private void renderLive(String shown) {
+        if (shown != null && !workHere()) {
+            shown = null; // the reply being written belongs to another page: it is not drawn on this one
+        }
         if (shown != null && shown.length() > LIVE_TAIL) {
             shown = liveTail(shown);
         }
@@ -1539,13 +1560,13 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void image(String path) {
-        book.add("assistant", "image", path, book.current().persona);
+        book.add("assistant", "image", path, writer());
         show();
     }
 
     /** Keeps a reply's work (its id in files/work) with the chat; the reply shows it as pills. */
     public void work(String id) {
-        book.add("assistant", "work", id, book.current().persona);
+        book.add("assistant", "work", id, writer());
         show();
     }
 
@@ -1572,7 +1593,7 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void video(String path) {
-        book.add("assistant", "video", path, book.current().persona);
+        book.add("assistant", "video", path, writer());
         show();
     }
 
@@ -2127,7 +2148,7 @@ public final class ChatPane extends LinearLayout {
         if (persona == null || persona.isEmpty()) {
             return "Obi";
         }
-        return persona.substring(0, 1).toUpperCase() + persona.substring(1);
+        return persona.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + persona.substring(1);
     }
 
     private TextView plain(String text) {

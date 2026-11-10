@@ -832,11 +832,11 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         if (huntQuery == null) {
-            huntQuery = input.getText().toString().toLowerCase();
+            huntQuery = input.getText().toString().toLowerCase(java.util.Locale.ROOT);
             huntFrom = history.size();
         }
         for (int i = huntFrom - 1; i >= 0; i--) {
-            if (huntQuery.isEmpty() || history.get(i).toLowerCase().contains(huntQuery)) {
+            if (huntQuery.isEmpty() || history.get(i).toLowerCase(java.util.Locale.ROOT).contains(huntQuery)) {
                 huntFrom = i;
                 editing = true;
                 input.setText(history.get(i));
@@ -853,11 +853,11 @@ public final class TerminalActivity extends AppCompatActivity {
         if (transcript == null || transcript.getLayout() == null) {
             return;
         }
-        String query = input.getText().toString().trim().toLowerCase();
+        String query = input.getText().toString().trim().toLowerCase(java.util.Locale.ROOT);
         if (query.isEmpty()) {
             return;
         }
-        String all = transcript.getText().toString().toLowerCase();
+        String all = transcript.getText().toString().toLowerCase(java.util.Locale.ROOT);
         int at = all.indexOf(query, findFrom);
         if (at < 0) {
             at = all.indexOf(query);

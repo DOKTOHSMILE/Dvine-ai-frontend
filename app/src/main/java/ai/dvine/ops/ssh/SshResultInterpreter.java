@@ -17,7 +17,7 @@ public final class SshResultInterpreter {
     }
 
     public Finding logs(String text) {
-        String low = text == null ? "" : text.toLowerCase();
+        String low = text == null ? "" : text.toLowerCase(java.util.Locale.ROOT);
         if (low.contains("connection timed out") || low.contains("timeout")) {
             boolean db = low.contains("database") || low.contains("jdbc") || low.contains("sql");
             if (db) {

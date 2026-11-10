@@ -118,21 +118,21 @@ public final class Dvine1 {
 
     public synchronized Knowledge knowledge() {
         if (knowledge == null) {
-            knowledge = new Knowledge(new File(dir, "knowledge.tsv"));
+            knowledge = Store.knowledge(dir);
         }
         return knowledge;
     }
 
     public synchronized Facts facts() {
         if (facts == null) {
-            facts = new Facts(new File(dir, "facts.tsv"));
+            facts = Store.facts(dir);
         }
         return facts;
     }
 
     public synchronized Lexicon lexicon() {
         if (lexicon == null) {
-            lexicon = new Lexicon(new File(dir, "words.tsv"));
+            lexicon = Store.lexicon(dir);
         }
         return lexicon;
     }
@@ -140,7 +140,7 @@ public final class Dvine1 {
     /** The independent learner: grammar, sentence shapes, the pilot's word on answers, open questions, the score. */
     public synchronized Learner learner() {
         if (learner == null) {
-            learner = new Learner(dir, facts(), lexicon());
+            learner = Store.learner(dir);
         }
         return learner;
     }
@@ -148,7 +148,7 @@ public final class Dvine1 {
     /** The learning score line, read from the files (for screens that don't hold DVINE 1). */
     public static String scoreLine(File filesDir) {
         File d = new File(filesDir, "brain");
-        return new Learner(d, new Facts(new File(d, "facts.tsv")), new Lexicon(new File(d, "words.tsv"))).scoreLine();
+        return Store.learner(d).scoreLine();
     }
 
     /** One of the pilot's messages, to any brain: it may judge DVINE 1's last answer, and it is read for language. */
