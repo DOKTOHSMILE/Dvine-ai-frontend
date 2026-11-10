@@ -76,7 +76,9 @@ public final class MessageParts {
                 code = "";
             }
             code = trimBlankLines(code);
-            if (!code.isEmpty()) {
+            if (!code.isEmpty() && ai.dvine.linux.CloneFolder.mostlyProgress(code)) {
+                addProse(out, ai.dvine.linux.CloneFolder.quiet(code));
+            } else if (!code.isEmpty()) {
                 String kind = htmlLanguage(lang) || looksLikeDocument(code) ? "html" : "code";
                 out.add(new Part(kind, code, CodeLanguage.of(lang, code))); // named, or read from the code itself
             }

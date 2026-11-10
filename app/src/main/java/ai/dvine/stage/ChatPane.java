@@ -158,11 +158,23 @@ public final class ChatPane extends LinearLayout {
         if (from > 0) {
             thread.addView(earlier(from));
         }
+        // a message sent while a reply is still being written is drawn under that reply, not above it
+        int drawUntil = cur.messages.size();
+        if ((working() || liveText != null) && workHere() && drawUntil > from) {
+            int cut = drawUntil;
+            ChatBook.Message tail = cur.messages.get(cut - 1);
+            if ("assistant".equals(tail.role) && tail.body != null && tail.body.startsWith("Sent \u2014")) {
+                cut--;
+            }
+            if (cut > from && "user".equals(cur.messages.get(cut - 1).role)) {
+                drawUntil = cut - 1;
+            }
+        }
         final int[] foldTo = folds(cur.messages, from, working());
         turnParts.clear();
         turnBars.clear();
         openGroup = null;
-        for (int i = from; i < cur.messages.size(); i++) {
+        for (int i = from; i < drawUntil; i++) {
             ChatBook.Message m = cur.messages.get(i);
             if (foldTo[i] >= 0) {
                 // a finished turn: its whole process (steps and the notes along the way) is one row at the top, and
@@ -301,6 +313,9 @@ public final class ChatPane extends LinearLayout {
         if (liveText != null && workHere()) {
             liveRow = liveView(liveText.substring(0, Math.max(0, Math.min(liveShown, liveText.length()))));
             thread.addView(liveRow);
+        }
+        for (int i = drawUntil; i < cur.messages.size(); i++) {
+            thread.addView(bubble(cur.messages.get(i)));
         }
         boolean noMessages = cur.messages.isEmpty() && !working() && liveText == null;
         View empty = ((Activity) getContext()).findViewById(R.id.emptyChatHint);

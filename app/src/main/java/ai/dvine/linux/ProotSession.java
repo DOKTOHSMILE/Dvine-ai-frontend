@@ -44,7 +44,7 @@ public final class ProotSession {
         File tmp = new File(c.getCacheDir(), "proot-tmp");
         tmp.mkdirs();
         File linux = new File(c.getFilesDir(), "linux");
-        new File(c.getFilesDir(), "ibiko").mkdirs();
+        new File(c.getFilesDir(), "ibiko/memory/projects").mkdirs();
         List<String> cmd = ProotCommand.line(proot, rootfs, linux);
         ProcessBuilder pb = builder(c, cmd, tmp);
         pb.redirectErrorStream(true);

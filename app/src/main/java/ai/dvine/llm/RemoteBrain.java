@@ -801,12 +801,22 @@ public final class RemoteBrain {
         if (used == null && out > 0) {
             used = new Used(-1, out);
         }
-        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
-            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
+        if (all.length() == 0 || (ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty() && !toolCall(all.toString()))) {
+            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer.
+            // a tool call is an answer: the agent runs it. Stripping it used to end the turn with "no answer".
             problem = "the server sent no answer";
             return null;
         }
         return all.toString();
+    }
+
+    /** True when the text is a tool call the agent can run, not an empty reply. */
+    static boolean toolCall(String text) {
+        if (text == null) {
+            return false;
+        }
+        String t = text.toLowerCase(java.util.Locale.US);
+        return t.contains("<tool") || t.contains("<function") || t.contains("<invoke") || t.contains("\"tool_calls\"");
     }
 
     /**
@@ -868,7 +878,7 @@ public final class RemoteBrain {
             problem = "the model declined to answer that";
             return null;
         }
-        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
+        if (all.length() == 0 || (ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty() && !toolCall(all.toString()))) {
             // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
             problem = "the server sent no answer";
             return null;

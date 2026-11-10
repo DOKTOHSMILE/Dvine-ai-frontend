@@ -446,7 +446,7 @@ public final class CodeAgent {
                         + " ordinary talk, a question about the world, research or a report is Obi's; a story, a script, a drawing or a"
                         + " design is Ivie's. They answer it instead of you. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
-                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
+                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into memory/projects/, the folder the workspace screen shows)\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
                         + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the device; writes no file)\n"
                         + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the device; overlapping edits stay as conflicts)\n"
@@ -1525,7 +1525,10 @@ public final class CodeAgent {
         switch (action) {
             case "clone": {
                 String repo = c.a("repo");
-                String folder = c.a("path").isEmpty() ? repo.replaceAll("(\\.git)?/*$", "").replaceAll(".*/", "") : c.a("path");
+                String name = repo.replaceAll("(\\.git)?/*$", "").replaceAll(".*/", "");
+                String folder = c.a("path").isEmpty() ? "memory/projects/" + name
+                        : c.a("path").startsWith("memory/projects") ? c.a("path")
+                        : "memory/projects/" + name;
                 host.step("Cloning " + clip(repo, 60));
                 return git.clone(repo, c.a("branch"), inside(folder));
             }

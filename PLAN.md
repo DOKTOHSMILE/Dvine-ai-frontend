@@ -1,3 +1,10 @@
+# Clones land in the workspace (0.99.53)
+
+- [x] `git clone` writes into `memory/projects/`, the folder the workspace screen shows, not Linux's home.
+- [x] The clone's "Counting objects" log is one line, not a code view.
+- [x] A message sent while a reply is still being written appears under that reply, not above it.
+- [x] A reply that is only a tool call is run, not thrown away as "the server sent no answer".
+
 # An audit reads the files (0.99.52)
 
 - [x] An audit is done by the coding agent, which can open files. It is no longer a plan that prints the tool call and then says the step could not be done.
