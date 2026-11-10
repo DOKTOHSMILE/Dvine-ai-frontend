@@ -1,3 +1,8 @@
+# The speaker hum (0.99.64)
+
+- [x] No audio stream opened unless something is playing; closed, not paused, when it stops.
+- [ ] Confirm on the pilot's device with a connected speaker.
+
 # Question everything (0.99.63)
 
 - [x] Truth G8: every sentence learned and every reply asked "true or false?"; false is not learned and is corrected.

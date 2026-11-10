@@ -39,47 +39,52 @@ public final class AmbientPad implements Runnable {
         target = Math.max(0f, Math.min(1f, level));
     }
 
+    /**
+     * Starts the pad's thread; no audio stream is opened here. With the pad off (the default) nothing starts at all,
+     * and even when it is on, the stream exists only while the pad is sounding: an open stream, even a paused or silent
+     * one, keeps the device's audio amplifier powered, and under the model's load that carries an electrical hum to
+     * the loudspeaker or a connected speaker.
+     */
     public synchronized void start() {
-        if (running) {
+        if (running || !enabled) {
             return;
         }
-        int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-        if (min <= 0) {
-            min = RATE * 4; // one second of stereo 16-bit audio
-        }
-        try {
-            open(min);
-        } catch (RuntimeException refused) {
-            // the music is a nicety: if the phone refuses audio, carry on silently
-            track = null;
-            running = false;
-        }
-    }
-
-    private void open(int min) {
-        track = new AudioTrack.Builder()
-                .setAudioAttributes(new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-                .setAudioFormat(new AudioFormat.Builder().setSampleRate(RATE)
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
-                .setBufferSizeInBytes(Math.max(min, RATE * 2))
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .build();
         running = true;
-        track.play();
         thread = new Thread(this, "dvine-ambient");
         thread.setPriority(Thread.MIN_PRIORITY);
         thread.start();
     }
 
-    public synchronized void stop() {
-        running = false;
-        if (thread != null) {
-            thread.interrupt();
-            thread = null;
+    /** Whether an audio stream is open now (tests). */
+    public boolean streamOpen() {
+        return track != null;
+    }
+
+    private synchronized AudioTrack open() {
+        int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        if (min <= 0) {
+            min = RATE * 4; // one second of stereo 16-bit audio
         }
+        try {
+            track = new AudioTrack.Builder()
+                    .setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                    .setAudioFormat(new AudioFormat.Builder().setSampleRate(RATE)
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
+                    .setBufferSizeInBytes(Math.max(min, RATE * 2))
+                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .build();
+            track.play();
+        } catch (RuntimeException refused) {
+            close(); // the music is a nicety: if the device refuses audio, carry on silently
+        }
+        return track;
+    }
+
+    /** Closes the stream (stopped and released, not paused), so the amplifier can power down. */
+    private synchronized void close() {
         if (track != null) {
             try {
                 track.stop();
@@ -91,6 +96,15 @@ public final class AmbientPad implements Runnable {
         }
     }
 
+    public synchronized void stop() {
+        running = false;
+        if (thread != null) {
+            thread.interrupt();
+            thread = null;
+        }
+        close();
+    }
+
     @Override
     public void run() {
         short[] buf = new short[1024 * 2];
@@ -98,22 +112,15 @@ public final class AmbientPad implements Runnable {
         double t = 0;
         float level = 0f;
         float mixIvie = ivie ? 1f : 0f;
-        AudioTrack out = track;
-        boolean playing = true;
-        while (running && out != null) {
+        AudioTrack out = null;
+        while (running) {
             float goal = enabled ? target : 0f;
             if (goal == 0f && level < 0.002f) {
-                // silent: the audio stream is paused, so the device's speaker and amplifier can sleep (an open stream
-                // of silence keeps them powered and can hum on some devices)
+                // silent: no stream at all
                 level = 0f;
-                if (playing) {
-                    try {
-                        out.pause();
-                        out.flush();
-                    } catch (RuntimeException released) {
-                        return;
-                    }
-                    playing = false;
+                if (out != null) {
+                    close();
+                    out = null;
                 }
                 try {
                     Thread.sleep(150);
@@ -122,13 +129,11 @@ public final class AmbientPad implements Runnable {
                 }
                 continue;
             }
-            if (!playing) {
-                try {
-                    out.play();
-                } catch (RuntimeException released) {
+            if (out == null) {
+                out = open();
+                if (out == null) {
                     return;
                 }
-                playing = true;
             }
             for (int i = 0; i < buf.length; i += 2) {
                 level += (goal - level) * 0.00004f;

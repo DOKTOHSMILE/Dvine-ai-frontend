@@ -108,7 +108,7 @@ public final class SettingsActivity extends AppCompatActivity {
         voice.addView(Ui.text(this, "Opens the device's voice download page (Google Speech Services): install English (Nigeria),"
                 + " (UK) and (US). Ibiko then picks the highest-quality voices it finds.", 13, Ui.SUB, false), Ui.wide(this, 6));
         voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
-                + " no sound but the voice. Takes effect the next time Ibiko opens.", "music", false, null), Ui.wide(this, 10));
+                + " no sound but the voice, and no audio stream is open while nothing is read aloud. Takes effect the next time Ibiko opens.", "music", false, null), Ui.wide(this, 10));
         voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",
                 13, Ui.SUB, false), Ui.wide(this, 10));
 
