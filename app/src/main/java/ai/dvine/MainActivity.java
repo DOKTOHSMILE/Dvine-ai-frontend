@@ -721,6 +721,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         personaTabs.offerTermux();
     }
 
+    /**
+     * The Obi · Ivie · Ibiko buttons are for the three-page chat. In the group chat they are hidden: who answers comes
+     * from the message ({@link ai.dvine.agent.Handoff#groupRoute}), as in a group of people.
+     */
+    private void showPersonaBar() {
+        android.view.View bar = findViewById(R.id.personaTabs);
+        if (bar != null) {
+            bar.setVisibility(groupChat() ? android.view.View.GONE : android.view.View.VISIBLE);
+        }
+    }
+
     private void bindChatHeader() {
         android.view.View ivie = findViewById(R.id.tabIvie);
         android.view.View obi = findViewById(R.id.tabObi);
@@ -1492,6 +1503,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
         bindChatHeader();
+        showPersonaBar();
         ai.dvine.turn.Names.restore(prefs.getString("name_aliases", null));
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
@@ -3472,11 +3484,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (text == null || text.trim().isEmpty()) {
             return;
         }
-        if (!interpreted && !resending && stage != null && prefs.getBoolean("handoff", true)) {
+        if (!interpreted && !resending && stage != null && (groupChat() || prefs.getBoolean("handoff", true))) {
             // a task meant for another persona goes to their page before it is shown anywhere: it is sent there, as if
             // typed there, and the page that got it by mistake keeps nothing of it
             String mentioned = ai.dvine.agent.Handoff.mentioned(text); // "@Ivie draw a cat": the one named answers
-            String owner = mentioned != null ? mentioned : ai.dvine.agent.Handoff.owner(text);
+            String owner = groupChat() ? ai.dvine.agent.Handoff.groupRoute(text, stage.agent()) // no buttons: the words choose
+                    : mentioned != null ? mentioned : ai.dvine.agent.Handoff.owner(text);
             if (owner != null && !owner.equals(stage.agent())) {
                 selectPersona(owner);
                 if (!groupChat()) {
@@ -6330,6 +6343,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     protected void onResume() {
         super.onResume();
         inFront = true;
+        showPersonaBar(); // Settings may have turned the group chat on or off
         connectivity.start();
         ai.dvine.llm.ReplyNotice.clear(this);
         handler.postDelayed(this::sendWaiting, 1000);

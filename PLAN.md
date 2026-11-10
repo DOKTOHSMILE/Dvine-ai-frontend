@@ -1,3 +1,7 @@
+# Group chat without buttons (0.99.48)
+
+- [x] The persona buttons are hidden in the group chat; the message chooses who answers, Obi by default.
+
 # Group chat and auto-post (0.99.47)
 
 - [x] One thread for Obi, Ivie and Ibiko; names on replies; buttons and @names pick who answers.

@@ -75,6 +75,30 @@ public final class Handoff {
         return null;
     }
 
+    /**
+     * Who answers in the group chat, with no buttons to pick: the one named ("@Ivie", "Obi, …"), else the one whose
+     * work it is (code, a story, a report), else whoever is already on it when the message only carries on ("continue",
+     * "yes", "retry", a short answer to their question), else Obi, who takes everything else.
+     */
+    public static String groupRoute(String text, String current) {
+        String named = mentioned(text);
+        if (named != null) {
+            return named;
+        }
+        String owner = owner(text);
+        if (owner != null) {
+            return owner;
+        }
+        String t = text == null ? "" : text.trim().toLowerCase(Locale.US).replaceAll("[.!?]+$", "");
+        boolean carriesOn = t.matches("^(continue|go on|keep going|carry on|proceed|resume|retry|try again|again|redo|yes|yeah|yep|no|nope|ok|okay"
+                + "|sure|do it|go ahead|stop|cancel|thanks|thank you|both|the first one|the second one|the last one|that one|why|how)( please)?$")
+                || t.matches("^(finish|show me|give me|send me|what did you find|and|so)\\b.{0,40}$");
+        if (carriesOn && current != null && !current.isEmpty()) {
+            return current;
+        }
+        return "obi";
+    }
+
     /** Why a message went to that persona, in a few words. */
     public static String why(String persona) {
         switch (persona == null ? "" : persona) {

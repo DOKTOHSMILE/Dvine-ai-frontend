@@ -55,4 +55,15 @@ public class HandoffOwnerTest {
         assertNull(Handoff.mentioned("ask obi later"));
         assertNull(Handoff.mentioned("email me@ivie.com"));
     }
+
+    @Test
+    public void inTheGroupTheWordsChooseWhoAnswers() {
+        assertEquals("ivie", Handoff.groupRoute("@Ivie what do you think?", "obi"));
+        assertEquals("ibiko", Handoff.groupRoute("fix the crash in my android app", "obi"));
+        assertEquals("ivie", Handoff.groupRoute("write a story about rain", "ibiko"));
+        assertEquals("the one working carries on", "ibiko", Handoff.groupRoute("continue", "ibiko"));
+        assertEquals("ivie", Handoff.groupRoute("yes", "ivie"));
+        assertEquals("everything else is Obi's", "obi", Handoff.groupRoute("what's the weather in Lagos?", "ibiko"));
+        assertEquals("obi", Handoff.groupRoute("tell me a joke", "ivie"));
+    }
 }
