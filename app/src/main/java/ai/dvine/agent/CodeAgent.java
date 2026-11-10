@@ -244,6 +244,8 @@ public final class CodeAgent {
     }
 
     private boolean planning;
+    /** A real task follows the blueprint (understand, plan, check, build, verify); null for a quick question. */
+    private Blueprint blueprint;
     /** Long work in rounds: when the steps run out, a short progress note, and the work goes on ({@link #outOfSteps}). */
     private boolean keepGoing;
     private boolean outOfSteps;
@@ -310,6 +312,7 @@ public final class CodeAgent {
                 : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. You have a project"
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it."))
+                + (blueprint != null ? "\n" + Blueprint.RULES : "")
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
@@ -427,6 +430,7 @@ public final class CodeAgent {
             work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
         }
         this.work = work;
+        startBlueprint(task);
         String direct = directGit(task);
         if (direct != null) {
             return direct;
@@ -440,10 +444,17 @@ public final class CodeAgent {
             }
             String incoming = host.steer();
             if (incoming != null && !incoming.trim().isEmpty()) {
-                work.append("\n<user>\nThe user sent this while you were working. Read it and continue the same task."
-                        + " Do not stop the task and do not start over.\n")
-                        .append(incoming.trim()).append("\n</user>\n");
-                host.step("Reading what you just sent");
+                if (blueprint != null && blueprint.phase() != Blueprint.Phase.UNDERSTAND) {
+                    // an addition mid-task: into the blueprint, checked again, then building goes on where it was
+                    blueprint.reopen();
+                    work.append("\n<user>\n").append(Blueprint.CHANGE).append("\n").append(incoming.trim()).append("\n</user>\n");
+                    host.step("Adding what you just sent to the blueprint");
+                } else {
+                    work.append("\n<user>\nThe user sent this while you were working. Read it and continue the same task."
+                            + " Do not stop the task and do not start over.\n")
+                            .append(incoming.trim()).append("\n</user>\n");
+                    host.step("Reading what you just sent");
+                }
                 saved();
             }
             String reply = brain.ask(system(), trimmed(work.toString()));
@@ -483,6 +494,14 @@ public final class CodeAgent {
                 work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(DO_IT_NOW).append("\n</result>\n");
                 continue;
             }
+            if (fin != null && !fin.isEmpty() && blueprint != null && blueprintNudges < 2 && !host.stopped()) {
+                String left = blueprint.unfinished();
+                if (left != null) {
+                    blueprintNudges++; // "done" with steps left in the blueprint: back to them
+                    work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(left).append("\n</result>\n");
+                    continue;
+                }
+            }
             if (fin != null && !fin.isEmpty()) {
                 if (big && !reportAsked && fin.length() < REPORT_CHARS) {
                     reportAsked = true; // "<final>Done.</final>" for an audit: the report itself, please
@@ -516,10 +535,16 @@ public final class CodeAgent {
                 pending = null; // it carried on: whatever it wrote before was not the answer
                 String result;
                 lastStep = null;
-                try {
-                    result = carryOut(call);
-                } catch (IOException | RuntimeException e) {
-                    result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+                String refused = blueprint == null ? null : blueprint.gate(call.name, call.a("path"));
+                if (refused != null) {
+                    result = refused; // plan first: nothing but PLAN.md changes before the blueprint passes its check
+                } else {
+                    try {
+                        result = carryOut(call);
+                    } catch (IOException | RuntimeException e) {
+                        result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+                    }
+                    result = blueprintAfter(call, result);
                 }
                 if (!modelSaid && narrate) {
                     // never silent: what it was doing and what came back, in the chat between the steps
@@ -1081,6 +1106,104 @@ public final class CodeAgent {
             }
         }
         return "";
+    }
+
+    private int blueprintNudges;
+
+    /** A real task gets a blueprint; one carried on picks up its PLAN.md where it was. */
+    private void startBlueprint(String task) {
+        blueprintNudges = 0;
+        if (planning || readOnly) {
+            blueprint = null; // plan mode has its own rules; reading answers no build
+            return;
+        }
+        boolean carryOn = resume != null && !resume.trim().isEmpty();
+        File kept = carryOn ? latestBlueprint() : null;
+        if (kept == null && !Blueprint.applies(task)) {
+            blueprint = null;
+            return;
+        }
+        blueprint = new Blueprint();
+        if (kept != null) {
+            try {
+                String rel = workspace.getCanonicalFile().toPath().relativize(kept.getCanonicalFile().toPath()).toString();
+                blueprint.resume(rel, new String(Files.readAllBytes(kept.toPath()), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                blueprint = new Blueprint();
+            }
+        }
+        String line = blueprint.announce();
+        if (line != null) {
+            host.step(line);
+        }
+    }
+
+    /** The newest PLAN.md in the workspace that is a blueprint, or null. */
+    private File latestBlueprint() {
+        File best = null;
+        java.util.ArrayDeque<File> todo = new java.util.ArrayDeque<File>();
+        todo.add(workspace);
+        int seen = 0;
+        while (!todo.isEmpty() && seen < 4000) {
+            File d = todo.poll();
+            File[] in = d.listFiles();
+            if (in == null) {
+                continue;
+            }
+            for (File f : in) {
+                seen++;
+                if (f.isDirectory() && !f.getName().startsWith(".") && !f.getName().equals("node_modules") && !f.getName().equals("build")) {
+                    todo.add(f);
+                } else if (f.getName().equalsIgnoreCase("PLAN.md") && (best == null || f.lastModified() > best.lastModified())) {
+                    try {
+                        if (new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).contains("# Blueprint")) {
+                            best = f;
+                        }
+                    } catch (IOException ignored) {
+                        // not readable: not ours
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /** After a call: PLAN.md re-read and checked, the phase shown, and a warning when the work goes round in circles. */
+    private String blueprintAfter(Call c, String result) {
+        if (blueprint == null) {
+            return result;
+        }
+        String said = null;
+        if ((c.name.equals("write_file") || c.name.equals("edit_file")) && Blueprint.isPlanFile(c.a("path"))) {
+            try {
+                File f = inside(c.a("path"));
+                if (f.isFile()) {
+                    said = blueprint.planned(c.a("path"), new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
+                    if (blueprint.phase() == Blueprint.Phase.CHECK && said != null && said.startsWith("Blueprint check failed")) {
+                        // it set BUILD with gaps left: the file says CHECK again, so a later run doesn't skip the check
+                        String now = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)
+                                .replaceAll("(?im)^(\\s*Phase:\\s*)BUILD\\b", "$1CHECK");
+                        Files.write(f.toPath(), now.getBytes(StandardCharsets.UTF_8));
+                    }
+                }
+            } catch (IOException ignored) {
+                // the plan is read again next time it is written
+            }
+        }
+        String line = blueprint.announce();
+        if (line != null) {
+            host.step(line);
+        }
+        String args = c.attrs.toString() + "\u0000" + (c.body == null ? "" : c.body.hashCode());
+        String circling = blueprint.circling(c.name, args, result);
+        StringBuilder out = new StringBuilder(result == null ? "" : result);
+        if (said != null) {
+            out.append("\n").append(said);
+        }
+        if (circling != null) {
+            out.append("\n").append(circling);
+        }
+        return out.toString();
     }
 
     private String carryOut(Call c) throws IOException {

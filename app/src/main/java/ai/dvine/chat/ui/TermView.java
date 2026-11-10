@@ -46,6 +46,12 @@ public final class TermView extends View {
     private float dragLeft;
     private final char[] one = new char[2];
     private Runnable onTextSize;
+    private Runnable onLongPress;
+
+    /** A long press on the screen (copy and paste). */
+    public void onLongPress(Runnable r) {
+        onLongPress = r;
+    }
 
     private final ScaleGestureDetector pinch;
     private final GestureDetector touch;
@@ -79,6 +85,14 @@ public final class TermView extends View {
             public boolean onSingleTapUp(MotionEvent e) {
                 showKeyboard();
                 return true;
+            }
+
+            @Override
+            public void onLongPress(MotionEvent e) {
+                if (TermView.this.onLongPress != null) {
+                    performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                    TermView.this.onLongPress.run();
+                }
             }
 
             @Override

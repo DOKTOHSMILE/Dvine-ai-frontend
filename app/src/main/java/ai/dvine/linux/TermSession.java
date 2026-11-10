@@ -22,7 +22,19 @@ import java.util.List;
 public final class TermSession {
     /** The prompt, set for the shell, so the session can tell when the shell is waiting for a command. */
     static final String HOST = "localhost:";
-    static final String PS1 = HOST + "\\w# ";
+    /** The standard prompt: the folder in green, then " $ " ("~ $"). */
+    static final String PS1 = "\\[\\e[32m\\]\\w\\[\\e[0m\\] $ ";
+
+    /** Shown once when the terminal starts, as a standard terminal greets you. */
+    static final String WELCOME = "Welcome to DVINE Linux (Alpine " + LinuxRoot.RELEASE + ")!\r\n\r\n"
+            + "Working with packages:\r\n\r\n"
+            + " - Search:  pkg search <query>\r\n"
+            + " - Install: pkg install <package>\r\n"
+            + " - Upgrade: pkg upgrade\r\n\r\n"
+            + "Folders:\r\n\r\n"
+            + " - /workspace  Ibiko's projects (the same files chat sees)\r\n"
+            + " - /work       DVINE's shell files\r\n"
+            + " - /sdcard     the device's storage, when allowed\r\n\r\n";
 
     private final Process proc;
     private final Pty pty;
@@ -70,6 +82,7 @@ public final class TermSession {
             throw e;
         }
         TermSession s = new TermSession(proc, pty, rootfs);
+        s.screen.write(WELCOME);
         s.pump(pty.in());
         s.drain(proc.getInputStream());
         return s;
@@ -208,7 +221,9 @@ public final class TermSession {
     }
 
     static boolean atPrompt(boolean altScreen, String beforeCursor, boolean nothingAfter) {
-        return !altScreen && nothingAfter && beforeCursor.startsWith(HOST) && beforeCursor.endsWith("# ");
+        // "~ $ ", "/workspace/app $ " (and the older "localhost:~# ")
+        return !altScreen && nothingAfter && (beforeCursor.matches("^[~/]\\S* \\$ $")
+                || beforeCursor.startsWith(HOST) && beforeCursor.endsWith("# "));
     }
 
     /** Waits for the first prompt after the shell starts. False when it never came. */

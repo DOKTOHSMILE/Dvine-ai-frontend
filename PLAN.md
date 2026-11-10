@@ -1,3 +1,10 @@
+# The Blueprint and a standard shell (0.99.43)
+
+- [x] A real task goes: understand the code, write the blueprint, check it for gaps, build, verify.
+- [x] Nothing but PLAN.md changes before the check passes; additions mid-task go into the plan and it is checked again.
+- [x] Repeated calls and repeated failures are stopped; "done" with unticked steps goes back to them.
+- [x] The Shell screen looks and works like a standard terminal.
+
 # One Linux (0.99.42)
 
 - [x] Chat, Ibiko, the task system and the Shell screen run commands in the same Alpine, through `LinuxHub.run`.
