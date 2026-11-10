@@ -167,6 +167,9 @@ public class TermEmulatorTest {
 
     @Test
     public void thePromptIsRecognised() {
+        assertTrue(TermSession.atPrompt(false, "~ $ ", true));
+        assertTrue(TermSession.atPrompt(false, "/workspace/Dvine-ai-frontend $ ", true));
+        assertFalse(TermSession.atPrompt(false, "~ $ ls", true));
         assertTrue(TermSession.atPrompt(false, "localhost:~# ", true));
         assertTrue(TermSession.atPrompt(false, "localhost:/work/app# ", true));
         assertFalse("something is half typed", TermSession.atPrompt(false, "localhost:~# ls", true));

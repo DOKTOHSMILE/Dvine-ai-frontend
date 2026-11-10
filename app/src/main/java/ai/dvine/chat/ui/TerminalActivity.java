@@ -135,6 +135,11 @@ public final class TerminalActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Ui.init(this);
+        // a terminal is black edge to edge, with light status and navigation icons, in day and night themes
+        getWindow().setStatusBarColor(0xFF000000);
+        getWindow().setNavigationBarColor(0xFF000000);
+        new androidx.core.view.WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView()).setAppearanceLightStatusBars(false);
+        new androidx.core.view.WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView()).setAppearanceLightNavigationBars(false);
         textSp = getPreferences(MODE_PRIVATE).getFloat("text_sp", 14f);
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
@@ -223,10 +228,15 @@ public final class TerminalActivity extends AppCompatActivity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.setBackgroundColor(0xFF111111);
-        bar.addView(keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP"));
+        lineTop = keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP");
+        bar.addView(lineTop);
         lineKeys = keys("\u2190", "\u2193", "\u2192", "PGDN", "FIND", "COPY");
         bar.addView(lineKeys);
-        fullKeys = keys("\u2190", "\u2193", "\u2192", "PGDN", "PASTE", "COPY");
+        // the standard terminal's extra keys, in its two rows; copy and paste are on a long press of the screen
+        fullKeys = new LinearLayout(this);
+        fullKeys.setOrientation(LinearLayout.VERTICAL);
+        fullKeys.addView(bigKeys("ESC", "/", "\u2015", "HOME", "\u2191", "END", "PGUP"));
+        fullKeys.addView(bigKeys("\u21C6", "CTRL", "ALT", "\u2190", "\u2193", "\u2192", "PGDN"));
         fullKeys.setVisibility(android.view.View.GONE);
         bar.addView(fullKeys);
         page.addView(bar);
@@ -324,6 +334,28 @@ public final class TerminalActivity extends AppCompatActivity {
         }
     }
 
+    private LinearLayout lineTop;
+
+    /** A row of the standard terminal's extra keys: white labels on black, tall enough for a thumb. */
+    private LinearLayout bigKeys(String... labels) {
+        LinearLayout row = new LinearLayout(this);
+        row.setBackgroundColor(0xFF000000);
+        for (String label : labels) {
+            TextView key = Ui.text(this, label, 15, 0xFFFFFFFF, false);
+            key.setGravity(Gravity.CENTER);
+            key.setMinHeight(Ui.dp(this, 44));
+            key.setOnClickListener(v -> onKey(label, key));
+            row.addView(key, new LinearLayout.LayoutParams(0, -2, 1f));
+            if ("CTRL".equals(label)) {
+                ctrlKey = key;
+            }
+            if ("ALT".equals(label)) {
+                altKey = key;
+            }
+        }
+        return row;
+    }
+
     private LinearLayout keys(String... labels) {
         LinearLayout row = new LinearLayout(this);
         row.setBackgroundColor(0xFF111111);
@@ -353,7 +385,10 @@ public final class TerminalActivity extends AppCompatActivity {
         scroll.setVisibility(android.view.View.GONE);
         lineRow.setVisibility(android.view.View.GONE);
         lineKeys.setVisibility(android.view.View.GONE);
+        lineTop.setVisibility(android.view.View.GONE);
+        ((android.view.View) fullKeys.getParent()).setBackgroundColor(0xFF000000);
         fullKeys.setVisibility(android.view.View.VISIBLE);
+        term.onLongPress(this::copyOrPaste);
         term.setVisibility(android.view.View.VISIBLE);
         term.attach(session, mods);
         session.onChange(() -> {
@@ -369,6 +404,26 @@ public final class TerminalActivity extends AppCompatActivity {
         term.showKeyboard();
     }
 
+    /** A long press on the terminal: copy the session or paste, as a standard terminal offers. */
+    private void copyOrPaste() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setItems(new String[] {"Copy all", "Paste"}, (d, which) -> {
+                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard == null || full == null) {
+                        return;
+                    }
+                    if (which == 0) {
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("linux", full.screen().text()));
+                        android.widget.Toast.makeText(this, "Copied", android.widget.Toast.LENGTH_SHORT).show();
+                    } else {
+                        android.content.ClipData clip = clipboard.getPrimaryClip();
+                        CharSequence text = clip == null || clip.getItemCount() == 0 ? null : clip.getItemAt(0).coerceToText(this);
+                        term.paste(text == null ? "" : text.toString());
+                    }
+                })
+                .show();
+    }
+
     /** A key from the bar, in the full terminal. */
     private void fullKey(String label, TextView key) {
         term.showKeyboard();
@@ -377,8 +432,10 @@ public final class TerminalActivity extends AppCompatActivity {
             paintMod(key, on);
         } else if ("ESC".equals(label)) {
             term.key(TermKeys.ESCAPE);
-        } else if ("TAB".equals(label)) {
+        } else if ("TAB".equals(label) || "\u21C6".equals(label)) {
             term.key(TermKeys.TAB);
+        } else if ("\u2015".equals(label)) {
+            term.type("-");
         } else if ("HOME".equals(label)) {
             term.key(TermKeys.HOME);
         } else if ("END".equals(label)) {
