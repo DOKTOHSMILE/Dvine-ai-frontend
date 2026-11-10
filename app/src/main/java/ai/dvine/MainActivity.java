@@ -2046,8 +2046,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         brainGate = new ai.dvine.gate.BrainGateway("brain", messageGate())
                 .route("agent carries on", t -> {
                     String said = brainAsked == null ? t : brainAsked;
-                    if (brainReads() && !"ibiko".equals(stage.agent())) {
-                        return false; // Obi and Ivie carry on by the brain's code (\u00A7CO); Ibiko's agent keeps its own work
+                    if (brainReads()) {
+                        return false; // carrying on is the brain's code (\u00A7CO), not the word "continue"
                     }
                     if (!(carriesOn(said) && !agentWork(stage.agent()).isEmpty() && model != null && model.ready())) {
                         return false;
@@ -2074,18 +2074,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (!ai.dvine.chat.Attachments.has(t) || !modelOn()) {
                         return false;
                     }
-                    // something is attached: the model reads it with the instructions (Ibiko works on it as a task)
-                    if ("ibiko".equals(stage.agent())) {
-                        runIbiko(t);
-                    } else {
-                        askLocal(t, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
-                    }
+                    // something is attached: the model reads it with the instructions, and may still give a code
+                    // (\u00A7WK when it is work for the agents)
+                    askLocal(t, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs), true);
                     return true;
                 })
                 // a long piece planned first (\u00A7WP) and work passed to the one it belongs to (\u00A7HO) are the brain's codes
                 .route("Ibiko's coding agent", t -> {
-                    if (!"ibiko".equals(stage.agent()) || !modelOn()) {
-                        return false;
+                    if (!"ibiko".equals(stage.agent()) || !modelOn() || brainReads()) {
+                        return false; // with a brain, Ibiko reads the message first and starts the agents by code (\u00A7WK)
                     }
                     ai.dvine.llm.BrainOrder known = null; // Ibiko's own brain reads the words: no wording shortcut
                     boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
@@ -2601,6 +2598,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             case HANDOVER:
                 handOver(agent, question, order.arg);
                 return;
+            case WORK:
+                if (modelOn()) {
+                    runIbiko(question); // real work: the agent organisation takes it
+                } else {
+                    play(LocalTurn.speakAs(agent, "That needs a model, and none is ready."), null);
+                }
+                return;
             case WRITEPLAN:
                 if (model != null && model.ready() && !"ibiko".equals(agent)) {
                     runWritingPlan(agent, question);
@@ -2756,6 +2760,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 : (taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier) : ai.dvine.llm.TaskSize.Tier.FAST);
         final ai.dvine.llm.TaskSize.Tier reportTier = taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier)
                 : ai.dvine.llm.TaskSize.Tier.STRONG;
+        final String sectionKey = chats == null || chats.current() == null ? null
+                : chats.current().group == null || chats.current().group.isEmpty() ? chats.current().id : chats.current().group;
         final ai.dvine.scribe.Scribe[] scribed = {null}; // the Scribe writes every step down, once it is open
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> latestJob(id),
                 line -> {
@@ -2864,7 +2870,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final long workMs = pace.ordinal() <= ai.dvine.scribe.RunMode.BALANCED.ordinal()
                     ? Math.max(MAX_WORK_MS, pace.workMs) : pace.workMs;
             final ai.dvine.scribe.Scribe scribe = new ai.dvine.scribe.Scribe(workspace);
-            scribe.begin(persona, task);
+            // one record for this chat's project, whatever it is asked: a follow-up adds to it instead of starting another
+            scribe.begin(persona, task, sectionKey);
             scribed[0] = scribe;
             if (ai.dvine.scribe.Scribe.worth(task)) {
                 handler.post(() -> {
@@ -2880,7 +2887,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
                     .steps(rounds ? Math.min(pace.roundSteps, agentSteps) : agentSteps)
                     .as(who, readOnly).planning(planning).keepGoing(rounds).squad(chatTools(persona).workers())
-                    .handover("ibiko".equals(persona) && !readOnly && !handedOver).checkpoint(w -> {
+                    .handover(false).checkpoint(w -> {
                         saveAgentWork(workAt, w);
                         scribe.checkpoint(w);
                     })
@@ -2896,12 +2903,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
                 }
                 String crew = null;
-                final String already = scribe.doneSoFar();
-                final String asked = ai.dvine.scribe.Scribe.worth(task) ? task
-                        + "\n\nA project record is already in memory/projects. Read PROJECT_PLAN.md and PROJECT_MAP.md"
-                        + " before creating files. If they describe this job, continue them. Do not start a second project."
-                        + (already.isEmpty() ? "" : "\n\nAlready done in this project (the Scribe's record of every step)."
-                                + " Do not do these again; build on them:\n" + already)
+                final String stands = scribe.resume();
+                final String asked = ai.dvine.scribe.Scribe.worth(task) || !stands.isEmpty() ? task
+                        + (stands.isEmpty() ? "" : "\n\n" + stands + "\nCarry on from that point. Read only the files the next"
+                                + " pending step needs; do not start a second project or re-read what is listed as done.")
                         : task + dvine1().methods().hint(task).replaceFirst("^ ", "\n\n");
                 if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
                     handler.post(() -> {
@@ -3597,7 +3602,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             // reads the message and passes it on by code when it is another's work (\u00A7HO); only with no brain do the
             // words themselves choose
             handedOver = false;
-            String owner = mentioned != null ? mentioned : brainReads() ? stage.agent()
+            // one assistant: Ibiko answers everything (talk, research, writing, design, code). Only with no brain at
+            // all do the old wording routes still pick among the three
+            String owner = brainReads() || dvineOwn() ? "ibiko" : mentioned != null ? mentioned
                     : ai.dvine.agent.Handoff.groupRoute(text, stage.agent());
             if (owner != null && !owner.equals(stage.agent())) {
                 selectPersona(owner);
@@ -4926,7 +4933,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             tags.flush();
             final ai.dvine.llm.BrainOrder order = acts ? ai.dvine.llm.BrainOrder.leading(raw) : null;
             if (order != null) {
-                final String line = raw.trim().split("\n", 2)[0];
+                final String line = String.valueOf(ai.dvine.suit.FunctionCode.parse(raw)); // the code itself, wherever it stood
                 final String q = question;
                 hub.worker.execute(() -> brainBox().learn(q, line)); // DVINE's own brain learns how this became an action
                 raw = ai.dvine.llm.BrainOrder.withoutOrder(raw);

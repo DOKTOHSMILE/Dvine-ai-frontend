@@ -42,7 +42,7 @@ public final class ChatTools {
 
     /** The suit's own controls: always available, whatever tools are on. */
     static final Set<FunctionCode> ALWAYS = EnumSet.of(FunctionCode.CA, FunctionCode.TM, FunctionCode.NM, FunctionCode.NC,
-            FunctionCode.SW, FunctionCode.RT, FunctionCode.OS, FunctionCode.HO, FunctionCode.WP, FunctionCode.TT, FunctionCode.RF,
+            FunctionCode.RT, FunctionCode.OS, FunctionCode.WK, FunctionCode.WP, FunctionCode.TT, FunctionCode.RF,
             FunctionCode.CO, FunctionCode.YS, FunctionCode.CX);
 
     /**

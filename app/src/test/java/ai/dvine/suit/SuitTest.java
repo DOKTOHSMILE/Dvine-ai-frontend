@@ -115,4 +115,17 @@ public class SuitTest {
         org.junit.Assert.assertNull(ai.dvine.llm.BrainOrder.leading("hand this to Ibiko"));
         org.junit.Assert.assertTrue(FunctionCode.instructions("", null).contains("\u00A7HO"));
     }
+
+    /** A code is DVINE's, never the conversation's: found below a sentence, and taken out of what is shown. */
+    @org.junit.Test
+    public void aCodeNeverReachesTheConversation() {
+        String reply = "Sure, on it.\n\u00A7SR weather in Lagos\nLooking that up.";
+        org.junit.Assert.assertEquals(FunctionCode.SR, FunctionCode.parse(reply).code);
+        org.junit.Assert.assertEquals("Sure, on it.\nLooking that up.", FunctionCode.withoutCode(reply));
+        org.junit.Assert.assertEquals(FunctionCode.NC, FunctionCode.parse("**\u00A7NC**").code);
+        org.junit.Assert.assertFalse(ai.dvine.chat.ReplyText.prepare("Here you go.\n[[MF]] pdf\nDone.").contains("[[MF]]"));
+        org.junit.Assert.assertFalse(ai.dvine.chat.ReplyText.prepare("\u00A7ZZ not a real code\nHello").contains("\u00A7"));
+        org.junit.Assert.assertEquals("Costs \u00A7 5 in the table.", ai.dvine.chat.ReplyText.prepare("Costs \u00A7 5 in the table.").trim());
+        org.junit.Assert.assertEquals(ai.dvine.llm.BrainOrder.Kind.WORK, ai.dvine.llm.BrainOrder.leading("\u00A7WK").kind);
+    }
 }

@@ -137,6 +137,16 @@ public final class Dvine1 {
         return lexicon;
     }
 
+    private static BuiltIn builtIn;
+
+    /** What shipped with the app: known from the moment it is installed, with no internet and nothing learned yet. */
+    public static synchronized BuiltIn builtIn() {
+        if (builtIn == null) {
+            builtIn = new BuiltIn(Plug.asset.apply("knowledge/world_facts.tsv"));
+        }
+        return builtIn;
+    }
+
     /** How answers were reached, by kind of request: learned from every reply, used by every brain. */
     public Methods methods() {
         return Store.methods(dir);
@@ -210,7 +220,7 @@ public final class Dvine1 {
         // a clear command: DVINE 1 operates the app like any model, by writing one of its function codes
         final String code = Commands.code(t, host::allows);
         if (code != null) {
-            think(Arrays.asList("Reading your message", "That's something the app does: " + code), () -> {
+            think(Arrays.asList("Reading your message", "That's something the app does"), () -> {
                 host.stepsDone();
                 if (worker != null) {
                     Plug.workers.end(worker, true);
@@ -271,6 +281,16 @@ public final class Dvine1 {
                         says(who, formed);
                         rateable(t, formed);
                     });
+            return;
+        }
+        // what shipped with the app: answered at once, offline, however the question is worded
+        final String shipped = builtIn().answer(t);
+        if (shipped != null && !knowledge().rejected(t, shipped)) {
+            how = How.MEMORY;
+            think(Arrays.asList("Reading your question", "Checking what I already know", "Found it in my built-in knowledge"), () -> {
+                says(who, shipped);
+                rateable(t, shipped);
+            });
             return;
         }
         final String learned = host.recallTalk(t);
