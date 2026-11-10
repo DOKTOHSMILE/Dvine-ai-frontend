@@ -1,3 +1,7 @@
+# Same folder (0.99.37)
+
+- [x] A shell command from chat starts in the coding workspace, the same folder the file tools see. `Dvine-ai-frontend` is `/workspace/Dvine-ai-frontend`, not an empty home directory.
+
 # The shell, as one piece (0.99.36)
 
 DVINE has one Alpine Linux. It is not a picture of a terminal.

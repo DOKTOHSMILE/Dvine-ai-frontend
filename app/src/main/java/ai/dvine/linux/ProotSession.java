@@ -42,7 +42,9 @@ public final class ProotSession {
         }
         File tmp = new File(c.getCacheDir(), "proot-tmp");
         tmp.mkdirs();
-        List<String> cmd = ProotCommand.line(proot, rootfs, new File(c.getFilesDir(), "linux"));
+        File linux = new File(c.getFilesDir(), "linux");
+        new File(c.getFilesDir(), "ibiko").mkdirs();
+        List<String> cmd = ProotCommand.line(proot, rootfs, linux);
         Pty pty = Pty.tryOpen();
         if (pty != null) {
             try {

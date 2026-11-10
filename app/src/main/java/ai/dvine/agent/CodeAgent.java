@@ -326,7 +326,8 @@ public final class CodeAgent {
                 + (readOnly ? "" : host.termuxReady()
                         ? "<tool name=\"run\" command=\"one shell command\"/> (Alpine Linux inside DVINE, not the Termux app:"
                         + " sh, pkg install, apk, python3, git and a compiler once pkg has installed them. Pipes and redirects work."
-                        + " The command runs in the workspace folder. The device asks first unless auto-accept is on.)\n"
+                        + " The command runs in the same workspace folder the file tools see, so a relative path like"
+                        + " Dvine-ai-frontend is that project. The device asks first unless auto-accept is on.)\n"
                         : "<tool name=\"run\" command=\"one shell command\"/> (DVINE's own shell, no Termux:"
                         + " ls cat grep find wc head tail mkdir cp mv rm unzip echo and the rest of help."
                         + " Runs in the workspace folder, as the app, so only the app's own files are touched."
