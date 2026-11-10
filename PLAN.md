@@ -1,3 +1,7 @@
+# Ibiko thinks ahead (0.99.59)
+
+- [x] The Foresight formula: what this pilot usually needs next, and the look-before check before any answer or action.
+
 # Quick chips over the message box (0.99.58)
 
 - [x] Tools, Code, Media, Explore, More over the box; each opens what it names.

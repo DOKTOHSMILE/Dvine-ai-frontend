@@ -174,8 +174,19 @@ public final class Dvine1 {
         return Store.learner(d).scoreLine();
     }
 
+    /** Premeditation: the pilot's habits (what follows what) and the look-before check ({@code formulas/Foresight}). */
+    public ai.dvine.dvine1.formulas.Foresight foresight() {
+        return Store.foresight(dir);
+    }
+
+    /** For any brain, with the request: think ahead, and the next step this pilot usually takes after one like it. */
+    public String premeditate(String request) {
+        return foresight().hint(Methods.kind(request));
+    }
+
     /** One of the pilot's messages, to any brain: it may judge DVINE 1's last answer, and it is read for language. */
     public void hear(String said) {
+        foresight().heard(said, Methods.kind(said), System.currentTimeMillis()); // what this pilot asks after what
         learner().heard(said, System.currentTimeMillis());
     }
 
