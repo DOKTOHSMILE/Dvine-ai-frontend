@@ -20,9 +20,9 @@ public class SocialPosterTest {
         String js = SocialPoster.script("facebook", "Success is a habit");
         assertTrue(js, js.contains("what.?s on your mind"));
         assertTrue(js, js.contains("execCommand('insertText'"));
-        assertTrue("Post is pressed only from stage 1, then stage 2 only watches", js.contains("btn.click();d.stage=2"));
+        assertTrue("Post is pressed once (stage 2), then stage 3 only watches", js.contains("btn.click();d.stage=3"));
         assertTrue(js, js.contains("'done'") && js.contains("signedout"));
-        assertTrue(js, js.endsWith("(\"facebook\",\"Success is a habit\")"));
+        assertTrue(js, js.endsWith("(\"facebook\",\"Success is a habit\",[],false)"));
     }
 
     @Test

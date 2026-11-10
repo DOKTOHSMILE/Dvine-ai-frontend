@@ -2383,8 +2383,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * An API is selected and reachable: the user talks to it directly. It reads the meaning and decides every action
      * of the app; no rule, learned shortcut or separate classifying call acts on the words first.
      */
+    /** An API is the chosen brain (online or not): it decides, and no shortcut or device model answers instead. */
     private boolean apiDirect() {
-        return model != null && model.remoteOn();
+        return model != null && model.apiChosen();
     }
 
     /** DVINE's own light brain: how the user's words became actions, learned from every model it works with. */
@@ -2613,8 +2614,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 : (taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier) : ai.dvine.llm.TaskSize.Tier.FAST);
         final ai.dvine.llm.TaskSize.Tier reportTier = taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier)
                 : ai.dvine.llm.TaskSize.Tier.STRONG;
+        final ai.dvine.scribe.Scribe[] scribed = {null}; // the Scribe writes every step down, once it is open
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> latestJob(id),
                 line -> {
+                    ai.dvine.scribe.Scribe sc = scribed[0];
+                    if (sc != null) {
+                        sc.step(ai.dvine.agent.StepDetail.words(line));
+                    }
                     if (chatPane != null) {
                         chatPane.activityStep(line); // with its detail, opened by a tap
                     }
@@ -2717,6 +2723,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     ? Math.max(MAX_WORK_MS, pace.workMs) : pace.workMs;
             final ai.dvine.scribe.Scribe scribe = new ai.dvine.scribe.Scribe(workspace);
             scribe.begin(persona, task);
+            scribed[0] = scribe;
             if (ai.dvine.scribe.Scribe.worth(task)) {
                 handler.post(() -> {
                     if (alive(id) && chatPane != null) {
@@ -2746,9 +2753,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
                 }
                 String crew = null;
+                final String already = scribe.doneSoFar();
                 final String asked = ai.dvine.scribe.Scribe.worth(task) ? task
                         + "\n\nA project record is already in memory/projects. Read PROJECT_PLAN.md and PROJECT_MAP.md"
                         + " before creating files. If they describe this job, continue them. Do not start a second project."
+                        + (already.isEmpty() ? "" : "\n\nAlready done in this project (the Scribe's record of every step)."
+                                + " Do not do these again; build on them:\n" + already)
                         : task;
                 if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
                     handler.post(() -> {
@@ -3661,6 +3671,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
 
         @Override
+        public void writeVersions(ai.dvine.social.Platform platform, String words) {
+            postVersions(platform, words);
+        }
+
+        @Override
+        public void writeComment(String app, String link, String what) {
+            commentDraft(app, link, what);
+        }
+
+        @Override
         public int chatTokens() {
             return ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs);
         }
@@ -3826,9 +3846,105 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** The staged action's card: the exact text, where it goes, Send it or Cancel. */
+    /**
+     * "Write a Facebook post about success and tag John": the model writes several versions (professional, personal,
+     * short), they are shown in the chat and in a picker, and the one the pilot picks waits for their yes like any
+     * post. People are tagged only by name; random people are not.
+     */
+    private void postVersions(final ai.dvine.social.Platform platform, String words) {
+        final String agent = stage.agent();
+        if (ai.dvine.social.PostDrafts.randomTags(words)) {
+            play(LocalTurn.speakAs(agent, "I won't tag random people: it reads as spam to them and gets accounts limited."
+                    + " Tell me who to tag by name and I'll add them. Writing the post now."), null);
+        }
+        final java.util.List<String> tags = ai.dvine.social.PostDrafts.tags(words);
+        final String about = ai.dvine.social.PostDrafts.withoutTags(words);
+        armThink("Writing " + ai.dvine.social.PostDrafts.VERSIONS + " versions for " + platform.shown, "Writing");
+        new Thread(() -> {
+            String answer = model == null ? null : model.task("You write social media posts for the user, in their own voice.",
+                    ai.dvine.social.PostDrafts.prompt(platform.shown, about), Math.max(1200, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs) * 3),
+                    piece -> true, ai.dvine.llm.TaskSize.Tier.STRONG);
+            final java.util.List<String> versions = ai.dvine.social.PostDrafts.parse(answer);
+            handler.post(() -> {
+                endThink();
+                if (versions.isEmpty()) {
+                    String why = model == null ? null : model.problem();
+                    play(LocalTurn.speakAs(agent, "I couldn't write the post" + (why == null || why.isEmpty() ? "." : ": " + why + ".")), null);
+                    return;
+                }
+                StringBuilder shown = new StringBuilder("Here " + (versions.size() == 1 ? "is the post" : "are " + versions.size()
+                        + " versions") + " for " + platform.shown + (tags.isEmpty() ? "" : ", tagging " + String.join(", ", tags))
+                        + ". Pick one below:");
+                for (int i = 0; i < versions.size(); i++) {
+                    shown.append("\n\n**Version ").append(i + 1).append("**\n").append(versions.get(i));
+                }
+                if (chatPane != null) {
+                    chatPane.assistant(agent, shown.toString());
+                }
+                pickVersion(platform, versions, tags);
+            });
+        }, "dvine-post-versions").start();
+    }
+
+    /** The versions as cards: tap one to use it (it then waits for the pilot's yes). */
+    private void pickVersion(final ai.dvine.social.Platform platform, java.util.List<String> versions, final java.util.List<String> tags) {
+        android.widget.LinearLayout list = new android.widget.LinearLayout(this);
+        list.setOrientation(android.widget.LinearLayout.VERTICAL);
+        list.setPadding(dp(16), 0, dp(16), dp(16));
+        final android.app.Dialog[] sheet = {null};
+        for (int i = 0; i < versions.size(); i++) {
+            final String text = versions.get(i);
+            android.view.View row = modelMenu.brainLink("Version " + (i + 1), text, null);
+            row.setOnClickListener(v -> {
+                if (sheet[0] != null) {
+                    sheet[0].dismiss();
+                }
+                PendingAction p = new PendingAction(PendingAction.Kind.SHARE, text, platform == ai.dvine.social.Platform.X ? "x" : "facebook",
+                        System.currentTimeMillis(), tags, null);
+                stager.offer(p);
+                showStaged(p);
+            });
+            list.addView(row);
+        }
+        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(this, "Pick a version", list);
+    }
+
+    /**
+     * "Comment under this post: <link>": the post is read with the pilot's account, the model writes a comment in
+     * their voice, and it waits for their yes before DVINE posts it there.
+     */
+    private void commentDraft(final String app, final String link, final String what) {
+        final String agent = stage.agent();
+        final ai.dvine.social.Platform net = ai.dvine.social.SocialPoster.direct(app);
+        armThink("Reading the post", "Writing a comment");
+        new Thread(() -> {
+            String post = net != null && ai.dvine.social.SocialPoster.ready(this, net) ? ai.dvine.social.SocialWeb.open(this, link, 3000) : "";
+            String answer = model == null ? null : model.task("You write social media comments for the user, in their own voice.",
+                    ai.dvine.social.PostDrafts.commentPrompt(post, what), Math.max(400, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs)),
+                    piece -> true, null);
+            final String text = answer == null ? null : answer.trim().replaceAll("^\"|\"$", "");
+            handler.post(() -> {
+                endThink();
+                if (text == null || text.isEmpty()) {
+                    play(LocalTurn.speakAs(agent, "I couldn't write the comment."), null);
+                    return;
+                }
+                PendingAction p = new PendingAction(PendingAction.Kind.COMMENT, text, app, System.currentTimeMillis(), null, link);
+                stager.offer(p);
+                showStaged(p);
+                play(LocalTurn.speakAs(agent, "Here's the comment for that post:\n\n" + text + "\n\nSay yes to post it."), null);
+            });
+        }, "dvine-comment").start();
+    }
+
     private void showStaged(final PendingAction p) {
         closeStaged();
+        boolean direct = p.kind != PendingAction.Kind.COPY
+                && ai.dvine.social.SocialPoster.ready(this, ai.dvine.social.SocialPoster.direct(p.app));
         String where = p.kind == PendingAction.Kind.COPY ? "To: your clipboard"
+                : direct ? "To: " + p.appName() + ", from your signed-in account (DVINE presses Post)"
+                + (p.tags.isEmpty() ? "" : "\nTagging: " + String.join(", ", p.tags))
+                + (p.kind == PendingAction.Kind.COMMENT ? "\nUnder: " + p.target : "")
                 : "To: " + p.appName() + " (it opens with this text; you press send there)";
         stagedCard = new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(p.kind == PendingAction.Kind.COPY ? "Copy this?" : "Post on " + p.appName() + "?")
@@ -3854,10 +3970,39 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stagedCard = null;
     }
 
+    /** An approved comment: posted under the post from the account, or copied with the post opened for the pilot. */
+    private void comment(final PendingAction p, final boolean auto) {
+        final String agent = stage.agent();
+        final ai.dvine.social.Platform net = ai.dvine.social.SocialPoster.direct(p.app);
+        if (net == null || !ai.dvine.social.SocialPoster.ready(this, net)) {
+            ai.dvine.act.Actions.copy(this, p.content);
+            try {
+                startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(p.target)));
+            } catch (RuntimeException ignored) {
+                // no app opens it: the words are on the clipboard
+            }
+            play(LocalTurn.speakAs(agent, "I can't comment from here without your " + p.appName() + " account signed in, so I copied the"
+                    + " comment and opened the post: paste it there."), null);
+            return;
+        }
+        note("Commenting on " + net.shown + "\u2026");
+        new Thread(() -> {
+            ai.dvine.social.SocialPoster.Result r = ai.dvine.social.SocialPoster.post(this, net, p.content, null, p.target);
+            if (r.posted) {
+                dvine1().readReply(p.content); // DVINE 1 learns the language of what the pilot approved
+            }
+            handler.post(() -> play(LocalTurn.speakAs(agent, r.said), null));
+        }, "dvine-comment-post").start();
+    }
+
     /** Carries out an approved (or auto-approved) action and logs it; says what really happened. */
     private void doAction(PendingAction p, boolean auto) {
         closeStaged();
         if (p == null) {
+            return;
+        }
+        if (p.kind == PendingAction.Kind.COMMENT) {
+            comment(p, auto);
             return;
         }
         final ai.dvine.social.Platform net = p.kind == PendingAction.Kind.SHARE ? ai.dvine.social.SocialPoster.direct(p.app) : null;
@@ -3866,7 +4011,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final String agent = stage.agent();
             note("Posting on " + net.shown + "\u2026");
             new Thread(() -> {
-                ai.dvine.social.SocialPoster.Result r = ai.dvine.social.SocialPoster.post(this, net, p.content);
+                ai.dvine.social.SocialPoster.Result r = ai.dvine.social.SocialPoster.post(this, net, p.content, p.tags, null);
+                if (r.posted) {
+                    dvine1().readReply(p.content); // DVINE 1 learns the language of what the pilot approved
+                }
                 handler.post(() -> {
                     if (r.posted) {
                         play(LocalTurn.speakAs(agent, r.said), null);
