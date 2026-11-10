@@ -54,7 +54,11 @@ public final class ReplyText {
             blanks = 0;
             out.append(t);
         }
-        return out.toString().replaceAll("^\\s*\\n", "").replaceAll("\\s+$", "");
+        String ready = out.toString().replaceAll("^\\s*\\n", "").replaceAll("\\s+$", "");
+        if (ai.dvine.linux.CloneFolder.progressLines(ready) >= 2) {
+            ready = ai.dvine.linux.CloneFolder.quiet(ready);
+        }
+        return ready;
     }
 
     /**

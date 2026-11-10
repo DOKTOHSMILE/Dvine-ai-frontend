@@ -147,7 +147,12 @@ public final class LinuxHub {
             }
         }
         if (AlpineRun.ready(c)) {
-            command = CloneFolder.place(command);
+            try {
+                CloneFolder.installGuard(LinuxRoot.root(c)); // git clone cannot land outside memory/projects
+            } catch (Exception ignored) {
+                // the command's own rewrite still sends the clone to the right folder
+            }
+            command = CloneFolder.settle() + "\n" + CloneFolder.place(command);
             String placed = where == null ? command : GuestPath.at(where, command);
             String shared = ask(c, placed);
             if (shared != null) {

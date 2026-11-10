@@ -83,8 +83,9 @@ public class PromptFitTest {
     }
 
     @Test
-    public void aMissingHostIsNotTriedAgain() {
-        assertFalse(PromptFit.retryReach("Unable to resolve host \"brewkeg.dev\": No address associated with hostname"));
+    public void aDnsBlipIsTriedAgain() {
+        assertTrue(PromptFit.retryReach("Unable to resolve host \"brewkeg.dev\": No address associated with hostname"));
         assertTrue(PromptFit.retryReach("Software caused connection abort"));
+        assertFalse(PromptFit.retryReach("only https addresses can be fetched"));
     }
 }

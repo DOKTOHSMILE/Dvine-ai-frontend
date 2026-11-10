@@ -17,6 +17,16 @@ public class CloneFolderTest {
     }
 
     @Test
+    public void aCloneIsRetargetedEvenWhenTheCommandAlsoListsTheProjectsFolder() {
+        String placed = CloneFolder.place("ls memory/projects\n"
+                + "git -c http.version=HTTP/1.1 clone --depth 1 https://github.com/a/b.git /root/workspace/b");
+        assertTrue(placed.contains("/workspace/memory/projects/b"));
+        assertTrue(placed.contains("--depth"));
+        assertTrue(placed.contains("checkout -f HEAD"));
+        assertFalse(placed.contains("/root/workspace/b"));
+    }
+
+    @Test
     public void progressIsOneLine() {
         String noisy = "Cloning into '/root/workspace/Dvine-ai-frontend'...\n"
                 + "remote: Counting objects: 21% (98/463)\n"

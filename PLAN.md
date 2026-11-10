@@ -1,3 +1,10 @@
+# Clones stay in the workspace, and a job is not cut off (0.99.55)
+
+- [x] Every `git clone`, including `git -c … clone` and a command that also mentions `memory/projects`, writes into `memory/projects/`. A repo already sitting in `/root/workspace` is moved there. A clone that only has `.git` is checked out.
+- [x] Git's "Counting objects" lines are never a code card, including while the reply is still streaming.
+- [x] A message sent during a reply is placed under the words already on screen, not above them.
+- [x] A DNS blip ("Unable to resolve host") and an empty reply are tried again. A short "I'll do that next" does not end an audit.
+
 # Clones land in the workspace (0.99.54)
 
 - [x] `git clone` writes into `memory/projects/`, the folder the workspace screen shows, not Linux's home.
@@ -15,7 +22,6 @@
 - [ ] Remove Obi and Ivie from the code itself (classes, voices, canvas wiring, tests).
 - [ ] The full built-in dataset (run tools/build_world_facts.py when Wikidata allows; then more subjects).
 - [ ] The organisation for features outside the coding agent.
->>>>>>> b8d3dee06fab470b2fead5b99d6a6950a77ca82e
 
 # An audit reads the files (0.99.52)
 

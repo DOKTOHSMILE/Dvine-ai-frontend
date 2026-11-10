@@ -2912,8 +2912,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 result = agent.run(asked, earlier);
                 long began = System.currentTimeMillis();
                 int round = 1;
+                int spun = 0;
                 while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS
                         && System.currentTimeMillis() - began < workMs) {
+                    if (ai.dvine.agent.CodeAgent.promise(result) && ++spun > 6) {
+                        break; // six status lines in a row: stop and say so, instead of spinning
+                    }
+                    if (!ai.dvine.agent.CodeAgent.promise(result)) {
+                        spun = 0;
+                    }
                     saveAgentWork(workAt, agent.work());
                     changed.addAll(agent.changed());
                     final String note = result;
@@ -4683,6 +4690,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (t.toLowerCase(java.util.Locale.US).startsWith("remember ")) {
             chats.remember(t.substring("remember ".length()).trim());
+        }
+        if (chatPane != null) {
+            chatPane.freezeLive(); // the reply already on screen stays above this message
         }
         chats.add("user", "text", t, chats.current().persona);
         chatPane.show();

@@ -283,6 +283,8 @@ public class CodeAgentTest {
         assertTrue(CodeAgent.promise("Next: verify each tool doc line against its runner, then build/test."));
         assertTrue(CodeAgent.promise("Checked the agent prompt and PhoneHost.\nNext: verify each tool, then build."));
         assertTrue(CodeAgent.promise("I'll fix the docs now."));
+        assertTrue(CodeAgent.promise("I've located the repo outside the workspace — I'll now map its structure."));
+        assertTrue(CodeAgent.promise("The folder looks empty. I'm fetching the branch list and forcing a checkout."));
         assertTrue("a result is not a plan", !CodeAgent.promise("Nothing is wrong: every tool matches its runner."));
         assertTrue(!CodeAgent.promise("The fetch line was wrong. I fixed it in CodeAgent.java and the tests pass."));
         assertTrue(CodeAgent.alike("Auditing tool docs against host code, mapping files first.",

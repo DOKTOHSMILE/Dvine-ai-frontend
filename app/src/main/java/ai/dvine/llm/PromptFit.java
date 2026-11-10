@@ -131,13 +131,16 @@ public final class PromptFit {
         return copy;
     }
 
-    /** A dropped connection is worth another try. A host that does not exist is not. */
+    /**
+     * A dropped connection, including a phone resolver that briefly cannot name a real host
+     * ("Unable to resolve host … No address associated with hostname"), is worth another try.
+     * Refusing anything but https is not.
+     */
     public static boolean retryReach(String message) {
         if (message == null) {
             return true;
         }
         String m = message.toLowerCase(Locale.US);
-        return !(m.contains("unknown host") || m.contains("unknownhost") || m.contains("no address")
-                || m.contains("unable to resolve") || m.contains("only https"));
+        return !m.contains("only https");
     }
 }
