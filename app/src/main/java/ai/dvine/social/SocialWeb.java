@@ -266,6 +266,9 @@ public final class SocialWeb {
      * Looks something up on one network (or each signed-in one, when {@code only} is null) with the user's accounts:
      * the posts as labelled text for the model, and what couldn't be read, and why.
      */
+    /** Told each page read (set by the app): DVINE 1 learns language from it. */
+    public static volatile java.util.function.Consumer<String> onRead;
+
     public static String search(Context c, Platform only, String query, int most) {
         SocialAccounts all = accounts(c);
         List<Platform> nets = only != null ? java.util.Collections.singletonList(only) : all.ready();
@@ -368,7 +371,12 @@ public final class SocialWeb {
                 return p.shown + ": the account “" + a.label + "” is signed out. The user can sign in again under Social accounts.";
             }
             all.signedIn(a.id, true);
-            return SocialPage.forModel(p, what, SocialPage.text(page[1], most));
+            String text = SocialPage.text(page[1], most);
+            java.util.function.Consumer<String> learn = onRead;
+            if (learn != null && text != null) {
+                learn.accept(text); // people's words: DVINE 1 reads them for language only, never as facts
+            }
+            return SocialPage.forModel(p, what, text);
         }
     }
 

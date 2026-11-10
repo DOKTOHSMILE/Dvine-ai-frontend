@@ -9,7 +9,7 @@ import java.util.Map;
  * DVINE 1's own small JSON reader (a copy of the app's, so this folder stands alone). Objects become LinkedHashMap,
  * numbers Double. Kept local so the brain runs in plain JVM tests.
  */
-final class Json {
+public final class Json {
     private final String src;
     private int pos;
 

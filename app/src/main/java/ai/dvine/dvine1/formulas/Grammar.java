@@ -1,4 +1,4 @@
-package ai.dvine.dvine1;
+package ai.dvine.dvine1.formulas;
 
 import java.util.ArrayList;
 import java.util.Arrays;

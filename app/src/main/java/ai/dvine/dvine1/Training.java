@@ -1,5 +1,6 @@
 package ai.dvine.dvine1;
 
+import ai.dvine.dvine1.formulas.Grammar;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
