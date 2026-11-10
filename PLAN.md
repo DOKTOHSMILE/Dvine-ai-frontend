@@ -1,3 +1,8 @@
+# CodeAssist can see R again (0.99.70)
+
+- [x] The phone compiles `ai.ibiko`. The copy of the project CodeAssist had indexed still said `ai.dvine`, so the generated `R` was not `ai.ibiko.R` and every screen failed with "R cannot be resolved".
+- [x] That stale index and the old Gradle snapshot are no longer what a pull restores. Close the project, pull, open it again, then build.
+
 # Ibiko's icon (0.99.69)
 
 - [x] A cute, futuristic robot: adaptive icon (background, foreground, monochrome) and PNGs from the same design.

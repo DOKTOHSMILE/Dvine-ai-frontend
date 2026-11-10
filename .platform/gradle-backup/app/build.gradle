@@ -3,15 +3,15 @@ plugins {
 }
 
 android {
-    namespace "ai.dvine"
+    namespace "ai.ibiko"
     compileSdk 35
 
     defaultConfig {
-        applicationId "ai.dvine"
+        applicationId "ai.ibiko"
         minSdk 34
         targetSdk 35
-        versionCode 7
-        versionName "0.6.0"
+        versionCode 263
+        versionName "0.99.70"
     }
 
     compileOptions {
