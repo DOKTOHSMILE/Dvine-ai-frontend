@@ -1,3 +1,7 @@
+# Ibiko's icon (0.99.69)
+
+- [x] A cute, futuristic robot: adaptive icon (background, foreground, monochrome) and PNGs from the same design.
+
 # The package is ai.ibiko (0.99.68)
 
 - [x] Application ID, namespace, manifest and every Java package renamed to ai.ibiko.
