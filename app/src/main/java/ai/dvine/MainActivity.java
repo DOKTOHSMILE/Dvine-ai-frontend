@@ -1508,22 +1508,35 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         library = new ai.dvine.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
         assistant = new ai.dvine.ops.AssistantCore(new File(getFilesDir(), "ops"),
                 new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
+                    // the task system's device commands run in DVINE's one Alpine Linux, not in another app
                     @Override
                     public boolean installed() {
-                        return ai.dvine.ops.TermuxAndroid.installed(MainActivity.this);
+                        return ai.dvine.linux.AlpineRun.ready(MainActivity.this);
                     }
 
                     @Override
                     public boolean permissionGranted() {
-                        return checkSelfPermission(
-                                "com.termux.permission.RUN_COMMAND") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                        return true;
                     }
 
                     @Override
                     public boolean resultBridgeConnected() {
-                        return false;
+                        return true;
                     }
-                }, null, null, null);
+                }, (argv, timeoutMs) -> {
+                    if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+                        // never wait for Linux on the screen's thread: the task uses its own quick reading instead
+                        return new ai.dvine.ops.termux.TermuxExecutionService.Result(127, "", "on the main thread", false, false);
+                    }
+                    StringBuilder line = new StringBuilder();
+                    for (String a : argv) {
+                        line.append(line.length() == 0 ? "" : " ").append(ai.dvine.linux.Guest.quote(a));
+                    }
+                    String text = ai.dvine.linux.LinuxHub.run(MainActivity.this, line.toString(), null);
+                    java.util.regex.Matcher exit = java.util.regex.Pattern.compile("\\[exit (\\d+)\\]\\s*$").matcher(text.trim());
+                    int code = exit.find() ? Integer.parseInt(exit.group(1)) : 0;
+                    return new ai.dvine.ops.termux.TermuxExecutionService.Result(code, text, "", false, false);
+                }, null, null);
         String restored = assistant.restoredSummary();
         if (restored != null) {
             stage.activity("TASK", restored);
@@ -3283,17 +3296,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             handler.post(() -> activity("Ran " + cmd + " in DVINE"));
-            java.io.File linux = new java.io.File(getFilesDir(), "linux");
-            ai.dvine.linux.WorkspaceManager.ensure(linux);
-            String shared = ai.dvine.linux.LinuxHub.ask(this, cmd);
-            ai.dvine.linux.LinuxEngine.Result ran = shared != null
-                    ? new ai.dvine.linux.LinuxEngine.Result(true, shared)
-                    : ai.dvine.linux.AlpineRun.run(this,
-                            ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(this), cmd), linux);
-            if (ran == null) {
-                ran = ai.dvine.linux.LinuxEngine.run(cmd, linux, shellRoots());
-            }
-            String out = ran == null ? "The shell didn't run that." : ran.text;
+            String out = ai.dvine.linux.LinuxHub.run(this, cmd, null); // the one Alpine, the same as the Shell screen
             final String result = out == null || out.trim().isEmpty() ? "(no output)" : out;
             String answer = model == null || !model.ready() ? null
                     : model.reply(system, question, "Output of `" + cmd + "`:\n" + cut(result, 6000), 700, piece -> modelPiece(id, piece));

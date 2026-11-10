@@ -13,8 +13,6 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Optional. Termux must be installed and the user must grant this in Termux's own settings. -->
-    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
     <uses-feature
         android:glEsVersion="0x00020000"
@@ -24,7 +22,6 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
-        <package android:name="com.termux" />
         <!-- the networks a post is handed to, scheduled or now -->
         <package android:name="com.twitter.android" />
         <package android:name="com.facebook.katana" />
