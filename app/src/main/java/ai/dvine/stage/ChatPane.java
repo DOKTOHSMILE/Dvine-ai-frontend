@@ -39,6 +39,10 @@ public final class ChatPane extends LinearLayout {
             return false;
         }
 
+        /** A turn's work ended: the steps it showed, in order, so the way the answer was reached can be learned. */
+        default void onWorkSteps(List<String> steps) {
+        }
+
         /** As {@link #onReadAloudToggle(String)}, in the voice of the persona who wrote the reply. */
         default boolean onReadAloudToggle(String text, String persona) {
             return onReadAloudToggle(text);
@@ -154,8 +158,19 @@ public final class ChatPane extends LinearLayout {
         if (from > 0) {
             thread.addView(earlier(from));
         }
+        final int[] foldTo = folds(cur.messages, from, working());
+        turnParts.clear();
+        turnBars.clear();
+        openGroup = null;
         for (int i = from; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
+            if (foldTo[i] >= 0) {
+                // a finished turn: its whole process (steps and the notes along the way) is one row at the top, and
+                // only the answer shows under it
+                thread.addView(processRow(cur.messages, i, foldTo[i]));
+                i = foldTo[i];
+                continue;
+            }
             if (attachment(m)) {
                 android.widget.LinearLayout col = new android.widget.LinearLayout(getContext());
                 col.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -201,7 +216,10 @@ public final class ChatPane extends LinearLayout {
                                 listenAs = m.persona;
                                 thread.addView(shown);
                                 lastPartBar = partActions(piece);
+                                lastPartBar.setVisibility(GONE); // shown by a tap on the reply
                                 thread.addView(lastPartBar);
+                                turnParts.add(shown);
+                                turnBars.add(lastPartBar);
                                 parts++;
                             }
                         }
@@ -245,19 +263,28 @@ public final class ChatPane extends LinearLayout {
             if (lastOfTurn && reply.length() > 0) {
                 if (parts == 1 && lastPartBar != null) {
                     thread.removeView(lastPartBar); // one part: the end's Listen is the same, shown once
+                    turnBars.remove(lastPartBar);
                 }
+                View bar;
                 // at the end: Copy for the whole reply at once, and Listen to all of it, as icons
                 boolean lastReply = i == cur.messages.size() - 1;
                 if (rateAnswer != null && lastReply && reply.toString().contains(rateAnswer)) {
                     // DVINE asks whether its answer was right: check and cancel beside Copy and Listen
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), rateQuestion, rateAnswer));
+                    bar = actions(reply.toString(), stripCode(reply.toString()), rateQuestion, rateAnswer);
+                    bar.setTag("asked"); // DVINE asked: its check and cross stay in view
                 } else if (lastReply && lastAsked != null && !reply.toString().equals(ratedReply)
                         && (ratedAnswer == null || !reply.toString().contains(ratedAnswer))) {
                     // every answer can be marked right or wrong, whichever model wrote it: DVINE keeps learning
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), lastAsked, stripCode(reply.toString()).trim()));
+                    bar = actions(reply.toString(), stripCode(reply.toString()), lastAsked, stripCode(reply.toString()).trim());
                 } else {
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString())));
+                    bar = actions(reply.toString(), stripCode(reply.toString()));
                 }
+                thread.addView(bar);
+                turnBars.add(bar);
+                // Copy, Listen and the rest stay out of the way: a tap on the reply shows them, another hides them
+                tapGroup(new ArrayList<View>(turnParts), new ArrayList<View>(turnBars), "asked".equals(bar.getTag()));
+                turnParts.clear();
+                turnBars.clear();
                 reply.setLength(0);
                 parts = 0;
                 lastPartBar = null;
@@ -412,6 +439,13 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void activityEnd() {
+        if (!steps.isEmpty() && host != null) {
+            List<String> words = new ArrayList<String>();
+            for (String s : steps) {
+                words.add(ai.dvine.agent.StepDetail.words(s));
+            }
+            host.onWorkSteps(words);
+        }
         keepSteps();
         kept = 0;
         if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
@@ -1933,6 +1967,137 @@ public final class ChatPane extends LinearLayout {
     }
 
     /** Copy under the user's own message, on its side (right), as under a reply. */
+    /** While drawing a turn: its parts, and the bars under them (each part's Listen, then Copy and Listen for all). */
+    private final List<View> turnParts = new ArrayList<View>(), turnBars = new ArrayList<View>();
+    /** The bars open after a tap on a reply; null when none is. */
+    private List<View> openGroup;
+
+    /** A tap on any part of a reply shows its bars, another tap hides them; opening one reply's closes another's. */
+    private void tapGroup(final List<View> parts, final List<View> bars, boolean open) {
+        for (View b : bars) {
+            b.setVisibility(open ? VISIBLE : GONE);
+        }
+        if (open) {
+            openGroup = bars;
+        }
+        final Runnable toggle = () -> {
+            boolean show = bars.isEmpty() || bars.get(bars.size() - 1).getVisibility() != VISIBLE;
+            if (openGroup != null && openGroup != bars) {
+                for (View b : openGroup) {
+                    b.setVisibility(GONE);
+                }
+            }
+            if (openActions != null) {
+                openActions.setVisibility(GONE);
+                openActions = null;
+            }
+            for (View b : bars) {
+                b.setVisibility(show ? VISIBLE : GONE);
+            }
+            openGroup = show ? bars : null;
+        };
+        for (View part : parts) {
+            View text = part.findViewById(R.id.tv_message);
+            (text != null ? text : part).setOnClickListener(v -> toggle.run()); // a long press still selects text
+        }
+    }
+
+    /**
+     * Which stretches of the chat fold into one process row. For each finished assistant turn that did some work and
+     * then answered, the entry at the turn's first folded message is the index of its last one (its steps and the notes
+     * written along the way); every other entry is -1. The turn still being worked on is never folded.
+     */
+    static int[] folds(List<ChatBook.Message> all, int from, boolean working) {
+        int n = all.size();
+        int[] out = new int[n];
+        java.util.Arrays.fill(out, -1);
+        int s = Math.max(0, from);
+        while (s < n) {
+            if ("user".equals(all.get(s).role)) {
+                s++;
+                continue;
+            }
+            int e = s;
+            while (e + 1 < n && !"user".equals(all.get(e + 1).role)) {
+                e++;
+            }
+            int first = -1, last = -1;
+            for (int k = s; k <= e; k++) {
+                if ("activity".equals(all.get(k).kind)) {
+                    first = first < 0 ? k : first;
+                    last = k;
+                }
+            }
+            boolean answered = false;
+            for (int k = last + 1; last >= 0 && k <= e; k++) {
+                ChatBook.Message m = all.get(k);
+                answered |= ("text".equals(m.kind) || "code".equals(m.kind)) && m.body != null && !m.body.trim().isEmpty();
+            }
+            boolean plain = true; // only steps and notes fold; a picture, a file or a button in between stays where it is
+            for (int k = first; first >= 0 && k <= last; k++) {
+                String kind = all.get(k).kind;
+                plain &= "activity".equals(kind) || "text".equals(kind);
+            }
+            if (first >= 0 && answered && plain && !(working && e == n - 1)) {
+                out[first] = last;
+            }
+            s = e + 1;
+        }
+        return out;
+    }
+
+    /** "Worked for 3m 45s · 17 steps ›": a finished turn's whole process in one row; a tap opens every step and note. */
+    private View processRow(List<ChatBook.Message> all, int from, int to) {
+        final List<String> every = new ArrayList<String>();
+        long secs = 0;
+        boolean tools = false;
+        for (int k = from; k <= to; k++) {
+            ChatBook.Message m = all.get(k);
+            String[] lines = (m.body == null ? "" : m.body).split("\n");
+            if ("activity".equals(m.kind)) {
+                try {
+                    secs += Long.parseLong(lines[0].trim());
+                } catch (NumberFormatException old) {
+                    // kept before stretches had times
+                }
+                for (int i = 1; i < lines.length; i++) {
+                    String l = lines[i].trim();
+                    if (!l.isEmpty() && !providerLine(l)) {
+                        every.add(l);
+                        tools |= !ai.dvine.agent.StepDetail.words(l.split("\t")[0]).matches("(?i)^(thinking|replying|writing).*");
+                    }
+                }
+            } else if (m.body != null && !m.body.trim().isEmpty()) {
+                String note = m.body.trim().replaceAll("\\s+", " ");
+                every.add("Note: " + (note.length() > 400 ? note.substring(0, 400) + "\u2026" : note));
+            }
+        }
+        final String label = (tools ? "Worked for " : "Thought for ") + duration(Math.max(1, secs))
+                + (every.size() > 2 ? "  \u00B7  " + every.size() + " steps" : "");
+        TextView row = plain("");
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        appendColoured(b, label + "  \u203A", color(R.color.text_secondary));
+        row.setText(b);
+        row.setTextSize(14f);
+        row.setMaxLines(1);
+        row.setPadding(0, dp(12), 0, dp(12));
+        row.setMinHeight(dp(48));
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(ripple());
+        android.graphics.drawable.Drawable icon = getContext().getDrawable(R.drawable.ic_deep);
+        if (icon != null) {
+            icon = icon.mutate();
+            icon.setTint(color(R.color.text_secondary));
+            icon.setBounds(0, 0, dp(18), dp(18));
+            row.setCompoundDrawablesRelative(icon, null, null, null);
+            row.setCompoundDrawablePadding(dp(10));
+        }
+        row.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        row.setContentDescription(label + ", open the process");
+        row.setOnClickListener(v -> openSteps("Process", every, false));
+        return row;
+    }
+
     /** The message box's actions, open after a tap on it; null when none is open. */
     private View openActions;
 

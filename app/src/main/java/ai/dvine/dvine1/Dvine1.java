@@ -137,6 +137,19 @@ public final class Dvine1 {
         return lexicon;
     }
 
+    /** How answers were reached, by kind of request: learned from every reply, used by every brain. */
+    public Methods methods() {
+        return Store.methods(dir);
+    }
+
+    /**
+     * A reply was just reached through these steps (as the chat showed them), by any brain: the way is learned now,
+     * with no tap needed. The pilot's check or cross later only makes it stronger or weaker.
+     */
+    public void learnWay(String request, List<String> shownSteps) {
+        methods().observe(request, Methods.steps(shownSteps), System.currentTimeMillis());
+    }
+
     /** The independent learner: grammar, sentence shapes, the pilot's word on answers, open questions, the score. */
     public synchronized Learner learner() {
         if (learner == null) {
@@ -280,7 +293,9 @@ public final class Dvine1 {
         }
         final String subject = ResearchAnswer.subject(t);
         how = How.RESEARCH;
+        final Methods.Way way = methods().recall(t);
         think(Arrays.asList("Reading your question", "Checking what I already know",
+                way != null ? "Following the way that worked before: " + way.said() :
                 subject != null ? "Not in my memory: looking up “" + subject + "”" : "Not in my memory: searching the web"), () -> {
                     final int mine = token;
                     new Thread(() -> {
@@ -449,6 +464,7 @@ public final class Dvine1 {
             return;
         }
         learner().judged(right, System.currentTimeMillis());
+        methods().judge(question, right); // the way that reached it, too
         if (right) {
             knowledge().confirm(question, answer);
             host.learnTalk(question, answer);

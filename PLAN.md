@@ -1,3 +1,10 @@
+# One summary, icons on a tap, learning the method (0.99.51)
+
+- [x] A finished turn: the process in one row at the top, one summary under it.
+- [x] Copy, Listen and the rest show on a tap of the reply.
+- [x] DVINE 1 learns how an answer was reached from every reply, with no tap.
+- [ ] DVINE 1 composing new methods from parts of old ones.
+
 # Only the brain commands; workers; tools grid (0.99.50)
 
 - [x] With a model in use, no wording runs a function: the brain gives a code.
