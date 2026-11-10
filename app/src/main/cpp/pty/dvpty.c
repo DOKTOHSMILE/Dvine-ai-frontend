@@ -4,7 +4,7 @@
  * so this builds with any clang and loads on any arm64 Android. Built by build.sh into
  * src/main/jniLibs/arm64-v8a/libdvpty.so.
  *
- * Java side: ai.dvine.linux.Pty.
+ * Java side: ai.ibiko.linux.Pty.
  */
 typedef int jint;
 typedef void JNIEnv;
@@ -32,7 +32,7 @@ static long call3(long n, long a, long b, long c) {
 
 /* The master side's file descriptor, or a negative errno. */
 __attribute__((visibility("default")))
-jint Java_ai_dvine_linux_Pty_nativeOpen(JNIEnv *env, jclass cls) {
+jint Java_ai_ibiko_linux_Pty_nativeOpen(JNIEnv *env, jclass cls) {
     (void) env;
     (void) cls;
     return (jint) call3(SYS_openat, AT_FDCWD, (long) "/dev/ptmx", O_RDWR | O_NOCTTY | O_CLOEXEC);
@@ -40,7 +40,7 @@ jint Java_ai_dvine_linux_Pty_nativeOpen(JNIEnv *env, jclass cls) {
 
 /* Unlocks the slave and returns its number (/dev/pts/N), or a negative errno. */
 __attribute__((visibility("default")))
-jint Java_ai_dvine_linux_Pty_nativeNumber(JNIEnv *env, jclass cls, jint fd) {
+jint Java_ai_ibiko_linux_Pty_nativeNumber(JNIEnv *env, jclass cls, jint fd) {
     (void) env;
     (void) cls;
     int unlock = 0;
@@ -55,7 +55,7 @@ jint Java_ai_dvine_linux_Pty_nativeNumber(JNIEnv *env, jclass cls, jint fd) {
 
 /* Sets the terminal's size; programs inside are told (SIGWINCH). 0, or a negative errno. */
 __attribute__((visibility("default")))
-jint Java_ai_dvine_linux_Pty_nativeResize(JNIEnv *env, jclass cls, jint fd, jint rows, jint cols) {
+jint Java_ai_ibiko_linux_Pty_nativeResize(JNIEnv *env, jclass cls, jint fd, jint rows, jint cols) {
     (void) env;
     (void) cls;
     unsigned short size[4];
@@ -67,7 +67,7 @@ jint Java_ai_dvine_linux_Pty_nativeResize(JNIEnv *env, jclass cls, jint fd, jint
 }
 
 __attribute__((visibility("default")))
-jint Java_ai_dvine_linux_Pty_nativeClose(JNIEnv *env, jclass cls, jint fd) {
+jint Java_ai_ibiko_linux_Pty_nativeClose(JNIEnv *env, jclass cls, jint fd) {
     (void) env;
     (void) cls;
     return (jint) call3(SYS_close, fd, 0, 0);

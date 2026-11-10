@@ -2,7 +2,7 @@
 
 Ibiko is one AI assistant on your Android device. There are no personas to pick and no other names: you talk to Ibiko, and Ibiko talks, researches, writes, designs in 3D, and writes and runs code on the device.
 
-The repository and the Java package keep their old names (`Dvine-ai-frontend`, `ai.dvine`) so that existing installs, saved chats and settings carry over. Everything a person sees says Ibiko.
+The app's package is `ai.ibiko` (since 0.99.68; before that `ai.dvine`, so it installs as a new app beside an older build, and the model is downloaded again). The repository keeps its old name, `Dvine-ai-frontend`. Everything a person sees says Ibiko.
 
 - Build plan: [`docs/DVINE_MASTER_BUILD_HANDBOOK.md`](docs/DVINE_MASTER_BUILD_HANDBOOK.md)
 - What was built in each version, with the tests that prove it: [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md)

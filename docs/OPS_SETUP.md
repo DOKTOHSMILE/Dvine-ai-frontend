@@ -58,8 +58,8 @@ A single photo becomes a named, editable approximation (GLB node names can also 
 `OpsPipelineTest` — 26 tests, JUnit 4, no device and no Gradle:
 
 ```
-javac … ai/dvine/ops/**/*.java
-java org.junit.runner.JUnitCore ai.dvine.ops.OpsPipelineTest
+javac … ai/ibiko/ops/**/*.java
+java org.junit.runner.JUnitCore ai.ibiko.ops.OpsPipelineTest
 ```
 
 Not run here: `gradle testDebugUnitTest`, `assembleDebug`, `mvn test`, a phone, a live SSH server, Termux on a device. Those remain the checks that have to pass on your machine before this is called verified on Android.

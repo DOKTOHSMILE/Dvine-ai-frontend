@@ -68,7 +68,7 @@
             </LinearLayout>
 
             <!-- the model's workload: how full its working memory is (tap for Usage) -->
-            <ai.dvine.stage.WorkloadGauge
+            <ai.ibiko.stage.WorkloadGauge
                 android:id="@+id/workload"
                 android:layout_width="30dp"
                 android:layout_height="30dp"

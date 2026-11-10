@@ -1,4 +1,4 @@
-// The Java bridge for ai.dvine.llm.NativeLlm. Only whole UTF-8 characters are handed to Java (a token can end
+// The Java bridge for ai.ibiko.llm.NativeLlm. Only whole UTF-8 characters are handed to Java (a token can end
 // in the middle of one), converted to UTF-16 here because JNI's NewStringUTF reads modified UTF-8.
 #include <jni.h>
 
@@ -71,7 +71,7 @@ std::string from_java(JNIEnv * env, jstring s) {
 
 extern "C" {
 
-JNIEXPORT jlong JNICALL Java_ai_dvine_llm_NativeLlm_nLoad(JNIEnv * env, jclass, jstring path, jint ctx, jint threads) {
+JNIEXPORT jlong JNICALL Java_ai_ibiko_llm_NativeLlm_nLoad(JNIEnv * env, jclass, jstring path, jint ctx, jint threads) {
     auto * e = new dvine::Engine();
     if (!e->load(from_java(env, path), ctx, threads)) {
         delete e;
@@ -80,7 +80,7 @@ JNIEXPORT jlong JNICALL Java_ai_dvine_llm_NativeLlm_nLoad(JNIEnv * env, jclass, 
     return (jlong) e;
 }
 
-JNIEXPORT jstring JNICALL Java_ai_dvine_llm_NativeLlm_nReply(JNIEnv * env, jclass, jlong handle, jstring system,
+JNIEXPORT jstring JNICALL Java_ai_ibiko_llm_NativeLlm_nReply(JNIEnv * env, jclass, jlong handle, jstring system,
                                                            jobjectArray roles, jobjectArray texts, jint max_tokens,
                                                            jfloat temperature, jobject sink) {
     auto * e = (dvine::Engine *) handle;
@@ -120,21 +120,21 @@ JNIEXPORT jstring JNICALL Java_ai_dvine_llm_NativeLlm_nReply(JNIEnv * env, jclas
     return to_java(env, all);
 }
 
-JNIEXPORT jstring JNICALL Java_ai_dvine_llm_NativeLlm_nError(JNIEnv * env, jclass, jlong handle) {
+JNIEXPORT jstring JNICALL Java_ai_ibiko_llm_NativeLlm_nError(JNIEnv * env, jclass, jlong handle) {
     auto * e = (dvine::Engine *) handle;
     return to_java(env, e ? e->error() : std::string("the model is not loaded"));
 }
 
-JNIEXPORT void JNICALL Java_ai_dvine_llm_NativeLlm_nCancel(JNIEnv *, jclass, jlong handle) {
+JNIEXPORT void JNICALL Java_ai_ibiko_llm_NativeLlm_nCancel(JNIEnv *, jclass, jlong handle) {
     auto * e = (dvine::Engine *) handle;
     if (e) e->cancel();
 }
 
-JNIEXPORT void JNICALL Java_ai_dvine_llm_NativeLlm_nFree(JNIEnv *, jclass, jlong handle) {
+JNIEXPORT void JNICALL Java_ai_ibiko_llm_NativeLlm_nFree(JNIEnv *, jclass, jlong handle) {
     delete (dvine::Engine *) handle;
 }
 
-JNIEXPORT jboolean JNICALL Java_ai_dvine_llm_NativeLlm_nWarm(JNIEnv * env, jclass, jlong handle, jstring system) {
+JNIEXPORT jboolean JNICALL Java_ai_ibiko_llm_NativeLlm_nWarm(JNIEnv * env, jclass, jlong handle, jstring system) {
     auto * e = (dvine::Engine *) handle;
     if (!e || !e->loaded()) return JNI_FALSE;
     return e->warm(from_java(env, system)) ? JNI_TRUE : JNI_FALSE;

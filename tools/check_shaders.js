@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 
 const src = {};
 for (const file of ['render/StageRenderer.java', 'render/pod/PodRenderer.java']) {
-  const java = fs.readFileSync(path.join(__dirname, '../app/src/main/java/ai/dvine/', file), 'utf8');
+  const java = fs.readFileSync(path.join(__dirname, '../app/src/main/java/ai/ibiko/', file), 'utf8');
   // each constant is string literals and earlier constants joined with +
   for (const m of java.matchAll(/static final String (\w+) = ([\s\S]*?);\n/g)) {
     const body = m[2].replace(/\/\/[^\n]*/g, '');

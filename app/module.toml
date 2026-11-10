@@ -28,12 +28,12 @@ resources = ["src/test/resources"]
 implementation = ["androidx.appcompat:appcompat:1.6.1", "androidx.core:core:1.12.0", "kotlin-stdlib"]
 
 [android]
-namespace = "ai.dvine"
+namespace = "ai.ibiko"
 compileSdk = 35
 minSdk = 34
 targetSdk = 35
 manifest = "src/main/AndroidManifest.xml"
-versionCode = 260
-versionName = "0.99.67"
+versionCode = 261
+versionName = "0.99.68"
 buildConfig = false
 isApplication = true

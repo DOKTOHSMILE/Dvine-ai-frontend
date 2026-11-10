@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="ai.dvine">
+    package="ai.ibiko">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- the Phone calendar connector, asked for only when the user switches it on -->
@@ -135,7 +135,7 @@
             android:windowSoftInputMode="adjustResize" />
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="ai.dvine.files"
+            android:authorities="ai.ibiko.files"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

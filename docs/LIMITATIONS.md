@@ -88,7 +88,7 @@ Nothing here is fixed yet. This file is the backlog.
 
 - **Stops:** selecting a model in the UI, and knowing which model produced a reply.
 - **Cause:** `Models.kt` never adds entries to its models list, and `Models.default` returns null
-  (`app/src/main/java/ai/dvine/models/Models.kt:15-53`).
+  (`app/src/main/java/ai/ibiko/models/Models.kt:15-53`).
 - **Smallest next step:** populate the list from the device's model files (or from the API's
   `/models` endpoint) and make `default` return the first one.
 
