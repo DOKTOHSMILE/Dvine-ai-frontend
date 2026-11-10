@@ -2990,7 +2990,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         + (stands.isEmpty() ? "" : "\n\n" + stands + "\nCarry on from that point. Read only the files the next"
                                 + " pending step needs; do not start a second project or re-read what is listed as done.")
                         : task + dvine1().methods().hint(task).replaceFirst("^ ", "\n\n");
-                result = agent.run(asked, earlier);
+                final String ahead = dvine1().premeditate(task).trim();
+                result = agent.run(asked + "\n\n" + ahead, earlier); // the agent thinks ahead too
                 long began = System.currentTimeMillis();
                 int round = 1;
                 int spun = 0;
@@ -4919,7 +4920,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final boolean online = prefs.getBoolean("fresh_facts", true) && connectivity != null
                 && connectivity.isOnline();
         armThink("Thinking\u2026", "Thinking\u2026");
-        final String around = situation(ivie) + dvine1().methods().hint(question); // and the way that worked before
+        // and the way that worked before, and what this is likely to lead to (premeditation)
+        final String around = situation(ivie) + dvine1().methods().hint(question) + dvine1().premeditate(question);
         hub.worker.execute(() -> {
             String asked = question;
             if (lang != null && alive(id)) {

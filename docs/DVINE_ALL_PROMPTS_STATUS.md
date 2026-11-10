@@ -237,6 +237,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 204 | Long agent jobs run in the background while the user keeps talking, with no disruption | P12 | Built on an API (`sideReply`, `§ST` to pass an instruction to the job); with the device model only, a message still goes to the job | 0.99.57 |
 | 205 | Fix every UI and UX properly; the composer mockup (Tools, Code, Media, Explore, More, "Ask … anything") | P12 | Built (hint and names in 0.99.57; the chips row in 0.99.58; JVM test) | 0.99.58 |
 | 206 | Check the repo and the user's own changes; keep every document and the README up to date | P12 | Built (0.99.53–0.99.56 recorded; README rewritten; two tests red on main fixed) | 0.99.57 |
+| 207 | Give the AI the ability (a formula) to be premeditative | P12 | Built (`formulas/Foresight` P1–P7: habits of what follows what, the look-before check for every brain, offers never acted on unasked; JVM tests) | 0.99.59 |
 
 ## Still open, in the order that matters
 
