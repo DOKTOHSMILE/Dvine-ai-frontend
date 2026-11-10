@@ -1,3 +1,13 @@
+# A real terminal (0.99.40)
+
+- [x] The shell is a terminal device: every key goes to Alpine; vi, nano, top, htop and less draw full screens; CTRL-C and CTRL-Z reach the program.
+- [x] Pinch changes the text size and the program is told the new size; a drag scrolls back.
+- [x] One shell for the shell screen, chat and Ibiko; leaving the screen leaves a program open.
+
+# Same folder (0.99.39)
+
+- [x] A shell command from chat starts in the coding workspace, the same folder the file tools see. `Dvine-ai-frontend` is `/workspace/Dvine-ai-frontend`, not an empty home directory.
+
 # The shell, as one piece (0.99.36)
 
 DVINE has one Alpine Linux. It is not a picture of a terminal.

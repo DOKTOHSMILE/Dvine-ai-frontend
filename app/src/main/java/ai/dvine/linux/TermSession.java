@@ -54,6 +54,7 @@ public final class TermSession {
         File tmp = new File(c.getCacheDir(), "proot-tmp");
         tmp.mkdirs();
         LinuxRoot.refreshDns(c);
+        new File(c.getFilesDir(), "ibiko").mkdirs(); // the coding workspace, seen inside as /workspace
         pty.resize(24, 80);
         List<String> cmd = ProotCommand.terminal(proot, rootfs, new File(c.getFilesDir(), "linux"), pty.slave);
         ProcessBuilder pb = ProotSession.builder(c, cmd, tmp);

@@ -56,6 +56,11 @@ public final class ProotCommand {
         if (work != null) {
             c.add("-b");
             c.add(work.getAbsolutePath() + ":/work");
+            File coding = new File(work.getParentFile(), "ibiko");
+            if (coding.isDirectory()) {
+                c.add("-b");
+                c.add(coding.getAbsolutePath() + ":/workspace");
+            }
         }
         if (new File("/storage").isDirectory()) {
             c.add("-b");
@@ -99,6 +104,11 @@ public final class ProotCommand {
         if (work != null) {
             c.add("-b");
             c.add(work.getAbsolutePath() + ":/work");
+            File coding = workspaceRoot(work);
+            if (coding != null && coding.isDirectory()) {
+                c.add("-b");
+                c.add(coding.getAbsolutePath() + ":/workspace");
+            }
             c.add("-w");
             c.add("/work");
         } else {
@@ -109,5 +119,17 @@ public final class ProotCommand {
         c.add("-c");
         c.add(command == null ? "" : command);
         return c;
+    }
+
+    /** {@code files/ibiko}, whether {@code dir} is that folder or something inside it. */
+    static File workspaceRoot(File dir) {
+        File cur = dir;
+        while (cur != null) {
+            if ("ibiko".equals(cur.getName())) {
+                return cur;
+            }
+            cur = cur.getParentFile();
+        }
+        return dir == null || dir.getParentFile() == null ? null : new File(dir.getParentFile(), "ibiko");
     }
 }

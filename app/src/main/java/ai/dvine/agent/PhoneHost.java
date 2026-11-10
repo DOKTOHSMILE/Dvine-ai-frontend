@@ -93,13 +93,14 @@ public final class PhoneHost implements CodeAgent.Host {
     public String run(String command, File dir) {
         try {
             onCommand(command);
-            String shared = ai.dvine.linux.LinuxHub.ask(activity, command);
+            File where = dir != null ? dir : new File(activity.getFilesDir(), "ibiko");
+            where.mkdirs();
+            String placed = ai.dvine.linux.GuestPath.at(where, command);
+            String shared = ai.dvine.linux.LinuxHub.ask(activity, placed);
             if (shared != null) {
                 return shared;
             }
-            File where = dir != null ? dir : new File(activity.getFilesDir(), "linux");
-            ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity,
-                    ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(activity), command), where);
+            ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
             if (alpine != null) {
                 return alpine.text;
             }
@@ -118,13 +119,14 @@ public final class PhoneHost implements CodeAgent.Host {
     @Override
     public String termux(String command, File folder) {
         onCommand(command);
-        String shared = ai.dvine.linux.LinuxHub.ask(activity, command);
+        File where = folder != null ? folder : new File(activity.getFilesDir(), "ibiko");
+        where.mkdirs();
+        String placed = ai.dvine.linux.GuestPath.at(where, command);
+        String shared = ai.dvine.linux.LinuxHub.ask(activity, placed);
         if (shared != null) {
             return shared;
         }
-        File where = folder != null ? folder : new File(activity.getFilesDir(), "linux");
-        ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity,
-                ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(activity), command), where);
+        ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
         if (alpine != null) {
             return alpine.text;
         }
