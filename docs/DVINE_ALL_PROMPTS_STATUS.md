@@ -210,6 +210,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 177 | Update build.toml with gradle; the Scribe documents every progress; API answers switching to the local model; show the post with several versions to pick; tag people; comment under a post; comment on a user's every new post and chat with repliers; DVINE 1 learns | P12 | Built except the unattended watcher and auto-chat (each comment still needs the pilot's yes); JVM tests; device check pending | 0.99.45 |
 | 178 | Ivie for stories and scripts and Obi for reports use the plan mechanism; a task given to the wrong persona moves to the right one's chat as if never sent to the first; group chat opinion; a more flexible poster; earlier unbuilt tasks; icons and standard features for the social media manager | P12 | Built (hand-off, writing plan, Social accounts screen, poster choices; group chat proposed, not built; JVM tests; device check pending) | 0.99.46 |
 | 179 | A toggle to allow auto post on the pilot's behalf; build the group chat | P12 | Built (JVM tests; device check pending) | 0.99.47 |
+| 180 | The bottom persona toggle is no longer needed with the group chat (screenshot) | P12 | Built (buttons hidden in the group; the words choose who answers; JVM tests; device check pending) | 0.99.48 |
 
 ## Still open, in the order that matters
 
