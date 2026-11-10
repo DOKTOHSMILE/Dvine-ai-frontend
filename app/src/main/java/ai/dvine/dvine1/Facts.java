@@ -354,6 +354,33 @@ public final class Facts {
         return match(Grammar.parse(question), t);
     }
 
+    /**
+     * G8 (formulas/Truth): one sentence judged against the facts held firmly (strength 3 or more): TRUE when one says
+     * the same, FALSE when one with a single answer says otherwise, UNKNOWN otherwise.
+     */
+    public synchronized ai.dvine.dvine1.formulas.Truth.Checked check(String sentence) {
+        if (!ai.dvine.dvine1.formulas.Truth.claims(sentence)) {
+            return ai.dvine.dvine1.formulas.Truth.Checked.unknown(sentence);
+        }
+        for (Grammar.Triple t : Grammar.facts(sentence, null)) {
+            for (Row r : all) {
+                if (r.n < 3) {
+                    continue;
+                }
+                if (same(r.fact.subject, t.subject) && r.fact.relation.equals(t.relation) && same(r.fact.object, t.object)) {
+                    return new ai.dvine.dvine1.formulas.Truth.Checked(ai.dvine.dvine1.formulas.Truth.Verdict.TRUE, sentence, null, "learned and seen again");
+                }
+                if (opposes(r.fact, t)) {
+                    String q = question(r.fact);
+                    String fix = q == null ? null : answerFrom(q, r.fact);
+                    return new ai.dvine.dvine1.formulas.Truth.Checked(ai.dvine.dvine1.formulas.Truth.Verdict.FALSE, sentence,
+                            fix != null ? fix : r.fact.subject + " " + r.fact.relation + " " + r.fact.object + ".", "learned and seen again");
+                }
+            }
+        }
+        return ai.dvine.dvine1.formulas.Truth.Checked.unknown(sentence);
+    }
+
     /** Every fact, oldest first. */
     public synchronized List<Grammar.Triple> all() {
         List<Grammar.Triple> out = new ArrayList<Grammar.Triple>();

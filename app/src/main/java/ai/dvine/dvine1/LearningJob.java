@@ -229,7 +229,11 @@ public final class LearningJob extends JobService {
             if (r == null || k.rejected(q, r.shown())) {
                 continue;
             }
-            facts.learn(r.text, ResearchAnswer.subject(q) == null ? topic : ResearchAnswer.subject(q), 2, System.currentTimeMillis());
+            if (!ai.dvine.dvine1.formulas.Truth.question(r.shown(), witnesses(facts)).stream()
+                    .noneMatch(c -> c.verdict == ai.dvine.dvine1.formulas.Truth.Verdict.FALSE)) {
+                continue; // G8 in: an answer found false is not learned
+            }
+            facts.learn(ai.dvine.dvine1.formulas.Truth.trueOnly(r.text, witnesses(facts)), ResearchAnswer.subject(q) == null ? topic : ResearchAnswer.subject(q), 2, System.currentTimeMillis());
             learner.read(r.text, ai.dvine.dvine1.learner.Learner.Source.RESEARCH, System.currentTimeMillis());
             if (k.learnUnchecked(q, r.shown())) {
                 if (!asked && topic.matches("[A-Z][\\p{L}'-]+( [A-Z][\\p{L}'-]+)+")) {
@@ -331,5 +335,13 @@ public final class LearningJob extends JobService {
         } catch (SecurityException noPermission) {
             // shown in the chat in the morning all the same
         }
+    }
+
+    /** G8: what research is checked against before it is learned. */
+    static java.util.List<ai.dvine.dvine1.formulas.Truth.Witness> witnesses(Facts facts) {
+        java.util.List<ai.dvine.dvine1.formulas.Truth.Witness> w = new java.util.ArrayList<ai.dvine.dvine1.formulas.Truth.Witness>();
+        w.add(Dvine1.builtIn()::check);
+        w.add(facts::check);
+        return w;
     }
 }

@@ -220,6 +220,28 @@ public final class Dvine1 {
         return ai.dvine.dvine1.formulas.Truth.brief(claims);
     }
 
+    /** G8: the witnesses a sentence is asked of, most trusted first (the built-in reference, then facts held firmly). */
+    public List<ai.dvine.dvine1.formulas.Truth.Witness> witnesses() {
+        List<ai.dvine.dvine1.formulas.Truth.Witness> w = new ArrayList<ai.dvine.dvine1.formulas.Truth.Witness>();
+        w.add(builtIn()::check);
+        w.add(facts()::check);
+        return w;
+    }
+
+    /** G8 out: a reply from any brain, asked "true or false?" sentence by sentence; the correction to say, or null. */
+    public String questionReply(String reply) {
+        try {
+            return ai.dvine.dvine1.formulas.Truth.correction(ai.dvine.dvine1.formulas.Truth.question(reply, witnesses()));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** G8 in: a text to learn from, without the sentences found false. */
+    public String trueOnly(String text) {
+        return ai.dvine.dvine1.formulas.Truth.trueOnly(text, witnesses());
+    }
+
     /** Learning from its own replies: how each one went, judged by what the pilot did next ({@code formulas/Reflection}). */
     public ai.dvine.dvine1.formulas.Reflection reflection() {
         return Store.reflection(dir);
@@ -528,12 +550,15 @@ public final class Dvine1 {
         if (m.matches()) {
             String subject = (m.group(1) == null ? "" : m.group(1) + " ") + m.group(2);
             String verb = m.group(3).toLowerCase(Locale.US);
+            String differs = questionReply(said); // G8: the pilot's word is kept, and a difference is said
             knowledge().confirm("What " + verb + " " + subject + "?", said);
             facts().learn(said, null, 2, System.currentTimeMillis()); // the pilot's own words: as good as a source
             if (Character.isUpperCase(m.group(2).charAt(0)) && m.group(1) == null) {
                 knowledge().confirm("Who " + verb + " " + subject + "?", said); // a name: kept for "who" too
             }
-            return "Noted. Ask me what " + verb + " " + subject + " and I'll remember.";
+            return "Noted. Ask me what " + verb + " " + subject + " and I'll remember."
+                    + (differs == null ? "" : " One thing, though: the built-in reference says otherwise. "
+                            + differs.replaceFirst("^A correction to what I just said: ", "") + " I'll go with yours unless you say not to.");
         }
         return "Noted.";
     }

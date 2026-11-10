@@ -1,3 +1,8 @@
+# Question everything (0.99.63)
+
+- [x] Truth G8: every sentence learned and every reply asked "true or false?"; false is not learned and is corrected.
+- [ ] Wider witnesses: confirmed answers and fresh sources as judges, not only the built-in reference and firm facts.
+
 # A foundation of truth; a Think pill (0.99.62)
 
 - [x] The Truth formula: all that is known, ranked by source, settled, said with how sure; under every brain's answer.
