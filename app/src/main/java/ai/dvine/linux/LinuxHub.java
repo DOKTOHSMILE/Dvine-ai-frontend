@@ -5,7 +5,8 @@ import java.util.function.Function;
 
 /**
  * One Linux shell for the whole app. Leaving the shell screen does not stop it, and chat uses that
- * same shell instead of starting a second copy.
+ * same shell instead of starting a second copy. The shell is a {@link TermSession} (a real terminal) when the phone
+ * opens a terminal device, else a {@link ProotSession} on a pipe.
  */
 public final class LinuxHub {
     /** Runs a command on the open shell screen and returns what it printed. */
@@ -17,7 +18,55 @@ public final class LinuxHub {
     private static final StringBuilder unseen = new StringBuilder();
     private static volatile boolean headlessBusy;
 
+    private static TermSession terminal;
+    private static boolean noTerminal;
+
     private LinuxHub() {
+    }
+
+    /**
+     * The terminal, started the first time it is asked for. Null when this phone will not open a terminal device, or
+     * the shell never showed its prompt: the caller then uses the pipe shell.
+     */
+    public static TermSession terminal(android.content.Context c) {
+        synchronized (LOCK) {
+            if (terminal != null && terminal.alive()) {
+                return terminal;
+            }
+            terminal = null;
+            if (noTerminal) {
+                return null;
+            }
+        }
+        TermSession opened;
+        try {
+            opened = TermSession.open(c.getApplicationContext(), LinuxRoot.root(c));
+        } catch (Exception e) {
+            opened = null;
+        }
+        if (opened != null && !opened.waitForPrompt(8000)) {
+            opened.close();
+            opened = null;
+        }
+        synchronized (LOCK) {
+            if (opened == null) {
+                noTerminal = true; // not tried again until the app restarts
+                return null;
+            }
+            if (terminal != null && terminal.alive()) {
+                opened.close();
+                return terminal;
+            }
+            terminal = opened;
+            return opened;
+        }
+    }
+
+    /** The terminal if one is running; never starts one. */
+    public static TermSession running() {
+        synchronized (LOCK) {
+            return terminal != null && terminal.alive() ? terminal : null;
+        }
     }
 
     public static void attach(Function<String, String> run) {
@@ -75,9 +124,25 @@ public final class LinuxHub {
         }
     }
 
+    /**
+     * A command from chat or Ibiko. Once Alpine is installed it runs in the one terminal (started here if it is not
+     * running yet), so the folder, variables and installed packages are the same ones the shell screen shows.
+     */
+    public static String ask(android.content.Context c, String command) {
+        if (c != null && running() == null && android.os.Looper.myLooper() != android.os.Looper.getMainLooper()
+                && AlpineRun.ready(c)) {
+            terminal(c);
+        }
+        return ask(command);
+    }
+
     public static String ask(String command) {
         if (command == null || command.trim().isEmpty()) {
             return null;
+        }
+        TermSession term = running();
+        if (term != null) {
+            return term.run(command, 180000); // null while a program is running there: the caller runs it alone
         }
         Function<String, String> run = shell;
         if (run != null) {
@@ -106,10 +171,7 @@ public final class LinuxHub {
         headlessBusy = true;
         try {
             synchronized (session) {
-                if (pipe) {
-                    return readPipe(session, root, command);
-                }
-                return readTty(session, command);
+                return pipe ? readPipe(session, root, command) : null;
             }
         } catch (Exception e) {
             return null;
@@ -153,32 +215,5 @@ public final class LinuxHub {
             Thread.sleep(120);
         }
         return text.toString();
-    }
-
-    private static String readTty(ProotSession session, String command) throws Exception {
-        synchronized (LOCK) {
-            unseen.setLength(0);
-        }
-        session.send(command + "\necho " + Guest.MARK + "$?__$(pwd)");
-        long began = System.currentTimeMillis();
-        StringBuilder got = new StringBuilder();
-        while (System.currentTimeMillis() - began < 180000) {
-            synchronized (LOCK) {
-                if (unseen.length() > 0) {
-                    got.append(unseen);
-                    unseen.setLength(0);
-                }
-            }
-            Guest.Stream part = Guest.drain(got.toString(), "/root");
-            if (part.done) {
-                return part.show;
-            }
-            if (!session.alive()) {
-                break;
-            }
-            Thread.sleep(80);
-        }
-        Guest.Stream part = Guest.drain(got.toString(), "/root");
-        return part.show.isEmpty() ? got.toString() : part.show;
     }
 }
