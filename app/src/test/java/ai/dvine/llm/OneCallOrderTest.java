@@ -24,7 +24,9 @@ public class OneCallOrderTest {
         assertNull("the old word orders are not codes", BrainOrder.leading("DO SEARCH weather"));
         assertNull(BrainOrder.leading("stop"));
         assertNull(BrainOrder.leading("Start a new chat please"));
-        assertNull(BrainOrder.leading("The capital is Nairobi.\n§SR Nairobi")); // only the first line counts
+        // a code under a first sentence is still the brain's order (and is never shown), but not one buried deep in an answer
+        assertEquals(BrainOrder.Kind.SEARCH, BrainOrder.leading("Let me check.\n§SR Nairobi").kind);
+        assertNull(BrainOrder.leading("One.\nTwo.\nThree.\nFour.\nFive.\n§SR Nairobi"));
         assertNull("a code that needs its words, without them", BrainOrder.leading("§SR"));
         assertEquals("The capital is Nairobi.", BrainOrder.withoutOrder("The capital is Nairobi."));
     }

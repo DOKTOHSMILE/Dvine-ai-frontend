@@ -242,8 +242,16 @@ public final class CodeAgent {
         return this;
     }
 
-    /** One of several workers the lead started ({@link Squad}): its part only, no blueprint and no workers of its own. */
+    /** One of several workers the lead started ({@link Squad}): its part only, no blueprint. */
     private boolean worker;
+    /** 0: the lead. 1: a specialist agent the lead started. 2: a hand, a mini worker under a specialist. */
+    private int depth;
+    /** The agent this worker is ({@link Org}); null for the lead and for a plain worker. */
+    private Org role;
+    /** ROLX: when this part's time is up (0: no limit). The part ends there and reports what is left. */
+    private long deadline;
+    /** The one folder this worker may read and write (the project it is on); null: the whole workspace. */
+    private File scope;
 
     /** Every worker started in this run, for the count in the summary. */
     private int workersUsed;
@@ -253,21 +261,30 @@ public final class CodeAgent {
     }
 
     /**
-     * The {@code workers} tool: each part goes to a worker of its own (an agent like this one, with the same tools, the
-     * same workspace and the same approvals), all at the same time. Their words are not streamed into the chat; their
-     * steps show there, and each has its row on the workers board.
+     * The {@code workers} tool. From the lead: each part goes to the specialist agent it names ({@link Org}), with the
+     * time ROLX allows it, all at the same time. From a specialist: its hands, mini workers that carry out the pieces
+     * it designed. Every worker is an agent like this one (same tools, same approvals) kept to the project's folder;
+     * its words are not streamed into the chat, its steps show there, and it has its row on the workers board.
      */
     private String dispatch(Call c) {
-        if (worker || !squad) {
-            return worker ? "Error: a worker does its own part; only the lead starts workers."
+        if (depth >= 2 || !squad) {
+            return depth >= 2 ? "Error: a hand carries out its own piece; it starts no workers."
                     : "Workers are switched off for this chat (Tools \u203A Workers). Do the parts yourself, one after another.";
         }
         if (blueprint != null && blueprint.phase() != Blueprint.Phase.BUILD && blueprint.phase() != Blueprint.Phase.VERIFY) {
             return "Blueprint: workers build. Finish UNDERSTAND, PLAN and CHECK in PLAN.md first, then start them from the plan's steps.";
         }
-        final List<String> parts = Squad.parts(c.body);
-        if (parts.size() < 2) {
+        List<Squad.Part> given = Squad.assignments(c.body);
+        if (depth == 1 && given.size() > Squad.MOST_HANDS) {
+            given = new ArrayList<Squad.Part>(given.subList(0, Squad.MOST_HANDS));
+        }
+        final List<Squad.Part> plan = given;
+        if (plan.size() < 2) {
             return "Error: workers needs at least two <part> blocks, one for each worker. Do a single part yourself.";
+        }
+        final List<String> parts = new ArrayList<String>();
+        for (Squad.Part p : plan) {
+            parts.add(p.text);
         }
         final String whole = task;
         final Brain quiet = new Brain() {
@@ -277,20 +294,45 @@ public final class CodeAgent {
             }
 
             @Override
+            public String askQuiet(String system, String transcript) {
+                return brain.askQuiet(system, transcript);
+            }
+
+            @Override
+            public int readers() {
+                return brain.readers();
+            }
+
+            @Override
             public String why() {
                 return brain.why();
             }
         };
-        host.step("Started " + parts.size() + " workers on " + parts.size() + " parts at once");
-        workersUsed += parts.size();
-        String result = Squad.run(parts, (number, part) -> {
-            String row = AgentBoard.start(persona + " \u00B7 worker " + number, part);
+        final boolean hands = depth == 1;
+        final File folder = scope != null ? scope : projectOf(whole); // every worker stays in this project's folder
+        final File kept = folder.equals(workspace) ? null : folder;
+        host.step(hands ? name() + " started " + plan.size() + " hands at once"
+                : "Started " + plan.size() + " agents on " + plan.size() + " parts at once");
+        workersUsed += plan.size();
+        final long parentDeadline = deadline;
+        return Squad.run(parts, (number, part) -> {
+            final Squad.Part mine = plan.get(number - 1);
+            final String who = hands ? name() + " hand " + number : mine.role != null ? mine.role.name() : persona + " worker " + number;
+            String row = AgentBoard.start(hands ? who : who + (mine.role != null ? " \u00B7 " + mine.role.title : ""), part);
             CodeAgent w = new CodeAgent(workspace, quiet, host, connectorTools, budgetChars).useGit(git)
-                    .steps(Math.max(8, maxSteps)).as(persona + " worker " + number, false).compact(compact);
+                    .steps(Math.max(8, maxSteps)).as(who, false).compact(compact);
             w.worker = true;
+            w.depth = depth + 1;
+            w.role = hands ? null : mine.role;
+            w.scope = kept;
+            long until = System.currentTimeMillis() + mine.minutes * 60_000L;
+            w.deadline = parentDeadline > 0 ? Math.min(parentDeadline, until) : until; // a hand never outlasts its agent
             try {
-                AgentBoard.step(row, "Working on its part");
-                String report = w.run(Squad.brief(number, parts.size(), part, whole), "");
+                AgentBoard.step(row, "Working on its part (" + mine.minutes + " min)");
+                String report = w.run(Squad.brief(number, plan.size(), part, whole)
+                        + (kept == null ? "" : "\n\nYour folder: " + show(workspace.toPath().relativize(kept.toPath()).toString())
+                                + ". Read and write only inside it.")
+                        + "\nYour time: " + mine.minutes + " minutes. Work on your part only; when the time is nearly up, stop and report.", "");
                 synchronized (changed) {
                     for (String f : w.changed()) {
                         if (!changed.contains(f)) {
@@ -299,14 +341,19 @@ public final class CodeAgent {
                     }
                 }
                 AgentBoard.end(row, host.stopped() ? AgentBoard.Outcome.STOPPED : AgentBoard.Outcome.DONE);
-                host.step("Worker " + number + " of " + parts.size() + " finished");
+                host.step(who + " finished" + (w.timedOut ? " (time up)" : ""));
                 return report;
             } catch (RuntimeException e) {
                 AgentBoard.end(row, AgentBoard.Outcome.FAILED);
                 return "Error: " + e.getMessage();
             }
         }, brain.readers(), host::stopped);
-        return result;
+    }
+
+    private boolean timedOut;
+
+    private String name() {
+        return role != null ? role.name() : persona;
     }
 
     private boolean squad = true, handoverOn;
@@ -404,7 +451,8 @@ public final class CodeAgent {
     }
 
     public String system() {
-        return (planning ? "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. "
+        return (role != null ? role.brief() + "\n" : depth == 0 && squad && !readOnly && !planning ? Org.lead() : "")
+                + (planning ? "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. "
                 + IbikoMode.PLAN_RULES + "\n" : "") + (planning ? "" : (readOnly
                 ? "You are " + persona + ", reading the files on the user's device (the workspace: cloned repositories and"
                         + " projects) to answer them. Any model can do this: the files come to you as text through the tools."
@@ -441,7 +489,7 @@ public final class CodeAgent {
                         + " Alpine Linux as run, inside DVINE. The Termux app is not opened. path is the folder it runs in."
                         + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
-                + (readOnly || worker || !squad ? "" : Squad.TOOL)
+                + (readOnly || !squad || depth >= 2 ? "" : depth == 1 ? Squad.HANDS : Squad.TOOL)
                 + (worker || !handoverOn ? "" : "<tool name=\"handover\" to=\"obi|ivie\"/> (only when the message is not yours at all:"
                         + " ordinary talk, a question about the world, research or a report is Obi's; a story, a script, a drawing or a"
                         + " design is Ivie's. They answer it instead of you. Code, commands, files, repositories and Linux are yours.)\n")
@@ -546,6 +594,11 @@ public final class CodeAgent {
         for (int step = 1; step <= maxSteps; step++) {
             if (host.stopped()) {
                 return "Stopped." + summary();
+            }
+            if (deadline > 0 && System.currentTimeMillis() > deadline) {
+                timedOut = true; // ROLX: the part's time is over; it reports instead of drifting on
+                return "Time is up for this part, so it stopped at step " + step + ". Not finished: the rest of the part."
+                        + summary();
             }
             String incoming = host.steer();
             if (incoming != null && !incoming.trim().isEmpty()) {
@@ -1657,6 +1710,17 @@ public final class CodeAgent {
         String root = workspace.getCanonicalPath();
         if (!f.getPath().equals(root) && !f.getPath().startsWith(root + File.separator)) {
             throw new IOException("that path is outside the workspace");
+        }
+        if (scope != null) {
+            // a worker on one project sees only that project's folder: it never wanders into another one's files
+            String mine = scope.getCanonicalPath();
+            boolean listingRoot = f.getPath().equals(root);
+            if (!listingRoot && !f.getPath().equals(mine) && !f.getPath().startsWith(mine + File.separator)) {
+                throw new IOException("that path is outside this project's folder (" + scope.getName() + "); stay inside it");
+            }
+            if (listingRoot) {
+                return scope; // "." for a worker is its project
+            }
         }
         return f;
     }

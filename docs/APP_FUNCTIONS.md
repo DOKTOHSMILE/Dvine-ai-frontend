@@ -26,6 +26,7 @@ Accepted forms on the first line: `§XX arguments`, `[[XX]] arguments`, `⟦XX�
 | `§NC` | NEWCHAT | start a new chat | none |
 | `§SW` | SWITCH | switch to another persona | `<ivie\|obi\|ibiko>` |
 | `§HO` | HANDOVER | pass this message to the one whose work it is, who then answers it: ibiko for code, commands, files, repositories, GitHub and the built-in Linux; ivie for stories, scripts, poems, drawings, design and 3D; obi for conversation, questions, research, reports and plans. Only when it is not your own work | `<ivie\|obi\|ibiko>` |
+| `§WK` | WORK | real work for the agents, not a reply: write, fix, build, run, test or audit code; work on files, a repository or GitHub; run commands in the built-in Linux; build or audit an app's or a site's interface. The agent organisation plans it, splits it and carries it out | none |
 | `§WP` | WRITEPLAN | a long piece (a story, a script, a report, an essay): outline it, check the outline, then write it section by section | none |
 | `§TT` | THINKTOGETHER | a weighty decision or question: Obi, Ivie and Ibiko work on it together and give one answer | none |
 | `§RF` | READFILES | read the files in the workspace on this device (cloned repositories, projects) to answer this | none |

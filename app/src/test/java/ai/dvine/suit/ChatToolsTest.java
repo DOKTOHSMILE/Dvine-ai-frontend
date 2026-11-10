@@ -27,8 +27,10 @@ public class ChatToolsTest {
         t.set(ChatTools.Tool.SHELL, false);
         assertFalse(t.allowedCodes().contains(FunctionCode.SH));
         assertTrue("the suit's own controls stay", t.allowedCodes().contains(FunctionCode.NC));
-        assertTrue("the codes only a brain gives: hand over, plan the writing, think together, carry on, yes and no",
-                t.allowedCodes().containsAll(Arrays.asList(FunctionCode.HO, FunctionCode.WP, FunctionCode.TT, FunctionCode.CO,
+        assertFalse("one assistant: there is no one to hand over or switch to", t.allowedCodes().contains(FunctionCode.HO)
+                || t.allowedCodes().contains(FunctionCode.SW));
+        assertTrue("the codes only a brain gives: start the agents, plan the writing, think together, carry on, yes and no",
+                t.allowedCodes().containsAll(Arrays.asList(FunctionCode.WK, FunctionCode.WP, FunctionCode.TT, FunctionCode.CO,
                         FunctionCode.YS, FunctionCode.CX)));
         t.set(ChatTools.Tool.DESIGN3D, false);
         assertFalse("canvas changes go with 3D design", t.allowedCodes().contains(FunctionCode.DR));

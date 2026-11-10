@@ -35,6 +35,13 @@ public final class DvineApp extends Application {
      */
     private void plugDvine1() {
         final android.content.Context app = this;
+        ai.dvine.dvine1.Plug.asset = path -> {
+            try {
+                return getAssets().open(path);
+            } catch (java.io.IOException e) {
+                return null;
+            }
+        };
         ai.dvine.dvine1.Plug.web = new ai.dvine.dvine1.Plug.Web() {
             @Override
             public String get(String url) {

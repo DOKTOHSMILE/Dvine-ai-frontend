@@ -8,7 +8,7 @@ public final class BrainOrder {
         SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, BUILD, SOCIAL, CANNOT,
         // the suit's controls, only ever from a brain's code (never from the user's words)
         CALC, MAKEFILE, STAGE, SOCIALINTEL, SCHEDULEPOST, NEWCHAT, SWITCH, PLANMODE, AUTOON, AUTOOFF, RETRY, SETTINGS,
-        HANDOVER, WRITEPLAN, THINKTOGETHER, READFILES, CARRYON, CANVAS, CONFIRM, CANCEL
+        HANDOVER, WORK, WRITEPLAN, THINKTOGETHER, READFILES, CARRYON, CANVAS, CONFIRM, CANCEL
     }
 
     public final Kind kind;
@@ -71,6 +71,7 @@ public final class BrainOrder {
             case NC: return new BrainOrder(Kind.NEWCHAT, "", "");
             case SW: return new BrainOrder(Kind.SWITCH, c.args.trim().toLowerCase(java.util.Locale.US), "");
             case HO: return new BrainOrder(Kind.HANDOVER, c.args.trim().toLowerCase(java.util.Locale.US).replaceAll("[^a-z].*$", ""), "");
+            case WK: return new BrainOrder(Kind.WORK, "", "");
             case WP: return new BrainOrder(Kind.WRITEPLAN, "", "");
             case TT: return new BrainOrder(Kind.THINKTOGETHER, "", "");
             case RF: return new BrainOrder(Kind.READFILES, "", "");
