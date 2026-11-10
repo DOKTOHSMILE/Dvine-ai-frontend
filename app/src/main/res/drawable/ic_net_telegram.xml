@@ -1,0 +1,7 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- a network: a paper plane, for messages -->
+    <path android:strokeColor="@color/icon" android:strokeWidth="1.8" android:strokeLineJoin="round" android:strokeLineCap="round"
+        android:pathData="M21,4L3,11.2l6,2.2l2.2,6.6L14.6,15.8L19,19.5z" />
+    <path android:strokeColor="@color/icon" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M9,13.4l7.2,-5.4" />
+</vector>

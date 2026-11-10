@@ -1,0 +1,8 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- a network: a round face with an antenna, for a forum -->
+    <path android:strokeColor="@color/icon" android:strokeWidth="1.8"
+        android:pathData="M12,9c4.4,0 8,2.5 8,5.8S16.4,20.6 12,20.6S4,18.1 4,14.8S7.6,9 12,9z" />
+    <path android:strokeColor="@color/icon" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M12,9L13.2,3.8L17,4.6M9.3,17.2c1.6,0.9 3.8,0.9 5.4,0" />
+    <path android:fillColor="@color/icon" android:pathData="M9,13a1,1 0,1 0,0 2a1,1 0,1 0,0 -2zM15,13a1,1 0,1 0,0 2a1,1 0,1 0,0 -2z" />
+</vector>

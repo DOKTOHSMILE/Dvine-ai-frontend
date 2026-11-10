@@ -766,7 +766,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (socialRow != null)
             socialRow.setOnClickListener(v -> {
                 closeDrawer();
-                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class));
+                startActivityForResult(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class), SOCIAL);
             });
         android.view.View providers = findViewById(R.id.btnProviders);
         if (providers != null)
@@ -1655,6 +1655,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private ai.dvine.ops.task.DvineCommandGateway.VoiceSession commandSession;
     private static final int PICK_CONTENT = 47;
     private static final int HISTORY = 48;
+    /** The Social accounts screen; it may come back with words for the message box ("Write a Facebook post about "). */
+    private static final int SOCIAL = 49;
     private boolean generating;
     private boolean pickerLearn;
     private boolean pickerReconstruct;
@@ -2013,6 +2015,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     } else {
                         askLocal(t, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
                     }
+                    return true;
+                })
+                .route("writing plan", t -> {
+                    // a story, a script, a report: Ivie and Obi plan it, check the plan, then write it section by section
+                    if ("ibiko".equals(stage.agent()) || model == null || !model.ready() || !ai.dvine.agent.WritingPlan.applies(t)) {
+                        return false;
+                    }
+                    runWritingPlan(stage.agent(), t);
                     return true;
                 })
                 .route("hand to Ibiko", t -> {
@@ -3445,6 +3455,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (text == null || text.trim().isEmpty()) {
             return;
         }
+        if (!interpreted && !resending && stage != null && prefs.getBoolean("handoff", true)) {
+            // a task meant for another persona goes to their page before it is shown anywhere: it is sent there, as if
+            // typed there, and the page that got it by mistake keeps nothing of it
+            String owner = ai.dvine.agent.Handoff.owner(text);
+            if (owner != null && !owner.equals(stage.agent())) {
+                selectPersona(owner);
+                note("Sent to " + labelOf(owner) + ": " + ai.dvine.agent.Handoff.why(owner) + ".");
+            }
+        }
         if (runningElsewhere()) {
             // this chat is not the one running: show the message here and do not cancel the other chat
             if (!interpreted) {
@@ -3641,7 +3660,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         @Override
         public void openAccounts() {
-            startActivity(new android.content.Intent(MainActivity.this, ai.dvine.chat.ui.SocialActivity.class));
+            startActivityForResult(new android.content.Intent(MainActivity.this, ai.dvine.chat.ui.SocialActivity.class), SOCIAL);
         }
 
         @Override
@@ -3668,6 +3687,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public void writePost(String prompt, int tokens) {
             askLocal(prompt, null, false, tokens);
+        }
+
+        @Override
+        public boolean versions() {
+            return prefs.getBoolean("post_versions", true);
         }
 
         @Override
@@ -3968,6 +3992,73 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             stagedCard.dismiss();
         }
         stagedCard = null;
+    }
+
+    /**
+     * The Blueprint for writing ({@link ai.dvine.agent.WritingPlan}): the outline first, checked for loopholes, then
+     * each section written with the plan and what is already written, then the piece in one. Each phase shows in the
+     * steps; the plan is shown too, so the user sees what is coming.
+     */
+    private void runWritingPlan(final String persona, final String task) {
+        final int id = nextAsk();
+        stopPlay();
+        armThink("Understanding the request", "Writing");
+        final ai.dvine.llm.TaskSize.Tier strong = ai.dvine.llm.TaskSize.Tier.STRONG;
+        final int room = Math.max(1500, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs) * 4);
+        final String system = "You are " + labelOf(persona) + ", writing for the user. You plan a piece before you write it.";
+        new Thread(() -> {
+            activity("Drawing the plan: the outline");
+            String outline = model.task(system, ai.dvine.agent.WritingPlan.outlinePrompt(task), room, piece -> alive(id), strong);
+            if (outline == null || !alive(id)) {
+                handler.post(() -> {
+                    endThink();
+                    String why = model.problem();
+                    play(LocalTurn.speakAs(persona, "I couldn't plan it" + (why == null || why.isEmpty() ? "." : ": " + why + ".")), null);
+                });
+                return;
+            }
+            activity("Checking the plan for gaps");
+            String checked = model.task(system, ai.dvine.agent.WritingPlan.checkPrompt(task, outline), room, piece -> alive(id), strong);
+            if (checked != null && ai.dvine.agent.WritingPlan.sections(checked).size() >= 2) {
+                outline = checked;
+            }
+            final String plan = outline;
+            final java.util.List<String> sections = ai.dvine.agent.WritingPlan.sections(plan);
+            handler.post(() -> {
+                if (alive(id) && chatPane != null) {
+                    chatPane.assistant(persona, "The plan, checked:\n\n" + plan.trim());
+                }
+            });
+            java.util.List<String> parts = new java.util.ArrayList<String>();
+            StringBuilder written = new StringBuilder();
+            for (int i = 0; i < sections.size() && alive(id); i++) {
+                activity("Writing " + (i + 1) + " of " + sections.size() + ": " + clip(sections.get(i).replaceAll(":.*$", "")));
+                String part = model.task(system, ai.dvine.agent.WritingPlan.sectionPrompt(task, plan, written.toString(), i + 1, sections.get(i)),
+                        room, piece -> alive(id), strong);
+                if (part == null) {
+                    break;
+                }
+                parts.add(part);
+                written.append(part.trim()).append("\n\n");
+            }
+            final String piece = ai.dvine.agent.WritingPlan.join(ai.dvine.agent.WritingPlan.title(plan), parts);
+            final boolean whole = parts.size() == sections.size();
+            handler.post(() -> {
+                if (!alive(id)) {
+                    return;
+                }
+                endThink();
+                if (piece.isEmpty()) {
+                    play(LocalTurn.speakAs(persona, "I planned it but couldn't write it: " + model.problem() + "."), null);
+                    return;
+                }
+                if (chatPane != null) {
+                    chatPane.assistant(persona, piece + (whole ? "" : "\n\n(Stopped after " + parts.size() + " of " + sections.size()
+                            + " sections. Say \u201ccontinue\u201d to write the rest.)"));
+                }
+                note("Say \u201cmake it a PDF\u201d or \u201ca Word document\u201d to save it as a file.");
+            });
+        }, "dvine-writing-plan").start();
     }
 
     /** An approved comment: posted under the post from the account, or copied with the post opened for the pilot. */
@@ -5770,6 +5861,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SOCIAL) {
+            String words = data == null ? null : data.getStringExtra("compose");
+            android.widget.EditText field = findViewById(R.id.et_message);
+            if (words != null && field != null) {
+                field.setText(words);
+                field.setSelection(words.length());
+                field.requestFocus();
+            }
+            return;
+        }
         if (requestCode == HISTORY) {
             if (chats != null) {
                 chats.reload();

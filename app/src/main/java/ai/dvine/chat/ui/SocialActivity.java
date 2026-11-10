@@ -68,22 +68,26 @@ public final class SocialActivity extends AppCompatActivity {
     private void fill() {
         body.removeAllViews();
         TextView intro = Ui.text(this, "Sign in on the sites themselves. DVINE reads with your accounts when you ask (“search X"
-                + " for …”, “what are people saying on Reddit about …”) and in fact checks, a little at a"
-                + " time like a person, and stops if a site shows a warning.", 14, Ui.SUB, false);
+                + " for …”, “what are people saying on Reddit about …”) and in fact checks, and posts and comments for you on"
+                + " Facebook and X after your yes, a little at a time like a person; it stops if a site shows a warning.", 14, Ui.SUB, false);
         intro.setPadding(Ui.dp(this, 6), Ui.dp(this, 4), Ui.dp(this, 6), 0);
         body.addView(intro);
         SocialAccounts accounts = SocialWeb.accounts(this);
         SocialLimits limits = SocialWeb.limits(this);
         long now = System.currentTimeMillis();
         for (final Platform p : Platform.values()) {
-            LinearLayout card = section(p.shown);
+            LinearLayout card = section(p.shown, icon(p));
             List<SocialAccounts.Account> on = accounts.on(p);
             for (final SocialAccounts.Account a : on) {
                 String paused = limits.pausedWhy(a.id, now);
                 String state = paused != null ? "Paused: " + paused
                         : !a.signedIn ? "Signed out: tap Add account to sign in again"
                         : (a.inUse ? "In use · " : "Tap to use · ") + limits.used(a.id, SocialLimits.Kind.READ, now)
-                                + " of " + limits.cap(p, SocialLimits.Kind.READ, true) + " reads today";
+                                + " of " + limits.cap(p, SocialLimits.Kind.READ, true) + " reads today"
+                                + (ai.dvine.social.SocialPoster.direct(p == Platform.X ? "x" : p == Platform.FACEBOOK ? "facebook" : "") == null ? ""
+                                        : " · " + limits.used(a.id, SocialLimits.Kind.POST, now) + " of " + limits.cap(p, SocialLimits.Kind.POST, true)
+                                        + " posts · " + limits.used(a.id, SocialLimits.Kind.COMMENT, now) + " of "
+                                        + limits.cap(p, SocialLimits.Kind.COMMENT, true) + " comments");
                 LinearLayout row = row(a.label, a.inUse, state, () -> remove(a), () -> rename(a));
                 row.setOnClickListener(v -> {
                     if (!a.inUse) {
@@ -94,6 +98,9 @@ public final class SocialActivity extends AppCompatActivity {
                     }
                 });
                 card.addView(row);
+                if (a.inUse && a.signedIn && paused == null) {
+                    card.addView(actions(p, a)); // the standard things to do with the account in use
+                }
                 if (paused != null) {
                     TextView resume = Ui.text(this, "Resume " + a.label, 15, Ui.ACCENT, false);
                     resume.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 10));
@@ -117,7 +124,47 @@ public final class SocialActivity extends AppCompatActivity {
             card.addView(add);
         }
 
-        LinearLayout safe = section("Keeping accounts safe");
+        // ---- posting: how DVINE posts, the scheduled posts, and what it did
+        LinearLayout posting = section("Posting", ai.dvine.R.drawable.ic_send);
+        posting.addView(toggle("Post directly from your account", "After your yes, DVINE types the post into Facebook or X in the"
+                + " account in use and presses Post, then tells you whether the site confirmed it. Off: it opens the app with the"
+                + " post ready, and you press Post.", "social_direct", true), Ui.wide(this, 10));
+        posting.addView(toggle("Three versions to pick from", "A post you ask for is written three ways (professional, personal,"
+                + " short); you pick one before anything goes out.", "post_versions", true), Ui.wide(this, 10));
+        java.util.List<ai.dvine.social.PostPlan> plans = ai.dvine.social.PostAlarm.plans(this);
+        java.util.Collections.sort(plans, (x, y) -> Long.compare(x.at, y.at));
+        java.text.DateFormat df = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT);
+        posting.addView(Ui.text(this, plans.isEmpty() ? "No posts scheduled. Ask: \u201cschedule a Facebook post every Monday at 9\u201d."
+                : "Scheduled (" + plans.size() + ") \u00B7 tap one to cancel it", 14, Ui.SUB, false), Ui.wide(this, 12));
+        for (final ai.dvine.social.PostPlan plan : plans) {
+            LinearLayout r = iconRow(ai.dvine.R.drawable.ic_calendar, df.format(new java.util.Date(plan.at)) + " \u00B7 " + plan.network
+                    + " \u00B7 " + plan.repeatWords(), plan.text);
+            r.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setMessage("Cancel this scheduled post?\n\n" + plan.text)
+                    .setPositiveButton("Cancel it", (d, w) -> {
+                        ai.dvine.social.PostAlarm.cancel(this, plan.id);
+                        fill();
+                    })
+                    .setNegativeButton("Keep", null)
+                    .show());
+            posting.addView(r);
+        }
+        java.util.List<String> done = new java.util.ArrayList<String>();
+        for (String line : ai.dvine.act.ActionLog.read(getFilesDir())) {
+            String[] f = line.split("\t", -1);
+            if (f.length >= 6 && f[1].matches("post|comment|share|schedule|pause|sign-out") && done.size() < 8) {
+                done.add(line);
+            }
+        }
+        posting.addView(Ui.text(this, done.isEmpty() ? "Nothing posted from DVINE yet." : "Recent activity", 14, Ui.SUB, false),
+                Ui.wide(this, 12));
+        for (String line : done) {
+            String[] f = line.split("\t", -1);
+            posting.addView(iconRow(ai.dvine.R.drawable.ic_history, f[0] + " \u00B7 " + f[1] + " \u00B7 " + f[2] + " \u00B7 " + f[4],
+                    f[5].length() > 120 ? f[5].substring(0, 120) + "\u2026" : f[5]));
+        }
+
+        LinearLayout safe = section("Keeping accounts safe", ai.dvine.R.drawable.ic_key);
         safe.addView(Ui.text(this, "Pace", 16, Ui.TEXT, false), Ui.wide(this, 8));
         LinearLayout pace = new LinearLayout(this);
         for (final String[] c : new String[][]{{"Careful", "careful"}, {"Normal", "normal"}}) {
@@ -142,8 +189,11 @@ public final class SocialActivity extends AppCompatActivity {
                 + " resume it.", 13, Ui.SUB, false), Ui.wide(this, 8));
         safe.addView(toggle("Look at what people post in fact checks", "Online fact checks also search your signed-in accounts;"
                 + " posts count as what people say, not as proof.", "social_factcheck", true), Ui.wide(this, 12));
-        TextView only = Ui.text(this, "For now DVINE only reads. Posting, replies and likes, asked first or approved"
-                + " automatically, come next, within the same limits.", 13, Ui.SUB, false);
+        TextView only = Ui.text(this, "Posts and comments go out only after your yes (or when a post you scheduled is due), within"
+                + " these limits: on Facebook " + limits.cap(Platform.FACEBOOK, SocialLimits.Kind.POST, true) + " posts and "
+                + limits.cap(Platform.FACEBOOK, SocialLimits.Kind.COMMENT, true) + " comments a day; on X "
+                + limits.cap(Platform.X, SocialLimits.Kind.POST, true) + " posts and " + limits.cap(Platform.X, SocialLimits.Kind.COMMENT, true)
+                + " comments a day. DVINE never tags people you didn't name.", 13, Ui.SUB, false);
         only.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 10));
         safe.addView(only);
     }
@@ -178,10 +228,103 @@ public final class SocialActivity extends AppCompatActivity {
                 .show();
     }
 
-    private LinearLayout section(String name) {
-        TextView t = Ui.text(this, name, 15, Ui.SUB, false);
-        t.setPadding(Ui.dp(this, 6), Ui.dp(this, 20), Ui.dp(this, 6), Ui.dp(this, 4));
-        body.addView(t);
+    /** The network's icon (DVINE's own line icons, not the networks' logos). */
+    static int icon(Platform p) {
+        switch (p) {
+            case FACEBOOK:
+                return ai.dvine.R.drawable.ic_net_facebook;
+            case X:
+                return ai.dvine.R.drawable.ic_net_x;
+            case INSTAGRAM:
+                return ai.dvine.R.drawable.ic_net_instagram;
+            case REDDIT:
+                return ai.dvine.R.drawable.ic_net_reddit;
+            case TELEGRAM:
+                return ai.dvine.R.drawable.ic_net_telegram;
+            default:
+                return ai.dvine.R.drawable.ic_people;
+        }
+    }
+
+    /** The standard actions for the account in use: write a post, open the profile, see what people say. */
+    private LinearLayout actions(final Platform p, final SocialAccounts.Account a) {
+        LinearLayout row = new LinearLayout(this);
+        row.setPadding(0, 0, 0, Ui.dp(this, 6));
+        boolean posts = p == Platform.FACEBOOK || p == Platform.X;
+        if (posts) {
+            row.addView(chip(ai.dvine.R.drawable.ic_edit, "Write a post", () -> ask("Write a " + p.shown + " post about ")));
+        }
+        row.addView(chip(ai.dvine.R.drawable.ic_open, "Open", () -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(p.home)));
+            } catch (RuntimeException ignored) {
+                // no browser
+            }
+        }));
+        if (p != Platform.TELEGRAM) {
+            row.addView(chip(ai.dvine.R.drawable.ic_search, "Trending", () -> ask("What's trending on " + p.shown + "?")));
+        }
+        return row;
+    }
+
+    /** Back to the chat with words ready in the message box, for the user to finish and send. */
+    private void ask(String words) {
+        setResult(RESULT_OK, new Intent().putExtra("compose", words));
+        finish();
+    }
+
+    private android.view.View chip(int icon, String label, Runnable tap) {
+        LinearLayout c = new LinearLayout(this);
+        c.setGravity(Gravity.CENTER_VERTICAL);
+        c.setBackground(Ui.round(this, Ui.FIELD, 0, 16));
+        c.setPadding(Ui.dp(this, 10), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
+        ImageView i = new ImageView(this);
+        i.setImageResource(icon);
+        i.setColorFilter(Ui.TEXT);
+        c.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 16), Ui.dp(this, 16)));
+        TextView t = Ui.text(this, label, 13, Ui.TEXT, false);
+        t.setPadding(Ui.dp(this, 6), 0, 0, 0);
+        c.addView(t);
+        c.setMinimumHeight(Ui.dp(this, 36));
+        c.setOnClickListener(v -> tap.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+        lp.rightMargin = Ui.dp(this, 8);
+        c.setLayoutParams(lp);
+        return c;
+    }
+
+    /** A line with an icon, a title and a line under it. */
+    private LinearLayout iconRow(int icon, String title, String under) {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
+        ImageView i = new ImageView(this);
+        i.setImageResource(icon);
+        i.setColorFilter(Ui.SUB);
+        r.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 20), Ui.dp(this, 20)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.setPadding(Ui.dp(this, 12), 0, 0, 0);
+        words.addView(Ui.text(this, title, 14, Ui.TEXT, false));
+        if (under != null && !under.isEmpty()) {
+            words.addView(Ui.text(this, under, 13, Ui.SUB, false));
+        }
+        r.addView(words, new LinearLayout.LayoutParams(0, -2, 1f));
+        return r;
+    }
+
+    private LinearLayout section(String name, int icon) {
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(Ui.dp(this, 6), Ui.dp(this, 20), Ui.dp(this, 6), Ui.dp(this, 6));
+        ImageView i = new ImageView(this);
+        i.setImageResource(icon);
+        i.setColorFilter(Ui.TEXT);
+        head.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 22), Ui.dp(this, 22)));
+        TextView t = Ui.text(this, name, 15, Ui.TEXT, true);
+        t.setPadding(Ui.dp(this, 10), 0, 0, 0);
+        head.addView(t);
+        body.addView(head);
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(Ui.round(this, Ui.SURFACE, 0, 20));

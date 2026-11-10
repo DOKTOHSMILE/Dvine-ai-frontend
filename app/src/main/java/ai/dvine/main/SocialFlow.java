@@ -32,6 +32,11 @@ public final class SocialFlow {
         default void writeVersions(ai.dvine.social.Platform platform, String words) {
         }
 
+        /** Several versions to pick from (Social accounts › Three versions to pick from). */
+        default boolean versions() {
+            return true;
+        }
+
         /** A comment under the post at {@code link} on {@code app} ("facebook", "x"): read it, write one, ask first. */
         default void writeComment(String app, String link, String what) {
         }
@@ -105,7 +110,7 @@ public final class SocialFlow {
                 return;
             }
             case "post": {
-                if (platform == ai.dvine.social.Platform.FACEBOOK || platform == ai.dvine.social.Platform.X) {
+                if ((platform == ai.dvine.social.Platform.FACEBOOK || platform == ai.dvine.social.Platform.X) && host.versions()) {
                     host.writeVersions(platform, p.words); // several versions to choose from, then posted from the account
                     return;
                 }

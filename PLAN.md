@@ -1,3 +1,11 @@
+# The right persona, writing plans, social screen (0.99.46)
+
+- [x] A task given to the wrong persona goes to the right page, as if sent there.
+- [x] Stories, scripts and reports: outline, check, write section by section.
+- [x] Social accounts: icons, counts, quick actions, posting settings, scheduled posts, recent activity.
+- [x] Each post version: post, edit, schedule or copy; X length checked.
+- [ ] One group chat for Obi, Ivie and Ibiko (waiting on the pilot's go).
+
 # Posts, tags, comments and the Scribe (0.99.45)
 
 - [x] With an API chosen, the device's model never answers instead, even offline.
