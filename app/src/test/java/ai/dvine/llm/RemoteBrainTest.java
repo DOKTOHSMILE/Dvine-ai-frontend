@@ -146,12 +146,31 @@ public class RemoteBrainTest {
 
     @Test
     public void aClaudeModelWithoutTheFallbackIsAskedPlainly() {
-        Fake f = new Fake().reply(400, "{\"type\":\"error\",\"error\":{\"message\":\"effort not supported\"}}").reply(200, ANTHROPIC_STREAM);
-        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-haiku-4-5", "k", "", f);
+        String refused = "{\"type\":\"error\",\"error\":{\"message\":\"effort not supported\"}}";
+        Fake f = new Fake().reply(400, refused).reply(400, refused).reply(200, ANTHROPIC_STREAM).reply(200, ANTHROPIC_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://gw.example.com/v1", "claude-haiku-4-5", "k", "", f);
         assertNotNull(b.chat("s", ask("hi"), 48, 0.7f, null));
         assertFalse(f.bodies.get(0).contains("fallbacks"));
-        assertFalse(f.bodies.get(1).contains("output_config"));
-        assertFalse(f.bodies.get(1).contains("cache_control")); // the plain form, for a server that refuses extras
+        assertTrue("the middle form keeps the cache", f.bodies.get(1).contains("cache_control"));
+        assertFalse(f.bodies.get(2).contains("output_config"));
+        assertFalse(f.bodies.get(2).contains("cache_control")); // the plain form, for a server that refuses extras
+        // the next message starts with the form that worked: no refused request first, every time
+        assertNotNull(b.chat("s", ask("again"), 48, 0.7f, null));
+        assertEquals(4, f.bodies.size());
+        assertFalse(f.bodies.get(3).contains("cache_control"));
+    }
+
+    @Test
+    public void aBigClaudeModelThinksAsHardAsTheCallNeeds() {
+        Fake f = new Fake().reply(200, ANTHROPIC_STREAM).reply(200, ANTHROPIC_STREAM);
+        RemoteBrain b = new RemoteBrain(RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "k", "", f);
+        b.effortFor(TaskSize.Tier.FAST);
+        assertNotNull(b.chat("s", ask("hi"), 2048, 0.7f, null));
+        assertTrue(f.bodies.get(0), f.bodies.get(0).contains("\"effort\":\"low\""));
+        b.effortFor(TaskSize.Tier.STRONG);
+        assertNotNull(b.chat("s", ask("audit the repo"), 8000, 0.7f, null));
+        assertTrue(f.bodies.get(1), f.bodies.get(1).contains("\"effort\":\"high\""));
+        assertTrue("the prompt is cached", f.bodies.get(1).contains("cache_control"));
     }
 
     @Test
