@@ -2284,6 +2284,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** The suit's codes this page's brain is told about: only the tools switched on, and the suit's own controls. */
+    /**
+     * The instructions for a reply: in full for an API model; short for the device's own model, which reads every
+     * token of them before its first word (the full set is about 2,000 tokens; a small model reads them slowly and
+     * cannot use them). The warm-up and the reply use the same text, so what was read ahead is kept.
+     */
+    private String systemFor(String agent, boolean acts) {
+        String today = new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date());
+        if (model != null && !model.remoteOn()) {
+            java.util.Set<ai.dvine.suit.FunctionCode> allowed = chatTools(agent).allowedCodes();
+            return ai.dvine.llm.PersonaPrompt.lean(brain.userName(), today)
+                    + (acts ? ai.dvine.suit.FunctionCode.lean(connectorTools(), allowed) : "");
+        }
+        return ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(), today, selfSheet()) + (acts ? suitCodes(agent) : "");
+    }
+
+    /** What goes with a question to the device's own model: the most useful part only (it is read before the first word). */
+    static final int DEVICE_CONTEXT_CHARS = 1500;
+
     private String suitCodes(String persona) {
         java.util.Set<ai.dvine.suit.FunctionCode> allowed = chatTools(persona).allowedCodes();
         return ai.dvine.suit.FunctionCode.instructions(connectorTools(), allowed)
@@ -2573,9 +2591,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         // the one prompt every message now uses (the persona with the orders it may give): read once, ahead of time.
         // The separate routing prompt is gone, so it is not read into memory any more
-        final String persona = ai.dvine.llm.PersonaPrompt.system(stage.agent(), brain.userName(),
-                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet())
-                + suitCodes(stage.agent());
+        final String persona = systemFor(stage.agent(), true);
         hub.worker.execute(() -> model.warm(persona));
     }
 
@@ -4978,10 +4994,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final List<TurnLine> stream = new ArrayList<TurnLine>();
         streamOpen = true;
         walker.follow(stream);
-        final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
-                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK)
-                        .format(new java.util.Date()),
-                selfSheet()) + (acts ? suitCodes(agent) : "");
+        final String system = systemFor(agent, acts);
         final ai.dvine.suit.ChatTools pageTools = chatTools(agent);
         final java.util.List<String> taught;
         synchronized (brain) {
@@ -5035,11 +5048,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             // the device's model with its short memory still knows what this chat said earlier
             String older = chats == null ? "" : chats.olderNotes(ai.dvine.llm.LocalModel.HISTORY_TURNS + 1,
                     model.remoteOn() ? 2400 : 1200);
-            final String context = ai.dvine.llm.PersonaPrompt.context(taught, reference, around)
+            String gathered = ai.dvine.llm.PersonaPrompt.context(taught, reference, around)
                     + (older.isEmpty() ? "" : "\n" + older)
                     + "\n" + cortex().context(english) // DVINE's reading of the message and any exact arithmetic
                     + pilotProfile().brief() // what the pilot said about themselves, for every brain
                     + (pageTools.brief().isEmpty() ? "" : "\n" + pageTools.brief());
+            if (!model.remoteOn() && gathered.length() > DEVICE_CONTEXT_CHARS) {
+                // the device's model reads all of it before its first word: what is said about this question first
+                // (taught facts, the reference, the situation), the rest cut
+                gathered = gathered.substring(0, DEVICE_CONTEXT_CHARS);
+            }
+            final String context = gathered;
             final ai.dvine.llm.ActionTags tags = new ai.dvine.llm.ActionTags();
             final boolean ivieVoice = "ivie".equals(agent);
             // interpreted: the English isn't shown or spoken as it comes; the translation is, when it is done
@@ -6619,9 +6638,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
+    /**
+     * The offline model is let go five minutes after the app leaves the screen, not at once: freeing it on every
+     * glance at another app threw away everything it had read, and the next question read it all again.
+     */
+    static final long RELEASE_AFTER_MS = 5 * 60_000L;
+    private final Runnable releaseModel = () -> {
+        if (model != null && hub != null && hub.worker != null && !model.working() && !inFront) {
+            final ai.dvine.llm.LocalModel leaving = model;
+            hub.worker.execute(leaving::releaseIfIdle);
+        }
+    };
+
     @Override
     protected void onStart() {
         super.onStart();
+        handler.removeCallbacks(releaseModel); // back within five minutes: the model and what it read are still there
         connectivity.start();
         ambient.start();
     }
@@ -6629,10 +6661,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onStop() {
         inFront = false;
-        if (model != null && hub != null && hub.worker != null && !model.working()) {
-            final ai.dvine.llm.LocalModel leaving = model;
-            hub.worker.execute(leaving::releaseIfIdle); // the cache is not kept while the app is off screen
-        }
+        handler.removeCallbacks(releaseModel);
+        handler.postDelayed(releaseModel, RELEASE_AFTER_MS); // let go if the app stays away
+
         // the connection is watched off screen too: a message waiting for the internet goes as soon as it is back
         ambient.stop();
         super.onStop();

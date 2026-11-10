@@ -1,3 +1,11 @@
+# The device's model starts in seconds (0.99.66)
+
+- [x] No hidden thinking on the device's model unless asked.
+- [x] Short instructions for the device's model (~560 tokens instead of ~1,900); context capped.
+- [x] No reload when a smaller question comes; the model kept five minutes off screen.
+- [x] The steps say how much was read and when the first word came.
+- [ ] Measure on the pilot's device; then the graphics chip (Vulkan) as an experiment.
+
 # The truth ledger (0.99.65)
 
 - [x] Every sentence judged true or false is kept, both sides; recognised again; mistakes told to every brain.

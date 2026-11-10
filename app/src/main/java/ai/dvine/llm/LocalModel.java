@@ -364,7 +364,8 @@ public final class LocalModel {
     /** Loads the installed model into memory (blocking, a few seconds). A short cache is loaded; a long question grows it. */
     public synchronized boolean load(int threads) {
         int light = PromptFit.localContext(0, contextTokens);
-        if (state == State.READY && handle != 0 && loadedThreads == threads && loadedContext == light) {
+        // a bigger memory already loaded is kept: shrinking it reloaded the model and threw away everything read
+        if (state == State.READY && handle != 0 && loadedThreads == threads && loadedContext >= light && loadedContext <= contextTokens) {
             return true;
         }
         return loadSized(threads, light);
@@ -539,7 +540,7 @@ public final class LocalModel {
             final long began = System.currentTimeMillis();
             // the phone's small model may write the user's next turn itself and loop: stopped and cut where that starts
             String answer = FakeTurn.cut(withTimeout(counting(FakeTurn.guard(sink), pieces),
-                    wrapped -> NativeLlm.nReply(handle, spec.prompt(system), roles, texts, room, 0.7f, wrapped)));
+                    wrapped -> NativeLlm.nReply(handle, spec.prompt(deviceSystem(system)), roles, texts, room, 0.7f, wrapped)));
             if (ticket != epoch.get()) {
                 return null;
             }
@@ -602,6 +603,19 @@ public final class LocalModel {
         }
     }
 
+    /**
+     * Whether the device's own model may reason in a hidden block before it answers. Off: a thinking model (Qwen3)
+     * on the device spent its whole allowance (up to thousands of tokens, minutes on a small model) thinking with
+     * nothing on screen, then was asked again. Deep thinking (the Think pill) plans and checks in its own passes.
+     */
+    public volatile boolean localThinking = false;
+
+    /** The instructions as the device's model gets them: no hidden reasoning block unless {@link #localThinking}. */
+    String deviceSystem(String system) {
+        String s = system == null ? "" : system;
+        return spec.thinks && !localThinking && !s.contains("/no_think") ? s + " /no_think" : s;
+    }
+
     private synchronized String taskNow(String system, String prompt, int maxTokens, NativeLlm.Sink sink, TaskSize.Tier tier) {
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>();
@@ -627,7 +641,7 @@ public final class LocalModel {
         int budget = PromptFit.localPromptChars(localWindow(), reply, system == null ? 0 : system.length());
         String local = null;
         raisePriority();
-        String sys = system;
+        String sys = deviceSystem(system);
         boolean thoughtOut = false;
         for (int attempt = 0; attempt < FIT_TRIES + 1; attempt++) {
             final String fitted = fit(prompt, budget);
@@ -736,7 +750,8 @@ public final class LocalModel {
             chars += t[1] == null ? 0 : t[1].length();
         }
         int want = PromptFit.localContext(chars, contextTokens);
-        if (state == State.READY && handle != 0 && loadedContext >= want && loadedContext <= want * 2L) {
+        // big enough is enough: a smaller question does not reload a smaller memory (that threw away what was read)
+        if (state == State.READY && handle != 0 && loadedContext >= want && loadedContext <= Math.max(want, contextTokens)) {
             return true;
         }
         if (!installed() && handle == 0) {
@@ -886,15 +901,32 @@ public final class LocalModel {
     }
 
     /** Counts the pieces as they stream (the phone's brain sends one token a piece). */
-    private static NativeLlm.Sink counting(NativeLlm.Sink sink, int[] count) {
+    private NativeLlm.Sink counting(NativeLlm.Sink sink, int[] count) {
         return text -> {
-            count[0]++;
+            if (count[0]++ == 0) {
+                firstPieceAt = System.currentTimeMillis();
+            }
             return sink == null || sink.onText(text);
         };
     }
 
+    /** When the last local reply wrote its first piece; and how long it read before that, with how much it read. */
+    private volatile long firstPieceAt;
+    public volatile long lastReadMs;
+    public volatile int lastReadTokens;
+
     private void recordLocal(String system, List<String[]> turns, String message, String answer, int pieces, long began) {
         long now = System.currentTimeMillis();
+        int read = UsageLog.estimate(system) + UsageLog.estimate(message);
+        for (String[] t : turns) {
+            read += UsageLog.estimate(t[1]);
+        }
+        if (firstPieceAt >= began) {
+            lastReadMs = firstPieceAt - began;
+            lastReadTokens = read;
+            // said in the steps, so a slow start shows where the time went
+            step(String.format(java.util.Locale.US, "Read about %,d tokens, first word after %.0f s", read, lastReadMs / 1000.0));
+        }
         if (answer == null || answer.trim().isEmpty()) {
             usage.failure(now);
             return;
@@ -950,7 +982,7 @@ public final class LocalModel {
         if (state != State.READY || handle == 0 || system == null) {
             return false;
         }
-        return NativeLlm.warmIfPossible(handle, spec.prompt(system));
+        return NativeLlm.warmIfPossible(handle, spec.prompt(deviceSystem(system)));
     }
 
     /** Forgets the conversation (a new topic, or the user asked). */
