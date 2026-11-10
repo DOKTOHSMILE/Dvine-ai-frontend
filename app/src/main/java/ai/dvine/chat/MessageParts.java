@@ -77,7 +77,7 @@ public final class MessageParts {
             }
             code = trimBlankLines(code);
             if (!code.isEmpty() && (ai.dvine.linux.CloneFolder.mostlyProgress(code)
-                    || ai.dvine.linux.CloneFolder.progressLines(code) >= 2)) {
+                    || ai.dvine.linux.CloneFolder.progressLines(code) >= 1)) {
                 addProse(out, ai.dvine.linux.CloneFolder.quiet(code));
             } else if (!code.isEmpty()) {
                 String kind = htmlLanguage(lang) || looksLikeDocument(code) ? "html" : "code";

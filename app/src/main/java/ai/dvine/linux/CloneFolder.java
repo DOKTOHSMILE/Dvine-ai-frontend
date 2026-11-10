@@ -223,7 +223,7 @@ public final class CloneFolder {
         return n;
     }
 
-    /** Git's progress lines ("Counting objects: 37%") become one line. The rest of the text stays. */
+    /** Git's progress ("Counting objects", "Cloning into") is not shown. Other lines stay. */
     public static String quiet(String text) {
         if (text == null || text.isEmpty()) {
             return text;
@@ -231,23 +231,28 @@ public final class CloneFolder {
         String[] lines = text.split("\n", -1);
         StringBuilder b = new StringBuilder();
         int n = 0;
-        String last = null;
         for (String line : lines) {
             String t = line.trim();
-            if (isProgress(t) || t.matches("(?i)remote:\\s+.*\\d+%.*")) {
+            if (isProgress(t) || t.matches("(?i)remote:\\s+.*\\d+%.*") || t.matches("(?i)cloning into\\s+.*")) {
                 n++;
-                last = t.replaceFirst("(?i)^remote:\\s*", "");
                 continue;
             }
             if (!t.isEmpty()) {
                 b.append(line).append('\n');
             }
         }
-        if (n > 0 && last != null) {
-            b.append("Cloning: ").append(last).append('\n');
+        String out = collapseEmptyFences(b.toString());
+        if (out.isEmpty()) {
+            return n > 0 ? "Cloning the repository." : text.trim();
         }
-        String out = b.toString().trim();
-        return out.isEmpty() ? text.trim() : out;
+        return out;
+    }
+
+    /** A code fence whose body was only the clone log (or a leftover "done") is not a code card. */
+    private static String collapseEmptyFences(String text) {
+        String s = text.replaceAll("(?i)```[a-z0-9_+#.\\-]*[ \\t]*\\n(?:done\\.?[ \\t]*\\n)?```", "");
+        s = s.replaceAll("(?m)^```[a-zA-Z0-9_+#.\\-]*[ \\t]*$", "");
+        return s.trim();
     }
 
     /** True when a block is almost only that progress, so the chat should not open it as code. */

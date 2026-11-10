@@ -287,6 +287,9 @@ public class CodeAgentTest {
         assertTrue(CodeAgent.promise("The folder looks empty. I'm fetching the branch list and forcing a checkout."));
         assertTrue("a result is not a plan", !CodeAgent.promise("Nothing is wrong: every tool matches its runner."));
         assertTrue(!CodeAgent.promise("The fetch line was wrong. I fixed it in CodeAgent.java and the tests pass."));
+        assertTrue(CodeAgent.unfinished("Listed the files in the workspace: 7 entries, first memory/."));
+        assertTrue(CodeAgent.unfinished("Your repo clone survived — I'll reconcile the paths and audit the code."));
+        assertTrue(!CodeAgent.unfinished("Nothing is wrong: every tool matches its runner."));
         assertTrue(CodeAgent.alike("Auditing tool docs against host code, mapping files first.",
                 "Auditing each tool doc line against the code, reading the host runner next."));
     }

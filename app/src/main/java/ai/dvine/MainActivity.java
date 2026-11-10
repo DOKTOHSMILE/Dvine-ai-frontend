@@ -2774,8 +2774,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     updateThoughtStatus(ai.dvine.agent.StepDetail.words(line), true);
                 }, () -> showIbikoMode(true)).onNote(note -> {
-                    if (chatPane != null) {
-                        chatPane.assistant(persona, note); // between the steps, with its own Copy and Listen
+                    if (chatPane == null || note == null) {
+                        return;
+                    }
+                    String n = note.trim();
+                    // a one-line finding or "I'll do it next" is a step, not a reply the user has to continue
+                    if (n.length() < 180 || ai.dvine.agent.CodeAgent.promise(n)) {
+                        chatPane.activityStep(n.length() > 160 ? n.substring(0, 157) + "\u2026" : n);
+                    } else {
+                        chatPane.assistant(persona, n);
                     }
                 }).onSteer(steer::drain);
         new Thread(() -> {
@@ -2915,10 +2922,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 int spun = 0;
                 while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS
                         && System.currentTimeMillis() - began < workMs) {
-                    if (ai.dvine.agent.CodeAgent.promise(result) && ++spun > 6) {
+                    if (ai.dvine.agent.CodeAgent.unfinished(result) && ++spun > 6) {
                         break; // six status lines in a row: stop and say so, instead of spinning
                     }
-                    if (!ai.dvine.agent.CodeAgent.promise(result)) {
+                    if (!ai.dvine.agent.CodeAgent.unfinished(result)) {
                         spun = 0;
                     }
                     saveAgentWork(workAt, agent.work());
@@ -3257,6 +3264,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         String shown = ai.dvine.chat.ReplyText.prepare(note);
         if (shown.isEmpty() || shown.startsWith("(nothing:")) {
+            return;
+        }
+        if (ai.dvine.agent.CodeAgent.unfinished(shown)) {
+            chatPane.activityStep(shown.length() > 160 ? shown.substring(0, 157) + "\u2026" : shown);
             return;
         }
         chatPane.assistant(persona, shown);

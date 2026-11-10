@@ -1,3 +1,10 @@
+# The job stays on screen until it is done (0.99.56)
+
+- [x] A `git clone` still lands in `memory/projects/`, and the counting-objects log is not a code card at all.
+- [x] A message sent while a reply is on screen stays under that reply. The same words are not written again underneath it.
+- [x] "Listed the files…" and "I'll map it next" stay in the step line. An audit does not end on them.
+- [x] A reply cut off at a sentence ("logic." + "Found") is two sentences, not one word. A DNS blip is tried again inside the agent too.
+
 # Clones stay in the workspace, and a job is not cut off (0.99.55)
 
 - [x] Every `git clone`, including `git -c … clone` and a command that also mentions `memory/projects`, writes into `memory/projects/`. A repo already sitting in `/root/workspace` is moved there. A clone that only has `.git` is checked out.

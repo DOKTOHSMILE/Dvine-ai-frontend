@@ -35,8 +35,17 @@ public class CloneFolderTest {
                 + "done\n";
         String quiet = CloneFolder.quiet(noisy);
         assertFalse(quiet.contains("21%"));
-        assertTrue(quiet.contains("Cloning: Receiving objects: 10%"));
+        assertFalse(quiet.contains("Counting"));
+        assertFalse(quiet.contains("Cloning into"));
         assertTrue(quiet.contains("done"));
         assertTrue(CloneFolder.mostlyProgress(noisy));
+        assertEquals("Cloning the repository.", CloneFolder.quiet("remote: Counting objects: 37% (172/463)\n"
+                + "remote: Counting objects: 38% (176/463)"));
+        String fenced = "```yaml\nCloning into '/root/workspace/Dvine-ai-frontend'...\n"
+                + "remote: Counting objects: 36% (167/463)\nremote: Counting objects: 37% (172/463)\n```";
+        String card = CloneFolder.quiet(fenced);
+        assertFalse(card.contains("```"));
+        assertFalse(card.contains("Counting"));
+        assertFalse(card.contains("/root/workspace"));
     }
 }

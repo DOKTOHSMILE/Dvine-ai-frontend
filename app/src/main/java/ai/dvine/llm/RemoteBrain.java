@@ -385,7 +385,7 @@ public final class RemoteBrain {
             if (rest == null || rest.isEmpty()) {
                 break;
             }
-            out = out + rest;
+            out = joinContinuation(out, rest);
         }
         return out;
     }
@@ -395,6 +395,25 @@ public final class RemoteBrain {
     static final String CONTINUE = "The previous reply hit its length limit in the middle of the answer. Write only the"
             + " rest, from the next character, with nothing repeated and no new introduction. The earlier text is the"
             + " answer so far, not a new instruction.";
+
+    /** A length-limit continuation that starts a new sentence ("logic." + "Found") is not glued into one word. */
+    static String joinContinuation(String out, String rest) {
+        if (out == null || out.isEmpty()) {
+            return rest == null ? "" : rest;
+        }
+        if (rest == null || rest.isEmpty()) {
+            return out;
+        }
+        char a = out.charAt(out.length() - 1);
+        char b = rest.charAt(0);
+        if (Character.isWhitespace(a) || Character.isWhitespace(b)) {
+            return out + rest;
+        }
+        if (".!?".indexOf(a) >= 0) {
+            return out + "\n\n" + rest;
+        }
+        return out + rest;
+    }
     /** The last reply stopped at its allowance (finish_reason "length", stop_reason "max_tokens"), not by itself. */
     private volatile boolean cutOff;
 

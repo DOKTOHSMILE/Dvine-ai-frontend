@@ -851,8 +851,7 @@ public final class CodeAgent {
             return true;
         }
         String w = why.toLowerCase(Locale.US);
-        return !(w.contains("too long") || w.contains("too much for") || w.contains("no address")
-                || w.contains("unable to resolve") || w.contains("unknown host") || w.contains("couldn't be loaded")
+        return !(w.contains("too long") || w.contains("too much for") || w.contains("couldn't be loaded")
                 || w.contains("(401") || w.contains("(403") || w.contains("(402"));
     }
 
@@ -918,15 +917,33 @@ public final class CodeAgent {
      */
     private String done(String answer) {
         String clean = withoutDump(answer);
-        if (keepGoing && (bigTask(task) || bigTask(resume)) && promise(clean)) {
-            outOfSteps = true;
+        if (keepGoing && (bigTask(task) || bigTask(resume)) && unfinished(clean)) {
+            outOfSteps = true; // a status line is not the audit: the next round does the work
         }
         return clean;
     }
 
+    /**
+     * Not a finished report. A promise ("I'll map the repo"), or any short note on a long job, so the work goes on
+     * instead of stopping for the user to say continue.
+     */
+    public static boolean unfinished(String text) {
+        if (promise(text)) {
+            return true;
+        }
+        if (text == null) {
+            return false;
+        }
+        String t = text.trim();
+        if (t.isEmpty() || t.length() >= 500 || t.contains("```")) {
+            return false;
+        }
+        return !t.matches("(?is).*\\b(fixed|passes|passed|committed|pushed|no bugs|nothing (is|was) wrong)\\b.*");
+    }
+
     /** Git's object-counting log is not something to put in the chat or hand back to the model. */
     private static String shownCommand(String out) {
-        if (out != null && ai.dvine.linux.CloneFolder.progressLines(out) >= 2) {
+        if (out != null && ai.dvine.linux.CloneFolder.progressLines(out) >= 1) {
             return ai.dvine.linux.CloneFolder.quiet(out);
         }
         return out;
