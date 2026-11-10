@@ -241,6 +241,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 208 | Read the requests made while the session was down and implement them | P12 | Built: rows 197, 200 and 205 taken further in 0.99.60; the rest of that batch was already built (198–206) | 0.99.60 |
 | 209 | Audit the chat screen UI/UX: two tools buttons, remake the Tools sheet, remake buttons, solidify the design | P12 | Built (renders checked night and day; one tools button; Tools sheet remade; header, logo and mode pill fixed; JVM tests) | 0.99.61 |
 | 210 | Give the AI a formula to learn from its own interactions and responses | P12 | Built (`formulas/Reflection` R1–R7; JVM tests) | 0.99.61 |
+| 211 | Remove the tools and attachment buttons from the composer; what goes there now | P12 | Built (the tools button went in 0.99.61; the paperclip replaced by a Think pill; Media attaches; JVM tests) | 0.99.62 |
+| 212 | The GitHub icon is cropped | P12 | Fixed (ic_branch redrawn inside its frame) | 0.99.62 |
+| 213 | A formula to coin all its knowledge together on a foundation of truth | P12 | Built (`formulas/Truth` G1–G7, `Dvine1.foundation`; JVM tests) | 0.99.62 |
 
 ## Still open, in the order that matters
 

@@ -1284,6 +1284,16 @@ public class LaunchTest {
         org.junit.Assert.assertEquals("the line under the title names the model only", -1,
                 String.valueOf(((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tv_header_sub)).getText()).indexOf("Ibiko"));
         org.junit.Assert.assertEquals("I", String.valueOf(((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.empty_mark)).getText()));
+        org.junit.Assert.assertEquals("no paperclip: Media attaches", 0, c.get().getResources().getIdentifier("btn_attach", "id",
+                c.get().getPackageName()));
+        // the Think pill turns deep thinking on and off, and says which
+        android.widget.TextView think = c.get().findViewById(ai.dvine.R.id.btn_think);
+        boolean was = think.isSelected();
+        think.performClick();
+        org.junit.Assert.assertEquals(!was, think.isSelected());
+        org.junit.Assert.assertEquals(!was ? "On" : "Off", String.valueOf(think.getStateDescription()));
+        think.performClick();
+        org.junit.Assert.assertEquals(was, think.isSelected());
         c.pause().stop().destroy();
     }
 }

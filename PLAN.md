@@ -1,3 +1,9 @@
+# A foundation of truth; a Think pill (0.99.62)
+
+- [x] The Truth formula: all that is known, ranked by source, settled, said with how sure; under every brain's answer.
+- [x] The paperclip replaced by a Think pill (deep thinking on or off); Media attaches.
+- [x] The GitHub icon redrawn inside its frame.
+
 # Learning from its own replies; the chat screen remade (0.99.61)
 
 - [x] The Reflection formula: every reply judged by what comes next; lessons and taste go with the next request.

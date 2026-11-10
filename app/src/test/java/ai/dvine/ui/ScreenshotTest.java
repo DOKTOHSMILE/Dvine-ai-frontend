@@ -249,8 +249,8 @@ public class ScreenshotTest {
         android.widget.LinearLayout chips = (android.widget.LinearLayout) rows.get(0).getParent().getParent();
         org.junit.Assert.assertEquals(ai.dvine.R.id.reply_work_row, chips.getId());
         org.junit.Assert.assertEquals(3, chips.getChildCount()); // Diff, Pull requests, Artifacts
-        // the persona tabs sit in the composer row beside the attach button; the Auto pill sits in the header
-        org.junit.Assert.assertSame(c.get().findViewById(ai.dvine.R.id.btn_attach).getParent(),
+        // the tabs sit in the composer row beside the Think pill (the paperclip went: Media attaches); the Auto pill sits in the header
+        org.junit.Assert.assertSame(c.get().findViewById(ai.dvine.R.id.btn_think).getParent(),
                 c.get().findViewById(ai.dvine.R.id.tabIbiko).getParent().getParent());
         org.junit.Assert.assertSame(c.get().findViewById(ai.dvine.R.id.chatHeader), c.get().findViewById(ai.dvine.R.id.ibikoMode).getParent());
         // the mode pill shows in the header only while an agent job runs; otherwise it is in the Tools sheet
