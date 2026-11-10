@@ -34,7 +34,7 @@ The repository and the Java package keep their old names (`Dvine-ai-frontend`, `
 **Plans grow.** A plan file (`PLAN.md`) is only added to. New work goes after the existing steps, or right after the last finished step when you call it a priority. A finished step is ticked, never deleted. A write that would drop a step is refused.
 
 **Built-in knowledge.** `app/src/main/assets/knowledge/` ships what Ibiko knows on install, with no internet:
-- `world_facts.tsv` (2,379 facts): the 194 countries (capital, region, currency, official languages, area, people, neighbours, coastline) and the 118 elements;
+- `world_facts.tsv` (2,765 facts): the 194 countries (capital, region, currency, official languages, area, population with its year, people, neighbours, coastline) and the 118 elements;
 - `base_knowledge.json`: everyday talk, maths, units, wisdom;
 - `shards/dictionary_en.json`: the English dictionary (WordNet).
 
@@ -71,5 +71,5 @@ No provider key belongs in this project. Keys are entered in the app and stay on
 
 ## Licences of shipped data
 
-- `world_facts.tsv` (countries): from mledoze/countries, ODbL; see `WORLD_FACTS_LICENSE.txt`.
+- `world_facts.tsv`: countries from mledoze/countries (ODbL) and population from datasets/population (PDDL); see `WORLD_FACTS_LICENSE.txt`.
 - `dictionary_en.json`: WordNet; see `WORDNET_LICENSE.txt`.

@@ -4334,7 +4334,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             });
             java.util.List<String> parts = new java.util.ArrayList<String>();
             StringBuilder written = new StringBuilder();
-            for (int i = 0; i < sections.size() && alive(id); i++) {
+            // the same hands as the coding agents: on an API, with the Workers tool on, each section has its own writer
+            // and they write at the same time; the plan keeps them in one voice and one order
+            if (model.remoteOn() && chatTools(persona).workers() && sections.size() >= 3) {
+                activity("Writing " + sections.size() + " sections at once");
+                final java.util.List<String> secs = sections;
+                java.util.List<String> got = ai.dvine.agent.Squad.all(secs, (n, s) -> {
+                    String one = alive(id) ? model.remoteTask(system, ai.dvine.agent.WritingPlan.sectionAlone(task, plan, n, secs.size(), s),
+                            room, strong) : null;
+                    if (one != null) {
+                        activity("Wrote " + n + " of " + secs.size() + ": " + clip(s.replaceAll(":.*$", "")));
+                    }
+                    return one;
+                }, 4, () -> !alive(id));
+                for (String one : got) {
+                    if (one != null && !one.trim().isEmpty() && !one.startsWith("Error:") && !one.startsWith("Stopped before")) {
+                        parts.add(one.trim());
+                    }
+                }
+                if (parts.size() != sections.size()) {
+                    parts.clear(); // a section was lost: written one after another below, as before
+                }
+            }
+            for (int i = parts.size(); i < sections.size() && alive(id); i++) {
                 activity("Writing " + (i + 1) + " of " + sections.size() + ": " + clip(sections.get(i).replaceAll(":.*$", "")));
                 String part = model.task(system, ai.dvine.agent.WritingPlan.sectionPrompt(task, plan, written.toString(), i + 1, sections.get(i)),
                         room, piece -> alive(id), strong);

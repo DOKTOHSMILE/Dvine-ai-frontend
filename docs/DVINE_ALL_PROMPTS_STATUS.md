@@ -227,10 +227,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 194 | Merge all personas into Ibiko with every function; trace Obi and Ivie out of the codebase | P12 | Partial (Ibiko answers everything when a model is in use; Obi and Ivie code not removed) | 0.99.53 |
 | 195 | Agent organisation: Scribe, UCIX, UCUX, CPGC, ROLX, ARCH, plus roles from how organisations are structured; mini workers under agents; timed, focused work | P12 | Built (`agent/Org`, role and minutes on each part, hands, time limit, send-back; JVM tests; behaviour with real models not measured) | 0.99.53 |
 | 196 | One record file a project, a folder a section, agents limited to it, exact resume point | P12 | Built for new records and for workers' file tools (shell commands are not confined) | 0.99.53 |
-| 197 | Apply the same technology to features and functions across the app | P12 | Not built (the organisation is used by the coding agent only) | — |
+| 197 | Apply the same technology to features and functions across the app | P12 | Partial (the hands now also write long pieces section by section at once, `Squad.all`; other features still one call at a time) | 0.99.60 |
 | 198 | No more Ibiko, Obi and Ivie: just one assistant | P12 | Superseded by 201 (the user then chose Ibiko as the one name) | 0.99.57 |
 | 199 | A new addition to the plan is added to the old plan, never replacing it; a priority moves to next; only a finished step is edited (ticked) | P12 | Built (`Blueprint.kept` refuses a write that drops or unticks a step; Scribe appends; JVM tests) | 0.99.57 |
-| 200 | Download more knowledge and build self-evolving | P12 | Partial (2,379 shipped facts; learning from every reply via `dvine1/Methods` and Facts; no large corpus, Wikidata still rate-limited) | 0.99.57 |
+| 200 | Download more knowledge and build self-evolving | P12 | Partial (2,765 shipped facts with population; learning from every reply via `dvine1/Methods`, Facts and Foresight; no large corpus, Wikidata still rate-limited) | 0.99.60 |
 | 201 | Rename the entire app Ibiko; no persona names anywhere | P12 | Built for everything a person sees and everything the model is told; internal keys, class names and old chats keep the old words | 0.99.57 |
 | 202 | A survey that breaks off restarts from zero on "continue"; the Scribe must hold lines covered, files done, next file, current and next task | P12 | Built (parts kept as read, SURVEY.md progress, resume reads only what is left; RECORD.md NOW section) | 0.99.57 |
 | 203 | The audit results: sorted with the time and date, a comprehensive report | P12 | Built (map sorted by path and line, contents list, time made, time each part was read) | 0.99.57 |
@@ -238,6 +238,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 205 | Fix every UI and UX properly; the composer mockup (Tools, Code, Media, Explore, More, "Ask … anything") | P12 | Built (hint and names in 0.99.57; the chips row in 0.99.58; JVM test) | 0.99.58 |
 | 206 | Check the repo and the user's own changes; keep every document and the README up to date | P12 | Built (0.99.53–0.99.56 recorded; README rewritten; two tests red on main fixed) | 0.99.57 |
 | 207 | Give the AI the ability (a formula) to be premeditative | P12 | Built (`formulas/Foresight` P1–P7: habits of what follows what, the look-before check for every brain, offers never acted on unasked; JVM tests) | 0.99.59 |
+| 208 | Read the requests made while the session was down and implement them | P12 | Built: rows 197, 200 and 205 taken further in 0.99.60; the rest of that batch was already built (198–206) | 0.99.60 |
 
 ## Still open, in the order that matters
 

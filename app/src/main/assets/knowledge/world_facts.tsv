@@ -13,6 +13,8 @@ Afghanistan	neighbour	Uzbekistan
 Afghanistan	neighbour	Tajikistan
 Afghanistan	neighbour	China
 Afghanistan	landlocked	yes
+Afghanistan	population	43844111
+Afghanistan	population year	2025
 Albania	capital	Tirana
 Albania	continent	Europe
 Albania	currency	Albanian lek
@@ -24,6 +26,8 @@ Albania	neighbour	Greece
 Albania	neighbour	North Macedonia
 Albania	neighbour	Kosovo
 Albania	landlocked	no
+Albania	population	2349580
+Albania	population year	2025
 Algeria	capital	Algiers
 Algeria	continent	Africa
 Algeria	currency	Algerian dinar
@@ -38,6 +42,8 @@ Algeria	neighbour	Mauritania
 Algeria	neighbour	Mali
 Algeria	neighbour	Morocco
 Algeria	landlocked	no
+Algeria	population	47435312
+Algeria	population year	2025
 Andorra	capital	Andorra la Vella
 Andorra	continent	Europe
 Andorra	currency	Euro
@@ -47,6 +53,8 @@ Andorra	demonym	Andorran
 Andorra	neighbour	France
 Andorra	neighbour	Spain
 Andorra	landlocked	yes
+Andorra	population	82904
+Andorra	population year	2025
 Angola	capital	Luanda
 Angola	continent	Africa
 Angola	currency	Angolan kwanza
@@ -58,6 +66,8 @@ Angola	neighbour	DR Congo
 Angola	neighbour	Zambia
 Angola	neighbour	Namibia
 Angola	landlocked	no
+Angola	population	39040039
+Angola	population year	2025
 Antigua and Barbuda	capital	Saint John's
 Antigua and Barbuda	continent	Caribbean
 Antigua and Barbuda	currency	Eastern Caribbean dollar
@@ -65,6 +75,8 @@ Antigua and Barbuda	official language	English
 Antigua and Barbuda	area	442
 Antigua and Barbuda	demonym	Antiguan, Barbudan
 Antigua and Barbuda	landlocked	no
+Antigua and Barbuda	population	94209
+Antigua and Barbuda	population year	2025
 Argentina	capital	Buenos Aires
 Argentina	continent	South America
 Argentina	currency	Argentine peso
@@ -78,6 +90,8 @@ Argentina	neighbour	Chile
 Argentina	neighbour	Paraguay
 Argentina	neighbour	Uruguay
 Argentina	landlocked	no
+Argentina	population	45851378
+Argentina	population year	2025
 Armenia	capital	Yerevan
 Armenia	continent	Asia
 Armenia	currency	Armenian dram
@@ -89,6 +103,8 @@ Armenia	neighbour	Georgia
 Armenia	neighbour	Iran
 Armenia	neighbour	Türkiye
 Armenia	landlocked	yes
+Armenia	population	3086700
+Armenia	population year	2025
 Australia	capital	Canberra
 Australia	continent	Oceania
 Australia	currency	Australian dollar
@@ -96,6 +112,8 @@ Australia	official language	English
 Australia	area	7692024
 Australia	demonym	Australian
 Australia	landlocked	no
+Australia	population	27614411
+Australia	population year	2025
 Austria	capital	Vienna
 Austria	continent	Europe
 Austria	currency	Euro
@@ -111,6 +129,8 @@ Austria	neighbour	Slovakia
 Austria	neighbour	Slovenia
 Austria	neighbour	Switzerland
 Austria	landlocked	yes
+Austria	population	9208163
+Austria	population year	2025
 Azerbaijan	capital	Baku
 Azerbaijan	continent	Asia
 Azerbaijan	currency	Azerbaijani manat
@@ -124,6 +144,8 @@ Azerbaijan	neighbour	Iran
 Azerbaijan	neighbour	Russia
 Azerbaijan	neighbour	Türkiye
 Azerbaijan	landlocked	yes
+Azerbaijan	population	10246996
+Azerbaijan	population year	2025
 Bahamas	capital	Nassau
 Bahamas	continent	Caribbean
 Bahamas	currency	Bahamian dollar
@@ -132,6 +154,8 @@ Bahamas	official language	English
 Bahamas	area	13943
 Bahamas	demonym	Bahamian
 Bahamas	landlocked	no
+Bahamas	population	403033
+Bahamas	population year	2025
 Bahrain	capital	Manama
 Bahrain	continent	Asia
 Bahrain	currency	Bahraini dinar
@@ -139,6 +163,8 @@ Bahrain	official language	Arabic
 Bahrain	area	765
 Bahrain	demonym	Bahraini
 Bahrain	landlocked	no
+Bahrain	population	1600366
+Bahrain	population year	2025
 Bangladesh	capital	Dhaka
 Bangladesh	continent	Asia
 Bangladesh	currency	Bangladeshi taka
@@ -148,6 +174,8 @@ Bangladesh	demonym	Bangladeshi
 Bangladesh	neighbour	Myanmar
 Bangladesh	neighbour	India
 Bangladesh	landlocked	no
+Bangladesh	population	175686899
+Bangladesh	population year	2025
 Barbados	capital	Bridgetown
 Barbados	continent	Caribbean
 Barbados	currency	Barbadian dollar
@@ -155,6 +183,8 @@ Barbados	official language	English
 Barbados	area	430
 Barbados	demonym	Barbadian
 Barbados	landlocked	no
+Barbados	population	282623
+Barbados	population year	2025
 Belarus	capital	Minsk
 Belarus	continent	Europe
 Belarus	currency	Belarusian ruble
@@ -168,6 +198,8 @@ Belarus	neighbour	Poland
 Belarus	neighbour	Russia
 Belarus	neighbour	Ukraine
 Belarus	landlocked	yes
+Belarus	population	9085991
+Belarus	population year	2025
 Belgium	capital	Brussels
 Belgium	continent	Europe
 Belgium	currency	Euro
@@ -181,6 +213,8 @@ Belgium	neighbour	Germany
 Belgium	neighbour	Luxembourg
 Belgium	neighbour	Netherlands
 Belgium	landlocked	no
+Belgium	population	11941781
+Belgium	population year	2025
 Belize	capital	Belmopan
 Belize	continent	Central America
 Belize	currency	Belize dollar
@@ -192,6 +226,8 @@ Belize	demonym	Belizean
 Belize	neighbour	Guatemala
 Belize	neighbour	Mexico
 Belize	landlocked	no
+Belize	population	422924
+Belize	population year	2025
 Benin	capital	Porto-Novo
 Benin	continent	Africa
 Benin	currency	West African CFA franc
@@ -203,6 +239,8 @@ Benin	neighbour	Niger
 Benin	neighbour	Nigeria
 Benin	neighbour	Togo
 Benin	landlocked	no
+Benin	population	14814460
+Benin	population year	2025
 Bhutan	capital	Thimphu
 Bhutan	continent	Asia
 Bhutan	currency	Bhutanese ngultrum
@@ -213,6 +251,8 @@ Bhutan	demonym	Bhutanese
 Bhutan	neighbour	China
 Bhutan	neighbour	India
 Bhutan	landlocked	yes
+Bhutan	population	796682
+Bhutan	population year	2025
 Bolivia	capital	Sucre
 Bolivia	continent	South America
 Bolivia	currency	Bolivian boliviano
@@ -228,6 +268,8 @@ Bolivia	neighbour	Chile
 Bolivia	neighbour	Paraguay
 Bolivia	neighbour	Peru
 Bolivia	landlocked	yes
+Bolivia	population	12581843
+Bolivia	population year	2025
 Bosnia and Herzegovina	capital	Sarajevo
 Bosnia and Herzegovina	continent	Europe
 Bosnia and Herzegovina	currency	Bosnia and Herzegovina convertible mark
@@ -240,6 +282,8 @@ Bosnia and Herzegovina	neighbour	Croatia
 Bosnia and Herzegovina	neighbour	Montenegro
 Bosnia and Herzegovina	neighbour	Serbia
 Bosnia and Herzegovina	landlocked	no
+Bosnia and Herzegovina	population	3140095
+Bosnia and Herzegovina	population year	2025
 Botswana	capital	Gaborone
 Botswana	continent	Africa
 Botswana	currency	Botswana pula
@@ -252,6 +296,8 @@ Botswana	neighbour	South Africa
 Botswana	neighbour	Zambia
 Botswana	neighbour	Zimbabwe
 Botswana	landlocked	yes
+Botswana	population	2562122
+Botswana	population year	2025
 Brazil	capital	Brasília
 Brazil	continent	South America
 Brazil	currency	Brazilian real
@@ -269,6 +315,8 @@ Brazil	neighbour	Suriname
 Brazil	neighbour	Uruguay
 Brazil	neighbour	Venezuela
 Brazil	landlocked	no
+Brazil	population	212812405
+Brazil	population year	2025
 Brunei	capital	Bandar Seri Begawan
 Brunei	continent	Asia
 Brunei	currency	Brunei dollar
@@ -278,6 +326,8 @@ Brunei	area	5765
 Brunei	demonym	Bruneian
 Brunei	neighbour	Malaysia
 Brunei	landlocked	no
+Brunei	population	466330
+Brunei	population year	2025
 Bulgaria	capital	Sofia
 Bulgaria	continent	Europe
 Bulgaria	currency	Euro
@@ -290,6 +340,8 @@ Bulgaria	neighbour	Romania
 Bulgaria	neighbour	Serbia
 Bulgaria	neighbour	Türkiye
 Bulgaria	landlocked	no
+Bulgaria	population	6433302
+Bulgaria	population year	2025
 Burkina Faso	capital	Ouagadougou
 Burkina Faso	continent	Africa
 Burkina Faso	currency	West African CFA franc
@@ -303,6 +355,8 @@ Burkina Faso	neighbour	Mali
 Burkina Faso	neighbour	Niger
 Burkina Faso	neighbour	Togo
 Burkina Faso	landlocked	yes
+Burkina Faso	population	24074580
+Burkina Faso	population year	2025
 Burundi	capital	Gitega
 Burundi	continent	Africa
 Burundi	currency	Burundian franc
@@ -314,6 +368,8 @@ Burundi	neighbour	DR Congo
 Burundi	neighbour	Rwanda
 Burundi	neighbour	Tanzania
 Burundi	landlocked	yes
+Burundi	population	14390003
+Burundi	population year	2025
 Cambodia	capital	Phnom Penh
 Cambodia	continent	Asia
 Cambodia	currency	Cambodian riel
@@ -325,6 +381,8 @@ Cambodia	neighbour	Laos
 Cambodia	neighbour	Thailand
 Cambodia	neighbour	Vietnam
 Cambodia	landlocked	no
+Cambodia	population	17847982
+Cambodia	population year	2025
 Cameroon	capital	Yaoundé
 Cameroon	continent	Africa
 Cameroon	currency	Central African CFA franc
@@ -339,6 +397,8 @@ Cameroon	neighbour	Equatorial Guinea
 Cameroon	neighbour	Gabon
 Cameroon	neighbour	Nigeria
 Cameroon	landlocked	no
+Cameroon	population	29879337
+Cameroon	population year	2025
 Canada	capital	Ottawa
 Canada	continent	North America
 Canada	currency	Canadian dollar
@@ -348,6 +408,8 @@ Canada	area	9984670
 Canada	demonym	Canadian
 Canada	neighbour	United States
 Canada	landlocked	no
+Canada	population	41651653
+Canada	population year	2025
 Cape Verde	capital	Praia
 Cape Verde	continent	Africa
 Cape Verde	currency	Cape Verdean escudo
@@ -355,6 +417,8 @@ Cape Verde	official language	Portuguese
 Cape Verde	area	4033
 Cape Verde	demonym	Cape Verdian
 Cape Verde	landlocked	no
+Cape Verde	population	527326
+Cape Verde	population year	2025
 Central African Republic	capital	Bangui
 Central African Republic	continent	Africa
 Central African Republic	currency	Central African CFA franc
@@ -369,6 +433,8 @@ Central African Republic	neighbour	Congo
 Central African Republic	neighbour	South Sudan
 Central African Republic	neighbour	Sudan
 Central African Republic	landlocked	yes
+Central African Republic	population	5513282
+Central African Republic	population year	2025
 Chad	capital	N'Djamena
 Chad	continent	Africa
 Chad	currency	Central African CFA franc
@@ -383,6 +449,8 @@ Chad	neighbour	Niger
 Chad	neighbour	Nigeria
 Chad	neighbour	Sudan
 Chad	landlocked	yes
+Chad	population	21003705
+Chad	population year	2025
 Chile	capital	Santiago
 Chile	continent	South America
 Chile	currency	Chilean peso
@@ -393,6 +461,8 @@ Chile	neighbour	Argentina
 Chile	neighbour	Bolivia
 Chile	neighbour	Peru
 Chile	landlocked	no
+Chile	population	19859921
+Chile	population year	2025
 China	capital	Beijing
 China	continent	Asia
 China	currency	Chinese yuan
@@ -416,6 +486,8 @@ China	neighbour	Russia
 China	neighbour	Tajikistan
 China	neighbour	Vietnam
 China	landlocked	no
+China	population	1406585000
+China	population year	2025
 Colombia	capital	Bogotá
 Colombia	continent	South America
 Colombia	currency	Colombian peso
@@ -428,6 +500,8 @@ Colombia	neighbour	Panama
 Colombia	neighbour	Peru
 Colombia	neighbour	Venezuela
 Colombia	landlocked	no
+Colombia	population	53425635
+Colombia	population year	2025
 Comoros	capital	Moroni
 Comoros	continent	Africa
 Comoros	currency	Comorian franc
@@ -437,6 +511,8 @@ Comoros	official language	Comorian
 Comoros	area	1862
 Comoros	demonym	Comoran
 Comoros	landlocked	no
+Comoros	population	882847
+Comoros	population year	2025
 Congo	capital	Brazzaville
 Congo	continent	Africa
 Congo	currency	Central African CFA franc
@@ -451,6 +527,8 @@ Congo	neighbour	Central African Republic
 Congo	neighbour	DR Congo
 Congo	neighbour	Gabon
 Congo	landlocked	no
+Congo	population	6484437
+Congo	population year	2025
 Costa Rica	capital	San José
 Costa Rica	continent	Central America
 Costa Rica	currency	Costa Rican colón
@@ -460,6 +538,8 @@ Costa Rica	demonym	Costa Rican
 Costa Rica	neighbour	Nicaragua
 Costa Rica	neighbour	Panama
 Costa Rica	landlocked	no
+Costa Rica	population	5152950
+Costa Rica	population year	2025
 Croatia	capital	Zagreb
 Croatia	continent	Europe
 Croatia	currency	Euro
@@ -472,6 +552,8 @@ Croatia	neighbour	Montenegro
 Croatia	neighbour	Serbia
 Croatia	neighbour	Slovenia
 Croatia	landlocked	no
+Croatia	population	3876200
+Croatia	population year	2025
 Cuba	capital	Havana
 Cuba	continent	Caribbean
 Cuba	currency	Cuban peso
@@ -479,6 +561,8 @@ Cuba	official language	Spanish
 Cuba	area	109884
 Cuba	demonym	Cuban
 Cuba	landlocked	no
+Cuba	population	10937203
+Cuba	population year	2025
 Cyprus	capital	Nicosia
 Cyprus	continent	Europe
 Cyprus	currency	Euro
@@ -487,6 +571,8 @@ Cyprus	official language	Turkish
 Cyprus	area	9251
 Cyprus	demonym	Cypriot
 Cyprus	landlocked	no
+Cyprus	population	1370754
+Cyprus	population year	2025
 Czechia	capital	Prague
 Czechia	continent	Europe
 Czechia	currency	Czech koruna
@@ -499,6 +585,8 @@ Czechia	neighbour	Germany
 Czechia	neighbour	Poland
 Czechia	neighbour	Slovakia
 Czechia	landlocked	yes
+Czechia	population	10886878
+Czechia	population year	2025
 DR Congo	capital	Kinshasa
 DR Congo	continent	Africa
 DR Congo	currency	Congolese franc
@@ -519,6 +607,8 @@ DR Congo	neighbour	Tanzania
 DR Congo	neighbour	Uganda
 DR Congo	neighbour	Zambia
 DR Congo	landlocked	no
+DR Congo	population	112832473
+DR Congo	population year	2025
 Denmark	capital	Copenhagen
 Denmark	continent	Europe
 Denmark	currency	Danish krone
@@ -527,6 +617,8 @@ Denmark	area	43094
 Denmark	demonym	Danish
 Denmark	neighbour	Germany
 Denmark	landlocked	no
+Denmark	population	6009169
+Denmark	population year	2025
 Djibouti	capital	Djibouti
 Djibouti	continent	Africa
 Djibouti	currency	Djiboutian franc
@@ -538,6 +630,8 @@ Djibouti	neighbour	Eritrea
 Djibouti	neighbour	Ethiopia
 Djibouti	neighbour	Somalia
 Djibouti	landlocked	no
+Djibouti	population	1184076
+Djibouti	population year	2025
 Dominica	capital	Roseau
 Dominica	continent	Caribbean
 Dominica	currency	Eastern Caribbean dollar
@@ -545,6 +639,8 @@ Dominica	official language	English
 Dominica	area	751
 Dominica	demonym	Dominican
 Dominica	landlocked	no
+Dominica	population	65871
+Dominica	population year	2025
 Dominican Republic	capital	Santo Domingo
 Dominican Republic	continent	Caribbean
 Dominican Republic	currency	Dominican peso
@@ -553,6 +649,8 @@ Dominican Republic	area	48671
 Dominican Republic	demonym	Dominican
 Dominican Republic	neighbour	Haiti
 Dominican Republic	landlocked	no
+Dominican Republic	population	11520487
+Dominican Republic	population year	2025
 Ecuador	capital	Quito
 Ecuador	continent	South America
 Ecuador	currency	United States dollar
@@ -562,6 +660,8 @@ Ecuador	demonym	Ecuadorean
 Ecuador	neighbour	Colombia
 Ecuador	neighbour	Peru
 Ecuador	landlocked	no
+Ecuador	population	18289896
+Ecuador	population year	2025
 Egypt	capital	Cairo
 Egypt	continent	Africa
 Egypt	currency	Egyptian pound
@@ -573,6 +673,8 @@ Egypt	neighbour	Libya
 Egypt	neighbour	Palestine
 Egypt	neighbour	Sudan
 Egypt	landlocked	no
+Egypt	population	118365995
+Egypt	population year	2025
 El Salvador	capital	San Salvador
 El Salvador	continent	Central America
 El Salvador	currency	United States dollar
@@ -582,6 +684,8 @@ El Salvador	demonym	Salvadoran
 El Salvador	neighbour	Guatemala
 El Salvador	neighbour	Honduras
 El Salvador	landlocked	no
+El Salvador	population	6365503
+El Salvador	population year	2025
 Equatorial Guinea	capital	Ciudad de la Paz
 Equatorial Guinea	continent	Africa
 Equatorial Guinea	currency	Central African CFA franc
@@ -593,6 +697,8 @@ Equatorial Guinea	demonym	Equatorial Guinean
 Equatorial Guinea	neighbour	Cameroon
 Equatorial Guinea	neighbour	Gabon
 Equatorial Guinea	landlocked	no
+Equatorial Guinea	population	1938431
+Equatorial Guinea	population year	2025
 Eritrea	capital	Asmara
 Eritrea	continent	Africa
 Eritrea	currency	Eritrean nakfa
@@ -605,6 +711,8 @@ Eritrea	neighbour	Djibouti
 Eritrea	neighbour	Ethiopia
 Eritrea	neighbour	Sudan
 Eritrea	landlocked	no
+Eritrea	population	3607003
+Eritrea	population year	2025
 Estonia	capital	Tallinn
 Estonia	continent	Europe
 Estonia	currency	Euro
@@ -614,6 +722,8 @@ Estonia	demonym	Estonian
 Estonia	neighbour	Latvia
 Estonia	neighbour	Russia
 Estonia	landlocked	no
+Estonia	population	1366475
+Estonia	population year	2025
 Eswatini	capital	Lobamba
 Eswatini	continent	Africa
 Eswatini	currency	Swazi lilangeni
@@ -625,6 +735,8 @@ Eswatini	demonym	Swazi
 Eswatini	neighbour	Mozambique
 Eswatini	neighbour	South Africa
 Eswatini	landlocked	yes
+Eswatini	population	1256174
+Eswatini	population year	2025
 Ethiopia	capital	Addis Ababa
 Ethiopia	continent	Africa
 Ethiopia	currency	Ethiopian birr
@@ -638,6 +750,8 @@ Ethiopia	neighbour	Somalia
 Ethiopia	neighbour	South Sudan
 Ethiopia	neighbour	Sudan
 Ethiopia	landlocked	yes
+Ethiopia	population	135472051
+Ethiopia	population year	2025
 Fiji	capital	Suva
 Fiji	continent	Oceania
 Fiji	currency	Fijian dollar
@@ -647,6 +761,8 @@ Fiji	official language	Fiji Hindi
 Fiji	area	18272
 Fiji	demonym	Fijian
 Fiji	landlocked	no
+Fiji	population	933154
+Fiji	population year	2025
 Finland	capital	Helsinki
 Finland	continent	Europe
 Finland	currency	Euro
@@ -658,6 +774,8 @@ Finland	neighbour	Norway
 Finland	neighbour	Sweden
 Finland	neighbour	Russia
 Finland	landlocked	no
+Finland	population	5646436
+Finland	population year	2025
 France	capital	Paris
 France	continent	Europe
 France	currency	Euro
@@ -673,6 +791,8 @@ France	neighbour	Monaco
 France	neighbour	Spain
 France	neighbour	Switzerland
 France	landlocked	no
+France	population	68720337
+France	population year	2025
 Gabon	capital	Libreville
 Gabon	continent	Africa
 Gabon	currency	Central African CFA franc
@@ -683,6 +803,8 @@ Gabon	neighbour	Cameroon
 Gabon	neighbour	Congo
 Gabon	neighbour	Equatorial Guinea
 Gabon	landlocked	no
+Gabon	population	2593130
+Gabon	population year	2025
 Gambia	capital	Banjul
 Gambia	continent	Africa
 Gambia	currency	dalasi
@@ -691,6 +813,8 @@ Gambia	area	10689
 Gambia	demonym	Gambian
 Gambia	neighbour	Senegal
 Gambia	landlocked	no
+Gambia	population	2822093
+Gambia	population year	2025
 Georgia	capital	Tbilisi
 Georgia	continent	Asia
 Georgia	currency	lari
@@ -702,6 +826,8 @@ Georgia	neighbour	Azerbaijan
 Georgia	neighbour	Russia
 Georgia	neighbour	Türkiye
 Georgia	landlocked	no
+Georgia	population	3935766
+Georgia	population year	2025
 Germany	capital	Berlin
 Germany	continent	Europe
 Germany	currency	Euro
@@ -718,6 +844,8 @@ Germany	neighbour	Netherlands
 Germany	neighbour	Poland
 Germany	neighbour	Switzerland
 Germany	landlocked	no
+Germany	population	83491249
+Germany	population year	2025
 Ghana	capital	Accra
 Ghana	continent	Africa
 Ghana	currency	Ghanaian cedi
@@ -728,6 +856,8 @@ Ghana	neighbour	Burkina Faso
 Ghana	neighbour	Ivory Coast
 Ghana	neighbour	Togo
 Ghana	landlocked	no
+Ghana	population	35064272
+Ghana	population year	2025
 Greece	capital	Athens
 Greece	continent	Europe
 Greece	currency	Euro
@@ -739,6 +869,8 @@ Greece	neighbour	Bulgaria
 Greece	neighbour	Türkiye
 Greece	neighbour	North Macedonia
 Greece	landlocked	no
+Greece	population	10413962
+Greece	population year	2025
 Grenada	capital	St. George's
 Grenada	continent	Caribbean
 Grenada	currency	Eastern Caribbean dollar
@@ -746,6 +878,8 @@ Grenada	official language	English
 Grenada	area	344
 Grenada	demonym	Grenadian
 Grenada	landlocked	no
+Grenada	population	117303
+Grenada	population year	2025
 Guatemala	capital	Guatemala City
 Guatemala	continent	Central America
 Guatemala	currency	Guatemalan quetzal
@@ -757,6 +891,8 @@ Guatemala	neighbour	El Salvador
 Guatemala	neighbour	Honduras
 Guatemala	neighbour	Mexico
 Guatemala	landlocked	no
+Guatemala	population	18687881
+Guatemala	population year	2025
 Guinea	capital	Conakry
 Guinea	continent	Africa
 Guinea	currency	Guinean franc
@@ -770,6 +906,8 @@ Guinea	neighbour	Mali
 Guinea	neighbour	Senegal
 Guinea	neighbour	Sierra Leone
 Guinea	landlocked	no
+Guinea	population	15099727
+Guinea	population year	2025
 Guinea-Bissau	capital	Bissau
 Guinea-Bissau	continent	Africa
 Guinea-Bissau	currency	West African CFA franc
@@ -780,6 +918,8 @@ Guinea-Bissau	demonym	Guinea-Bissauan
 Guinea-Bissau	neighbour	Guinea
 Guinea-Bissau	neighbour	Senegal
 Guinea-Bissau	landlocked	no
+Guinea-Bissau	population	2249515
+Guinea-Bissau	population year	2025
 Guyana	capital	Georgetown
 Guyana	continent	South America
 Guyana	currency	Guyanese dollar
@@ -790,6 +930,8 @@ Guyana	neighbour	Brazil
 Guyana	neighbour	Suriname
 Guyana	neighbour	Venezuela
 Guyana	landlocked	no
+Guyana	population	835986
+Guyana	population year	2025
 Haiti	capital	Port-au-Prince
 Haiti	continent	Caribbean
 Haiti	currency	Haitian gourde
@@ -799,6 +941,8 @@ Haiti	area	27750
 Haiti	demonym	Haitian
 Haiti	neighbour	Dominican Republic
 Haiti	landlocked	no
+Haiti	population	11906095
+Haiti	population year	2025
 Honduras	capital	Tegucigalpa
 Honduras	continent	Central America
 Honduras	currency	Honduran lempira
@@ -809,6 +953,8 @@ Honduras	neighbour	Guatemala
 Honduras	neighbour	El Salvador
 Honduras	neighbour	Nicaragua
 Honduras	landlocked	no
+Honduras	population	11005850
+Honduras	population year	2025
 Hungary	capital	Budapest
 Hungary	continent	Europe
 Hungary	currency	Hungarian forint
@@ -823,6 +969,8 @@ Hungary	neighbour	Slovakia
 Hungary	neighbour	Slovenia
 Hungary	neighbour	Ukraine
 Hungary	landlocked	yes
+Hungary	population	9514251
+Hungary	population year	2025
 Iceland	capital	Reykjavik
 Iceland	continent	Europe
 Iceland	currency	Icelandic króna
@@ -830,6 +978,8 @@ Iceland	official language	Icelandic
 Iceland	area	103000
 Iceland	demonym	Icelander
 Iceland	landlocked	no
+Iceland	population	392404
+Iceland	population year	2025
 India	capital	New Delhi
 India	continent	Asia
 India	currency	Indian rupee
@@ -845,6 +995,8 @@ India	neighbour	China
 India	neighbour	Nepal
 India	neighbour	Pakistan
 India	landlocked	no
+India	population	1463865525
+India	population year	2025
 Indonesia	capital	Jakarta
 Indonesia	continent	Asia
 Indonesia	currency	Indonesian rupiah
@@ -855,6 +1007,8 @@ Indonesia	neighbour	Timor-Leste
 Indonesia	neighbour	Malaysia
 Indonesia	neighbour	Papua New Guinea
 Indonesia	landlocked	no
+Indonesia	population	285721236
+Indonesia	population year	2025
 Iran	capital	Tehran
 Iran	continent	Asia
 Iran	currency	Iranian rial
@@ -869,6 +1023,8 @@ Iran	neighbour	Pakistan
 Iran	neighbour	Türkiye
 Iran	neighbour	Turkmenistan
 Iran	landlocked	no
+Iran	population	92417681
+Iran	population year	2025
 Iraq	capital	Baghdad
 Iraq	continent	Asia
 Iraq	currency	Iraqi dinar
@@ -884,6 +1040,8 @@ Iraq	neighbour	Saudi Arabia
 Iraq	neighbour	Syria
 Iraq	neighbour	Türkiye
 Iraq	landlocked	no
+Iraq	population	47020774
+Iraq	population year	2025
 Ireland	capital	Dublin
 Ireland	continent	Europe
 Ireland	currency	Euro
@@ -893,6 +1051,8 @@ Ireland	area	70273
 Ireland	demonym	Irish
 Ireland	neighbour	United Kingdom
 Ireland	landlocked	no
+Ireland	population	5484367
+Ireland	population year	2025
 Israel	capital	Jerusalem
 Israel	continent	Asia
 Israel	currency	Israeli new shekel
@@ -906,6 +1066,8 @@ Israel	neighbour	Lebanon
 Israel	neighbour	Palestine
 Israel	neighbour	Syria
 Israel	landlocked	no
+Israel	population	10122800
+Israel	population year	2025
 Italy	capital	Rome
 Italy	continent	Europe
 Italy	currency	Euro
@@ -919,6 +1081,8 @@ Italy	neighbour	Slovenia
 Italy	neighbour	Switzerland
 Italy	neighbour	Vatican City
 Italy	landlocked	no
+Italy	population	58915656
+Italy	population year	2025
 Ivory Coast	capital	Yamoussoukro
 Ivory Coast	continent	Africa
 Ivory Coast	currency	West African CFA franc
@@ -931,6 +1095,8 @@ Ivory Coast	neighbour	Guinea
 Ivory Coast	neighbour	Liberia
 Ivory Coast	neighbour	Mali
 Ivory Coast	landlocked	no
+Ivory Coast	population	32711547
+Ivory Coast	population year	2025
 Jamaica	capital	Kingston
 Jamaica	continent	Caribbean
 Jamaica	currency	Jamaican dollar
@@ -939,6 +1105,8 @@ Jamaica	official language	Jamaican Patois
 Jamaica	area	10991
 Jamaica	demonym	Jamaican
 Jamaica	landlocked	no
+Jamaica	population	2837077
+Jamaica	population year	2025
 Japan	capital	Tokyo
 Japan	continent	Asia
 Japan	currency	Japanese yen
@@ -946,6 +1114,8 @@ Japan	official language	Japanese
 Japan	area	377930
 Japan	demonym	Japanese
 Japan	landlocked	no
+Japan	population	123366734
+Japan	population year	2025
 Jordan	capital	Amman
 Jordan	continent	Asia
 Jordan	currency	Jordanian dinar
@@ -958,6 +1128,8 @@ Jordan	neighbour	Palestine
 Jordan	neighbour	Saudi Arabia
 Jordan	neighbour	Syria
 Jordan	landlocked	no
+Jordan	population	11520684
+Jordan	population year	2025
 Kazakhstan	capital	Astana
 Kazakhstan	continent	Asia
 Kazakhstan	currency	Kazakhstani tenge
@@ -971,6 +1143,8 @@ Kazakhstan	neighbour	Russia
 Kazakhstan	neighbour	Turkmenistan
 Kazakhstan	neighbour	Uzbekistan
 Kazakhstan	landlocked	yes
+Kazakhstan	population	20843754
+Kazakhstan	population year	2025
 Kenya	capital	Nairobi
 Kenya	continent	Africa
 Kenya	currency	Kenyan shilling
@@ -984,6 +1158,8 @@ Kenya	neighbour	South Sudan
 Kenya	neighbour	Tanzania
 Kenya	neighbour	Uganda
 Kenya	landlocked	no
+Kenya	population	57532493
+Kenya	population year	2025
 Kiribati	capital	South Tarawa
 Kiribati	continent	Oceania
 Kiribati	currency	Australian dollar
@@ -993,6 +1169,8 @@ Kiribati	official language	Gilbertese
 Kiribati	area	811
 Kiribati	demonym	I-Kiribati
 Kiribati	landlocked	no
+Kiribati	population	136488
+Kiribati	population year	2025
 Kuwait	capital	Kuwait City
 Kuwait	continent	Asia
 Kuwait	currency	Kuwaiti dinar
@@ -1002,6 +1180,8 @@ Kuwait	demonym	Kuwaiti
 Kuwait	neighbour	Iraq
 Kuwait	neighbour	Saudi Arabia
 Kuwait	landlocked	no
+Kuwait	population	4865298
+Kuwait	population year	2025
 Kyrgyzstan	capital	Bishkek
 Kyrgyzstan	continent	Asia
 Kyrgyzstan	currency	Kyrgyzstani som
@@ -1014,6 +1194,8 @@ Kyrgyzstan	neighbour	Kazakhstan
 Kyrgyzstan	neighbour	Tajikistan
 Kyrgyzstan	neighbour	Uzbekistan
 Kyrgyzstan	landlocked	yes
+Kyrgyzstan	population	7343064
+Kyrgyzstan	population year	2025
 Laos	capital	Vientiane
 Laos	continent	Asia
 Laos	currency	Lao kip
@@ -1026,6 +1208,8 @@ Laos	neighbour	China
 Laos	neighbour	Thailand
 Laos	neighbour	Vietnam
 Laos	landlocked	yes
+Laos	population	7873046
+Laos	population year	2025
 Latvia	capital	Riga
 Latvia	continent	Europe
 Latvia	currency	Euro
@@ -1037,6 +1221,8 @@ Latvia	neighbour	Estonia
 Latvia	neighbour	Lithuania
 Latvia	neighbour	Russia
 Latvia	landlocked	no
+Latvia	population	1847785
+Latvia	population year	2025
 Lebanon	capital	Beirut
 Lebanon	continent	Asia
 Lebanon	currency	Lebanese pound
@@ -1047,6 +1233,8 @@ Lebanon	demonym	Lebanese
 Lebanon	neighbour	Israel
 Lebanon	neighbour	Syria
 Lebanon	landlocked	no
+Lebanon	population	5849421
+Lebanon	population year	2025
 Lesotho	capital	Maseru
 Lesotho	continent	Africa
 Lesotho	currency	Lesotho loti
@@ -1057,6 +1245,8 @@ Lesotho	area	30355
 Lesotho	demonym	Mosotho
 Lesotho	neighbour	South Africa
 Lesotho	landlocked	yes
+Lesotho	population	2363325
+Lesotho	population year	2025
 Liberia	capital	Monrovia
 Liberia	continent	Africa
 Liberia	currency	Liberian dollar
@@ -1067,6 +1257,8 @@ Liberia	neighbour	Guinea
 Liberia	neighbour	Ivory Coast
 Liberia	neighbour	Sierra Leone
 Liberia	landlocked	no
+Liberia	population	5731206
+Liberia	population year	2025
 Libya	capital	Tripoli
 Libya	continent	Africa
 Libya	currency	Libyan dinar
@@ -1080,6 +1272,8 @@ Libya	neighbour	Niger
 Libya	neighbour	Sudan
 Libya	neighbour	Tunisia
 Libya	landlocked	no
+Libya	population	7458555
+Libya	population year	2025
 Liechtenstein	capital	Vaduz
 Liechtenstein	continent	Europe
 Liechtenstein	currency	Swiss franc
@@ -1089,6 +1283,8 @@ Liechtenstein	demonym	Liechtensteiner
 Liechtenstein	neighbour	Austria
 Liechtenstein	neighbour	Switzerland
 Liechtenstein	landlocked	yes
+Liechtenstein	population	41024
+Liechtenstein	population year	2025
 Lithuania	capital	Vilnius
 Lithuania	continent	Europe
 Lithuania	currency	Euro
@@ -1100,6 +1296,8 @@ Lithuania	neighbour	Latvia
 Lithuania	neighbour	Poland
 Lithuania	neighbour	Russia
 Lithuania	landlocked	no
+Lithuania	population	2888774
+Lithuania	population year	2025
 Luxembourg	capital	Luxembourg
 Luxembourg	continent	Europe
 Luxembourg	currency	Euro
@@ -1112,6 +1310,8 @@ Luxembourg	neighbour	Belgium
 Luxembourg	neighbour	France
 Luxembourg	neighbour	Germany
 Luxembourg	landlocked	yes
+Luxembourg	population	686970
+Luxembourg	population year	2025
 Madagascar	capital	Antananarivo
 Madagascar	continent	Africa
 Madagascar	currency	Malagasy ariary
@@ -1120,6 +1320,8 @@ Madagascar	official language	Malagasy
 Madagascar	area	587041
 Madagascar	demonym	Malagasy
 Madagascar	landlocked	no
+Madagascar	population	32740678
+Madagascar	population year	2025
 Malawi	capital	Lilongwe
 Malawi	continent	Africa
 Malawi	currency	Malawian kwacha
@@ -1131,6 +1333,8 @@ Malawi	neighbour	Mozambique
 Malawi	neighbour	Tanzania
 Malawi	neighbour	Zambia
 Malawi	landlocked	yes
+Malawi	population	22216120
+Malawi	population year	2025
 Malaysia	capital	Kuala Lumpur
 Malaysia	continent	Asia
 Malaysia	currency	Malaysian ringgit
@@ -1142,6 +1346,8 @@ Malaysia	neighbour	Brunei
 Malaysia	neighbour	Indonesia
 Malaysia	neighbour	Thailand
 Malaysia	landlocked	no
+Malaysia	population	35977838
+Malaysia	population year	2025
 Maldives	capital	Malé
 Maldives	continent	Asia
 Maldives	currency	Maldivian rufiyaa
@@ -1149,6 +1355,8 @@ Maldives	official language	Maldivian
 Maldives	area	300
 Maldives	demonym	Maldivan
 Maldives	landlocked	no
+Maldives	population	529676
+Maldives	population year	2025
 Mali	capital	Bamako
 Mali	continent	Africa
 Mali	currency	West African CFA franc
@@ -1163,6 +1371,8 @@ Mali	neighbour	Mauritania
 Mali	neighbour	Niger
 Mali	neighbour	Senegal
 Mali	landlocked	yes
+Mali	population	25198821
+Mali	population year	2025
 Malta	capital	Valletta
 Malta	continent	Europe
 Malta	currency	Euro
@@ -1171,6 +1381,8 @@ Malta	official language	Maltese
 Malta	area	316
 Malta	demonym	Maltese
 Malta	landlocked	no
+Malta	population	579704
+Malta	population year	2025
 Marshall Islands	capital	Majuro
 Marshall Islands	continent	Oceania
 Marshall Islands	currency	United States dollar
@@ -1179,6 +1391,8 @@ Marshall Islands	official language	Marshallese
 Marshall Islands	area	181
 Marshall Islands	demonym	Marshallese
 Marshall Islands	landlocked	no
+Marshall Islands	population	36282
+Marshall Islands	population year	2025
 Mauritania	capital	Nouakchott
 Mauritania	continent	Africa
 Mauritania	currency	Mauritanian ouguiya
@@ -1190,6 +1404,8 @@ Mauritania	neighbour	Mali
 Mauritania	neighbour	Senegal
 Mauritania	neighbour	Western Sahara
 Mauritania	landlocked	no
+Mauritania	population	5315065
+Mauritania	population year	2025
 Mauritius	capital	Port Louis
 Mauritius	continent	Africa
 Mauritius	currency	Mauritian rupee
@@ -1199,6 +1415,8 @@ Mauritius	official language	Mauritian Creole
 Mauritius	area	2040
 Mauritius	demonym	Mauritian
 Mauritius	landlocked	no
+Mauritius	population	1243741
+Mauritius	population year	2025
 Mexico	capital	Mexico City
 Mexico	continent	North America
 Mexico	currency	Mexican peso
@@ -1209,12 +1427,16 @@ Mexico	neighbour	Belize
 Mexico	neighbour	Guatemala
 Mexico	neighbour	United States
 Mexico	landlocked	no
+Mexico	population	131946900
+Mexico	population year	2025
 Micronesia	capital	Palikir
 Micronesia	continent	Oceania
 Micronesia	official language	English
 Micronesia	area	702
 Micronesia	demonym	Micronesian
 Micronesia	landlocked	no
+Micronesia	population	113683
+Micronesia	population year	2025
 Moldova	capital	Chișinău
 Moldova	continent	Europe
 Moldova	currency	Moldovan leu
@@ -1224,6 +1446,8 @@ Moldova	demonym	Moldovan
 Moldova	neighbour	Romania
 Moldova	neighbour	Ukraine
 Moldova	landlocked	yes
+Moldova	population	2360527
+Moldova	population year	2025
 Monaco	capital	Monaco
 Monaco	continent	Europe
 Monaco	currency	Euro
@@ -1232,6 +1456,8 @@ Monaco	area	2.02
 Monaco	demonym	Monegasque
 Monaco	neighbour	France
 Monaco	landlocked	no
+Monaco	population	38341
+Monaco	population year	2025
 Mongolia	capital	Ulan Bator
 Mongolia	continent	Asia
 Mongolia	currency	Mongolian tögrög
@@ -1241,6 +1467,8 @@ Mongolia	demonym	Mongolian
 Mongolia	neighbour	China
 Mongolia	neighbour	Russia
 Mongolia	landlocked	yes
+Mongolia	population	3568978
+Mongolia	population year	2025
 Montenegro	capital	Podgorica
 Montenegro	continent	Europe
 Montenegro	currency	Euro
@@ -1253,6 +1481,8 @@ Montenegro	neighbour	Croatia
 Montenegro	neighbour	Kosovo
 Montenegro	neighbour	Serbia
 Montenegro	landlocked	no
+Montenegro	population	623129
+Montenegro	population year	2025
 Morocco	capital	Rabat
 Morocco	continent	Africa
 Morocco	currency	Moroccan dirham
@@ -1264,6 +1494,8 @@ Morocco	neighbour	Algeria
 Morocco	neighbour	Western Sahara
 Morocco	neighbour	Spain
 Morocco	landlocked	no
+Morocco	population	38430770
+Morocco	population year	2025
 Mozambique	capital	Maputo
 Mozambique	continent	Africa
 Mozambique	currency	Mozambican metical
@@ -1277,6 +1509,8 @@ Mozambique	neighbour	Tanzania
 Mozambique	neighbour	Zambia
 Mozambique	neighbour	Zimbabwe
 Mozambique	landlocked	no
+Mozambique	population	35631653
+Mozambique	population year	2025
 Myanmar	capital	Naypyidaw
 Myanmar	continent	Asia
 Myanmar	currency	Burmese kyat
@@ -1289,6 +1523,8 @@ Myanmar	neighbour	India
 Myanmar	neighbour	Laos
 Myanmar	neighbour	Thailand
 Myanmar	landlocked	no
+Myanmar	population	54850648
+Myanmar	population year	2025
 Namibia	capital	Windhoek
 Namibia	continent	Africa
 Namibia	currency	Namibian dollar
@@ -1309,6 +1545,8 @@ Namibia	neighbour	Botswana
 Namibia	neighbour	South Africa
 Namibia	neighbour	Zambia
 Namibia	landlocked	no
+Namibia	population	3092816
+Namibia	population year	2025
 Nauru	capital	Yaren
 Nauru	continent	Oceania
 Nauru	currency	Australian dollar
@@ -1317,6 +1555,8 @@ Nauru	official language	Nauru
 Nauru	area	21
 Nauru	demonym	Nauruan
 Nauru	landlocked	no
+Nauru	population	12025
+Nauru	population year	2025
 Nepal	capital	Kathmandu
 Nepal	continent	Asia
 Nepal	currency	Nepalese rupee
@@ -1326,6 +1566,8 @@ Nepal	demonym	Nepalese
 Nepal	neighbour	China
 Nepal	neighbour	India
 Nepal	landlocked	yes
+Nepal	population	29618118
+Nepal	population year	2025
 Netherlands	capital	Amsterdam
 Netherlands	continent	Europe
 Netherlands	currency	Euro
@@ -1335,6 +1577,8 @@ Netherlands	demonym	Dutch
 Netherlands	neighbour	Belgium
 Netherlands	neighbour	Germany
 Netherlands	landlocked	no
+Netherlands	population	18087633
+Netherlands	population year	2025
 New Zealand	capital	Wellington
 New Zealand	continent	Oceania
 New Zealand	currency	New Zealand dollar
@@ -1344,6 +1588,8 @@ New Zealand	official language	New Zealand Sign Language
 New Zealand	area	270467
 New Zealand	demonym	New Zealander
 New Zealand	landlocked	no
+New Zealand	population	5324700
+New Zealand	population year	2025
 Nicaragua	capital	Managua
 Nicaragua	continent	Central America
 Nicaragua	currency	Nicaraguan córdoba
@@ -1353,6 +1599,8 @@ Nicaragua	demonym	Nicaraguan
 Nicaragua	neighbour	Costa Rica
 Nicaragua	neighbour	Honduras
 Nicaragua	landlocked	no
+Nicaragua	population	7007502
+Nicaragua	population year	2025
 Niger	capital	Niamey
 Niger	continent	Africa
 Niger	currency	West African CFA franc
@@ -1367,6 +1615,8 @@ Niger	neighbour	Libya
 Niger	neighbour	Mali
 Niger	neighbour	Nigeria
 Niger	landlocked	yes
+Niger	population	27917831
+Niger	population year	2025
 Nigeria	capital	Abuja
 Nigeria	continent	Africa
 Nigeria	currency	Nigerian naira
@@ -1378,6 +1628,8 @@ Nigeria	neighbour	Cameroon
 Nigeria	neighbour	Chad
 Nigeria	neighbour	Niger
 Nigeria	landlocked	no
+Nigeria	population	237527782
+Nigeria	population year	2025
 North Korea	capital	Pyongyang
 North Korea	continent	Asia
 North Korea	currency	North Korean won
@@ -1388,6 +1640,8 @@ North Korea	neighbour	China
 North Korea	neighbour	South Korea
 North Korea	neighbour	Russia
 North Korea	landlocked	no
+North Korea	population	26571036
+North Korea	population year	2025
 North Macedonia	capital	Skopje
 North Macedonia	continent	Europe
 North Macedonia	currency	denar
@@ -1400,6 +1654,8 @@ North Macedonia	neighbour	Greece
 North Macedonia	neighbour	Kosovo
 North Macedonia	neighbour	Serbia
 North Macedonia	landlocked	yes
+North Macedonia	population	1820909
+North Macedonia	population year	2025
 Norway	capital	Oslo
 Norway	continent	Europe
 Norway	currency	Norwegian krone
@@ -1412,6 +1668,8 @@ Norway	neighbour	Finland
 Norway	neighbour	Sweden
 Norway	neighbour	Russia
 Norway	landlocked	no
+Norway	population	5610870
+Norway	population year	2025
 Oman	capital	Muscat
 Oman	continent	Asia
 Oman	currency	Omani rial
@@ -1422,6 +1680,8 @@ Oman	neighbour	Saudi Arabia
 Oman	neighbour	United Arab Emirates
 Oman	neighbour	Yemen
 Oman	landlocked	no
+Oman	population	5494691
+Oman	population year	2025
 Pakistan	capital	Islamabad
 Pakistan	continent	Asia
 Pakistan	currency	Pakistani rupee
@@ -1434,6 +1694,8 @@ Pakistan	neighbour	China
 Pakistan	neighbour	India
 Pakistan	neighbour	Iran
 Pakistan	landlocked	no
+Pakistan	population	255219554
+Pakistan	population year	2025
 Palau	capital	Ngerulmud
 Palau	continent	Oceania
 Palau	currency	United States dollar
@@ -1442,6 +1704,8 @@ Palau	official language	Palauan
 Palau	area	459
 Palau	demonym	Palauan
 Palau	landlocked	no
+Palau	population	17663
+Palau	population year	2025
 Panama	capital	Panama City
 Panama	continent	Central America
 Panama	currency	Panamanian balboa
@@ -1452,6 +1716,8 @@ Panama	demonym	Panamanian
 Panama	neighbour	Colombia
 Panama	neighbour	Costa Rica
 Panama	landlocked	no
+Panama	population	4571189
+Panama	population year	2025
 Papua New Guinea	capital	Port Moresby
 Papua New Guinea	continent	Oceania
 Papua New Guinea	currency	Papua New Guinean kina
@@ -1462,6 +1728,8 @@ Papua New Guinea	area	462840
 Papua New Guinea	demonym	Papua New Guinean
 Papua New Guinea	neighbour	Indonesia
 Papua New Guinea	landlocked	no
+Papua New Guinea	population	10762817
+Papua New Guinea	population year	2025
 Paraguay	capital	Asunción
 Paraguay	continent	South America
 Paraguay	currency	Paraguayan guaraní
@@ -1473,6 +1741,8 @@ Paraguay	neighbour	Argentina
 Paraguay	neighbour	Bolivia
 Paraguay	neighbour	Brazil
 Paraguay	landlocked	yes
+Paraguay	population	7013078
+Paraguay	population year	2025
 Peru	capital	Lima
 Peru	continent	South America
 Peru	currency	Peruvian sol
@@ -1487,6 +1757,8 @@ Peru	neighbour	Chile
 Peru	neighbour	Colombia
 Peru	neighbour	Ecuador
 Peru	landlocked	no
+Peru	population	34576665
+Peru	population year	2025
 Philippines	capital	Manila
 Philippines	continent	Asia
 Philippines	currency	Philippine peso
@@ -1495,6 +1767,8 @@ Philippines	official language	Filipino
 Philippines	area	342353
 Philippines	demonym	Filipino
 Philippines	landlocked	no
+Philippines	population	116786962
+Philippines	population year	2025
 Poland	capital	Warsaw
 Poland	continent	Europe
 Poland	currency	Polish złoty
@@ -1509,6 +1783,8 @@ Poland	neighbour	Russia
 Poland	neighbour	Slovakia
 Poland	neighbour	Ukraine
 Poland	landlocked	no
+Poland	population	36435861
+Poland	population year	2025
 Portugal	capital	Lisbon
 Portugal	continent	Europe
 Portugal	currency	Euro
@@ -1517,6 +1793,8 @@ Portugal	area	92090
 Portugal	demonym	Portuguese
 Portugal	neighbour	Spain
 Portugal	landlocked	no
+Portugal	population	10804871
+Portugal	population year	2025
 Qatar	capital	Doha
 Qatar	continent	Asia
 Qatar	currency	Qatari riyal
@@ -1525,6 +1803,8 @@ Qatar	area	11586
 Qatar	demonym	Qatari
 Qatar	neighbour	Saudi Arabia
 Qatar	landlocked	no
+Qatar	population	2972215
+Qatar	population year	2025
 Romania	capital	Bucharest
 Romania	continent	Europe
 Romania	currency	Romanian leu
@@ -1537,6 +1817,8 @@ Romania	neighbour	Moldova
 Romania	neighbour	Serbia
 Romania	neighbour	Ukraine
 Romania	landlocked	no
+Romania	population	19020271
+Romania	population year	2025
 Russia	capital	Moscow
 Russia	continent	Europe
 Russia	currency	Russian ruble
@@ -1558,6 +1840,8 @@ Russia	neighbour	Norway
 Russia	neighbour	Poland
 Russia	neighbour	Ukraine
 Russia	landlocked	no
+Russia	population	143513328
+Russia	population year	2025
 Rwanda	capital	Kigali
 Rwanda	continent	Africa
 Rwanda	currency	Rwandan franc
@@ -1571,6 +1855,8 @@ Rwanda	neighbour	DR Congo
 Rwanda	neighbour	Tanzania
 Rwanda	neighbour	Uganda
 Rwanda	landlocked	yes
+Rwanda	population	14569341
+Rwanda	population year	2025
 Saint Kitts and Nevis	capital	Basseterre
 Saint Kitts and Nevis	continent	Caribbean
 Saint Kitts and Nevis	currency	Eastern Caribbean dollar
@@ -1578,6 +1864,8 @@ Saint Kitts and Nevis	official language	English
 Saint Kitts and Nevis	area	261
 Saint Kitts and Nevis	demonym	Kittitian or Nevisian
 Saint Kitts and Nevis	landlocked	no
+Saint Kitts and Nevis	population	46922
+Saint Kitts and Nevis	population year	2025
 Saint Lucia	capital	Castries
 Saint Lucia	continent	Caribbean
 Saint Lucia	currency	Eastern Caribbean dollar
@@ -1585,6 +1873,8 @@ Saint Lucia	official language	English
 Saint Lucia	area	616
 Saint Lucia	demonym	Saint Lucian
 Saint Lucia	landlocked	no
+Saint Lucia	population	180149
+Saint Lucia	population year	2025
 Saint Vincent and the Grenadines	capital	Kingstown
 Saint Vincent and the Grenadines	continent	Caribbean
 Saint Vincent and the Grenadines	currency	Eastern Caribbean dollar
@@ -1592,6 +1882,8 @@ Saint Vincent and the Grenadines	official language	English
 Saint Vincent and the Grenadines	area	389
 Saint Vincent and the Grenadines	demonym	Saint Vincentian
 Saint Vincent and the Grenadines	landlocked	no
+Saint Vincent and the Grenadines	population	99924
+Saint Vincent and the Grenadines	population year	2025
 Samoa	capital	Apia
 Samoa	continent	Oceania
 Samoa	currency	Samoan tālā
@@ -1600,6 +1892,8 @@ Samoa	official language	Samoan
 Samoa	area	2842
 Samoa	demonym	Samoan
 Samoa	landlocked	no
+Samoa	population	219306
+Samoa	population year	2025
 San Marino	capital	City of San Marino
 San Marino	continent	Europe
 San Marino	currency	Euro
@@ -1608,6 +1902,8 @@ San Marino	area	61
 San Marino	demonym	Sammarinese
 San Marino	neighbour	Italy
 San Marino	landlocked	yes
+San Marino	population	34109
+San Marino	population year	2025
 Saudi Arabia	capital	Riyadh
 Saudi Arabia	continent	Asia
 Saudi Arabia	currency	Saudi riyal
@@ -1622,6 +1918,8 @@ Saudi Arabia	neighbour	Qatar
 Saudi Arabia	neighbour	United Arab Emirates
 Saudi Arabia	neighbour	Yemen
 Saudi Arabia	landlocked	no
+Saudi Arabia	population	36973555
+Saudi Arabia	population year	2025
 Senegal	capital	Dakar
 Senegal	continent	Africa
 Senegal	currency	West African CFA franc
@@ -1634,6 +1932,8 @@ Senegal	neighbour	Guinea-Bissau
 Senegal	neighbour	Mali
 Senegal	neighbour	Mauritania
 Senegal	landlocked	no
+Senegal	population	18931966
+Senegal	population year	2025
 Serbia	capital	Belgrade
 Serbia	continent	Europe
 Serbia	currency	Serbian dinar
@@ -1649,6 +1949,8 @@ Serbia	neighbour	North Macedonia
 Serbia	neighbour	Montenegro
 Serbia	neighbour	Romania
 Serbia	landlocked	yes
+Serbia	population	6549143
+Serbia	population year	2025
 Seychelles	capital	Victoria
 Seychelles	continent	Africa
 Seychelles	currency	Seychellois rupee
@@ -1658,6 +1960,8 @@ Seychelles	official language	French
 Seychelles	area	452
 Seychelles	demonym	Seychellois
 Seychelles	landlocked	no
+Seychelles	population	122730
+Seychelles	population year	2025
 Sierra Leone	capital	Freetown
 Sierra Leone	continent	Africa
 Sierra Leone	currency	Sierra Leonean leone
@@ -1667,6 +1971,8 @@ Sierra Leone	demonym	Sierra Leonean
 Sierra Leone	neighbour	Guinea
 Sierra Leone	neighbour	Liberia
 Sierra Leone	landlocked	no
+Sierra Leone	population	8819794
+Sierra Leone	population year	2025
 Singapore	capital	Singapore
 Singapore	continent	Asia
 Singapore	currency	Singapore dollar
@@ -1677,6 +1983,8 @@ Singapore	official language	Chinese
 Singapore	area	710
 Singapore	demonym	Singaporean
 Singapore	landlocked	no
+Singapore	population	6111175
+Singapore	population year	2025
 Slovakia	capital	Bratislava
 Slovakia	continent	Europe
 Slovakia	currency	Euro
@@ -1689,6 +1997,8 @@ Slovakia	neighbour	Hungary
 Slovakia	neighbour	Poland
 Slovakia	neighbour	Ukraine
 Slovakia	landlocked	yes
+Slovakia	population	5413813
+Slovakia	population year	2025
 Slovenia	capital	Ljubljana
 Slovenia	continent	Europe
 Slovenia	currency	Euro
@@ -1700,6 +2010,8 @@ Slovenia	neighbour	Croatia
 Slovenia	neighbour	Italy
 Slovenia	neighbour	Hungary
 Slovenia	landlocked	no
+Slovenia	population	2130986
+Slovenia	population year	2025
 Solomon Islands	capital	Honiara
 Solomon Islands	continent	Oceania
 Solomon Islands	currency	Solomon Islands dollar
@@ -1707,6 +2019,8 @@ Solomon Islands	official language	English
 Solomon Islands	area	28896
 Solomon Islands	demonym	Solomon Islander
 Solomon Islands	landlocked	no
+Solomon Islands	population	838645
+Solomon Islands	population year	2025
 Somalia	capital	Mogadishu
 Somalia	continent	Africa
 Somalia	currency	Somali shilling
@@ -1718,6 +2032,8 @@ Somalia	neighbour	Djibouti
 Somalia	neighbour	Ethiopia
 Somalia	neighbour	Kenya
 Somalia	landlocked	no
+Somalia	population	19654739
+Somalia	population year	2025
 South Africa	capital	Pretoria
 South Africa	capital	Bloemfontein
 South Africa	capital	Cape Town
@@ -1743,6 +2059,8 @@ South Africa	neighbour	Namibia
 South Africa	neighbour	Eswatini
 South Africa	neighbour	Zimbabwe
 South Africa	landlocked	no
+South Africa	population	64747319
+South Africa	population year	2025
 South Korea	capital	Seoul
 South Korea	continent	Asia
 South Korea	currency	South Korean won
@@ -1751,6 +2069,8 @@ South Korea	area	100210
 South Korea	demonym	South Korean
 South Korea	neighbour	North Korea
 South Korea	landlocked	no
+South Korea	population	51684564
+South Korea	population year	2025
 South Sudan	capital	Juba
 South Sudan	continent	Africa
 South Sudan	currency	South Sudanese pound
@@ -1764,6 +2084,8 @@ South Sudan	neighbour	Kenya
 South Sudan	neighbour	Sudan
 South Sudan	neighbour	Uganda
 South Sudan	landlocked	yes
+South Sudan	population	12188788
+South Sudan	population year	2025
 Spain	capital	Madrid
 Spain	continent	Europe
 Spain	currency	Euro
@@ -1776,6 +2098,8 @@ Spain	neighbour	Gibraltar
 Spain	neighbour	Portugal
 Spain	neighbour	Morocco
 Spain	landlocked	no
+Spain	population	49355143
+Spain	population year	2025
 Sri Lanka	capital	Colombo
 Sri Lanka	continent	Asia
 Sri Lanka	currency	Sri Lankan rupee
@@ -1785,6 +2109,8 @@ Sri Lanka	area	65610
 Sri Lanka	demonym	Sri Lankan
 Sri Lanka	neighbour	India
 Sri Lanka	landlocked	no
+Sri Lanka	population	21756000
+Sri Lanka	population year	2025
 Sudan	capital	Khartoum
 Sudan	continent	Africa
 Sudan	currency	Sudanese pound
@@ -1800,6 +2126,8 @@ Sudan	neighbour	Ethiopia
 Sudan	neighbour	Libya
 Sudan	neighbour	South Sudan
 Sudan	landlocked	no
+Sudan	population	51662147
+Sudan	population year	2025
 Suriname	capital	Paramaribo
 Suriname	continent	South America
 Suriname	currency	Surinamese dollar
@@ -1810,6 +2138,8 @@ Suriname	neighbour	Brazil
 Suriname	neighbour	French Guiana
 Suriname	neighbour	Guyana
 Suriname	landlocked	no
+Suriname	population	639850
+Suriname	population year	2025
 Sweden	capital	Stockholm
 Sweden	continent	Europe
 Sweden	currency	Swedish krona
@@ -1819,6 +2149,8 @@ Sweden	demonym	Swedish
 Sweden	neighbour	Finland
 Sweden	neighbour	Norway
 Sweden	landlocked	no
+Sweden	population	10596620
+Sweden	population year	2025
 Switzerland	capital	Bern
 Switzerland	continent	Europe
 Switzerland	currency	Swiss franc
@@ -1834,6 +2166,8 @@ Switzerland	neighbour	Italy
 Switzerland	neighbour	Liechtenstein
 Switzerland	neighbour	Germany
 Switzerland	landlocked	yes
+Switzerland	population	9092436
+Switzerland	population year	2025
 Syria	capital	Damascus
 Syria	continent	Asia
 Syria	currency	Syrian pound
@@ -1846,6 +2180,8 @@ Syria	neighbour	Jordan
 Syria	neighbour	Lebanon
 Syria	neighbour	Türkiye
 Syria	landlocked	no
+Syria	population	25620427
+Syria	population year	2025
 São Tomé and Príncipe	capital	São Tomé
 São Tomé and Príncipe	continent	Africa
 São Tomé and Príncipe	currency	São Tomé and Príncipe dobra
@@ -1853,6 +2189,8 @@ São Tomé and Príncipe	official language	Portuguese
 São Tomé and Príncipe	area	964
 São Tomé and Príncipe	demonym	Sao Tomean
 São Tomé and Príncipe	landlocked	no
+São Tomé and Príncipe	population	240254
+São Tomé and Príncipe	population year	2025
 Tajikistan	capital	Dushanbe
 Tajikistan	continent	Asia
 Tajikistan	currency	Tajikistani somoni
@@ -1865,6 +2203,8 @@ Tajikistan	neighbour	China
 Tajikistan	neighbour	Kyrgyzstan
 Tajikistan	neighbour	Uzbekistan
 Tajikistan	landlocked	yes
+Tajikistan	population	10786734
+Tajikistan	population year	2025
 Tanzania	capital	Dodoma
 Tanzania	continent	Africa
 Tanzania	currency	Tanzanian shilling
@@ -1881,6 +2221,8 @@ Tanzania	neighbour	Rwanda
 Tanzania	neighbour	Uganda
 Tanzania	neighbour	Zambia
 Tanzania	landlocked	no
+Tanzania	population	70545865
+Tanzania	population year	2025
 Thailand	capital	Bangkok
 Thailand	continent	Asia
 Thailand	currency	Thai baht
@@ -1892,6 +2234,8 @@ Thailand	neighbour	Cambodia
 Thailand	neighbour	Laos
 Thailand	neighbour	Malaysia
 Thailand	landlocked	no
+Thailand	population	71619863
+Thailand	population year	2025
 Timor-Leste	capital	Dili
 Timor-Leste	continent	Asia
 Timor-Leste	currency	United States dollar
@@ -1901,6 +2245,8 @@ Timor-Leste	area	14874
 Timor-Leste	demonym	East Timorese
 Timor-Leste	neighbour	Indonesia
 Timor-Leste	landlocked	no
+Timor-Leste	population	1418517
+Timor-Leste	population year	2025
 Togo	capital	Lomé
 Togo	continent	Africa
 Togo	currency	West African CFA franc
@@ -1911,6 +2257,8 @@ Togo	neighbour	Benin
 Togo	neighbour	Burkina Faso
 Togo	neighbour	Ghana
 Togo	landlocked	no
+Togo	population	8591626
+Togo	population year	2025
 Tonga	capital	Nuku'alofa
 Tonga	continent	Oceania
 Tonga	currency	Tongan paʻanga
@@ -1919,6 +2267,8 @@ Tonga	official language	Tongan
 Tonga	area	747
 Tonga	demonym	Tongan
 Tonga	landlocked	no
+Tonga	population	103742
+Tonga	population year	2025
 Trinidad and Tobago	capital	Port of Spain
 Trinidad and Tobago	continent	Caribbean
 Trinidad and Tobago	currency	Trinidad and Tobago dollar
@@ -1926,6 +2276,8 @@ Trinidad and Tobago	official language	English
 Trinidad and Tobago	area	5130
 Trinidad and Tobago	demonym	Trinidadian
 Trinidad and Tobago	landlocked	no
+Trinidad and Tobago	population	1367764
+Trinidad and Tobago	population year	2025
 Tunisia	capital	Tunis
 Tunisia	continent	Africa
 Tunisia	currency	Tunisian dinar
@@ -1935,6 +2287,8 @@ Tunisia	demonym	Tunisian
 Tunisia	neighbour	Algeria
 Tunisia	neighbour	Libya
 Tunisia	landlocked	no
+Tunisia	population	12348573
+Tunisia	population year	2025
 Turkmenistan	capital	Ashgabat
 Turkmenistan	continent	Asia
 Turkmenistan	currency	Turkmenistan manat
@@ -1947,6 +2301,8 @@ Turkmenistan	neighbour	Iran
 Turkmenistan	neighbour	Kazakhstan
 Turkmenistan	neighbour	Uzbekistan
 Turkmenistan	landlocked	yes
+Turkmenistan	population	7618847
+Turkmenistan	population year	2025
 Tuvalu	capital	Funafuti
 Tuvalu	continent	Oceania
 Tuvalu	currency	Australian dollar
@@ -1956,6 +2312,8 @@ Tuvalu	official language	Tuvaluan
 Tuvalu	area	26
 Tuvalu	demonym	Tuvaluan
 Tuvalu	landlocked	no
+Tuvalu	population	9492
+Tuvalu	population year	2025
 Türkiye	capital	Ankara
 Türkiye	continent	Asia
 Türkiye	currency	Turkish lira
@@ -1971,6 +2329,8 @@ Türkiye	neighbour	Iran
 Türkiye	neighbour	Iraq
 Türkiye	neighbour	Syria
 Türkiye	landlocked	no
+Türkiye	population	85878556
+Türkiye	population year	2025
 Uganda	capital	Kampala
 Uganda	continent	Africa
 Uganda	currency	Ugandan shilling
@@ -1984,6 +2344,8 @@ Uganda	neighbour	Rwanda
 Uganda	neighbour	South Sudan
 Uganda	neighbour	Tanzania
 Uganda	landlocked	yes
+Uganda	population	51384894
+Uganda	population year	2025
 Ukraine	capital	Kyiv
 Ukraine	continent	Europe
 Ukraine	currency	Ukrainian hryvnia
@@ -1998,6 +2360,8 @@ Ukraine	neighbour	Romania
 Ukraine	neighbour	Russia
 Ukraine	neighbour	Slovakia
 Ukraine	landlocked	no
+Ukraine	population	38980376
+Ukraine	population year	2025
 United Arab Emirates	capital	Abu Dhabi
 United Arab Emirates	continent	Asia
 United Arab Emirates	currency	United Arab Emirates dirham
@@ -2007,6 +2371,8 @@ United Arab Emirates	demonym	Emirati
 United Arab Emirates	neighbour	Oman
 United Arab Emirates	neighbour	Saudi Arabia
 United Arab Emirates	landlocked	no
+United Arab Emirates	population	11513149
+United Arab Emirates	population year	2025
 United Kingdom	capital	London
 United Kingdom	continent	Europe
 United Kingdom	currency	British pound
@@ -2015,6 +2381,8 @@ United Kingdom	area	242900
 United Kingdom	demonym	British
 United Kingdom	neighbour	Ireland
 United Kingdom	landlocked	no
+United Kingdom	population	69487000
+United Kingdom	population year	2025
 United States	capital	Washington D.C.
 United States	continent	North America
 United States	currency	United States dollar
@@ -2024,6 +2392,8 @@ United States	demonym	American
 United States	neighbour	Canada
 United States	neighbour	Mexico
 United States	landlocked	no
+United States	population	341784857
+United States	population year	2025
 Uruguay	capital	Montevideo
 Uruguay	continent	South America
 Uruguay	currency	Uruguayan peso
@@ -2033,6 +2403,8 @@ Uruguay	demonym	Uruguayan
 Uruguay	neighbour	Argentina
 Uruguay	neighbour	Brazil
 Uruguay	landlocked	no
+Uruguay	population	3384688
+Uruguay	population year	2025
 Uzbekistan	capital	Tashkent
 Uzbekistan	continent	Asia
 Uzbekistan	currency	Uzbekistani soʻm
@@ -2046,6 +2418,8 @@ Uzbekistan	neighbour	Kyrgyzstan
 Uzbekistan	neighbour	Tajikistan
 Uzbekistan	neighbour	Turkmenistan
 Uzbekistan	landlocked	yes
+Uzbekistan	population	37053428
+Uzbekistan	population year	2025
 Vanuatu	capital	Port Vila
 Vanuatu	continent	Oceania
 Vanuatu	currency	Vanuatu vatu
@@ -2055,6 +2429,8 @@ Vanuatu	official language	French
 Vanuatu	area	12189
 Vanuatu	demonym	Ni-Vanuatu
 Vanuatu	landlocked	no
+Vanuatu	population	335169
+Vanuatu	population year	2025
 Vatican City	capital	Vatican City
 Vatican City	continent	Europe
 Vatican City	currency	Euro
@@ -2074,6 +2450,8 @@ Venezuela	neighbour	Brazil
 Venezuela	neighbour	Colombia
 Venezuela	neighbour	Guyana
 Venezuela	landlocked	no
+Venezuela	population	28516896
+Venezuela	population year	2025
 Vietnam	capital	Hanoi
 Vietnam	continent	Asia
 Vietnam	currency	Vietnamese đồng
@@ -2084,6 +2462,8 @@ Vietnam	neighbour	Cambodia
 Vietnam	neighbour	China
 Vietnam	neighbour	Laos
 Vietnam	landlocked	no
+Vietnam	population	101598527
+Vietnam	population year	2025
 Yemen	capital	Sana'a
 Yemen	continent	Asia
 Yemen	currency	Yemeni rial
@@ -2093,6 +2473,8 @@ Yemen	demonym	Yemeni
 Yemen	neighbour	Oman
 Yemen	neighbour	Saudi Arabia
 Yemen	landlocked	no
+Yemen	population	41773878
+Yemen	population year	2025
 Zambia	capital	Lusaka
 Zambia	continent	Africa
 Zambia	currency	Zambian kwacha
@@ -2108,6 +2490,8 @@ Zambia	neighbour	Namibia
 Zambia	neighbour	Tanzania
 Zambia	neighbour	Zimbabwe
 Zambia	landlocked	yes
+Zambia	population	21913874
+Zambia	population year	2025
 Zimbabwe	capital	Harare
 Zimbabwe	continent	Africa
 Zimbabwe	currency	Botswana pula
@@ -2141,6 +2525,8 @@ Zimbabwe	neighbour	Mozambique
 Zimbabwe	neighbour	South Africa
 Zimbabwe	neighbour	Zambia
 Zimbabwe	landlocked	yes
+Zimbabwe	population	16950795
+Zimbabwe	population year	2025
 hydrogen	symbol	H
 hydrogen	atomic number	1
 helium	symbol	He

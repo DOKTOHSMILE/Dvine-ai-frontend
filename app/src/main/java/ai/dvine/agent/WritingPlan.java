@@ -66,6 +66,18 @@ public final class WritingPlan {
                 + "\n\nWrite only this section's text, with its heading if the piece uses headings.";
     }
 
+    /**
+     * Step 4 by several writers at once: one section, written from the whole plan while the other sections are written
+     * by others at the same time. Each keeps to its own section so the joined piece reads straight through.
+     */
+    public static String sectionAlone(String task, String outline, int number, int of, String section) {
+        return "Write section " + number + " of " + of + " of this piece now: " + section + "\n\nThe request: " + task.trim()
+                + "\n\nThe outline (follow it; the other sections are being written at the same time by other writers, so"
+                + " cover only yours, do not introduce or sum up the whole piece unless your section is the opening or the"
+                + " close, and do not repeat what the outline gives to another section):\n" + outline.trim()
+                + "\n\nWrite only this section's text, with its heading if the piece uses headings.";
+    }
+
     private static final Pattern SECTION = Pattern.compile("(?m)^\\s*(\\d+)[.)]\\s*(.+)$");
 
     /** The sections of an outline, in order ("Opening: Ada finds the letter"). */

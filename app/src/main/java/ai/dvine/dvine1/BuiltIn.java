@@ -32,6 +32,8 @@ public final class BuiltIn {
                 "Someone from %s is %s."),
         NEIGHBOUR("neighbour", "\\b(border(s|ing)?|neighbou?rs?|next to|surround)\\b", "%s borders %s."),
         LANDLOCKED("landlocked", "\\b(landlocked|coast(line)?|access to the sea|by the sea)\\b", "%s"),
+        /** The year a population figure is from: said with the figure, never asked for on its own. */
+        POPULATION_YEAR("population year", "(?!)", "%s %s"),
         SYMBOL("symbol", "\\b(chemical symbol|symbol)\\b", "The chemical symbol of %s is %s."),
         NUMBER("atomic number", "\\b(atomic number|proton number|how many protons)\\b", "The atomic number of %s is %s.");
 
@@ -138,7 +140,12 @@ public final class BuiltIn {
         if (about == About.NEIGHBOUR && values.size() > 1) {
             return name + " borders " + String.join(", ", values.subList(0, values.size() - 1)) + " and " + values.get(values.size() - 1) + ".";
         }
-        if (about == About.POPULATION || about == About.AREA) {
+        if (about == About.POPULATION) {
+            List<String> year = facts.get(thing).get(About.POPULATION_YEAR);
+            String said = String.format(Locale.US, about.said, name, grouped(values.get(0)));
+            return year == null || year.isEmpty() ? said : said.substring(0, said.length() - 1) + " (" + year.get(0) + " estimate).";
+        }
+        if (about == About.AREA) {
             return String.format(Locale.US, about.said, name, grouped(values.get(0)));
         }
         if (values.size() > 1 && (about == About.LANGUAGE || about == About.CURRENCY || about == About.CONTINENT || about == About.CAPITAL)) {
