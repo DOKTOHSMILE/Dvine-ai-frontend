@@ -12,7 +12,7 @@ The repository and the Java package keep their old names (`Dvine-ai-frontend`, `
 
 ## How it works
 
-**One chat.** Every message goes to Ibiko. With a model in use (one of your API providers, or a model downloaded to the device), the model reads what you mean and Ibiko acts on it through function codes (`§SR` search, `§WK` start the agents, `§MF` make a file…). Your own words never run a function by themselves, and the codes are never shown in the chat.
+**One chat.** Every message goes to Ibiko. Over the message box, quick chips open Tools, Code (files and the shell), Media (attach), Explore (social accounts, connectors) and More (settings, chats, memory, workload). With a model in use (one of your API providers, or a model downloaded to the device), the model reads what you mean and Ibiko acts on it through function codes (`§SR` search, `§WK` start the agents, `§MF` make a file…). Your own words never run a function by themselves, and the codes are never shown in the chat.
 
 **Brains.** Pick one from the header:
 - an API model (OpenAI-compatible or Anthropic), with a backup in order;

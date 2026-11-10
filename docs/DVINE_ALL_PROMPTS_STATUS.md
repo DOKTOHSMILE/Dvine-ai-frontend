@@ -235,7 +235,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 202 | A survey that breaks off restarts from zero on "continue"; the Scribe must hold lines covered, files done, next file, current and next task | P12 | Built (parts kept as read, SURVEY.md progress, resume reads only what is left; RECORD.md NOW section) | 0.99.57 |
 | 203 | The audit results: sorted with the time and date, a comprehensive report | P12 | Built (map sorted by path and line, contents list, time made, time each part was read) | 0.99.57 |
 | 204 | Long agent jobs run in the background while the user keeps talking, with no disruption | P12 | Built on an API (`sideReply`, `§ST` to pass an instruction to the job); with the device model only, a message still goes to the job | 0.99.57 |
-| 205 | Fix every UI and UX properly; the composer mockup (Tools, Code, Media, Explore, More, "Ask … anything") | P12 | Partial (hint and names; the chips row is not built) | 0.99.57 |
+| 205 | Fix every UI and UX properly; the composer mockup (Tools, Code, Media, Explore, More, "Ask … anything") | P12 | Built (hint and names in 0.99.57; the chips row in 0.99.58; JVM test) | 0.99.58 |
 | 206 | Check the repo and the user's own changes; keep every document and the README up to date | P12 | Built (0.99.53–0.99.56 recorded; README rewritten; two tests red on main fixed) | 0.99.57 |
 
 ## Still open, in the order that matters

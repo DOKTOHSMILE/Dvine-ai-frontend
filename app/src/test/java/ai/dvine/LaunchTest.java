@@ -1248,4 +1248,30 @@ public class LaunchTest {
         org.junit.Assert.assertNotEquals("dragged back to the left: it shuts", android.view.View.VISIBLE, drawer.getVisibility());
         c.pause().stop().destroy();
     }
+
+    /** Each chip over the message box opens what it names, nothing else. */
+    @Test
+    public void theQuickChipsOpenWhatTheyName() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        String[][] cases = { { "chip_tools", "Tools in this chat" }, { "chip_code", "Workspace files" }, { "chip_code", "Shell" },
+                { "chip_explore", "Social accounts" }, { "chip_explore", "Connectors" }, { "chip_more", "Settings" },
+                { "chip_more", "What Ibiko remembers" } };
+        for (String[] k : cases) {
+            int id = c.get().getResources().getIdentifier(k[0], "id", c.get().getPackageName());
+            android.view.View chip = c.get().findViewById(id);
+            assertNotNull(k[0], chip);
+            org.junit.Assert.assertTrue("at least a 36dp-high touch target", chip.getLayoutParams().height >= 36);
+            chip.performClick();
+            ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+            android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+            java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
+            sheet.getWindow().getDecorView().findViewsWithText(found, k[1], android.view.View.FIND_VIEWS_WITH_TEXT);
+            org.junit.Assert.assertFalse(k[0] + " opens " + k[1], found.isEmpty());
+            sheet.dismiss();
+        }
+        android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
+        org.junit.Assert.assertEquals("Ask Ibiko anything", String.valueOf(field.getHint()));
+        c.pause().stop().destroy();
+    }
 }
