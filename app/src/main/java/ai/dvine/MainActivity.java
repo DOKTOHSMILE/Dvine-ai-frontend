@@ -873,6 +873,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (toolsButton != null) {
             toolsButton.setOnClickListener(v -> toolsMenu.showToolsSheet());
         }
+        bindQuickRow();
         if (field != null) {
             field.setOnEditorActionListener((v, actionId, event) -> {
                 if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
@@ -1310,6 +1311,67 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (focus != null) {
             focus.clearFocus();
+        }
+    }
+
+    /**
+     * The quick actions over the message box. Each chip opens exactly what it names: Tools the tools of this chat; Code
+     * the files and the Linux shell; Media pictures, video, sound and files to attach; Explore the social accounts,
+     * the connectors and scheduled posts; More the rest of the app.
+     */
+    private void bindQuickRow() {
+        android.view.View tools = findViewById(R.id.chip_tools), code = findViewById(R.id.chip_code),
+                media = findViewById(R.id.chip_media), explore = findViewById(R.id.chip_explore), more = findViewById(R.id.chip_more);
+        if (tools != null) {
+            tools.setOnClickListener(v -> toolsMenu.showToolsSheet());
+        }
+        if (media != null) {
+            media.setOnClickListener(this::showAttachMenu);
+        }
+        if (code != null) {
+            code.setOnClickListener(v -> ai.dvine.chat.ui.BottomSheet.show(this, "Code", new ai.dvine.chat.ui.BottomSheet.Item[] {
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_folder, "Workspace files", "Cloned repositories and projects on this device"),
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_terminal, "Shell", "The Linux built into Ibiko"),
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_project, "Projects", "Chats kept together") }, which -> {
+                        if (which == 0) {
+                            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.WorkspaceActivity.class));
+                        } else if (which == 1) {
+                            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.TerminalActivity.class));
+                        } else if (chatPane != null) {
+                            chatPane.openProjects();
+                        }
+                    }));
+        }
+        if (explore != null) {
+            explore.setOnClickListener(v -> ai.dvine.chat.ui.BottomSheet.show(this, "Explore", new ai.dvine.chat.ui.BottomSheet.Item[] {
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_people, "Social accounts", "Sign in, post, comment, trending"),
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_send, "Scheduled posts", "See or cancel what is planned"),
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_plug, "Connectors", "GitHub, Gmail, calendar, Notion and others") }, which -> {
+                        if (which == 0) {
+                            startActivityForResult(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class), SOCIAL);
+                        } else if (which == 1) {
+                            showScheduledPosts();
+                        } else {
+                            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.ConnectorsActivity.class));
+                        }
+                    }));
+        }
+        if (more != null) {
+            more.setOnClickListener(v -> ai.dvine.chat.ui.BottomSheet.show(this, "More", new ai.dvine.chat.ui.BottomSheet.Item[] {
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_settings, "Settings", "Voice, chat, models, learning"),
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_history, "Chats", "Earlier conversations"),
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_deep, "What Ibiko remembers", "See or forget what was learned"),
+                    new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_people, "Workload and workers", "Memory in use and the agents at work") }, which -> {
+                        if (which == 0) {
+                            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SettingsActivity.class));
+                        } else if (which == 1) {
+                            openDrawer();
+                        } else if (which == 2) {
+                            startActivity(new android.content.Intent(this, ai.dvine.chat.ui.MemoryActivity.class));
+                        } else if (model != null) {
+                            ai.dvine.chat.ui.WorkloadSheet.show(this, model, brainLabel(), dvineOwn());
+                        }
+                    }));
         }
     }
 
