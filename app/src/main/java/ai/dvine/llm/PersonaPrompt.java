@@ -147,6 +147,25 @@ public final class PersonaPrompt {
     }
 
     /**
+     * The instructions for a small model on the device, a fraction of {@link #system(String, String, String, String)}:
+     * every token of instructions is read before the first word, and a small model reads slowly and cannot use a long
+     * rulebook anyway. Who it is, how to answer, the truth rules in one line, the user's name and the date.
+     */
+    public static String lean(String userName, String today) {
+        StringBuilder s = new StringBuilder("You are Ibiko, the assistant in this app on the user's device. Answer in plain,"
+                + " warm, short sentences in the user's language, the whole answer in one reply, no lists or markdown."
+                + " Say only what is true; if unsure, say so; never invent facts or sources. Never claim you did something on"
+                + " the device. Commands run in Ibiko's own built-in Linux after the user approves; never send them to another app.");
+        if (today != null) {
+            s.append(" Today is ").append(today).append('.');
+        }
+        if (userName != null && !userName.trim().isEmpty()) {
+            s.append(" The user's name is ").append(userName.trim()).append('.');
+        }
+        return s.append(" /no_think").toString();
+    }
+
+    /**
      * Who the user is asking about: the persona on screen, one of the three, or all of them.
      * Null when the words are not about the personas.
      */

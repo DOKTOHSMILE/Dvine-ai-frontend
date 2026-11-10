@@ -196,6 +196,23 @@ public enum FunctionCode {
      * What the brain is told about the suit. {@code tools}: the connector tools on for this chat ("- name <arg>:
      * what it does" a line), or empty. {@code allowed}: the codes this chat may use (null for all).
      */
+    /** As {@link #instructions(String, java.util.Set)} in as few words as possible, for a small model on the device. */
+    public static String lean(String tools, java.util.Set<FunctionCode> allowed) {
+        StringBuilder b = new StringBuilder("\n\nWhen the user clearly wants one of these done, write its code alone on the first"
+                + " line, then one short sentence; otherwise just answer:");
+        for (FunctionCode c : values()) {
+            if (allowed != null && !allowed.contains(c) || c == TL && (tools == null || tools.trim().isEmpty())) {
+                continue;
+            }
+            String does = c.does.replaceAll("\\s*[(:;].*$", "");
+            b.append(' ').append(c.code()).append(c.args.isEmpty() ? "" : " " + c.args).append(" ").append(does).append(';');
+        }
+        if (tools != null && !tools.trim().isEmpty()) {
+            b.append(" Tools for ").append(TL.code()).append(":").append(tools);
+        }
+        return b.toString();
+    }
+
     public static String instructions(String tools, java.util.Set<FunctionCode> allowed) {
         StringBuilder b = new StringBuilder("\n\nYou are the brain inside Ibiko, a suit of functions on this device."
                 + " The user's words never run anything by themselves; you decide from what they mean and the"
