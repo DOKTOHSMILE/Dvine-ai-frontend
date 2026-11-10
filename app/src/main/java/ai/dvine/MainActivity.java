@@ -868,8 +868,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         android.view.View send = findViewById(R.id.btn_send);
         android.view.View voice = findViewById(R.id.btn_voice);
-        android.view.View attach = findViewById(R.id.btn_attach);
-        bindQuickRow(); // Tools lives in the chip row now: one tools button, not two
+        bindQuickRow();
+        bindThink(); // Tools lives in the chip row now: one tools button, not two
         if (field != null) {
             field.setOnEditorActionListener((v, actionId, event) -> {
                 if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
@@ -894,9 +894,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return true;
             });
         }
-        if (attach != null) {
-            attach.setOnClickListener(this::showAttachMenu);
-        }
+
         wireStarter(R.id.chip_explain, "Explain this in plain words");
         wireStarter(R.id.chip_draw, "Draw me a bicycle");
         wireStarter(R.id.chip_crash, "What can you do from this chat?");
@@ -1226,6 +1224,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         examiner.clearTopic();
         selectPersona(section.persona);
         closeDrawer();
+        repaintThink(); // a new chat starts with its own tools
     }
 
     /** The drawer, dragged open and shut like any Android drawer (main/DrawerController). */
@@ -1315,6 +1314,44 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * the files and the Linux shell; Media pictures, video, sound and files to attach; Explore the social accounts,
      * the connectors and scheduled posts; More the rest of the app.
      */
+    /** The Think pill: deep thinking for this chat, on or off in one tap; lit while on (the same switch as Tools › Deep thinking). */
+    private void bindThink() {
+        final android.widget.TextView think = findViewById(R.id.btn_think);
+        if (think == null) {
+            return;
+        }
+        final Runnable paint = () -> {
+            boolean on = chatTools(stage == null ? "ibiko" : stage.agent()).deep();
+            think.setSelected(on);
+            think.setTextColor(getColor(on ? R.color.accent : R.color.text_secondary));
+            android.graphics.drawable.Drawable[] d = think.getCompoundDrawablesRelative();
+            if (d[0] != null) {
+                d[0].mutate().setTint(getColor(on ? R.color.accent : R.color.icon));
+            }
+            think.setStateDescription(on ? "On" : "Off");
+        };
+        paint.run();
+        think.setOnClickListener(v -> {
+            String who = stage == null ? "ibiko" : stage.agent();
+            ai.dvine.suit.ChatTools tools = chatTools(who);
+            boolean on = !tools.deep();
+            tools.set(ai.dvine.suit.ChatTools.Tool.DEEP, on);
+            prefs.edit().putString(toolsKey(who), tools.write()).apply();
+            paint.run();
+            note(on ? "Think is on: Ibiko plans, checks and revises before answering (slower)." : "Think is off: quick answers.");
+        });
+        thinkPaint = paint;
+    }
+
+    /** Repaints the Think pill (after the Tools sheet or a new chat changed deep thinking). */
+    private Runnable thinkPaint;
+
+    void repaintThink() {
+        if (thinkPaint != null) {
+            thinkPaint.run();
+        }
+    }
+
     private void bindQuickRow() {
         android.view.View tools = findViewById(R.id.chip_tools), code = findViewById(R.id.chip_code),
                 media = findViewById(R.id.chip_media), explore = findViewById(R.id.chip_explore), more = findViewById(R.id.chip_more);

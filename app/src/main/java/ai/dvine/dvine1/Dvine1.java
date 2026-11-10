@@ -181,7 +181,43 @@ public final class Dvine1 {
 
     /** For any brain, with the request: think ahead, and the next step this pilot usually takes after one like it. */
     public String premeditate(String request) {
-        return foresight().hint(Methods.kind(request)) + reflection().hint(Methods.kind(request));
+        return foundation(request) + foresight().hint(Methods.kind(request)) + reflection().hint(Methods.kind(request));
+    }
+
+    /**
+     * The foundation every answer stands on ({@code formulas/Truth}): all that is known about this request, from every
+     * store, settled by how trustworthy each source is, with how sure it is.
+     */
+    public String foundation(String request) {
+        List<ai.dvine.dvine1.formulas.Truth.Claim> claims = new ArrayList<ai.dvine.dvine1.formulas.Truth.Claim>();
+        long now = System.currentTimeMillis();
+        String about = Methods.kind(request) + ":" + (request == null ? "" : request.trim().toLowerCase(Locale.US));
+        try {
+            Knowledge.Fact k = knowledge().recall(request);
+            if (k != null && k.right) {
+                claims.add(new ai.dvine.dvine1.formulas.Truth.Claim(about, k.answer,
+                        k.sure ? ai.dvine.dvine1.formulas.Truth.Source.CONFIRMED : ai.dvine.dvine1.formulas.Truth.Source.LEARNED, now));
+            }
+            String shipped = builtIn().answer(request);
+            if (shipped != null) {
+                claims.add(new ai.dvine.dvine1.formulas.Truth.Claim(about, shipped, ai.dvine.dvine1.formulas.Truth.Source.BUILT_IN, now));
+            }
+            String read = facts().answer(request);
+            if (read != null) {
+                claims.add(new ai.dvine.dvine1.formulas.Truth.Claim(about, read, ai.dvine.dvine1.formulas.Truth.Source.LEARNED, now));
+            }
+            List<String> pilot = host == null ? null : host.aboutPilot();
+            String q = request == null ? "" : request.toLowerCase(Locale.US);
+            if (pilot != null && q.matches("(?s).*\\b(my|me|i|i'm|mine)\\b.*")) {
+                for (String p : pilot) {
+                    claims.add(new ai.dvine.dvine1.formulas.Truth.Claim("pilot:" + p.toLowerCase(Locale.US), p,
+                            ai.dvine.dvine1.formulas.Truth.Source.PILOT, now));
+                }
+            }
+        } catch (RuntimeException e) {
+            // a store that can't be read leaves the rules alone
+        }
+        return ai.dvine.dvine1.formulas.Truth.brief(claims);
     }
 
     /** Learning from its own replies: how each one went, judged by what the pilot did next ({@code formulas/Reflection}). */
@@ -273,7 +309,7 @@ public final class Dvine1 {
             return;
         }
         final Knowledge.Fact known = knowledge().recall(t);
-        if (known != null) {
+        if (known != null && (known.sure || builtIn().answer(t) == null)) { // G1: built-in reference outranks the unchecked
             how = How.MEMORY;
             think(Arrays.asList("Reading your question", "Checking what I already know",
                     known.sure ? "Found it: you confirmed this before" : "Found it: I learned this in a learning session"), () -> {

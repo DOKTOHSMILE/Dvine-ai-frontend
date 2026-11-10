@@ -106,6 +106,7 @@ final class ToolsMenu {
             line.addView(new android.view.View(a), gap); // the last row keeps its column width
         }
         sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(a, "Tools", box);
+        sheet[0].setOnDismissListener(d -> a.repaintThink()); // Deep thinking here and the Think pill are one switch
         modeSheet[0] = sheet[0];
     }
 
