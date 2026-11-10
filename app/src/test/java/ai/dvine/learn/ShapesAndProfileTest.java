@@ -41,8 +41,8 @@ public class ShapesAndProfileTest {
         p.notice("I'm a software developer, and my sister Ada is visiting.");
         assertEquals("software developer", p.get("works as"));
         assertEquals("Ada", p.get("sister"));
-        p.notice("I'm building DVINE, an AI app.");
-        assertEquals("DVINE", p.get("building"));
+        p.notice("I'm building Ibiko, an AI app.");
+        assertEquals("Ibiko", p.get("building"));
         assertFalse("a question teaches nothing", p.notice("Do I live in Abuja?"));
         assertFalse("nor a negation", p.notice("I don't live in Abuja."));
         assertTrue(p.notice("I live in Abuja now."));

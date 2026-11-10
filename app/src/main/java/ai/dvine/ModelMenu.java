@@ -85,8 +85,8 @@ final class ModelMenu {
         int pad = a.dp(16);
         list.setPadding(pad, 0, pad, pad);
         final android.app.Dialog[] sheet = new android.app.Dialog[1];
-        list.addView(brainHeader("DVINE"));
-        list.addView(brainRow(a.DVINE_OWN, "DVINE's own intelligence: built in, no download, instant. Exact sums, reading what"
+        list.addView(brainHeader("Ibiko"));
+        list.addView(brainRow(a.DVINE_OWN, "Ibiko's own intelligence: built in, no download, instant. Exact sums, reading what"
                 + " you mean, and everything it learned from the models you used.", a.dvineOwn(), () -> {
                     a.prefs.edit().putString("brain_pick", "dvine").apply();
                     a.applyProvider();

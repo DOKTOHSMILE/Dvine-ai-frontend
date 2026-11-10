@@ -19,7 +19,7 @@ public final class Downloads {
         ContentValues v = new ContentValues();
         v.put(MediaStore.Downloads.DISPLAY_NAME, name);
         v.put(MediaStore.Downloads.MIME_TYPE, mime);
-        v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Ibiko");
         Uri uri = c.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
         if (uri == null) {
             throw new IOException("there's no Downloads folder");

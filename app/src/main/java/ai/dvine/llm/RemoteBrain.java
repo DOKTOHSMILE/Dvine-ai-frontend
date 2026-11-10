@@ -464,7 +464,7 @@ public final class RemoteBrain {
         if (source != null) {
             String live = source.get();
             if (live == null || live.isEmpty()) {
-                problem = "the device couldn't sign in to the DVINE server";
+                problem = "the device couldn't sign in to the Ibiko server";
                 transientFailure = true;
                 return null;
             }
@@ -838,7 +838,9 @@ public final class RemoteBrain {
             // a tool call is an answer: the agent runs it. Stripping it used to end the turn with "no answer".
             // an empty body is usually a blip (a reasoning model that spent its allowance, a dropped stream): try again.
             problem = "the server sent no answer";
-            transientFailure = true;
+            // a blip is tried again as it was; an allowance spent on thinking (cut off, nothing written) is not a blip:
+            // chat() asks once more with more room, which the same request would never have
+            transientFailure = !cutOff;
             return null;
         }
         return all.toString();
@@ -969,7 +971,9 @@ public final class RemoteBrain {
         if (all.length() == 0 || (ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty() && !toolCall(all.toString()))) {
             // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
             problem = "the server sent no answer";
-            transientFailure = true;
+            // a blip is tried again as it was; an allowance spent on thinking (cut off, nothing written) is not a blip:
+            // chat() asks once more with more room, which the same request would never have
+            transientFailure = !cutOff;
             return null;
         }
         return all.toString();

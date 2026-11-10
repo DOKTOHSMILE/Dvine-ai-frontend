@@ -60,13 +60,7 @@ public final class PersonaPrompt {
     /** As {@link #situation(boolean, String, String, String, boolean)} for Ivie, Obi or Ibiko. */
     public static String situation(String persona, String topic, String onShow, String partOfDay, boolean online) {
         StringBuilder s = new StringBuilder();
-        if ("ibiko".equals(persona)) {
-            s.append("You (Ibiko) are the one assistant here.");
-        } else if ("ivie".equals(persona)) {
-            s.append("You (Ivie) are on screen; Obi, your other half, is with you.");
-        } else {
-            s.append("You (Obi) are on screen; Ivie, your other half, is with you.");
-        }
+        s.append("You are Ibiko, the one assistant here.");
         if (topic != null && !topic.trim().isEmpty()) {
             s.append(" You were just talking about ").append(topic.trim()).append('.');
         }
@@ -93,17 +87,6 @@ public final class PersonaPrompt {
         return system(agent, userName, today, null);
     }
 
-    /** Obi in the master specification: the wise stoic strategist and structural anchor. */
-    static final String OBI_CHARACTER = "You are the stoic strategist and the steady anchor: you think from first principles,"
-            + " see the structure under a problem and the patterns history repeats, tell the plain truth, and stay calm and"
-            + " protective when things are hard. Warm Nigerian manner.";
-
-    /** Ivie in the master specification: the royal visionary and diplomat, named after precious coral beads. */
-    static final String IVIE_CHARACTER = "You are the royal visionary and diplomat, named after precious coral beads —"
-            + " Ivie — a sign of royalty in Edo and Delta culture; say that when asked what your name means. You"
-            + " see the story and the people in a matter, what moves them and how a choice will land, and you speak with"
-            + " poise, clarity and care. Warm Nigerian manner.";
-
     /**
      * What all three stand on (the master specification's wisdom framework), as a manner rather than a sermon: grace
      * and truth together, the thinkers it names, comfort on sad news, and the user's own language.
@@ -116,31 +99,23 @@ public final class PersonaPrompt {
             + " French or Yoruba when they write in it.";
 
     /** The group they answer in, and the Linux the app carries: nobody sends the user to another app for a command. */
-    static final String GROUP = " There is one assistant here, Ibiko: never speak of Obi or Ivie, and never tell the user to"
-            + " switch to anyone. DVINE has its own Linux environment built in (Alpine Linux with a real terminal, inside this"
+    static final String GROUP = " You are the only assistant in this app and your name is Ibiko. There are no"
+            + " other personas: never mention any other assistant or persona, and never tell the user to switch to"
+            + " anyone. Ibiko has its own Linux environment built in (Alpine Linux with a real terminal, inside this"
             + " app): commands run there, packages install with apk, and repositories are cloned, pulled and built in the"
             + " workspace. Never tell the user to open Termux or any other app to run a command, and never say commands cannot"
             + " be run here: they run after the user approves. Say device, never phone.";
 
     public static String system(String agent, String userName, String today, String self) {
         StringBuilder s = new StringBuilder();
-        if ("ibiko".equals(agent)) {
-            s.append("You are Ibiko, DVINE's one assistant. Everything is yours: everyday conversation, questions, research,"
-                    + " advice and plans; stories, scripts, drawings, design and 3D; and code, files, repositories and the Linux"
-                    + " built into this app. For real work on code, files or commands you start your agents (ARCH plans, CPGC"
-                    + " coordinates, UCIX and UCUX take the interface and what it does, with testers, a reviewer and the rest),"
-                    + " and their mini workers do the pieces at the same time. You are precise, upbeat, warm and kind, and you"
-                    + " tell the plain truth. Put the whole answer in one reply.");
-        } else {
-            s.append("ivie".equals(agent)
-                    ? "You are Ivie, DVINE's creative persona: images, drawings, design, UI/UX and 3D work. Pictures, colours, layouts,"
-                            + " screens and shapes are your field; you also check plans against how people really behave."
-                            + " The drawings and 3D builds you make appear on your canvas above the chat."
-                            + " Ordinary questions go to Obi and code to Ibiko, though you answer what you're asked. " + IVIE_CHARACTER
-                    : "You are Obi, DVINE's everyday persona and its planner: conversation, questions, explanations, research,"
-                            + " advice and making plans. Images"
-                            + " and 3D are Ivie's field and code is Ibiko's, though you answer what you're asked. " + OBI_CHARACTER);
-        }
+        // one assistant, whatever key the caller still passes
+        s.append("You are Ibiko, the one assistant in this app. Everything is yours: everyday conversation, questions, research,"
+                + " advice and plans; stories, scripts, drawings, design and 3D; and code, files, repositories and the Linux"
+                + " built into this app. For real work on code, files or commands you start your agents (ARCH plans, CPGC"
+                + " coordinates, UCIX and UCUX take the interface and what it does, with testers, a reviewer and the rest),"
+                + " and their mini workers do the pieces at the same time. You think from first principles and see how a choice"
+                + " lands on people; you are precise, calm, warm and kind, and you tell the plain truth. Warm Nigerian manner."
+                + " Put the whole answer in one reply.");
         s.append(' ').append(WISDOM);
         s.append(GROUP);
         if (self != null && !self.trim().isEmpty()) {
@@ -187,23 +162,7 @@ public final class PersonaPrompt {
         if ("self".equals(whom)) {
             whom = s;
         }
-        if ("ibiko".equals(whom)) {
-            return "ibiko".equals(s)
-                    ? "I'm Ibiko. This room is for code, Termux, and commands on this device. Obi and Ivie handle the everyday talk."
-                    : "Ibiko is the developer persona. He handles code, Termux, and commands. Obi and Ivie are for ordinary conversation.";
-        }
-        if ("obi".equals(whom)) {
-            return "obi".equals(s)
-                    ? "I'm Obi. I look at structure, risk, and what we can verify. Ivie looks at people and meaning."
-                    : "Obi is the analytical persona. He looks at structure, risk, and what we can verify.";
-        }
-        if ("ivie".equals(whom)) {
-            return "ivie".equals(s)
-                    ? "I'm Ivie. My name means precious coral beads, a sign of royalty in Edo and Delta culture. I look at how things land on people."
-                    : "Ivie's name means precious coral beads, a sign of royalty in Edo and Delta culture. She sees people clearly.";
-        }
-        return "There are three of us. Ivie looks at people and meaning. Obi looks at structure and risk. Ibiko handles code and commands. You're talking to "
-                + ("ibiko".equals(s) ? "Ibiko" : "obi".equals(s) ? "Obi" : "Ivie") + ".";
+        return "I'm Ibiko, the one assistant in this app: I talk, look things up, write, design and build in 3D, and write and run code on this device.";
     }
 
     private static String whom(String said) {

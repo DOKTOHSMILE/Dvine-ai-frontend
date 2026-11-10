@@ -49,11 +49,18 @@ public final class Blueprint {
             + " the same thing again.\n"
             + "5 VERIFY: set 'Phase: VERIFY', run the Check, fix what fails, then give the report.\n"
             + "If the user adds something while you work: add it under '## Changes' and as new steps, set 'Phase: CHECK',"
-            + " check the whole blueprint again, then carry on building from the first unticked step.\n";
+            + " check the whole blueprint again, then carry on building from the first unticked step.\n"
+            + "The plan is a list that grows. A new task or a new idea is ADDED to the PLAN.md that is there: never delete"
+            + " or rewrite the steps already in it, done or not, and never start a fresh plan over an old one. New steps go"
+            + " after the existing ones; only when the user says the new work is a priority do they go right after the last"
+            + " ticked step, to be done next. The only edit to an existing step is ticking it when it is finished and"
+            + " checked; then move to the next one. A write that drops a step is refused.\n";
 
     /** Told to the agent with the user's addition, instead of the plain "read it and continue". */
     public static final String CHANGE = "The user added this while you were working. Do not start over and do not redo"
-            + " ticked steps. Add it to PLAN.md under '## Changes' and as new numbered steps, set 'Phase: CHECK', check the"
+            + " ticked steps. Add it to PLAN.md under '## Changes' and as new numbered steps (after the steps already there;"
+            + " right after the last ticked one only if the user calls it a priority; never remove or reword an existing"
+            + " step), set 'Phase: CHECK', check the"
             + " whole blueprint again for gaps (does it clash with a step already built? does it reuse what is there?), set"
             + " 'Phase: BUILD', then carry on from the first unticked step.";
 
@@ -250,6 +257,59 @@ public final class Blueprint {
             out.add(new String[] { m.group(1).trim().isEmpty() ? " " : "x", m.group(2).trim() });
         }
         return out;
+    }
+
+    /** A step's own words, without its tick, its number or its spacing: the same step however it is renumbered or moved. */
+    static String stepKey(String step) {
+        return (step == null ? "" : step).replaceFirst("^\\s*\\d+[.)]\\s*", "").replaceAll("\\s+", " ").trim().toLowerCase(Locale.US);
+    }
+
+    /**
+     * A plan is added to, never replaced. What a new version of a plan file would lose from the one on disk: a step
+     * that is gone, or a finished step that is no longer ticked. Steps may be renumbered and reordered (a priority
+     * moves up to be the next one to do) and new ones added; a step leaves the list only by being done and ticked.
+     * Null when the new version keeps everything.
+     */
+    public static String kept(String onDisk, String proposed) {
+        java.util.LinkedHashMap<String, String> now = new java.util.LinkedHashMap<String, String>();
+        Matcher n = STEP.matcher(proposed == null ? "" : proposed);
+        while (n.find()) {
+            String key = stepKey(n.group(2));
+            String tick = n.group(1).trim().isEmpty() ? " " : "x";
+            now.put(key, "x".equals(now.get(key)) ? "x" : tick);
+        }
+        List<String> gone = new ArrayList<String>(), unticked = new ArrayList<String>();
+        Matcher o = STEP.matcher(onDisk == null ? "" : onDisk);
+        while (o.find()) {
+            String key = stepKey(o.group(2));
+            if (key.isEmpty()) {
+                continue;
+            }
+            boolean done = !o.group(1).trim().isEmpty();
+            if (!now.containsKey(key)) {
+                if (!gone.contains(o.group(2).trim())) {
+                    gone.add(o.group(2).trim());
+                }
+            } else if (done && !"x".equals(now.get(key))) {
+                unticked.add(o.group(2).trim());
+            }
+        }
+        if (gone.isEmpty() && unticked.isEmpty()) {
+            return null;
+        }
+        StringBuilder b = new StringBuilder("Not written: a plan is added to, never replaced.");
+        if (!gone.isEmpty()) {
+            b.append(" Your new version drops ").append(gone.size()).append(gone.size() == 1 ? " step" : " steps")
+                    .append(" that are in the plan now: ").append(String.join(" | ", gone.size() > 8 ? gone.subList(0, 8) : gone))
+                    .append(gone.size() > 8 ? " | …" : "").append('.');
+        }
+        if (!unticked.isEmpty()) {
+            b.append(" It also unticks finished work: ").append(String.join(" | ", unticked.size() > 8 ? unticked.subList(0, 8) : unticked)).append('.');
+        }
+        b.append(" Keep every step that is there, word for word, with its tick; add the new work as new steps after them. If the"
+                + " user made the new work a priority, put its steps right after the last ticked one so they are next. A step is"
+                + " only ever changed by ticking it when it is done.");
+        return b.toString();
     }
 
     /** The first step not yet ticked, or null. */

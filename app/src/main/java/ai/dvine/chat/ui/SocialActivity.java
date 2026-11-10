@@ -67,7 +67,7 @@ public final class SocialActivity extends AppCompatActivity {
 
     private void fill() {
         body.removeAllViews();
-        TextView intro = Ui.text(this, "Sign in on the sites themselves. DVINE reads with your accounts when you ask (“search X"
+        TextView intro = Ui.text(this, "Sign in on the sites themselves. Ibiko reads with your accounts when you ask (“search X"
                 + " for …”, “what are people saying on Reddit about …”) and in fact checks, and posts and comments for you on"
                 + " Facebook and X after your yes, a little at a time like a person; it stops if a site shows a warning.", 14, Ui.SUB, false);
         intro.setPadding(Ui.dp(this, 6), Ui.dp(this, 4), Ui.dp(this, 6), 0);
@@ -126,7 +126,7 @@ public final class SocialActivity extends AppCompatActivity {
 
         // ---- posting: how DVINE posts, the scheduled posts, and what it did
         LinearLayout posting = section("Posting", ai.dvine.R.drawable.ic_send);
-        posting.addView(toggle("Post directly from your account", "After your yes, DVINE types the post into Facebook or X in the"
+        posting.addView(toggle("Post directly from your account", "After your yes, Ibiko types the post into Facebook or X in the"
                 + " account in use and presses Post, then tells you whether the site confirmed it. Off: it opens the app with the"
                 + " post ready, and you press Post.", "social_direct", true), Ui.wide(this, 10));
         posting.addView(toggle("Auto-post on your behalf", "Posts and comments you ask for go out at once, without asking you"
@@ -159,7 +159,7 @@ public final class SocialActivity extends AppCompatActivity {
                 done.add(line);
             }
         }
-        posting.addView(Ui.text(this, done.isEmpty() ? "Nothing posted from DVINE yet." : "Recent activity", 14, Ui.SUB, false),
+        posting.addView(Ui.text(this, done.isEmpty() ? "Nothing posted from Ibiko yet." : "Recent activity", 14, Ui.SUB, false),
                 Ui.wide(this, 12));
         for (String line : done) {
             String[] f = line.split("\t", -1);
@@ -196,7 +196,7 @@ public final class SocialActivity extends AppCompatActivity {
                 + " these limits: on Facebook " + limits.cap(Platform.FACEBOOK, SocialLimits.Kind.POST, true) + " posts and "
                 + limits.cap(Platform.FACEBOOK, SocialLimits.Kind.COMMENT, true) + " comments a day; on X "
                 + limits.cap(Platform.X, SocialLimits.Kind.POST, true) + " posts and " + limits.cap(Platform.X, SocialLimits.Kind.COMMENT, true)
-                + " comments a day. DVINE never tags people you didn't name.", 13, Ui.SUB, false);
+                + " comments a day. Ibiko never tags people you didn't name.", 13, Ui.SUB, false);
         only.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 10));
         safe.addView(only);
     }
@@ -221,7 +221,7 @@ public final class SocialActivity extends AppCompatActivity {
 
     private void remove(final SocialAccounts.Account a) {
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Remove " + a.label + " (" + a.platform.shown + ") from DVINE? Its sign-in on this device is deleted.")
+                .setMessage("Remove " + a.label + " (" + a.platform.shown + ") from Ibiko? Its sign-in on this device is deleted.")
                 .setPositiveButton("Remove", (d, w) -> {
                     SocialWeb.remove(this, a.id);
                     ai.dvine.act.ActionLog.add(getFilesDir(), "sign-out", a.platform.shown + " · " + a.label, "user", "removed", "");

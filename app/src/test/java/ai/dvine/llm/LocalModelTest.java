@@ -44,8 +44,8 @@ public class LocalModelTest {
     @Test
     public void personasSpeakInTheirOwnManner() {
         String obi = PersonaPrompt.system(false, "Val"), ivie = PersonaPrompt.system(true, null);
-        assertTrue(obi.startsWith("You are Obi") && obi.contains("Val") && obi.endsWith("/no_think"));
-        assertTrue(ivie.startsWith("You are Ivie") && !ivie.contains("user's name"));
+        assertTrue(obi.startsWith("You are Ibiko") && obi.contains("Val") && obi.endsWith("/no_think"));
+        assertTrue(ivie.startsWith("You are Ibiko") && !ivie.contains("user's name"));
         assertTrue(obi.contains("no lists, markdown") && obi.contains("Never claim to have done"));
     }
 

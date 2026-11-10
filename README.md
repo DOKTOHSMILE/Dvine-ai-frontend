@@ -1,50 +1,73 @@
-# DVINE Android
+# Ibiko (Android)
 
-Native Java client. No faces: the screen is a pod floating in space, and the persona speaking (**O-bìì** / Obi, **Ēèvié** / Ivie, Ibiko) is a voice and a tint on it. Anything you ask it to draw ("draw a cat", "build me a car") appears in 3D above the pod: turn it with a finger, pinch to zoom and move it, change it part by part by voice ("take out the tyres", "make the ears pink", "add a spoiler", "undo"), and say "export it" to save it as a .glb for a game engine. While it thinks, its inner voice writes each step at the top of the screen.
+Ibiko is one AI assistant on your Android device. There are no personas to pick and no other names: you talk to Ibiko, and Ibiko talks, researches, writes, designs in 3D, and writes and runs code on the device.
 
-The build plan is [`docs/DVINE_MASTER_BUILD_HANDBOOK.md`](docs/DVINE_MASTER_BUILD_HANDBOOK.md). Progress and evidence live in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md).
+The repository and the Java package keep their old names (`Dvine-ai-frontend`, `ai.dvine`) so that existing installs, saved chats and settings carry over. Everything a person sees says Ibiko.
 
-## What works without internet
+- Build plan: [`docs/DVINE_MASTER_BUILD_HANDBOOK.md`](docs/DVINE_MASTER_BUILD_HANDBOOK.md)
+- What was built in each version, with the tests that prove it: [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md)
+- Every request made so far and whether it is built: [`docs/DVINE_ALL_PROMPTS_STATUS.md`](docs/DVINE_ALL_PROMPTS_STATUS.md)
+- The functions a model can use: [`docs/APP_FUNCTIONS.md`](docs/APP_FUNCTIONS.md)
+- What is planned, newest first: [`PLAN.md`](PLAN.md)
 
-The app ships a basic knowledge file (`app/src/main/assets/knowledge/base_knowledge.json`). With no connection it can:
+## How it works
 
-- talk (greetings, who are you, jokes, riddles, help)
-- do maths: "what is 12 times 7", "15 percent of 200", "square root of 81"
-- convert units: "100 km to miles", "30 celsius to fahrenheit"
-- tell the time and date
-- define words: "what does stewardship mean"
-- answer basic facts: "capital of Nigeria"
-- comfort on sad news and share scripture or wisdom with its reference
-- learn: "remember that my brother's name is Tobi" → later "what is my brother's name"
+**One chat.** Every message goes to Ibiko. With a model in use (one of your API providers, or a model downloaded to the device), the model reads what you mean and Ibiko acts on it through function codes (`§SR` search, `§WK` start the agents, `§MF` make a file…). Your own words never run a function by themselves, and the codes are never shown in the chat.
 
-When it doesn't know, it says: *"I'm unable to connect to my database to get more information. Please connect to the internet and ask me again."*
+**Brains.** Pick one from the header:
+- an API model (OpenAI-compatible or Anthropic), with a backup in order;
+- a model downloaded to the device (Qwen3, Llama, Gemma, Phi GGUF files), working offline;
+- Ibiko 1, the app's own learning brain, which needs no model.
 
-What it learns stays on the phone. Say **"share what you learned"** to allow upload when online; **"forget that"** / **"forget everything"** to delete. Passwords, PINs, codes and card numbers are never kept.
+**Agents for real work.** Code, files, repositories and commands go to the agent organisation (`agent/Org`):
+- ARCH plans and CPGC coordinates (the lead), ROLX keeps time, the Scribe records every step;
+- specialists take parts: UCIX (interface), UCUX (what each control does), CORX (engine), DATX (data), QATX (tests), SECX (security), REVX (review), RSRX (research), DOCX (docs), RELX (release);
+- each part has a time limit; each agent can start up to four mini workers on pieces it designs;
+- on an API they run at the same time.
 
-## Controls (there is no screen UI)
+**Long jobs run in the background.** While an agent job runs, you can keep talking: Ibiko answers your new message beside the job. If the message is meant for the job, it is passed to it (`§ST`) and the job reads it on its next step.
 
-- Hold anywhere to speak; let go to send.
-- Double-tap: a text field to type in, with SEND.
-- One finger on a drawing: turn it. Two fingers: pinch to zoom, move to place it.
-- Tap the pod: the one speaking talks.
-- Say **switch to Ivie** / **Obi** / **Ibiko** to change who speaks. **Debate X** has Obi and Ivie argue it out.
+**Nothing is read twice.**
+- The Scribe keeps one record file per project (`memory/projects/<project>/RECORD.md`): the state, the last step and its time, the last change and its file, what is done and what is pending. A new round starts from that point.
+- A codebase survey keeps every part it has read (`.blueprint/<project>/pieces/`) and its progress (`SURVEY.md`). After a broken connection or "continue", only the parts not yet read are read. The map (`MAP.md`) is sorted by file and line, with the time each part was read.
 
-On first open Obi asks your name and remembers it ("call me …" changes it).
+**Plans grow.** A plan file (`PLAN.md`) is only added to. New work goes after the existing steps, or right after the last finished step when you call it a priority. A finished step is ticked, never deleted. A write that would drop a step is refused.
 
-Actions are asked, then confirmed by voice:
-- "Post this on WhatsApp: Good morning" → "Shall I open WhatsApp with this post…?" → "yes" → WhatsApp opens on the post screen with the text; **you** press send.
-- "Copy that" → "Shall I copy…?" → "yes" → "Copied. It's on your clipboard."
+**Built-in knowledge.** `app/src/main/assets/knowledge/` ships what Ibiko knows on install, with no internet:
+- `world_facts.tsv` (2,379 facts): the 194 countries (capital, region, currency, official languages, area, people, neighbours, coastline) and the 118 elements;
+- `base_knowledge.json`: everyday talk, maths, units, wisdom;
+- `shards/dictionary_en.json`: the English dictionary (WordNet).
 
-They speak slowly in Nigerian English voices where the phone has them, over a soft synthesised pad ("music off" / "music on", "hide subtitles").
+**Learning.** Ibiko 1 learns from every reply, from any brain, without waiting for a tap:
+- facts and sentence shapes;
+- the method that reached an answer (search, read, edit, test…), which grows stronger when it is used again or marked right, and weaker when marked wrong.
+
+The check and cross under a reply teach it faster.
+
+## Built in
+
+- **A Linux environment**: Alpine with a real terminal, inside the app. No Termux.
+- **Social accounts**: post with your approval, or auto-post if you switch it on.
+- **3D design and export**: `.glb`, `.obj`, `.stl`, `.ply`.
+- **Share › Ibiko** from other apps.
+- **Voices**: African English first where the device has them.
 
 ## Build
 
-Android Studio or CodeAssist: open this directory. Gradle 8.9, AGP 8.7.3, Java 17, compileSdk 35, minSdk 34.
+Android Studio or CodeAssist: open this directory. Gradle 8.9, AGP 8.7.3, Java 17, compileSdk 35, minSdk 34. `app/build.gradle` and `app/module.toml` carry the same version.
 
 ```
 gradle testDebugUnitTest assembleDebug
 ```
 
-Regenerate assets: `gradle :app:generateHumanAssets` (3D humans), `python3 tools/make_logo.py` (logo + launcher icons), `python3 tools/pack_source.py` (knowledge pack).
+Regenerate assets:
+- `python3 tools/build_world_facts.py`: built-in facts from Wikidata;
+- `python3 tools/make_logo.py`: logo and launcher icons;
+- `python3 tools/pack_source.py`: knowledge pack.
 
-No provider key belongs in this project. `api_base` in `strings.xml` stays empty until a private desk URL is set; sync does nothing until then.
+No provider key belongs in this project. Keys are entered in the app and stay on the device.
+
+## Licences of shipped data
+
+- `world_facts.tsv` (countries): from mledoze/countries, ODbL; see `WORLD_FACTS_LICENSE.txt`.
+- `dictionary_en.json`: WordNet; see `WORDNET_LICENSE.txt`.

@@ -11,7 +11,7 @@ import java.util.List;
 public final class ProotCommand {
     /** The same jobs as Termux {@code pkg}, carried out by Alpine's {@code apk}. */
     public static final String PKG = "#!/bin/sh\n"
-            + "# DVINE package command. Same shape as Termux pkg, on Alpine apk.\n"
+            + "# Ibiko package command. Same shape as Termux pkg, on Alpine apk.\n"
             + "cmd=$1\n"
             + "if [ $# -gt 0 ]; then shift; fi\n"
             + "case \"$cmd\" in\n"

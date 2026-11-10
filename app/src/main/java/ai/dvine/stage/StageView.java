@@ -120,7 +120,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         voicePaint.setTypeface(android.graphics.Typeface.MONOSPACE);
         smokePaint.set(voicePaint);
         smokePaint.setMaskFilter(new BlurMaskFilter(2.2f * density, BlurMaskFilter.Blur.NORMAL));
-        setContentDescription("DVINE. Touch and hold anywhere to speak, let go to send. Double-tap to type.");
+        setContentDescription("Ibiko. Touch and hold anywhere to speak, let go to send. Double-tap to type.");
     }
 
     // ------------------------------------------------------------ public API

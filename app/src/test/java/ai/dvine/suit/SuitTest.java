@@ -94,7 +94,7 @@ public class SuitTest {
         assertEquals("12 x 7 = 84", c.answerAlone("what's 12 x 7?"));
         assertEquals("From what I learned earlier: Nairobi.", c.answerAlone("capital of Kenya"));
         assertNull(c.answerAlone("write me a poem"));
-        assertTrue(c.context("hello").startsWith("DVINE's reading of the message: greeting"));
+        assertTrue(c.context("hello").startsWith("Ibiko's reading of the message: greeting"));
     }
 
     /** Passing work on, planning a piece, thinking together, the yes to an action: codes from the brain, never words. */

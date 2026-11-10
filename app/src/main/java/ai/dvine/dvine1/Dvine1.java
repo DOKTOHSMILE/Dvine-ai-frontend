@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * (C++, the fastest way to run a language model on a phone).
  */
 public final class Dvine1 {
-    public static final String NAME = "DVINE 1 · 0.1";
+    public static final String NAME = "Ibiko 1 · 0.1";
 
     /** How an answer came: from memory, from research, or neither (a greeting, a sum). */
     public enum How { MEMORY, RESEARCH, OTHER }
@@ -190,7 +190,7 @@ public final class Dvine1 {
     }
 
     private static String cap(String persona) {
-        return persona == null || persona.isEmpty() ? "DVINE" : Character.toUpperCase(persona.charAt(0)) + persona.substring(1);
+        return persona == null || persona.isEmpty() ? "Ibiko" : Character.toUpperCase(persona.charAt(0)) + persona.substring(1);
     }
 
     /**
@@ -440,7 +440,7 @@ public final class Dvine1 {
             return b.toString();
         }
         if (q.matches("(?s)\\s*(who|what) are you\\??\\s*|.*\\bwhat can you do\\b.*")) {
-            return "I'm " + NAME + ", DVINE's own brain, running on this device with no model loaded. I work out sums exactly,"
+            return "I'm " + NAME + ", Ibiko's own brain, running on this device with no model loaded. I work out sums exactly,"
                     + " answer what you've confirmed before however it's asked, research what I don't know and learn from your"
                     + " check and cancel. For open-ended writing or reasoning, pick an API or offline model: I learn from them too.";
         }
@@ -488,12 +488,12 @@ public final class Dvine1 {
         if (right) {
             knowledge().confirm(question, answer);
             host.learnTalk(question, answer);
-            host.note("Saved to DVINE's memory: it will answer this, however it's asked.");
+            host.note("Saved to Ibiko's memory: it will answer this, however it's asked.");
         } else {
             knowledge().reject(question, answer);
             host.forgetTalk(question);
             LearningJob.remember(host.context(), question);
-            host.note("Got it: DVINE won't give that answer again.");
+            host.note("Got it: Ibiko won't give that answer again.");
         }
     }
 

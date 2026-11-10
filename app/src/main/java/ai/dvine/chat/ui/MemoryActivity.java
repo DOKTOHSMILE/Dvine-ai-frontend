@@ -53,7 +53,7 @@ public final class MemoryActivity extends AppCompatActivity {
         close.setContentDescription("Close");
         close.setOnClickListener(v -> finish());
         head.addView(close);
-        TextView title = Ui.text(this, "What DVINE remembers", 19, Ui.TEXT, true);
+        TextView title = Ui.text(this, "What Ibiko remembers", 19, Ui.TEXT, true);
         title.setGravity(Gravity.CENTER);
         head.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         head.addView(new android.view.View(this), new LinearLayout.LayoutParams(Ui.dp(this, 34), 1));
@@ -90,7 +90,7 @@ public final class MemoryActivity extends AppCompatActivity {
         // ---- what the pilot said about themselves, told to every brain
         final ai.dvine.learn.PilotProfile profile = ai.dvine.learn.PilotProfile.at(new File(getFilesDir(), "brain/pilot.tsv"));
         List<String> about = profile.lines();
-        LinearLayout pr = section("What DVINE knows about you", about.size(), "Forget everything it knows about you?", profile::clear);
+        LinearLayout pr = section("What Ibiko knows about you", about.size(), "Forget everything it knows about you?", profile::clear);
         if (about.isEmpty()) {
             empty(pr, "None yet. When you mention where you live, your work or your project, it is kept here and every model is told.");
         }
@@ -104,7 +104,7 @@ public final class MemoryActivity extends AppCompatActivity {
         List<ai.dvine.dvine1.Knowledge.Fact> sure = known.confirmed();
         LinearLayout kc = section("Answers you marked correct", sure.size(), "Forget every answer you marked correct?", known::clear);
         if (sure.isEmpty()) {
-            empty(kc, "None yet. Tap the check under an answer that's right: DVINE answers it again however it's asked.");
+            empty(kc, "None yet. Tap the check under an answer that's right: Ibiko answers it again however it's asked.");
         }
         for (int i = sure.size() - 1; i >= 0; i--) {
             final ai.dvine.dvine1.Knowledge.Fact f = sure.get(i);
@@ -116,7 +116,7 @@ public final class MemoryActivity extends AppCompatActivity {
         final File brain = new File(getFilesDir(), "brain");
         final ai.dvine.dvine1.Facts selfRead = ai.dvine.dvine1.Store.facts(brain);
         final ai.dvine.dvine1.learner.Learner learner = ai.dvine.dvine1.Store.learner(brain);
-        LinearLayout dl = section("What DVINE 1 learned by itself", selfRead.size(), "Forget every fact, reading rule and word DVINE 1 learned?",
+        LinearLayout dl = section("What Ibiko 1 learned by itself", selfRead.size(), "Forget every fact, reading rule and word Ibiko 1 learned?",
                 () -> {
                     selfRead.clear();
                     learner.clear();
@@ -150,7 +150,7 @@ public final class MemoryActivity extends AppCompatActivity {
             shown++;
         }
         if (shown == 0) {
-            empty(t, "None yet. Tell DVINE a fact, or correct it, and it is kept here.");
+            empty(t, "None yet. Tell Ibiko a fact, or correct it, and it is kept here.");
         }
 
         // ---- phrasings
@@ -198,7 +198,7 @@ public final class MemoryActivity extends AppCompatActivity {
         java.util.List<String> done = ai.dvine.act.ActionLog.read(getFilesDir());
         LinearLayout a = section("Actions done in your name", 0, null, null);
         if (done.isEmpty()) {
-            empty(a, "None yet. Posts, shares and copies DVINE carries out are listed here, with whether you approved them.");
+            empty(a, "None yet. Posts, shares and copies Ibiko carries out are listed here, with whether you approved them.");
         }
         for (int i = 0; i < Math.min(done.size(), 50); i++) {
             String[] f = done.get(i).split("\t", 6);

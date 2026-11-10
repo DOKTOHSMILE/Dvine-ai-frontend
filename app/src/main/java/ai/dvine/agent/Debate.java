@@ -50,7 +50,7 @@ public final class Debate {
     /** How the persona should speak this turn. */
     public String rules() {
         boolean forIt = turn % 2 == 0;
-        return "You are in a friendly, sharp debate with " + (forIt ? "Ivie" : "Obi") + " in front of the user. The motion: \""
+        return "You are Ibiko, arguing one side of a friendly, sharp debate in front of the user. The motion: \""
                 + topic + "\". You argue " + (forIt ? "FOR" : "AGAINST") + " it, whatever you personally think. This is your "
                 + role() + ". Speak in two to four short spoken sentences, no lists or headings. "
                 + (turn >= 2 ? "Answer the other side's last points directly, by name. " : "Make your strongest case. ")
@@ -78,16 +78,16 @@ public final class Debate {
             b.append(i == 0 ? "" : " ").append(sentences[i]);
         }
         String line = b.toString();
-        transcript.append(WHO[turn].equals("obi") ? "Obi" : "Ivie").append(" (").append(role()).append("): ").append(line).append('\n');
+        transcript.append(WHO[turn].equals("obi") ? "For" : "Against").append(" (").append(role()).append("): ").append(line).append('\n');
         turn++;
         return line;
     }
 
     public static String opening(String topic) {
-        return "A debate: " + topic.trim() + ". I'll argue for it, and Ivie against.";
+        return "A debate: " + topic.trim() + ". I'll argue both sides, for first, then against.";
     }
 
     public static String closing() {
-        return "That's our debate. Who convinced you?";
+        return "That's both sides. Which convinced you?";
     }
 }

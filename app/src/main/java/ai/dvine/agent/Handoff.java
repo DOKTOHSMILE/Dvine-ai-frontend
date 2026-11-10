@@ -127,6 +127,6 @@ public final class Handoff {
             int cut = t.lastIndexOf(' ', 40);
             t = t.substring(0, cut > 20 ? cut : 40) + "…";
         }
-        return t.isEmpty() ? "Ibiko code" : t.substring(0, 1).toUpperCase(Locale.US) + t.substring(1);
+        return t.isEmpty() ? "Chat" : t.substring(0, 1).toUpperCase(Locale.US) + t.substring(1);
     }
 }

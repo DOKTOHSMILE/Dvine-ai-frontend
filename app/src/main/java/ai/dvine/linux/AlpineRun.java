@@ -153,11 +153,11 @@ public final class AlpineRun {
             } else if (code != 0) {
                 text = text + "\n[exit " + code + "]";
             }
-            return new LinuxEngine.Result(code == 0, text + "\nThis ran in DVINE's Linux. Termux was not opened.");
+            return new LinuxEngine.Result(code == 0, text + "\nThis ran in Ibiko's Linux. Termux was not opened.");
         } catch (IOException e) {
             String why = e.getMessage() == null ? "it could not be started" : e.getMessage();
             return new LinuxEngine.Result(false, "Linux didn't start: " + why
-                    + "\nThis ran in DVINE's Linux. Termux was not opened.");
+                    + "\nThis ran in Ibiko's Linux. Termux was not opened.");
         }
     }
 

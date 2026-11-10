@@ -452,12 +452,12 @@ public final class CodeAgent {
 
     public String system() {
         return (role != null ? role.brief() + "\n" : depth == 0 && squad && !readOnly && !planning ? Org.lead() : "")
-                + (planning ? "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. "
+                + (planning ? "You are " + persona + ", Ibiko's coding agent, working like Claude Code on the user's device. "
                 + IbikoMode.PLAN_RULES + "\n" : "") + (planning ? "" : (readOnly
                 ? "You are " + persona + ", reading the files on the user's device (the workspace: cloned repositories and"
                         + " projects) to answer them. Any model can do this: the files come to you as text through the tools."
                         + " You only read here; changing files, running commands and pushing are Ibiko's work."
-                : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. You have a project"
+                : "You are " + persona + ", Ibiko's coding agent, working like Claude Code on the user's device. You have a project"
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it."))
                 + (blueprint != null ? "\n" + Blueprint.RULES : "")
@@ -475,24 +475,24 @@ public final class CodeAgent {
                 + " a line at a time, and reports file:line:text. query=\"name:Main.java\" finds a file by its name and does not open it."
                 + " No shell and no Termux)\n"
                 + (readOnly ? "" : host.termuxReady()
-                        ? "<tool name=\"run\" command=\"one shell command\"/> (Alpine Linux inside DVINE, not the Termux app:"
+                        ? "<tool name=\"run\" command=\"one shell command\"/> (Alpine Linux inside Ibiko, not the Termux app:"
                         + " sh, pkg install, apk, python3, git and a compiler once pkg has installed them. Pipes and redirects work."
                         + " The command runs in the same workspace folder the file tools see, so a relative path like"
                         + " Dvine-ai-frontend is that project. The device asks first unless auto-accept is on.)\n"
-                        : "<tool name=\"run\" command=\"one shell command\"/> (DVINE's own shell, no Termux:"
+                        : "<tool name=\"run\" command=\"one shell command\"/> (Ibiko's own shell, no Termux:"
                         + " ls cat grep find wc head tail mkdir cp mv rm unzip echo and the rest of help."
                         + " Runs in the workspace folder, as the app, so only the app's own files are touched."
                         + " Use one command per tool call: a chain like a && b is fine, and so is a pipe or >. python, git, pkg and compilers are not bundled"
                         + " until Linux is set up from Tools › Commands on this device:"
                         + " the result says so, it does not pretend. The device asks first unless auto-accept is on.)\n")
                 + (readOnly || !host.termuxReady() ? "" : "<tool name=\"termux\" path=\"FOLDER\" command=\"python3 main.py\"/> (the same"
-                        + " Alpine Linux as run, inside DVINE. The Termux app is not opened. path is the folder it runs in."
+                        + " Alpine Linux as run, inside Ibiko. The Termux app is not opened. path is the folder it runs in."
                         + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
                 + (readOnly || !squad || depth >= 2 ? "" : depth == 1 ? Squad.HANDS : Squad.TOOL)
                 + (worker || !handoverOn ? "" : "<tool name=\"handover\" to=\"obi|ivie\"/> (only when the message is not yours at all:"
-                        + " ordinary talk, a question about the world, research or a report is Obi's; a story, a script, a drawing or a"
-                        + " design is Ivie's. They answer it instead of you. Code, commands, files, repositories and Linux are yours.)\n")
+                        + " ordinary talk, a question about the world, research or a report; a story, a script, a drawing or a"
+                        + " design. It is answered as a reply instead. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
                         + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into memory/projects/, the folder the workspace screen shows)\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
@@ -866,6 +866,12 @@ public final class CodeAgent {
         return work == null ? "" : work.toString();
     }
 
+    /** The job a saved record of work was for (its "Task:" line); "" when there is none. */
+    static String firstTask(String record) {
+        java.util.regex.Matcher m = Pattern.compile("(?m)^Task: (.+)$").matcher(record == null ? "" : record);
+        return m.find() ? m.group(1) : "";
+    }
+
     /** An audit, review, research, analysis, summary, report, overview, plan, comparison or explanation. */
     static boolean bigTask(String task) {
         String t = task == null ? "" : task.toLowerCase(Locale.US);
@@ -917,7 +923,8 @@ public final class CodeAgent {
      */
     private String done(String answer) {
         String clean = withoutDump(answer);
-        if (keepGoing && (bigTask(task) || bigTask(resume)) && unfinished(clean)) {
+        // the job's own words decide whether it is long work, not the whole record of what it did (which names a plan)
+        if (keepGoing && (bigTask(task) || bigTask(firstTask(resume))) && unfinished(clean)) {
             outOfSteps = true; // a status line is not the audit: the next round does the work
         }
         return clean;
@@ -1466,7 +1473,7 @@ public final class CodeAgent {
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
                 || c.name.equals("make_file") || c.name.equals("zip") || c.name.equals("unzip"))) {
             return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."
-                    : "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
+                    : "Only reading here: changing files, commands and git are Ibiko's. Say so in your answer.";
         }
         switch (c.name) {
             case "workers":
@@ -1493,6 +1500,12 @@ public final class CodeAgent {
                 }
                 boolean existed = f.exists();
                 String before = existed ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8) : "";
+                if (existed && planFile(f)) {
+                    String lost = Blueprint.kept(before, c.body);
+                    if (lost != null) {
+                        return lost; // a plan grows: the new plan is added to the old one, which is never thrown away
+                    }
+                }
                 Files.write(f.toPath(), c.body.getBytes(StandardCharsets.UTF_8));
                 note(c.a("path"));
                 int lines = c.body.isEmpty() ? 0 : c.body.split("\n", -1).length;
@@ -1520,6 +1533,12 @@ public final class CodeAgent {
                     return "The old text is in " + c.a("path") + " more than once. Include more lines so it is unique.";
                 }
                 String after = text.substring(0, at) + now + text.substring(at + old.length());
+                if (planFile(f)) {
+                    String lost = Blueprint.kept(text, after);
+                    if (lost != null) {
+                        return lost;
+                    }
+                }
                 Files.write(f.toPath(), after.getBytes(StandardCharsets.UTF_8));
                 note(c.a("path"));
                 ai.dvine.connect.LineDiff.Result d = ai.dvine.connect.LineDiff.of(text, after);
@@ -1753,6 +1772,11 @@ public final class CodeAgent {
         if (!changed.contains(p)) {
             changed.add(p);
         }
+    }
+
+    /** A plan file: PLAN.md, a blueprint, a to-do or roadmap list. Its steps are kept when it is written again. */
+    static boolean planFile(File f) {
+        return f != null && f.getName().matches("(?i)(plan|blueprint|todo|to-do|roadmap|tasks)(\\.[a-z0-9_-]+)*\\.(md|txt)");
     }
 
     /** A path inside the workspace, or an error: nothing outside it is read or written. */

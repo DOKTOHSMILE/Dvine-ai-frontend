@@ -69,9 +69,9 @@ public final class SocialLoginActivity extends AppCompatActivity {
         page.addView(head);
         TextView note = Ui.text(this, platform == Platform.TELEGRAM
                 ? "Sign in on Telegram's own page: scan the QR code with Telegram on another device (Settings › Devices › Link"
-                        + " Desktop Device), or use your number and the code Telegram sends. DVINE reads your chats only when you"
+                        + " Desktop Device), or use your number and the code Telegram sends. Ibiko reads your chats only when you"
                         + " ask, and never sends a message without your yes."
-                : "Your password goes only to " + platform.shown + ". DVINE keeps the sign-in on this device,"
+                : "Your password goes only to " + platform.shown + ". Ibiko keeps the sign-in on this device,"
                 + " encrypted, and uses it within safe limits. Sign in with your username or email and password; “Continue"
                 + " with Google” doesn't work inside apps.", 12, Ui.SUB, false);
         note.setPadding(Ui.dp(this, 18), 0, Ui.dp(this, 18), Ui.dp(this, 8));

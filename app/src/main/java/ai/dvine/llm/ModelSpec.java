@@ -42,39 +42,39 @@ public final class ModelSpec {
 
     // Each family comes in sizes, as Claude comes as Haiku, Sonnet and Opus: smaller is faster and lighter,
     // bigger answers better and needs more memory.
-    public static final ModelSpec QWEN3_0_6B = new ModelSpec("DVINE model", "qwen3-0.6b-q4km.gguf",
+    public static final ModelSpec QWEN3_0_6B = new ModelSpec("Ibiko model", "qwen3-0.6b-q4km.gguf",
             HF + "Qwen3-0.6B-GGUF/resolve/50968a4468ef4233ed78cd7c3de230dd1d61a56b/Qwen3-0.6B-Q4_K_M.gguf",
             396705472L, "ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a", "Apache 2.0",
             "Qwen3", "0.6B", "Fastest and smallest: quick replies, simple questions.", 2, true);
-    public static final ModelSpec QWEN3_1_7B = new ModelSpec("DVINE model", "qwen3-1.7b-q4km.gguf", // the file name stays: installed copies keep working
+    public static final ModelSpec QWEN3_1_7B = new ModelSpec("Ibiko model", "qwen3-1.7b-q4km.gguf", // the file name stays: installed copies keep working
             HF + "Qwen3-1.7B-GGUF/resolve/d7f544eead698dbd1f15126ef60b45a1e1933222/Qwen3-1.7B-Q4_K_M.gguf",
             1107409472L, "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897", "Apache 2.0",
             "Qwen3", "1.7B", "Fast and light. The default.", 4, true);
-    public static final ModelSpec QWEN3_4B = new ModelSpec("DVINE model", "qwen3-4b-q4km.gguf",
+    public static final ModelSpec QWEN3_4B = new ModelSpec("Ibiko model", "qwen3-4b-q4km.gguf",
             HF + "Qwen3-4B-GGUF/resolve/22c9fc8a8c7700b76a1789366280a6a5a1ad1120/Qwen3-4B-Q4_K_M.gguf",
             2497281312L, "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a", "Apache 2.0",
             "Qwen3", "4B", "Balanced: much better reasoning and code, slower.", 6, true);
-    public static final ModelSpec QWEN3_8B = new ModelSpec("DVINE model", "qwen3-8b-q4km.gguf",
+    public static final ModelSpec QWEN3_8B = new ModelSpec("Ibiko model", "qwen3-8b-q4km.gguf",
             HF + "Qwen3-8B-GGUF/resolve/a6adef130ffb23ddaf1a62fec9dced968c9bc482/Qwen3-8B-Q4_K_M.gguf",
             5027784512L, "120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4", "Apache 2.0",
             "Qwen3", "8B", "Strongest: the best answers here, for devices with plenty of memory; slow.", 10, true);
-    public static final ModelSpec LLAMA_3_2_1B = new ModelSpec("DVINE model", "llama-3.2-1b-instruct-q4km.gguf",
+    public static final ModelSpec LLAMA_3_2_1B = new ModelSpec("Ibiko model", "llama-3.2-1b-instruct-q4km.gguf",
             HF + "Llama-3.2-1B-Instruct-GGUF/resolve/b69aef112e9f895e6f98d7ae0949f72ff09aa401/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
             807694368L, "3f5a22426976ab26cfe84dba63c1d08391717abb1af893e10f1b2968d862dcc1", "Llama 3.2 Community Licence",
             "Llama 3.2", "1B", "Meta's small Llama: fast everyday chat.", 3, false);
-    public static final ModelSpec LLAMA_3_2_3B = new ModelSpec("DVINE model", "llama-3.2-3b-instruct-q4km.gguf",
+    public static final ModelSpec LLAMA_3_2_3B = new ModelSpec("Ibiko model", "llama-3.2-3b-instruct-q4km.gguf",
             HF + "Llama-3.2-3B-Instruct-GGUF/resolve/e7d0997e49c9cb00d88b4c1a6a16aa894b0bbc31/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
             2019377600L, "6c99cc00ae910f6a532a80022cb4bc1939094527a089c29294b841c0bd87f74d", "Llama 3.2 Community Licence",
             "Llama 3.2", "3B", "Meta's Llama: good everyday chat and writing.", 6, false);
-    public static final ModelSpec GEMMA_3_1B = new ModelSpec("DVINE model", "gemma-3-1b-it-q4km.gguf",
+    public static final ModelSpec GEMMA_3_1B = new ModelSpec("Ibiko model", "gemma-3-1b-it-q4km.gguf",
             HF + "gemma-3-1b-it-GGUF/resolve/f0b45be0aac41bd6a100a4b5734cad5f67255bfb/gemma-3-1b-it-Q4_K_M.gguf",
             806058272L, "8270790f3ab69fdfe860b7b64008d9a19986d8df7e407bb018184caa08798ebd", "Gemma Terms of Use",
             "Gemma 3", "1B", "Google's small Gemma: fast, light writing.", 3, false);
-    public static final ModelSpec GEMMA_3_4B = new ModelSpec("DVINE model", "gemma-3-4b-it-q4km.gguf",
+    public static final ModelSpec GEMMA_3_4B = new ModelSpec("Ibiko model", "gemma-3-4b-it-q4km.gguf",
             HF + "gemma-3-4b-it-GGUF/resolve/5a3566e716d80f709ed7b79817eaf7733d2a1fce/gemma-3-4b-it-Q4_K_M.gguf",
             2489894016L, "04a43a22e8d2003deda5acc262f68ec1005fa76c735a9962a8c77042a74a7d19", "Gemma Terms of Use",
             "Gemma 3", "4B", "Google's Gemma: natural writing, many languages.", 6, false);
-    public static final ModelSpec PHI_4_MINI = new ModelSpec("DVINE model", "phi-4-mini-instruct-q4km.gguf",
+    public static final ModelSpec PHI_4_MINI = new ModelSpec("Ibiko model", "phi-4-mini-instruct-q4km.gguf",
             HF + "Phi-4-mini-instruct-GGUF/resolve/78eb92a46fc37e6b524df991ed9aca9bc6aa7b80/Phi-4-mini-instruct-Q4_K_M.gguf",
             2491874272L, "88c00229914083cd112853aab84ed51b87bdf6b9ce42f532d8c85c7c63b1730a", "MIT",
             "Phi-4", "mini", "Microsoft's Phi: maths and step-by-step reasoning.", 6, false);

@@ -92,7 +92,7 @@ public final class GitHubLogin {
         Map<String, String> h = new LinkedHashMap<String, String>();
         h.put("Accept", "application/vnd.github+json");
         h.put("Authorization", "Bearer " + token);
-        h.put("User-Agent", "DVINE");
+        h.put("User-Agent", "Ibiko");
         Connectors.Reply r = http.send("GET", "https://api.github.com/user", h, null);
         if (r.status == 401) {
             throw new IOException("GitHub refused the token (401)");
@@ -111,7 +111,7 @@ public final class GitHubLogin {
         Map<String, String> h = new LinkedHashMap<String, String>();
         h.put("Accept", "application/vnd.github+json");
         h.put("Authorization", "Bearer " + token);
-        h.put("User-Agent", "DVINE");
+        h.put("User-Agent", "Ibiko");
         Connectors.Reply r = http.send("GET", "https://api.github.com/user", h, null);
         if (r.status == 401) {
             throw new IOException("GitHub refused the token (401)");
@@ -136,14 +136,14 @@ public final class GitHubLogin {
 
     /** GitHub's page for making a token, filled in with DVINE's name and the scopes it needs. */
     public static String newTokenUrl() {
-        return "https://github.com/settings/tokens/new?description=DVINE&scopes=repo,read:user,read:org";
+        return "https://github.com/settings/tokens/new?description=Ibiko&scopes=repo,read:user,read:org";
     }
 
     private Map<String, Object> post(String url, String form) throws IOException {
         Map<String, String> h = new LinkedHashMap<String, String>();
         h.put("Accept", "application/json");
         h.put("Content-Type", "application/x-www-form-urlencoded");
-        h.put("User-Agent", "DVINE");
+        h.put("User-Agent", "Ibiko");
         Connectors.Reply r = http.send("POST", url, h, form.getBytes(StandardCharsets.UTF_8));
         try {
             return MiniJson.obj(MiniJson.parse(r.body));

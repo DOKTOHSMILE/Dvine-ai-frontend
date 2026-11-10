@@ -18,7 +18,7 @@ import ai.dvine.llm.ProviderStore;
  */
 public final class ConnectorStore {
     public enum Kind {
-        WEB("Web search", "Searches the web and reads the best pages. Free: Google in DVINE's own browser, then Wikipedia. Or your Brave Search, Tavily or Google key."),
+        WEB("Web search", "Searches the web and reads the best pages. Free: Google in Ibiko's own browser, then Wikipedia. Or your Brave Search, Tavily or Google key."),
         DOCS("Offline developer docs", "Official docs kept on this device for coding with no internet: Kotlin, Java, Python,"
                 + " JavaScript, TypeScript, HTML, CSS, Node, React, Go, Dart, Rust, C, C++, SQL and more, from DevDocs. Download the"
                 + " ones you use; the model searches them online or off."),

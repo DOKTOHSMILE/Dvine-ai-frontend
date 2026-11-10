@@ -50,8 +50,8 @@ public class OfflineBrainTest {
     @Test
     public void personaPhrasing() {
         String ivie = brain.respond("who are you", "ivie").spoken();
-        assertTrue(ivie.startsWith("I'm Ivie"));
-        assertTrue(say("who are you").startsWith("I'm Obi"));
+        assertTrue(ivie.startsWith("I'm Ibiko"));
+        assertTrue(say("who are you").startsWith("I'm Ibiko"));
     }
 
     @Test

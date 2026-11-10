@@ -37,10 +37,11 @@ public enum FunctionCode {
             + " repository or GitHub; run commands in the built-in Linux; build or audit an app's or a site's interface."
             + " The agent organisation plans it, splits it and carries it out", ""),
     WP("WRITEPLAN", "a long piece (a story, a script, a report, an essay): outline it, check the outline, then write it section by section", ""),
-    TT("THINKTOGETHER", "a weighty decision or question: Obi, Ivie and Ibiko work on it together and give one answer", ""),
+    TT("THINKTOGETHER", "a weighty decision or question: it is planned, checked against the real world and tested for what could break, then answered once", ""),
     RF("READFILES", "read the files in the workspace on this device (cloned repositories, projects) to answer this", ""),
     CO("CARRYON", "carry on with the unfinished work in this chat from where it stopped", ""),
-    DR("CANVAS", "change what is on Ivie's canvas: edit a part, turn or view it, undo, save, open or export", "<the change, in plain words>"),
+    DR("CANVAS", "change what is on the canvas: edit a part, turn or view it, undo, save, open or export", "<the change, in plain words>"),
+    ST("STEER", "only while a job runs in the background: pass the user's instruction to that job", "<the instruction>"),
     YS("CONFIRM", "the pilot agrees to the action that is shown waiting for their yes: carry it out", ""),
     CX("CANCEL", "the pilot does not want the action that is shown waiting: drop it", ""),
     PM("PLANMODE", "Ibiko plans and asks before changing anything", ""),
@@ -54,10 +55,10 @@ public enum FunctionCode {
      * test so it never drifts from the code.
      */
     public static String document() {
-        StringBuilder b = new StringBuilder("# DVINE app functions\n\n"
+        StringBuilder b = new StringBuilder("# Ibiko app functions\n\n"
                 + "Generated from `suit/FunctionCode.java` (`FunctionCode.document()`); a test keeps this file in step. Do not edit by hand.\n\n"
-                + "Every model that drives DVINE (an API model, the offline model, DVINE 1) controls the app the same way: it"
-                + " writes one function code alone on the first line of its reply, then a short sentence for the user. DVINE"
+                + "Every model that drives Ibiko (an API model, the offline model, Ibiko 1) controls the app the same way: it"
+                + " writes one function code alone on the first line of its reply, then a short sentence for the user. Ibiko"
                 + " carries the function out and shows the result. The user's own words never run a function; a chat's tools"
                 + " (the tools button) decide which codes that chat may use.\n\n"
                 + "Accepted forms on the first line: `\u00A7XX arguments`, `[[XX]] arguments`, `\u27E6XX\u27E7 arguments`.\n\n"
@@ -68,7 +69,7 @@ public enum FunctionCode {
         }
         b.append("\nExamples: `\u00A7SR weather in Lagos` \u00B7 `\u00A7SW ibiko` \u00B7 `\u00A7MF pdf` \u00B7 `\u00A7SP x 9am daily: Good morning`"
                 + " \u00B7 `\u00A7AC post on x: We're live`.\n\nRules: one code a reply; arithmetic goes to `\u00A7CA`; never claim a function ran"
-                + " (DVINE runs it after the code and shows the result); shell commands, posts and shares wait for the user's yes.\n");
+                + " (Ibiko runs it after the code and shows the result); shell commands, posts and shares wait for the user's yes.\n");
         return b.toString();
     }
 
@@ -196,7 +197,7 @@ public enum FunctionCode {
      * what it does" a line), or empty. {@code allowed}: the codes this chat may use (null for all).
      */
     public static String instructions(String tools, java.util.Set<FunctionCode> allowed) {
-        StringBuilder b = new StringBuilder("\n\nYou are the brain inside DVINE, a suit of functions on this device."
+        StringBuilder b = new StringBuilder("\n\nYou are the brain inside Ibiko, a suit of functions on this device."
                 + " The user's words never run anything by themselves; you decide from what they mean and the"
                 + " conversation. When the user clearly wants one of these done, write its code alone on the first line,"
                 + " then a short sentence for them. Otherwise just answer, with no code line. Codes:");
@@ -213,7 +214,7 @@ public enum FunctionCode {
             b.append(" Tools for ").append(TL.code()).append(":").append(tools);
         }
         b.append(" For arithmetic, use ").append(CA.code()).append(" rather than working it out yourself.")
-                .append(" Never claim a function ran: DVINE runs it after your code and shows the result.");
+                .append(" Never claim a function ran: Ibiko runs it after your code and shows the result.");
         return b.toString();
     }
 }

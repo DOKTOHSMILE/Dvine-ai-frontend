@@ -45,7 +45,7 @@ public class PostPlanTest {
         assertEquals(at(2026, 11, 17, 8, 0), w.next(w.at, LAGOS).at);
 
         assertNull("no time", PostPlan.parse("x: hello", now, LAGOS));
-        assertNull("not a network DVINE posts to", PostPlan.parse("myspace 9am: hi", now, LAGOS));
+        assertNull("not a network Ibiko posts to", PostPlan.parse("myspace 9am: hi", now, LAGOS));
         assertNull("a single post needs a time", PostPlan.parse("x soon: hi", now, LAGOS));
     }
 

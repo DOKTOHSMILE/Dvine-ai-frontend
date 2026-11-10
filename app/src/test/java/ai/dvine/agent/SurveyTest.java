@@ -66,6 +66,39 @@ public class SurveyTest {
         java.io.File root = java.nio.file.Files.createTempDirectory("clone-https-github-com-me-app").toFile();
         java.nio.file.Files.write(new java.io.File(root, "NEXT_ACTIONS.md").toPath(), "clone the github repo app".getBytes("UTF-8"));
         java.nio.file.Files.write(new java.io.File(root, "EXECUTION.json").toPath(), "{\"task\":\"clone app\"}".getBytes("UTF-8"));
-        assertTrue("nothing but DVINE's bookkeeping: no survey", Survey.pick(root, "Clone https://github.com/me/app.git").isEmpty());
+        assertTrue("nothing but Ibiko's bookkeeping: no survey", Survey.pick(root, "Clone https://github.com/me/app.git").isEmpty());
+    }
+
+    @Test
+    public void aBrokenOffSurveyCarriesOnWithoutReadingAgainAndTheMapIsInOrderWithTimes() throws Exception {
+        File root = project();
+        File keep = Files.createTempDirectory("keep").toFile();
+        String task = "Fix the dictation so pauses keep the words";
+        // the first run breaks off: one reader fails, as when the connection drops
+        Survey.run(root, keep, task, (system, text) -> text.contains("Voice.java") ? null : "Purpose: read once", 1, null);
+        String progress = new String(Files.readAllBytes(new File(keep, "SURVEY.md").toPath()), "UTF-8");
+        assertTrue(progress, progress.contains("Still to read") && progress.contains("Voice.java") && progress.contains("Last read:"));
+        // "continue": only what was not read is read now
+        AtomicInteger asked = new AtomicInteger();
+        StringBuilder steps = new StringBuilder();
+        String map = Survey.run(root, keep, task, (system, text) -> {
+            asked.incrementAndGet();
+            assertTrue("only the part not read yet", text.contains("Voice.java"));
+            return "Purpose: a helper";
+        }, 2, line -> steps.append(line).append('\n'));
+        assertEquals(1, asked.get());
+        assertTrue(steps.toString(), steps.toString().contains("already read, carrying on from there"));
+        assertTrue(map, map.contains("Made: ") && map.contains("## Contents") && map.contains("### Lines 1") && map.contains("Read 20"));
+        assertTrue("files in path order", map.indexOf("## README.md") < map.indexOf("## app/src/Dictation.java")
+                || !map.contains("## README.md"));
+        assertTrue(map.indexOf("## app/src/Dictation.java") < map.indexOf("## app/src/Voice.java"));
+        // a changed file is read again
+        Files.write(new File(root, "app/src/Dictation.java").toPath(), "class Dictation {\n  void put(String s) {}\n}\n".getBytes("UTF-8"));
+        AtomicInteger again = new AtomicInteger();
+        Survey.run(root, keep, task, (system, text) -> {
+            again.incrementAndGet();
+            return "Purpose: changed";
+        }, 2, null);
+        assertEquals("only the changed file", 1, again.get());
     }
 }

@@ -1,0 +1,8 @@
+world_facts.tsv
+
+Countries (capital, region, currency, official languages, area, demonym, neighbours, landlocked) are derived from
+"countries" by Mohammed Le Doze and contributors, https://github.com/mledoze/countries, made available under the
+Open Database License (ODbL) v1.0: https://opendatacommons.org/licenses/odbl/1-0/
+This derived database (the country lines of world_facts.tsv) is likewise made available under the ODbL v1.0.
+
+Chemical elements (name, symbol, atomic number) are standard scientific facts compiled for this app.

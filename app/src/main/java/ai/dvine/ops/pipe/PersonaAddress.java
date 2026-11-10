@@ -28,7 +28,7 @@ public final class PersonaAddress {
         }
 
         public String clarify() {
-            return "I don't have a persona named " + unknown + ". The three are Obi, Ivie, and Ibiko.";
+            return "I don't have a persona named " + unknown + ". There is one assistant here: Ibiko.";
         }
     }
 

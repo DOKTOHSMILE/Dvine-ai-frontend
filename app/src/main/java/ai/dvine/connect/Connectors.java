@@ -109,7 +109,7 @@ public final class Connectors {
         Map<String, String> h = new LinkedHashMap<String, String>();
         h.put("Accept", "application/vnd.github+json");
         h.put("X-GitHub-Api-Version", "2022-11-28");
-        h.put("User-Agent", "DVINE");
+        h.put("User-Agent", "Ibiko");
         if (token != null && !token.isEmpty()) {
             h.put("Authorization", "Bearer " + token);
         }
@@ -216,7 +216,7 @@ public final class Connectors {
 
     public static List<Tool> notionTools() {
         List<Tool> t = new ArrayList<Tool>();
-        t.add(new Tool("notion.search", "search the pages shared with DVINE's Notion integration", "words"));
+        t.add(new Tool("notion.search", "search the pages shared with Ibiko's Notion integration", "words"));
         return t;
     }
 
@@ -350,7 +350,7 @@ public final class Connectors {
             p.put("protocolVersion", "2025-06-18");
             p.put("capabilities", new LinkedHashMap<String, Object>());
             Map<String, Object> client = new LinkedHashMap<String, Object>();
-            client.put("name", "DVINE");
+            client.put("name", "Ibiko");
             client.put("version", "1");
             p.put("clientInfo", client);
             rpc("initialize", p, false);

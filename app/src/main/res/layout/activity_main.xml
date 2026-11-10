@@ -45,7 +45,7 @@
                     android:ellipsize="end"
                     android:maxWidth="240dp"
                     android:singleLine="true"
-                    android:text="DVINE"
+                    android:text="Ibiko"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -62,7 +62,7 @@
                     android:paddingStart="6dp"
                     android:paddingEnd="4dp"
                     android:singleLine="true"
-                    android:text="DVINE model"
+                    android:text="Ibiko model"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
             </LinearLayout>
@@ -195,7 +195,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:paddingStart="8dp"
-            android:text="DVINE"
+            android:text="Ibiko"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />

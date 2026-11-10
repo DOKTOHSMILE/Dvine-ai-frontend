@@ -1,3 +1,14 @@
+# The app is Ibiko; jobs in the background; nothing read twice (0.99.57)
+
+- [x] One name everywhere a person looks or a model is told: Ibiko.
+- [x] A message sent during an agent job is answered beside it; an instruction for the job goes to it.
+- [x] The survey keeps each part as it is read and carries on after a break; the map is sorted with times.
+- [x] Plans are added to, never replaced.
+- [x] 2,379 built-in facts.
+- [ ] The composer chips (Tools, Code, Media, Explore, More).
+- [ ] Rename internal keys and classes (obi, ivie, ibiko) once old data can be migrated.
+- [ ] The full Wikidata set when it is reachable, and more subjects.
+
 # The job stays on screen until it is done (0.99.56)
 
 - [x] A `git clone` still lands in `memory/projects/`, and the counting-objects log is not a code card at all.

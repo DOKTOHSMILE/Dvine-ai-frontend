@@ -23,7 +23,7 @@ public final class Actions {
         if (cm == null) {
             return false;
         }
-        cm.setPrimaryClip(ClipData.newPlainText("DVINE", text));
+        cm.setPrimaryClip(ClipData.newPlainText("Ibiko", text));
         return true;
     }
 

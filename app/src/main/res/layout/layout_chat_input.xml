@@ -66,7 +66,7 @@
             android:layout_height="wrap_content"
             android:background="@null"
             android:gravity="top|start"
-            android:hint="Ask anything"
+            android:hint="Ask Ibiko anything"
             android:inputType="textMultiLine|textCapSentences"
             android:maxLines="6"
             android:minHeight="48dp"

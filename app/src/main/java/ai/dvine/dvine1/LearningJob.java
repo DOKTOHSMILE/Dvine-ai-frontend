@@ -310,7 +310,7 @@ public final class LearningJob extends JobService {
         }
         if (nm.getNotificationChannel(CHANNEL) == null) {
             NotificationChannel ch = new NotificationChannel(CHANNEL, "Learning", NotificationManager.IMPORTANCE_LOW);
-            ch.setDescription("What DVINE learned in a learning session");
+            ch.setDescription("What Ibiko learned in a learning session");
             ch.setSound(null, null);
             nm.createNotificationChannel(ch);
         }
@@ -321,8 +321,8 @@ public final class LearningJob extends JobService {
         PendingIntent tap = PendingIntent.getActivity(this, 4, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification note = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(Plug.icon)
-                .setContentTitle("DVINE learned " + n + (n == 1 ? " new thing" : " new things"))
-                .setContentText("Open DVINE to see what it learned.")
+                .setContentTitle("Ibiko learned " + n + (n == 1 ? " new thing" : " new things"))
+                .setContentText("Open Ibiko to see what it learned.")
                 .setContentIntent(tap)
                 .setAutoCancel(true)
                 .build();

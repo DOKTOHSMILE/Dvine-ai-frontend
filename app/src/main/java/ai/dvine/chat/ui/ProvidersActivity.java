@@ -455,7 +455,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         box.addView(tri(f.vision), Ui.wide(this, 6));
         box.addView(Ui.text(this, "Reasoning model (thinks before answering: more room, no temperature)", 13, Ui.SUB, false), Ui.wide(this, 10));
         box.addView(tri(f.reasoning), Ui.wide(this, 6));
-        f.maxOut = Ui.field(this, "Most it may write, tokens (empty: DVINE decides)", store.maxOutput(p) > 0 ? String.valueOf(store.maxOutput(p)) : "",
+        f.maxOut = Ui.field(this, "Most it may write, tokens (empty: Ibiko decides)", store.maxOutput(p) > 0 ? String.valueOf(store.maxOutput(p)) : "",
                 false, false);
         f.maxOut.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         box.addView(f.maxOut, Ui.wide(this, 10));

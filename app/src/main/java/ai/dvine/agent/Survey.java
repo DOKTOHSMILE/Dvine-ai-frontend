@@ -143,6 +143,64 @@ public final class Survey {
         return ranked.size() > MOST_FILES ? new ArrayList<File>(ranked.subList(0, MOST_FILES)) : ranked;
     }
 
+    /** "2026-11-10 21:14:03": when a part was read, so the report is in time order. */
+    static String stamp(long ms) {
+        return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new java.util.Date(ms));
+    }
+
+    /** A part's kept reading is named for its file, its lines and a hash of those lines: changed lines are read again. */
+    static File keptFile(File dir, Piece p) {
+        return new File(dir, p.path.replaceAll("[\\\\/]", "__") + "@" + p.from + "-" + p.to + "-"
+                + Integer.toHexString(p.text.hashCode()) + ".md");
+    }
+
+    static String readKept(File dir, Piece p) {
+        File f = keptFile(dir, p);
+        try {
+            return f.isFile() ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8) : null;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    static void writeKept(File dir, Piece p, String note) {
+        try {
+            Files.write(keptFile(dir, p).toPath(), note.getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // read again next time
+        }
+    }
+
+    /**
+     * SURVEY.md: where the reading stands, rewritten as each part finishes: how many are read, the last one and when,
+     * and the parts still to read in order. A run that breaks off carries on from here.
+     */
+    static synchronized void progress(File keep, String task, List<Piece> all, java.util.Set<Piece> done, Piece last) {
+        StringBuilder b = new StringBuilder("# Survey progress\n\nTask: ").append(task.trim()).append("\nUpdated: ")
+                .append(stamp(System.currentTimeMillis())).append("\nRead: ").append(done.size()).append(" of ").append(all.size())
+                .append(" parts\n");
+        if (last != null) {
+            b.append("Last read: ").append(last.path).append(" (lines ").append(last.from).append("–").append(last.to).append(")\n");
+        }
+        b.append("\n## Still to read\n\n");
+        int left = 0;
+        for (Piece p : all) {
+            if (!done.contains(p)) {
+                b.append("- ").append(p.path).append(" (lines ").append(p.from).append("–").append(p.to).append(")\n");
+                left++;
+            }
+        }
+        if (left == 0) {
+            b.append("- nothing: every part is read\n");
+        }
+        try {
+            keep.mkdirs();
+            Files.write(new File(keep, "SURVEY.md").toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // the kept parts still say what was read
+        }
+    }
+
     private static void walk(File dir, List<File> out, int depth) {
         File[] in = dir.listFiles();
         if (in == null || depth > 12 || out.size() > 20000) {
@@ -205,18 +263,38 @@ public final class Survey {
         if (pieces.isEmpty()) {
             return null;
         }
-        int n = Math.max(1, Math.min(workers, pieces.size()));
+        // what was already read (an earlier run that broke off, a "continue"): kept, never read again while the lines
+        // it covers are unchanged
+        final File done = new File(keep, "pieces");
+        done.mkdirs();
+        final Map<Piece, String> already = new LinkedHashMap<Piece, String>();
+        for (Piece p : pieces) {
+            String kept = readKept(done, p);
+            if (kept != null) {
+                already.put(p, kept);
+            }
+        }
+        int left = pieces.size() - already.size();
+        int n = Math.max(1, Math.min(workers, Math.max(1, left)));
         if (step != null) {
             step.accept("Surveying the codebase: " + files.size() + (files.size() == 1 ? " file" : " files") + ", " + n
-                    + (n == 1 ? " reader" : " readers at once"));
+                    + (n == 1 ? " reader" : " readers at once")
+                    + (already.isEmpty() ? "" : "; " + already.size() + " of " + pieces.size() + " parts already read, carrying on from there"));
         }
+        progress(keep, task, pieces, already.keySet(), null);
         ExecutorService pool = Executors.newFixedThreadPool(n, r -> {
             Thread t = new Thread(r, "dvine-survey");
             t.setDaemon(true);
             return t;
         });
         Map<Piece, Future<String>> jobs = new LinkedHashMap<Piece, Future<String>>();
+        final java.util.Set<Piece> finished = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<Piece>(already.keySet()));
         for (final Piece p : pieces) {
+            if (already.containsKey(p)) {
+                final String kept = already.get(p);
+                jobs.put(p, java.util.concurrent.CompletableFuture.completedFuture(kept));
+                continue;
+            }
             jobs.put(p, pool.submit(() -> {
                 String code = AgentBoard.start("Reader", p.path + " (lines " + p.from + "–" + p.to + ")");
                 try {
@@ -227,7 +305,15 @@ public final class Survey {
                     if (step != null) {
                         step.accept("Read " + p.path + (p.from > 1 || p.to > PIECE_LINES ? " (lines " + p.from + "–" + p.to + ")" : ""));
                     }
-                    return said == null ? "" : said.trim();
+                    String note = said == null ? "" : said.trim();
+                    if (!note.isEmpty()) {
+                        String stamped = "Read " + stamp(System.currentTimeMillis()) + "\n" + note;
+                        writeKept(done, p, stamped); // kept at once: a broken connection loses nothing already read
+                        finished.add(p);
+                        progress(keep, task, pieces, finished, p);
+                        return stamped;
+                    }
+                    return note;
                 } catch (RuntimeException e) {
                     AgentBoard.end(code, AgentBoard.Outcome.FAILED);
                     return "";
@@ -235,7 +321,9 @@ public final class Survey {
             }));
         }
         pool.shutdown();
-        StringBuilder map = new StringBuilder("# Codebase map\n\nTask: ").append(task.trim()).append("\n\n");
+        StringBuilder map = new StringBuilder("# Codebase map\n\nTask: ").append(task.trim()).append("\nMade: ")
+                .append(stamp(System.currentTimeMillis())).append("\nFiles: ").append(files.size()).append(", parts: ")
+                .append(pieces.size()).append(" (each part's own reading time is under it)\n\n");
         Map<String, StringBuilder> byFile = new LinkedHashMap<String, StringBuilder>();
         int read = 0;
         for (Map.Entry<Piece, Future<String>> e : jobs.entrySet()) {
@@ -255,7 +343,7 @@ public final class Survey {
                 b = new StringBuilder();
                 byFile.put(p.path, b);
             }
-            b.append(p.from > 1 || p.to > PIECE_LINES ? "(lines " + p.from + "–" + p.to + ")\n" : "").append(said).append("\n");
+            b.append("### Lines " + p.from + "–" + p.to + "\n").append(said).append("\n\n");
         }
         pool.shutdownNow();
         if (read == 0) {
@@ -263,6 +351,19 @@ public final class Survey {
         }
         File notes = new File(keep, "notes");
         notes.mkdirs();
+        // sorted: files by path, and inside a file the parts in line order, so the report reads straight through
+        List<String> order = new ArrayList<String>(byFile.keySet());
+        Collections.sort(order);
+        map.append("## Contents\n\n");
+        for (String f : order) {
+            map.append("- ").append(f).append('\n');
+        }
+        map.append('\n');
+        java.util.LinkedHashMap<String, StringBuilder> sorted = new java.util.LinkedHashMap<String, StringBuilder>();
+        for (String f : order) {
+            sorted.put(f, byFile.get(f));
+        }
+        byFile = sorted;
         for (Map.Entry<String, StringBuilder> e : byFile.entrySet()) {
             map.append("## ").append(e.getKey()).append("\n").append(e.getValue()).append("\n");
             try {

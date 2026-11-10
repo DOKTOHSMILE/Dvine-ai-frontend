@@ -10,7 +10,7 @@ import org.junit.Test;
 public class NarrationTest {
     @Test
     public void eachStepSaysWhatItFound() {
-        assertEquals("Read PLAN.md (3 lines). It starts: # DVINE plan", Narration.of("Read PLAN.md", "# DVINE plan\n\nStep one"));
+        assertEquals("Read PLAN.md (3 lines). It starts: # Ibiko plan", Narration.of("Read PLAN.md", "# Ibiko plan\n\nStep one"));
         assertEquals("Searched for “night”: 2 matches, first app/Learn.java:12.",
                 Narration.of("Searched for “night”", "app/Learn.java:12\napp/Job.java:40"));
         assertEquals("Searched for “x”: nothing found.", Narration.of("Searched for “x”", ""));

@@ -72,7 +72,7 @@ final class Designs {
             if (asked != null) {
                 asked.add(system.substring(0, Math.min(40, system.length())) + " :: " + prompt);
             }
-            return system.startsWith("You are DVINE's designer") ? brief : lines;
+            return system.startsWith("You are Ibiko's designer") ? brief : lines;
         };
     }
 

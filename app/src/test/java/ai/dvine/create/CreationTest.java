@@ -79,7 +79,7 @@ public class CreationTest {
         final List<String> asked = new ArrayList<String>();
         d.setDesigner((s, p, n) -> {
             asked.add(s);
-            return s.startsWith("You are DVINE's designer") ? Designs.BRIEF : s.startsWith("Here are the part lines") ? taller : Designs.HOUSE;
+            return s.startsWith("You are Ibiko's designer") ? Designs.BRIEF : s.startsWith("Here are the part lines") ? taller : Designs.HOUSE;
         }, 1500);
         d.perform(d.parse("build a two-storey building with a 20 foot roof", false));
         ObjectRequestInterpreter.Request change = d.parse("make the roof 25 feet", true);
@@ -108,7 +108,7 @@ public class CreationTest {
         String floating = Designs.CAR + "lamp | sphere | white | 0.3 x 0.3 x 0.3 | at 0, 3, 0\n";
         final int[] fixes = {0};
         d.setDesigner((s, p, n) -> {
-            if (s.startsWith("You are DVINE's designer")) return "a car, 4.4 m long";
+            if (s.startsWith("You are Ibiko's designer")) return "a car, 4.4 m long";
             if (s.startsWith("These part lines")) {
                 fixes[0]++;
                 assertTrue(p, p.contains("lamp is floating"));

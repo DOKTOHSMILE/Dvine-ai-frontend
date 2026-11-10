@@ -24,8 +24,8 @@ public final class Meaning {
         MODEL_OFF("turn off the model", false, "stop using the device's own model"),
         MODEL_ON("turn on the model", false, "start using the device's own model again"),
         NEW_CHAT("start a new chat", false, "start a new, empty chat"),
-        SWITCH_IVIE("switch to Ivie", false, "talk to Ivie (graphics and 3D) from now on; only when the message is just about switching"),
-        SWITCH_OBI("switch to Obi", false, "talk to Obi (chat and research) from now on; only when the message is just about switching"),
+        SWITCH_IVIE("switch to Ivie", false, "not used: there is one assistant, Ibiko"),
+        SWITCH_OBI("switch to Obi", false, "not used: there is one assistant, Ibiko"),
         SWITCH_IBIKO("switch to Ibiko", false, "talk to Ibiko (coding) from now on; only when the message is just about switching"),
         STOP("stop", false, "stop the reply or the work going on now"),
         AUTO_ON("turn auto-accept on", false, "let Ibiko run commands, pushes and pull requests without asking first"),
@@ -68,7 +68,7 @@ public final class Meaning {
 
     /** The reader's instructions: the commands and what each means; a small model follows them. */
     public static String prompt(boolean work) {
-        StringBuilder b = new StringBuilder("You read one message a user sent to DVINE, a device assistant, and say which of these"
+        StringBuilder b = new StringBuilder("You read one message a user sent to Ibiko, a device assistant, and say which of these"
                 + " commands it means, whatever its words. Do not answer it. Reply with one line, COMMAND: and the name.\n");
         for (Command c : Command.values()) {
             if (c.needsWork && !work) {

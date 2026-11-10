@@ -204,7 +204,7 @@ public final class ChatBook {
             }
         }
         String title = cur.title != null && !cur.title.matches("(?i)^(chat|new chat|obi|ivie|ibiko|ibiko code)$")
-                ? cur.title : ("ibiko".equals(p) ? "Ibiko code" : ("obi".equals(p) ? "Obi" : "Ivie"));
+                ? cur.title : "Chat";
         return openIn(title, p, group);
     }
 
@@ -305,7 +305,7 @@ public final class ChatBook {
         // the user writes on the page on screen; an answer, a step or a file goes to the page its work was asked on
         Section s = "user".equals(role) ? current() : pageFor(persona);
         if ("user".equals(role) && (s.title == null || s.title.equals("Chat") || s.title.equals("New chat")
-                || s.title.equals("Obi") || s.title.equals("Ivie") || s.title.equals("Ibiko code"))
+                || s.title.equals("Obi") || s.title.equals("Ivie") || s.title.equals("Ibiko code") || s.title.equals("Chat"))
                 && s.messages.isEmpty()) {
             String t = body.trim().replace('\n', ' ');
             s.title = t.length() > 48 ? t.substring(0, 48) : t;

@@ -30,14 +30,17 @@ public class CouncilTest {
         assertTrue(r.answer.startsWith("Start the business on the side first"));
         assertTrue(r.secondRound);
         assertEquals(5, systems.size());
-        assertTrue(systems.get(0).startsWith("You are Obi, the planner") && systems.get(0).contains("numbered"));
-        assertTrue(systems.get(1).startsWith("You are Ivie") && systems.get(1).contains("real") && systems.get(1).contains("UI/UX")
-                && prompts.get(1).contains("Obi's plan"));
-        assertTrue(systems.get(2).startsWith("You are Obi, the planner. Ivie checked") && prompts.get(2).contains("a side launch first"));
-        assertTrue(systems.get(3).startsWith("You are Ibiko, the builder") && systems.get(3).contains("carry the plan out"));
-        assertTrue(systems.get(4).contains("never invent agreement") && prompts.get(4).contains("Ibiko (how to build it)"));
-        assertEquals(Arrays.asList("Obi: Obi made the plan", "Ivie: Ivie checked it against the real world and disagrees on one point",
-                "Obi: Obi revised the plan on Ivie's point", "Ibiko: Ibiko worked out how to build it"), steps);
+        assertTrue(systems.get(0).startsWith("You are Ibiko's planner") && systems.get(0).contains("numbered"));
+        assertTrue(systems.get(1).startsWith("You are Ibiko's checker") && systems.get(1).contains("real") && systems.get(1).contains("UI/UX")
+                && prompts.get(1).contains("The plan:"));
+        assertTrue(systems.get(2).startsWith("You are Ibiko's planner. The checker checked") && prompts.get(2).contains("a side launch first"));
+        assertTrue(systems.get(3).startsWith("You are Ibiko's builder") && systems.get(3).contains("carry the plan out"));
+        assertTrue(systems.get(4).contains("never invent agreement") && prompts.get(4).contains("How to build it:"));
+        for (String s : systems) {
+            assertTrue("no persona names", !s.contains("Obi") && !s.contains("Ivie"));
+        }
+        assertEquals(Arrays.asList("Plan: Made the plan", "Check: Checked it against the real world: one point disagrees",
+                "Plan: Revised the plan on the check's point", "Build: Worked out how to build it"), steps);
         // agreement: no second round
         List<String> calm = new ArrayList<String>(Arrays.asList("Plan A.", "Fine. VERDICT: AGREE", "Steps.",
                 "Answer.\nObi checked \u2026; Ivie considered \u2026; Ibiko worked out \u2026.")); // a copied template line goes

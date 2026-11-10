@@ -113,7 +113,7 @@ public final class Tuning {
             "How much of the conversation and the work the device's own model keeps in mind. More lets Ibiko work offline and"
                     + " remember longer chats, but takes more of the device's memory and starts slower.", 8192, 1024, 32768);
     public static final Knob SLOW_SPEED = new Knob("adv_slow_speed", "Offline model is slow below, tokens a second",
-            "When the device's own model writes slower than this, DVINE suggests a smaller size or less memory.", 4, 1, 50);
+            "When the device's own model writes slower than this, Ibiko suggests a smaller size or less memory.", 4, 1, 50);
 
     public static final Knob MODEL_THREADS = new Knob("adv_model_threads", "Offline model threads (0 = automatic)",
             "How many cores the offline model uses. Automatic uses two. More than two makes the phone hum and does not go faster.",

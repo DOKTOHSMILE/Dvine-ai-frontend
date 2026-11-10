@@ -59,7 +59,7 @@ public class DualAgentCoordinatorTest {
         assertTrue(said(out, "ivie").get(0).contains("differently"));
         assertTrue(said(out, "ivie").contains("Wind turbines are cheaper per unit of energy in windy places."));
         List<String> obiLines = said(out, "obi");
-        assertTrue("Obi closes with a summary that keeps both views", obiLines.get(obiLines.size() - 2).contains("Ivie's view"));
+        assertTrue("Obi closes with a summary that keeps both views", obiLines.get(obiLines.size() - 2).contains("Another view"));
         assertEquals(Arrays.asList(State.QUESTION_RECEIVED, State.AGENT_A_THINKING, State.AGENT_A_SPEAKING,
                 State.AGENT_B_ANALYZING, State.AGENT_B_SPEAKING, State.FINAL_SUMMARY, State.IDLE), states);
     }
@@ -72,7 +72,7 @@ public class DualAgentCoordinatorTest {
         final List<State> states = new ArrayList<State>();
         List<TurnLine> out = new DualAgentCoordinator(obi, ivie).discuss("when does water boil", "obi", Mode.DEBATE,
                 (s, p) -> states.add(s));
-        assertTrue(said(out, "ivie").get(0).startsWith("I agree with Obi"));
+        assertTrue(said(out, "ivie").get(0).startsWith("I agree with the first answer"));
         assertTrue(states.contains(State.CONSENSUS));
         assertTrue("no debate rounds when they agree", !states.contains(State.DEBATE_CONTINUING));
         assertTrue(said(out, "obi").get(said(out, "obi").size() - 1).startsWith("So we agree"));

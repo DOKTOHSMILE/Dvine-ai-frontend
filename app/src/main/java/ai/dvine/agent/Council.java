@@ -66,20 +66,20 @@ public final class Council {
         return WEIGHTY.matcher(q).find() && words >= 6;
     }
 
-    static final String OBI = "You are Obi, the planner, in a council of three (Obi plans, Ivie checks it against the real"
-            + " world and its UI/UX, Ibiko builds). Your part: the plan. In plain short lines: the goal, the plan as numbered"
+    static final String OBI = "You are Ibiko's planner, one of three passes (the planner plans, the checker checks it against the real"
+            + " world and its UI/UX, the builder works out how to build it). Your part: the plan. In plain short lines: the goal, the plan as numbered"
             + " steps, the key assumptions and risks, and how sure you are (low, medium or high). Be concrete; no greeting;"
             + " under 180 words. Don't write the final answer: the council merges it. /no_think";
-    static final String IVIE = "You are Ivie, in a council of three (Obi plans, you check it, Ibiko builds). Your part:"
-            + " match Obi's plan against how the real world behaves: how people will actually use it or react, habits,"
+    static final String IVIE = "You are Ibiko's checker, one of three passes (the planner plans, you check it, the builder builds). Your part:"
+            + " match the plan against how the real world behaves: how people will actually use it or react, habits,"
             + " money, time and local conditions that get in the way, and, for anything people see or touch, the UI/UX (what"
             + " the screens or the experience should be like). Say what to change. Under 160 words. End with one line:"
             + " VERDICT: AGREE, or VERDICT: DISAGREE: and the one point that matters most. /no_think";
-    static final String IBIKO = "You are Ibiko, the builder, in a council of three (Obi plans, Ivie checks it, you build)."
+    static final String IBIKO = "You are Ibiko's builder, one of three passes (the planner plans, the checker checks it, you build)."
             + " Your part: how you will carry the plan out. The build steps in order (what you make first, the tools,"
             + " languages or services, how you will test it), what it costs in time or money, and anything that makes it"
             + " hard. Under 150 words; numbered steps. /no_think";
-    static final String RECHECK = "You are Obi, the planner. Ivie checked your plan against the real world and disagrees on"
+    static final String RECHECK = "You are Ibiko's planner. The checker checked your plan against the real world and disagrees on"
             + " the point below. In under 80 words: keep the plan or change it, and say why. /no_think";
 
     /** Something to build (an app, a site, a tool…): after the council, Ibiko is offered the plan to carry out. */
@@ -91,13 +91,13 @@ public final class Council {
     }
 
     static String synth(String speaker) {
-        String who = speaker == null || speaker.isEmpty() ? "Obi" : speaker.substring(0, 1).toUpperCase(Locale.US) + speaker.substring(1);
-        return "You are " + who + ", answering for a council of three (Obi, Ivie, Ibiko) that worked on the user's"
-                + " question together (Obi made the plan, Ivie checked it against the real world and its UI/UX, Ibiko"
-                + " worked out how to build it). Write ONE answer for the user from their notes: the plan first, as Ivie"
+        String who = "Ibiko";
+        return "You are " + who + ", answering after three passes on the user's"
+                + " question (a plan, a check of it against the real world and its UI/UX, and how to"
+                + " build it). Write ONE answer for the user from those notes: the plan first, as the check"
                 + " adjusted it, then why, the risks to watch, and the build or action steps. Where they disagreed, say so plainly and"
                 + " which way the evidence points; never invent agreement. Speak as yourself, warmly and clearly; no"
-                + " headings about the council. End with one short line naming what each of the three looked at."
+                + " headings about the passes. Never name the passes as people."
                 + " /no_think";
     }
 
@@ -112,34 +112,34 @@ public final class Council {
         if (obi.isEmpty() || stopped.getAsBoolean()) {
             return null;
         }
-        steps.step("Obi made the plan", "Obi", obi);
-        String ivie = clean(brain.ask(IVIE, base + "\n\nObi's plan:\n" + obi));
+        steps.step("Made the plan", "Plan", obi);
+        String ivie = clean(brain.ask(IVIE, base + "\n\nThe plan:\n" + obi));
         if (stopped.getAsBoolean()) {
             return null;
         }
-        steps.step(disagrees(ivie) ? "Ivie checked it against the real world and disagrees on one point"
-                : "Ivie checked it against the real world and its UI/UX", "Ivie", ivie);
+        steps.step(disagrees(ivie) ? "Checked it against the real world: one point disagrees"
+                : "Checked it against the real world and its UI/UX", "Check", ivie);
         boolean second = false;
         if (disagrees(ivie)) {
-            String recheck = clean(brain.ask(RECHECK, base + "\n\nYour plan:\n" + obi + "\n\nIvie disagrees: " + point(ivie)));
+            String recheck = clean(brain.ask(RECHECK, base + "\n\nYour plan:\n" + obi + "\n\nThe check disagrees: " + point(ivie)));
             if (!recheck.isEmpty()) {
-                obi = obi + "\n\nAfter Ivie's point: " + recheck;
+                obi = obi + "\n\nAfter the check's point: " + recheck;
                 second = true;
-                steps.step("Obi revised the plan on Ivie's point", "Obi", recheck);
+                steps.step("Revised the plan on the check's point", "Plan", recheck);
             }
         }
         if (stopped.getAsBoolean()) {
             return null;
         }
-        String ibiko = clean(brain.ask(IBIKO, base + "\n\nObi's plan:\n" + obi + "\n\nIvie's check:\n" + ivie));
+        String ibiko = clean(brain.ask(IBIKO, base + "\n\nThe plan:\n" + obi + "\n\nThe check:\n" + ivie));
         if (stopped.getAsBoolean()) {
             return null;
         }
         if (!ibiko.isEmpty()) {
-            steps.step("Ibiko worked out how to build it", "Ibiko", ibiko);
+            steps.step("Worked out how to build it", "Build", ibiko);
         }
-        String notes = base + "\n\nObi (the plan):\n" + obi + "\n\nIvie (real world, UI/UX):\n" + ivie
-                + (ibiko.isEmpty() ? "" : "\n\nIbiko (how to build it):\n" + ibiko);
+        String notes = base + "\n\nThe plan:\n" + obi + "\n\nThe check (real world, UI/UX):\n" + ivie
+                + (ibiko.isEmpty() ? "" : "\n\nHow to build it:\n" + ibiko);
         // a small model may copy a template line ("Obi checked …; Ivie considered …") word for word: dropped
         String answer = clean(brain.ask(synth(speaker), notes)).replaceAll("(?m)^.*(checked|considered|worked out) \u2026.*$\\n?", "").trim();
         if (answer.isEmpty() || stopped.getAsBoolean()) {

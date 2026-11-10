@@ -165,7 +165,7 @@ public final class DevDocs {
         HttpURLConnection c = (HttpURLConnection) new URL(FILES + set.slug + "/db.json").openConnection();
         c.setConnectTimeout(20_000);
         c.setReadTimeout(60_000);
-        c.setRequestProperty("User-Agent", "DVINE");
+        c.setRequestProperty("User-Agent", "Ibiko");
         if (c.getResponseCode() != 200) {
             throw new IOException("DevDocs answered " + c.getResponseCode());
         }
@@ -356,7 +356,7 @@ public final class DevDocs {
         c.setConnectTimeout(20_000);
         c.setReadTimeout(30_000);
         c.setInstanceFollowRedirects(true);
-        c.setRequestProperty("User-Agent", "DVINE");
+        c.setRequestProperty("User-Agent", "Ibiko");
         try (InputStream in = c.getInputStream()) {
             java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
             byte[] buf = new byte[1 << 15];
