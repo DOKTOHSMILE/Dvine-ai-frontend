@@ -1134,7 +1134,10 @@ public final class ChatPane extends LinearLayout {
      * then takes its place).
      */
     public void setLive(String text) {
-        String t = text == null || text.trim().isEmpty() ? null : text.trim();
+        // a command code is for DVINE, not the conversation: never typed out, not even while the reply streams
+        String clean = text == null ? null : ai.dvine.suit.FunctionCode.hidden(text)
+                .replaceFirst("(?s)(^|\\n)[*_`>\\s]*[\u00A7\u27E6][^\\n]*$", "$1");
+        String t = clean == null || clean.trim().isEmpty() ? null : clean.trim();
         if (t == null) {
             removeCallbacks(typeLive);
             liveText = null;

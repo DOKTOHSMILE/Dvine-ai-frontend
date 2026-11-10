@@ -28,6 +28,9 @@ public final class Plug {
         void end(String code, boolean done);
     }
 
+    /** A file that ships inside the app (its assets), by path; null when the app gave none. */
+    public static volatile java.util.function.Function<String, java.io.InputStream> asset = path -> null;
+
     public static volatile Web web = new Web() {
         @Override
         public String get(String url) {

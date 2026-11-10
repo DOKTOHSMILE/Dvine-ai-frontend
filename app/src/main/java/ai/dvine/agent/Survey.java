@@ -57,7 +57,7 @@ public final class Survey {
     /** The Scribe's own files in a project folder: never surveyed. */
     private static final Set<String> NOTES = new HashSet<String>(java.util.Arrays.asList("NEXT_ACTIONS.md", "DECISIONS.md",
             "ERRORS.md", "EXECUTION.json", "PROJECT_MANIFEST.json", "PROGRESS.md", "PROJECT_MAP.md", "PROJECT_PLAN.md", "FILES.md",
-            "RECOVERY.md", "PLAN.md", "MAP.md"));
+            "RECOVERY.md", "RECORD.md", "PLAN.md", "MAP.md"));
 
     private Survey() {
     }

@@ -33,6 +33,9 @@ public enum FunctionCode {
     HO("HANDOVER", "pass this message to the one whose work it is, who then answers it: ibiko for code, commands, files,"
             + " repositories, GitHub and the built-in Linux; ivie for stories, scripts, poems, drawings, design and 3D; obi for"
             + " conversation, questions, research, reports and plans. Only when it is not your own work", "<ivie|obi|ibiko>"),
+    WK("WORK", "real work for the agents, not a reply: write, fix, build, run, test or audit code; work on files, a"
+            + " repository or GitHub; run commands in the built-in Linux; build or audit an app's or a site's interface."
+            + " The agent organisation plans it, splits it and carries it out", ""),
     WP("WRITEPLAN", "a long piece (a story, a script, a report, an essay): outline it, check the outline, then write it section by section", ""),
     TT("THINKTOGETHER", "a weighty decision or question: Obi, Ivie and Ibiko work on it together and give one answer", ""),
     RF("READFILES", "read the files in the workspace on this device (cloned repositories, projects) to answer this", ""),
@@ -114,14 +117,30 @@ public enum FunctionCode {
      * "[[SR]] args" and "⟦SR⟧ args" (models copy brackets more reliably than the mark), never plain words.
      */
     public static Call parse(String reply) {
+        int at = codeLine(reply);
+        return at < 0 ? null : parseLine(reply.trim().split("\n", -1)[at].trim());
+    }
+
+    /** How far down a reply a code is still looked for: a brain sometimes writes a short sentence first. */
+    static final int LOOK = 4;
+
+    /** Which of the reply's first lines is a code (0 is the first), or -1. */
+    static int codeLine(String reply) {
         if (reply == null) {
-            return null;
+            return -1;
         }
-        String first = reply.trim();
-        int nl = first.indexOf('\n');
-        if (nl >= 0) {
-            first = first.substring(0, nl).trim();
+        String[] lines = reply.trim().split("\n", -1);
+        for (int i = 0; i < lines.length && i < LOOK; i++) {
+            if (parseLine(lines[i].trim()) != null) {
+                return i;
+            }
         }
+        return -1;
+    }
+
+    private static Call parseLine(String first) {
+        // a code wrapped in markdown ("**§SR weather**", "`§NC`") is still the code
+        first = first.replaceAll("^[*_`>\\s]+", "").replaceAll("[*_`\\s]+$", "");
         String head, rest;
         if (first.startsWith(MARK) && first.length() >= 3) {
             head = first.substring(1, 3);
@@ -129,14 +148,14 @@ public enum FunctionCode {
         } else if (first.startsWith("[[") && first.length() >= 6 && first.startsWith("]]", 4)) {
             head = first.substring(2, 4);
             rest = first.substring(6);
-        } else if (first.startsWith("⟦") && first.length() >= 4 && first.charAt(3) == '⟧') {
+        } else if (first.startsWith("\u27E6") && first.length() >= 4 && first.charAt(3) == '\u27E7') {
             head = first.substring(1, 3);
             rest = first.substring(4);
         } else {
             return null;
         }
         if (!rest.isEmpty() && Character.isLetterOrDigit(rest.charAt(0))) {
-            return null; // "§SRC" is not "§SR"
+            return null; // "\u00A7SRC" is not "\u00A7SR"
         }
         try {
             FunctionCode c = valueOf(head.toUpperCase(Locale.US));
@@ -149,20 +168,27 @@ public enum FunctionCode {
         }
     }
 
+    /** A line that is a code or is shaped like one ("\u00A7XX …", "[[XX]] …"): never shown to the pilot. */
+    private static final java.util.regex.Pattern SHAPED = java.util.regex.Pattern.compile(
+            "(?m)^[*_`>\\s]*(?:\u00A7[A-Za-z]{2}\\b|\\[\\[[A-Za-z]{2}\\]\\]|\u27E6[A-Za-z]{2}\u27E7)[^\\n]*\\n?");
+
+    /** The text with every code-shaped line taken out: what the conversation may show. */
+    public static String hidden(String text) {
+        return text == null ? null : SHAPED.matcher(text).replaceAll("");
+    }
+
     /** True when a reply's text so far starts like a code (so the line can be held back while it streams). */
     public static boolean startsLikeCode(String soFar) {
         String t = soFar == null ? "" : soFar.replaceFirst("^\\s+", "");
         return t.startsWith(MARK) || t.startsWith("[[") || t.startsWith("⟦");
     }
 
-    /** The reply without its code line. */
+    /** The reply without its code line (and with no other code-shaped line left in it). */
     public static String withoutCode(String reply) {
-        if (parse(reply) == null) {
-            return reply;
+        if (reply == null) {
+            return null;
         }
-        String t = reply.trim();
-        int nl = t.indexOf('\n');
-        return nl < 0 ? "" : t.substring(nl + 1).trim();
+        return codeLine(reply) < 0 ? reply : hidden(reply).trim();
     }
 
     /**

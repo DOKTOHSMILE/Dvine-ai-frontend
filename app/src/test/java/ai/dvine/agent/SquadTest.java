@@ -60,4 +60,37 @@ public class SquadTest {
         String b = Squad.brief(2, 3, "Write the tests", "Build a login page");
         assertTrue(b.contains("worker 2 of 3") && b.contains("Write the tests") && b.contains("Build a login page"));
     }
+
+    @Test
+    public void eachPartHasItsAgentAndItsTime() {
+        List<Squad.Part> p = Squad.assignments("<part role=\"UCIX\" minutes=\"10\">Audit res/layout line by line</part>"
+                + "<part role='ucux'>Trace every button to its handler</part><part role=\"ARCH\" minutes=\"999\">x</part><part>plain</part>");
+        assertEquals(4, p.size());
+        assertEquals(Org.UCIX, p.get(0).role);
+        assertEquals(10, p.get(0).minutes);
+        assertEquals(Org.UCUX, p.get(1).role);
+        assertEquals("no time named: the usual one", Squad.MINUTES, p.get(1).minutes);
+        assertEquals("the lead's own role is not a worker", null, p.get(2).role);
+        assertEquals("never more than the most a part may take", Squad.MOST_MINUTES, p.get(2).minutes);
+        assertEquals(null, p.get(3).role);
+        assertEquals("the old form still reads", 2, Squad.parts("<part role=\"QATX\">a</part><part>b</part>").size());
+    }
+
+    @Test
+    public void theOrganisationHasItsRolesAndTheLeadKnowsThem() {
+        for (String n : new String[] { "ARCH", "CPGC", "ROLX", "SCRB", "UCIX", "UCUX", "CORX", "DATX", "QATX", "SECX", "REVX", "RSRX", "DOCX", "RELX" }) {
+            assertTrue(n, Org.of(n) != null);
+        }
+        assertTrue(!Org.ARCH.worker() && !Org.ROLX.worker() && Org.UCIX.worker());
+        assertTrue(Org.lead().contains("UCIX") && Org.lead().contains("ROLX"));
+        assertTrue(Org.UCUX.brief().contains("opens the wrong screen"));
+        assertEquals(Org.UCIX, Org.of("interface"));
+    }
+
+    @Test
+    public void aFailedOrLatePartIsSentBack() {
+        String out = Squad.run(java.util.Arrays.asList("a", "b"), (n, p) -> n == 1 ? "Time is up for this part" : "done", 2, null);
+        assertTrue(out.contains("CPGC") && out.contains("send that part back"));
+        assertTrue(!Squad.run(java.util.Arrays.asList("a", "b"), (n, p) -> "done", 2, null).contains("CPGC"));
+    }
 }

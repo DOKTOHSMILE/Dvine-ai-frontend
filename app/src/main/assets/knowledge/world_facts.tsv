@@ -1,0 +1,375 @@
+Nigeria	capital	Abuja
+Nigeria	continent	Africa
+Nigeria	currency	Nigerian naira
+Ghana	capital	Accra
+Ghana	continent	Africa
+Ghana	currency	Ghanaian cedi
+Kenya	capital	Nairobi
+Kenya	continent	Africa
+Kenya	currency	Kenyan shilling
+South Africa	capital	Pretoria
+South Africa	continent	Africa
+South Africa	currency	South African rand
+Egypt	capital	Cairo
+Egypt	continent	Africa
+Egypt	currency	Egyptian pound
+Ethiopia	capital	Addis Ababa
+Ethiopia	continent	Africa
+Ethiopia	currency	Ethiopian birr
+Tanzania	capital	Dodoma
+Tanzania	continent	Africa
+Tanzania	currency	Tanzanian shilling
+Uganda	capital	Kampala
+Uganda	continent	Africa
+Uganda	currency	Ugandan shilling
+Rwanda	capital	Kigali
+Rwanda	continent	Africa
+Rwanda	currency	Rwandan franc
+Senegal	capital	Dakar
+Senegal	continent	Africa
+Senegal	currency	West African CFA franc
+Cameroon	capital	Yaoundé
+Cameroon	continent	Africa
+Cameroon	currency	Central African CFA franc
+Ivory Coast	capital	Yamoussoukro
+Ivory Coast	continent	Africa
+Ivory Coast	currency	West African CFA franc
+Morocco	capital	Rabat
+Morocco	continent	Africa
+Morocco	currency	Moroccan dirham
+Algeria	capital	Algiers
+Algeria	continent	Africa
+Algeria	currency	Algerian dinar
+Tunisia	capital	Tunis
+Tunisia	continent	Africa
+Tunisia	currency	Tunisian dinar
+Libya	capital	Tripoli
+Libya	continent	Africa
+Libya	currency	Libyan dinar
+Sudan	capital	Khartoum
+Sudan	continent	Africa
+Sudan	currency	Sudanese pound
+South Sudan	capital	Juba
+South Sudan	continent	Africa
+South Sudan	currency	South Sudanese pound
+Angola	capital	Luanda
+Angola	continent	Africa
+Angola	currency	Angolan kwanza
+Zambia	capital	Lusaka
+Zambia	continent	Africa
+Zambia	currency	Zambian kwacha
+Zimbabwe	capital	Harare
+Zimbabwe	continent	Africa
+Zimbabwe	currency	Zimbabwe Gold
+Botswana	capital	Gaborone
+Botswana	continent	Africa
+Botswana	currency	Botswana pula
+Namibia	capital	Windhoek
+Namibia	continent	Africa
+Namibia	currency	Namibian dollar
+Mozambique	capital	Maputo
+Mozambique	continent	Africa
+Mozambique	currency	Mozambican metical
+Malawi	capital	Lilongwe
+Malawi	continent	Africa
+Malawi	currency	Malawian kwacha
+Mali	capital	Bamako
+Mali	continent	Africa
+Mali	currency	West African CFA franc
+Niger	capital	Niamey
+Niger	continent	Africa
+Niger	currency	West African CFA franc
+Chad	capital	N'Djamena
+Chad	continent	Africa
+Chad	currency	Central African CFA franc
+Benin	capital	Porto-Novo
+Benin	continent	Africa
+Benin	currency	West African CFA franc
+Togo	capital	Lomé
+Togo	continent	Africa
+Togo	currency	West African CFA franc
+Burkina Faso	capital	Ouagadougou
+Burkina Faso	continent	Africa
+Burkina Faso	currency	West African CFA franc
+Liberia	capital	Monrovia
+Liberia	continent	Africa
+Liberia	currency	Liberian dollar
+Sierra Leone	capital	Freetown
+Sierra Leone	continent	Africa
+Sierra Leone	currency	Sierra Leonean leone
+Gambia	capital	Banjul
+Gambia	continent	Africa
+Gambia	currency	Gambian dalasi
+Guinea	capital	Conakry
+Guinea	continent	Africa
+Guinea	currency	Guinean franc
+Somalia	capital	Mogadishu
+Somalia	continent	Africa
+Somalia	currency	Somali shilling
+Madagascar	capital	Antananarivo
+Madagascar	continent	Africa
+Madagascar	currency	Malagasy ariary
+Mauritius	capital	Port Louis
+Mauritius	continent	Africa
+Mauritius	currency	Mauritian rupee
+Gabon	capital	Libreville
+Gabon	continent	Africa
+Gabon	currency	Central African CFA franc
+United Kingdom	capital	London
+United Kingdom	continent	Europe
+United Kingdom	currency	pound sterling
+France	capital	Paris
+France	continent	Europe
+France	currency	euro
+Germany	capital	Berlin
+Germany	continent	Europe
+Germany	currency	euro
+Italy	capital	Rome
+Italy	continent	Europe
+Italy	currency	euro
+Spain	capital	Madrid
+Spain	continent	Europe
+Spain	currency	euro
+Portugal	capital	Lisbon
+Portugal	continent	Europe
+Portugal	currency	euro
+Netherlands	capital	Amsterdam
+Netherlands	continent	Europe
+Netherlands	currency	euro
+Belgium	capital	Brussels
+Belgium	continent	Europe
+Belgium	currency	euro
+Ireland	capital	Dublin
+Ireland	continent	Europe
+Ireland	currency	euro
+Greece	capital	Athens
+Greece	continent	Europe
+Greece	currency	euro
+Austria	capital	Vienna
+Austria	continent	Europe
+Austria	currency	euro
+Switzerland	capital	Bern
+Switzerland	continent	Europe
+Switzerland	currency	Swiss franc
+Sweden	capital	Stockholm
+Sweden	continent	Europe
+Sweden	currency	Swedish krona
+Norway	capital	Oslo
+Norway	continent	Europe
+Norway	currency	Norwegian krone
+Denmark	capital	Copenhagen
+Denmark	continent	Europe
+Denmark	currency	Danish krone
+Finland	capital	Helsinki
+Finland	continent	Europe
+Finland	currency	euro
+Poland	capital	Warsaw
+Poland	continent	Europe
+Poland	currency	Polish złoty
+Ukraine	capital	Kyiv
+Ukraine	continent	Europe
+Ukraine	currency	Ukrainian hryvnia
+Russia	capital	Moscow
+Russia	continent	Europe
+Russia	currency	Russian ruble
+United States	capital	Washington, D.C.
+United States	continent	North America
+United States	currency	United States dollar
+Canada	capital	Ottawa
+Canada	continent	North America
+Canada	currency	Canadian dollar
+Mexico	capital	Mexico City
+Mexico	continent	North America
+Mexico	currency	Mexican peso
+Cuba	capital	Havana
+Cuba	continent	North America
+Cuba	currency	Cuban peso
+Jamaica	capital	Kingston
+Jamaica	continent	North America
+Jamaica	currency	Jamaican dollar
+Brazil	capital	Brasília
+Brazil	continent	South America
+Brazil	currency	Brazilian real
+Argentina	capital	Buenos Aires
+Argentina	continent	South America
+Argentina	currency	Argentine peso
+Chile	capital	Santiago
+Chile	continent	South America
+Chile	currency	Chilean peso
+Colombia	capital	Bogotá
+Colombia	continent	South America
+Colombia	currency	Colombian peso
+Peru	capital	Lima
+Peru	continent	South America
+Peru	currency	Peruvian sol
+Venezuela	capital	Caracas
+Venezuela	continent	South America
+Venezuela	currency	Venezuelan bolívar
+China	capital	Beijing
+China	continent	Asia
+China	currency	renminbi
+Japan	capital	Tokyo
+Japan	continent	Asia
+Japan	currency	Japanese yen
+India	capital	New Delhi
+India	continent	Asia
+India	currency	Indian rupee
+Pakistan	capital	Islamabad
+Pakistan	continent	Asia
+Pakistan	currency	Pakistani rupee
+Bangladesh	capital	Dhaka
+Bangladesh	continent	Asia
+Bangladesh	currency	Bangladeshi taka
+Indonesia	capital	Jakarta
+Indonesia	continent	Asia
+Indonesia	currency	Indonesian rupiah
+Philippines	capital	Manila
+Philippines	continent	Asia
+Philippines	currency	Philippine peso
+Vietnam	capital	Hanoi
+Vietnam	continent	Asia
+Vietnam	currency	Vietnamese đồng
+Thailand	capital	Bangkok
+Thailand	continent	Asia
+Thailand	currency	Thai baht
+Malaysia	capital	Kuala Lumpur
+Malaysia	continent	Asia
+Malaysia	currency	Malaysian ringgit
+Singapore	capital	Singapore
+Singapore	continent	Asia
+Singapore	currency	Singapore dollar
+South Korea	capital	Seoul
+South Korea	continent	Asia
+South Korea	currency	South Korean won
+North Korea	capital	Pyongyang
+North Korea	continent	Asia
+North Korea	currency	North Korean won
+Saudi Arabia	capital	Riyadh
+Saudi Arabia	continent	Asia
+Saudi Arabia	currency	Saudi riyal
+United Arab Emirates	capital	Abu Dhabi
+United Arab Emirates	continent	Asia
+United Arab Emirates	currency	United Arab Emirates dirham
+Qatar	capital	Doha
+Qatar	continent	Asia
+Qatar	currency	Qatari riyal
+Israel	capital	Jerusalem
+Israel	continent	Asia
+Israel	currency	Israeli new shekel
+Turkey	capital	Ankara
+Turkey	continent	Asia
+Turkey	currency	Turkish lira
+Iran	capital	Tehran
+Iran	continent	Asia
+Iran	currency	Iranian rial
+Iraq	capital	Baghdad
+Iraq	continent	Asia
+Iraq	currency	Iraqi dinar
+Afghanistan	capital	Kabul
+Afghanistan	continent	Asia
+Afghanistan	currency	Afghan afghani
+Nepal	capital	Kathmandu
+Nepal	continent	Asia
+Nepal	currency	Nepalese rupee
+Sri Lanka	capital	Sri Jayawardenepura Kotte
+Sri Lanka	continent	Asia
+Sri Lanka	currency	Sri Lankan rupee
+Australia	capital	Canberra
+Australia	continent	Oceania
+Australia	currency	Australian dollar
+New Zealand	capital	Wellington
+New Zealand	continent	Oceania
+New Zealand	currency	New Zealand dollar
+Fiji	capital	Suva
+Fiji	continent	Oceania
+Fiji	currency	Fijian dollar
+hydrogen	symbol	H
+hydrogen	atomic number	1
+helium	symbol	He
+helium	atomic number	2
+lithium	symbol	Li
+lithium	atomic number	3
+beryllium	symbol	Be
+beryllium	atomic number	4
+boron	symbol	B
+boron	atomic number	5
+carbon	symbol	C
+carbon	atomic number	6
+nitrogen	symbol	N
+nitrogen	atomic number	7
+oxygen	symbol	O
+oxygen	atomic number	8
+fluorine	symbol	F
+fluorine	atomic number	9
+neon	symbol	Ne
+neon	atomic number	10
+sodium	symbol	Na
+sodium	atomic number	11
+magnesium	symbol	Mg
+magnesium	atomic number	12
+aluminium	symbol	Al
+aluminium	atomic number	13
+silicon	symbol	Si
+silicon	atomic number	14
+phosphorus	symbol	P
+phosphorus	atomic number	15
+sulfur	symbol	S
+sulfur	atomic number	16
+chlorine	symbol	Cl
+chlorine	atomic number	17
+argon	symbol	Ar
+argon	atomic number	18
+potassium	symbol	K
+potassium	atomic number	19
+calcium	symbol	Ca
+calcium	atomic number	20
+scandium	symbol	Sc
+scandium	atomic number	21
+titanium	symbol	Ti
+titanium	atomic number	22
+vanadium	symbol	V
+vanadium	atomic number	23
+chromium	symbol	Cr
+chromium	atomic number	24
+manganese	symbol	Mn
+manganese	atomic number	25
+iron	symbol	Fe
+iron	atomic number	26
+cobalt	symbol	Co
+cobalt	atomic number	27
+nickel	symbol	Ni
+nickel	atomic number	28
+copper	symbol	Cu
+copper	atomic number	29
+zinc	symbol	Zn
+zinc	atomic number	30
+gallium	symbol	Ga
+gallium	atomic number	31
+germanium	symbol	Ge
+germanium	atomic number	32
+arsenic	symbol	As
+arsenic	atomic number	33
+selenium	symbol	Se
+selenium	atomic number	34
+bromine	symbol	Br
+bromine	atomic number	35
+krypton	symbol	Kr
+krypton	atomic number	36
+silver	symbol	Ag
+silver	atomic number	47
+tin	symbol	Sn
+tin	atomic number	50
+iodine	symbol	I
+iodine	atomic number	53
+gold	symbol	Au
+gold	atomic number	79
+mercury	symbol	Hg
+mercury	atomic number	80
+lead	symbol	Pb
+lead	atomic number	82
+platinum	symbol	Pt
+platinum	atomic number	78
+uranium	symbol	U
+uranium	atomic number	92
+tungsten	symbol	W
+tungsten	atomic number	74

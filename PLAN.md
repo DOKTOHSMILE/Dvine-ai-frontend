@@ -1,9 +1,21 @@
-# Clones land in the workspace (0.99.53)
+# Clones land in the workspace (0.99.54)
 
 - [x] `git clone` writes into `memory/projects/`, the folder the workspace screen shows, not Linux's home.
 - [x] The clone's "Counting objects" log is one line, not a code view.
 - [x] A message sent while a reply is still being written appears under that reply, not above it.
 - [x] A reply that is only a tool call is run, not thrown away as "the server sent no answer".
+
+# One assistant, the organisation, one record (0.99.53)
+
+- [x] Command codes never reach the conversation.
+- [x] Ibiko answers everything when a model is in use; real work starts the agents by code.
+- [x] The organisation: ARCH, CPGC, ROLX, SCRB and ten specialists; time on every part; hands under each agent.
+- [x] One record file a project with an exact resume point; workers kept to the project's folder.
+- [x] DVINE 1 answers from facts shipped in the app (starter set).
+- [ ] Remove Obi and Ivie from the code itself (classes, voices, canvas wiring, tests).
+- [ ] The full built-in dataset (run tools/build_world_facts.py when Wikidata allows; then more subjects).
+- [ ] The organisation for features outside the coding agent.
+>>>>>>> b8d3dee06fab470b2fead5b99d6a6950a77ca82e
 
 # An audit reads the files (0.99.52)
 

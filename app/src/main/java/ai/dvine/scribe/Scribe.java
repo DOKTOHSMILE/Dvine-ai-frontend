@@ -43,17 +43,28 @@ public final class Scribe {
 
     /** Opens a record for this instruction. No-op when {@link #worth} is false. */
     public void begin(String persona, String instruction) {
-        if (!worth(instruction)) {
+        begin(persona, instruction, null);
+    }
+
+    /**
+     * As {@link #begin(String, String)}, the record kept for {@code section} (the chat the work belongs to): one
+     * project folder and one record file for that section, however many instructions it is given. Null: one for each
+     * instruction, as before.
+     */
+    public void begin(String persona, String instruction, String section) {
+        String key = section == null || section.trim().isEmpty() ? slug(clip(instruction, 160)) : "section-" + slug(section);
+        // a short follow-up ("now add a delete button") in a chat that already has a project belongs to that project
+        boolean known = section != null && new File(workspace, "memory/projects/" + key + "/" + RECORD).isFile();
+        if (!worth(instruction) && !known) {
             active = false;
             return;
         }
         active = true;
-        String key = slug(clip(instruction, 160));
         TaskRecord prior = tasks.byIdempotency(key);
         if (prior != null && prior.state != null && prior.state.open()) {
             current = prior;
             projectDir = new File(workspace, "memory/projects/" + key);
-            new File(projectDir, "checkpoints").mkdirs();
+            projectDir.mkdirs();
             current.state = TaskState.RESUMING;
             current.updatedAt = System.currentTimeMillis();
             tasks.save(current);
@@ -85,16 +96,24 @@ public final class Scribe {
         current.remaining.addAll(survey.steps);
         tasks.save(current);
         projectDir = new File(workspace, "memory/projects/" + key);
-        new File(projectDir, "checkpoints").mkdirs();
+        projectDir.mkdirs();
         write("PROJECT_MANIFEST.json", manifest(persona));
         write("PROJECT_PLAN.md", survey.plan(current.instruction));
         write("PROJECT_MAP.md", survey.map());
-        write("PROGRESS.md", "# Progress\n\n- Surveyed the workspace (" + survey.files
-                + " files). Nothing is marked done yet.\n");
-        write("DECISIONS.md", "# Decisions\n\n- The job is tracked by Scribe, apart from the chat.\n");
-        write("ERRORS.md", "# Errors\n\n");
+        if (section("PROGRESS.md").trim().isEmpty()) {
+            write("PROGRESS.md", "# Progress\n\n- Surveyed the workspace (" + survey.files
+                    + " files). Nothing is marked done yet.\n");
+            write("DECISIONS.md", "# Decisions\n\n- The job is tracked by Scribe, apart from the chat.\n");
+            write("ERRORS.md", "# Errors\n\n");
+        } else {
+            // the same project, a new instruction: what was done stays on the record and the work carries on from it
+            append("PROGRESS.md", "\n- New instruction: " + clip(current.instruction, 200) + "\n");
+        }
         write("NEXT_ACTIONS.md", next());
-        write("CHANGELOG.md", "# Changelog\n\n");
+        write("NOW", now());
+        if (section("CHANGELOG.md").trim().isEmpty()) {
+            write("CHANGELOG.md", "# Changelog\n\n");
+        }
         current.state = TaskState.RUNNING;
         current.updatedAt = System.currentTimeMillis();
         tasks.save(current);
@@ -117,7 +136,60 @@ public final class Scribe {
         }
         lastStep = l;
         String at = new java.text.SimpleDateFormat("HH:mm:ss", Locale.US).format(new java.util.Date());
+        java.util.regex.Matcher file = TOUCHED.matcher(l);
+        if (file.find()) {
+            lastFile = file.group(2); // the file last created or changed: where the next round picks up
+            lastFix = l;
+        }
         append("PROGRESS.md", "- " + at + " " + l + "\n");
+        write("NOW", now());
+    }
+
+    private static final java.util.regex.Pattern TOUCHED = java.util.regex.Pattern.compile(
+            "(?i)^(created|edited|rewrote|wrote|made|changed)\\s+(\\S+)");
+    private String lastFile, lastFix;
+
+    /**
+     * The exact point the work is at, kept at the top of the record: the last step and when, the last change and its
+     * file, and what is still pending. An agent reads this instead of going through the files again.
+     */
+    private String now() {
+        StringBuilder b = new StringBuilder();
+        String at = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new java.util.Date());
+        b.append("State: ").append(current == null ? "unknown" : String.valueOf(current.state)).append('\n');
+        b.append("Last step: ").append(lastStep == null ? "none yet" : lastStep).append(" (").append(at).append(")\n");
+        b.append("Last change: ").append(lastFix == null ? "none yet" : lastFix).append('\n');
+        b.append("Last file: ").append(lastFile == null ? "none yet" : lastFile).append('\n');
+        b.append("Pending:\n");
+        if (current == null || current.remaining.isEmpty()) {
+            b.append("- nothing recorded as outstanding\n");
+        } else {
+            for (String r : current.remaining) {
+                b.append("- ").append(r).append('\n');
+            }
+        }
+        return b.toString();
+    }
+
+    /** The one file that holds this project's whole record, relative to the workspace; "" when no record is open. */
+    public String recordPath() {
+        return !active || projectDir == null ? "" : "memory/projects/" + projectDir.getName() + "/" + RECORD;
+    }
+
+    /**
+     * For the agent at the start of a round: where the work stands and what is already done, so nothing is read or
+     * done twice. Empty when nothing is recorded yet.
+     */
+    public String resume() {
+        if (!active || projectDir == null) {
+            return "";
+        }
+        String point = section("NOW"), done = doneSoFar();
+        if (point.trim().isEmpty() && done.isEmpty()) {
+            return "";
+        }
+        return "Where this project stands (from its one record, " + recordPath() + "; do not re-read the project to find this out):\n"
+                + point.trim() + (done.isEmpty() ? "" : "\nAlready done (do not do these again; build on them):\n" + done);
     }
 
     /**
@@ -128,20 +200,12 @@ public final class Scribe {
         if (!active || projectDir == null) {
             return "";
         }
-        File f = new File(projectDir, "PROGRESS.md");
-        if (!f.isFile()) {
-            return "";
-        }
         java.util.LinkedHashSet<String> done = new java.util.LinkedHashSet<String>();
-        try {
-            for (String line : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
-                String l = line.replaceFirst("^- \\d\\d:\\d\\d:\\d\\d ", "").trim();
-                if (l.matches("(?i)^(created|edited|rewrote|wrote|made|deleted|moved|copied|committed|pushed|opened a pull request|done:|blueprint step done).*")) {
-                    done.add(l);
-                }
+        for (String line : section("PROGRESS.md").split("\n")) {
+            String l = line.replaceFirst("^- \\d\\d:\\d\\d:\\d\\d ", "").trim();
+            if (l.matches("(?i)^(created|edited|rewrote|wrote|made|deleted|moved|copied|committed|pushed|opened a pull request|done:|blueprint step done).*")) {
+                done.add(l);
             }
-        } catch (IOException e) {
-            return "";
         }
         if (done.isEmpty()) {
             return "";
@@ -164,6 +228,7 @@ public final class Scribe {
         tasks.save(current);
         write("checkpoints/latest.md", "# Checkpoint " + current.updatedAt + "\n\n" + current.checkpoint + "\n");
         append("PROGRESS.md", "\n- Checkpoint at " + current.updatedAt + " (work saved, not verified).\n");
+        write("NOW", now());
         write("EXECUTION.json", execution());
     }
 
@@ -205,6 +270,7 @@ public final class Scribe {
         tasks.save(current);
         append("CHANGELOG.md", "\n## " + current.updatedAt + "\n\nState: " + current.state + "\n\n" + clip(shown, 2000) + "\n");
         write("NEXT_ACTIONS.md", next());
+        write("NOW", now());
         write("EXECUTION.json", execution());
         if (!files.isEmpty()) {
             StringBuilder b = new StringBuilder("# Files touched\n\n");
@@ -344,31 +410,78 @@ public final class Scribe {
         return b.toString();
     }
 
-    private void append(String name, String text) {
-        File f = new File(projectDir, name);
-        String prior = "";
-        if (f.isFile()) {
-            try {
-                prior = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                prior = "";
-            }
+    /** The project's one record file: every part of the record is a section of it. */
+    public static final String RECORD = "RECORD.md";
+    private static final String MARK = "<!-- section: ";
+    /** The order the sections stand in: where the work is first, then the plan and what was done. */
+    private static final List<String> ORDER = java.util.Arrays.asList("NOW", "NEXT_ACTIONS.md", "PROJECT_PLAN.md", "PROGRESS.md",
+            "DECISIONS.md", "ERRORS.md", "FILES.md", "CHANGELOG.md", "RECOVERY.md", "checkpoints/latest.md", "PROJECT_MAP.md",
+            "PROJECT_MANIFEST.json", "EXECUTION.json");
+
+    private java.util.LinkedHashMap<String, String> sections() {
+        java.util.LinkedHashMap<String, String> out = new java.util.LinkedHashMap<String, String>();
+        if (projectDir == null) {
+            return out;
         }
-        write(name, prior + text);
+        File f = new File(projectDir, RECORD);
+        if (!f.isFile()) {
+            return out;
+        }
+        try {
+            String all = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            int at = all.indexOf(MARK);
+            while (at >= 0) {
+                int end = all.indexOf(" -->", at);
+                if (end < 0) {
+                    break;
+                }
+                String name = all.substring(at + MARK.length(), end);
+                int next = all.indexOf(MARK, end);
+                String body = all.substring(Math.min(all.length(), end + 5), next < 0 ? all.length() : next);
+                out.put(name, body.endsWith("\n\n") ? body.substring(0, body.length() - 1) : body);
+                at = next;
+            }
+        } catch (IOException e) {
+            // unreadable: the record starts again from what is written next
+        }
+        return out;
     }
 
+    private String section(String name) {
+        String v = sections().get(name);
+        return v == null ? "" : v;
+    }
+
+    private void append(String name, String text) {
+        write(name, section(name) + text);
+    }
+
+    /** Writes one section of the project's record; the whole record is the one file {@link #RECORD}. */
     private void write(String name, String text) {
         if (projectDir == null) {
             return;
         }
-        File f = new File(projectDir, name);
-        File parent = f.getParentFile();
-        if (parent != null) {
-            parent.mkdirs();
+        java.util.LinkedHashMap<String, String> all = sections();
+        all.put(name, text == null ? "" : text);
+        StringBuilder b = new StringBuilder("# Project record\n\nKept by Scribe. One file for the whole project: read the first section to"
+                + " know where the work stands.\n\n");
+        List<String> names = new ArrayList<String>(ORDER);
+        for (String n : all.keySet()) {
+            if (!names.contains(n)) {
+                names.add(n);
+            }
         }
-        File tmp = new File(parent, f.getName() + ".tmp");
+        for (String n : names) {
+            if (all.containsKey(n)) {
+                String body = all.get(n);
+                b.append(MARK).append(n).append(" -->\n").append(body).append(body.endsWith("\n") ? "\n" : "\n\n");
+            }
+        }
+        File f = new File(projectDir, RECORD);
+        projectDir.mkdirs();
+        File tmp = new File(projectDir, RECORD + ".tmp");
         try (FileOutputStream out = new FileOutputStream(tmp)) {
-            out.write(text.getBytes(StandardCharsets.UTF_8));
+            out.write(b.toString().getBytes(StandardCharsets.UTF_8));
             out.getFD().sync();
         } catch (IOException e) {
             tmp.delete();

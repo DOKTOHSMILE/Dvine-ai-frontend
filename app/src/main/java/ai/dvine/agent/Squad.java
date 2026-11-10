@@ -30,14 +30,63 @@ public final class Squad {
     }
 
     /** The tool, as the lead is told about it. */
-    public static final String TOOL = "<tool name=\"workers\"><part>the first worker's whole job</part><part>the second"
-            + " worker's whole job</part></tool> (2 to " + MOST + " workers do these parts AT THE SAME TIME, each with every tool you"
-            + " have, then their reports come back to you. Use it when the user asks for more workers or to speed the work up,"
-            + " or when the job splits into parts that do not touch the same files. Each part must stand on its own: say"
-            + " exactly what to do, in which folder and files, and what done looks like; a worker knows only its part."
-            + " Never give two workers the same file. Afterwards you check that the parts fit together and finish the rest.)\n";
+    public static final String TOOL = "<tool name=\"workers\"><part role=\"UCIX\" minutes=\"10\">the first agent's whole job</part>"
+            + "<part role=\"CORX\" minutes=\"15\">the second agent's whole job</part></tool> (2 to " + MOST + " agents do these parts AT"
+            + " THE SAME TIME, each with every tool you have, then their reports come back to you. role is the agent whose work"
+            + " the part is; minutes is the time ROLX allows it (left out: " + Squad.MINUTES + "). Use it when the user asks for more"
+            + " workers or to speed the work up, or when the job splits into parts that do not touch the same files. Each part"
+            + " must stand on its own: say exactly what to do, in which folder and files, and what done looks like; an agent"
+            + " knows only its part. Never give two agents the same file. Afterwards you check that the parts fit together,"
+            + " send back any that failed or ran out of time, and finish the rest.)\n";
 
-    private static final Pattern PART = Pattern.compile("(?s)<part>\\s*(.*?)\\s*</part>");
+    /** The same tool for a specialist: its own mini workers, the hands that carry out the pieces it designs. */
+    public static final String HANDS = "<tool name=\"workers\"><part>one piece, fully specified</part><part>another piece</part></tool>"
+            + " (your hands: 2 to " + Squad.MOST_HANDS + " mini workers carry out pieces of YOUR part at the same time. Design the pieces"
+            + " yourself first, exactly, each on its own files; then check what they hand back.)\n";
+
+    /** The minutes a part gets when the lead names none, and the most it can be given. */
+    public static final int MINUTES = 15, MOST_MINUTES = 120;
+    /** The most mini workers one specialist starts. */
+    public static final int MOST_HANDS = 4;
+
+    /** One part of a job: whose work it is, how long it may take, and what to do. */
+    public static final class Part {
+        public final Org role;
+        public final int minutes;
+        public final String text;
+
+        Part(Org role, int minutes, String text) {
+            this.role = role;
+            this.minutes = minutes;
+            this.text = text;
+        }
+    }
+
+    private static final Pattern ASSIGNED = Pattern.compile("(?s)<part\\b([^>]*)>\\s*(.*?)\\s*</part>");
+
+    /** The parts of a call with the agent and the time each was given; a body with no part tags is read a line a part. */
+    public static List<Part> assignments(String body) {
+        List<Part> out = new ArrayList<Part>();
+        Matcher m = ASSIGNED.matcher(body == null ? "" : body);
+        while (m.find() && out.size() < MOST) {
+            if (m.group(2).isEmpty()) {
+                continue;
+            }
+            Matcher role = Pattern.compile("(?i)\\b(?:role|agent|owner)\\s*=\\s*[\"']?([A-Za-z]+)").matcher(m.group(1));
+            Matcher mins = Pattern.compile("(?i)\\b(?:minutes|time|mins?)\\s*=\\s*[\"']?(\\d{1,3})").matcher(m.group(1));
+            Org o = role.find() ? Org.of(role.group(1)) : null;
+            int t = mins.find() ? Integer.parseInt(mins.group(1)) : MINUTES;
+            out.add(new Part(o != null && o.worker() ? o : null, Math.max(1, Math.min(MOST_MINUTES, t)), m.group(2)));
+        }
+        if (out.isEmpty()) {
+            for (String p : parts(body)) {
+                out.add(new Part(null, MINUTES, p));
+            }
+        }
+        return out;
+    }
+
+    private static final Pattern PART = Pattern.compile("(?s)<part\\b[^>]*>\\s*(.*?)\\s*</part>");
 
     /** The parts in a {@code workers} call's body, at most {@link #MOST}; a body with no part tags is read a line a part. */
     public static List<String> parts(String body) {
@@ -102,7 +151,12 @@ public final class Squad {
                     .append(said == null || said.trim().isEmpty() ? "Error: no report. Its part is still to do." : clip(said.trim(), 4000)).append('\n');
         }
         pool.shutdownNow();
-        out.append("\nNow check that the parts fit together (read what changed, run the checks), do whatever a worker left open,"
+        String all = out.toString();
+        boolean recheck = all.contains("\nError:") || all.contains("Time is up") || all.contains("did not finish");
+        out.append(recheck ? "\nCPGC: at least one part failed or ran out of time. Read its report, then send that part back"
+                + " (a new workers call with what is left, more exactly specified) or fix it yourself before anything is"
+                + " reported done. " : "\n");
+        out.append("Now check that the parts fit together (read what changed, run the checks), do whatever a worker left open,"
                 + " and carry on with the job.");
         return out.toString();
     }
