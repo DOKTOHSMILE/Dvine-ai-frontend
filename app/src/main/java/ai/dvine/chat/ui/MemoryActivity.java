@@ -135,6 +135,23 @@ public final class MemoryActivity extends AppCompatActivity {
                     () -> selfRead.forget(r.fact)));
         }
 
+        // ---- the truth ledger (formulas/Truth G9): every sentence judged true or false, both kept
+        final ai.dvine.dvine1.formulas.TruthLedger ledger = ai.dvine.dvine1.Store.truthLedger(brain);
+        int[] tf = ledger.counts();
+        LinearLayout tl = section("Checked true or false", tf[0] + tf[1], "Forget every sentence Ibiko checked?", ledger::clear);
+        tl.addView(row(tf[0] + " found true, " + tf[1] + " found false", "Every sentence read, taught or replied is asked whether it is"
+                + " true or false. Both are kept: the false ones are mistakes Ibiko will not repeat.", null));
+        List<ai.dvine.dvine1.formulas.TruthLedger.Entry> judged = ledger.entries();
+        java.text.DateFormat when = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT);
+        for (int i = judged.size() - 1, k = 0; i >= 0 && k < 20; i--, k++) {
+            final ai.dvine.dvine1.formulas.TruthLedger.Entry e = judged.get(i);
+            boolean right = e.verdict == ai.dvine.dvine1.formulas.Truth.Verdict.TRUE;
+            String where = "out".equals(e.way) ? "in a reply" : "pilot".equals(e.way) ? "you said" : "read";
+            tl.addView(row((right ? "True: " : "False: ") + e.sentence, (right ? "" : e.correction == null ? "" : "In fact: " + e.correction + " ")
+                    + "(" + (e.source == null ? "" : e.source + ", ") + where + ", " + when.format(new java.util.Date(e.last))
+                    + (e.seen > 1 ? ", seen " + e.seen + " times" : "") + ")", () -> ledger.forget(e.sentence)));
+        }
+
         // ---- taught facts and corrections
         LinearLayout t = section("Facts you taught and corrections", journal.taughtCount(), "Forget every fact you taught?",
                 () -> journal.forgetTaught());

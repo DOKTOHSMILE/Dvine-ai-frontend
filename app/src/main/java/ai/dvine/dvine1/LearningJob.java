@@ -207,6 +207,7 @@ public final class LearningJob extends JobService {
         TimeZone zone = TimeZone.getDefault();
         final Knowledge k = Store.knowledge(dir(this));
         final Facts facts = Store.facts(dir(this));
+        final ai.dvine.dvine1.formulas.TruthLedger ledger = Store.truthLedger(dir(this));
         final Lexicon words = Store.lexicon(dir(this));
         final ai.dvine.dvine1.learner.Learner learner = Store.learner(dir(this));
         List<String> unanswered = read(new File(dir(this), "to-learn.txt"));
@@ -229,11 +230,14 @@ public final class LearningJob extends JobService {
             if (r == null || k.rejected(q, r.shown())) {
                 continue;
             }
-            if (!ai.dvine.dvine1.formulas.Truth.question(r.shown(), witnesses(facts)).stream()
-                    .noneMatch(c -> c.verdict == ai.dvine.dvine1.formulas.Truth.Verdict.FALSE)) {
+            java.util.List<ai.dvine.dvine1.formulas.Truth.Checked> answerChecked = ai.dvine.dvine1.formulas.Truth.question(r.shown(), witnesses(facts, ledger));
+            java.util.List<ai.dvine.dvine1.formulas.Truth.Checked> pageChecked = ai.dvine.dvine1.formulas.Truth.question(r.text, witnesses(facts, ledger));
+            ledger.record(answerChecked, "in", System.currentTimeMillis()); // G9: the true and the false both kept
+            ledger.record(pageChecked, "in", System.currentTimeMillis());
+            if (!answerChecked.stream().noneMatch(c -> c.verdict == ai.dvine.dvine1.formulas.Truth.Verdict.FALSE)) {
                 continue; // G8 in: an answer found false is not learned
             }
-            facts.learn(ai.dvine.dvine1.formulas.Truth.trueOnly(r.text, witnesses(facts)), ResearchAnswer.subject(q) == null ? topic : ResearchAnswer.subject(q), 2, System.currentTimeMillis());
+            facts.learn(ai.dvine.dvine1.formulas.Truth.trueOnly(pageChecked), ResearchAnswer.subject(q) == null ? topic : ResearchAnswer.subject(q), 2, System.currentTimeMillis());
             learner.read(r.text, ai.dvine.dvine1.learner.Learner.Source.RESEARCH, System.currentTimeMillis());
             if (k.learnUnchecked(q, r.shown())) {
                 if (!asked && topic.matches("[A-Z][\\p{L}'-]+( [A-Z][\\p{L}'-]+)+")) {
@@ -338,10 +342,11 @@ public final class LearningJob extends JobService {
     }
 
     /** G8: what research is checked against before it is learned. */
-    static java.util.List<ai.dvine.dvine1.formulas.Truth.Witness> witnesses(Facts facts) {
+    static java.util.List<ai.dvine.dvine1.formulas.Truth.Witness> witnesses(Facts facts, ai.dvine.dvine1.formulas.TruthLedger ledger) {
         java.util.List<ai.dvine.dvine1.formulas.Truth.Witness> w = new java.util.ArrayList<ai.dvine.dvine1.formulas.Truth.Witness>();
         w.add(Dvine1.builtIn()::check);
         w.add(facts::check);
+        w.add(ledger); // G9: judged before
         return w;
     }
 }
