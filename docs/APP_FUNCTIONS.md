@@ -14,7 +14,7 @@ Accepted forms on the first line: `§XX arguments`, `[[XX]] arguments`, `⟦XX�
 | `§CA` | CALC | work out arithmetic exactly | `<expression>` |
 | `§PH` | PHOTO | show a real photograph | `<subject>` |
 | `§BD` | BUILD | model a thing in 3D | `<thing, with every size given>` |
-| `§SO` | SOCIAL | the pilot's social accounts | `SEARCH <network>: <words> \| TRENDING <network> \| CONNECT <network> \| POST <network>: <about>` |
+| `§SO` | SOCIAL | the pilot's social accounts | `SEARCH <network>: <words> \| TRENDING <network> \| CONNECT <network> \| POST <network>: <about, and any people to tag by name> \| COMMENT <network>: <post link> <what to say>` |
 | `§SI` | SOCIALINTEL | social intelligence: investigate posts, find similar posts, public sentiment, profiles | `<capability> <arguments>` |
 | `§SP` | SCHEDULEPOST | schedule a post on the pilot's own account, once or repeating; the pilot sees it and says yes first. LIST shows the scheduled posts | `<network> <yyyy-MM-dd HH:mm \| HH:mm \| in 2h> [daily\|weekly\|weekdays\|every 6h]: <text> \| LIST` |
 | `§MF` | MAKEFILE | make a file of the last answer | `<pdf\|docx\|xlsx\|csv\|md\|html\|txt>` |

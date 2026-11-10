@@ -207,6 +207,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 174 | Make the Shell screen standard (screenshot of a standard terminal) | P12 | Built (welcome, ~ $ prompt, two rows of extra keys, long-press copy/paste; device check pending) | 0.99.43 |
 | 175 | Dictation clears old words after a pause; fix the mic icon and the record effect; human-like voices and what to download; the Blueprint with several workers reading the codebase line by line at once and documenting it | P12 | Built (JVM tests; device check pending) | 0.99.44 |
 | 176 | A post to Facebook went to a web search; auto post: post directly from my account on my command | P12 | Built (after the pilot's yes, Facebook and X; device check pending) | 0.99.44 |
+| 177 | Update build.toml with gradle; the Scribe documents every progress; API answers switching to the local model; show the post with several versions to pick; tag people; comment under a post; comment on a user's every new post and chat with repliers; DVINE 1 learns | P12 | Built except the unattended watcher and auto-chat (each comment still needs the pilot's yes); JVM tests; device check pending | 0.99.45 |
 
 ## Still open, in the order that matters
 

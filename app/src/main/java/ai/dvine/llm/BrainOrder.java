@@ -225,6 +225,10 @@ public final class BrainOrder {
         if (ai.dvine.social.SocialAsk.help(said)) {
             return new BrainOrder(Kind.SOCIAL, "help", "");
         }
+        String[] under = ai.dvine.social.PostDrafts.comment(said);
+        if (under != null) {
+            return new BrainOrder(Kind.SOCIAL, "comment " + under[0] + ": " + under[1] + " " + under[2], "");
+        }
         String[] post = ai.dvine.social.SocialAsk.compose(said);
         if (post != null) {
             return new BrainOrder(Kind.SOCIAL, "post " + post[0].toLowerCase(java.util.Locale.US).replace(" ", "") + ": " + post[1], "");

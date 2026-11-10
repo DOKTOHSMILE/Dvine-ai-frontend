@@ -1240,6 +1240,9 @@ public final class CodeAgent {
         if (line != null) {
             host.step(line);
         }
+        for (String ticked : blueprint.takeTicked()) {
+            host.step("Blueprint step done: " + ticked); // into the Scribe's record, so it is not done again
+        }
         String args = c.attrs.toString() + "\u0000" + (c.body == null ? "" : c.body.hashCode());
         String circling = blueprint.circling(c.name, args, result);
         StringBuilder out = new StringBuilder(result == null ? "" : result);

@@ -133,10 +133,30 @@ public final class Blueprint {
         return null;
     }
 
+    private final List<String> justTicked = new ArrayList<String>();
+
+    /** The steps ticked by the last write of PLAN.md (taken once), for the Scribe's record. */
+    public List<String> takeTicked() {
+        List<String> out = new ArrayList<String>(justTicked);
+        justTicked.clear();
+        return out;
+    }
+
     /** PLAN.md was written or edited: its new text. What the agent is told back (the check, or the next phase). */
     public String planned(String path, String text) {
         planPath = path;
         String before = plan;
+        java.util.Set<String> was = new java.util.HashSet<String>();
+        for (String[] st : steps(before)) {
+            if ("x".equals(st[0])) {
+                was.add(st[1]);
+            }
+        }
+        for (String[] st : steps(text == null ? "" : text)) {
+            if ("x".equals(st[0]) && !was.contains(st[1])) {
+                justTicked.add(st[1]);
+            }
+        }
         plan = text == null ? "" : text;
         if (phaseOf(before) != Phase.BUILD && phase() == Phase.BUILD) {
             List<String> missing = check(plan);

@@ -1,3 +1,11 @@
+# Posts, tags, comments and the Scribe (0.99.45)
+
+- [x] With an API chosen, the device's model never answers instead, even offline.
+- [x] app/module.toml is bumped with build.gradle (a test checks they match).
+- [x] The Scribe records every step and hands the done list to the next round.
+- [x] Three post versions to pick from; named people tagged; comments under a post by its link; each after a yes.
+- [ ] Watch a person's new posts and draft a comment for each, posted after a yes (not unattended).
+
 # Voice, survey readers and posting (0.99.44)
 
 - [x] Dictation keeps what was said before a pause; the mic is the standard icon, red and pulsing while recording.
