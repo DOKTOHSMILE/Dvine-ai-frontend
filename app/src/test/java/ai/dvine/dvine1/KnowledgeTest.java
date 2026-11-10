@@ -79,7 +79,7 @@ public class KnowledgeTest {
         assertEquals("pig", ResearchAnswer.subject("What is a pig?"));
         assertEquals("Ada Lovelace", ResearchAnswer.subject("Who was Ada Lovelace?"));
         assertEquals("photosynthesis", ResearchAnswer.subject("Tell me about photosynthesis"));
-        assertNull("about DVINE itself", ResearchAnswer.subject("What have you learned so far?"));
+        assertNull("about Ibiko itself", ResearchAnswer.subject("What have you learned so far?"));
         assertNull(ResearchAnswer.subject("Who founded Microsoft?"));
         assertTrue(ResearchAnswer.summaryUrl("pig").endsWith("/page/summary/Pig"));
 
@@ -122,7 +122,7 @@ public class KnowledgeTest {
         Knowledge k = new Knowledge(null);
         k.confirm("What is a shoe?", "A shoe is an item of footwear.");
         assertEquals("A shoe is an item of footwear.", k.recall("What do you know about a shoe?").answer);
-        k.confirm("Hello", "Hello, I'm DVINE 1 \u00B7 0.1. Ask me anything.");
+        k.confirm("Hello", "Hello, I'm Ibiko 1 \u00B7 0.1. Ask me anything.");
         k.confirm("What have you learned so far?", "Records was in Europe.");
         assertEquals("only the real answer is kept", 1, k.confirmed().size());
         assertTrue(Knowledge.notKnowledge("Good afternoon", "Hi"));

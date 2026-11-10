@@ -13,12 +13,12 @@ public class PersonaPromptTest {
         assertTrue(system.contains("Do not ask the user to repeat themselves"));
         assertTrue(system.contains("in the light of what was said before"));
         String around = PersonaPrompt.situation(false, "the moon", "a lighthouse", "evening", true);
-        assertTrue(around, around.startsWith("You are DVINE AI, the one assistant here."));
+        assertTrue(around, around.startsWith("You are Ibiko, the one assistant here."));
         assertTrue(around.contains("just talking about the moon"));
         assertTrue(around.contains("On show now: a lighthouse"));
-        assertTrue(PersonaPrompt.situation("ibiko", null, null, "night", false).startsWith("You are DVINE AI"));
+        assertTrue(PersonaPrompt.situation("ibiko", null, null, "night", false).startsWith("You are Ibiko"));
         String context = PersonaPrompt.context(java.util.Collections.singletonList("Tobi is my brother."), null, around);
-        assertTrue(context, context.startsWith("Situation: You are DVINE AI"));
+        assertTrue(context, context.startsWith("Situation: You are Ibiko"));
         assertTrue(context.contains("\nFacts the user taught you"));
     }
 
@@ -27,8 +27,8 @@ public class PersonaPromptTest {
         String obi = PersonaPrompt.system("obi", null, null), ivie = PersonaPrompt.system("ivie", null, null),
                 ibiko = PersonaPrompt.system("ibiko", null, null);
         assertTrue("one assistant, whatever key is passed", obi.equals(ivie) && ivie.equals(ibiko));
-        assertTrue(obi.startsWith("You are DVINE AI") && obi.contains("first principles") && obi.contains("lands on people"));
-        assertTrue(obi.contains("never call yourself or anyone here Obi, Ivie or Ibiko"));
+        assertTrue(obi.startsWith("You are Ibiko") && obi.contains("first principles") && obi.contains("lands on people"));
+        assertTrue(obi.contains("never mention any other assistant or persona") && !obi.contains("Obi") && !obi.contains("Ivie"));
         for (String s : new String[]{obi, ivie, ibiko}) {
             assertTrue(s.contains("grace and truth together (John 1:14)"));
             assertTrue(s.contains("Viktor Frankl") && s.contains("Daniel Kahneman") && s.contains("Myles Munroe") && s.contains("Stoic"));

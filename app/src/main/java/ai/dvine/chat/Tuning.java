@@ -88,7 +88,7 @@ public final class Tuning {
     public static final Knob BIG_TOKENS = new Knob("adv_big_tokens", "Long reply length, tokens",
             "For real work: writing, research, analysis.", 1500, 256, 32000);
     public static final Knob AGENT_STEPS = new Knob("adv_agent_steps", "Agent steps per task",
-            "How many tool steps DVINE (or a persona reading files) may take before reporting back.", 30, 3, 100);
+            "How many tool steps Ibiko (or a persona reading files) may take before reporting back.", 30, 3, 100);
     public static final Knob AGENT_TOKENS = new Knob("adv_agent_tokens", "Agent step length, tokens",
             "How much the model may write in one step (a whole file or a full report needs more).", 4000, 256, 32000);
     public static final Knob PASTE_CHARS = new Knob("adv_paste_chars", "Paste becomes a file at, characters",
@@ -110,10 +110,10 @@ public final class Tuning {
             5000, 100, 50000);
 
     public static final Knob OFFLINE_CONTEXT = new Knob("adv_offline_context", "Offline model memory, tokens",
-            "How much of the conversation and the work the device's own model keeps in mind. More lets DVINE work offline and"
+            "How much of the conversation and the work the device's own model keeps in mind. More lets Ibiko work offline and"
                     + " remember longer chats, but takes more of the device's memory and starts slower.", 8192, 1024, 32768);
     public static final Knob SLOW_SPEED = new Knob("adv_slow_speed", "Offline model is slow below, tokens a second",
-            "When the device's own model writes slower than this, DVINE suggests a smaller size or less memory.", 4, 1, 50);
+            "When the device's own model writes slower than this, Ibiko suggests a smaller size or less memory.", 4, 1, 50);
 
     public static final Knob MODEL_THREADS = new Knob("adv_model_threads", "Offline model threads (0 = automatic)",
             "How many cores the offline model uses. Automatic uses two. More than two makes the phone hum and does not go faster.",
@@ -138,7 +138,7 @@ public final class Tuning {
 
     /** The name of a model tier, or null when it isn't a tier ("3" for a count). */
     public static final Knob TASK_TIER = new Knob("adv_task_tier", "Task model tier (0 automatic)",
-            "Which model answers the task. Automatic lets DVINE pick; a higher tier is slower and uses more of the plan.",
+            "Which model answers the task. Automatic lets Ibiko pick; a higher tier is slower and uses more of the plan.",
             0, 0, 4, true);
 
     public static final Knob BRAIN_TIER = new Knob("adv_brain_tier", "Brain model tier (0 automatic)",

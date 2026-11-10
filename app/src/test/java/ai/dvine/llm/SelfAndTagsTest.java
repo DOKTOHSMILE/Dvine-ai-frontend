@@ -19,14 +19,14 @@ public class SelfAndTagsTest {
         f.userName = "Val";
         f.taughtFacts = 3;
         String s = DvineSelf.sheet(f);
-        for (String must : new String[]{"DVINE (version 0.26.0)", "Tecno Spark", "DVINE AI is one assistant", "offline", "The user is Val", "taught you 3 facts", "[[switch:ibiko]]"}) {
+        for (String must : new String[]{"Ibiko (version 0.26.0)", "Tecno Spark", "Ibiko is one assistant", "offline", "The user is Val", "taught you 3 facts"}) {
             assertTrue(must, s.contains(must));
         }
         String ibiko = PersonaPrompt.system("ibiko", "Val", "Tuesday 27 October 2026", s);
-        assertTrue(ibiko.startsWith("You are DVINE AI"));
-        assertTrue("no other names in what it knows about itself", !s.contains("Ivie") && !s.contains("Obi") && !s.contains("Ibiko"));
-        assertTrue(ibiko.contains("DVINE (version 0.26.0)"));
-        assertTrue(PersonaPrompt.system("ivie", null, null, s).startsWith("You are DVINE AI"));
+        assertTrue(ibiko.startsWith("You are Ibiko"));
+        assertTrue("no other names in what it knows about itself", !s.contains("Ivie") && !s.contains("Obi") && !s.contains("switch:"));
+        assertTrue(ibiko.contains("Ibiko (version 0.26.0)"));
+        assertTrue(PersonaPrompt.system("ivie", null, null, s).startsWith("You are Ibiko"));
     }
 
     @Test

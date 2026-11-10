@@ -80,7 +80,7 @@ public class ProviderOrderTest {
             } finally {
                 RemoteBrain.retryWaits = waits;
             }
-            assertEquals("the device couldn't sign in to the DVINE server", live.problem());
+            assertEquals("the device couldn't sign in to the Ibiko server", live.problem());
             assertEquals(2, auth.size());
         } finally {
             ProviderStore.serverSession = was;

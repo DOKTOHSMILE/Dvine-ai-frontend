@@ -92,11 +92,11 @@ public final class PersonaTabs {
         host.showChatPane();
         android.widget.EditText field = host.find(ai.dvine.R.id.et_message);
         if (field != null) {
-            field.setHint("Ask anything");
+            field.setHint("Ask Ibiko anything");
         }
         android.widget.TextView sub = host.find(ai.dvine.R.id.tv_header_sub);
         if (sub != null) {
-            String name = "DVINE AI";
+            String name = "Ibiko";
             sub.setText(name + " · " + host.brainLabel());
         }
         android.widget.TextView mark = host.find(ai.dvine.R.id.empty_mark);
@@ -126,8 +126,8 @@ public final class PersonaTabs {
         prefs.edit().putBoolean(key, true).apply();
         // only when the coding chat is opened, and only once; the wording matches what the tools really do here
         host.play(ai.dvine.turn.LocalTurn.speakAs("ibiko", installed
-                ? "This is the coding chat. I work in DVINE's Linux, the same one the Shell screen shows: ask me to run a command, build or fix code here."
-                : "This is the coding chat. I work in DVINE's Linux, the same one the Shell screen shows. It installs itself the first time I run a command (about 4 MB)."),
+                ? "This is the coding chat. I work in Ibiko's Linux, the same one the Shell screen shows: ask me to run a command, build or fix code here."
+                : "This is the coding chat. I work in Ibiko's Linux, the same one the Shell screen shows. It installs itself the first time I run a command (about 4 MB)."),
                 null);
     }
 

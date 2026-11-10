@@ -237,7 +237,7 @@ public final class LinuxRoot {
         conn.setConnectTimeout(20000);
         conn.setReadTimeout(120000);
         conn.setInstanceFollowRedirects(true);
-        conn.setRequestProperty("User-Agent", "DVINE");
+        conn.setRequestProperty("User-Agent", "Ibiko");
         int code = conn.getResponseCode();
         if (code != HttpURLConnection.HTTP_OK) {
             throw new IOException("Download failed (" + code + ").");

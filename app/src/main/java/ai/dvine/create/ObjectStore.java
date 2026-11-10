@@ -159,7 +159,7 @@ public final class ObjectStore {
         if (!dir.isDirectory() && !dir.mkdirs()) {
             throw new IOException("cannot create " + dir);
         }
-        StringBuilder sb = new StringBuilder("# DVINE ").append(m.title).append(", version ").append(m.version)
+        StringBuilder sb = new StringBuilder("# Ibiko ").append(m.title).append(", version ").append(m.version)
                 .append(" (concept model, not engineering-verified; metres, y up)\n");
         int base = 1;
         for (Component c : m.components) {

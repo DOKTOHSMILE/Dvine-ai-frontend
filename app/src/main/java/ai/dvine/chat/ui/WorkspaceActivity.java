@@ -78,7 +78,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
     private void fill() {
         body.removeAllViews();
         String rel = root.toURI().relativize(here.toURI()).getPath();
-        where.setText(rel.isEmpty() ? "DVINE's files on this device" : rel);
+        where.setText(rel.isEmpty() ? "Ibiko's files on this device" : rel);
         File[] kids = here.listFiles();
         if (!here.equals(root)) {
             body.addView(row("..", "Up a level", ai.dvine.R.drawable.ic_folder, v -> {
@@ -88,7 +88,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         }
         if (kids == null || kids.length == 0) {
             TextView none = Ui.text(this, here.equals(root)
-                    ? "Nothing here yet. Ask DVINE to clone a repository or build something, and its files appear here."
+                    ? "Nothing here yet. Ask Ibiko to clone a repository or build something, and its files appear here."
                     : "This folder is empty.", 14, Ui.SUB, false);
             none.setPadding(Ui.dp(this, 6), Ui.dp(this, 16), Ui.dp(this, 6), 0);
             body.addView(none);

@@ -13,7 +13,7 @@ public final class WebGet {
     private WebGet() {
     }
 
-    public static final String AGENT = "DVINE/0.23 (https://github.com/DOKTOHSMILE/Dvine-ai-frontend)";
+    public static final String AGENT = "Ibiko/0.23 (https://github.com/DOKTOHSMILE/Dvine-ai-frontend)";
 
     public static byte[] get(String url, int timeoutMs, int maxBytes) {
         if (url == null || !url.startsWith("https://")) {
@@ -62,7 +62,7 @@ public final class WebGet {
     }
 
     /** A browser-like User-Agent: many sites refuse a bare client. */
-    public static final String BROWSER = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 DVINE";
+    public static final String BROWSER = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 Ibiko";
 
     /**
      * Any https page for reading: a big page is cut at {@code maxBytes} rather than dropped, redirects are followed,

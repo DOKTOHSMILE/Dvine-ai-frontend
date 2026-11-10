@@ -35,7 +35,7 @@ import java.util.Locale;
  * permission on Android 10 and later.
  */
 public final class CrashLog {
-    static final String FOLDER = "DVINE";
+    static final String FOLDER = "Ibiko";
     private static volatile boolean installed;
 
     private CrashLog() {
@@ -156,7 +156,7 @@ public final class CrashLog {
     /** The whole report: what happened, on which version and phone, the trace and the app's recent log. */
     static String report(Context c, String what, String trace, String log) {
         StringBuilder b = new StringBuilder();
-        b.append("DVINE ").append(BuildConfigInfo.version(c)).append(" on Android ").append(Build.VERSION.RELEASE)
+        b.append("Ibiko ").append(BuildConfigInfo.version(c)).append(" on Android ").append(Build.VERSION.RELEASE)
                 .append(" (SDK ").append(Build.VERSION.SDK_INT).append(", ").append(Build.MANUFACTURER).append(' ')
                 .append(Build.MODEL).append(", ").append(Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "?")
                 .append(")\n");

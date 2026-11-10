@@ -1,288 +1,2146 @@
-Nigeria	capital	Abuja
-Nigeria	continent	Africa
-Nigeria	currency	Nigerian naira
-Ghana	capital	Accra
-Ghana	continent	Africa
-Ghana	currency	Ghanaian cedi
-Kenya	capital	Nairobi
-Kenya	continent	Africa
-Kenya	currency	Kenyan shilling
-South Africa	capital	Pretoria
-South Africa	continent	Africa
-South Africa	currency	South African rand
-Egypt	capital	Cairo
-Egypt	continent	Africa
-Egypt	currency	Egyptian pound
-Ethiopia	capital	Addis Ababa
-Ethiopia	continent	Africa
-Ethiopia	currency	Ethiopian birr
-Tanzania	capital	Dodoma
-Tanzania	continent	Africa
-Tanzania	currency	Tanzanian shilling
-Uganda	capital	Kampala
-Uganda	continent	Africa
-Uganda	currency	Ugandan shilling
-Rwanda	capital	Kigali
-Rwanda	continent	Africa
-Rwanda	currency	Rwandan franc
-Senegal	capital	Dakar
-Senegal	continent	Africa
-Senegal	currency	West African CFA franc
-Cameroon	capital	Yaoundé
-Cameroon	continent	Africa
-Cameroon	currency	Central African CFA franc
-Ivory Coast	capital	Yamoussoukro
-Ivory Coast	continent	Africa
-Ivory Coast	currency	West African CFA franc
-Morocco	capital	Rabat
-Morocco	continent	Africa
-Morocco	currency	Moroccan dirham
-Algeria	capital	Algiers
-Algeria	continent	Africa
-Algeria	currency	Algerian dinar
-Tunisia	capital	Tunis
-Tunisia	continent	Africa
-Tunisia	currency	Tunisian dinar
-Libya	capital	Tripoli
-Libya	continent	Africa
-Libya	currency	Libyan dinar
-Sudan	capital	Khartoum
-Sudan	continent	Africa
-Sudan	currency	Sudanese pound
-South Sudan	capital	Juba
-South Sudan	continent	Africa
-South Sudan	currency	South Sudanese pound
-Angola	capital	Luanda
-Angola	continent	Africa
-Angola	currency	Angolan kwanza
-Zambia	capital	Lusaka
-Zambia	continent	Africa
-Zambia	currency	Zambian kwacha
-Zimbabwe	capital	Harare
-Zimbabwe	continent	Africa
-Zimbabwe	currency	Zimbabwe Gold
-Botswana	capital	Gaborone
-Botswana	continent	Africa
-Botswana	currency	Botswana pula
-Namibia	capital	Windhoek
-Namibia	continent	Africa
-Namibia	currency	Namibian dollar
-Mozambique	capital	Maputo
-Mozambique	continent	Africa
-Mozambique	currency	Mozambican metical
-Malawi	capital	Lilongwe
-Malawi	continent	Africa
-Malawi	currency	Malawian kwacha
-Mali	capital	Bamako
-Mali	continent	Africa
-Mali	currency	West African CFA franc
-Niger	capital	Niamey
-Niger	continent	Africa
-Niger	currency	West African CFA franc
-Chad	capital	N'Djamena
-Chad	continent	Africa
-Chad	currency	Central African CFA franc
-Benin	capital	Porto-Novo
-Benin	continent	Africa
-Benin	currency	West African CFA franc
-Togo	capital	Lomé
-Togo	continent	Africa
-Togo	currency	West African CFA franc
-Burkina Faso	capital	Ouagadougou
-Burkina Faso	continent	Africa
-Burkina Faso	currency	West African CFA franc
-Liberia	capital	Monrovia
-Liberia	continent	Africa
-Liberia	currency	Liberian dollar
-Sierra Leone	capital	Freetown
-Sierra Leone	continent	Africa
-Sierra Leone	currency	Sierra Leonean leone
-Gambia	capital	Banjul
-Gambia	continent	Africa
-Gambia	currency	Gambian dalasi
-Guinea	capital	Conakry
-Guinea	continent	Africa
-Guinea	currency	Guinean franc
-Somalia	capital	Mogadishu
-Somalia	continent	Africa
-Somalia	currency	Somali shilling
-Madagascar	capital	Antananarivo
-Madagascar	continent	Africa
-Madagascar	currency	Malagasy ariary
-Mauritius	capital	Port Louis
-Mauritius	continent	Africa
-Mauritius	currency	Mauritian rupee
-Gabon	capital	Libreville
-Gabon	continent	Africa
-Gabon	currency	Central African CFA franc
-United Kingdom	capital	London
-United Kingdom	continent	Europe
-United Kingdom	currency	pound sterling
-France	capital	Paris
-France	continent	Europe
-France	currency	euro
-Germany	capital	Berlin
-Germany	continent	Europe
-Germany	currency	euro
-Italy	capital	Rome
-Italy	continent	Europe
-Italy	currency	euro
-Spain	capital	Madrid
-Spain	continent	Europe
-Spain	currency	euro
-Portugal	capital	Lisbon
-Portugal	continent	Europe
-Portugal	currency	euro
-Netherlands	capital	Amsterdam
-Netherlands	continent	Europe
-Netherlands	currency	euro
-Belgium	capital	Brussels
-Belgium	continent	Europe
-Belgium	currency	euro
-Ireland	capital	Dublin
-Ireland	continent	Europe
-Ireland	currency	euro
-Greece	capital	Athens
-Greece	continent	Europe
-Greece	currency	euro
-Austria	capital	Vienna
-Austria	continent	Europe
-Austria	currency	euro
-Switzerland	capital	Bern
-Switzerland	continent	Europe
-Switzerland	currency	Swiss franc
-Sweden	capital	Stockholm
-Sweden	continent	Europe
-Sweden	currency	Swedish krona
-Norway	capital	Oslo
-Norway	continent	Europe
-Norway	currency	Norwegian krone
-Denmark	capital	Copenhagen
-Denmark	continent	Europe
-Denmark	currency	Danish krone
-Finland	capital	Helsinki
-Finland	continent	Europe
-Finland	currency	euro
-Poland	capital	Warsaw
-Poland	continent	Europe
-Poland	currency	Polish złoty
-Ukraine	capital	Kyiv
-Ukraine	continent	Europe
-Ukraine	currency	Ukrainian hryvnia
-Russia	capital	Moscow
-Russia	continent	Europe
-Russia	currency	Russian ruble
-United States	capital	Washington, D.C.
-United States	continent	North America
-United States	currency	United States dollar
-Canada	capital	Ottawa
-Canada	continent	North America
-Canada	currency	Canadian dollar
-Mexico	capital	Mexico City
-Mexico	continent	North America
-Mexico	currency	Mexican peso
-Cuba	capital	Havana
-Cuba	continent	North America
-Cuba	currency	Cuban peso
-Jamaica	capital	Kingston
-Jamaica	continent	North America
-Jamaica	currency	Jamaican dollar
-Brazil	capital	Brasília
-Brazil	continent	South America
-Brazil	currency	Brazilian real
-Argentina	capital	Buenos Aires
-Argentina	continent	South America
-Argentina	currency	Argentine peso
-Chile	capital	Santiago
-Chile	continent	South America
-Chile	currency	Chilean peso
-Colombia	capital	Bogotá
-Colombia	continent	South America
-Colombia	currency	Colombian peso
-Peru	capital	Lima
-Peru	continent	South America
-Peru	currency	Peruvian sol
-Venezuela	capital	Caracas
-Venezuela	continent	South America
-Venezuela	currency	Venezuelan bolívar
-China	capital	Beijing
-China	continent	Asia
-China	currency	renminbi
-Japan	capital	Tokyo
-Japan	continent	Asia
-Japan	currency	Japanese yen
-India	capital	New Delhi
-India	continent	Asia
-India	currency	Indian rupee
-Pakistan	capital	Islamabad
-Pakistan	continent	Asia
-Pakistan	currency	Pakistani rupee
-Bangladesh	capital	Dhaka
-Bangladesh	continent	Asia
-Bangladesh	currency	Bangladeshi taka
-Indonesia	capital	Jakarta
-Indonesia	continent	Asia
-Indonesia	currency	Indonesian rupiah
-Philippines	capital	Manila
-Philippines	continent	Asia
-Philippines	currency	Philippine peso
-Vietnam	capital	Hanoi
-Vietnam	continent	Asia
-Vietnam	currency	Vietnamese đồng
-Thailand	capital	Bangkok
-Thailand	continent	Asia
-Thailand	currency	Thai baht
-Malaysia	capital	Kuala Lumpur
-Malaysia	continent	Asia
-Malaysia	currency	Malaysian ringgit
-Singapore	capital	Singapore
-Singapore	continent	Asia
-Singapore	currency	Singapore dollar
-South Korea	capital	Seoul
-South Korea	continent	Asia
-South Korea	currency	South Korean won
-North Korea	capital	Pyongyang
-North Korea	continent	Asia
-North Korea	currency	North Korean won
-Saudi Arabia	capital	Riyadh
-Saudi Arabia	continent	Asia
-Saudi Arabia	currency	Saudi riyal
-United Arab Emirates	capital	Abu Dhabi
-United Arab Emirates	continent	Asia
-United Arab Emirates	currency	United Arab Emirates dirham
-Qatar	capital	Doha
-Qatar	continent	Asia
-Qatar	currency	Qatari riyal
-Israel	capital	Jerusalem
-Israel	continent	Asia
-Israel	currency	Israeli new shekel
-Turkey	capital	Ankara
-Turkey	continent	Asia
-Turkey	currency	Turkish lira
-Iran	capital	Tehran
-Iran	continent	Asia
-Iran	currency	Iranian rial
-Iraq	capital	Baghdad
-Iraq	continent	Asia
-Iraq	currency	Iraqi dinar
 Afghanistan	capital	Kabul
 Afghanistan	continent	Asia
 Afghanistan	currency	Afghan afghani
-Nepal	capital	Kathmandu
-Nepal	continent	Asia
-Nepal	currency	Nepalese rupee
-Sri Lanka	capital	Sri Jayawardenepura Kotte
-Sri Lanka	continent	Asia
-Sri Lanka	currency	Sri Lankan rupee
+Afghanistan	official language	Dari
+Afghanistan	official language	Pashto
+Afghanistan	official language	Turkmen
+Afghanistan	area	652230
+Afghanistan	demonym	Afghan
+Afghanistan	neighbour	Iran
+Afghanistan	neighbour	Pakistan
+Afghanistan	neighbour	Turkmenistan
+Afghanistan	neighbour	Uzbekistan
+Afghanistan	neighbour	Tajikistan
+Afghanistan	neighbour	China
+Afghanistan	landlocked	yes
+Albania	capital	Tirana
+Albania	continent	Europe
+Albania	currency	Albanian lek
+Albania	official language	Albanian
+Albania	area	28748
+Albania	demonym	Albanian
+Albania	neighbour	Montenegro
+Albania	neighbour	Greece
+Albania	neighbour	North Macedonia
+Albania	neighbour	Kosovo
+Albania	landlocked	no
+Algeria	capital	Algiers
+Algeria	continent	Africa
+Algeria	currency	Algerian dinar
+Algeria	official language	Arabic
+Algeria	area	2381741
+Algeria	demonym	Algerian
+Algeria	neighbour	Tunisia
+Algeria	neighbour	Libya
+Algeria	neighbour	Niger
+Algeria	neighbour	Western Sahara
+Algeria	neighbour	Mauritania
+Algeria	neighbour	Mali
+Algeria	neighbour	Morocco
+Algeria	landlocked	no
+Andorra	capital	Andorra la Vella
+Andorra	continent	Europe
+Andorra	currency	Euro
+Andorra	official language	Catalan
+Andorra	area	468
+Andorra	demonym	Andorran
+Andorra	neighbour	France
+Andorra	neighbour	Spain
+Andorra	landlocked	yes
+Angola	capital	Luanda
+Angola	continent	Africa
+Angola	currency	Angolan kwanza
+Angola	official language	Portuguese
+Angola	area	1246700
+Angola	demonym	Angolan
+Angola	neighbour	Congo
+Angola	neighbour	DR Congo
+Angola	neighbour	Zambia
+Angola	neighbour	Namibia
+Angola	landlocked	no
+Antigua and Barbuda	capital	Saint John's
+Antigua and Barbuda	continent	Caribbean
+Antigua and Barbuda	currency	Eastern Caribbean dollar
+Antigua and Barbuda	official language	English
+Antigua and Barbuda	area	442
+Antigua and Barbuda	demonym	Antiguan, Barbudan
+Antigua and Barbuda	landlocked	no
+Argentina	capital	Buenos Aires
+Argentina	continent	South America
+Argentina	currency	Argentine peso
+Argentina	official language	Guaraní
+Argentina	official language	Spanish
+Argentina	area	2780400
+Argentina	demonym	Argentine
+Argentina	neighbour	Bolivia
+Argentina	neighbour	Brazil
+Argentina	neighbour	Chile
+Argentina	neighbour	Paraguay
+Argentina	neighbour	Uruguay
+Argentina	landlocked	no
+Armenia	capital	Yerevan
+Armenia	continent	Asia
+Armenia	currency	Armenian dram
+Armenia	official language	Armenian
+Armenia	area	29743
+Armenia	demonym	Armenian
+Armenia	neighbour	Azerbaijan
+Armenia	neighbour	Georgia
+Armenia	neighbour	Iran
+Armenia	neighbour	Türkiye
+Armenia	landlocked	yes
 Australia	capital	Canberra
 Australia	continent	Oceania
 Australia	currency	Australian dollar
-New Zealand	capital	Wellington
-New Zealand	continent	Oceania
-New Zealand	currency	New Zealand dollar
+Australia	official language	English
+Australia	area	7692024
+Australia	demonym	Australian
+Australia	landlocked	no
+Austria	capital	Vienna
+Austria	continent	Europe
+Austria	currency	Euro
+Austria	official language	Austro-Bavarian German
+Austria	area	83871
+Austria	demonym	Austrian
+Austria	neighbour	Czechia
+Austria	neighbour	Germany
+Austria	neighbour	Hungary
+Austria	neighbour	Italy
+Austria	neighbour	Liechtenstein
+Austria	neighbour	Slovakia
+Austria	neighbour	Slovenia
+Austria	neighbour	Switzerland
+Austria	landlocked	yes
+Azerbaijan	capital	Baku
+Azerbaijan	continent	Asia
+Azerbaijan	currency	Azerbaijani manat
+Azerbaijan	official language	Azerbaijani
+Azerbaijan	official language	Russian
+Azerbaijan	area	86600
+Azerbaijan	demonym	Azerbaijani
+Azerbaijan	neighbour	Armenia
+Azerbaijan	neighbour	Georgia
+Azerbaijan	neighbour	Iran
+Azerbaijan	neighbour	Russia
+Azerbaijan	neighbour	Türkiye
+Azerbaijan	landlocked	yes
+Bahamas	capital	Nassau
+Bahamas	continent	Caribbean
+Bahamas	currency	Bahamian dollar
+Bahamas	currency	United States dollar
+Bahamas	official language	English
+Bahamas	area	13943
+Bahamas	demonym	Bahamian
+Bahamas	landlocked	no
+Bahrain	capital	Manama
+Bahrain	continent	Asia
+Bahrain	currency	Bahraini dinar
+Bahrain	official language	Arabic
+Bahrain	area	765
+Bahrain	demonym	Bahraini
+Bahrain	landlocked	no
+Bangladesh	capital	Dhaka
+Bangladesh	continent	Asia
+Bangladesh	currency	Bangladeshi taka
+Bangladesh	official language	Bengali
+Bangladesh	area	147570
+Bangladesh	demonym	Bangladeshi
+Bangladesh	neighbour	Myanmar
+Bangladesh	neighbour	India
+Bangladesh	landlocked	no
+Barbados	capital	Bridgetown
+Barbados	continent	Caribbean
+Barbados	currency	Barbadian dollar
+Barbados	official language	English
+Barbados	area	430
+Barbados	demonym	Barbadian
+Barbados	landlocked	no
+Belarus	capital	Minsk
+Belarus	continent	Europe
+Belarus	currency	Belarusian ruble
+Belarus	official language	Belarusian
+Belarus	official language	Russian
+Belarus	area	207600
+Belarus	demonym	Belarusian
+Belarus	neighbour	Latvia
+Belarus	neighbour	Lithuania
+Belarus	neighbour	Poland
+Belarus	neighbour	Russia
+Belarus	neighbour	Ukraine
+Belarus	landlocked	yes
+Belgium	capital	Brussels
+Belgium	continent	Europe
+Belgium	currency	Euro
+Belgium	official language	German
+Belgium	official language	French
+Belgium	official language	Dutch
+Belgium	area	30528
+Belgium	demonym	Belgian
+Belgium	neighbour	France
+Belgium	neighbour	Germany
+Belgium	neighbour	Luxembourg
+Belgium	neighbour	Netherlands
+Belgium	landlocked	no
+Belize	capital	Belmopan
+Belize	continent	Central America
+Belize	currency	Belize dollar
+Belize	official language	Belizean Creole
+Belize	official language	English
+Belize	official language	Spanish
+Belize	area	22966
+Belize	demonym	Belizean
+Belize	neighbour	Guatemala
+Belize	neighbour	Mexico
+Belize	landlocked	no
+Benin	capital	Porto-Novo
+Benin	continent	Africa
+Benin	currency	West African CFA franc
+Benin	official language	French
+Benin	area	112622
+Benin	demonym	Beninese
+Benin	neighbour	Burkina Faso
+Benin	neighbour	Niger
+Benin	neighbour	Nigeria
+Benin	neighbour	Togo
+Benin	landlocked	no
+Bhutan	capital	Thimphu
+Bhutan	continent	Asia
+Bhutan	currency	Bhutanese ngultrum
+Bhutan	currency	Indian rupee
+Bhutan	official language	Dzongkha
+Bhutan	area	38394
+Bhutan	demonym	Bhutanese
+Bhutan	neighbour	China
+Bhutan	neighbour	India
+Bhutan	landlocked	yes
+Bolivia	capital	Sucre
+Bolivia	continent	South America
+Bolivia	currency	Bolivian boliviano
+Bolivia	official language	Aymara
+Bolivia	official language	Guaraní
+Bolivia	official language	Quechua
+Bolivia	official language	Spanish
+Bolivia	area	1098581
+Bolivia	demonym	Bolivian
+Bolivia	neighbour	Argentina
+Bolivia	neighbour	Brazil
+Bolivia	neighbour	Chile
+Bolivia	neighbour	Paraguay
+Bolivia	neighbour	Peru
+Bolivia	landlocked	yes
+Bosnia and Herzegovina	capital	Sarajevo
+Bosnia and Herzegovina	continent	Europe
+Bosnia and Herzegovina	currency	Bosnia and Herzegovina convertible mark
+Bosnia and Herzegovina	official language	Bosnian
+Bosnia and Herzegovina	official language	Croatian
+Bosnia and Herzegovina	official language	Serbian
+Bosnia and Herzegovina	area	51209
+Bosnia and Herzegovina	demonym	Bosnian, Herzegovinian
+Bosnia and Herzegovina	neighbour	Croatia
+Bosnia and Herzegovina	neighbour	Montenegro
+Bosnia and Herzegovina	neighbour	Serbia
+Bosnia and Herzegovina	landlocked	no
+Botswana	capital	Gaborone
+Botswana	continent	Africa
+Botswana	currency	Botswana pula
+Botswana	official language	English
+Botswana	official language	Tswana
+Botswana	area	582000
+Botswana	demonym	Motswana
+Botswana	neighbour	Namibia
+Botswana	neighbour	South Africa
+Botswana	neighbour	Zambia
+Botswana	neighbour	Zimbabwe
+Botswana	landlocked	yes
+Brazil	capital	Brasília
+Brazil	continent	South America
+Brazil	currency	Brazilian real
+Brazil	official language	Portuguese
+Brazil	area	8515767
+Brazil	demonym	Brazilian
+Brazil	neighbour	Argentina
+Brazil	neighbour	Bolivia
+Brazil	neighbour	Colombia
+Brazil	neighbour	French Guiana
+Brazil	neighbour	Guyana
+Brazil	neighbour	Paraguay
+Brazil	neighbour	Peru
+Brazil	neighbour	Suriname
+Brazil	neighbour	Uruguay
+Brazil	neighbour	Venezuela
+Brazil	landlocked	no
+Brunei	capital	Bandar Seri Begawan
+Brunei	continent	Asia
+Brunei	currency	Brunei dollar
+Brunei	currency	Singapore dollar
+Brunei	official language	Malay
+Brunei	area	5765
+Brunei	demonym	Bruneian
+Brunei	neighbour	Malaysia
+Brunei	landlocked	no
+Bulgaria	capital	Sofia
+Bulgaria	continent	Europe
+Bulgaria	currency	Euro
+Bulgaria	official language	Bulgarian
+Bulgaria	area	110879
+Bulgaria	demonym	Bulgarian
+Bulgaria	neighbour	Greece
+Bulgaria	neighbour	North Macedonia
+Bulgaria	neighbour	Romania
+Bulgaria	neighbour	Serbia
+Bulgaria	neighbour	Türkiye
+Bulgaria	landlocked	no
+Burkina Faso	capital	Ouagadougou
+Burkina Faso	continent	Africa
+Burkina Faso	currency	West African CFA franc
+Burkina Faso	official language	French
+Burkina Faso	area	272967
+Burkina Faso	demonym	Burkinabe
+Burkina Faso	neighbour	Benin
+Burkina Faso	neighbour	Ivory Coast
+Burkina Faso	neighbour	Ghana
+Burkina Faso	neighbour	Mali
+Burkina Faso	neighbour	Niger
+Burkina Faso	neighbour	Togo
+Burkina Faso	landlocked	yes
+Burundi	capital	Gitega
+Burundi	continent	Africa
+Burundi	currency	Burundian franc
+Burundi	official language	French
+Burundi	official language	Kirundi
+Burundi	area	27834
+Burundi	demonym	Burundian
+Burundi	neighbour	DR Congo
+Burundi	neighbour	Rwanda
+Burundi	neighbour	Tanzania
+Burundi	landlocked	yes
+Cambodia	capital	Phnom Penh
+Cambodia	continent	Asia
+Cambodia	currency	Cambodian riel
+Cambodia	currency	United States dollar
+Cambodia	official language	Khmer
+Cambodia	area	181035
+Cambodia	demonym	Cambodian
+Cambodia	neighbour	Laos
+Cambodia	neighbour	Thailand
+Cambodia	neighbour	Vietnam
+Cambodia	landlocked	no
+Cameroon	capital	Yaoundé
+Cameroon	continent	Africa
+Cameroon	currency	Central African CFA franc
+Cameroon	official language	English
+Cameroon	official language	French
+Cameroon	area	475442
+Cameroon	demonym	Cameroonian
+Cameroon	neighbour	Central African Republic
+Cameroon	neighbour	Chad
+Cameroon	neighbour	Congo
+Cameroon	neighbour	Equatorial Guinea
+Cameroon	neighbour	Gabon
+Cameroon	neighbour	Nigeria
+Cameroon	landlocked	no
+Canada	capital	Ottawa
+Canada	continent	North America
+Canada	currency	Canadian dollar
+Canada	official language	English
+Canada	official language	French
+Canada	area	9984670
+Canada	demonym	Canadian
+Canada	neighbour	United States
+Canada	landlocked	no
+Cape Verde	capital	Praia
+Cape Verde	continent	Africa
+Cape Verde	currency	Cape Verdean escudo
+Cape Verde	official language	Portuguese
+Cape Verde	area	4033
+Cape Verde	demonym	Cape Verdian
+Cape Verde	landlocked	no
+Central African Republic	capital	Bangui
+Central African Republic	continent	Africa
+Central African Republic	currency	Central African CFA franc
+Central African Republic	official language	French
+Central African Republic	official language	Sango
+Central African Republic	area	622984
+Central African Republic	demonym	Central African
+Central African Republic	neighbour	Cameroon
+Central African Republic	neighbour	Chad
+Central African Republic	neighbour	DR Congo
+Central African Republic	neighbour	Congo
+Central African Republic	neighbour	South Sudan
+Central African Republic	neighbour	Sudan
+Central African Republic	landlocked	yes
+Chad	capital	N'Djamena
+Chad	continent	Africa
+Chad	currency	Central African CFA franc
+Chad	official language	Arabic
+Chad	official language	French
+Chad	area	1284000
+Chad	demonym	Chadian
+Chad	neighbour	Cameroon
+Chad	neighbour	Central African Republic
+Chad	neighbour	Libya
+Chad	neighbour	Niger
+Chad	neighbour	Nigeria
+Chad	neighbour	Sudan
+Chad	landlocked	yes
+Chile	capital	Santiago
+Chile	continent	South America
+Chile	currency	Chilean peso
+Chile	official language	Spanish
+Chile	area	756102
+Chile	demonym	Chilean
+Chile	neighbour	Argentina
+Chile	neighbour	Bolivia
+Chile	neighbour	Peru
+Chile	landlocked	no
+China	capital	Beijing
+China	continent	Asia
+China	currency	Chinese yuan
+China	official language	Chinese
+China	area	9706961
+China	demonym	Chinese
+China	neighbour	Afghanistan
+China	neighbour	Bhutan
+China	neighbour	Myanmar
+China	neighbour	Hong Kong
+China	neighbour	India
+China	neighbour	Kazakhstan
+China	neighbour	Nepal
+China	neighbour	North Korea
+China	neighbour	Kyrgyzstan
+China	neighbour	Laos
+China	neighbour	Macau
+China	neighbour	Mongolia
+China	neighbour	Pakistan
+China	neighbour	Russia
+China	neighbour	Tajikistan
+China	neighbour	Vietnam
+China	landlocked	no
+Colombia	capital	Bogotá
+Colombia	continent	South America
+Colombia	currency	Colombian peso
+Colombia	official language	Spanish
+Colombia	area	1141748
+Colombia	demonym	Colombian
+Colombia	neighbour	Brazil
+Colombia	neighbour	Ecuador
+Colombia	neighbour	Panama
+Colombia	neighbour	Peru
+Colombia	neighbour	Venezuela
+Colombia	landlocked	no
+Comoros	capital	Moroni
+Comoros	continent	Africa
+Comoros	currency	Comorian franc
+Comoros	official language	Arabic
+Comoros	official language	French
+Comoros	official language	Comorian
+Comoros	area	1862
+Comoros	demonym	Comoran
+Comoros	landlocked	no
+Congo	capital	Brazzaville
+Congo	continent	Africa
+Congo	currency	Central African CFA franc
+Congo	official language	French
+Congo	official language	Kikongo
+Congo	official language	Lingala
+Congo	area	342000
+Congo	demonym	Congolese
+Congo	neighbour	Angola
+Congo	neighbour	Cameroon
+Congo	neighbour	Central African Republic
+Congo	neighbour	DR Congo
+Congo	neighbour	Gabon
+Congo	landlocked	no
+Costa Rica	capital	San José
+Costa Rica	continent	Central America
+Costa Rica	currency	Costa Rican colón
+Costa Rica	official language	Spanish
+Costa Rica	area	51100
+Costa Rica	demonym	Costa Rican
+Costa Rica	neighbour	Nicaragua
+Costa Rica	neighbour	Panama
+Costa Rica	landlocked	no
+Croatia	capital	Zagreb
+Croatia	continent	Europe
+Croatia	currency	Euro
+Croatia	official language	Croatian
+Croatia	area	56594
+Croatia	demonym	Croatian
+Croatia	neighbour	Bosnia and Herzegovina
+Croatia	neighbour	Hungary
+Croatia	neighbour	Montenegro
+Croatia	neighbour	Serbia
+Croatia	neighbour	Slovenia
+Croatia	landlocked	no
+Cuba	capital	Havana
+Cuba	continent	Caribbean
+Cuba	currency	Cuban peso
+Cuba	official language	Spanish
+Cuba	area	109884
+Cuba	demonym	Cuban
+Cuba	landlocked	no
+Cyprus	capital	Nicosia
+Cyprus	continent	Europe
+Cyprus	currency	Euro
+Cyprus	official language	Greek
+Cyprus	official language	Turkish
+Cyprus	area	9251
+Cyprus	demonym	Cypriot
+Cyprus	landlocked	no
+Czechia	capital	Prague
+Czechia	continent	Europe
+Czechia	currency	Czech koruna
+Czechia	official language	Czech
+Czechia	official language	Slovak
+Czechia	area	78865
+Czechia	demonym	Czech
+Czechia	neighbour	Austria
+Czechia	neighbour	Germany
+Czechia	neighbour	Poland
+Czechia	neighbour	Slovakia
+Czechia	landlocked	yes
+DR Congo	capital	Kinshasa
+DR Congo	continent	Africa
+DR Congo	currency	Congolese franc
+DR Congo	official language	French
+DR Congo	official language	Kikongo
+DR Congo	official language	Lingala
+DR Congo	official language	Tshiluba
+DR Congo	official language	Swahili
+DR Congo	area	2344858
+DR Congo	demonym	Congolese
+DR Congo	neighbour	Angola
+DR Congo	neighbour	Burundi
+DR Congo	neighbour	Central African Republic
+DR Congo	neighbour	Congo
+DR Congo	neighbour	Rwanda
+DR Congo	neighbour	South Sudan
+DR Congo	neighbour	Tanzania
+DR Congo	neighbour	Uganda
+DR Congo	neighbour	Zambia
+DR Congo	landlocked	no
+Denmark	capital	Copenhagen
+Denmark	continent	Europe
+Denmark	currency	Danish krone
+Denmark	official language	Danish
+Denmark	area	43094
+Denmark	demonym	Danish
+Denmark	neighbour	Germany
+Denmark	landlocked	no
+Djibouti	capital	Djibouti
+Djibouti	continent	Africa
+Djibouti	currency	Djiboutian franc
+Djibouti	official language	Arabic
+Djibouti	official language	French
+Djibouti	area	23200
+Djibouti	demonym	Djibouti
+Djibouti	neighbour	Eritrea
+Djibouti	neighbour	Ethiopia
+Djibouti	neighbour	Somalia
+Djibouti	landlocked	no
+Dominica	capital	Roseau
+Dominica	continent	Caribbean
+Dominica	currency	Eastern Caribbean dollar
+Dominica	official language	English
+Dominica	area	751
+Dominica	demonym	Dominican
+Dominica	landlocked	no
+Dominican Republic	capital	Santo Domingo
+Dominican Republic	continent	Caribbean
+Dominican Republic	currency	Dominican peso
+Dominican Republic	official language	Spanish
+Dominican Republic	area	48671
+Dominican Republic	demonym	Dominican
+Dominican Republic	neighbour	Haiti
+Dominican Republic	landlocked	no
+Ecuador	capital	Quito
+Ecuador	continent	South America
+Ecuador	currency	United States dollar
+Ecuador	official language	Spanish
+Ecuador	area	276841
+Ecuador	demonym	Ecuadorean
+Ecuador	neighbour	Colombia
+Ecuador	neighbour	Peru
+Ecuador	landlocked	no
+Egypt	capital	Cairo
+Egypt	continent	Africa
+Egypt	currency	Egyptian pound
+Egypt	official language	Arabic
+Egypt	area	1002450
+Egypt	demonym	Egyptian
+Egypt	neighbour	Israel
+Egypt	neighbour	Libya
+Egypt	neighbour	Palestine
+Egypt	neighbour	Sudan
+Egypt	landlocked	no
+El Salvador	capital	San Salvador
+El Salvador	continent	Central America
+El Salvador	currency	United States dollar
+El Salvador	official language	Spanish
+El Salvador	area	21041
+El Salvador	demonym	Salvadoran
+El Salvador	neighbour	Guatemala
+El Salvador	neighbour	Honduras
+El Salvador	landlocked	no
+Equatorial Guinea	capital	Ciudad de la Paz
+Equatorial Guinea	continent	Africa
+Equatorial Guinea	currency	Central African CFA franc
+Equatorial Guinea	official language	French
+Equatorial Guinea	official language	Portuguese
+Equatorial Guinea	official language	Spanish
+Equatorial Guinea	area	28051
+Equatorial Guinea	demonym	Equatorial Guinean
+Equatorial Guinea	neighbour	Cameroon
+Equatorial Guinea	neighbour	Gabon
+Equatorial Guinea	landlocked	no
+Eritrea	capital	Asmara
+Eritrea	continent	Africa
+Eritrea	currency	Eritrean nakfa
+Eritrea	official language	Arabic
+Eritrea	official language	English
+Eritrea	official language	Tigrinya
+Eritrea	area	117600
+Eritrea	demonym	Eritrean
+Eritrea	neighbour	Djibouti
+Eritrea	neighbour	Ethiopia
+Eritrea	neighbour	Sudan
+Eritrea	landlocked	no
+Estonia	capital	Tallinn
+Estonia	continent	Europe
+Estonia	currency	Euro
+Estonia	official language	Estonian
+Estonia	area	45227
+Estonia	demonym	Estonian
+Estonia	neighbour	Latvia
+Estonia	neighbour	Russia
+Estonia	landlocked	no
+Eswatini	capital	Lobamba
+Eswatini	continent	Africa
+Eswatini	currency	Swazi lilangeni
+Eswatini	currency	South African rand
+Eswatini	official language	English
+Eswatini	official language	Swazi
+Eswatini	area	17364
+Eswatini	demonym	Swazi
+Eswatini	neighbour	Mozambique
+Eswatini	neighbour	South Africa
+Eswatini	landlocked	yes
+Ethiopia	capital	Addis Ababa
+Ethiopia	continent	Africa
+Ethiopia	currency	Ethiopian birr
+Ethiopia	official language	Amharic
+Ethiopia	area	1104300
+Ethiopia	demonym	Ethiopian
+Ethiopia	neighbour	Djibouti
+Ethiopia	neighbour	Eritrea
+Ethiopia	neighbour	Kenya
+Ethiopia	neighbour	Somalia
+Ethiopia	neighbour	South Sudan
+Ethiopia	neighbour	Sudan
+Ethiopia	landlocked	yes
 Fiji	capital	Suva
 Fiji	continent	Oceania
 Fiji	currency	Fijian dollar
+Fiji	official language	English
+Fiji	official language	Fijian
+Fiji	official language	Fiji Hindi
+Fiji	area	18272
+Fiji	demonym	Fijian
+Fiji	landlocked	no
+Finland	capital	Helsinki
+Finland	continent	Europe
+Finland	currency	Euro
+Finland	official language	Finnish
+Finland	official language	Swedish
+Finland	area	338424
+Finland	demonym	Finnish
+Finland	neighbour	Norway
+Finland	neighbour	Sweden
+Finland	neighbour	Russia
+Finland	landlocked	no
+France	capital	Paris
+France	continent	Europe
+France	currency	Euro
+France	official language	French
+France	area	551695
+France	demonym	French
+France	neighbour	Andorra
+France	neighbour	Belgium
+France	neighbour	Germany
+France	neighbour	Italy
+France	neighbour	Luxembourg
+France	neighbour	Monaco
+France	neighbour	Spain
+France	neighbour	Switzerland
+France	landlocked	no
+Gabon	capital	Libreville
+Gabon	continent	Africa
+Gabon	currency	Central African CFA franc
+Gabon	official language	French
+Gabon	area	267668
+Gabon	demonym	Gabonese
+Gabon	neighbour	Cameroon
+Gabon	neighbour	Congo
+Gabon	neighbour	Equatorial Guinea
+Gabon	landlocked	no
+Gambia	capital	Banjul
+Gambia	continent	Africa
+Gambia	currency	dalasi
+Gambia	official language	English
+Gambia	area	10689
+Gambia	demonym	Gambian
+Gambia	neighbour	Senegal
+Gambia	landlocked	no
+Georgia	capital	Tbilisi
+Georgia	continent	Asia
+Georgia	currency	lari
+Georgia	official language	Georgian
+Georgia	area	69700
+Georgia	demonym	Georgian
+Georgia	neighbour	Armenia
+Georgia	neighbour	Azerbaijan
+Georgia	neighbour	Russia
+Georgia	neighbour	Türkiye
+Georgia	landlocked	no
+Germany	capital	Berlin
+Germany	continent	Europe
+Germany	currency	Euro
+Germany	official language	German
+Germany	area	357114
+Germany	demonym	German
+Germany	neighbour	Austria
+Germany	neighbour	Belgium
+Germany	neighbour	Czechia
+Germany	neighbour	Denmark
+Germany	neighbour	France
+Germany	neighbour	Luxembourg
+Germany	neighbour	Netherlands
+Germany	neighbour	Poland
+Germany	neighbour	Switzerland
+Germany	landlocked	no
+Ghana	capital	Accra
+Ghana	continent	Africa
+Ghana	currency	Ghanaian cedi
+Ghana	official language	English
+Ghana	area	238533
+Ghana	demonym	Ghanaian
+Ghana	neighbour	Burkina Faso
+Ghana	neighbour	Ivory Coast
+Ghana	neighbour	Togo
+Ghana	landlocked	no
+Greece	capital	Athens
+Greece	continent	Europe
+Greece	currency	Euro
+Greece	official language	Greek
+Greece	area	131990
+Greece	demonym	Greek
+Greece	neighbour	Albania
+Greece	neighbour	Bulgaria
+Greece	neighbour	Türkiye
+Greece	neighbour	North Macedonia
+Greece	landlocked	no
+Grenada	capital	St. George's
+Grenada	continent	Caribbean
+Grenada	currency	Eastern Caribbean dollar
+Grenada	official language	English
+Grenada	area	344
+Grenada	demonym	Grenadian
+Grenada	landlocked	no
+Guatemala	capital	Guatemala City
+Guatemala	continent	Central America
+Guatemala	currency	Guatemalan quetzal
+Guatemala	official language	Spanish
+Guatemala	area	108889
+Guatemala	demonym	Guatemalan
+Guatemala	neighbour	Belize
+Guatemala	neighbour	El Salvador
+Guatemala	neighbour	Honduras
+Guatemala	neighbour	Mexico
+Guatemala	landlocked	no
+Guinea	capital	Conakry
+Guinea	continent	Africa
+Guinea	currency	Guinean franc
+Guinea	official language	French
+Guinea	area	245857
+Guinea	demonym	Guinean
+Guinea	neighbour	Ivory Coast
+Guinea	neighbour	Guinea-Bissau
+Guinea	neighbour	Liberia
+Guinea	neighbour	Mali
+Guinea	neighbour	Senegal
+Guinea	neighbour	Sierra Leone
+Guinea	landlocked	no
+Guinea-Bissau	capital	Bissau
+Guinea-Bissau	continent	Africa
+Guinea-Bissau	currency	West African CFA franc
+Guinea-Bissau	official language	Portuguese
+Guinea-Bissau	official language	Upper Guinea Creole
+Guinea-Bissau	area	36125
+Guinea-Bissau	demonym	Guinea-Bissauan
+Guinea-Bissau	neighbour	Guinea
+Guinea-Bissau	neighbour	Senegal
+Guinea-Bissau	landlocked	no
+Guyana	capital	Georgetown
+Guyana	continent	South America
+Guyana	currency	Guyanese dollar
+Guyana	official language	English
+Guyana	area	214969
+Guyana	demonym	Guyanese
+Guyana	neighbour	Brazil
+Guyana	neighbour	Suriname
+Guyana	neighbour	Venezuela
+Guyana	landlocked	no
+Haiti	capital	Port-au-Prince
+Haiti	continent	Caribbean
+Haiti	currency	Haitian gourde
+Haiti	official language	French
+Haiti	official language	Haitian Creole
+Haiti	area	27750
+Haiti	demonym	Haitian
+Haiti	neighbour	Dominican Republic
+Haiti	landlocked	no
+Honduras	capital	Tegucigalpa
+Honduras	continent	Central America
+Honduras	currency	Honduran lempira
+Honduras	official language	Spanish
+Honduras	area	112492
+Honduras	demonym	Honduran
+Honduras	neighbour	Guatemala
+Honduras	neighbour	El Salvador
+Honduras	neighbour	Nicaragua
+Honduras	landlocked	no
+Hungary	capital	Budapest
+Hungary	continent	Europe
+Hungary	currency	Hungarian forint
+Hungary	official language	Hungarian
+Hungary	area	93028
+Hungary	demonym	Hungarian
+Hungary	neighbour	Austria
+Hungary	neighbour	Croatia
+Hungary	neighbour	Romania
+Hungary	neighbour	Serbia
+Hungary	neighbour	Slovakia
+Hungary	neighbour	Slovenia
+Hungary	neighbour	Ukraine
+Hungary	landlocked	yes
+Iceland	capital	Reykjavik
+Iceland	continent	Europe
+Iceland	currency	Icelandic króna
+Iceland	official language	Icelandic
+Iceland	area	103000
+Iceland	demonym	Icelander
+Iceland	landlocked	no
+India	capital	New Delhi
+India	continent	Asia
+India	currency	Indian rupee
+India	official language	English
+India	official language	Hindi
+India	official language	Tamil
+India	area	3287590
+India	demonym	Indian
+India	neighbour	Bangladesh
+India	neighbour	Bhutan
+India	neighbour	Myanmar
+India	neighbour	China
+India	neighbour	Nepal
+India	neighbour	Pakistan
+India	landlocked	no
+Indonesia	capital	Jakarta
+Indonesia	continent	Asia
+Indonesia	currency	Indonesian rupiah
+Indonesia	official language	Indonesian
+Indonesia	area	1904569
+Indonesia	demonym	Indonesian
+Indonesia	neighbour	Timor-Leste
+Indonesia	neighbour	Malaysia
+Indonesia	neighbour	Papua New Guinea
+Indonesia	landlocked	no
+Iran	capital	Tehran
+Iran	continent	Asia
+Iran	currency	Iranian rial
+Iran	official language	Persian (Farsi)
+Iran	area	1648195
+Iran	demonym	Iranian
+Iran	neighbour	Afghanistan
+Iran	neighbour	Armenia
+Iran	neighbour	Azerbaijan
+Iran	neighbour	Iraq
+Iran	neighbour	Pakistan
+Iran	neighbour	Türkiye
+Iran	neighbour	Turkmenistan
+Iran	landlocked	no
+Iraq	capital	Baghdad
+Iraq	continent	Asia
+Iraq	currency	Iraqi dinar
+Iraq	official language	Arabic
+Iraq	official language	Aramaic
+Iraq	official language	Sorani
+Iraq	area	438317
+Iraq	demonym	Iraqi
+Iraq	neighbour	Iran
+Iraq	neighbour	Jordan
+Iraq	neighbour	Kuwait
+Iraq	neighbour	Saudi Arabia
+Iraq	neighbour	Syria
+Iraq	neighbour	Türkiye
+Iraq	landlocked	no
+Ireland	capital	Dublin
+Ireland	continent	Europe
+Ireland	currency	Euro
+Ireland	official language	English
+Ireland	official language	Irish
+Ireland	area	70273
+Ireland	demonym	Irish
+Ireland	neighbour	United Kingdom
+Ireland	landlocked	no
+Israel	capital	Jerusalem
+Israel	continent	Asia
+Israel	currency	Israeli new shekel
+Israel	official language	Arabic
+Israel	official language	Hebrew
+Israel	area	20770
+Israel	demonym	Israeli
+Israel	neighbour	Egypt
+Israel	neighbour	Jordan
+Israel	neighbour	Lebanon
+Israel	neighbour	Palestine
+Israel	neighbour	Syria
+Israel	landlocked	no
+Italy	capital	Rome
+Italy	continent	Europe
+Italy	currency	Euro
+Italy	official language	Italian
+Italy	area	301336
+Italy	demonym	Italian
+Italy	neighbour	Austria
+Italy	neighbour	France
+Italy	neighbour	San Marino
+Italy	neighbour	Slovenia
+Italy	neighbour	Switzerland
+Italy	neighbour	Vatican City
+Italy	landlocked	no
+Ivory Coast	capital	Yamoussoukro
+Ivory Coast	continent	Africa
+Ivory Coast	currency	West African CFA franc
+Ivory Coast	official language	French
+Ivory Coast	area	322463
+Ivory Coast	demonym	Ivorian
+Ivory Coast	neighbour	Burkina Faso
+Ivory Coast	neighbour	Ghana
+Ivory Coast	neighbour	Guinea
+Ivory Coast	neighbour	Liberia
+Ivory Coast	neighbour	Mali
+Ivory Coast	landlocked	no
+Jamaica	capital	Kingston
+Jamaica	continent	Caribbean
+Jamaica	currency	Jamaican dollar
+Jamaica	official language	English
+Jamaica	official language	Jamaican Patois
+Jamaica	area	10991
+Jamaica	demonym	Jamaican
+Jamaica	landlocked	no
+Japan	capital	Tokyo
+Japan	continent	Asia
+Japan	currency	Japanese yen
+Japan	official language	Japanese
+Japan	area	377930
+Japan	demonym	Japanese
+Japan	landlocked	no
+Jordan	capital	Amman
+Jordan	continent	Asia
+Jordan	currency	Jordanian dinar
+Jordan	official language	Arabic
+Jordan	area	89342
+Jordan	demonym	Jordanian
+Jordan	neighbour	Iraq
+Jordan	neighbour	Israel
+Jordan	neighbour	Palestine
+Jordan	neighbour	Saudi Arabia
+Jordan	neighbour	Syria
+Jordan	landlocked	no
+Kazakhstan	capital	Astana
+Kazakhstan	continent	Asia
+Kazakhstan	currency	Kazakhstani tenge
+Kazakhstan	official language	Kazakh
+Kazakhstan	official language	Russian
+Kazakhstan	area	2724900
+Kazakhstan	demonym	Kazakhstani
+Kazakhstan	neighbour	China
+Kazakhstan	neighbour	Kyrgyzstan
+Kazakhstan	neighbour	Russia
+Kazakhstan	neighbour	Turkmenistan
+Kazakhstan	neighbour	Uzbekistan
+Kazakhstan	landlocked	yes
+Kenya	capital	Nairobi
+Kenya	continent	Africa
+Kenya	currency	Kenyan shilling
+Kenya	official language	English
+Kenya	official language	Swahili
+Kenya	area	580367
+Kenya	demonym	Kenyan
+Kenya	neighbour	Ethiopia
+Kenya	neighbour	Somalia
+Kenya	neighbour	South Sudan
+Kenya	neighbour	Tanzania
+Kenya	neighbour	Uganda
+Kenya	landlocked	no
+Kiribati	capital	South Tarawa
+Kiribati	continent	Oceania
+Kiribati	currency	Australian dollar
+Kiribati	currency	Kiribati dollar
+Kiribati	official language	English
+Kiribati	official language	Gilbertese
+Kiribati	area	811
+Kiribati	demonym	I-Kiribati
+Kiribati	landlocked	no
+Kuwait	capital	Kuwait City
+Kuwait	continent	Asia
+Kuwait	currency	Kuwaiti dinar
+Kuwait	official language	Arabic
+Kuwait	area	17818
+Kuwait	demonym	Kuwaiti
+Kuwait	neighbour	Iraq
+Kuwait	neighbour	Saudi Arabia
+Kuwait	landlocked	no
+Kyrgyzstan	capital	Bishkek
+Kyrgyzstan	continent	Asia
+Kyrgyzstan	currency	Kyrgyzstani som
+Kyrgyzstan	official language	Kyrgyz
+Kyrgyzstan	official language	Russian
+Kyrgyzstan	area	199951
+Kyrgyzstan	demonym	Kirghiz
+Kyrgyzstan	neighbour	China
+Kyrgyzstan	neighbour	Kazakhstan
+Kyrgyzstan	neighbour	Tajikistan
+Kyrgyzstan	neighbour	Uzbekistan
+Kyrgyzstan	landlocked	yes
+Laos	capital	Vientiane
+Laos	continent	Asia
+Laos	currency	Lao kip
+Laos	official language	Lao
+Laos	area	236800
+Laos	demonym	Laotian
+Laos	neighbour	Myanmar
+Laos	neighbour	Cambodia
+Laos	neighbour	China
+Laos	neighbour	Thailand
+Laos	neighbour	Vietnam
+Laos	landlocked	yes
+Latvia	capital	Riga
+Latvia	continent	Europe
+Latvia	currency	Euro
+Latvia	official language	Latvian
+Latvia	area	64559
+Latvia	demonym	Latvian
+Latvia	neighbour	Belarus
+Latvia	neighbour	Estonia
+Latvia	neighbour	Lithuania
+Latvia	neighbour	Russia
+Latvia	landlocked	no
+Lebanon	capital	Beirut
+Lebanon	continent	Asia
+Lebanon	currency	Lebanese pound
+Lebanon	official language	Arabic
+Lebanon	official language	French
+Lebanon	area	10452
+Lebanon	demonym	Lebanese
+Lebanon	neighbour	Israel
+Lebanon	neighbour	Syria
+Lebanon	landlocked	no
+Lesotho	capital	Maseru
+Lesotho	continent	Africa
+Lesotho	currency	Lesotho loti
+Lesotho	currency	South African rand
+Lesotho	official language	English
+Lesotho	official language	Sotho
+Lesotho	area	30355
+Lesotho	demonym	Mosotho
+Lesotho	neighbour	South Africa
+Lesotho	landlocked	yes
+Liberia	capital	Monrovia
+Liberia	continent	Africa
+Liberia	currency	Liberian dollar
+Liberia	official language	English
+Liberia	area	111369
+Liberia	demonym	Liberian
+Liberia	neighbour	Guinea
+Liberia	neighbour	Ivory Coast
+Liberia	neighbour	Sierra Leone
+Liberia	landlocked	no
+Libya	capital	Tripoli
+Libya	continent	Africa
+Libya	currency	Libyan dinar
+Libya	official language	Arabic
+Libya	area	1759540
+Libya	demonym	Libyan
+Libya	neighbour	Algeria
+Libya	neighbour	Chad
+Libya	neighbour	Egypt
+Libya	neighbour	Niger
+Libya	neighbour	Sudan
+Libya	neighbour	Tunisia
+Libya	landlocked	no
+Liechtenstein	capital	Vaduz
+Liechtenstein	continent	Europe
+Liechtenstein	currency	Swiss franc
+Liechtenstein	official language	German
+Liechtenstein	area	160
+Liechtenstein	demonym	Liechtensteiner
+Liechtenstein	neighbour	Austria
+Liechtenstein	neighbour	Switzerland
+Liechtenstein	landlocked	yes
+Lithuania	capital	Vilnius
+Lithuania	continent	Europe
+Lithuania	currency	Euro
+Lithuania	official language	Lithuanian
+Lithuania	area	65300
+Lithuania	demonym	Lithuanian
+Lithuania	neighbour	Belarus
+Lithuania	neighbour	Latvia
+Lithuania	neighbour	Poland
+Lithuania	neighbour	Russia
+Lithuania	landlocked	no
+Luxembourg	capital	Luxembourg
+Luxembourg	continent	Europe
+Luxembourg	currency	Euro
+Luxembourg	official language	German
+Luxembourg	official language	French
+Luxembourg	official language	Luxembourgish
+Luxembourg	area	2586
+Luxembourg	demonym	Luxembourger
+Luxembourg	neighbour	Belgium
+Luxembourg	neighbour	France
+Luxembourg	neighbour	Germany
+Luxembourg	landlocked	yes
+Madagascar	capital	Antananarivo
+Madagascar	continent	Africa
+Madagascar	currency	Malagasy ariary
+Madagascar	official language	French
+Madagascar	official language	Malagasy
+Madagascar	area	587041
+Madagascar	demonym	Malagasy
+Madagascar	landlocked	no
+Malawi	capital	Lilongwe
+Malawi	continent	Africa
+Malawi	currency	Malawian kwacha
+Malawi	official language	English
+Malawi	official language	Chewa
+Malawi	area	118484
+Malawi	demonym	Malawian
+Malawi	neighbour	Mozambique
+Malawi	neighbour	Tanzania
+Malawi	neighbour	Zambia
+Malawi	landlocked	yes
+Malaysia	capital	Kuala Lumpur
+Malaysia	continent	Asia
+Malaysia	currency	Malaysian ringgit
+Malaysia	official language	English
+Malaysia	official language	Malay
+Malaysia	area	330803
+Malaysia	demonym	Malaysian
+Malaysia	neighbour	Brunei
+Malaysia	neighbour	Indonesia
+Malaysia	neighbour	Thailand
+Malaysia	landlocked	no
+Maldives	capital	Malé
+Maldives	continent	Asia
+Maldives	currency	Maldivian rufiyaa
+Maldives	official language	Maldivian
+Maldives	area	300
+Maldives	demonym	Maldivan
+Maldives	landlocked	no
+Mali	capital	Bamako
+Mali	continent	Africa
+Mali	currency	West African CFA franc
+Mali	official language	French
+Mali	area	1240192
+Mali	demonym	Malian
+Mali	neighbour	Algeria
+Mali	neighbour	Burkina Faso
+Mali	neighbour	Guinea
+Mali	neighbour	Ivory Coast
+Mali	neighbour	Mauritania
+Mali	neighbour	Niger
+Mali	neighbour	Senegal
+Mali	landlocked	yes
+Malta	capital	Valletta
+Malta	continent	Europe
+Malta	currency	Euro
+Malta	official language	English
+Malta	official language	Maltese
+Malta	area	316
+Malta	demonym	Maltese
+Malta	landlocked	no
+Marshall Islands	capital	Majuro
+Marshall Islands	continent	Oceania
+Marshall Islands	currency	United States dollar
+Marshall Islands	official language	English
+Marshall Islands	official language	Marshallese
+Marshall Islands	area	181
+Marshall Islands	demonym	Marshallese
+Marshall Islands	landlocked	no
+Mauritania	capital	Nouakchott
+Mauritania	continent	Africa
+Mauritania	currency	Mauritanian ouguiya
+Mauritania	official language	Arabic
+Mauritania	area	1030700
+Mauritania	demonym	Mauritanian
+Mauritania	neighbour	Algeria
+Mauritania	neighbour	Mali
+Mauritania	neighbour	Senegal
+Mauritania	neighbour	Western Sahara
+Mauritania	landlocked	no
+Mauritius	capital	Port Louis
+Mauritius	continent	Africa
+Mauritius	currency	Mauritian rupee
+Mauritius	official language	English
+Mauritius	official language	French
+Mauritius	official language	Mauritian Creole
+Mauritius	area	2040
+Mauritius	demonym	Mauritian
+Mauritius	landlocked	no
+Mexico	capital	Mexico City
+Mexico	continent	North America
+Mexico	currency	Mexican peso
+Mexico	official language	Spanish
+Mexico	area	1964375
+Mexico	demonym	Mexican
+Mexico	neighbour	Belize
+Mexico	neighbour	Guatemala
+Mexico	neighbour	United States
+Mexico	landlocked	no
+Micronesia	capital	Palikir
+Micronesia	continent	Oceania
+Micronesia	official language	English
+Micronesia	area	702
+Micronesia	demonym	Micronesian
+Micronesia	landlocked	no
+Moldova	capital	Chișinău
+Moldova	continent	Europe
+Moldova	currency	Moldovan leu
+Moldova	official language	Moldavian
+Moldova	area	33846
+Moldova	demonym	Moldovan
+Moldova	neighbour	Romania
+Moldova	neighbour	Ukraine
+Moldova	landlocked	yes
+Monaco	capital	Monaco
+Monaco	continent	Europe
+Monaco	currency	Euro
+Monaco	official language	French
+Monaco	area	2.02
+Monaco	demonym	Monegasque
+Monaco	neighbour	France
+Monaco	landlocked	no
+Mongolia	capital	Ulan Bator
+Mongolia	continent	Asia
+Mongolia	currency	Mongolian tögrög
+Mongolia	official language	Mongolian
+Mongolia	area	1564110
+Mongolia	demonym	Mongolian
+Mongolia	neighbour	China
+Mongolia	neighbour	Russia
+Mongolia	landlocked	yes
+Montenegro	capital	Podgorica
+Montenegro	continent	Europe
+Montenegro	currency	Euro
+Montenegro	official language	Montenegrin
+Montenegro	area	13812
+Montenegro	demonym	Montenegrin
+Montenegro	neighbour	Albania
+Montenegro	neighbour	Bosnia and Herzegovina
+Montenegro	neighbour	Croatia
+Montenegro	neighbour	Kosovo
+Montenegro	neighbour	Serbia
+Montenegro	landlocked	no
+Morocco	capital	Rabat
+Morocco	continent	Africa
+Morocco	currency	Moroccan dirham
+Morocco	official language	Arabic
+Morocco	official language	Berber
+Morocco	area	446550
+Morocco	demonym	Moroccan
+Morocco	neighbour	Algeria
+Morocco	neighbour	Western Sahara
+Morocco	neighbour	Spain
+Morocco	landlocked	no
+Mozambique	capital	Maputo
+Mozambique	continent	Africa
+Mozambique	currency	Mozambican metical
+Mozambique	official language	Portuguese
+Mozambique	area	801590
+Mozambique	demonym	Mozambican
+Mozambique	neighbour	Malawi
+Mozambique	neighbour	South Africa
+Mozambique	neighbour	Eswatini
+Mozambique	neighbour	Tanzania
+Mozambique	neighbour	Zambia
+Mozambique	neighbour	Zimbabwe
+Mozambique	landlocked	no
+Myanmar	capital	Naypyidaw
+Myanmar	continent	Asia
+Myanmar	currency	Burmese kyat
+Myanmar	official language	Burmese
+Myanmar	area	676578
+Myanmar	demonym	Burmese
+Myanmar	neighbour	Bangladesh
+Myanmar	neighbour	China
+Myanmar	neighbour	India
+Myanmar	neighbour	Laos
+Myanmar	neighbour	Thailand
+Myanmar	landlocked	no
+Namibia	capital	Windhoek
+Namibia	continent	Africa
+Namibia	currency	Namibian dollar
+Namibia	currency	South African rand
+Namibia	official language	Afrikaans
+Namibia	official language	German
+Namibia	official language	English
+Namibia	official language	Herero
+Namibia	official language	Khoekhoe
+Namibia	official language	Kwangali
+Namibia	official language	Lozi
+Namibia	official language	Ndonga
+Namibia	official language	Tswana
+Namibia	area	825615
+Namibia	demonym	Namibian
+Namibia	neighbour	Angola
+Namibia	neighbour	Botswana
+Namibia	neighbour	South Africa
+Namibia	neighbour	Zambia
+Namibia	landlocked	no
+Nauru	capital	Yaren
+Nauru	continent	Oceania
+Nauru	currency	Australian dollar
+Nauru	official language	English
+Nauru	official language	Nauru
+Nauru	area	21
+Nauru	demonym	Nauruan
+Nauru	landlocked	no
+Nepal	capital	Kathmandu
+Nepal	continent	Asia
+Nepal	currency	Nepalese rupee
+Nepal	official language	Nepali
+Nepal	area	147181
+Nepal	demonym	Nepalese
+Nepal	neighbour	China
+Nepal	neighbour	India
+Nepal	landlocked	yes
+Netherlands	capital	Amsterdam
+Netherlands	continent	Europe
+Netherlands	currency	Euro
+Netherlands	official language	Dutch
+Netherlands	area	41850
+Netherlands	demonym	Dutch
+Netherlands	neighbour	Belgium
+Netherlands	neighbour	Germany
+Netherlands	landlocked	no
+New Zealand	capital	Wellington
+New Zealand	continent	Oceania
+New Zealand	currency	New Zealand dollar
+New Zealand	official language	English
+New Zealand	official language	Māori
+New Zealand	official language	New Zealand Sign Language
+New Zealand	area	270467
+New Zealand	demonym	New Zealander
+New Zealand	landlocked	no
+Nicaragua	capital	Managua
+Nicaragua	continent	Central America
+Nicaragua	currency	Nicaraguan córdoba
+Nicaragua	official language	Spanish
+Nicaragua	area	130373
+Nicaragua	demonym	Nicaraguan
+Nicaragua	neighbour	Costa Rica
+Nicaragua	neighbour	Honduras
+Nicaragua	landlocked	no
+Niger	capital	Niamey
+Niger	continent	Africa
+Niger	currency	West African CFA franc
+Niger	official language	French
+Niger	area	1267000
+Niger	demonym	Nigerien
+Niger	neighbour	Algeria
+Niger	neighbour	Benin
+Niger	neighbour	Burkina Faso
+Niger	neighbour	Chad
+Niger	neighbour	Libya
+Niger	neighbour	Mali
+Niger	neighbour	Nigeria
+Niger	landlocked	yes
+Nigeria	capital	Abuja
+Nigeria	continent	Africa
+Nigeria	currency	Nigerian naira
+Nigeria	official language	English
+Nigeria	area	923768
+Nigeria	demonym	Nigerian
+Nigeria	neighbour	Benin
+Nigeria	neighbour	Cameroon
+Nigeria	neighbour	Chad
+Nigeria	neighbour	Niger
+Nigeria	landlocked	no
+North Korea	capital	Pyongyang
+North Korea	continent	Asia
+North Korea	currency	North Korean won
+North Korea	official language	Korean
+North Korea	area	120538
+North Korea	demonym	North Korean
+North Korea	neighbour	China
+North Korea	neighbour	South Korea
+North Korea	neighbour	Russia
+North Korea	landlocked	no
+North Macedonia	capital	Skopje
+North Macedonia	continent	Europe
+North Macedonia	currency	denar
+North Macedonia	official language	Macedonian
+North Macedonia	area	25713
+North Macedonia	demonym	Macedonian
+North Macedonia	neighbour	Albania
+North Macedonia	neighbour	Bulgaria
+North Macedonia	neighbour	Greece
+North Macedonia	neighbour	Kosovo
+North Macedonia	neighbour	Serbia
+North Macedonia	landlocked	yes
+Norway	capital	Oslo
+Norway	continent	Europe
+Norway	currency	Norwegian krone
+Norway	official language	Norwegian Nynorsk
+Norway	official language	Norwegian Bokmål
+Norway	official language	Sami
+Norway	area	323802
+Norway	demonym	Norwegian
+Norway	neighbour	Finland
+Norway	neighbour	Sweden
+Norway	neighbour	Russia
+Norway	landlocked	no
+Oman	capital	Muscat
+Oman	continent	Asia
+Oman	currency	Omani rial
+Oman	official language	Arabic
+Oman	area	309500
+Oman	demonym	Omani
+Oman	neighbour	Saudi Arabia
+Oman	neighbour	United Arab Emirates
+Oman	neighbour	Yemen
+Oman	landlocked	no
+Pakistan	capital	Islamabad
+Pakistan	continent	Asia
+Pakistan	currency	Pakistani rupee
+Pakistan	official language	English
+Pakistan	official language	Urdu
+Pakistan	area	881912
+Pakistan	demonym	Pakistani
+Pakistan	neighbour	Afghanistan
+Pakistan	neighbour	China
+Pakistan	neighbour	India
+Pakistan	neighbour	Iran
+Pakistan	landlocked	no
+Palau	capital	Ngerulmud
+Palau	continent	Oceania
+Palau	currency	United States dollar
+Palau	official language	English
+Palau	official language	Palauan
+Palau	area	459
+Palau	demonym	Palauan
+Palau	landlocked	no
+Panama	capital	Panama City
+Panama	continent	Central America
+Panama	currency	Panamanian balboa
+Panama	currency	United States dollar
+Panama	official language	Spanish
+Panama	area	75417
+Panama	demonym	Panamanian
+Panama	neighbour	Colombia
+Panama	neighbour	Costa Rica
+Panama	landlocked	no
+Papua New Guinea	capital	Port Moresby
+Papua New Guinea	continent	Oceania
+Papua New Guinea	currency	Papua New Guinean kina
+Papua New Guinea	official language	English
+Papua New Guinea	official language	Hiri Motu
+Papua New Guinea	official language	Tok Pisin
+Papua New Guinea	area	462840
+Papua New Guinea	demonym	Papua New Guinean
+Papua New Guinea	neighbour	Indonesia
+Papua New Guinea	landlocked	no
+Paraguay	capital	Asunción
+Paraguay	continent	South America
+Paraguay	currency	Paraguayan guaraní
+Paraguay	official language	Guaraní
+Paraguay	official language	Spanish
+Paraguay	area	406752
+Paraguay	demonym	Paraguayan
+Paraguay	neighbour	Argentina
+Paraguay	neighbour	Bolivia
+Paraguay	neighbour	Brazil
+Paraguay	landlocked	yes
+Peru	capital	Lima
+Peru	continent	South America
+Peru	currency	Peruvian sol
+Peru	official language	Aymara
+Peru	official language	Quechua
+Peru	official language	Spanish
+Peru	area	1285216
+Peru	demonym	Peruvian
+Peru	neighbour	Bolivia
+Peru	neighbour	Brazil
+Peru	neighbour	Chile
+Peru	neighbour	Colombia
+Peru	neighbour	Ecuador
+Peru	landlocked	no
+Philippines	capital	Manila
+Philippines	continent	Asia
+Philippines	currency	Philippine peso
+Philippines	official language	English
+Philippines	official language	Filipino
+Philippines	area	342353
+Philippines	demonym	Filipino
+Philippines	landlocked	no
+Poland	capital	Warsaw
+Poland	continent	Europe
+Poland	currency	Polish złoty
+Poland	official language	Polish
+Poland	area	312679
+Poland	demonym	Polish
+Poland	neighbour	Belarus
+Poland	neighbour	Czechia
+Poland	neighbour	Germany
+Poland	neighbour	Lithuania
+Poland	neighbour	Russia
+Poland	neighbour	Slovakia
+Poland	neighbour	Ukraine
+Poland	landlocked	no
+Portugal	capital	Lisbon
+Portugal	continent	Europe
+Portugal	currency	Euro
+Portugal	official language	Portuguese
+Portugal	area	92090
+Portugal	demonym	Portuguese
+Portugal	neighbour	Spain
+Portugal	landlocked	no
+Qatar	capital	Doha
+Qatar	continent	Asia
+Qatar	currency	Qatari riyal
+Qatar	official language	Arabic
+Qatar	area	11586
+Qatar	demonym	Qatari
+Qatar	neighbour	Saudi Arabia
+Qatar	landlocked	no
+Romania	capital	Bucharest
+Romania	continent	Europe
+Romania	currency	Romanian leu
+Romania	official language	Romanian
+Romania	area	238391
+Romania	demonym	Romanian
+Romania	neighbour	Bulgaria
+Romania	neighbour	Hungary
+Romania	neighbour	Moldova
+Romania	neighbour	Serbia
+Romania	neighbour	Ukraine
+Romania	landlocked	no
+Russia	capital	Moscow
+Russia	continent	Europe
+Russia	currency	Russian ruble
+Russia	official language	Russian
+Russia	area	17098242
+Russia	demonym	Russian
+Russia	neighbour	Azerbaijan
+Russia	neighbour	Belarus
+Russia	neighbour	China
+Russia	neighbour	Estonia
+Russia	neighbour	Finland
+Russia	neighbour	Georgia
+Russia	neighbour	Kazakhstan
+Russia	neighbour	North Korea
+Russia	neighbour	Latvia
+Russia	neighbour	Lithuania
+Russia	neighbour	Mongolia
+Russia	neighbour	Norway
+Russia	neighbour	Poland
+Russia	neighbour	Ukraine
+Russia	landlocked	no
+Rwanda	capital	Kigali
+Rwanda	continent	Africa
+Rwanda	currency	Rwandan franc
+Rwanda	official language	English
+Rwanda	official language	French
+Rwanda	official language	Kinyarwanda
+Rwanda	area	26338
+Rwanda	demonym	Rwandan
+Rwanda	neighbour	Burundi
+Rwanda	neighbour	DR Congo
+Rwanda	neighbour	Tanzania
+Rwanda	neighbour	Uganda
+Rwanda	landlocked	yes
+Saint Kitts and Nevis	capital	Basseterre
+Saint Kitts and Nevis	continent	Caribbean
+Saint Kitts and Nevis	currency	Eastern Caribbean dollar
+Saint Kitts and Nevis	official language	English
+Saint Kitts and Nevis	area	261
+Saint Kitts and Nevis	demonym	Kittitian or Nevisian
+Saint Kitts and Nevis	landlocked	no
+Saint Lucia	capital	Castries
+Saint Lucia	continent	Caribbean
+Saint Lucia	currency	Eastern Caribbean dollar
+Saint Lucia	official language	English
+Saint Lucia	area	616
+Saint Lucia	demonym	Saint Lucian
+Saint Lucia	landlocked	no
+Saint Vincent and the Grenadines	capital	Kingstown
+Saint Vincent and the Grenadines	continent	Caribbean
+Saint Vincent and the Grenadines	currency	Eastern Caribbean dollar
+Saint Vincent and the Grenadines	official language	English
+Saint Vincent and the Grenadines	area	389
+Saint Vincent and the Grenadines	demonym	Saint Vincentian
+Saint Vincent and the Grenadines	landlocked	no
+Samoa	capital	Apia
+Samoa	continent	Oceania
+Samoa	currency	Samoan tālā
+Samoa	official language	English
+Samoa	official language	Samoan
+Samoa	area	2842
+Samoa	demonym	Samoan
+Samoa	landlocked	no
+San Marino	capital	City of San Marino
+San Marino	continent	Europe
+San Marino	currency	Euro
+San Marino	official language	Italian
+San Marino	area	61
+San Marino	demonym	Sammarinese
+San Marino	neighbour	Italy
+San Marino	landlocked	yes
+Saudi Arabia	capital	Riyadh
+Saudi Arabia	continent	Asia
+Saudi Arabia	currency	Saudi riyal
+Saudi Arabia	official language	Arabic
+Saudi Arabia	area	2149690
+Saudi Arabia	demonym	Saudi Arabian
+Saudi Arabia	neighbour	Iraq
+Saudi Arabia	neighbour	Jordan
+Saudi Arabia	neighbour	Kuwait
+Saudi Arabia	neighbour	Oman
+Saudi Arabia	neighbour	Qatar
+Saudi Arabia	neighbour	United Arab Emirates
+Saudi Arabia	neighbour	Yemen
+Saudi Arabia	landlocked	no
+Senegal	capital	Dakar
+Senegal	continent	Africa
+Senegal	currency	West African CFA franc
+Senegal	official language	French
+Senegal	area	196722
+Senegal	demonym	Senegalese
+Senegal	neighbour	Gambia
+Senegal	neighbour	Guinea
+Senegal	neighbour	Guinea-Bissau
+Senegal	neighbour	Mali
+Senegal	neighbour	Mauritania
+Senegal	landlocked	no
+Serbia	capital	Belgrade
+Serbia	continent	Europe
+Serbia	currency	Serbian dinar
+Serbia	official language	Serbian
+Serbia	area	88361
+Serbia	demonym	Serbian
+Serbia	neighbour	Bosnia and Herzegovina
+Serbia	neighbour	Bulgaria
+Serbia	neighbour	Croatia
+Serbia	neighbour	Hungary
+Serbia	neighbour	Kosovo
+Serbia	neighbour	North Macedonia
+Serbia	neighbour	Montenegro
+Serbia	neighbour	Romania
+Serbia	landlocked	yes
+Seychelles	capital	Victoria
+Seychelles	continent	Africa
+Seychelles	currency	Seychellois rupee
+Seychelles	official language	Seychellois Creole
+Seychelles	official language	English
+Seychelles	official language	French
+Seychelles	area	452
+Seychelles	demonym	Seychellois
+Seychelles	landlocked	no
+Sierra Leone	capital	Freetown
+Sierra Leone	continent	Africa
+Sierra Leone	currency	Sierra Leonean leone
+Sierra Leone	official language	English
+Sierra Leone	area	71740
+Sierra Leone	demonym	Sierra Leonean
+Sierra Leone	neighbour	Guinea
+Sierra Leone	neighbour	Liberia
+Sierra Leone	landlocked	no
+Singapore	capital	Singapore
+Singapore	continent	Asia
+Singapore	currency	Singapore dollar
+Singapore	official language	English
+Singapore	official language	Malay
+Singapore	official language	Tamil
+Singapore	official language	Chinese
+Singapore	area	710
+Singapore	demonym	Singaporean
+Singapore	landlocked	no
+Slovakia	capital	Bratislava
+Slovakia	continent	Europe
+Slovakia	currency	Euro
+Slovakia	official language	Slovak
+Slovakia	area	49037
+Slovakia	demonym	Slovak
+Slovakia	neighbour	Austria
+Slovakia	neighbour	Czechia
+Slovakia	neighbour	Hungary
+Slovakia	neighbour	Poland
+Slovakia	neighbour	Ukraine
+Slovakia	landlocked	yes
+Slovenia	capital	Ljubljana
+Slovenia	continent	Europe
+Slovenia	currency	Euro
+Slovenia	official language	Slovene
+Slovenia	area	20273
+Slovenia	demonym	Slovene
+Slovenia	neighbour	Austria
+Slovenia	neighbour	Croatia
+Slovenia	neighbour	Italy
+Slovenia	neighbour	Hungary
+Slovenia	landlocked	no
+Solomon Islands	capital	Honiara
+Solomon Islands	continent	Oceania
+Solomon Islands	currency	Solomon Islands dollar
+Solomon Islands	official language	English
+Solomon Islands	area	28896
+Solomon Islands	demonym	Solomon Islander
+Solomon Islands	landlocked	no
+Somalia	capital	Mogadishu
+Somalia	continent	Africa
+Somalia	currency	Somali shilling
+Somalia	official language	Arabic
+Somalia	official language	Somali
+Somalia	area	637657
+Somalia	demonym	Somali
+Somalia	neighbour	Djibouti
+Somalia	neighbour	Ethiopia
+Somalia	neighbour	Kenya
+Somalia	landlocked	no
+South Africa	capital	Pretoria
+South Africa	capital	Bloemfontein
+South Africa	capital	Cape Town
+South Africa	continent	Africa
+South Africa	currency	South African rand
+South Africa	official language	Afrikaans
+South Africa	official language	English
+South Africa	official language	Southern Ndebele
+South Africa	official language	Northern Sotho
+South Africa	official language	Southern Sotho
+South Africa	official language	Swazi
+South Africa	official language	Tswana
+South Africa	official language	Tsonga
+South Africa	official language	Venda
+South Africa	official language	Xhosa
+South Africa	official language	Zulu
+South Africa	area	1221037
+South Africa	demonym	South African
+South Africa	neighbour	Botswana
+South Africa	neighbour	Lesotho
+South Africa	neighbour	Mozambique
+South Africa	neighbour	Namibia
+South Africa	neighbour	Eswatini
+South Africa	neighbour	Zimbabwe
+South Africa	landlocked	no
+South Korea	capital	Seoul
+South Korea	continent	Asia
+South Korea	currency	South Korean won
+South Korea	official language	Korean
+South Korea	area	100210
+South Korea	demonym	South Korean
+South Korea	neighbour	North Korea
+South Korea	landlocked	no
+South Sudan	capital	Juba
+South Sudan	continent	Africa
+South Sudan	currency	South Sudanese pound
+South Sudan	official language	English
+South Sudan	area	619745
+South Sudan	demonym	South Sudanese
+South Sudan	neighbour	Central African Republic
+South Sudan	neighbour	DR Congo
+South Sudan	neighbour	Ethiopia
+South Sudan	neighbour	Kenya
+South Sudan	neighbour	Sudan
+South Sudan	neighbour	Uganda
+South Sudan	landlocked	yes
+Spain	capital	Madrid
+Spain	continent	Europe
+Spain	currency	Euro
+Spain	official language	Spanish
+Spain	area	505992
+Spain	demonym	Spanish
+Spain	neighbour	Andorra
+Spain	neighbour	France
+Spain	neighbour	Gibraltar
+Spain	neighbour	Portugal
+Spain	neighbour	Morocco
+Spain	landlocked	no
+Sri Lanka	capital	Colombo
+Sri Lanka	continent	Asia
+Sri Lanka	currency	Sri Lankan rupee
+Sri Lanka	official language	Sinhala
+Sri Lanka	official language	Tamil
+Sri Lanka	area	65610
+Sri Lanka	demonym	Sri Lankan
+Sri Lanka	neighbour	India
+Sri Lanka	landlocked	no
+Sudan	capital	Khartoum
+Sudan	continent	Africa
+Sudan	currency	Sudanese pound
+Sudan	official language	Arabic
+Sudan	official language	English
+Sudan	area	1886068
+Sudan	demonym	Sudanese
+Sudan	neighbour	Central African Republic
+Sudan	neighbour	Chad
+Sudan	neighbour	Egypt
+Sudan	neighbour	Eritrea
+Sudan	neighbour	Ethiopia
+Sudan	neighbour	Libya
+Sudan	neighbour	South Sudan
+Sudan	landlocked	no
+Suriname	capital	Paramaribo
+Suriname	continent	South America
+Suriname	currency	Surinamese dollar
+Suriname	official language	Dutch
+Suriname	area	163820
+Suriname	demonym	Surinamer
+Suriname	neighbour	Brazil
+Suriname	neighbour	French Guiana
+Suriname	neighbour	Guyana
+Suriname	landlocked	no
+Sweden	capital	Stockholm
+Sweden	continent	Europe
+Sweden	currency	Swedish krona
+Sweden	official language	Swedish
+Sweden	area	450295
+Sweden	demonym	Swedish
+Sweden	neighbour	Finland
+Sweden	neighbour	Norway
+Sweden	landlocked	no
+Switzerland	capital	Bern
+Switzerland	continent	Europe
+Switzerland	currency	Swiss franc
+Switzerland	official language	French
+Switzerland	official language	Swiss German
+Switzerland	official language	Italian
+Switzerland	official language	Romansh
+Switzerland	area	41284
+Switzerland	demonym	Swiss
+Switzerland	neighbour	Austria
+Switzerland	neighbour	France
+Switzerland	neighbour	Italy
+Switzerland	neighbour	Liechtenstein
+Switzerland	neighbour	Germany
+Switzerland	landlocked	yes
+Syria	capital	Damascus
+Syria	continent	Asia
+Syria	currency	Syrian pound
+Syria	official language	Arabic
+Syria	area	185180
+Syria	demonym	Syrian
+Syria	neighbour	Iraq
+Syria	neighbour	Israel
+Syria	neighbour	Jordan
+Syria	neighbour	Lebanon
+Syria	neighbour	Türkiye
+Syria	landlocked	no
+São Tomé and Príncipe	capital	São Tomé
+São Tomé and Príncipe	continent	Africa
+São Tomé and Príncipe	currency	São Tomé and Príncipe dobra
+São Tomé and Príncipe	official language	Portuguese
+São Tomé and Príncipe	area	964
+São Tomé and Príncipe	demonym	Sao Tomean
+São Tomé and Príncipe	landlocked	no
+Tajikistan	capital	Dushanbe
+Tajikistan	continent	Asia
+Tajikistan	currency	Tajikistani somoni
+Tajikistan	official language	Russian
+Tajikistan	official language	Tajik
+Tajikistan	area	143100
+Tajikistan	demonym	Tadzhik
+Tajikistan	neighbour	Afghanistan
+Tajikistan	neighbour	China
+Tajikistan	neighbour	Kyrgyzstan
+Tajikistan	neighbour	Uzbekistan
+Tajikistan	landlocked	yes
+Tanzania	capital	Dodoma
+Tanzania	continent	Africa
+Tanzania	currency	Tanzanian shilling
+Tanzania	official language	English
+Tanzania	official language	Swahili
+Tanzania	area	945087
+Tanzania	demonym	Tanzanian
+Tanzania	neighbour	Burundi
+Tanzania	neighbour	DR Congo
+Tanzania	neighbour	Kenya
+Tanzania	neighbour	Malawi
+Tanzania	neighbour	Mozambique
+Tanzania	neighbour	Rwanda
+Tanzania	neighbour	Uganda
+Tanzania	neighbour	Zambia
+Tanzania	landlocked	no
+Thailand	capital	Bangkok
+Thailand	continent	Asia
+Thailand	currency	Thai baht
+Thailand	official language	Thai
+Thailand	area	513120
+Thailand	demonym	Thai
+Thailand	neighbour	Myanmar
+Thailand	neighbour	Cambodia
+Thailand	neighbour	Laos
+Thailand	neighbour	Malaysia
+Thailand	landlocked	no
+Timor-Leste	capital	Dili
+Timor-Leste	continent	Asia
+Timor-Leste	currency	United States dollar
+Timor-Leste	official language	Portuguese
+Timor-Leste	official language	Tetum
+Timor-Leste	area	14874
+Timor-Leste	demonym	East Timorese
+Timor-Leste	neighbour	Indonesia
+Timor-Leste	landlocked	no
+Togo	capital	Lomé
+Togo	continent	Africa
+Togo	currency	West African CFA franc
+Togo	official language	French
+Togo	area	56785
+Togo	demonym	Togolese
+Togo	neighbour	Benin
+Togo	neighbour	Burkina Faso
+Togo	neighbour	Ghana
+Togo	landlocked	no
+Tonga	capital	Nuku'alofa
+Tonga	continent	Oceania
+Tonga	currency	Tongan paʻanga
+Tonga	official language	English
+Tonga	official language	Tongan
+Tonga	area	747
+Tonga	demonym	Tongan
+Tonga	landlocked	no
+Trinidad and Tobago	capital	Port of Spain
+Trinidad and Tobago	continent	Caribbean
+Trinidad and Tobago	currency	Trinidad and Tobago dollar
+Trinidad and Tobago	official language	English
+Trinidad and Tobago	area	5130
+Trinidad and Tobago	demonym	Trinidadian
+Trinidad and Tobago	landlocked	no
+Tunisia	capital	Tunis
+Tunisia	continent	Africa
+Tunisia	currency	Tunisian dinar
+Tunisia	official language	Arabic
+Tunisia	area	163610
+Tunisia	demonym	Tunisian
+Tunisia	neighbour	Algeria
+Tunisia	neighbour	Libya
+Tunisia	landlocked	no
+Turkmenistan	capital	Ashgabat
+Turkmenistan	continent	Asia
+Turkmenistan	currency	Turkmenistan manat
+Turkmenistan	official language	Russian
+Turkmenistan	official language	Turkmen
+Turkmenistan	area	488100
+Turkmenistan	demonym	Turkmen
+Turkmenistan	neighbour	Afghanistan
+Turkmenistan	neighbour	Iran
+Turkmenistan	neighbour	Kazakhstan
+Turkmenistan	neighbour	Uzbekistan
+Turkmenistan	landlocked	yes
+Tuvalu	capital	Funafuti
+Tuvalu	continent	Oceania
+Tuvalu	currency	Australian dollar
+Tuvalu	currency	Tuvaluan dollar
+Tuvalu	official language	English
+Tuvalu	official language	Tuvaluan
+Tuvalu	area	26
+Tuvalu	demonym	Tuvaluan
+Tuvalu	landlocked	no
+Türkiye	capital	Ankara
+Türkiye	continent	Asia
+Türkiye	currency	Turkish lira
+Türkiye	official language	Turkish
+Türkiye	area	783562
+Türkiye	demonym	Turkish
+Türkiye	neighbour	Armenia
+Türkiye	neighbour	Azerbaijan
+Türkiye	neighbour	Bulgaria
+Türkiye	neighbour	Georgia
+Türkiye	neighbour	Greece
+Türkiye	neighbour	Iran
+Türkiye	neighbour	Iraq
+Türkiye	neighbour	Syria
+Türkiye	landlocked	no
+Uganda	capital	Kampala
+Uganda	continent	Africa
+Uganda	currency	Ugandan shilling
+Uganda	official language	English
+Uganda	official language	Swahili
+Uganda	area	241550
+Uganda	demonym	Ugandan
+Uganda	neighbour	DR Congo
+Uganda	neighbour	Kenya
+Uganda	neighbour	Rwanda
+Uganda	neighbour	South Sudan
+Uganda	neighbour	Tanzania
+Uganda	landlocked	yes
+Ukraine	capital	Kyiv
+Ukraine	continent	Europe
+Ukraine	currency	Ukrainian hryvnia
+Ukraine	official language	Ukrainian
+Ukraine	area	603500
+Ukraine	demonym	Ukrainian
+Ukraine	neighbour	Belarus
+Ukraine	neighbour	Hungary
+Ukraine	neighbour	Moldova
+Ukraine	neighbour	Poland
+Ukraine	neighbour	Romania
+Ukraine	neighbour	Russia
+Ukraine	neighbour	Slovakia
+Ukraine	landlocked	no
+United Arab Emirates	capital	Abu Dhabi
+United Arab Emirates	continent	Asia
+United Arab Emirates	currency	United Arab Emirates dirham
+United Arab Emirates	official language	Arabic
+United Arab Emirates	area	83600
+United Arab Emirates	demonym	Emirati
+United Arab Emirates	neighbour	Oman
+United Arab Emirates	neighbour	Saudi Arabia
+United Arab Emirates	landlocked	no
+United Kingdom	capital	London
+United Kingdom	continent	Europe
+United Kingdom	currency	British pound
+United Kingdom	official language	English
+United Kingdom	area	242900
+United Kingdom	demonym	British
+United Kingdom	neighbour	Ireland
+United Kingdom	landlocked	no
+United States	capital	Washington D.C.
+United States	continent	North America
+United States	currency	United States dollar
+United States	official language	English
+United States	area	9372610
+United States	demonym	American
+United States	neighbour	Canada
+United States	neighbour	Mexico
+United States	landlocked	no
+Uruguay	capital	Montevideo
+Uruguay	continent	South America
+Uruguay	currency	Uruguayan peso
+Uruguay	official language	Spanish
+Uruguay	area	181034
+Uruguay	demonym	Uruguayan
+Uruguay	neighbour	Argentina
+Uruguay	neighbour	Brazil
+Uruguay	landlocked	no
+Uzbekistan	capital	Tashkent
+Uzbekistan	continent	Asia
+Uzbekistan	currency	Uzbekistani soʻm
+Uzbekistan	official language	Russian
+Uzbekistan	official language	Uzbek
+Uzbekistan	area	447400
+Uzbekistan	demonym	Uzbekistani
+Uzbekistan	neighbour	Afghanistan
+Uzbekistan	neighbour	Kazakhstan
+Uzbekistan	neighbour	Kyrgyzstan
+Uzbekistan	neighbour	Tajikistan
+Uzbekistan	neighbour	Turkmenistan
+Uzbekistan	landlocked	yes
+Vanuatu	capital	Port Vila
+Vanuatu	continent	Oceania
+Vanuatu	currency	Vanuatu vatu
+Vanuatu	official language	Bislama
+Vanuatu	official language	English
+Vanuatu	official language	French
+Vanuatu	area	12189
+Vanuatu	demonym	Ni-Vanuatu
+Vanuatu	landlocked	no
+Vatican City	capital	Vatican City
+Vatican City	continent	Europe
+Vatican City	currency	Euro
+Vatican City	official language	Italian
+Vatican City	official language	Latin
+Vatican City	area	0.44
+Vatican City	demonym	Vatican
+Vatican City	neighbour	Italy
+Vatican City	landlocked	yes
+Venezuela	capital	Caracas
+Venezuela	continent	South America
+Venezuela	currency	Venezuelan bolívar soberano
+Venezuela	official language	Spanish
+Venezuela	area	916445
+Venezuela	demonym	Venezuelan
+Venezuela	neighbour	Brazil
+Venezuela	neighbour	Colombia
+Venezuela	neighbour	Guyana
+Venezuela	landlocked	no
+Vietnam	capital	Hanoi
+Vietnam	continent	Asia
+Vietnam	currency	Vietnamese đồng
+Vietnam	official language	Vietnamese
+Vietnam	area	331212
+Vietnam	demonym	Vietnamese
+Vietnam	neighbour	Cambodia
+Vietnam	neighbour	China
+Vietnam	neighbour	Laos
+Vietnam	landlocked	no
+Yemen	capital	Sana'a
+Yemen	continent	Asia
+Yemen	currency	Yemeni rial
+Yemen	official language	Arabic
+Yemen	area	527968
+Yemen	demonym	Yemeni
+Yemen	neighbour	Oman
+Yemen	neighbour	Saudi Arabia
+Yemen	landlocked	no
+Zambia	capital	Lusaka
+Zambia	continent	Africa
+Zambia	currency	Zambian kwacha
+Zambia	official language	English
+Zambia	area	752612
+Zambia	demonym	Zambian
+Zambia	neighbour	Angola
+Zambia	neighbour	Botswana
+Zambia	neighbour	DR Congo
+Zambia	neighbour	Malawi
+Zambia	neighbour	Mozambique
+Zambia	neighbour	Namibia
+Zambia	neighbour	Tanzania
+Zambia	neighbour	Zimbabwe
+Zambia	landlocked	yes
+Zimbabwe	capital	Harare
+Zimbabwe	continent	Africa
+Zimbabwe	currency	Botswana pula
+Zimbabwe	currency	Chinese yuan
+Zimbabwe	currency	Euro
+Zimbabwe	currency	British pound
+Zimbabwe	currency	Indian rupee
+Zimbabwe	currency	Japanese yen
+Zimbabwe	currency	United States dollar
+Zimbabwe	currency	South African rand
+Zimbabwe	currency	Zimbabwe Gold
+Zimbabwe	official language	Chibarwe
+Zimbabwe	official language	English
+Zimbabwe	official language	Kalanga
+Zimbabwe	official language	Khoisan
+Zimbabwe	official language	Ndau
+Zimbabwe	official language	Northern Ndebele
+Zimbabwe	official language	Chewa
+Zimbabwe	official language	Shona
+Zimbabwe	official language	Sotho
+Zimbabwe	official language	Tonga
+Zimbabwe	official language	Tswana
+Zimbabwe	official language	Tsonga
+Zimbabwe	official language	Venda
+Zimbabwe	official language	Xhosa
+Zimbabwe	official language	Zimbabwean Sign Language
+Zimbabwe	area	390757
+Zimbabwe	demonym	Zimbabwean
+Zimbabwe	neighbour	Botswana
+Zimbabwe	neighbour	Mozambique
+Zimbabwe	neighbour	South Africa
+Zimbabwe	neighbour	Zambia
+Zimbabwe	landlocked	yes
 hydrogen	symbol	H
 hydrogen	atomic number	1
 helium	symbol	He
@@ -355,21 +2213,167 @@ bromine	symbol	Br
 bromine	atomic number	35
 krypton	symbol	Kr
 krypton	atomic number	36
+rubidium	symbol	Rb
+rubidium	atomic number	37
+strontium	symbol	Sr
+strontium	atomic number	38
+yttrium	symbol	Y
+yttrium	atomic number	39
+zirconium	symbol	Zr
+zirconium	atomic number	40
+niobium	symbol	Nb
+niobium	atomic number	41
+molybdenum	symbol	Mo
+molybdenum	atomic number	42
+technetium	symbol	Tc
+technetium	atomic number	43
+ruthenium	symbol	Ru
+ruthenium	atomic number	44
+rhodium	symbol	Rh
+rhodium	atomic number	45
+palladium	symbol	Pd
+palladium	atomic number	46
 silver	symbol	Ag
 silver	atomic number	47
+cadmium	symbol	Cd
+cadmium	atomic number	48
+indium	symbol	In
+indium	atomic number	49
 tin	symbol	Sn
 tin	atomic number	50
+antimony	symbol	Sb
+antimony	atomic number	51
+tellurium	symbol	Te
+tellurium	atomic number	52
 iodine	symbol	I
 iodine	atomic number	53
+xenon	symbol	Xe
+xenon	atomic number	54
+caesium	symbol	Cs
+caesium	atomic number	55
+barium	symbol	Ba
+barium	atomic number	56
+lanthanum	symbol	La
+lanthanum	atomic number	57
+cerium	symbol	Ce
+cerium	atomic number	58
+praseodymium	symbol	Pr
+praseodymium	atomic number	59
+neodymium	symbol	Nd
+neodymium	atomic number	60
+promethium	symbol	Pm
+promethium	atomic number	61
+samarium	symbol	Sm
+samarium	atomic number	62
+europium	symbol	Eu
+europium	atomic number	63
+gadolinium	symbol	Gd
+gadolinium	atomic number	64
+terbium	symbol	Tb
+terbium	atomic number	65
+dysprosium	symbol	Dy
+dysprosium	atomic number	66
+holmium	symbol	Ho
+holmium	atomic number	67
+erbium	symbol	Er
+erbium	atomic number	68
+thulium	symbol	Tm
+thulium	atomic number	69
+ytterbium	symbol	Yb
+ytterbium	atomic number	70
+lutetium	symbol	Lu
+lutetium	atomic number	71
+hafnium	symbol	Hf
+hafnium	atomic number	72
+tantalum	symbol	Ta
+tantalum	atomic number	73
+tungsten	symbol	W
+tungsten	atomic number	74
+rhenium	symbol	Re
+rhenium	atomic number	75
+osmium	symbol	Os
+osmium	atomic number	76
+iridium	symbol	Ir
+iridium	atomic number	77
+platinum	symbol	Pt
+platinum	atomic number	78
 gold	symbol	Au
 gold	atomic number	79
 mercury	symbol	Hg
 mercury	atomic number	80
+thallium	symbol	Tl
+thallium	atomic number	81
 lead	symbol	Pb
 lead	atomic number	82
-platinum	symbol	Pt
-platinum	atomic number	78
+bismuth	symbol	Bi
+bismuth	atomic number	83
+polonium	symbol	Po
+polonium	atomic number	84
+astatine	symbol	At
+astatine	atomic number	85
+radon	symbol	Rn
+radon	atomic number	86
+francium	symbol	Fr
+francium	atomic number	87
+radium	symbol	Ra
+radium	atomic number	88
+actinium	symbol	Ac
+actinium	atomic number	89
+thorium	symbol	Th
+thorium	atomic number	90
+protactinium	symbol	Pa
+protactinium	atomic number	91
 uranium	symbol	U
 uranium	atomic number	92
-tungsten	symbol	W
-tungsten	atomic number	74
+neptunium	symbol	Np
+neptunium	atomic number	93
+plutonium	symbol	Pu
+plutonium	atomic number	94
+americium	symbol	Am
+americium	atomic number	95
+curium	symbol	Cm
+curium	atomic number	96
+berkelium	symbol	Bk
+berkelium	atomic number	97
+californium	symbol	Cf
+californium	atomic number	98
+einsteinium	symbol	Es
+einsteinium	atomic number	99
+fermium	symbol	Fm
+fermium	atomic number	100
+mendelevium	symbol	Md
+mendelevium	atomic number	101
+nobelium	symbol	No
+nobelium	atomic number	102
+lawrencium	symbol	Lr
+lawrencium	atomic number	103
+rutherfordium	symbol	Rf
+rutherfordium	atomic number	104
+dubnium	symbol	Db
+dubnium	atomic number	105
+seaborgium	symbol	Sg
+seaborgium	atomic number	106
+bohrium	symbol	Bh
+bohrium	atomic number	107
+hassium	symbol	Hs
+hassium	atomic number	108
+meitnerium	symbol	Mt
+meitnerium	atomic number	109
+darmstadtium	symbol	Ds
+darmstadtium	atomic number	110
+roentgenium	symbol	Rg
+roentgenium	atomic number	111
+copernicium	symbol	Cn
+copernicium	atomic number	112
+nihonium	symbol	Nh
+nihonium	atomic number	113
+flerovium	symbol	Fl
+flerovium	atomic number	114
+moscovium	symbol	Mc
+moscovium	atomic number	115
+livermorium	symbol	Lv
+livermorium	atomic number	116
+tennessine	symbol	Ts
+tennessine	atomic number	117
+oganesson	symbol	Og
+oganesson	atomic number	118

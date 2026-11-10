@@ -45,15 +45,15 @@ public final class LinuxEngine {
 
     public static Result run(String command, File work, List<File> roots, FullShell ignored) {
         if (work == null) {
-            return new Result(false, "The shell has no folder.\nThis ran in DVINE's own Linux. Termux was not opened.");
+            return new Result(false, "The shell has no folder.\nThis ran in Ibiko's own Linux. Termux was not opened.");
         }
         WorkspaceManager.ensure(work);
         try {
             CommandResult ran = new ShellSession(work).exec(command, roots);
-            return new Result(ran.exit == 0, ran.text() + "\nThis ran in DVINE's own Linux. Termux was not opened.");
+            return new Result(ran.exit == 0, ran.text() + "\nThis ran in Ibiko's own Linux. Termux was not opened.");
         } catch (Throwable e) {
             return new Result(false, "The shell stopped before it could run that: " + e.getClass().getSimpleName()
-                    + "\nThis ran in DVINE's own Linux. Termux was not opened.");
+                    + "\nThis ran in Ibiko's own Linux. Termux was not opened.");
         }
     }
 }

@@ -32,6 +32,6 @@ public class DownloadNotificationTest {
         assertTrue((n.flags & Notification.FLAG_ONGOING_EVENT) != 0);
         s.finish(DownloadStatus.Phase.DONE);
         Notification done = ModelDownloadService.result(c, s);
-        assertEquals("DVINE's model is ready", String.valueOf(done.extras.getCharSequence(Notification.EXTRA_TITLE)));
+        assertEquals("Ibiko's model is ready", String.valueOf(done.extras.getCharSequence(Notification.EXTRA_TITLE)));
     }
 }

@@ -49,7 +49,7 @@ public class MemoryActivityTest {
 
         ActivityController<MemoryActivity> c = Robolectric.buildActivity(MemoryActivity.class).create().start().resume().visible();
         View root = c.get().getWindow().getDecorView();
-        for (String shown : new String[]{"What DVINE remembers", "Tobi is my brother",
+        for (String shown : new String[]{"What Ibiko remembers", "Tobi is my brother",
                 "“are you done”", "means “give me the result”", "“sketch me a lion”", "does “draw a lion in 3d”", "A correction"}) {
             if (!"A correction".equals(shown)) {
                 assertNotNull(shown, text(root, shown));

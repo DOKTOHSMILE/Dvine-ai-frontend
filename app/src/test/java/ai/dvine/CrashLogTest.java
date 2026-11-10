@@ -38,7 +38,7 @@ public class CrashLogTest {
         }
         assertTrue("Android still closes the app as usual", passedOn[0]);
         String kept = new String(Files.readAllBytes(new File(c.getFilesDir(), "crash.txt").toPath()), StandardCharsets.UTF_8);
-        assertTrue(kept, kept.startsWith("DVINE " + BuildConfigInfo.version(c) + " on Android"));
+        assertTrue(kept, kept.startsWith("Ibiko " + BuildConfigInfo.version(c) + " on Android"));
         assertTrue(kept.contains("Crash on thread"));
         assertTrue(kept.contains("IllegalStateException: outer"));
         assertTrue("the cause is in it", kept.contains("Caused by: java.lang.NullPointerException: the real cause"));

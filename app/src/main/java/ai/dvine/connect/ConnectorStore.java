@@ -18,14 +18,14 @@ import ai.dvine.llm.ProviderStore;
  */
 public final class ConnectorStore {
     public enum Kind {
-        WEB("Web search", "Searches the web and reads the best pages. Free: Google in DVINE's own browser, then Wikipedia. Or your Brave Search, Tavily or Google key."),
+        WEB("Web search", "Searches the web and reads the best pages. Free: Google in Ibiko's own browser, then Wikipedia. Or your Brave Search, Tavily or Google key."),
         DOCS("Offline developer docs", "Official docs kept on this device for coding with no internet: Kotlin, Java, Python,"
                 + " JavaScript, TypeScript, HTML, CSS, Node, React, Go, Dart, Rust, C, C++, SQL and more, from DevDocs. Download the"
                 + " ones you use; the model searches them online or off."),
         GMAIL("Gmail", "Read, search and open your email, and write drafts into Gmail's Drafts (you send them). Your Gmail address and"
                 + " an app password: Google Account › Security › 2-Step Verification › App passwords. No Google project needed."),
         CALENDAR("Device calendar", "Your events for the next week, read from this device's calendar."),
-        GITHUB("GitHub", "Your repositories, issues and files; DVINE can clone, pull, commit, push and open pull requests. Sign in with GitHub in the browser, or paste a token."),
+        GITHUB("GitHub", "Your repositories, issues and files; Ibiko can clone, pull, commit, push and open pull requests. Sign in with GitHub in the browser, or paste a token."),
         NOTION("Notion", "Search the pages you shared with a Notion integration. Needs its token."),
         MCP("Custom MCP server", "Any server that speaks the Model Context Protocol, over https. Its tools are found on Test.");
 

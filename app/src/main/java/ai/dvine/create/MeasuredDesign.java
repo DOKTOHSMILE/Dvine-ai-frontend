@@ -98,7 +98,7 @@ public final class MeasuredDesign {
         return "Designing it";
     }
 
-    static final String BRIEF = "You are DVINE's designer. The user wants a 3D model built. Write the design brief the"
+    static final String BRIEF = "You are Ibiko's designer. The user wants a 3D model built. Write the design brief the"
             + " builder needs: the overall size, then each part this thing really has (nothing it doesn't have), with its"
             + " width, height and depth, how many there are and where each goes, and its material or colour; and what it"
             + " stands on. Use the user's numbers exactly. For anything they didn't say, choose a standard real-world size"
@@ -110,7 +110,7 @@ public final class MeasuredDesign {
             + " words, against a part on an earlier line: on the ground; on <part>; under <part>; in the front of <part>"
             + " (also back, left, right: a window or door set into that face); beside <part> on the left (right, front,"
             + " back). Add N ft up or N m left to move it, and repeat N for a row spread evenly. Name each part plainly"
-            + " (ground floor walls, front door). DVINE works out the exact positions. For example:\n"
+            + " (ground floor walls, front door). Ibiko works out the exact positions. For example:\n"
             + "base | box | wood | 2 x 0.1 x 1 m | on the ground\n"
             + "cupboard | box | white | 2 x 0.8 x 0.6 m | on base\n"
             + "drawer | box | grey | 0.5 x 0.2 x 0.05 m | in the front of cupboard, 0.5 m up | repeat 3\n"
@@ -120,7 +120,7 @@ public final class MeasuredDesign {
      * For an API model: the user's simple words ("design a TV stand") become a full design specification first, the
      * way an architect or product designer would write it, so the measurements and parts that follow are complete.
      */
-    static final String EXPAND = "You are DVINE's design director. The user gave a short request for a 3D model. Rewrite it as a"
+    static final String EXPAND = "You are Ibiko's design director. The user gave a short request for a 3D model. Rewrite it as a"
             + " complete design specification for a professional designer: what it is and its purpose; its style; the"
             + " overall dimensions; every component it has (for a building: foundation, each storey's walls and floor"
             + " slabs, roof, every door and window with frames, stairs, columns, balconies, garage, fence, land; for an"
@@ -130,7 +130,7 @@ public final class MeasuredDesign {
             + " greeting. /no_think";
 
     /** For an API model: the parts with exact coordinates for every one, ready for the engine. */
-    static final String PARTS_FULL = "Turn the design brief into the complete part list for DVINE's 3D engine, one part a line:\n"
+    static final String PARTS_FULL = "Turn the design brief into the complete part list for Ibiko's 3D engine, one part a line:\n"
             + "name | shape | material or colour | width x height x depth unit | at x, y, z\n"
             + "Start with UNITS: and the unit. Shapes: box, cylinder (upright, width = diameter), cylinder-x, cylinder-z"
             + " (lying along that axis), sphere, cone, torus-x / torus-z (a ring standing along that axis, as a tyre; its width or depth is the tube's thickness), torus (a flat ring), gable roof (ridge along x), hip roof, pyramid. Coordinates: x left to"

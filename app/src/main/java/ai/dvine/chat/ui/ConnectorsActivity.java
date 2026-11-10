@@ -49,7 +49,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         head.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         head.addView(Ui.gap(this, 1), new LinearLayout.LayoutParams(Ui.dp(this, 34), 1));
         root.addView(head);
-        TextView lead = Ui.text(this, "Let DVINE use your services when it answers. Tokens stay on this device, encrypted.",
+        TextView lead = Ui.text(this, "Let Ibiko use your services when it answers. Tokens stay on this device, encrypted.",
                 14, Ui.SUB, false);
         lead.setPadding(pad + Ui.dp(this, 6), Ui.dp(this, 4), pad, Ui.dp(this, 8));
         root.addView(lead);
@@ -421,7 +421,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                 case "brave": how.setText("The whole web. A key from api.search.brave.com (there is a free plan)."); break;
                 case "tavily": how.setText("The whole web, made for AI answers. A key from tavily.com (free credits each month)."); break;
                 case "google": how.setText("Google results through Programmable Search: an API key and a search engine ID from programmablesearchengine.google.com."); break;
-                default: how.setText("Free: Google, read in DVINE's own browser on this device (no key, no project), then Wikipedia. Or choose a provider and add its key.");
+                default: how.setText("Free: Google, read in Ibiko's own browser on this device (no key, no project), then Wikipedia. Or choose a provider and add its key.");
             }
         };
         paint[0].run();
@@ -476,7 +476,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
             }
         });
         inside.addView(browser, Ui.wide(this, 12));
-        inside.addView(Ui.text(this, "Opens github.com, where you sign in with your email or username and password, then approve DVINE"
+        inside.addView(Ui.text(this, "Opens github.com, where you sign in with your email or username and password, then approve Ibiko"
                 + " with a short code.", 12, Ui.SUB, false), Ui.wide(this, 6));
         TextView make = Ui.text(this, "Create a token on GitHub \u203A", 15, Ui.ACCENT, false);
         make.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 2));
@@ -547,7 +547,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         box.setOrientation(LinearLayout.VERTICAL);
         int p = Ui.dp(this, 20);
         box.setPadding(p, 0, p, 0);
-        box.addView(Ui.text(this, "On GitHub, sign in, type this code and approve DVINE. This screen finishes by itself.",
+        box.addView(Ui.text(this, "On GitHub, sign in, type this code and approve Ibiko. This screen finishes by itself.",
                 14, Ui.SUB, false));
         box.addView(big);
         signingIn = true;

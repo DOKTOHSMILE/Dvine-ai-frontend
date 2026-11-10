@@ -13,8 +13,9 @@ import java.util.Map;
 
 /**
  * What DVINE 1 knows the moment it is installed, before it has learned or looked up anything: facts that ship inside
- * the app ({@code assets/knowledge/world_facts.tsv}, built from Wikidata, which is in the public domain, by
- * {@code tools/build_world_facts.py}). One line a fact: the thing, what about it, the value. A question is answered
+ * the app ({@code assets/knowledge/world_facts.tsv}: the countries from mledoze/countries, ODbL, see
+ * {@code assets/knowledge/WORLD_FACTS_LICENSE.txt}, and the 118 elements; {@code tools/build_world_facts.py} can
+ * rebuild it from Wikidata). One line a fact: the thing, what about it, the value. A question is answered
  * by finding the thing it names and what it asks about that thing, however it is worded ("capital of Nigeria",
  * "what's Nigeria's capital city", "which country has Abuja as its capital"). Read once, on first use. Pure Java.
  */
@@ -27,6 +28,10 @@ public final class BuiltIn {
         CONTINENT("continent", "\\b(continent|which part of the world)\\b", "%s is in %s."),
         LANGUAGE("official language", "\\b(official languages?|languages?|speak|spoken)\\b", "The official language of %s is %s."),
         AREA("area", "\\b(area|how (big|large)|size|square (kilometres|kilometers|km))\\b", "%s covers about %s square kilometres."),
+        DEMONYM("demonym", "\\b(what (are|is) (the )?(people|person|someone|citizens?) (from|of|in)|demonym|nationality)\\b",
+                "Someone from %s is %s."),
+        NEIGHBOUR("neighbour", "\\b(border(s|ing)?|neighbou?rs?|next to|surround)\\b", "%s borders %s."),
+        LANDLOCKED("landlocked", "\\b(landlocked|coast(line)?|access to the sea|by the sea)\\b", "%s"),
         SYMBOL("symbol", "\\b(chemical symbol|symbol)\\b", "The chemical symbol of %s is %s."),
         NUMBER("atomic number", "\\b(atomic number|proton number|how many protons)\\b", "The atomic number of %s is %s.");
 
@@ -80,7 +85,7 @@ public final class BuiltIn {
                     values = new ArrayList<String>();
                     of.put(a, values);
                 }
-                if (!values.contains(p[2].trim()) && values.size() < 6) {
+                if (!values.contains(p[2].trim()) && values.size() < 20) {
                     values.add(p[2].trim());
                     count++;
                 }
@@ -127,6 +132,12 @@ public final class BuiltIn {
             return null;
         }
         String name = shown.get(thing);
+        if (about == About.LANDLOCKED) {
+            return "yes".equals(values.get(0)) ? name + " is landlocked: it has no coastline." : name + " is not landlocked: it has a coastline.";
+        }
+        if (about == About.NEIGHBOUR && values.size() > 1) {
+            return name + " borders " + String.join(", ", values.subList(0, values.size() - 1)) + " and " + values.get(values.size() - 1) + ".";
+        }
         if (about == About.POPULATION || about == About.AREA) {
             return String.format(Locale.US, about.said, name, grouped(values.get(0)));
         }

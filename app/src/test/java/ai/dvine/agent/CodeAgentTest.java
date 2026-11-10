@@ -432,7 +432,7 @@ public class CodeAgentTest {
         Phone phone = new Phone();
         phone.allow = true;
         CodeAgent ibiko = new CodeAgent(ws, brain, phone, "", 20_000).as("Ibiko", false).planning(true);
-        assertTrue(ibiko.system(), ibiko.system().startsWith("You are Ibiko, DVINE's coding agent") && ibiko.system().contains("Plan mode"));
+        assertTrue(ibiko.system(), ibiko.system().startsWith("You are Ibiko, Ibiko's coding agent") && ibiko.system().contains("Plan mode"));
         assertFalse(ibiko.system().contains("write_file") || ibiko.system().contains("name=\"run\""));
         String plan = ibiko.run("Make Main runnable", "");
         assertTrue(plan, plan.contains("1. Add a main method"));

@@ -110,4 +110,17 @@ public class BlueprintTest {
         assertFalse(Blueprint.applies("Clone https://github.com/me/app.git into the workspace and make it ready"));
         assertFalse(Blueprint.applies("Install the necessary files needed by Linux for this build"));
     }
+
+    @Test
+    public void aPlanIsAddedToNeverReplaced() {
+        String old = "# Blueprint: notes\n## Steps\n- [x] 1. Make the list (files: a)\n- [ ] 2. Save notes (files: b)\n";
+        assertEquals(null, Blueprint.kept(old, old + "- [ ] 3. Search notes (files: c)\n"));
+        assertEquals("a priority may move up and steps renumber", null, Blueprint.kept(old,
+                "## Steps\n- [x] 1. Make the list (files: a)\n- [ ] 2. Search notes (files: c)\n- [ ] 3. Save notes (files: b)\n"));
+        assertEquals("ticking is the one edit", null, Blueprint.kept(old, old.replace("- [ ] 2.", "- [x] 2.")));
+        String replaced = Blueprint.kept(old, "## Steps\n- [ ] 1. Build a chat app (files: z)\n");
+        assertTrue(replaced, replaced != null && replaced.contains("Save notes") && replaced.contains("never replaced"));
+        String unticked = Blueprint.kept(old, old.replace("- [x] 1.", "- [ ] 1."));
+        assertTrue(unticked, unticked != null && unticked.contains("unticks finished work"));
+    }
 }

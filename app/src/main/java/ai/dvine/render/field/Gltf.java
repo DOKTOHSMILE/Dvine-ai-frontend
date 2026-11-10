@@ -107,7 +107,7 @@ public final class Gltf {
         for (int r : roots) {
             rootKids.append(rootKids.length() == 0 ? "" : ",").append(r + 1);
         }
-        String json = "{\"asset\":{\"version\":\"2.0\",\"generator\":\"DVINE\"},\"scene\":0,\"scenes\":[{\"name\":" + str(name)
+        String json = "{\"asset\":{\"version\":\"2.0\",\"generator\":\"Ibiko\"},\"scene\":0,\"scenes\":[{\"name\":" + str(name)
                 + ",\"nodes\":[0]}],\"nodes\":[{\"name\":" + str(name) + (rootKids.length() > 0 ? ",\"children\":[" + rootKids + "]" : "")
                 + "}" + (nodes.length() > 0 ? "," + nodes : "") + "],\"meshes\":[" + meshes + "],\"materials\":[" + materials
                 + "],\"accessors\":[" + accessors + "],\"bufferViews\":[" + views + "],\"buffers\":[{\"byteLength\":" + bin.size() + "}]}";

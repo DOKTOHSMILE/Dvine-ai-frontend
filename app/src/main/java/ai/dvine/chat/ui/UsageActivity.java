@@ -108,7 +108,7 @@ public final class UsageActivity extends AppCompatActivity {
         float speed = log.speedToday(now);
         today.addView(row("Average speed", speed <= 0 ? "-" : String.format(Locale.US, "%.1f tokens a second", speed)), Ui.wide(this, 8));
         today.addView(row("Failed replies", String.valueOf(log.failedToday(now))), Ui.wide(this, 8));
-        today.addView(row("DVINE 1 answers", String.valueOf(log.ownToday(now))), Ui.wide(this, 8));
+        today.addView(row("Ibiko 1 answers", String.valueOf(log.ownToday(now))), Ui.wide(this, 8));
         today.addView(row("  from its memory", String.valueOf(log.ownMemoryToday(now))), Ui.wide(this, 6));
         today.addView(row("  researched", String.valueOf(log.ownResearchToday(now))), Ui.wide(this, 6));
         today.addView(Ui.text(this, "Resets at midnight. API spending and limits are on your provider's own dashboard.", 13, Ui.SUB, false),
@@ -122,7 +122,7 @@ public final class UsageActivity extends AppCompatActivity {
         String pick = getSharedPreferences("dvine", MODE_PRIVATE).getString("brain_pick", "api");
         java.util.List<Providers> apis = store.usable();
         boolean api = "api".equals(pick) && !apis.isEmpty();
-        String answers = "dvine".equals(pick) ? "DVINE 1 \u00B7 0.1 (DVINE's own)"
+        String answers = "dvine".equals(pick) ? "Ibiko 1 \u00B7 0.1 (Ibiko's own)"
                 : api ? apis.get(0).title + ": " + store.model(apis.get(0)) + (store.connected(apis.get(0)) ? "" : " (not tested yet)")
                         + (apis.size() > 1 ? " +" + (apis.size() - 1) + " backup" : "")
                 : "On this device: " + hub.model.spec.weights;
@@ -156,9 +156,9 @@ public final class UsageActivity extends AppCompatActivity {
         learn.addView(sw);
         learn.addView(row("Answers kept", String.valueOf(ll.count())), Ui.wide(this, 8));
         learn.addView(row("Size", bytes(ll.bytes())), Ui.wide(this, 8));
-        learn.addView(Ui.text(this, "Each request, reply and DVINE step from your API models is kept on this device, never sent anywhere."
-                + " DVINE's own model uses the closest ones as examples when it answers offline, and Export saves them"
-                + " as a training file to fine-tune DVINE's model. Check your provider's terms before training a model on its replies.",
+        learn.addView(Ui.text(this, "Each request, reply and Ibiko step from your API models is kept on this device, never sent anywhere."
+                + " Ibiko's own model uses the closest ones as examples when it answers offline, and Export saves them"
+                + " as a training file to fine-tune Ibiko's model. Check your provider's terms before training a model on its replies.",
                 13, Ui.SUB, false), Ui.wide(this, 12));
         LinearLayout buttons = new LinearLayout(this);
         TextView export = Ui.text(this, "Export", 15, Ui.ACCENT, false);
@@ -168,7 +168,7 @@ public final class UsageActivity extends AppCompatActivity {
         TextView clear = Ui.text(this, "Delete", 15, Ui.ACCENT, false);
         clear.setPadding(0, Ui.dp(this, 14), 0, 0);
         clear.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
-                .setMessage("Delete everything DVINE has learned from the API models?")
+                .setMessage("Delete everything Ibiko has learned from the API models?")
                 .setPositiveButton("Delete", (d, w) -> {
                     ll.clear();
                     fill();
@@ -205,7 +205,7 @@ public final class UsageActivity extends AppCompatActivity {
         android.content.ContentValues v = new android.content.ContentValues();
         v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
         v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/jsonl");
-        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Ibiko");
         String said;
         try {
             android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
@@ -216,7 +216,7 @@ public final class UsageActivity extends AppCompatActivity {
             try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
                 n = ll.exportForTraining(o);
             }
-            said = "Saved " + n + " examples to Downloads/DVINE/" + name;
+            said = "Saved " + n + " examples to Downloads/Ibiko/" + name;
         } catch (java.io.IOException | RuntimeException e) {
             said = "Couldn't export: " + e.getMessage();
         }

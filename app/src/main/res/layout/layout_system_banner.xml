@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:id="@+id/tv_crash_detail"
-            android:text="The chat was kept. The report is saved in Download/DVINE; tap Copy to copy it."
+            android:text="The chat was kept. The report is saved in Download/Ibiko; tap Copy to copy it."
             android:textColor="@color/text_secondary"
             android:textSize="12sp" />
     </LinearLayout>

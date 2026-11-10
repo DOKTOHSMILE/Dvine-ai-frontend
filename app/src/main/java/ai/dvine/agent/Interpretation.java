@@ -23,7 +23,7 @@ public final class Interpretation {
     public boolean internet;
 
     /** The interpreter's instructions: short, so a small model follows them and answers fast. */
-    public static final String PROMPT = "You read what a user said to DVINE, a device assistant, and classify it. Do not answer it."
+    public static final String PROMPT = "You read what a user said to Ibiko, a device assistant, and classify it. Do not answer it."
             + " Reply with exactly five lines and nothing else:\n"
             + "INTENT: question | request | prompt | chat\n"
             + "MEANS: what the user wants, in one short sentence\n"
@@ -33,7 +33,7 @@ public final class Interpretation {
             + " people's latest roles, live facts), else no\n"
             + "Rules: draw = a picture or diagram of something; build = a 3D model of a thing; design = a building or room;"
             + " debate = two personas argue a topic; move = make a designed body move (walk, dance); setting = music,"
-            + " subtitles, thoughts, voice; switch = (not used: there is one assistant, DVINE); search = look something up online;"
+            + " subtitles, thoughts, voice; switch = (not used: there is one assistant, Ibiko); search = look something up online;"
             + " answer = explain, chat or answer from knowledge. /no_think";
 
     public static Interpretation parse(String written) {

@@ -74,7 +74,7 @@ public class HandoffOwnerTest {
         assertEquals("ibiko", Handoff.groupRoute("Run it directly", "obi"));
         assertEquals("ibiko", Handoff.groupRoute("Install the necessary files needed by Linux", "obi"));
         assertEquals("ibiko", Handoff.groupRoute("Use the internal Linux environment", "obi"));
-        assertEquals("ibiko", Handoff.groupRoute("Update local Dvine ai files from GitHub it's been updated", "obi"));
+        assertEquals("ibiko", Handoff.groupRoute("Update local Ibiko ai files from GitHub it's been updated", "obi"));
         assertEquals("a name at the start is enough, no comma needed", "ivie", Handoff.groupRoute("Ivie draw me a cat", "obi"));
         assertEquals("talk about someone is not a call to them", "obi", Handoff.groupRoute("Ibiko is fast today", "obi"));
         assertEquals("obi", Handoff.groupRoute("What can you do?", "obi"));

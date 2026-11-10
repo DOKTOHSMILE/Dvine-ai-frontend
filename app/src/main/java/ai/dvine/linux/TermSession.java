@@ -26,14 +26,14 @@ public final class TermSession {
     static final String PS1 = "\\[\\e[32m\\]\\w\\[\\e[0m\\] $ ";
 
     /** Shown once when the terminal starts, as a standard terminal greets you. */
-    static final String WELCOME = "Welcome to DVINE Linux (Alpine " + LinuxRoot.RELEASE + ")!\r\n\r\n"
+    static final String WELCOME = "Welcome to Ibiko Linux (Alpine " + LinuxRoot.RELEASE + ")!\r\n\r\n"
             + "Working with packages:\r\n\r\n"
             + " - Search:  pkg search <query>\r\n"
             + " - Install: pkg install <package>\r\n"
             + " - Upgrade: pkg upgrade\r\n\r\n"
             + "Folders:\r\n\r\n"
-            + " - /workspace  DVINE's projects (the same files chat sees)\r\n"
-            + " - /work       DVINE's shell files\r\n"
+            + " - /workspace  Ibiko's projects (the same files chat sees)\r\n"
+            + " - /work       Ibiko's shell files\r\n"
             + " - /sdcard     the device's storage, when allowed\r\n\r\n";
 
     private final Process proc;

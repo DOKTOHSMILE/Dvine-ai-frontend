@@ -688,7 +688,7 @@ public class LaunchTest {
         pill.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        for (String row : new String[]{"Select mode", "Choose how DVINE should work", "Auto", "Accept edits", "Plan"}) {
+        for (String row : new String[]{"Select mode", "Choose how Ibiko should work", "Auto", "Accept edits", "Plan"}) {
             org.junit.Assert.assertNotNull(row, find(sheet.getWindow().getDecorView(), row));
         }
         tapRow(sheet, "Plan");
@@ -905,7 +905,7 @@ public class LaunchTest {
         c.get().findViewById(R.id.tv_header_sub).performClick();
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
         android.view.View row = described(sheet.getWindow().getDecorView(), MainActivity.DVINE_OWN);
-        assertNotNull("DVINE's own brain is in the list", row);
+        assertNotNull("Ibiko's own brain is in the list", row);
         row.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         org.junit.Assert.assertEquals("dvine", c.get().getSharedPreferences("dvine", 0).getString("brain_pick", ""));
@@ -1016,7 +1016,7 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.view.View sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog().getWindow().getDecorView();
         for (String text : new String[] { MainActivity.DVINE_OWN, "never fills", w, "Claude Opus 5.5", "Reading en.wikipedia.org",
-                "What is a quasar?", "working", "DVINE 1 answers" }) {
+                "What is a quasar?", "working", "Ibiko 1 answers" }) {
             java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
             sheet.findViewsWithText(found, text, android.view.View.FIND_VIEWS_WITH_TEXT);
             org.junit.Assert.assertFalse(text, found.isEmpty());

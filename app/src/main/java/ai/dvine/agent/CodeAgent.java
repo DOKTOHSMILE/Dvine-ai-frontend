@@ -24,7 +24,7 @@ public final class CodeAgent {
     /** The default number of steps; Settings › Advanced changes it ({@link #steps}). */
     public static final int MAX_STEPS = 15;
     private int maxSteps = MAX_STEPS;
-    private String persona = "DVINE";
+    private String persona = "Ibiko";
     private boolean readOnly;
     static final int RESULT_CHARS = 6000, FILE_CHARS = 24_000;
 
@@ -237,7 +237,7 @@ public final class CodeAgent {
      * the connectors, but no writing, commands or pushes (that is Ibiko's work).
      */
     public CodeAgent as(String persona, boolean readOnly) {
-        this.persona = persona == null || persona.isEmpty() ? "DVINE" : persona;
+        this.persona = persona == null || persona.isEmpty() ? "Ibiko" : persona;
         this.readOnly = readOnly;
         return this;
     }
@@ -452,12 +452,12 @@ public final class CodeAgent {
 
     public String system() {
         return (role != null ? role.brief() + "\n" : depth == 0 && squad && !readOnly && !planning ? Org.lead() : "")
-                + (planning ? "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. "
+                + (planning ? "You are " + persona + ", Ibiko's coding agent, working like Claude Code on the user's device. "
                 + IbikoMode.PLAN_RULES + "\n" : "") + (planning ? "" : (readOnly
                 ? "You are " + persona + ", reading the files on the user's device (the workspace: cloned repositories and"
                         + " projects) to answer them. Any model can do this: the files come to you as text through the tools."
-                        + " You only read here; changing files, running commands and pushing are DVINE's work."
-                : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. You have a project"
+                        + " You only read here; changing files, running commands and pushing are Ibiko's work."
+                : "You are " + persona + ", Ibiko's coding agent, working like Claude Code on the user's device. You have a project"
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it."))
                 + (blueprint != null ? "\n" + Blueprint.RULES : "")
@@ -475,18 +475,18 @@ public final class CodeAgent {
                 + " a line at a time, and reports file:line:text. query=\"name:Main.java\" finds a file by its name and does not open it."
                 + " No shell and no Termux)\n"
                 + (readOnly ? "" : host.termuxReady()
-                        ? "<tool name=\"run\" command=\"one shell command\"/> (Alpine Linux inside DVINE, not the Termux app:"
+                        ? "<tool name=\"run\" command=\"one shell command\"/> (Alpine Linux inside Ibiko, not the Termux app:"
                         + " sh, pkg install, apk, python3, git and a compiler once pkg has installed them. Pipes and redirects work."
                         + " The command runs in the same workspace folder the file tools see, so a relative path like"
                         + " Dvine-ai-frontend is that project. The device asks first unless auto-accept is on.)\n"
-                        : "<tool name=\"run\" command=\"one shell command\"/> (DVINE's own shell, no Termux:"
+                        : "<tool name=\"run\" command=\"one shell command\"/> (Ibiko's own shell, no Termux:"
                         + " ls cat grep find wc head tail mkdir cp mv rm unzip echo and the rest of help."
                         + " Runs in the workspace folder, as the app, so only the app's own files are touched."
                         + " Use one command per tool call: a chain like a && b is fine, and so is a pipe or >. python, git, pkg and compilers are not bundled"
                         + " until Linux is set up from Tools › Commands on this device:"
                         + " the result says so, it does not pretend. The device asks first unless auto-accept is on.)\n")
                 + (readOnly || !host.termuxReady() ? "" : "<tool name=\"termux\" path=\"FOLDER\" command=\"python3 main.py\"/> (the same"
-                        + " Alpine Linux as run, inside DVINE. The Termux app is not opened. path is the folder it runs in."
+                        + " Alpine Linux as run, inside Ibiko. The Termux app is not opened. path is the folder it runs in."
                         + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
                 + (readOnly || !squad || depth >= 2 ? "" : depth == 1 ? Squad.HANDS : Squad.TOOL)
@@ -866,6 +866,12 @@ public final class CodeAgent {
         return work == null ? "" : work.toString();
     }
 
+    /** The job a saved record of work was for (its "Task:" line); "" when there is none. */
+    static String firstTask(String record) {
+        java.util.regex.Matcher m = Pattern.compile("(?m)^Task: (.+)$").matcher(record == null ? "" : record);
+        return m.find() ? m.group(1) : "";
+    }
+
     /** An audit, review, research, analysis, summary, report, overview, plan, comparison or explanation. */
     static boolean bigTask(String task) {
         String t = task == null ? "" : task.toLowerCase(Locale.US);
@@ -917,7 +923,8 @@ public final class CodeAgent {
      */
     private String done(String answer) {
         String clean = withoutDump(answer);
-        if (keepGoing && (bigTask(task) || bigTask(resume)) && unfinished(clean)) {
+        // the job's own words decide whether it is long work, not the whole record of what it did (which names a plan)
+        if (keepGoing && (bigTask(task) || bigTask(firstTask(resume))) && unfinished(clean)) {
             outOfSteps = true; // a status line is not the audit: the next round does the work
         }
         return clean;
@@ -1466,7 +1473,7 @@ public final class CodeAgent {
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
                 || c.name.equals("make_file") || c.name.equals("zip") || c.name.equals("unzip"))) {
             return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."
-                    : "Only reading here: changing files, commands and git are DVINE's. Say so in your answer.";
+                    : "Only reading here: changing files, commands and git are Ibiko's. Say so in your answer.";
         }
         switch (c.name) {
             case "workers":

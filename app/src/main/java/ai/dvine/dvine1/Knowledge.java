@@ -166,7 +166,7 @@ public final class Knowledge {
         String a = answer == null ? "" : answer.trim();
         return q.matches("(?s)^(hi|hello|hey|yo|good (morning|afternoon|evening|night)|thanks?|thank you|ok|okay)\\b.{0,20}")
                 || q.matches("(?s).*\\b(who are you|what can you do|what (have|did) you (learn|learned|learnt)|what do you (know|remember)\\s*\\??$).*")
-                || a.startsWith("Hello, I'm DVINE") || a.startsWith("Answers you confirmed") || a.startsWith("No answers confirmed");
+                || a.startsWith("Hello, I'm Ibiko") || a.startsWith("Answers you confirmed") || a.startsWith("No answers confirmed");
     }
 
     private void keep(String question, String answer, boolean right) {

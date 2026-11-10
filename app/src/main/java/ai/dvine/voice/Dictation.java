@@ -106,7 +106,7 @@ public final class Dictation implements ListenCallback {
             mic.setImageTintList(on ? ColorStateList.valueOf(0xFFFFFFFF) : null);
             mic.setContentDescription(on ? "Stop dictating" : "Speak");
         }
-        field.setHint(on ? "Listening…" : "Ask anything");
+        field.setHint(on ? "Listening…" : "Ask Ibiko anything");
     }
 
     /** What is in the box plus the words of this stretch, with one space between. */

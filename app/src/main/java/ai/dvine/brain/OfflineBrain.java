@@ -557,7 +557,7 @@ public final class OfflineBrain {
         if (text.matches("^(share|upload|send) (what you('ve)? learn(ed|t)?|your learning)$")
                 || text.equals("you can share what you learn")) {
             journal.setConsent(true);
-            BrainAnswer on = one(speaker, "Done. Whenever we're online I'll back up what I learn to your DVINE account. Nothing private like passwords is kept.", "LEARN");
+            BrainAnswer on = one(speaker, "Done. Whenever we're online I'll back up what I learn to your Ibiko account. Nothing private like passwords is kept.", "LEARN");
             on.command = "SYNC_NOW";
             return on;
         }

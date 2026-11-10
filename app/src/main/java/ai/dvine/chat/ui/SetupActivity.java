@@ -53,7 +53,7 @@ public final class SetupActivity extends AppCompatActivity {
         mark.setGravity(Gravity.CENTER);
         mark.setBackground(Ui.round(this, Ui.CORAL, 0, 20));
         page.addView(mark, new LinearLayout.LayoutParams(Ui.dp(this, 52), Ui.dp(this, 52)));
-        TextView title = Ui.text(this, "Choose DVINE's model", 28, Ui.TEXT, true);
+        TextView title = Ui.text(this, "Choose Ibiko's model", 28, Ui.TEXT, true);
         title.setGravity(Gravity.CENTER);
         page.addView(title, Ui.wide(this, 24));
         TextView lead = Ui.text(this, "Everything you say or type goes to an AI model to be understood. Choose one to start.",

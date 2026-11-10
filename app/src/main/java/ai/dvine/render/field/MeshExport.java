@@ -73,7 +73,7 @@ public final class MeshExport {
     /** The OBJ text; its materials are in {@link #mtl} under {@code mtlName}. */
     public static String obj(SolidSpec spec, String name, String mtlName) {
         float[][] parts = world(spec);
-        StringBuilder b = new StringBuilder("# ").append(name).append(", drawn by DVINE\nmtllib ").append(mtlName).append('\n');
+        StringBuilder b = new StringBuilder("# ").append(name).append(", drawn by Ibiko\nmtllib ").append(mtlName).append('\n');
         int base = 1;
         java.util.Map<String, Integer> seen = new java.util.HashMap<String, Integer>();
         for (int i = 0; i < parts.length; i++) {
@@ -99,7 +99,7 @@ public final class MeshExport {
     }
 
     public static String mtl(SolidSpec spec) {
-        StringBuilder b = new StringBuilder("# DVINE materials\n");
+        StringBuilder b = new StringBuilder("# Ibiko materials\n");
         for (int i = 0; i < spec.parts.size(); i++) {
             int c = spec.parts.get(i).colour;
             b.append("newmtl m").append(i).append("\nKd ").append(f(((c >> 16) & 255) / 255f)).append(' ')
@@ -116,7 +116,7 @@ public final class MeshExport {
             tris += t.length / 9;
         }
         ByteBuffer bb = ByteBuffer.allocate(84 + tris * 50).order(ByteOrder.LITTLE_ENDIAN);
-        byte[] head = java.util.Arrays.copyOf(("DVINE " + name).getBytes(StandardCharsets.US_ASCII), 80);
+        byte[] head = java.util.Arrays.copyOf(("Ibiko " + name).getBytes(StandardCharsets.US_ASCII), 80);
         bb.put(head).putInt(tris);
         for (float[] t : parts) {
             float[] n = Gltf.normals(t);
@@ -139,7 +139,7 @@ public final class MeshExport {
         for (float[] t : parts) {
             verts += t.length / 3;
         }
-        String head = "ply\nformat binary_little_endian 1.0\ncomment drawn by DVINE\nelement vertex " + verts
+        String head = "ply\nformat binary_little_endian 1.0\ncomment drawn by Ibiko\nelement vertex " + verts
                 + "\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\n"
                 + "element face " + verts / 3 + "\nproperty list uchar int vertex_indices\nend_header\n";
         byte[] h = head.getBytes(StandardCharsets.US_ASCII);

@@ -124,7 +124,7 @@ public final class ReplyService extends Service {
 
     private static void channel(Context c) {
         NotificationChannel ch = new NotificationChannel(CHANNEL, "Reply", NotificationManager.IMPORTANCE_LOW);
-        ch.setDescription("Shown while DVINE is still writing a reply");
+        ch.setDescription("Shown while Ibiko is still writing a reply");
         ch.setShowBadge(false);
         c.getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
@@ -139,7 +139,7 @@ public final class ReplyService extends Service {
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_download)
-                .setContentTitle("DVINE is thinking")
+                .setContentTitle("Ibiko is thinking")
                 .setContentText("The reply will be in the chat when you come back.")
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)

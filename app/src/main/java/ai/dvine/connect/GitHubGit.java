@@ -823,7 +823,7 @@ public final class GitHubGit {
         t.put("tree", entries);
         String tree = MiniJson.str(post("/repos/" + r.repo + "/git/trees", t).get("sha"), "");
         Map<String, Object> cm = new LinkedHashMap<String, Object>();
-        cm.put("message", message == null || message.trim().isEmpty() ? "Update from DVINE" : message.trim());
+        cm.put("message", message == null || message.trim().isEmpty() ? "Update from Ibiko" : message.trim());
         cm.put("tree", tree);
         List<Object> parents = new ArrayList<Object>();
         parents.add(r.head);
@@ -859,7 +859,7 @@ public final class GitHubGit {
             throw new IOException("push to a new branch first (a pull request goes from one branch into another)");
         }
         Map<String, Object> pr = new LinkedHashMap<String, Object>();
-        pr.put("title", title == null || title.trim().isEmpty() ? "Changes from DVINE" : title.trim());
+        pr.put("title", title == null || title.trim().isEmpty() ? "Changes from Ibiko" : title.trim());
         pr.put("head", r.branch);
         pr.put("base", base.trim());
         pr.put("body", body == null ? "" : body);
@@ -1172,7 +1172,7 @@ public final class GitHubGit {
         if (token != null && !token.trim().isEmpty()) {
             h.put("Authorization", "Bearer " + token.trim()); // without one, public repositories still clone and pull
         }
-        h.put("User-Agent", "DVINE");
+        h.put("User-Agent", "Ibiko");
         return h;
     }
 

@@ -51,7 +51,7 @@ public final class CrashReport {
         android.widget.TextView detail = host.find(ai.dvine.R.id.tv_crash_detail);
         if (detail != null && report != null) {
             String first = report.split("\n\n", 3).length > 1 ? report.split("\n\n", 3)[1].split("\n")[0] : "";
-            detail.setText("Saved in Download/DVINE" + (first.isEmpty() ? "" : " (" + first + ")") + ". Tap Copy to copy it.");
+            detail.setText("Saved in Download/Ibiko" + (first.isEmpty() ? "" : " (" + first + ")") + ". Tap Copy to copy it.");
         }
         android.view.View copy = host.find(ai.dvine.R.id.btn_copy_crash);
         if (copy != null) {
@@ -81,7 +81,7 @@ public final class CrashReport {
             return null;
         }
         String version = host.version();
-        if (!report.startsWith("DVINE " + version + " ")) {
+        if (!report.startsWith("Ibiko " + version + " ")) {
             clearCrash();
             return null;
         }

@@ -50,8 +50,19 @@ public class BuiltInTest {
             return; // not built yet in this checkout
         }
         BuiltIn b = new BuiltIn(new FileInputStream(f));
-        assertTrue(b.size() > 300);
+        assertTrue(b.size() > 2000);
         assertEquals("The capital of Nigeria is Abuja.", b.answer("What is the capital of Nigeria?"));
         assertEquals("The capital of Kenya is Nairobi.", b.answer("capital of kenya"));
+    }
+
+    @Test
+    public void theShippedFileKnowsNeighboursPeopleAndCoasts() throws Exception {
+        File f = new File("src/main/assets/knowledge/world_facts.tsv");
+        BuiltIn b = new BuiltIn(new FileInputStream(f));
+        assertEquals("Someone from Ghana is Ghanaian.", b.answer("what are people from Ghana called"));
+        assertEquals("Nigeria borders Benin, Cameroon, Chad and Niger.", b.answer("Which countries border Nigeria?"));
+        assertEquals("Uganda is landlocked: it has no coastline.", b.answer("is Uganda landlocked"));
+        assertEquals("The chemical symbol of oganesson is Og.", b.answer("chemical symbol of oganesson"));
+        assertEquals("The atomic number of iron is 26.", b.answer("atomic number of iron"));
     }
 }

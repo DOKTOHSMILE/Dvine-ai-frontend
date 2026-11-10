@@ -65,7 +65,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
         // ---- profile
         LinearLayout profile = group("Profile", "Your name and who starts the chat");
-        profile.addView(Ui.text(this, "What should DVINE call you?", 16, Ui.TEXT, false));
+        profile.addView(Ui.text(this, "What should Ibiko call you?", 16, Ui.TEXT, false));
         final android.widget.EditText name = Ui.field(this, "Your name", prefs.getString("user_name", ""), false, false);
         name.setOnFocusChangeListener((v, focused) -> {
             if (!focused) {
@@ -88,7 +88,7 @@ public final class SettingsActivity extends AppCompatActivity {
         chat.addView(toggle("Interpreter for Pidgin, Yoruba and French", "A message in Pidgin, Yoruba or French is put into"
                 + " English for the model, and the answer put back into your language. Models think best in English; it takes"
                 + " a little longer.", "interpreter", true, null));
-        chat.addView(toggle("Show the working steps", "What DVINE is doing while it answers: searches, sources, models.", "show_steps", true, null),
+        chat.addView(toggle("Show the working steps", "What Ibiko is doing while it answers: searches, sources, models.", "show_steps", true, null),
                 Ui.wide(this, 10));
 
         // ---- voice
@@ -100,20 +100,20 @@ public final class SettingsActivity extends AppCompatActivity {
         voice.addView(choice(new String[]{"Slower", "Normal", "Faster"}, new String[]{"0.85", "1.0", "1.2"},
                 prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
         voice.addView(toggle("Natural voices (online)", "Use the device's most human-sounding voices, which need the"
-                + " internet. Off: only voices on the device. Takes effect the next time DVINE opens.", "natural_voices", false, null),
+                + " internet. Off: only voices on the device. Takes effect the next time Ibiko opens.", "natural_voices", false, null),
                 Ui.wide(this, 10));
         android.view.View moreVoices = Ui.button(this, "Download better voices", false);
         moreVoices.setOnClickListener(v -> ai.dvine.voice.TalkBridge.installVoices(this));
         voice.addView(moreVoices, Ui.wide(this, 8));
         voice.addView(Ui.text(this, "Opens the device's voice download page (Google Speech Services): install English (Nigeria),"
-                + " (UK) and (US). DVINE then picks the highest-quality voices it finds.", 13, Ui.SUB, false), Ui.wide(this, 6));
+                + " (UK) and (US). Ibiko then picks the highest-quality voices it finds.", 13, Ui.SUB, false), Ui.wide(this, 6));
         voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
-                + " no sound but the voice. Takes effect the next time DVINE opens.", "music", false, null), Ui.wide(this, 10));
+                + " no sound but the voice. Takes effect the next time Ibiko opens.", "music", false, null), Ui.wide(this, 10));
         voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",
                 13, Ui.SUB, false), Ui.wide(this, 10));
 
         // ---- DVINE 1, the work in the chat, and actions (in step with the model menu and the tools sheet)
-        LinearLayout own = group("DVINE 1 and learning", "The brain in use, the learning schedule, training file");
+        LinearLayout own = group("Ibiko 1 and learning", "The brain in use, the learning schedule, training file");
         String pick = prefs.getString("brain_pick", "api");
         own.addView(Ui.text(this, "Answering now: " + ("dvine".equals(pick) ? ai.dvine.dvine1.Dvine1.NAME : "device".equals(pick)
                 ? "the offline model" : "your API models") + ". Change it from the model name under the chat's title.", 14, Ui.SUB, false));
@@ -131,10 +131,10 @@ public final class SettingsActivity extends AppCompatActivity {
             android.widget.Toast.makeText(this, "Learning now. The Workload sheet shows it.", android.widget.Toast.LENGTH_SHORT).show();
         });
         own.addView(learnNow, Ui.wide(this, 10));
-        android.view.View train = Ui.button(this, "Export DVINE 1's training file", false);
+        android.view.View train = Ui.button(this, "Export Ibiko 1's training file", false);
         train.setOnClickListener(v -> exportTraining());
         own.addView(train, Ui.wide(this, 8));
-        own.addView(Ui.text(this, "Everything DVINE 1 learned (confirmed answers, facts, words) as a JSONL file in Downloads/DVINE,"
+        own.addView(Ui.text(this, "Everything Ibiko 1 learned (confirmed answers, facts, words) as a JSONL file in Downloads/Ibiko,"
                 + " for training a model of your own.", 13, Ui.SUB, false), Ui.wide(this, 6));
 
         LinearLayout work = group("Work and actions", "What long work says in the chat; sharing and posting");
@@ -142,7 +142,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 + " and what it found. The full summary comes at the end.", "narrate_steps", true, null));
         work.addView(toggle("Share and post without asking first", "Off (recommended): each share, post or copy is shown and waits"
                 + " for your yes.", "actions_auto", false, null), Ui.wide(this, 10));
-        work.addView(link("What DVINE remembers", "Answers you marked correct, what it knows about you, actions done", MemoryActivity.class),
+        work.addView(link("What Ibiko remembers", "Answers you marked correct, what it knows about you, actions done", MemoryActivity.class),
                 Ui.wide(this, 10));
 
         // ---- models
@@ -215,14 +215,14 @@ public final class SettingsActivity extends AppCompatActivity {
         ibiko.addView(toggle("Run commands without asking", "Auto-accept: shell commands, git pushes and pull requests go ahead.",
                 "auto_accept", false, null));
         ibiko.addView(toggle("Keep working until done", "Long jobs run for hours if needed: plan, build, test, with a short progress"
-                + " note in the chat every few steps. Off: DVINE stops after one batch of steps.", "ibiko_keep_going", true, null),
+                + " note in the chat every few steps. Off: Ibiko stops after one batch of steps.", "ibiko_keep_going", true, null),
                 Ui.wide(this, 10));
         ibiko.addView(toggle("Mini agents for heavy jobs", "Audits, research and whole-repo reviews are split into parts; a fresh"
                 + " helper takes each in turn (on the device's model too) and its findings come as it finishes.", "mini_agents", true, null),
                 Ui.wide(this, 10));
         final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
-        ibiko.addView(action("Clear DVINE's workspace", "Deletes the cloned repositories and files on this device (" + bytes(size(ws)) + ").",
-                () -> confirm("Delete everything in DVINE's workspace? Unpushed changes are lost.", () -> {
+        ibiko.addView(action("Clear Ibiko's workspace", "Deletes the cloned repositories and files on this device (" + bytes(size(ws)) + ").",
+                () -> confirm("Delete everything in Ibiko's workspace? Unpushed changes are lost.", () -> {
                     delete(ws);
                     toast("Workspace cleared.");
                     fill();
@@ -238,12 +238,12 @@ public final class SettingsActivity extends AppCompatActivity {
 
         // ---- data and privacy
         LinearLayout data = group("Data and privacy", "Memory, learning, export and deleting chats");
-        data.addView(toggle("Learn from the API models", "Their answers are kept on this device to teach DVINE's own model.",
+        data.addView(toggle("Learn from the API models", "Their answers are kept on this device to teach Ibiko's own model.",
                 "learn_on", true, on -> hub.model.learning = on ? new ai.dvine.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null));
-        data.addView(link("What DVINE remembers", "Notes, facts you taught, how it reads your words: forget any of them",
+        data.addView(link("What Ibiko remembers", "Notes, facts you taught, how it reads your words: forget any of them",
                 MemoryActivity.class), Ui.wide(this, 10));
         data.addView(link("Usage and learning", "Context, tokens today, what was learned, export", UsageActivity.class), Ui.wide(this, 10));
-        data.addView(action("Export chats", "Saves all chats to Downloads/DVINE.", this::exportChats), Ui.wide(this, 6));
+        data.addView(action("Export chats", "Saves all chats to Downloads/Ibiko.", this::exportChats), Ui.wide(this, 6));
         data.addView(action("Delete all chats", "Every chat and attached image on this device.",
                 () -> confirm("Delete all chats? This can't be undone.", () -> {
                     new java.io.File(getFilesDir(), "chats.json").delete();
@@ -251,13 +251,13 @@ public final class SettingsActivity extends AppCompatActivity {
                     prefs.edit().putBoolean("chats_reset", true).apply();
                     toast("All chats deleted.");
                 })), Ui.wide(this, 6));
-        data.addView(Ui.text(this, "Keys, chats and what DVINE learns stay on this device. A message goes only to the AI provider you chose.",
+        data.addView(Ui.text(this, "Keys, chats and what Ibiko learns stay on this device. A message goes only to the AI provider you chose.",
                 13, Ui.SUB, false), Ui.wide(this, 10));
 
         // ---- advanced: the limits DVINE works within. Closed until opened on purpose; each number is a row, changed only
         // in its own editor (a slider in a scrolling list moved whenever a finger scrolled past it)
         LinearLayout adv = group("Advanced", "Reply lengths, agent steps, offline memory and other limits");
-        adv.addView(Ui.text(this, "The numbers DVINE works with. The defaults suit most people: change one only for a reason."
+        adv.addView(Ui.text(this, "The numbers Ibiko works with. The defaults suit most people: change one only for a reason."
                 + " Each provider's own settings are under AI providers › a provider › Advanced.", 13, Ui.SUB, false));
         for (final ai.dvine.chat.Tuning.Knob k : ai.dvine.chat.Tuning.ALL) {
             adv.addView(knobRow(k), Ui.wide(this, 4));
@@ -277,8 +277,8 @@ public final class SettingsActivity extends AppCompatActivity {
         // ---- about
         section("About");
         LinearLayout about = card();
-        about.addView(Ui.text(this, "DVINE " + version(), 16, Ui.TEXT, false));
-        about.addView(Ui.text(this, "DVINE AI, with your models or the one on this device.", 13, Ui.SUB, false), Ui.wide(this, 4));
+        about.addView(Ui.text(this, "Ibiko " + version(), 16, Ui.TEXT, false));
+        about.addView(Ui.text(this, "Ibiko, with your models or the one on this device.", 13, Ui.SUB, false), Ui.wide(this, 4));
         body.addView(about, Ui.wide(this, 8));
     }
 
@@ -438,7 +438,7 @@ public final class SettingsActivity extends AppCompatActivity {
         android.content.ContentValues v = new android.content.ContentValues();
         v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
         v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/jsonl");
-        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Ibiko");
         String said;
         try {
             android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
@@ -450,7 +450,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 n = ai.dvine.dvine1.Training.write(o, ai.dvine.dvine1.Store.knowledge(dir),
                         ai.dvine.dvine1.Store.facts(dir), ai.dvine.dvine1.Store.lexicon(dir));
             }
-            said = n == 0 ? "Nothing learned yet." : "Saved " + n + " examples to Downloads/DVINE/" + name;
+            said = n == 0 ? "Nothing learned yet." : "Saved " + n + " examples to Downloads/Ibiko/" + name;
         } catch (java.io.IOException | RuntimeException e) {
             said = "Couldn't export: " + e.getMessage();
         }
@@ -512,7 +512,7 @@ public final class SettingsActivity extends AppCompatActivity {
         android.content.ContentValues v = new android.content.ContentValues();
         v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
         v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json");
-        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DVINE");
+        v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Ibiko");
         try {
             android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
             if (uri == null) {
@@ -521,7 +521,7 @@ public final class SettingsActivity extends AppCompatActivity {
             try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
                 o.write(java.nio.file.Files.readAllBytes(f.toPath()));
             }
-            toast("Saved to Downloads/DVINE/" + name);
+            toast("Saved to Downloads/Ibiko/" + name);
         } catch (java.io.IOException | RuntimeException e) {
             toast("Couldn't export: " + e.getMessage());
         }

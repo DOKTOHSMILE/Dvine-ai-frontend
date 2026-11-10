@@ -25,7 +25,7 @@ public final class ReplyNotice {
         }
         if (nm.getNotificationChannel(CHANNEL) == null) {
             NotificationChannel ch = new NotificationChannel(CHANNEL, "Replies", NotificationManager.IMPORTANCE_DEFAULT);
-            ch.setDescription("A reply that finished while DVINE was in the background");
+            ch.setDescription("A reply that finished while Ibiko was in the background");
             nm.createNotificationChannel(ch);
         }
         Intent open = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
@@ -35,7 +35,7 @@ public final class ReplyNotice {
         open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent tap = PendingIntent.getActivity(c, 3, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         String t = text == null ? "" : text.trim();
-        String name = who == null || who.isEmpty() ? "DVINE" : Character.toUpperCase(who.charAt(0)) + who.substring(1);
+        String name = "Ibiko"; //ing(1);
         Notification n = new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(ai.dvine.R.drawable.ic_send)
                 .setContentTitle(name + " replied")

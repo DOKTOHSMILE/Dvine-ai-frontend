@@ -87,6 +87,6 @@ public class AgentTest {
             turns++;
         }
         assertEquals(6, turns);
-        assertTrue(d.prompt().contains("Ivie (closing)"));
+        assertTrue(d.prompt().contains("Against (closing)"));
     }
 }

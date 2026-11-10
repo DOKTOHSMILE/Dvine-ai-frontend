@@ -141,7 +141,7 @@ public final class AccountProvider implements SocialProvider {
         if (a == null || !handle.matches("@?[A-Za-z0-9._]{2,40}")) {
             SocialProfile p = new SocialProfile(platform.shown, handle, "", "", "", -1, -1, true);
             p.limits.add(a == null ? unavailableReason()
-                    : "Name the account by its username in Social accounts (now “" + handle + "”), so DVINE can open its profile.");
+                    : "Name the account by its username in Social accounts (now “" + handle + "”), so Ibiko can open its profile.");
             return p;
         }
         SocialProfile pub = readPublic(handle, recent);

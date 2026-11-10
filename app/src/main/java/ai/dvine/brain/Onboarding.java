@@ -97,11 +97,11 @@ public final class Onboarding {
     }
 
     public static String welcomeQuestion() {
-        return "Welcome. I'm DVINE. Before we begin, what's your name?";
+        return "Welcome. I'm Ibiko. Before we begin, what's your name?";
     }
 
     public static String welcome(String name) {
         return "Welcome, " + name + ". We'll remember that. Touch and hold the screen whenever you want to talk, or double-tap to type. "
-                + "What you teach us is backed up to your DVINE account when you're online; say stop sharing to keep it on this device.";
+                + "What you teach us is backed up to your Ibiko account when you're online; say stop sharing to keep it on this device.";
     }
 }

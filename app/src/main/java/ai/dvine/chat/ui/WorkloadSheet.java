@@ -82,7 +82,7 @@ public final class WorkloadSheet {
             top.addView(Ui.text(a, "never fills", 15, Ui.SUB, false));
             card.addView(top);
             card.addView(bar(a, 0f, heat), Ui.wide(a, 12));
-            card.addView(Ui.text(a, "DVINE 1 answers from what it has learned and from research, without a context window,"
+            card.addView(Ui.text(a, "Ibiko 1 answers from what it has learned and from research, without a context window,"
                     + " so nothing here fills up or needs clearing.", 13, Ui.SUB, false), Ui.wide(a, 8));
             ai.dvine.dvine1.Knowledge k = ai.dvine.dvine1.Store.knowledge(new java.io.File(a.getFilesDir(), "brain"));
             card.addView(row(a, "Answers you confirmed", String.valueOf(k.size())), Ui.wide(a, 10));
@@ -210,7 +210,7 @@ public final class WorkloadSheet {
         today.addView(row(a, "Tokens written", tokens(model.usage.outToday(t))), Ui.wide(a, 6));
         today.addView(row(a, "Failed replies", String.valueOf(model.usage.failedToday(t))), Ui.wide(a, 6));
         int mine = model.usage.ownToday(t);
-        today.addView(row(a, "DVINE 1 answers", mine == 0 ? "0" : mine + " (" + model.usage.ownMemoryToday(t) + " from memory, "
+        today.addView(row(a, "Ibiko 1 answers", mine == 0 ? "0" : mine + " (" + model.usage.ownMemoryToday(t) + " from memory, "
                 + model.usage.ownResearchToday(t) + " researched)"), Ui.wide(a, 6));
         body.addView(today, Ui.wide(a, 4));
     }

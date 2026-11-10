@@ -7,7 +7,7 @@ package ai.dvine.llm;
  */
 public enum Providers {
     ON_PHONE("On this device", null, "", "", "", 0,
-            "DVINE's own model, " + ModelSpec.WEIGHTS + ". Works offline after a one-time download."),
+            "Ibiko's own model, " + ModelSpec.WEIGHTS + ". Works offline after a one-time download."),
     ANTHROPIC("Anthropic (Claude)", RemoteBrain.Protocol.ANTHROPIC, "https://api.anthropic.com/v1", "claude-opus-5-5", "claude-haiku-5-5", 1_000_000,
             "Claude models. Key from console.anthropic.com."),
     OPENAI("OpenAI", RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5", "gpt-5-mini", 400_000,
@@ -20,8 +20,8 @@ public enum Providers {
             "Hundreds of models behind one key. Key from openrouter.ai."),
     CUSTOM("Custom gateway", RemoteBrain.Protocol.OPENAI, "", "", "", 128_000,
             "Any gateway in OpenAI's or Anthropic's format: OpenRouter, LiteLLM, a Claude relay, or a self-hosted endpoint."),
-    DVINE_SERVER("DVINE server", RemoteBrain.Protocol.OPENAI, "", "qwen3-14b", "", 16_384,
-            "DVINE's own online model: a big model (Qwen3 14B, 32B…) on your DVINE server. No key: the app signs in to"
+    DVINE_SERVER("Ibiko server", RemoteBrain.Protocol.OPENAI, "", "qwen3-14b", "", 16_384,
+            "Ibiko's own online model: a big model (Qwen3 14B, 32B…) on your Ibiko server. No key: the app signs in to"
                     + " the server it already uses.");
 
     public final String title, address, model, about;

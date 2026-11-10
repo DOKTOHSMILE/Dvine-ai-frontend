@@ -336,8 +336,9 @@ public class OpsPipelineTest {
     public void unknownPersonaIsNotRouted() throws Exception {
         AssistantCore core = AssistantCore.offline(dir());
         Outcome o = core.hear("Aka, create a 3D model of a car.", 1);
-        assertTrue(o.speech.contains("DVINE"));
+        assertTrue(o.speech.contains("Ibiko"));
         assertTrue(o.speech.contains("Aka"));
+        assertTrue("no other persona named", !o.speech.contains("Obi") && !o.speech.contains("Ivie"));
         assertNull(core.orchestrator().scene());
     }
 

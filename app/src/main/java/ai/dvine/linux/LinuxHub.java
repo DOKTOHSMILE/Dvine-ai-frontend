@@ -167,7 +167,7 @@ public final class LinuxHub {
         }
         LinuxEngine.Result own = LinuxEngine.run(command, where == null ? linux : where, null);
         return (own == null ? "The shell didn't run that." : own.text)
-                + "\n(Linux isn't installed yet" + (why == null ? "" : ": " + why) + ". DVINE's small built-in shell ran this;"
+                + "\n(Linux isn't installed yet" + (why == null ? "" : ": " + why) + ". Ibiko's small built-in shell ran this;"
                 + " open Shell when you're online to install Alpine.)";
     }
 

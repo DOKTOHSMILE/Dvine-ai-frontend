@@ -155,7 +155,7 @@ public final class Comprehension {
      */
     public String brief() {
         StringBuilder b = new StringBuilder();
-        b.append("DVINE's reading of the message: ").append(act.name().toLowerCase(Locale.US));
+        b.append("Ibiko's reading of the message: ").append(act.name().toLowerCase(Locale.US));
         if (negated) {
             b.append(", negated");
         }

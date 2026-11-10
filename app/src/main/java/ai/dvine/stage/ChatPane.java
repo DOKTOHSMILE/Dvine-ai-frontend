@@ -440,6 +440,11 @@ public final class ChatPane extends LinearLayout {
         show();
     }
 
+    /** The latest step of the work in progress, in words; "" when nothing is working. */
+    public String lastStep() {
+        return steps.isEmpty() ? "" : ai.dvine.agent.StepDetail.words(steps.get(steps.size() - 1));
+    }
+
     public void activityEnd() {
         if (!steps.isEmpty() && host != null) {
             List<String> words = new ArrayList<String>();
@@ -1768,7 +1773,7 @@ public final class ChatPane extends LinearLayout {
             // "Hand to Ibiko": the task goes to him, here in the group
             String[] parts = (m.body == null ? "" : m.body).split("\n", 2);
             final String to = parts[0], task = parts.length > 1 ? parts[1] : "";
-            final String name = "DVINE";
+            final String name = "Ibiko";
             TextView b = plain("Start on this  \u203A");
             b.setTextColor(color(R.color.text_primary));
             b.setTextSize(14f);
@@ -2230,7 +2235,7 @@ public final class ChatPane extends LinearLayout {
         }
         String name = cur.title == null || cur.title.trim().isEmpty() || cur.title.matches("(?i)^chat$") ? "New chat" : cur.title;
         if (cur.messages.isEmpty() && (cur.title == null || cur.title.matches("(?i)^(chat|new chat|obi|ivie|ibiko|ibiko code)$"))) {
-            name = "DVINE";
+            name = "Ibiko";
         }
         t.setText(name);
         t.setContentDescription("Chat name: " + name + ". Tap to rename.");
@@ -2268,7 +2273,7 @@ public final class ChatPane extends LinearLayout {
         }
         new androidx.appcompat.app.AlertDialog.Builder(getContext())
                 .setTitle("Delete this chat?")
-                .setMessage("Its messages are removed. What DVINE learned from it is kept.")
+                .setMessage("Its messages are removed. What Ibiko learned from it is kept.")
                 .setPositiveButton("Delete", (d, w) -> {
                     boolean wasOpen = id.equals(book.current().id);
                     if (book.delete(id)) {
@@ -2405,7 +2410,7 @@ public final class ChatPane extends LinearLayout {
     }
 
     private static String labelOf(String persona) {
-        return "DVINE"; // one assistant, one name
+        return "Ibiko"; // one assistant, one name
     }
 
     private TextView plain(String text) {

@@ -273,12 +273,12 @@ public final class ShellSession {
                 case "clear":
                     return ok(name, "");
                 case "help":
-                    return ok(name, "DVINE shell: " + String.join(" ", NAMES)
+                    return ok(name, "Ibiko shell: " + String.join(" ", NAMES)
                             + "\nChains: && || ; | > >> < and $NAME. python, git, pkg and compilers are not bundled.\n");
                 case "unzip":
                     return unzip(args);
                 default:
-                    return new CommandResult(name, 127, "", name + ": not in DVINE's shell. It is not bundled, and Termux is not used.", 0);
+                    return new CommandResult(name, 127, "", name + ": not in Ibiko's shell. It is not bundled, and Termux is not used.", 0);
             }
         } catch (IOException e) {
             return new CommandResult(name, 1, "", e.getMessage() == null ? "failed" : e.getMessage(), 0);
