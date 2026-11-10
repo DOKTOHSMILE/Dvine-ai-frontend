@@ -112,9 +112,9 @@ public final class Handoff {
             case "ibiko":
                 return "code is Ibiko's work";
             case "ivie":
-                return "stories, scripts and drawings are Ivie's work";
+                return "stories, scripts and drawings";
             case "obi":
-                return "reports and analyses are Obi's work";
+                return "reports and analyses";
             default:
                 return "";
         }
