@@ -1597,6 +1597,31 @@ public final class ChatPane extends LinearLayout {
         show();
     }
 
+    /** In the group chat each reply starts with who wrote it, in that persona's colour, as in a group of people. */
+    private CharSequence speaker(ChatBook.Message m, CharSequence body) {
+        boolean group = getContext().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).getBoolean("group_chat", true);
+        if (!group || m.persona == null || m.persona.isEmpty() || !"text".equals(m.kind)) {
+            return body;
+        }
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder(labelOf(m.persona));
+        b.setSpan(new android.text.style.ForegroundColorSpan(personaColor(m.persona)), 0, b.length(), 0);
+        b.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, b.length(), 0);
+        b.setSpan(new android.text.style.RelativeSizeSpan(0.85f), 0, b.length(), 0);
+        b.append('\n').append(body);
+        return b;
+    }
+
+    static int personaColor(String persona) {
+        switch (persona) {
+            case "ivie":
+                return 0xFFE58FD0;
+            case "ibiko":
+                return 0xFF6FCF8E;
+            default:
+                return 0xFF7AA7FF; // Obi
+        }
+    }
+
     private View bubble(ChatBook.Message m) {
         boolean user = "user".equals(m.role);
         if ("image".equals(m.kind)) {
@@ -1739,7 +1764,7 @@ public final class ChatPane extends LinearLayout {
         int layout = user ? R.layout.item_message_user : R.layout.item_message_assistant;
         View row = LayoutInflater.from(getContext()).inflate(layout, thread, false);
         TextView body = row.findViewById(R.id.tv_message);
-        body.setText(user ? (m.body == null ? "" : m.body) : styled(m.body));
+        body.setText(user ? (m.body == null ? "" : m.body) : speaker(m, styled(m.body)));
         body.setTextIsSelectable(true); // hold to select any part and copy it
         if (!user) {
             body.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());

@@ -1,10 +1,17 @@
+# Group chat and auto-post (0.99.47)
+
+- [x] One thread for Obi, Ivie and Ibiko; names on replies; buttons and @names pick who answers.
+- [x] Auto-post on your behalf, off by default.
+- [x] The version choices (post, edit, schedule, copy; X length) that 0.99.46 announced but did not contain.
+- [ ] Two or three personas working at the same time in the group.
+
 # The right persona, writing plans, social screen (0.99.46)
 
 - [x] A task given to the wrong persona goes to the right page, as if sent there.
 - [x] Stories, scripts and reports: outline, check, write section by section.
 - [x] Social accounts: icons, counts, quick actions, posting settings, scheduled posts, recent activity.
 - [x] Each post version: post, edit, schedule or copy; X length checked.
-- [ ] One group chat for Obi, Ivie and Ibiko (waiting on the pilot's go).
+- [x] One group chat for Obi, Ivie and Ibiko (built in 0.99.47).
 
 # Posts, tags, comments and the Scribe (0.99.45)
 
