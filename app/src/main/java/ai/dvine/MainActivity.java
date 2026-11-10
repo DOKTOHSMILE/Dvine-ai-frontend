@@ -2704,46 +2704,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (carriesOn(task)) {
                     agent.resume(agentWork(persona)); // "continue", "give me the result": the same work goes on
                 }
-                String crew = null;
+                // An audit used to be answered by a planner that cannot open files. The chat then showed the
+                // tool call and "the step could not be done". The coding agent does the job, so the files are read.
                 final String asked = ai.dvine.scribe.Scribe.worth(task) ? task
                         + "\n\nA project record is already in memory/projects. Read PROJECT_PLAN.md and PROJECT_MAP.md"
                         + " before creating files. If they describe this job, continue them. Do not start a second project."
                         : task;
-                if (!carriesOn(task) && !planning && prefs.getBoolean("mini_agents", true) && ai.dvine.agent.Crew.heavy(task)) {
-                    handler.post(() -> {
-                        if (alive(id) && chatPane != null) {
-                            chatPane.activityStep("Planning");
-                        }
-                    });
-                    final ai.dvine.agent.Crew.Brain planner = new ai.dvine.agent.Crew.Brain() {
-                        @Override
-                        public String ask(String system, String prompt) {
-                            return brain.ask(system, prompt);
-                        }
-                    };
-                    final ai.dvine.agent.Crew.Progress report = new ai.dvine.agent.Crew.Progress() {
-                        @Override
-                        public void plan(String plan) {
-                            handler.post(() -> {
-                                if (alive(id) && chatPane != null) {
-                                    chatPane.activityStep("Planning");
-                                }
-                            });
-                        }
-
-                        @Override
-                        public void step(int n, int of, String step, String found) {
-                            handler.post(() -> progressNote(id, persona, n,
-                                    "Step " + n + " of " + of + ": " + step + "\n\n" + found));
-                        }
-
-                        @Override
-                        public void finished(String result) {
-                        }
-                    };
-                    crew = ai.dvine.agent.Crew.run(planner, asked, report, host::stopped);
-                }
-                result = crew != null ? crew : agent.run(asked, earlier);
+                result = agent.run(asked, earlier);
                 long began = System.currentTimeMillis();
                 int round = 1;
                 while (rounds && agent.outOfSteps() && !host.stopped() && round < MAX_ROUNDS
@@ -2786,7 +2753,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 endThink();
                 attachWork(readOnly ? null : changed, since); // the diff, pull requests and files, under this reply
-                play(LocalTurn.speakAs(persona, answer), null);
+                String spoken = ai.dvine.chat.ReplyText.prepare(answer);
+                play(LocalTurn.speakAs(persona, spoken.isEmpty() ? answer : spoken), null);
                 if (planning && answer != null && !answer.trim().isEmpty() && !host.stopped()) {
                     approvePlan(task, answer);
                 }
@@ -3078,7 +3046,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (!alive(id) || chatPane == null || note == null || note.trim().isEmpty()) {
             return;
         }
-        chatPane.assistant(persona, note.trim());
+        String shown = ai.dvine.chat.ReplyText.prepare(note);
+        if (shown.isEmpty() || shown.startsWith("(nothing:")) {
+            return;
+        }
+        chatPane.assistant(persona, shown);
     }
 
     /** "continue", "go on", "give me the result", "what did you find": the last task goes on, not a new one. */

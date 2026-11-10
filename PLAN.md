@@ -1,3 +1,7 @@
+# An audit reads the files (0.99.40)
+
+- [x] An audit is done by the coding agent, which can open files. It is no longer a plan that prints the tool call and then says the step could not be done.
+
 # Same folder (0.99.39)
 
 - [x] A shell command from chat starts in the coding workspace, the same folder the file tools see. `Dvine-ai-frontend` is `/workspace/Dvine-ai-frontend`, not an empty home directory.
