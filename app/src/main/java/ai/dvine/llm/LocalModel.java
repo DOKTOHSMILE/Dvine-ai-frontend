@@ -23,6 +23,10 @@ public final class LocalModel {
     private final List<String[]> history = new ArrayList<String[]>();
     /** How many exchanges the model holds itself; older ones reach it as the chat's notes record. */
     public static final int HISTORY_TURNS = 6;
+    /** An API model: the exchanges remembered, and how many are dropped at once when that is passed. */
+    static final int REMOTE_HISTORY_TURNS = 24, REMOTE_DROP_TURNS = 12;
+    /** The least room an API model's chat reply gets (tokens). */
+    static final int REMOTE_REPLY_MIN = 2048;
     private final ReplyLease replies = new ReplyLease();
     /** What each reply used, for the Usage screen. */
     public final UsageLog usage = new UsageLog();
@@ -476,7 +480,10 @@ public final class LocalModel {
         if (remoteOn()) {
             List<String[]> turns = new ArrayList<String[]>(history);
             turns.add(new String[]{"user", asked});
-            String answer = askRemote(system, turns, maxTokens, 0.7f, sink, TaskSize.ofCall(question, maxTokens, coding));
+            // the everyday length (160 tokens) is sized for the phone's model: an API model gets room for a real answer,
+            // or its replies are cut off mid-thought (it still writes short when short is right)
+            int room = Math.max(maxTokens, REMOTE_REPLY_MIN);
+            String answer = askRemote(system, turns, room, 0.7f, sink, TaskSize.ofCall(question, maxTokens, coding));
             if (answer != null) {
                 remember(question, ActionTags.strip(answer));
                 return answer.trim();
@@ -764,7 +771,9 @@ public final class LocalModel {
             final Slot sl = (Slot) attempt[0];
             final RemoteBrain r = (RemoteBrain) attempt[1];
             current = r;
-            final boolean brief = tier == TaskSize.Tier.FAST;
+            // a quick message trims the chat only on a small window; a big model reads it all (and from its cache)
+            final boolean brief = tier == TaskSize.Tier.FAST && sl.window > 0 && sl.window < 32_000;
+            r.effortFor(tier);
             final List<String[]> fitted = PromptFit.remoteTurns(turns, sl.window, maxTokens, brief);
             // no "Asking <provider>" step: it repeated between every real step (the model shows in the header)
             final int ticket = epoch.get();
@@ -940,9 +949,19 @@ public final class LocalModel {
         // an image is sent once, with its question; the remembered conversation keeps "[an image]"
         history.add(new String[]{"user", ai.dvine.chat.Attachments.forMemory(question)});
         // the phone's small model keeps a short memory; an API model keeps the whole reply (a report stays a report)
-        history.add(new String[]{"assistant", remoteOn() ? fit(answer, 4_000) : clipMemory(answer)});
-        while (history.size() > HISTORY_TURNS * 2) {
-            history.remove(0);
+        history.add(new String[]{"assistant", remoteOn() ? fit(answer, 8_000) : clipMemory(answer)});
+        if (remoteOn()) {
+            // an API model keeps far more of the chat, and the oldest part is dropped a block at a time: the start of
+            // the conversation then stays the same between messages, so the provider's prompt cache keeps working
+            // (dropping one exchange per message changed the start every time and the whole chat was read again)
+            if (history.size() > REMOTE_HISTORY_TURNS * 2) {
+                int drop = Math.min(history.size() - 2, REMOTE_DROP_TURNS * 2);
+                history.subList(0, drop).clear();
+            }
+        } else {
+            while (history.size() > HISTORY_TURNS * 2) {
+                history.remove(0);
+            }
         }
     }
 

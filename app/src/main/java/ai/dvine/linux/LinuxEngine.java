@@ -23,7 +23,7 @@ public final class LinuxEngine {
         public final boolean ok;
         public final String text;
 
-        Result(boolean ok, String text) {
+        public Result(boolean ok, String text) {
             this.ok = ok;
             this.text = text;
         }

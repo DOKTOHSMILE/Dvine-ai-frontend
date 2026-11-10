@@ -59,6 +59,18 @@ public final class RemoteBrain {
     private volatile boolean autoFormat;
     /** The format each Auto gateway turned out to speak, so the next request goes straight to it. */
     private static final java.util.Map<String, Protocol> DETECTED = new java.util.concurrent.ConcurrentHashMap<String, Protocol>();
+    /**
+     * The request form each gateway and model last answered to: the next message starts there, instead of sending a
+     * form the server already refused and waiting for the refusal every time.
+     */
+    static final java.util.Map<String, Integer> FORM = new java.util.concurrent.ConcurrentHashMap<String, Integer>();
+    /** How hard a thinking model thinks on this call: "low" for a quick reply, "medium", "high" for real work; or null. */
+    private volatile String effort;
+
+    /** Sets the thinking effort from what the call is: a quick message, an ordinary one, or real work. */
+    public void effortFor(TaskSize.Tier tier) {
+        effort = tier == TaskSize.Tier.FAST ? "low" : tier == TaskSize.Tier.STRONG ? "high" : "medium";
+    }
     public final String baseUrl, model;
     private final String key, backupKey;
     private final Transport transport;
@@ -446,7 +458,9 @@ public final class RemoteBrain {
             dropImages = false;
             dropFiles = false;
             boolean switched = false;
-            for (int form = reasoning() ? 2 : 0; form < (protocol == Protocol.ANTHROPIC ? 2 : 3); form++) {
+            Integer known = FORM.get(baseUrl + "|" + model + "|" + protocol);
+            int first = known != null ? known : protocol == Protocol.ANTHROPIC ? 0 : reasoning() ? 2 : 0;
+            for (int form = first; form < 3; form++) {
                 Response r;
                 try {
                     r = transport.post(url(), headers(keys[k], form), body(system, turns, maxTokens, temperature, form), timeoutMs);
@@ -478,7 +492,7 @@ public final class RemoteBrain {
                         form--;
                         continue;
                     }
-                    if ((r.status == 400 || r.status == 422) && form < (protocol == Protocol.ANTHROPIC ? 1 : 2)) {
+                    if ((r.status == 400 || r.status == 422) && form < 2) {
                         continue;
                     }
                     if ((r.status == 401 || r.status == 403 || r.status == 402 || r.status == 429) && !last) {
@@ -488,6 +502,7 @@ public final class RemoteBrain {
                         problem = failure(r.status, in, keys[k]);
                         return null;
                     }
+                    FORM.put(baseUrl + "|" + model + "|" + protocol, form); // this form works here: start with it next time
                     return protocol == Protocol.ANTHROPIC ? readAnthropic(in, sink) : readOpenAi(in, sink);
                 } catch (IOException e) {
                     problem = "the connection to " + host() + " broke";
@@ -551,15 +566,16 @@ public final class RemoteBrain {
             }
             req.put("messages", messages);
             req.put("stream", Boolean.TRUE);
-            if (small && form == 0) {
+            if (form <= 1 && (small || claudeThinksByDefault() && effort != null)) {
+                // how hard it thinks: a one-line order and a quick message think little, real work thinks more
                 Map<String, Object> out = new LinkedHashMap<String, Object>();
-                out.put("effort", "low");
+                out.put("effort", small ? "low" : effort);
                 req.put("output_config", out);
             }
             if (form == 0 && model.matches(FALLBACK_MODELS)) {
                 req.put("fallbacks", "default");
             }
-            if (form == 0) {
+            if (form <= 1) {
                 // prompt caching: what repeats from the last request (instructions, the chat so far, an agent's work)
                 // is read from Anthropic's cache instead of again; a server that refuses it gets the plain form
                 Map<String, Object> cache = new LinkedHashMap<String, Object>();
@@ -583,8 +599,8 @@ public final class RemoteBrain {
                 if (small) {
                     req.put("reasoning_effort", "low"); // a small local-class model spends less time thinking
                 } else if (reasoning()) {
-                    // medium, not low: low reasoning on a large model is what came back empty.
-                    req.put("reasoning_effort", "medium");
+                    // medium, not low: low reasoning on a large model is what came back empty. Real work thinks harder.
+                    req.put("reasoning_effort", "high".equals(effort) ? "high" : "medium");
                 }
             } else {
                 // a thinking model in the plain form still spends its hidden thinking from max_tokens
