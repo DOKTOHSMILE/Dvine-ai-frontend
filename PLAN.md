@@ -1,3 +1,10 @@
+# The hands for writing; population (0.99.60)
+
+- [x] Long pieces written a section a writer, at once, on an API.
+- [x] Population with its year for 193 countries.
+- [x] Send and Dismiss at a full touch size.
+- [ ] The hands for research (several pages read at once) and social (several posts drafted at once).
+
 # Ibiko thinks ahead (0.99.59)
 
 - [x] The Foresight formula: what this pilot usually needs next, and the look-before check before any answer or action.

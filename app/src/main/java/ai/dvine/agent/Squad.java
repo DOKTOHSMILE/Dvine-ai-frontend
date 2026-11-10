@@ -119,12 +119,14 @@ public final class Squad {
     }
 
     /**
-     * Runs the parts, {@code atOnce} at a time (an API answers several workers together; the device's own model one at
-     * a time, so there the parts follow one another). The reports, in the parts' order, as the tool's result.
+     * The same hands for any feature (writing sections, reading pages, code parts): every part done by its own worker,
+     * {@code atOnce} at a time, and what each gave back, whole, in the parts' order. A worker that failed or did not
+     * finish gives "Error: …".
      */
-    public static String run(List<String> parts, Worker worker, int atOnce, BooleanSupplier stopped) {
-        if (parts == null || parts.size() < 2) {
-            return "Error: workers needs at least two <part> blocks, one for each worker. Do a single part yourself.";
+    public static List<String> all(List<String> parts, Worker worker, int atOnce, BooleanSupplier stopped) {
+        List<String> out = new ArrayList<String>();
+        if (parts == null || parts.isEmpty()) {
+            return out;
         }
         int n = Math.max(1, Math.min(atOnce, parts.size()));
         ExecutorService pool = Executors.newFixedThreadPool(n, r -> {
@@ -139,18 +141,33 @@ public final class Squad {
             jobs.add(pool.submit(() -> stopped != null && stopped.getAsBoolean() ? "Stopped before it started." : worker.work(number, part)));
         }
         pool.shutdown();
-        StringBuilder out = new StringBuilder(parts.size() + " workers finished (" + n + " at a time). Their reports:\n");
-        for (int i = 0; i < jobs.size(); i++) {
-            String said;
+        for (Future<String> j : jobs) {
             try {
-                said = jobs.get(i).get(60, TimeUnit.MINUTES);
+                out.add(j.get(60, TimeUnit.MINUTES));
             } catch (Exception failed) {
-                said = "Error: this worker did not finish (" + failed.getClass().getSimpleName() + "). Its part is still to do.";
+                out.add("Error: this worker did not finish (" + failed.getClass().getSimpleName() + "). Its part is still to do.");
             }
-            out.append("\n## Worker ").append(i + 1).append(": ").append(clip(parts.get(i), 160)).append('\n')
-                    .append(said == null || said.trim().isEmpty() ? "Error: no report. Its part is still to do." : clip(said.trim(), 4000)).append('\n');
         }
         pool.shutdownNow();
+        return out;
+    }
+
+    /**
+     * Runs the parts, {@code atOnce} at a time (an API answers several workers together; the device's own model one at
+     * a time, so there the parts follow one another). The reports, in the parts' order, as the tool's result.
+     */
+    public static String run(List<String> parts, Worker worker, int atOnce, BooleanSupplier stopped) {
+        if (parts == null || parts.size() < 2) {
+            return "Error: workers needs at least two <part> blocks, one for each worker. Do a single part yourself.";
+        }
+        int n = Math.max(1, Math.min(atOnce, parts.size()));
+        List<String> said = all(parts, worker, atOnce, stopped);
+        StringBuilder out = new StringBuilder(parts.size() + " workers finished (" + n + " at a time). Their reports:\n");
+        for (int i = 0; i < said.size(); i++) {
+            String one = said.get(i);
+            out.append("\n## Worker ").append(i + 1).append(": ").append(clip(parts.get(i), 160)).append('\n')
+                    .append(one == null || one.trim().isEmpty() ? "Error: no report. Its part is still to do." : clip(one.trim(), 4000)).append('\n');
+        }
         String all = out.toString();
         boolean recheck = all.contains("\nError:") || all.contains("Time is up") || all.contains("did not finish");
         out.append(recheck ? "\nCPGC: at least one part failed or ran out of time. Read its report, then send that part back"

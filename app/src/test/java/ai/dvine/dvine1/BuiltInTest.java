@@ -64,5 +64,7 @@ public class BuiltInTest {
         assertEquals("Uganda is landlocked: it has no coastline.", b.answer("is Uganda landlocked"));
         assertEquals("The chemical symbol of oganesson is Og.", b.answer("chemical symbol of oganesson"));
         assertEquals("The atomic number of iron is 26.", b.answer("atomic number of iron"));
+        String pop = b.answer("How many people live in Nigeria?");
+        org.junit.Assert.assertTrue(pop, pop.startsWith("Nigeria has a population of about ") && pop.endsWith(" estimate)."));
     }
 }
