@@ -274,7 +274,7 @@ public final class AssistantCore {
     }
 
     public void rememberCorrection(String said) {
-        String n = said == null ? "" : said.toLowerCase();
+        String n = said == null ? "" : said.toLowerCase(java.util.Locale.ROOT);
         if (n.contains("rim") && n.contains("tyre")) {
             orchestrator.memory().learn("motorcycle", "tyre", "front_tyre");
             orchestrator.memory().learn("motorcycle", "rim", "front_rim");

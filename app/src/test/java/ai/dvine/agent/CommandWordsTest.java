@@ -30,6 +30,20 @@ public class CommandWordsTest {
     }
 
     @Test
+    public void scriptsLoopsAndLabelsAreSaidAsOneThing() {
+        // a ; inside quotes is part of the script, not a second command
+        assertEquals("Ran a short Python script",
+                CommandWords.describe("cd /workspace/app && python3 -c \"import json; local=json.load(open('a.json')); print(len(local))\""));
+        assertEquals("Git: config, then read the start of .dvine-git.json",
+                CommandWords.describe("echo '=== git config'; git config -l; echo '=== state'; head .dvine-git.json"));
+        String loop = CommandWords.describe("cd /w && for f in $(find . -name '*.theirs'); do b=${f%.theirs}; if cmp -s $f $b; then echo SAME $b; else echo DIFF $b; fi; done");
+        assertTrue(loop, loop.startsWith("Went through each file found"));
+        assertTrue(loop, !loop.contains("ran do") && !loop.contains("ran then") && !loop.contains("ran fi"));
+        assertEquals("Went through each of 2 items and read $f", CommandWords.describe("for f in a.txt b.txt; do cat $f; done"));
+        assertEquals("Printed a line", CommandWords.describe("echo hello"));
+    }
+
+    @Test
     public void aStepsDetailIsKeptAndOpened() throws Exception {
         File dir = Files.createTempDirectory("steps").toFile();
         String id = StepDetail.save(dir, "app/Main.java", Arrays.asList("@ line 1", " class Main {", "+    void hello() {}", "-    // old", " }"), 1, 1);

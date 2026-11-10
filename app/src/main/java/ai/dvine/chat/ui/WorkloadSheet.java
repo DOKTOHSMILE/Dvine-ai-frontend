@@ -84,7 +84,7 @@ public final class WorkloadSheet {
             card.addView(bar(a, 0f, heat), Ui.wide(a, 12));
             card.addView(Ui.text(a, "DVINE 1 answers from what it has learned and from research, without a context window,"
                     + " so nothing here fills up or needs clearing.", 13, Ui.SUB, false), Ui.wide(a, 8));
-            ai.dvine.dvine1.Knowledge k = new ai.dvine.dvine1.Knowledge(new java.io.File(a.getFilesDir(), "brain/knowledge.tsv"));
+            ai.dvine.dvine1.Knowledge k = ai.dvine.dvine1.Store.knowledge(new java.io.File(a.getFilesDir(), "brain"));
             card.addView(row(a, "Answers you confirmed", String.valueOf(k.size())), Ui.wide(a, 10));
             card.addView(Ui.text(a, ai.dvine.dvine1.Dvine1.scoreLine(a.getFilesDir()), 13, Ui.SUB, false), Ui.wide(a, 8));
         } else {

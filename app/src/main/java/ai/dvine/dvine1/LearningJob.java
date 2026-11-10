@@ -205,10 +205,10 @@ public final class LearningJob extends JobService {
 
     private void learnSession(LearningSchedule.Plan p) {
         TimeZone zone = TimeZone.getDefault();
-        final Knowledge k = new Knowledge(new File(dir(this), "knowledge.tsv"));
-        final Facts facts = new Facts(new File(dir(this), "facts.tsv"));
-        final Lexicon words = new Lexicon(new File(dir(this), "words.tsv"));
-        final ai.dvine.dvine1.learner.Learner learner = new ai.dvine.dvine1.learner.Learner(dir(this), facts, words);
+        final Knowledge k = Store.knowledge(dir(this));
+        final Facts facts = Store.facts(dir(this));
+        final Lexicon words = Store.lexicon(dir(this));
+        final ai.dvine.dvine1.learner.Learner learner = Store.learner(dir(this));
         List<String> unanswered = read(new File(dir(this), "to-learn.txt"));
         List<String> interests = new ArrayList<String>(Plug.interests.get()); // what the pilot is into, from the app
         // only what came from using DVINE: no outside lists of topics

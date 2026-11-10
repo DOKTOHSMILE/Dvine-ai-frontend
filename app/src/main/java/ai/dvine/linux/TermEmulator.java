@@ -1,6 +1,6 @@
 package ai.dvine.linux;
 
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -68,7 +68,9 @@ public final class TermEmulator {
 
     private int cols, rows;
     private Row[] main, alt, grid;
-    private final ArrayDeque<Row> back = new ArrayDeque<Row>();
+    /** Kept lines, oldest first, in a ring: {@code backStart} is the oldest. Indexed in constant time for drawing. */
+    private final ArrayList<Row> back = new ArrayList<Row>();
+    private int backStart;
     private final int keep;
     private int cx, cy;
     private boolean wrapNext;
@@ -144,13 +146,8 @@ public final class TermEmulator {
     /** A line counted from the oldest kept line: the kept lines first, then the screen. */
     public synchronized Row line(int index) {
         int kept = scrollback();
-        if (index < kept) {
-            int i = 0;
-            for (Row r : back) {
-                if (i++ == index) {
-                    return r;
-                }
-            }
+        if (index >= 0 && index < kept) {
+            return back.get((backStart + index) % back.size());
         }
         return grid[Math.max(0, Math.min(rows - 1, index - kept))];
     }
@@ -300,9 +297,11 @@ public final class TermEmulator {
         if (keep == 0) {
             return;
         }
-        back.addLast(r);
-        while (back.size() > keep) {
-            back.removeFirst();
+        if (back.size() < keep) {
+            back.add(r);
+        } else {
+            back.set(backStart, r); // the oldest line is replaced
+            backStart = (backStart + 1) % back.size();
         }
     }
 
@@ -907,6 +906,7 @@ public final class TermEmulator {
         wrapNext = false;
         if (how == 3) {
             back.clear();
+            backStart = 0;
             return;
         }
         int from = how == 0 ? cy : 0, to = how == 1 ? cy : rows - 1;
