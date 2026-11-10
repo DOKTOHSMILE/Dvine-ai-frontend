@@ -21,9 +21,9 @@ public final class ModelRegistry {
         }
     }
 
-    private static final Agent OBI = new Agent("obi", "Obi", 20);
-    private static final Agent IVIE = new Agent("ivie", "Ivie", 20);
-    private static final Agent IBIKO = new Agent("ibiko", "Ibiko", 40);
+    private static final Agent OBI = new Agent("obi", "DVINE (reader)", 20);
+    private static final Agent IVIE = new Agent("ivie", "DVINE (reviewer)", 20);
+    private static final Agent IBIKO = new Agent("ibiko", "DVINE", 40);
 
     private ModelRegistry() {
     }

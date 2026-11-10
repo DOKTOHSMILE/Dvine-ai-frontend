@@ -673,10 +673,10 @@ public final class OfflineBrain {
             List<TurnLine> lines = new ArrayList<TurnLine>();
             if (turn % 2 == 0) {
                 lines.add(new TurnLine("obi", "SAY", "Thank you for your patience. It held."));
-                lines.add(new TurnLine("ivie", "SAY", "And Obi only checked it three times. A personal best."));
+                lines.add(new TurnLine("ivie", "SAY", "And it was only checked three times. A personal best."));
             } else {
                 lines.add(new TurnLine("ivie", "SAY", "Thank you. That was a good one to solve together."));
-                lines.add(new TurnLine("obi", "SAY", "Agreed. I'll write it down before Ivie tells it as a legend."));
+                lines.add(new TurnLine("obi", "SAY", "Agreed. I'll write it down before it becomes a legend."));
             }
             return new BrainAnswer(lines, true, false, "CARE");
         }

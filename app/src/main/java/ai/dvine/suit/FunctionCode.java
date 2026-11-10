@@ -37,15 +37,15 @@ public enum FunctionCode {
             + " repository or GitHub; run commands in the built-in Linux; build or audit an app's or a site's interface."
             + " The agent organisation plans it, splits it and carries it out", ""),
     WP("WRITEPLAN", "a long piece (a story, a script, a report, an essay): outline it, check the outline, then write it section by section", ""),
-    TT("THINKTOGETHER", "a weighty decision or question: Obi, Ivie and Ibiko work on it together and give one answer", ""),
+    TT("THINKTOGETHER", "a weighty decision or question: it is planned, checked against the real world and tested for what could break, then answered once", ""),
     RF("READFILES", "read the files in the workspace on this device (cloned repositories, projects) to answer this", ""),
     CO("CARRYON", "carry on with the unfinished work in this chat from where it stopped", ""),
-    DR("CANVAS", "change what is on Ivie's canvas: edit a part, turn or view it, undo, save, open or export", "<the change, in plain words>"),
+    DR("CANVAS", "change what is on the canvas: edit a part, turn or view it, undo, save, open or export", "<the change, in plain words>"),
     YS("CONFIRM", "the pilot agrees to the action that is shown waiting for their yes: carry it out", ""),
     CX("CANCEL", "the pilot does not want the action that is shown waiting: drop it", ""),
-    PM("PLANMODE", "Ibiko plans and asks before changing anything", ""),
-    AO("AUTOON", "Ibiko runs commands, pushes and pull requests without asking", ""),
-    AF("AUTOOFF", "Ibiko asks before commands, pushes and pull requests", ""),
+    PM("PLANMODE", "DVINE plans and asks before changing anything", ""),
+    AO("AUTOON", "DVINE runs commands, pushes and pull requests without asking", ""),
+    AF("AUTOOFF", "DVINE asks before commands, pushes and pull requests", ""),
     RT("RETRY", "ask the last question again", ""),
     OS("SETTINGS", "open Settings", "");
 

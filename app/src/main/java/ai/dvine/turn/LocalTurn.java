@@ -17,7 +17,7 @@ public final class LocalTurn {
     public static List<TurnLine> call(boolean ivie) {
         List<TurnLine> lines = new ArrayList<TurnLine>();
         if (ivie) {
-            lines.add(new TurnLine("ivie", "SAY", "What would you like to make?"));
+            lines.add(new TurnLine("ivie", "SAY", "How can I help?"));
         } else {
             lines.add(new TurnLine("obi", "SAY", "How can I help?"));
         }
@@ -28,7 +28,7 @@ public final class LocalTurn {
     public static List<TurnLine> call(String agent) {
         if ("ibiko".equals(agent)) {
             List<TurnLine> lines = new ArrayList<TurnLine>();
-            lines.add(new TurnLine("ibiko", "SAY", "Ibiko online! What are we building today?"));
+            lines.add(new TurnLine("ibiko", "SAY", "How can I help?"));
             return lines;
         }
         return call("ivie".equals(agent));
@@ -169,10 +169,10 @@ public final class LocalTurn {
                     "They did not start in agreement. The compromise is one small reversible step, and nothing consequential."));
         } else if (blocked) {
             lines.add(new TurnLine("ivie", "SAY",
-                    "Obi checked the risk. Ivie considered the impact. Nothing was sent, deleted, or approved."));
+                    "I checked the risk and the impact. Nothing was sent, deleted, or approved."));
         } else {
             lines.add(new TurnLine(ivieOpens ? "obi" : "ivie", "SAY",
-                    "Obi checked the structure. Ivie considered the impact. We can go further when you name the goal."));
+                    "I checked the structure and the impact. We can go further when you name the goal."));
         }
         return lines;
     }

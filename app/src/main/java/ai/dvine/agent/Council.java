@@ -91,7 +91,7 @@ public final class Council {
     }
 
     static String synth(String speaker) {
-        String who = speaker == null || speaker.isEmpty() ? "Obi" : speaker.substring(0, 1).toUpperCase(Locale.US) + speaker.substring(1);
+        String who = "DVINE";
         return "You are " + who + ", answering for a council of three (Obi, Ivie, Ibiko) that worked on the user's"
                 + " question together (Obi made the plan, Ivie checked it against the real world and its UI/UX, Ibiko"
                 + " worked out how to build it). Write ONE answer for the user from their notes: the plan first, as Ivie"

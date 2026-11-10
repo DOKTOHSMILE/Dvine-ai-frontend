@@ -688,7 +688,7 @@ public class LaunchTest {
         pill.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        for (String row : new String[]{"Select mode", "Choose how Ibiko should work", "Auto", "Accept edits", "Plan"}) {
+        for (String row : new String[]{"Select mode", "Choose how DVINE should work", "Auto", "Accept edits", "Plan"}) {
             org.junit.Assert.assertNotNull(row, find(sheet.getWindow().getDecorView(), row));
         }
         tapRow(sheet, "Plan");
@@ -879,7 +879,7 @@ public class LaunchTest {
         java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
         pf.setAccessible(true);
         ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
-        android.view.View button = described(pane, "Hand this task to Ibiko: he starts on it here");
+        android.view.View button = described(pane, "Start on this task here");
         assertNotNull("the hand-off button", button);
         String obiChat = chats.current().id;
         button.performClick();

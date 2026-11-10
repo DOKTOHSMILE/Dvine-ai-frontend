@@ -74,20 +74,11 @@ public final class SettingsActivity extends AppCompatActivity {
             }
         });
         profile.addView(name, Ui.wide(this, 10));
-        profile.addView(Ui.text(this, "Start with", 16, Ui.TEXT, false), Ui.wide(this, 14));
-        profile.addView(choice(new String[]{"Ivie", "Obi", "Ibiko"}, new String[]{"ivie", "obi", "ibiko"},
-                prefs.getString("face", "ivie"), k -> prefs.edit().putString("face", k).apply()), Ui.wide(this, 8));
-        profile.addView(Ui.text(this, "Ivie: images, drawings and 3D. Obi: conversation and questions. Ibiko: code, files and GitHub.",
-                13, Ui.SUB, false), Ui.wide(this, 8));
 
         // ---- chat
         LinearLayout chat = group("Chat", "Enter to send, thinking together, fact-checks, working steps");
-        chat.addView(Ui.text(this, "One conversation with Obi, Ivie and Ibiko, like a group: each reply carries its icon and name, and"
-                + " the right one answers from what you write (code and commands: Ibiko; stories, scripts and drawings: Ivie;"
-                + " everything else: Obi). To pick one yourself, start with their name: \u201cIvie, \u2026\u201d or @Ibiko.", 13, Ui.SUB, false),
-                Ui.wide(this, 8));
         chat.addView(toggle("Enter sends the message", "Off: Enter starts a new line; send with the arrow.", "send_enter", false, null));
-        chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: Obi, Ivie and Ibiko each"
+        chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: three passes each"
                 + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",
                 "think_together", false, null));
         chat.addView(toggle("Clear working memory when full", "The ring at the top shows how full the model's memory is. Past 85%,"
@@ -220,18 +211,18 @@ public final class SettingsActivity extends AppCompatActivity {
                 + " shown with its exact text and where it goes, and waits for your yes.", "actions_auto", false, null));
 
         // ---- ibiko
-        LinearLayout ibiko = group("Ibiko (coding)", "Commands, long jobs and the workspace");
+        LinearLayout ibiko = group("Coding", "Commands, long jobs and the workspace");
         ibiko.addView(toggle("Run commands without asking", "Auto-accept: shell commands, git pushes and pull requests go ahead.",
                 "auto_accept", false, null));
         ibiko.addView(toggle("Keep working until done", "Long jobs run for hours if needed: plan, build, test, with a short progress"
-                + " note in the chat every few steps. Off: Ibiko stops after one batch of steps.", "ibiko_keep_going", true, null),
+                + " note in the chat every few steps. Off: DVINE stops after one batch of steps.", "ibiko_keep_going", true, null),
                 Ui.wide(this, 10));
         ibiko.addView(toggle("Mini agents for heavy jobs", "Audits, research and whole-repo reviews are split into parts; a fresh"
                 + " helper takes each in turn (on the device's model too) and its findings come as it finishes.", "mini_agents", true, null),
                 Ui.wide(this, 10));
         final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
-        ibiko.addView(action("Clear Ibiko's workspace", "Deletes the cloned repositories and files on this device (" + bytes(size(ws)) + ").",
-                () -> confirm("Delete everything in Ibiko's workspace? Unpushed changes are lost.", () -> {
+        ibiko.addView(action("Clear DVINE's workspace", "Deletes the cloned repositories and files on this device (" + bytes(size(ws)) + ").",
+                () -> confirm("Delete everything in DVINE's workspace? Unpushed changes are lost.", () -> {
                     delete(ws);
                     toast("Workspace cleared.");
                     fill();
@@ -287,7 +278,7 @@ public final class SettingsActivity extends AppCompatActivity {
         section("About");
         LinearLayout about = card();
         about.addView(Ui.text(this, "DVINE " + version(), 16, Ui.TEXT, false));
-        about.addView(Ui.text(this, "Ivie, Obi and Ibiko, with your models or the one on this device.", 13, Ui.SUB, false), Ui.wide(this, 4));
+        about.addView(Ui.text(this, "DVINE AI, with your models or the one on this device.", 13, Ui.SUB, false), Ui.wide(this, 4));
         body.addView(about, Ui.wide(this, 8));
     }
 

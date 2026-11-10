@@ -204,7 +204,7 @@ public final class ChatBook {
             }
         }
         String title = cur.title != null && !cur.title.matches("(?i)^(chat|new chat|obi|ivie|ibiko|ibiko code)$")
-                ? cur.title : ("ibiko".equals(p) ? "Ibiko code" : ("obi".equals(p) ? "Obi" : "Ivie"));
+                ? cur.title : "Chat";
         return openIn(title, p, group);
     }
 

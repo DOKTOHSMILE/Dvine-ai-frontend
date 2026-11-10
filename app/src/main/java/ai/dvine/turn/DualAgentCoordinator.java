@@ -215,7 +215,7 @@ public final class DualAgentCoordinator {
         } else if (agree) {
             sum.add("So we agree: " + first(ra.known ? lastA : lastB));
         } else if (ra.known && rb.known) {
-            sum.add("In short: " + first(lastA) + " " + nameB + "'s view: " + first(lastB));
+            sum.add("In short: " + first(lastA) + " Another view: " + first(lastB));
             sum.add("We don't fully agree, so weigh both.");
         } else {
             sum.add("In short: " + first(ra.known ? lastA : lastB));
@@ -335,7 +335,7 @@ public final class DualAgentCoordinator {
     }
 
     static String name(String persona) {
-        return "ivie".equals(persona) ? "Ivie" : "Obi";
+        return "the first answer"; // one assistant weighing two views: no names
     }
 
     /** The first sentence of an answer, ending with a full stop. */

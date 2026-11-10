@@ -27,6 +27,6 @@ public final class ImageTo3DReconstructionEngine {
         }
         // there are no ready-made shapes to pick from a label: a 3D build comes from measurements the model designs
         return new Built(null, views.method(Math.max(1, viewCount)), "I don't turn a picture into one of a few ready-made shapes."
-                + " Tell me what it is and its main measurements, or ask Ivie to design it, and I'll build it from those numbers.", false);
+                + " Tell me what it is and its main measurements, or ask me to design it, and I'll build it from those numbers.", false);
     }
 }

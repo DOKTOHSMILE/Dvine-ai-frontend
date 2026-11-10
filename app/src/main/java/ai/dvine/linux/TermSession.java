@@ -32,7 +32,7 @@ public final class TermSession {
             + " - Install: pkg install <package>\r\n"
             + " - Upgrade: pkg upgrade\r\n\r\n"
             + "Folders:\r\n\r\n"
-            + " - /workspace  Ibiko's projects (the same files chat sees)\r\n"
+            + " - /workspace  DVINE's projects (the same files chat sees)\r\n"
             + " - /work       DVINE's shell files\r\n"
             + " - /sdcard     the device's storage, when allowed\r\n\r\n";
 

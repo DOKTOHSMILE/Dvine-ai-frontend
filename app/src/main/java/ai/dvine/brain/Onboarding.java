@@ -97,7 +97,7 @@ public final class Onboarding {
     }
 
     public static String welcomeQuestion() {
-        return "Welcome. I'm Obi, and with me is Ivie. Before we begin, what's your name?";
+        return "Welcome. I'm DVINE. Before we begin, what's your name?";
     }
 
     public static String welcome(String name) {

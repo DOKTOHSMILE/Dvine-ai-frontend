@@ -96,7 +96,7 @@ public final class PersonaTabs {
         }
         android.widget.TextView sub = host.find(ai.dvine.R.id.tv_header_sub);
         if (sub != null) {
-            String name = persona.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + persona.substring(1);
+            String name = "DVINE AI";
             sub.setText(name + " · " + host.brainLabel());
         }
         android.widget.TextView mark = host.find(ai.dvine.R.id.empty_mark);

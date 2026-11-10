@@ -117,7 +117,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         LinearLayout routeText = new LinearLayout(this);
         routeText.setOrientation(LinearLayout.VERTICAL);
         routeText.addView(Ui.text(this, "Fast model for simple questions", 16, Ui.TEXT, true));
-        routeText.addView(Ui.text(this, "Quick questions go to the fast model; writing, coding, analysis and Ibiko's work to the strong one.",
+        routeText.addView(Ui.text(this, "Quick questions go to the fast model; writing, coding, analysis and DVINE's work to the strong one.",
                 12, Ui.SUB, false));
         route.addView(routeText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         android.widget.Switch routeToggle = new android.widget.Switch(this);

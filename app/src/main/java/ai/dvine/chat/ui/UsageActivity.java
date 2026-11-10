@@ -156,7 +156,7 @@ public final class UsageActivity extends AppCompatActivity {
         learn.addView(sw);
         learn.addView(row("Answers kept", String.valueOf(ll.count())), Ui.wide(this, 8));
         learn.addView(row("Size", bytes(ll.bytes())), Ui.wide(this, 8));
-        learn.addView(Ui.text(this, "Each request, reply and Ibiko step from your API models is kept on this device, never sent anywhere."
+        learn.addView(Ui.text(this, "Each request, reply and DVINE step from your API models is kept on this device, never sent anywhere."
                 + " DVINE's own model uses the closest ones as examples when it answers offline, and Export saves them"
                 + " as a training file to fine-tune DVINE's model. Check your provider's terms before training a model on its replies.",
                 13, Ui.SUB, false), Ui.wide(this, 12));

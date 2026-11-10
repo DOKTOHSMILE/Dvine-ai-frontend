@@ -934,7 +934,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean replacing;
 
     private static String labelOf(String persona) {
-        return persona == null || persona.isEmpty() ? "DVINE" : Character.toUpperCase(persona.charAt(0)) + persona.substring(1);
+        return "DVINE"; // one assistant, one name
     }
 
     /** The persona whose page the current run belongs to. */
@@ -1066,7 +1066,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 String ext = f.getName().contains(".") ? f.getName().substring(f.getName().lastIndexOf('.') + 1) : "";
                 String mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase(java.util.Locale.US));
-                log.artifact(f.getName(), uri.toString(), "Made by Ibiko \u00B7 " + path, mime == null ? "text/plain" : mime);
+                log.artifact(f.getName(), uri.toString(), "Made by DVINE \u00B7 " + path, mime == null ? "text/plain" : mime);
             } catch (RuntimeException ignored) {
                 // not shareable: it stays in the workspace
             }
@@ -1558,7 +1558,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         });
         // reading aloud shows in the notification panel, with Pause and Stop, so it can be controlled outside the app
         talk.setStateListener((reading, paused, text, ivie) -> {
-            String who = ivie ? "Ivie" : "ibiko".equals(stage.agent()) ? "Ibiko" : "Obi";
+            String who = "DVINE";
             ai.dvine.voice.ReadAloudNotice.show(this, reading && !isDestroyed(), paused, text, who, MainActivity.class);
         });
         android.content.IntentFilter readControls = new android.content.IntentFilter();
@@ -2744,7 +2744,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final long since = System.currentTimeMillis(); // what this reply opens or makes is shown under it
         stopPlay();
         stage.setMode(StageMode.THINKING);
-        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
+        String who = "DVINE";
         armThink(planning ? "Planning" : readOnly ? "Reading the files" : "Thinking", "Writing");
         final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
         final ai.dvine.connect.ConnectorStore connectors = new ai.dvine.connect.ConnectorStore(this);
@@ -3008,7 +3008,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         markRunning(null, null);
-        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
+        String who = "DVINE";
         String shown = task.length() > 80 ? task.substring(0, 80) + "\u2026" : task;
         String record = ai.dvine.scribe.Scribe.pending(new java.io.File(getFilesDir(), "ibiko"));
         new androidx.appcompat.app.AlertDialog.Builder(this)
@@ -3061,7 +3061,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String context = chats == null ? "" : chats.transcript(model.remoteOn() ? 6000 : 1500, model.remoteOn() ? 1500 : 300);
         hub.worker.execute(() -> {
             ai.dvine.llm.ReplyService.hold(this);
-            final String council = ai.dvine.agent.AgentBoard.start("Council \u00B7 Obi, Ivie, Ibiko", question, brainLabel());
+            final String council = ai.dvine.agent.AgentBoard.start("DVINE \u00B7 council", question, brainLabel());
             ai.dvine.agent.Council.Result r;
             try {
                 r = ai.dvine.agent.Council.run((system, prompt) -> model.task(system, prompt,
@@ -3094,7 +3094,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 play(LocalTurn.speakAs(speaker, done.answer), null);
                 if (ai.dvine.agent.Council.building(question) && !"ibiko".equals(speaker) && chats != null && chatPane != null) {
                     // something to build: Ibiko is offered the agreed plan to carry out, in a chat of his own
-                    String plan = question + "\n\nThe council's plan (Obi, checked by Ivie):\n" + done.obi
+                    String plan = question + "\n\nThe council's plan (planned, then checked):\n" + done.obi
                             + "\n\nIvie's real-world and UI/UX notes:\n" + done.ivie
                             + (done.ibiko.isEmpty() ? "" : "\n\nHow you said you'd build it:\n" + done.ibiko);
                     chatPane.postDelayed(() -> {
@@ -3155,8 +3155,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (chatPane == null || chats == null) {
             return;
         }
-        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
-        chatPane.assistant(persona, "That's Ibiko's work: he writes, runs and tests code on this device. Tap below and I'll hand it"
+        String who = "DVINE";
+        chatPane.assistant(persona, "That's DVINE's work: he writes, runs and tests code on this device. Tap below and I'll hand it"
                 + " to him; he starts on it in a new chat of his." + (who.isEmpty() ? "" : ""));
         chats.add("assistant", "handoff", "ibiko\n" + task, persona);
         chatPane.show();
@@ -3309,7 +3309,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         ai.dvine.agent.IbikoMode m = ai.dvine.agent.IbikoMode.of(prefs);
         boolean auto = m == ai.dvine.agent.IbikoMode.AUTO;
         mode.setText(m.label);
-        mode.setContentDescription("Ibiko's mode: " + m.label + ". " + m.about + ". Tap to choose.");
+        mode.setContentDescription("DVINE's mode: " + m.label + ". " + m.about + ". Tap to choose.");
         mode.setSelected(auto);
         mode.setTextColor(getColor(auto ? R.color.on_accent : R.color.text_secondary));
     }
@@ -3322,7 +3322,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         for (int i = 0; i < all.length; i++) {
             items[i] = new ai.dvine.chat.ui.BottomSheet.Item(icons[i], all[i].label, all[i].about);
         }
-        ai.dvine.chat.ui.BottomSheet.show(this, "Select mode", "Choose how Ibiko should work", items,
+        ai.dvine.chat.ui.BottomSheet.show(this, "Select mode", "Choose how DVINE should work", items,
                 ai.dvine.agent.IbikoMode.of(prefs).ordinal(), which -> {
                     ai.dvine.agent.IbikoMode.set(prefs, all[which]);
                     showIbikoMode("ibiko".equals(stage.agent()));
@@ -3337,8 +3337,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         ai.dvine.chat.ui.BottomSheet.Item[] items = {
                 new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mode_edits, "Yes, accept edits", "Changes files; asks before commands and pushes"),
                 new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mode_auto, "Yes, auto", "Runs everything without asking"),
-                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mode_plan, "No, keep planning", "Tell Ibiko what to change in the plan")};
-        ai.dvine.chat.ui.BottomSheet.show(this, "Carry out Ibiko's plan?", null, items, -1, which -> {
+                new ai.dvine.chat.ui.BottomSheet.Item(R.drawable.ic_mode_plan, "No, keep planning", "Tell DVINE what to change in the plan")};
+        ai.dvine.chat.ui.BottomSheet.show(this, "Carry out DVINE's plan?", null, items, -1, which -> {
             if (which == 2) {
                 return;
             }
@@ -3576,8 +3576,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             handedOver = false;
             // one assistant: Ibiko answers everything (talk, research, writing, design, code). Only with no brain at
             // all do the old wording routes still pick among the three
-            String owner = brainReads() || dvineOwn() ? "ibiko" : mentioned != null ? mentioned
-                    : ai.dvine.agent.Handoff.groupRoute(text, stage.agent());
+            String owner = "ibiko"; // the one assistant's own key inside the app; it is shown as DVINE
             if (owner != null && !owner.equals(stage.agent())) {
                 selectPersona(owner);
                 if (!groupChat()) {
@@ -4460,7 +4459,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             case MODE_PLAN:
                 ai.dvine.agent.IbikoMode.set(prefs, ai.dvine.agent.IbikoMode.PLAN);
                 showIbikoMode("ibiko".equals(stage.agent()));
-                play(LocalTurn.speakAs(stage.agent(), "Plan mode is on: Ibiko reads and makes a plan, and asks before changing anything."), null);
+                play(LocalTurn.speakAs(stage.agent(), "Plan mode is on: DVINE reads and makes a plan, and asks before changing anything."), null);
                 break;
             case AUTO_ON:
             case AUTO_OFF:
@@ -4468,8 +4467,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : ai.dvine.agent.IbikoMode.EDITS);
                 showIbikoMode("ibiko".equals(stage.agent()));
                 play(LocalTurn.speakAs(stage.agent(), c == ai.dvine.turn.Meaning.Command.AUTO_ON
-                        ? "Auto-accept is on: Ibiko runs commands, pushes and pull requests without asking."
-                        : "Auto-accept is off: Ibiko asks before running commands, pushes and pull requests."), null);
+                        ? "Auto-accept is on: DVINE runs commands, pushes and pull requests without asking."
+                        : "Auto-accept is off: DVINE asks before running commands, pushes and pull requests."), null);
                 break;
             case CLEAR_WORKSPACE:
                 clearWorkspace();
@@ -4521,7 +4520,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void clearWorkspace() {
         final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Delete everything in Ibiko's workspace on this device: the cloned repositories, the sandbox and its"
+                .setMessage("Delete everything in DVINE's workspace on this device: the cloned repositories, the sandbox and its"
                         + " files? Changes that weren't pushed are lost.")
                 .setPositiveButton("Delete", (d, w) -> new Thread(() -> {
                     deleteTree(ws);
@@ -4530,7 +4529,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         f.delete(); // every chat's kept work
                     }
                     handler.post(() -> play(LocalTurn.speakAs(stage.agent(),
-                            "Done. Ibiko's workspace on this device is empty."), null));
+                            "Done. DVINE's workspace on this device is empty."), null));
                 }, "dvine-clear-workspace").start())
                 .setNegativeButton("Keep it", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Okay, nothing was deleted."), null))
                 .show();
@@ -4754,7 +4753,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         writing.add(id);
         final boolean ivie = stage.isIvie();
         final String agent = stage.agent();
-        final String worker = ai.dvine.agent.AgentBoard.start(cap(agent) + " \u00B7 reply", question, brainLabel());
+        final String worker = ai.dvine.agent.AgentBoard.start("DVINE \u00B7 reply", question, brainLabel());
         replyWorkers.put(id, worker);
         stopPlay();
         stage.setMode(StageMode.THINKING);
@@ -5291,7 +5290,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
             String face = stage.agent();
-            sub.setText(face.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + face.substring(1) + " · " + brainLabel());
+            sub.setText("DVINE AI · " + brainLabel());
         }
     }
 
@@ -5440,7 +5439,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 if (tell) {
                     play(LocalTurn.speakAs(stage.agent(), ok
-                            ? "My model is ready and in sync with DVINE. It knows Ivie, Obi and Ibiko, what this app can do"
+                            ? "My model is ready and in sync with DVINE. It knows what this app can do"
                                     + (taught > 0
                                             ? ", and the "
                                                     + (taught == 1 ? "thing" : taught + " things")
@@ -5735,8 +5734,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void discuss(final ai.dvine.turn.DualAgentCoordinator.Request r) {
         stopPlay();
         final String first = r.first != null ? r.first : stage.agent();
-        armThink(first.equals("ivie") ? "Ivie is preparing, then Obi"
-                : "Obi is preparing, then Ivie", "Writing the line");
+        armThink("Preparing both sides", "Writing the line");
         final boolean online = desk != null && connectivity != null && connectivity.isOnline()
                 && serverUrl() != null && serverUrl().trim().startsWith("https://");
         final ai.dvine.turn.DualAgentCoordinator c = new ai.dvine.turn.DualAgentCoordinator(

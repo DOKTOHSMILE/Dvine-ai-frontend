@@ -24,7 +24,7 @@ public final class CodeAgent {
     /** The default number of steps; Settings › Advanced changes it ({@link #steps}). */
     public static final int MAX_STEPS = 15;
     private int maxSteps = MAX_STEPS;
-    private String persona = "Ibiko";
+    private String persona = "DVINE";
     private boolean readOnly;
     static final int RESULT_CHARS = 6000, FILE_CHARS = 24_000;
 
@@ -237,7 +237,7 @@ public final class CodeAgent {
      * the connectors, but no writing, commands or pushes (that is Ibiko's work).
      */
     public CodeAgent as(String persona, boolean readOnly) {
-        this.persona = persona == null || persona.isEmpty() ? "Ibiko" : persona;
+        this.persona = persona == null || persona.isEmpty() ? "DVINE" : persona;
         this.readOnly = readOnly;
         return this;
     }
@@ -456,7 +456,7 @@ public final class CodeAgent {
                 + IbikoMode.PLAN_RULES + "\n" : "") + (planning ? "" : (readOnly
                 ? "You are " + persona + ", reading the files on the user's device (the workspace: cloned repositories and"
                         + " projects) to answer them. Any model can do this: the files come to you as text through the tools."
-                        + " You only read here; changing files, running commands and pushing are Ibiko's work."
+                        + " You only read here; changing files, running commands and pushing are DVINE's work."
                 : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. You have a project"
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it."))
@@ -491,8 +491,8 @@ public final class CodeAgent {
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
                 + (readOnly || !squad || depth >= 2 ? "" : depth == 1 ? Squad.HANDS : Squad.TOOL)
                 + (worker || !handoverOn ? "" : "<tool name=\"handover\" to=\"obi|ivie\"/> (only when the message is not yours at all:"
-                        + " ordinary talk, a question about the world, research or a report is Obi's; a story, a script, a drawing or a"
-                        + " design is Ivie's. They answer it instead of you. Code, commands, files, repositories and Linux are yours.)\n")
+                        + " ordinary talk, a question about the world, research or a report; a story, a script, a drawing or a"
+                        + " design. It is answered as a reply instead. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
                         + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
@@ -1415,7 +1415,7 @@ public final class CodeAgent {
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
                 || c.name.equals("make_file") || c.name.equals("zip") || c.name.equals("unzip"))) {
             return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."
-                    : "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
+                    : "Only reading here: changing files, commands and git are DVINE's. Say so in your answer.";
         }
         switch (c.name) {
             case "workers":
@@ -1442,6 +1442,12 @@ public final class CodeAgent {
                 }
                 boolean existed = f.exists();
                 String before = existed ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8) : "";
+                if (existed && planFile(f)) {
+                    String lost = Blueprint.kept(before, c.body);
+                    if (lost != null) {
+                        return lost; // a plan grows: the new plan is added to the old one, which is never thrown away
+                    }
+                }
                 Files.write(f.toPath(), c.body.getBytes(StandardCharsets.UTF_8));
                 note(c.a("path"));
                 int lines = c.body.isEmpty() ? 0 : c.body.split("\n", -1).length;
@@ -1469,6 +1475,12 @@ public final class CodeAgent {
                     return "The old text is in " + c.a("path") + " more than once. Include more lines so it is unique.";
                 }
                 String after = text.substring(0, at) + now + text.substring(at + old.length());
+                if (planFile(f)) {
+                    String lost = Blueprint.kept(text, after);
+                    if (lost != null) {
+                        return lost;
+                    }
+                }
                 Files.write(f.toPath(), after.getBytes(StandardCharsets.UTF_8));
                 note(c.a("path"));
                 ai.dvine.connect.LineDiff.Result d = ai.dvine.connect.LineDiff.of(text, after);
@@ -1699,6 +1711,11 @@ public final class CodeAgent {
         if (!changed.contains(p)) {
             changed.add(p);
         }
+    }
+
+    /** A plan file: PLAN.md, a blueprint, a to-do or roadmap list. Its steps are kept when it is written again. */
+    static boolean planFile(File f) {
+        return f != null && f.getName().matches("(?i)(plan|blueprint|todo|to-do|roadmap|tasks)(\\.[a-z0-9_-]+)*\\.(md|txt)");
     }
 
     /** A path inside the workspace, or an error: nothing outside it is read or written. */

@@ -98,7 +98,14 @@ public final class Scribe {
         projectDir = new File(workspace, "memory/projects/" + key);
         projectDir.mkdirs();
         write("PROJECT_MANIFEST.json", manifest(persona));
-        write("PROJECT_PLAN.md", survey.plan(current.instruction));
+        String planned = section("PROJECT_PLAN.md");
+        if (planned.trim().isEmpty()) {
+            write("PROJECT_PLAN.md", survey.plan(current.instruction));
+        } else {
+            // a new instruction for the same project is added to its plan; the plan that is there is never replaced
+            append("PROJECT_PLAN.md", "\n## Added " + new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(new java.util.Date())
+                    + "\n\n" + clip(current.instruction, 600) + "\n");
+        }
         write("PROJECT_MAP.md", survey.map());
         if (section("PROGRESS.md").trim().isEmpty()) {
             write("PROGRESS.md", "# Progress\n\n- Surveyed the workspace (" + survey.files
