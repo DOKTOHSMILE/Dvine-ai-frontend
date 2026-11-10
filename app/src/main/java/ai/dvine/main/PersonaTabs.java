@@ -80,7 +80,8 @@ public final class PersonaTabs {
 
     /** Choose this persona: its face on stage, its chats in the drawer, its name in the header, its tab lit. */
     public void select(String persona, boolean fromTap) {
-        if (persona == null || persona.isEmpty() || !host.hasStage())
+        persona = "ibiko"; // one assistant: every page, chat and voice is Ibiko's, whatever an older caller asks for
+        if (!host.hasStage())
             return;
         android.content.SharedPreferences prefs = host.prefs();
         if (prefs != null)
@@ -96,12 +97,11 @@ public final class PersonaTabs {
         }
         android.widget.TextView sub = host.find(ai.dvine.R.id.tv_header_sub);
         if (sub != null) {
-            String name = "Ibiko";
-            sub.setText(name + " · " + host.brainLabel());
+            sub.setText(host.brainLabel()); // the title already says Ibiko: the line under it names the model only
         }
         android.widget.TextView mark = host.find(ai.dvine.R.id.empty_mark);
         if (mark != null) {
-            mark.setText(persona.substring(0, 1).toUpperCase(java.util.Locale.ROOT));
+            mark.setText("I"); // Ibiko
         }
         host.showIbikoMode("ibiko".equals(persona));
         if (fromTap) {

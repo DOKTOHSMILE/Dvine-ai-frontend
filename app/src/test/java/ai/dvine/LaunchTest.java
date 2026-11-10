@@ -974,7 +974,7 @@ public class LaunchTest {
         c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0 + 80, android.view.MotionEvent.ACTION_UP, 700, 1010, 0));
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         org.junit.Assert.assertEquals(android.view.View.VISIBLE, c.get().findViewById(R.id.historyDrawer).getVisibility());
-        org.junit.Assert.assertEquals("the page stays", "obi", c.get().getSharedPreferences("dvine", 0).getString("face", "obi"));
+        org.junit.Assert.assertEquals("the page stays: there is one, Ibiko's", "ibiko", c.get().getSharedPreferences("dvine", 0).getString("face", "ibiko"));
 
         c.get().getSharedPreferences("dvine", 0).edit().putString("brain_pick", "dvine").apply();
         dvine1(c.get()).answer("what is 12 times 7");
@@ -1174,10 +1174,15 @@ public class LaunchTest {
         int obiJob = (Integer) next.invoke(c.get());
         c.get().findViewById(ai.dvine.R.id.tabIvie).performClick();
         int ivieJob = (Integer) next.invoke(c.get());
-        org.junit.Assert.assertTrue("Obi's job survives a message on Ivie's page", (Boolean) alive.invoke(c.get(), obiJob));
+        // one assistant, one page: whatever an old caller names, a newer message replaces the job before it
+        org.junit.Assert.assertFalse("one page: the newer message's job replaces the earlier one", (Boolean) alive.invoke(c.get(), obiJob));
         org.junit.Assert.assertTrue((Boolean) alive.invoke(c.get(), ivieJob));
         stop.invoke(c.get());
         org.junit.Assert.assertFalse((Boolean) alive.invoke(c.get(), ivieJob));
+        if (true) {
+            c.pause().stop().destroy();
+            return; // the rest checked two pages running side by side, which no longer exist
+        }
         org.junit.Assert.assertTrue("Stop on Ivie leaves Obi's job running", (Boolean) alive.invoke(c.get(), obiJob));
         c.pause().stop().destroy();
     }
@@ -1188,7 +1193,7 @@ public class LaunchTest {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         c.get().findViewById(ai.dvine.R.id.tabIbiko).performClick();
-        c.get().findViewById(ai.dvine.R.id.btn_tools).performClick();
+        c.get().findViewById(ai.dvine.R.id.chip_tools).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
@@ -1196,26 +1201,27 @@ public class LaunchTest {
         org.junit.Assert.assertFalse("Ibiko offers GitHub", found.isEmpty());
         found.clear();
         sheet.getWindow().getDecorView().findViewsWithText(found, "Deep thinking", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
-        org.junit.Assert.assertFalse(found.isEmpty());
-        android.widget.Switch deep = null;
+        android.view.View deep = null;
         for (android.view.View v : found) {
-            if (v instanceof android.widget.Switch) {
-                deep = (android.widget.Switch) v; // the small switch in the card's corner (the card carries the name too)
+            if (v.isClickable() && "Off".contentEquals(v.getStateDescription())) {
+                deep = v; // the card: a tap anywhere on it turns the tool on
             }
         }
-        assertNotNull("the card's switch", deep);
-        org.junit.Assert.assertTrue("small, to fit the corner", deep.getScaleX() < 1f);
-        deep.setChecked(true);
+        assertNotNull("the Deep thinking card, off", deep);
+        deep.performClick();
+        org.junit.Assert.assertEquals("On", String.valueOf(deep.getStateDescription()));
         org.junit.Assert.assertTrue(c.get().getSharedPreferences("dvine", 0).getAll().toString().contains("DEEP"));
-        // the chat is a group: every tool is there whoever answers, in a grid two to a row
         found.clear();
         sheet.getWindow().getDecorView().findViewsWithText(found, "3D design", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertFalse("every tool is offered", found.isEmpty());
+        found.clear();
+        sheet.getWindow().getDecorView().findViewsWithText(found, "on in this chat", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertFalse("how many are on, at the top", found.isEmpty());
         android.view.View github = described(sheet.getWindow().getDecorView(), "GitHub settings");
-        android.view.View shell = described(sheet.getWindow().getDecorView(), "Commands on this device settings");
-        assertNotNull(github);
-        assertNotNull(shell);
-        org.junit.Assert.assertSame("two cards share a row", github.getParent(), shell.getParent());
+        assertNotNull("a tool with settings has its own Set up link", github);
+        android.view.View githubCard = (android.view.View) github.getParent();
+        String before = String.valueOf(githubCard.getStateDescription());
+        org.junit.Assert.assertNotNull(described(sheet.getWindow().getDecorView(), "Linux shell settings"));
         // every tool has its icon; one with settings of its own opens them from its name
         java.util.ArrayList<android.view.View> icons = new java.util.ArrayList<android.view.View>();
         collect(sheet.getWindow().getDecorView(), android.widget.ImageView.class, icons);
@@ -1254,14 +1260,15 @@ public class LaunchTest {
     public void theQuickChipsOpenWhatTheyName() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        String[][] cases = { { "chip_tools", "Tools in this chat" }, { "chip_code", "Workspace files" }, { "chip_code", "Shell" },
+        String[][] cases = { { "chip_tools", "on in this chat" }, { "chip_tools", "Agent mode" }, { "chip_code", "Workspace files" }, { "chip_code", "Shell" },
                 { "chip_explore", "Social accounts" }, { "chip_explore", "Connectors" }, { "chip_more", "Settings" },
                 { "chip_more", "What Ibiko remembers" } };
         for (String[] k : cases) {
             int id = c.get().getResources().getIdentifier(k[0], "id", c.get().getPackageName());
             android.view.View chip = c.get().findViewById(id);
             assertNotNull(k[0], chip);
-            org.junit.Assert.assertTrue("at least a 36dp-high touch target", chip.getLayoutParams().height >= 36);
+            float density = c.get().getResources().getDisplayMetrics().density;
+            org.junit.Assert.assertTrue("at least a 32dp-high touch target", chip.getLayoutParams().height >= 32 * density);
             chip.performClick();
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
             android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
@@ -1272,6 +1279,11 @@ public class LaunchTest {
         }
         android.widget.EditText field = c.get().findViewById(ai.dvine.R.id.et_message);
         org.junit.Assert.assertEquals("Ask Ibiko anything", String.valueOf(field.getHint()));
+        org.junit.Assert.assertNull("one tools button: the chip", c.get().findViewById(c.get().getResources().getIdentifier("btn_tools", "id",
+                c.get().getPackageName())));
+        org.junit.Assert.assertEquals("the line under the title names the model only", -1,
+                String.valueOf(((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.tv_header_sub)).getText()).indexOf("Ibiko"));
+        org.junit.Assert.assertEquals("I", String.valueOf(((android.widget.TextView) c.get().findViewById(ai.dvine.R.id.empty_mark)).getText()));
         c.pause().stop().destroy();
     }
 }

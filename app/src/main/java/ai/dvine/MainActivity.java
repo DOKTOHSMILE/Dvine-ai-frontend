@@ -869,11 +869,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.view.View send = findViewById(R.id.btn_send);
         android.view.View voice = findViewById(R.id.btn_voice);
         android.view.View attach = findViewById(R.id.btn_attach);
-        android.view.View toolsButton = findViewById(R.id.btn_tools);
-        if (toolsButton != null) {
-            toolsButton.setOnClickListener(v -> toolsMenu.showToolsSheet());
-        }
-        bindQuickRow();
+        bindQuickRow(); // Tools lives in the chip row now: one tools button, not two
         if (field != null) {
             field.setOnEditorActionListener((v, actionId, event) -> {
                 if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
@@ -2815,6 +2811,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 model.remoteOn() ? 6000 : Math.max(220, model.window() / 6)); // what was already found, as much as the model can hold
         final String tools = connectorTools();
         model.coding = true;
+        showIbikoMode(true); // the agent's mode in the header while it works
         final String agentId = ai.dvine.config.ModelRegistry.agentIdFor(persona); // Obi reads, Ivie reviews, Ibiko writes
         final ai.dvine.config.ModelRegistry.Agent agentRow = ai.dvine.config.ModelRegistry.of(this).agent(agentId);
         final int taskTier = ai.dvine.chat.Tuning.TASK_TIER.get(prefs); // 0 = auto
@@ -3038,6 +3035,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             handler.post(() -> {
                 model.coding = false;
+                showIbikoMode(false); // the job is over: the mode goes back into the Tools sheet
                 handler.post(releaseHeld); // a message held while Ibiko worked goes now, even if this page moved on
                 refreshSend();
                 if (!alive(id) || isFinishing()) {
@@ -3399,7 +3397,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (mode == null) {
             return;
         }
-        mode.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
+        // in the header only while an agent job runs, to change it mid-job; otherwise it lives in the Tools sheet and
+        // the title stays centred
+        boolean working = model != null && model.coding;
+        mode.setVisibility(visible && working ? android.view.View.VISIBLE : android.view.View.GONE);
         ai.dvine.agent.IbikoMode m = ai.dvine.agent.IbikoMode.of(prefs);
         boolean auto = m == ai.dvine.agent.IbikoMode.AUTO;
         mode.setText(m.label);
@@ -3409,7 +3410,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** "Select mode": Auto, Accept edits or Plan, the current one checked, as in Claude Code. */
-    private void chooseIbikoMode() {
+    void chooseIbikoMode() {
         final ai.dvine.agent.IbikoMode[] all = ai.dvine.agent.IbikoMode.values();
         int[] icons = {R.drawable.ic_mode_auto, R.drawable.ic_mode_edits, R.drawable.ic_mode_plan};
         ai.dvine.chat.ui.BottomSheet.Item[] items = new ai.dvine.chat.ui.BottomSheet.Item[all.length];
@@ -5456,8 +5457,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
-            String face = stage.agent();
-            sub.setText("Ibiko · " + brainLabel());
+            sub.setText(brainLabel()); // the title already says Ibiko
         }
     }
 

@@ -483,7 +483,7 @@ public final class CodeAgent {
                         + " ls cat grep find wc head tail mkdir cp mv rm unzip echo and the rest of help."
                         + " Runs in the workspace folder, as the app, so only the app's own files are touched."
                         + " Use one command per tool call: a chain like a && b is fine, and so is a pipe or >. python, git, pkg and compilers are not bundled"
-                        + " until Linux is set up from Tools › Commands on this device:"
+                        + " until Linux is set up from Tools › Linux shell:"
                         + " the result says so, it does not pretend. The device asks first unless auto-accept is on.)\n")
                 + (readOnly || !host.termuxReady() ? "" : "<tool name=\"termux\" path=\"FOLDER\" command=\"python3 main.py\"/> (the same"
                         + " Alpine Linux as run, inside Ibiko. The Termux app is not opened. path is the folder it runs in."
