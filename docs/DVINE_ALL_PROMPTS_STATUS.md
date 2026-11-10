@@ -211,6 +211,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 178 | Ivie for stories and scripts and Obi for reports use the plan mechanism; a task given to the wrong persona moves to the right one's chat as if never sent to the first; group chat opinion; a more flexible poster; earlier unbuilt tasks; icons and standard features for the social media manager | P12 | Built (hand-off, writing plan, Social accounts screen, poster choices; group chat proposed, not built; JVM tests; device check pending) | 0.99.46 |
 | 179 | A toggle to allow auto post on the pilot's behalf; build the group chat | P12 | Built (JVM tests; device check pending) | 0.99.47 |
 | 180 | The bottom persona toggle is no longer needed with the group chat (screenshot) | P12 | Built (buttons hidden in the group; the words choose who answers; JVM tests; device check pending) | 0.99.48 |
+| 181 | Persona icon beside the name on replies; Listen reads only the response, in that persona's voice; African voices | P12 | Built (icons and names; Listen per persona; African voices ranked first; the voices themselves must be installed on the device; device check pending) | 0.99.49 |
+| 182 | Switch completely to the group chat, permanently; build what was missing | P12 | Built (the group is the only chat; Share › DVINE added). Still not built: several personas at once, post watcher, offline neural voices | 0.99.49 |
+| 183 | Device bugs (screenshots): `<severity>0</severity>` as a reply; Ibiko's line under Obi's name; "Pull it now" searched on the web; Obi pointing to Termux; survey reading bookkeeping files; squeezed Workload line | P12 | Built (JVM tests; device check pending) | 0.99.49 |
 
 ## Still open, in the order that matters
 

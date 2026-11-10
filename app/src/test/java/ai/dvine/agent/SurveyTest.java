@@ -60,4 +60,12 @@ public class SurveyTest {
     public void nothingRelevantGivesNoMap() throws Exception {
         assertNull(Survey.run(project(), "zzzz qqqq", (s, t) -> "x", 2, null));
     }
+
+    @Test
+    public void theScribesOwnFilesAndTheFolderNameAreNotTheCode() throws Exception {
+        java.io.File root = java.nio.file.Files.createTempDirectory("clone-https-github-com-me-app").toFile();
+        java.nio.file.Files.write(new java.io.File(root, "NEXT_ACTIONS.md").toPath(), "clone the github repo app".getBytes("UTF-8"));
+        java.nio.file.Files.write(new java.io.File(root, "EXECUTION.json").toPath(), "{\"task\":\"clone app\"}".getBytes("UTF-8"));
+        assertTrue("nothing but DVINE's bookkeeping: no survey", Survey.pick(root, "Clone https://github.com/me/app.git").isEmpty());
+    }
 }

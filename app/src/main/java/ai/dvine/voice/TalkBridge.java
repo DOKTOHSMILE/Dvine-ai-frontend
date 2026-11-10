@@ -179,8 +179,11 @@ public final class TalkBridge extends UtteranceProgressListener {
     /** The online voices (the most human-sounding) may be used: Settings › Voice › Natural voices. */
     private final boolean natural;
 
+    private final android.content.SharedPreferences prefs;
+
     public TalkBridge(Context context) {
-        natural = context.getSharedPreferences("dvine", Context.MODE_PRIVATE).getBoolean("natural_voices", false);
+        prefs = context.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        natural = prefs.getBoolean("natural_voices", false);
         tts = new TextToSpeech(context.getApplicationContext(), status -> {
             ready = status == TextToSpeech.SUCCESS;
             if (ready) {
@@ -430,6 +433,13 @@ public final class TalkBridge extends UtteranceProgressListener {
         ranked = VoiceTuning.rank(list, natural);
         missing = VoiceTuning.missing(ranked);
         String[] picks = VoiceTuning.pick(ranked);
+        // once, when the device has African English voices: the personas move to them from a voice chosen before
+        // (afterwards a voice the user picks by hand is kept)
+        if (!prefs.getBoolean("voices_african", false) && VoiceTuning.african(ranked, picks[0]) && VoiceTuning.african(ranked, picks[1])) {
+            tuning[0].voice = picks[0];
+            tuning[1].voice = picks[1];
+            prefs.edit().putBoolean("voices_african", true).apply();
+        }
         if (tuning[0].voice == null || !byName.containsKey(tuning[0].voice)) {
             tuning[0].voice = picks[0];
         }

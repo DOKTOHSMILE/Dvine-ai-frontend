@@ -56,6 +56,20 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".chat.ui.ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="@string/app_name"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <!-- Share › DVINE from any app: the file, picture or text lands in the composer, ready to send -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".chat.ui.CodeViewActivity"
             android:exported="false"
             android:theme="@style/Theme.Dvine" />

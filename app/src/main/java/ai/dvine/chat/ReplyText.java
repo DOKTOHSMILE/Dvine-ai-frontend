@@ -22,6 +22,8 @@ public final class ReplyText {
         s = s.replaceAll("(?s)<tool\\b[^>]*>.*?</tool>", "");
         s = s.replaceAll("(?s)<tool\\b[^>]*/>", "");
         s = s.replaceAll("(?s)</?final>", "");
+        // a gateway's own moderation or scoring tags are not the reply ("<severity>0</severity>")
+        s = s.replaceAll("(?is)<(severity|score|moderation|safety|category|flag(?:ged)?|risk|confidence)>[^<]{0,80}</\\1>", "");
         s = MessageParts.normalizeFences(s);
         String[] lines = s.split("\n", -1);
         StringBuilder out = new StringBuilder();

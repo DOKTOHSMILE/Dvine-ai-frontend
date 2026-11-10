@@ -64,8 +64,12 @@ public final class ReadAloud {
      * sentence. True when it is reading now.
      */
     public boolean toggleReading(String text) {
+        return toggleReading(text, host.agent());
+    }
+
+    /** As {@link #toggleReading(String)}, in {@code agent}'s own voice: the one who wrote the reply reads it. */
+    public boolean toggleReading(String text, String agent) {
         ai.dvine.voice.TalkBridge talk = host.talk();
-        String agent = host.agent();
         if (talk == null || agent == null || text == null || text.trim().isEmpty()) {
             return false;
         }
@@ -98,6 +102,7 @@ public final class ReadAloud {
             host.readingStopped();
             return;
         }
+        talk.setRobot("ibiko".equals(persona)); // Ibiko's own voice, not Obi's
         talk.speak("ivie".equals(persona), readingSentences.get(readingAt), () -> {
             if (!readingOn) {
                 return;

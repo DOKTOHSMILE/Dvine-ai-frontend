@@ -941,11 +941,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private String runAgent;
 
     /**
-     * The group chat (Settings: one thread for Obi, Ivie and Ibiko, like a group of people): the persona buttons pick
-     * who you talk to, and everyone's messages are in the one conversation. Off: three pages, as before.
+     * The chat is a group: one thread for Obi, Ivie and Ibiko, like a group of people. Everyone's messages are in the
+     * one conversation and the words choose who answers. It is the only kind of chat (the three separate pages are gone).
      */
     boolean groupChat() {
-        return prefs == null || prefs.getBoolean("group_chat", true);
+        return true;
     }
 
     /**
@@ -1131,6 +1131,26 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** Adds a picked file to the message being written (read off the main thread). */
+    /**
+     * Share › DVINE from another app ({@link ai.dvine.chat.ui.ShareActivity}): the files and pictures are attached to
+     * the composer and shared text is put in the field. Nothing is sent until the user sends it.
+     */
+    private void takeShared() {
+        ai.dvine.chat.ui.ShareActivity.Shared got = ai.dvine.chat.ui.ShareActivity.take();
+        if (got == null) {
+            return;
+        }
+        for (android.net.Uri u : got.files) {
+            attachPicked(u);
+        }
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (got.text != null && !got.text.isEmpty() && field != null) {
+            String before = field.getText().toString();
+            field.setText(before.trim().isEmpty() ? got.text : before + "\n" + got.text);
+            field.setSelection(field.getText().length());
+        }
+    }
+
     private void attachPicked(final android.net.Uri uri) {
         note("Attaching\u2026");
         new Thread(() -> {
@@ -1426,6 +1446,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             @Override
             public boolean onReadAloudToggle(String text) {
                 return toggleReading(text);
+            }
+
+            @Override
+            public boolean onReadAloudToggle(String text, String persona) {
+                return readAloudHelper.toggleReading(text, persona);
             }
 
             @Override
@@ -6342,6 +6367,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onResume() {
         super.onResume();
+        handler.postDelayed(this::takeShared, 400); // something shared to DVINE from another app
         inFront = true;
         showPersonaBar(); // Settings may have turned the group chat on or off
         connectivity.start();
