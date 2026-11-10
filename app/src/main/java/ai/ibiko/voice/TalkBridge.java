@@ -1,0 +1,552 @@
+package ai.ibiko.voice;
+
+import android.content.Context;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+
+import android.speech.tts.Voice;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
+/**
+ * One utterance at a time, in each persona's own voice. Voices are chosen by
+ * {@link VoiceTuning} (Nigerian English first, a different voice for each
+ * persona) and can be tuned by voice; inner thoughts use the same voice,
+ * a little softer, lower and slower.
+ */
+public final class TalkBridge extends UtteranceProgressListener {
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final TextToSpeech tts;
+    private boolean ready;
+    private int generation;
+    private TalkDone pending;
+    private Listener listener;
+    private final VoiceTuning[] tuning = {VoiceTuning.defaults(false), VoiceTuning.defaults(true)};
+    private List<VoiceTuning.Candidate> ranked = new ArrayList<VoiceTuning.Candidate>();
+    private final java.util.Map<String, Voice> byName = new java.util.HashMap<String, Voice>();
+    private final java.util.Map<String, String> genders = new java.util.HashMap<String, String>();
+    /** "male" or "female" when the phone has no voice of that gender (a persona borrows one), else null. */
+    private volatile String missing;
+
+    /** Lets the ambience swell while a line is spoken. */
+    public interface Listener {
+        void onSpeaking(boolean ivie, boolean speaking);
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    /** Told when reading starts, pauses, carries on or ends (for the notification with Pause and Stop). */
+    public interface StateListener {
+        /** {@code reading}: something is being read or is paused; {@code text}: the sentence it is on. */
+        void onState(boolean reading, boolean paused, String text, boolean ivie);
+    }
+
+    private StateListener state;
+
+    public void setStateListener(StateListener l) {
+        state = l;
+    }
+
+    /** A sentence waiting in the queue, or being read: kept so a pause can carry on from it. */
+    private static final class Line {
+        final boolean ivie;
+        final String text, id;
+
+        Line(boolean ivie, String text, String id) {
+            this.ivie = ivie;
+            this.text = text;
+            this.id = id;
+        }
+    }
+
+    private final List<Line> lines = new ArrayList<Line>();
+    /** What {@link #speak} is reading (one sentence with its callback), for a pause. */
+    private boolean sayIvie, sayThought;
+    private String sayText;
+    /** Paused: what to read again on {@link #resume}. */
+    private boolean paused;
+    private List<Line> pausedLines = new ArrayList<Line>();
+    private String pausedSay;
+    private boolean pausedSayIvie, pausedSayThought;
+    private TalkDone pausedDone;
+    private Runnable pausedQuiet;
+    private boolean lastIvie;
+
+    public boolean paused() {
+        return paused;
+    }
+
+    /** Whether something is being read (or waits, paused). */
+    public boolean reading() {
+        return paused || queued > 0 || pending != null;
+    }
+
+    /**
+     * Pauses reading: the phone's voice can't stop mid-word and carry on, so it stops and keeps the sentence it was
+     * on and those after it; {@link #resume} reads them from that sentence. False when nothing was being read.
+     */
+    public boolean pause() {
+        if (paused || !(queued > 0 || pending != null)) {
+            return false;
+        }
+        pausedLines = new ArrayList<Line>(lines);
+        pausedSay = pending != null ? sayText : null;
+        pausedSayIvie = sayIvie;
+        pausedSayThought = sayThought;
+        pausedDone = pending;
+        pausedQuiet = whenQuiet;
+        generation++;
+        pending = null;
+        queued = 0;
+        whenQuiet = null;
+        lines.clear();
+        if (tts != null) {
+            tts.stop();
+        }
+        paused = true;
+        tell(true, true, pausedSay != null ? pausedSay : pausedLines.isEmpty() ? "" : pausedLines.get(0).text, lastIvie);
+        return true;
+    }
+
+    /** Carries on from the sentence it was paused on. */
+    public boolean resume() {
+        if (!paused) {
+            return false;
+        }
+        paused = false;
+        List<Line> again = pausedLines;
+        Runnable quiet = pausedQuiet;
+        pausedLines = new ArrayList<Line>();
+        pausedQuiet = null;
+        if (pausedSay != null) {
+            String t = pausedSay;
+            pausedSay = null;
+            TalkDone d = pausedDone;
+            pausedDone = null;
+            say(pausedSayIvie, t, d, pausedSayThought, true);
+        }
+        for (Line l : again) {
+            queue(l.ivie, l.text, true);
+        }
+        if (quiet != null) {
+            whenQuiet(quiet);
+        }
+        if (pausedSay == null && again.isEmpty() && quiet == null) {
+            tell(false, false, "", lastIvie);
+        }
+        return true;
+    }
+
+    private void tell(final boolean reading, final boolean isPaused, final String text, final boolean ivie) {
+        final StateListener l = state;
+        if (l != null) {
+            main.post(() -> l.onState(reading, isPaused, text, ivie));
+        }
+    }
+
+    /** Nothing left to read: told after a moment, so the gap between two sentences doesn't count as the end. */
+    private final Runnable endCheck = () -> {
+        if (!reading()) {
+            tell(false, false, "", lastIvie);
+        }
+    };
+
+    private void maybeEnded() {
+        main.removeCallbacks(endCheck);
+        main.postDelayed(endCheck, 1200);
+    }
+
+    /** Told each word as the voice starts saying it (drives the mouth shapes). */
+    public interface WordListener {
+        void onWord(String word);
+    }
+
+    private WordListener words;
+    private volatile String speaking = "";
+
+    public void setWordListener(WordListener l) {
+        words = l;
+    }
+
+    /** The online voices (the most human-sounding) may be used: Settings › Voice › Natural voices. */
+    private final boolean natural;
+
+    private final android.content.SharedPreferences prefs;
+
+    public TalkBridge(Context context) {
+        prefs = context.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        natural = prefs.getBoolean("natural_voices", false);
+        tts = new TextToSpeech(context.getApplicationContext(), status -> {
+            ready = status == TextToSpeech.SUCCESS;
+            if (ready) {
+                main.post(this::loadVoices);
+            }
+        });
+        tts.setOnUtteranceProgressListener(this);
+    }
+
+    /** Opens the device's page for downloading voices (Google's voice data: the higher-quality voices). */
+    public static void installVoices(android.app.Activity a) {
+        try {
+            a.startActivity(new android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                    .setPackage("com.google.android.tts"));
+        } catch (RuntimeException noGoogle) {
+            try {
+                a.startActivity(new android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA));
+            } catch (RuntimeException none) {
+                a.startActivity(new android.content.Intent("com.android.settings.TTS_SETTINGS"));
+            }
+        }
+    }
+
+    /** Restores saved tuning (from preferences); null keeps the defaults. */
+    public void setTuning(boolean ivie, VoiceTuning t) {
+        if (t != null) {
+            tuning[ivie ? 1 : 0] = t;
+        }
+    }
+
+    public VoiceTuning tuning(boolean ivie) {
+        return tuning[ivie ? 1 : 0];
+    }
+
+    /** Applies a voice command for one persona. Returns true if it changed. */
+    public boolean adjust(boolean ivie, String command) {
+        String other = tuning[ivie ? 0 : 1].voice;
+        return tuning[ivie ? 1 : 0].apply(command, ivie, ranked, other);
+    }
+
+    /**
+     * Ibiko's voice is Obi's pitch and pace shifted by the robot constants in {@link VoiceTuning}: a little
+     * brighter, a little slower — the bright little robot next to Obi's baritone, without the sharp, hurried
+     * edge the system voice used to have.
+     */
+    private float bright(boolean ivie) {
+        return robot && !ivie ? VoiceTuning.ROBOT_BRIGHT : 1f;
+    }
+
+    private float quick(boolean ivie) {
+        return robot && !ivie ? VoiceTuning.ROBOT_QUICK : 1f;
+    }
+
+    private volatile boolean robot;
+    private volatile float rateScale = 1f;
+
+    /** Settings › Voice › Speaking speed (0.85, 1 or 1.2), on top of each persona's own pace. */
+    public void setRateScale(float scale) {
+        rateScale = Math.max(0.5f, Math.min(2f, scale));
+    }
+
+    /** Ibiko's voice: Obi's voice made a touch brighter and a touch slower ({@link VoiceTuning#ROBOT_BRIGHT}). */
+    public void setRobot(boolean on) {
+        robot = on;
+    }
+
+    public void speak(boolean ivie, String text, TalkDone done) {
+        say(ivie, text, done, false);
+    }
+
+    /** The inner-thought voice: same voice, softer, a touch lower and slower. */
+    public void whisper(boolean ivie, String text, TalkDone done) {
+        say(ivie, text, done, true);
+    }
+
+    private void say(boolean ivie, String text, TalkDone done, boolean thought) {
+        say(ivie, text, done, thought, false);
+    }
+
+    private void say(boolean ivie, String text, TalkDone done, boolean thought, boolean again) {
+        if (!again) {
+            dropPause(); // something new to read: what was paused is let go
+        }
+        text = SentenceStream.clean(text); // the words only: no **, <, " or other symbols read out
+        lines.clear();
+        final int token = ++generation;
+        pending = done;
+        queued = 0; // a flush drops the queued sentences
+        whenQuiet = null;
+        if (!ready || text == null || text.trim().isEmpty()) {
+            main.postDelayed(() -> finish(token), 280);
+            return;
+        }
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        Voice v = t.voice == null ? null : byName.get(t.voice);
+        if (v != null) {
+            tts.setVoice(v);
+        }
+        String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
+        float pitch = t.pitchFor(ivie, g);
+        float bright = bright(ivie), quick = quick(ivie);
+        tts.setPitch(VoiceTuning.warm((thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch) * bright));
+        tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick * rateScale);
+        speaking = text;
+        sayText = text;
+        sayIvie = ivie;
+        sayThought = thought;
+        lastIvie = ivie;
+        Bundle params = new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, thought ? VoiceTuning.THOUGHT_VOLUME : 1f);
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, (ivie ? "IVIE-" : "OBI-") + token);
+    }
+
+    /** Sentences queued by {@link #queue} that haven't finished being spoken. */
+    private int queued;
+    private int serial;
+    private Runnable whenQuiet;
+
+    /**
+     * Speaks a sentence after those already queued, without cutting them off: the reply is read out sentence by
+     * sentence while the model is still writing the rest.
+     */
+    public void queue(boolean ivie, String text) {
+        queue(ivie, text, false);
+    }
+
+    private void queue(boolean ivie, String text, boolean again) {
+        if (!again && paused) {
+            pausedLines.add(new Line(ivie, SentenceStream.clean(text), "")); // a reply still coming in: kept for Resume
+            return;
+        }
+        text = SentenceStream.clean(text);
+        if (!ready || text == null || text.trim().isEmpty()) {
+            return;
+        }
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        Voice v = t.voice == null ? null : byName.get(t.voice);
+        if (v != null && queued == 0) {
+            tts.setVoice(v);
+        }
+        String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
+        float bright = bright(ivie), quick = quick(ivie);
+        tts.setPitch(VoiceTuning.warm(t.pitchFor(ivie, g) * bright));
+        tts.setSpeechRate(t.rate * quick * rateScale);
+        speaking = text;
+        queued++;
+        lastIvie = ivie;
+        String id = (ivie ? "IVIE-Q" : "OBI-Q") + generation + "x" + queued + "n" + (++serial);
+        lines.add(new Line(ivie, text, id));
+        Bundle params = new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f);
+        tts.speak(text, TextToSpeech.QUEUE_ADD, params, id);
+    }
+
+    /** Whether queued sentences are still being read. */
+    public boolean talking() {
+        return queued > 0;
+    }
+
+    /** Runs {@code then} once the queued sentences have all been read (at once if there are none). */
+    public void whenQuiet(Runnable then) {
+        if (queued <= 0) {
+            then.run();
+        } else {
+            whenQuiet = then;
+        }
+    }
+
+    private void queueDone(String utteranceId) {
+        String gen = utteranceId.substring(utteranceId.indexOf("-Q") + 2, utteranceId.indexOf('x'));
+        main.post(() -> {
+            if (!gen.equals(String.valueOf(generation)) || queued <= 0) {
+                return;
+            }
+            for (int i = 0; i < lines.size(); i++) {
+                if (lines.get(i).id.equals(utteranceId)) {
+                    lines.remove(i);
+                    break;
+                }
+            }
+            queued--;
+            if (queued == 0) {
+                maybeEnded();
+            }
+            if (queued == 0 && whenQuiet != null) {
+                Runnable r = whenQuiet;
+                whenQuiet = null;
+                r.run();
+            }
+        });
+    }
+
+    public void stop() {
+        generation++;
+        pending = null;
+        queued = 0;
+        whenQuiet = null;
+        lines.clear();
+        boolean was = paused;
+        dropPause();
+        if (tts != null) {
+            tts.stop();
+        }
+        if (was) {
+            tell(false, false, "", lastIvie);
+        }
+        maybeEnded();
+    }
+
+    private void dropPause() {
+        paused = false;
+        pausedLines = new ArrayList<Line>();
+        pausedSay = null;
+        pausedDone = null;
+        pausedQuiet = null;
+    }
+
+    public void shutdown() {
+        stop();
+        if (tts != null) {
+            tts.shutdown();
+        }
+    }
+
+    /** Reads the engine's English voices, ranks them and fills in any persona without a saved voice. */
+    private void loadVoices() {
+        Set<Voice> all;
+        try {
+            all = tts.getVoices();
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (all == null) {
+            return;
+        }
+        List<VoiceTuning.Candidate> list = new ArrayList<VoiceTuning.Candidate>();
+        for (Voice v : all) {
+            Locale l = v.getLocale();
+            if (l == null || !"en".equals(l.getLanguage())) {
+                continue;
+            }
+            byName.put(v.getName(), v);
+            String g = VoiceTuning.genderOf(v.getName(), v.getFeatures());
+            genders.put(v.getName(), g);
+            list.add(new VoiceTuning.Candidate(v.getName(), l.getCountry(), v.isNetworkConnectionRequired(), g, v.getQuality()));
+        }
+        ranked = VoiceTuning.rank(list, natural);
+        missing = VoiceTuning.missing(ranked);
+        String[] picks = VoiceTuning.pick(ranked);
+        // once, when the device has African English voices: the personas move to them from a voice chosen before
+        // (afterwards a voice the user picks by hand is kept)
+        if (!prefs.getBoolean("voices_african", false) && VoiceTuning.african(ranked, picks[0]) && VoiceTuning.african(ranked, picks[1])) {
+            tuning[0].voice = picks[0];
+            tuning[1].voice = picks[1];
+            prefs.edit().putBoolean("voices_african", true).apply();
+        }
+        if (tuning[0].voice == null || !byName.containsKey(tuning[0].voice)) {
+            tuning[0].voice = picks[0];
+        }
+        if (tuning[1].voice == null || !byName.containsKey(tuning[1].voice)) {
+            tuning[1].voice = picks[1];
+        }
+        if (picks[0] == null) {
+            Locale ng = new Locale("en", "NG");
+            if (tts.isLanguageAvailable(ng) >= TextToSpeech.LANG_AVAILABLE) {
+                tts.setLanguage(ng);
+            }
+        }
+    }
+
+    /** "male" or "female" when the phone has no voice of that gender, else null (known once voices load). */
+    public String missingGender() {
+        return missing;
+    }
+
+    /** The voice each persona speaks with and its gender, for "test your voices". */
+    public String describe(boolean ivie) {
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
+        return (t.voice == null ? "the device's default voice" : t.voice) + (g.isEmpty() ? "" : " (" + g + ")");
+    }
+
+    @Override
+    public void onStart(String utteranceId) {
+        if (utteranceId != null) {
+            tell(true, false, speakingFor(utteranceId), utteranceId.startsWith("IVIE"));
+        }
+        if (listener != null && utteranceId != null) {
+            final boolean ivie = utteranceId.startsWith("IVIE");
+            main.post(() -> listener.onSpeaking(ivie, true));
+        }
+    }
+
+    @Override
+    public void onRangeStart(String utteranceId, int start, int end, int frame) {
+        String text = speaking;
+        if (words != null && start >= 0 && end <= text.length() && start < end) {
+            final String w = text.substring(start, end);
+            main.post(() -> words.onWord(w));
+        }
+    }
+
+    @Override
+    public void onDone(String utteranceId) {
+        if (listener != null) {
+            main.post(() -> listener.onSpeaking(false, false));
+        }
+        if (utteranceId != null && utteranceId.contains("-Q")) {
+            queueDone(utteranceId);
+            return;
+        }
+        finish(utteranceId);
+    }
+
+    @Override
+    public void onError(String utteranceId) {
+        if (utteranceId != null && utteranceId.contains("-Q")) {
+            queueDone(utteranceId);
+            return;
+        }
+        finish(utteranceId);
+    }
+
+    private void finish(String utteranceId) {
+        int token = 0;
+        int dash = utteranceId == null ? -1 : utteranceId.lastIndexOf('-');
+        if (dash >= 0) {
+            try {
+                token = Integer.parseInt(utteranceId.substring(dash + 1));
+            } catch (NumberFormatException ignored) {
+                token = -1;
+            }
+        }
+        final int heard = token;
+        main.post(() -> finish(heard));
+    }
+
+    private void finish(int token) {
+        if (token != generation || pending == null) {
+            return;
+        }
+        TalkDone done = pending;
+        pending = null;
+        done.onDone();
+        maybeEnded();
+    }
+
+    /** The sentence an utterance reads (onStart comes on the engine's thread: a copy is read). */
+    private String speakingFor(String utteranceId) {
+        if (utteranceId.contains("-Q")) {
+            List<Line> copy;
+            try {
+                copy = new ArrayList<Line>(lines); // written on the main thread; a copy taken mid-change is skipped
+            } catch (RuntimeException busy) {
+                copy = new ArrayList<Line>();
+            }
+            for (Line l : copy) {
+                if (l.id.equals(utteranceId)) {
+                    return l.text;
+                }
+            }
+        }
+        String t = sayText;
+        return t == null ? speaking : t;
+    }
+}

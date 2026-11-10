@@ -6,7 +6,7 @@ security, and the tests. Analysis only — no code was changed for this report.
 ## 1. Architecture
 
 ```
-MainActivity.applyProvider()            (app/src/main/java/ai/dvine/MainActivity.java:3667)
+MainActivity.applyProvider()            (app/src/main/java/ai/ibiko/MainActivity.java:3667)
   └─ builds brains/fast models/windows from ProviderStore
   └─ model.useRemotes(brains, fasts, names, windows, online)   (MainActivity.java:3685)
        └─ LocalModel (llm/LocalModel.java)
@@ -134,7 +134,7 @@ model answers. `LocalModel`'s watchdog bounds the whole thing: 60 s idle / 180 s
 ## 7. Tests
 
 `app/tests.gradle` wires the JVM test task; 27 test classes under
-`app/src/test/java/ai/dvine/llm/`:
+`app/src/test/java/ai/ibiko/llm/`:
 
 - `RemoteBrainTest` — URL/header/body construction, error mapping.
 - `ProviderOrderTest` — the fast-then-strong ordering, provider priority and cooldowns.
@@ -151,12 +151,12 @@ verified by *reading* the referenced lines, not by running the suite. Run locall
 
 ## 8. Sources
 
-- `app/src/main/java/ai/dvine/MainActivity.java:3667-3685` (call site, online supplier)
-- `app/src/main/java/ai/dvine/llm/ProviderStore.java:140-153, 228-296, 309-406`
-- `app/src/main/java/ai/dvine/llm/RemoteBrain.java:223-231, 279-324, 370-433`
-- `app/src/main/java/ai/dvine/llm/Providers.java:7-33`
-- `app/src/main/java/ai/dvine/llm/NativeLlm.java:19-45`
-- `app/src/main/java/ai/dvine/net/Connectivity.java:23-56`
-- `app/src/main/java/ai/dvine/net/SessionClient.java:37-77`
+- `app/src/main/java/ai/ibiko/MainActivity.java:3667-3685` (call site, online supplier)
+- `app/src/main/java/ai/ibiko/llm/ProviderStore.java:140-153, 228-296, 309-406`
+- `app/src/main/java/ai/ibiko/llm/RemoteBrain.java:223-231, 279-324, 370-433`
+- `app/src/main/java/ai/ibiko/llm/Providers.java:7-33`
+- `app/src/main/java/ai/ibiko/llm/NativeLlm.java:19-45`
+- `app/src/main/java/ai/ibiko/net/Connectivity.java:23-56`
+- `app/src/main/java/ai/ibiko/net/SessionClient.java:37-77`
 - `PLAN.md` (audit record, commits `6fb84ae` / PR #91)
 </result>

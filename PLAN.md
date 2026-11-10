@@ -1,3 +1,9 @@
+# The package is ai.ibiko (0.99.68)
+
+- [x] Application ID, namespace, manifest and every Java package renamed to ai.ibiko.
+- [x] Both native libraries rebuilt with the new names.
+- [ ] Install on the device (a new app: the model downloads again).
+
 # Answered during a job on the device (0.99.67)
 
 - [x] A message sent while a job runs on the device's own model is answered between two of the job's steps.
@@ -327,9 +333,9 @@ Design is settled. This checklist is the build order; tick each item when its te
 - [x] **T4 — T9 consolidation.** `NightLearnJob` review pass, ~2s CPU budget: promote/prune, decay >30d, merge duplicate objects, reorder profile brief by strength, one `LearningLog` paragraph.
 - [x] **T5 — T10 score.** `score = 100*(0.45*A + 0.25*K + 0.15*R + 0.15*U)`, A Laplace-smoothed `(correct+1)/(answered+2)`. Render with the four counts (shown in "what have you learned", Memory, Settings and the Workload sheet).
 - [x] **T6 — wiring.** Feed the message pipeline (Facts/Knowledge/PilotProfile path) into the learner; `clear()` wipes rules/answers/open queue too.
-- [x] **T7 — tests.** Plain JUnit under `app/src/test/java/ai/dvine/learn/`: smoothing, contradiction, correction window, queue fill/clear, rule promote/prune, PII mask, backward-compatible load. Run `./gradlew testDebugUnitTest` if available.
+- [x] **T7 — tests.** Plain JUnit under `app/src/test/java/ai/ibiko/learn/`: smoothing, contradiction, correction window, queue fill/clear, rule promote/prune, PII mask, backward-compatible load. Run `./gradlew testDebugUnitTest` if available.
 
-Tests live in `app/src/test/java/ai/dvine/learn/`. No new dependencies.
+Tests live in `app/src/test/java/ai/ibiko/learn/`. No new dependencies.
 
 # Social Intelligence System (0.99.2)
 
@@ -362,7 +368,7 @@ Design and status: `docs/SOCIAL_INTELLIGENCE.md`.
 - [ ] (not in the repo, checked 0.96.4) `config/model-registry.toml` at the repo root: models (id, name, provider, api,
       contextWindow, reasoning, needsApiKey), agents (id, name, brain, provider, maxSteps,
       maxTokens, side, description), providers (id, api key env, docs).
-- [ ] (checked 0.96.4: `ModelRegistry` is a fixed table of three agents, Obi 20 steps, Ivie 20, Ibiko 40; no file, no `Toml` reader) `app/src/main/java/ai/dvine/config/ModelRegistry.java`: reads that file from the app's own
+- [ ] (checked 0.96.4: `ModelRegistry` is a fixed table of three agents, Obi 20 steps, Ivie 20, Ibiko 40; no file, no `Toml` reader) `app/src/main/java/ai/ibiko/config/ModelRegistry.java`: reads that file from the app's own
       files (or `~/Dvine/config/`), copies the bundled one on first launch, parses TOML with a
       small `Toml` reader (`T[]` arrays of tables, `#` comments, quotes, escapes).
 - [ ] (no `ModelBrain` class, checked 0.96.4) `ModelBrain`: one object per agent row, so the crew runs several brains at once.

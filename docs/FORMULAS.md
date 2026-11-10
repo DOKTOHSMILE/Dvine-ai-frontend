@@ -1,8 +1,8 @@
 # DVINE 1 formulas
 
 Every rule DVINE 1 uses to read, answer and learn lives in one folder:
-`app/src/main/java/ai/dvine/dvine1/formulas/`. Each file opens with its rules, numbered, so a behaviour can be traced
-to one line. Tests: `app/src/test/java/ai/dvine/dvine1/` and `app/src/test/java/ai/dvine/learn/IndependentLearnerTest.java`.
+`app/src/main/java/ai/ibiko/dvine1/formulas/`. Each file opens with its rules, numbered, so a behaviour can be traced
+to one line. Tests: `app/src/test/java/ai/ibiko/dvine1/` and `app/src/test/java/ai/ibiko/learn/IndependentLearnerTest.java`.
 
 | File | What it decides | Rules |
 |---|---|---|
