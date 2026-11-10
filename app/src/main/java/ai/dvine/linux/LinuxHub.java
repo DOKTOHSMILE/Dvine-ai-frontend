@@ -125,6 +125,47 @@ public final class LinuxHub {
     }
 
     /**
+     * The one way every part of the app runs a Linux command: chat, Ibiko, the task system. It is always the same
+     * Alpine (the one the Shell screen shows): installed the first time it is needed, then run in the open terminal at
+     * its prompt, or on its own in the same Alpine when a program is busy there. {@code where} is the folder on the
+     * device to start in (it is mapped to /workspace or /work); null keeps the folder the last command left.
+     * Only when Alpine cannot be installed at all (no internet the first time) does the small built-in shell answer,
+     * and the reply says so. Call it off the main thread.
+     */
+    public static String run(android.content.Context c, String command, File where) {
+        if (command == null || command.trim().isEmpty()) {
+            return "(no command)";
+        }
+        File linux = new File(c.getFilesDir(), "linux");
+        WorkspaceManager.ensure(linux);
+        String why = null;
+        if (!AlpineRun.ready(c)) {
+            try {
+                LinuxRoot.install(c, null); // the first command installs Linux (about 4 MB), once
+            } catch (Exception e) {
+                why = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            }
+        }
+        if (AlpineRun.ready(c)) {
+            String placed = where == null ? command : GuestPath.at(where, command);
+            String shared = ask(c, placed);
+            if (shared != null) {
+                return shared;
+            }
+            // a program is running in the terminal: the same Alpine, its own shell for this one command
+            String script = where == null ? LinuxCwd.script(LinuxRoot.root(c), command) : placed;
+            LinuxEngine.Result alone = AlpineRun.run(c, script, where == null ? linux : where);
+            if (alone != null) {
+                return alone.text;
+            }
+        }
+        LinuxEngine.Result own = LinuxEngine.run(command, where == null ? linux : where, null);
+        return (own == null ? "The shell didn't run that." : own.text)
+                + "\n(Linux isn't installed yet" + (why == null ? "" : ": " + why) + ". DVINE's small built-in shell ran this;"
+                + " open Shell when you're online to install Alpine.)";
+    }
+
+    /**
      * A command from chat or Ibiko. Once Alpine is installed it runs in the one terminal (started here if it is not
      * running yet), so the folder, variables and installed packages are the same ones the shell screen shows.
      */

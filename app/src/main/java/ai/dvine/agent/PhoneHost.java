@@ -95,17 +95,7 @@ public final class PhoneHost implements CodeAgent.Host {
             onCommand(command);
             File where = dir != null ? dir : new File(activity.getFilesDir(), "ibiko");
             where.mkdirs();
-            String placed = ai.dvine.linux.GuestPath.at(where, command);
-            String shared = ai.dvine.linux.LinuxHub.ask(activity, placed);
-            if (shared != null) {
-                return shared;
-            }
-            ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
-            if (alpine != null) {
-                return alpine.text;
-            }
-            ai.dvine.linux.LinuxEngine.Result own = ai.dvine.linux.LinuxEngine.run(command, where, null);
-            return own == null ? "The shell didn't run that." : own.text;
+            return ai.dvine.linux.LinuxHub.run(activity, command, where); // the one Alpine, the same as the Shell screen
         } catch (Throwable e) {
             return "The shell stopped before it could run that.";
         }
@@ -118,20 +108,7 @@ public final class PhoneHost implements CodeAgent.Host {
 
     @Override
     public String termux(String command, File folder) {
-        onCommand(command);
-        File where = folder != null ? folder : new File(activity.getFilesDir(), "ibiko");
-        where.mkdirs();
-        String placed = ai.dvine.linux.GuestPath.at(where, command);
-        String shared = ai.dvine.linux.LinuxHub.ask(activity, placed);
-        if (shared != null) {
-            return shared;
-        }
-        ai.dvine.linux.LinuxEngine.Result alpine = ai.dvine.linux.AlpineRun.run(activity, command, where);
-        if (alpine != null) {
-            return alpine.text;
-        }
-        ai.dvine.linux.LinuxEngine.Result ran = ai.dvine.linux.LinuxEngine.run(command, where, null);
-        return ran == null ? "The shell didn't run that." : ran.text;
+        return run(command, folder); // there is one Linux: "termux" commands run in it too
     }
 
     @Override

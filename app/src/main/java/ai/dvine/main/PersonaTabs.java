@@ -7,7 +7,7 @@ package ai.dvine.main;
  * Selecting a persona puts it on stage (its face, its instructions), writes the choice into the drawer prefs, re-points the drawer of earlier chats at that persona's conversations, opens the pane, and repaints the header: a hint under the title, the mark on the empty chat, the tab that is chosen showing its name as well as its icon. Ivie's 3D canvas is only shown when she has something on it, and Ibiko's mode only when Ibiko is chosen.
  *
  * <p>
- * Tapping Ibiko also offers the Termux tools once (or says they are already here), and any change of persona warms the model so the new instructions are read ahead instead of at the first question.
+ * Tapping Ibiko also says once where his commands run (DVINE's one Linux), and any change of persona warms the model so the new instructions are read ahead instead of at the first question.
  *
  * <p>
  * The screen side lives in {@link ai.dvine.MainActivity}: it implements {@link Host} and hands over the views, the stage, the chats, the prefs, and the few screen actions this class needs.
@@ -16,7 +16,7 @@ public final class PersonaTabs {
 
     /** What choosing a persona needs from the screen it serves. */
     public interface Host {
-        /** The screen itself, as a context (the Termux tools ask the system whether they are installed). */
+        /** The screen itself, as a context. */
         android.content.Context context();
 
         /** The drawer prefs, where the chosen persona ("face") is remembered, or null. */
@@ -118,7 +118,7 @@ public final class PersonaTabs {
         if (prefs == null) {
             return;
         }
-        boolean installed = ai.dvine.ops.TermuxAndroid.installed(host.context());
+        boolean installed = ai.dvine.linux.AlpineRun.ready(host.context()); // DVINE's own Linux, not another app
         String key = installed ? "ibiko_ready_said" : "ibiko_install_offered";
         if (prefs.getBoolean(key, false)) {
             return;
@@ -126,8 +126,8 @@ public final class PersonaTabs {
         prefs.edit().putBoolean(key, true).apply();
         // only when the coding chat is opened, and only once; the wording matches what the tools really do here
         host.play(ai.dvine.turn.LocalTurn.speakAs("ibiko", installed
-                ? "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."
-                : "This is the coding chat. My file tools live here: ask me to find a zip, unzip it, or run a command in this chat. If a task needs another app I'll ask you first."),
+                ? "This is the coding chat. I work in DVINE's Linux, the same one the Shell screen shows: ask me to run a command, build or fix code here."
+                : "This is the coding chat. I work in DVINE's Linux, the same one the Shell screen shows. It installs itself the first time I run a command (about 4 MB)."),
                 null);
     }
 

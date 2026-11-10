@@ -1,3 +1,9 @@
+# One Linux (0.99.42)
+
+- [x] Chat, Ibiko, the task system and the Shell screen run commands in the same Alpine, through `LinuxHub.run`.
+- [x] Alpine installs itself the first time anything needs it; the small built-in shell answers only when it cannot be installed, and says so.
+- [x] No Termux permission, package query or engine path left in use.
+
 # Audit fixes (0.99.41)
 
 - [x] A job's replies, notes and steps go to the page it was asked on, never to another chat or page.
