@@ -112,6 +112,30 @@ public final class MemoryActivity extends AppCompatActivity {
                     () -> known.forget(f.question)));
         }
 
+        // ---- what DVINE 1 learned on its own: facts with their strength, reading rules, words, its journal
+        final File brain = new File(getFilesDir(), "brain");
+        final ai.dvine.dvine1.Facts selfRead = new ai.dvine.dvine1.Facts(new File(brain, "facts.tsv"));
+        final ai.dvine.dvine1.learner.Learner learner = new ai.dvine.dvine1.learner.Learner(brain, selfRead,
+                new ai.dvine.dvine1.Lexicon(new File(brain, "words.tsv")));
+        LinearLayout dl = section("What DVINE 1 learned by itself", selfRead.size(), "Forget every fact, reading rule and word DVINE 1 learned?",
+                () -> {
+                    selfRead.clear();
+                    learner.clear();
+                });
+        dl.addView(row(learner.scoreLine(), selfRead.strong() + " of " + selfRead.size() + " facts are strong enough to answer from, "
+                + learner.rules().size() + " sentence shapes tried, " + learner.wordsLearned() + " words learned, "
+                + learner.openQuestions().size() + " questions still open.", null));
+        List<String> days = learner.journal();
+        for (int i = days.size() - 1; i >= 0 && i >= days.size() - 3; i--) {
+            dl.addView(row(days.get(i), null, null));
+        }
+        List<ai.dvine.dvine1.Facts.Row> rows = selfRead.rows();
+        for (int i = rows.size() - 1, k = 0; i >= 0 && k < 20; i--, k++) {
+            final ai.dvine.dvine1.Facts.Row r = rows.get(i);
+            dl.addView(row(r.fact.subject + " · " + r.fact.relation + " · " + r.fact.object, "Strength " + r.n + " of 5",
+                    () -> selfRead.forget(r.fact)));
+        }
+
         // ---- taught facts and corrections
         LinearLayout t = section("Facts you taught and corrections", journal.taughtCount(), "Forget every fact you taught?",
                 () -> journal.forgetTaught());
@@ -238,6 +262,9 @@ public final class MemoryActivity extends AppCompatActivity {
             words.addView(Ui.text(this, under, 13, Ui.SUB, false));
         }
         r.addView(words, new LinearLayout.LayoutParams(0, -2, 1f));
+        if (forget == null) {
+            return r; // a line to read, nothing to forget
+        }
         ImageView x = new ImageView(this);
         x.setImageResource(ai.dvine.R.drawable.ic_close);
         x.setColorFilter(Ui.SUB);

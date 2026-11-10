@@ -1,5 +1,8 @@
 package ai.dvine.dvine1;
 
+import ai.dvine.dvine1.formulas.Commands;
+import ai.dvine.dvine1.formulas.Grammar;
+import ai.dvine.dvine1.learner.Learner;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -100,6 +103,7 @@ public final class Dvine1 {
     private Knowledge knowledge;
     private Facts facts;
     private Lexicon lexicon;
+    private Learner learner;
     /** Answers are numbered: a newer message makes an older one's steps stop. */
     private int token;
     private String worker;
@@ -131,6 +135,35 @@ public final class Dvine1 {
             lexicon = new Lexicon(new File(dir, "words.tsv"));
         }
         return lexicon;
+    }
+
+    /** The independent learner: grammar, sentence shapes, the pilot's word on answers, open questions, the score. */
+    public synchronized Learner learner() {
+        if (learner == null) {
+            learner = new Learner(dir, facts(), lexicon());
+        }
+        return learner;
+    }
+
+    /** The learning score line, read from the files (for screens that don't hold DVINE 1). */
+    public static String scoreLine(File filesDir) {
+        File d = new File(filesDir, "brain");
+        return new Learner(d, new Facts(new File(d, "facts.tsv")), new Lexicon(new File(d, "words.tsv"))).scoreLine();
+    }
+
+    /** One of the pilot's messages, to any brain: it may judge DVINE 1's last answer, and it is read for language. */
+    public void hear(String said) {
+        learner().heard(said, System.currentTimeMillis());
+    }
+
+    /** Any model's answer: read for language only (a model's claim is not a fact). */
+    public void readReply(String reply) {
+        learner().read(reply, Learner.Source.MODEL, System.currentTimeMillis());
+    }
+
+    /** People's posts and pages: read for language only. */
+    public void readSocial(String text) {
+        learner().read(text, Learner.Source.SOCIAL, System.currentTimeMillis());
     }
 
     private static String cap(String persona) {
@@ -238,6 +271,7 @@ public final class Dvine1 {
         }
         if (!host.online()) {
             LearningJob.remember(host.context(), t);
+            learner().unanswered(t, System.currentTimeMillis());
             think(Arrays.asList("Reading your question", "Checking what I already know"), () -> saysPlain(who,
                     "I don't know that yet, and there's no internet connection to research it. I've kept the question:"
                             + " ask me again when you're online" + (LearningJob.plan(host.context()).on
@@ -262,7 +296,9 @@ public final class Dvine1 {
                             r = LearningJob.research(host.context(), t);
                         }
                         if (r != null) {
-                            facts().learn(r.text, ResearchAnswer.subject(t)); // learning while being used
+                            long now = System.currentTimeMillis();
+                            facts().learn(r.text, ResearchAnswer.subject(t), 2, now); // learning while being used
+                            learner().read(r.text, Learner.Source.RESEARCH, now);
                         }
                         final ResearchAnswer found = r != null && knowledge().rejected(t, r.shown()) ? null : r;
                         host.onScreen(() -> {
@@ -271,6 +307,7 @@ public final class Dvine1 {
                             }
                             if (found == null) {
                                 LearningJob.remember(host.context(), t);
+                                learner().unanswered(t, System.currentTimeMillis());
                                 think(Arrays.asList("Nothing I found answers it"), () -> saysPlain(who,
                                         "I don't know that yet, and what I found didn't answer it. Try asking it another way, or pick an API"
                                                 + " or offline model for this one: I learn from their answers too."
@@ -293,6 +330,7 @@ public final class Dvine1 {
 
     private void rateable(String question, String answer) {
         ratingQuestion = question;
+        learner().answered(question, answer, System.currentTimeMillis());
         host.askRating(question, answer);
     }
 
@@ -358,6 +396,7 @@ public final class Dvine1 {
             }
             b.append("\nRead and understood: ").append(facts().size()).append(facts().size() == 1 ? " fact, " : " facts, ")
                     .append(lexicon().size()).append(lexicon().size() == 1 ? " word." : " words.");
+            b.append("\n").append(learner().scoreLine()).append('.');
             int talk = host.talkSize(), shapes = host.shapes();
             if (talk + shapes > 0) {
                 b.append("\nFrom the models you used: ").append(talk).append(talk == 1 ? " answer" : " answers").append(" and ")
@@ -392,7 +431,7 @@ public final class Dvine1 {
             String subject = (m.group(1) == null ? "" : m.group(1) + " ") + m.group(2);
             String verb = m.group(3).toLowerCase(Locale.US);
             knowledge().confirm("What " + verb + " " + subject + "?", said);
-            facts().learn(said, null);
+            facts().learn(said, null, 2, System.currentTimeMillis()); // the pilot's own words: as good as a source
             if (Character.isUpperCase(m.group(2).charAt(0)) && m.group(1) == null) {
                 knowledge().confirm("Who " + verb + " " + subject + "?", said); // a name: kept for "who" too
             }
@@ -409,6 +448,7 @@ public final class Dvine1 {
         if (question == null || answer == null) {
             return;
         }
+        learner().judged(right, System.currentTimeMillis());
         if (right) {
             knowledge().confirm(question, answer);
             host.learnTalk(question, answer);

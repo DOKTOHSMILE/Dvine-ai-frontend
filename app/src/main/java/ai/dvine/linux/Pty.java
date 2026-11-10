@@ -1,7 +1,6 @@
 package ai.dvine.linux;
 
 import android.system.ErrnoException;
-import android.system.Int32Ref;
 import android.system.Os;
 import android.system.OsConstants;
 
@@ -33,13 +32,18 @@ public final class Pty {
     public static Pty tryOpen() {
         try {
             FileDescriptor master = Os.open("/dev/ptmx", OsConstants.O_RDWR | OsConstants.O_NOCTTY, 0);
-            Os.ioctlInt(master, TIOCSPTLCK, 0);
-            Int32Ref number = new Int32Ref(0);
-            Os.ioctlInt(master, TIOCGPTN, number);
-            if (number.value < 0) {
+            // Int32Ref and this ioctlInt are hidden in the public SDK: reached by reflection, so the app builds with
+            // any android.jar and the phone still gets its real terminal
+            Class<?> ref = Class.forName("android.system.Int32Ref");
+            java.lang.reflect.Method ioctl = Os.class.getMethod("ioctlInt", FileDescriptor.class, int.class, ref);
+            ioctl.invoke(null, master, TIOCSPTLCK, ref.getConstructor(int.class).newInstance(0));
+            Object number = ref.getConstructor(int.class).newInstance(0);
+            ioctl.invoke(null, master, TIOCGPTN, number);
+            int n = ref.getField("value").getInt(number);
+            if (n < 0) {
                 return null;
             }
-            return new Pty(master, "/dev/pts/" + number.value);
+            return new Pty(master, "/dev/pts/" + n);
         } catch (ErrnoException e) {
             return null;
         } catch (Throwable e) {

@@ -1,5 +1,7 @@
 package ai.dvine.dvine1;
 
+import ai.dvine.dvine1.formulas.Commands;
+import ai.dvine.dvine1.formulas.Grammar;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 

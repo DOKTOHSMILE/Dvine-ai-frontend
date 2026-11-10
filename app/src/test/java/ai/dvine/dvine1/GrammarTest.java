@@ -1,5 +1,7 @@
 package ai.dvine.dvine1;
 
+import ai.dvine.dvine1.formulas.Commands;
+import ai.dvine.dvine1.formulas.Grammar;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -68,7 +70,7 @@ public class GrammarTest {
         Facts f = new Facts(null);
         f.learn("Alexander Graham Bell invented the telephone in 1876. Microsoft was founded by Bill Gates and Paul Allen in 1975."
                 + " Abuja is the capital of Nigeria. A quasar is an extremely luminous active galactic nucleus."
-                + " Chinua Achebe was born on 16 November 1930 in Ogidi.", "");
+                + " Chinua Achebe was born on 16 November 1930 in Ogidi.", "", 2, 0L); // an encyclopedia: two sightings
         assertEquals("Alexander Graham Bell invented the telephone.", f.answer("Who invented the telephone?"));
         assertEquals("Microsoft was founded in 1975.", f.answer("When was Microsoft founded?"));
         assertEquals("Abuja is the capital of Nigeria.", f.answer("What is Abuja?"));

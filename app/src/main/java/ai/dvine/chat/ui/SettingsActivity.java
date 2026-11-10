@@ -119,6 +119,9 @@ public final class SettingsActivity extends AppCompatActivity {
                 + " goes online and learns from what you asked. Set the hours from the model menu.", "learn_schedule_on", plan.on,
                 on -> ai.dvine.dvine1.LearningJob.setPlan(this, new ai.dvine.dvine1.LearningSchedule.Plan(on, plan.start, plan.end,
                         plan.wifiOnly, plan.chargingOnly, plan.most))), Ui.wide(this, 10));
+        own.addView(Ui.text(this, ai.dvine.dvine1.Dvine1.NAME + " learns from every message, every model's answer, what it researches"
+                + " and the social pages it reads (language only: people's words are never taken as facts). "
+                + ai.dvine.dvine1.Dvine1.scoreLine(getFilesDir()) + ". See it under Memory.", 13, Ui.SUB, false), Ui.wide(this, 10));
         android.view.View learnNow = Ui.button(this, "Learn now", false);
         learnNow.setOnClickListener(v -> {
             ai.dvine.dvine1.LearningJob.learnNow(this);

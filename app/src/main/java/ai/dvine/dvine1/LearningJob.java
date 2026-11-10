@@ -208,6 +208,7 @@ public final class LearningJob extends JobService {
         final Knowledge k = new Knowledge(new File(dir(this), "knowledge.tsv"));
         final Facts facts = new Facts(new File(dir(this), "facts.tsv"));
         final Lexicon words = new Lexicon(new File(dir(this), "words.tsv"));
+        final ai.dvine.dvine1.learner.Learner learner = new ai.dvine.dvine1.learner.Learner(dir(this), facts, words);
         List<String> unanswered = read(new File(dir(this), "to-learn.txt"));
         List<String> interests = new ArrayList<String>(Plug.interests.get()); // what the pilot is into, from the app
         // only what came from using DVINE: no outside lists of topics
@@ -228,7 +229,8 @@ public final class LearningJob extends JobService {
             if (r == null || k.rejected(q, r.shown())) {
                 continue;
             }
-            facts.learn(r.text, ResearchAnswer.subject(q) == null ? topic : ResearchAnswer.subject(q));
+            facts.learn(r.text, ResearchAnswer.subject(q) == null ? topic : ResearchAnswer.subject(q), 2, System.currentTimeMillis());
+            learner.read(r.text, ai.dvine.dvine1.learner.Learner.Source.RESEARCH, System.currentTimeMillis());
             if (k.learnUnchecked(q, r.shown())) {
                 if (!asked && topic.matches("[A-Z][\\p{L}'-]+( [A-Z][\\p{L}'-]+)+")) {
                     k.learnUnchecked("Who is " + topic + "?", r.shown()); // a name: asked about with "who" too
@@ -263,6 +265,11 @@ public final class LearningJob extends JobService {
                 break;
             }
         }
+        // the review pass: facts fade and merge, shapes promoted or pruned, one journal paragraph
+        if (boarded != null) {
+            Plug.workers.step(boarded, "Reviewing what I learned");
+        }
+        learner.review(System.currentTimeMillis(), 2000);
         if (!learned.isEmpty()) {
             List<String> report = new ArrayList<String>(report(this));
             if (reportSeen(this)) {
