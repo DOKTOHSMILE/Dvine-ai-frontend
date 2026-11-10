@@ -96,7 +96,7 @@ public final class PhoneHost implements CodeAgent.Host {
             File where = dir != null ? dir : new File(activity.getFilesDir(), "ibiko");
             where.mkdirs();
             String placed = ai.dvine.linux.GuestPath.at(where, command);
-            String shared = ai.dvine.linux.LinuxHub.ask(placed);
+            String shared = ai.dvine.linux.LinuxHub.ask(activity, placed);
             if (shared != null) {
                 return shared;
             }
@@ -122,7 +122,7 @@ public final class PhoneHost implements CodeAgent.Host {
         File where = folder != null ? folder : new File(activity.getFilesDir(), "ibiko");
         where.mkdirs();
         String placed = ai.dvine.linux.GuestPath.at(where, command);
-        String shared = ai.dvine.linux.LinuxHub.ask(placed);
+        String shared = ai.dvine.linux.LinuxHub.ask(activity, placed);
         if (shared != null) {
             return shared;
         }

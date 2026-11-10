@@ -76,6 +76,17 @@ public final class ProotCommand {
         return c;
     }
 
+    /**
+     * The shell on a terminal device. A new session opens {@code slave} itself, which makes it that session's
+     * terminal: CTRL-C and CTRL-Z reach the running program, and full-screen programs can draw.
+     */
+    public static List<String> terminal(File proot, File rootfs, File work, String slave) {
+        List<String> c = line(proot, rootfs, work);
+        c.add("-c");
+        c.add("exec setsid /bin/sh -c 'exec /bin/sh -i <>" + slave + " >&0 2>&1'");
+        return c;
+    }
+
     /** One command, with the phone folder mounted at {@code /work} so the shell can see those files. */
     public static List<String> once(File proot, File rootfs, File work, String command) {
         List<String> c = new ArrayList<String>();

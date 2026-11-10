@@ -32,11 +32,15 @@ import ai.dvine.linux.Guest;
 import ai.dvine.linux.LinuxHub;
 import ai.dvine.linux.LinuxRoot;
 import ai.dvine.linux.ProotSession;
+import ai.dvine.linux.TermKeys;
 import ai.dvine.linux.TermScreen;
+import ai.dvine.linux.TermSession;
 
 /**
- * A normal terminal. The prompt and the cursor are the last line of the session, not a separate box.
- * Alpine runs the commands. Termux is not opened.
+ * DVINE's Linux terminal. When the phone opens a terminal device this is a full terminal ({@link TermView} on a
+ * {@link TermSession}): every key goes to Alpine, and full-screen programs such as vi, nano, top and htop draw as
+ * they do anywhere. When it cannot, the older line shell below is used: a prompt line, each command's text shown as
+ * it arrives. Alpine runs the commands either way. Termux is not opened.
  */
 public final class TerminalActivity extends AppCompatActivity {
     private static final String WELCOME = "Alpine Linux 3.22.5\n";
@@ -47,7 +51,6 @@ public final class TerminalActivity extends AppCompatActivity {
     private ScrollView scroll;
     private final StringBuilder log = new StringBuilder();
     private final StringBuilder liveOut = new StringBuilder();
-    private final StringBuilder incoming = new StringBuilder();
     private final TermScreen screen = new TermScreen();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final List<String> history = new ArrayList<String>();
@@ -99,6 +102,34 @@ public final class TerminalActivity extends AppCompatActivity {
     private float textSp = 14f;
     private TextView ctrlKey;
     private TextView altKey;
+    /** The full terminal, when the phone opens a terminal device. */
+    private TermView term;
+    private TermSession full;
+    private LinearLayout lineRow;
+    private LinearLayout lineKeys;
+    private LinearLayout fullKeys;
+    private final java.util.function.Function<String, String> chatDoor = this::fromChat;
+    private final TermView.Modifiers mods = new TermView.Modifiers() {
+        @Override
+        public boolean ctrl() {
+            return ctrl;
+        }
+
+        @Override
+        public boolean alt() {
+            return alt;
+        }
+
+        @Override
+        public void used() {
+            runOnUiThread(() -> {
+                ctrl = false;
+                alt = false;
+                paintMod(ctrlKey, false);
+                paintMod(altKey, false);
+            });
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -120,6 +151,11 @@ public final class TerminalActivity extends AppCompatActivity {
         transcript.setPadding(pad, pad, pad, pad);
         scroll.addView(transcript, new ScrollView.LayoutParams(-1, -2));
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        term = new TermView(this, textSp);
+        term.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), 0);
+        term.setVisibility(android.view.View.GONE);
+        term.onTextSize(() -> getPreferences(MODE_PRIVATE).edit().putFloat("text_sp", term.textSp()).apply());
+        page.addView(term, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         LinearLayout line = new LinearLayout(this);
         line.setGravity(Gravity.CENTER_VERTICAL);
@@ -181,19 +217,24 @@ public final class TerminalActivity extends AppCompatActivity {
             }
         });
         line.addView(input, new LinearLayout.LayoutParams(0, -2, 1f));
+        lineRow = line;
         page.addView(line);
 
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.setBackgroundColor(0xFF111111);
         bar.addView(keys("ESC", "CTRL", "ALT", "TAB", "/", "-", "HOME", "\u2191", "END", "PGUP"));
-        bar.addView(keys("\u2190", "\u2193", "\u2192", "PGDN", "FIND", "COPY"));
+        lineKeys = keys("\u2190", "\u2193", "\u2192", "PGDN", "FIND", "COPY");
+        bar.addView(lineKeys);
+        fullKeys = keys("\u2190", "\u2193", "\u2192", "PGDN", "PASTE", "COPY");
+        fullKeys.setVisibility(android.view.View.GONE);
+        bar.addView(fullKeys);
         page.addView(bar);
         setContentView(page);
         Ui.fitInsets(page);
         input.requestFocus();
         loadKept();
-        LinuxHub.attach(this::fromChat);
+        LinuxHub.attach(chatDoor);
         prompt.postDelayed(busyTick, 1000);
         boot();
     }
@@ -302,7 +343,84 @@ public final class TerminalActivity extends AppCompatActivity {
         return row;
     }
 
+    /** The full terminal takes over the screen. */
+    private void enterFull(TermSession session) {
+        if (closed) {
+            return;
+        }
+        full = session;
+        linuxUp = true;
+        scroll.setVisibility(android.view.View.GONE);
+        lineRow.setVisibility(android.view.View.GONE);
+        lineKeys.setVisibility(android.view.View.GONE);
+        fullKeys.setVisibility(android.view.View.VISIBLE);
+        term.setVisibility(android.view.View.VISIBLE);
+        term.attach(session, mods);
+        session.onChange(() -> {
+            term.postInvalidate();
+            if (!session.alive()) {
+                runOnUiThread(() -> {
+                    if (!closed && full == session) {
+                        finish(); // "exit" was typed: the shell ended
+                    }
+                });
+            }
+        });
+        term.showKeyboard();
+    }
+
+    /** A key from the bar, in the full terminal. */
+    private void fullKey(String label, TextView key) {
+        term.showKeyboard();
+        if ("CTRL".equals(label) || "ALT".equals(label)) {
+            boolean on = "CTRL".equals(label) ? (ctrl = !ctrl) : (alt = !alt);
+            paintMod(key, on);
+        } else if ("ESC".equals(label)) {
+            term.key(TermKeys.ESCAPE);
+        } else if ("TAB".equals(label)) {
+            term.key(TermKeys.TAB);
+        } else if ("HOME".equals(label)) {
+            term.key(TermKeys.HOME);
+        } else if ("END".equals(label)) {
+            term.key(TermKeys.END);
+        } else if ("\u2191".equals(label)) {
+            term.key(TermKeys.UP);
+        } else if ("\u2193".equals(label)) {
+            term.key(TermKeys.DOWN);
+        } else if ("\u2190".equals(label)) {
+            term.key(TermKeys.LEFT);
+        } else if ("\u2192".equals(label)) {
+            term.key(TermKeys.RIGHT);
+        } else if ("PGUP".equals(label) || "PGDN".equals(label)) {
+            boolean up = "PGUP".equals(label);
+            if (full.screen().altScreen()) {
+                term.key(up ? TermKeys.PAGE_UP : TermKeys.PAGE_DOWN); // the program's own paging
+            } else {
+                term.page(up ? 1 : -1);
+            }
+        } else if ("COPY".equals(label)) {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("linux", full.screen().text()));
+                android.widget.Toast.makeText(this, "Copied the session", android.widget.Toast.LENGTH_SHORT).show();
+            }
+        } else if ("PASTE".equals(label)) {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            android.content.ClipData clip = clipboard == null ? null : clipboard.getPrimaryClip();
+            if (clip != null && clip.getItemCount() > 0) {
+                CharSequence text = clip.getItemAt(0).coerceToText(this);
+                term.paste(text == null ? "" : text.toString());
+            }
+        } else {
+            term.type(label);
+        }
+    }
+
     private void onKey(String label, TextView key) {
+        if (full != null) {
+            fullKey(label, key);
+            return;
+        }
         keyboard();
         if ("CTRL".equals(label)) {
             ctrl = !ctrl;
@@ -496,11 +614,16 @@ public final class TerminalActivity extends AppCompatActivity {
                         return;
                     }
                 }
+                final TermSession runningNow = LinuxHub.running();
+                if (runningNow != null) {
+                    runOnUiThread(() -> enterFull(runningNow));
+                    return;
+                }
                 ProotSession parked = LinuxHub.unpark();
                 if (parked != null && parked.alive()) {
                     runOnUiThread(() -> {
                         if (closed) {
-                            LinuxHub.park(parked, !parked.tty(), LinuxRoot.root(TerminalActivity.this));
+                            LinuxHub.park(parked, true, LinuxRoot.root(TerminalActivity.this));
                             return;
                         }
                         linuxUp = true;
@@ -514,6 +637,11 @@ public final class TerminalActivity extends AppCompatActivity {
                 }
                 LinuxRoot.install(this, line -> runOnUiThread(() -> append(line + "\n")));
                 if (closed) {
+                    return;
+                }
+                final TermSession opened0 = LinuxHub.terminal(this);
+                if (opened0 != null) {
+                    runOnUiThread(() -> enterFull(opened0));
                     return;
                 }
                 if (empty) {
@@ -584,15 +712,6 @@ public final class TerminalActivity extends AppCompatActivity {
                 pipeRun(line);
                 return;
             }
-            markBusy();
-            try {
-                live.send(line + "\necho " + Guest.MARK + "$?__$(pwd)");
-            } catch (Exception e) {
-                shellReady = false;
-                busy = false;
-                oneShot(line);
-            }
-            return;
         }
         oneShot(line);
     }
@@ -837,58 +956,9 @@ public final class TerminalActivity extends AppCompatActivity {
             release();
             return;
         }
-        live = opened;
-        opened.pump(chunk -> runOnUiThread(() -> onShell(chunk)));
-        try {
-            opened.send("stty -echo >/dev/null 2>&1\necho " + Guest.MARK + "0__$(pwd)");
-        } catch (Exception e) {
-            opened.close();
-            live = null;
-            linuxUp = true;
-            release();
-            return;
-        }
-        if (transcript != null) {
-            transcript.postDelayed(this::giveUpOnShell, 4000);
-        }
-    }
-
-    private void giveUpOnShell() {
-        if (shellReady || closed) {
-            return;
-        }
-        if (live != null) {
-            live.close();
-            live = null;
-        }
+        opened.close(); // a pipe shell is the only kind opened here
         linuxUp = true;
         release();
-    }
-
-    private void onShell(String chunk) {
-        if (chunk == null) {
-            live = null;
-            shellReady = false;
-            busy = false;
-            linuxUp = true;
-            release();
-            return;
-        }
-        incoming.append(chunk);
-        Guest.Stream part = Guest.drain(incoming.toString(), cwd);
-        incoming.setLength(0);
-        incoming.append(part.rest);
-        if (!part.show.isEmpty()) {
-            append(part.show);
-        }
-        if (part.cwd != null) {
-            cwd = part.cwd;
-        }
-        if (part.done) {
-            shellReady = true;
-            linuxUp = true;
-            ended(part.exit);
-        }
     }
 
     /** A command from chat, answered by this shell so a second Linux is not started. */
@@ -1123,7 +1193,10 @@ public final class TerminalActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         closed = true;
-        LinuxHub.detach(this::fromChat);
+        LinuxHub.detach(chatDoor);
+        if (full != null) {
+            full.onChange(null); // the terminal keeps running; the next time the screen opens it is as it was left
+        }
         if (chatNow != null) {
             chatNow.latch.countDown();
         }

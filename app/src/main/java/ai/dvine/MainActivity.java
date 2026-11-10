@@ -3268,7 +3268,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             handler.post(() -> activity("Ran " + cmd + " in DVINE"));
             java.io.File linux = new java.io.File(getFilesDir(), "linux");
             ai.dvine.linux.WorkspaceManager.ensure(linux);
-            String shared = ai.dvine.linux.LinuxHub.ask(cmd);
+            String shared = ai.dvine.linux.LinuxHub.ask(this, cmd);
             ai.dvine.linux.LinuxEngine.Result ran = shared != null
                     ? new ai.dvine.linux.LinuxEngine.Result(true, shared)
                     : ai.dvine.linux.AlpineRun.run(this,
