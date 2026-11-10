@@ -240,6 +240,15 @@ public final class ListenBridge implements RecognitionListener {
 
     @Override
     public void onRmsChanged(float rmsdB) {
+        ListenCallback cb = callback;
+        if (cb != null && listening) {
+            cb.onLevel(level(rmsdB));
+        }
+    }
+
+    /** The recognizer's loudness (about -2 dB in silence to 10 dB loud) as 0 to 1. */
+    static float level(float rmsdB) {
+        return Math.max(0f, Math.min(1f, (rmsdB + 2f) / 12f));
     }
 
     @Override

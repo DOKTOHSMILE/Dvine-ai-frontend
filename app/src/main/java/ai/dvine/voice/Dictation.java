@@ -63,10 +63,14 @@ public final class Dictation implements ListenCallback {
         put(text, false);
     }
 
-    /** A finished stretch: the words go in, but the session carries on — the button stays lit. */
+    /**
+     * A finished stretch: the words go in and are kept, and the session carries on (the button stays lit). The next
+     * stretch, after a pause, is written after them: before this, a pause wiped what was said before it.
+     */
     @Override
     public void onResult(String text) {
         put(text, false);
+        before = field.getText() == null ? "" : field.getText().toString(); // kept: the next words go after these
     }
 
     /** Listening itself failed: end the session, because nothing more will be heard. */
@@ -78,13 +82,38 @@ public final class Dictation implements ListenCallback {
         }
     }
 
+    /** The recording effect: the red disc swells with the voice, smoothly, and rests when it is quiet. */
+    @Override
+    public void onLevel(float level) {
+        if (mic == null || !active) {
+            return;
+        }
+        float target = 1f + 0.28f * level;
+        mic.animate().scaleX(target).scaleY(target).setDuration(90).start();
+    }
+
     private void show(boolean on) {
         if (mic != null) {
             mic.setSelected(on);
-            mic.setImageTintList(on ? ColorStateList.valueOf(accent) : null);
+            // recording: the mic in white on a red disc, as a recorder shows; otherwise the plain icon
+            mic.setBackgroundResource(on ? ai.dvine.R.drawable.bg_mic_recording : 0);
+            if (!on) {
+                android.util.TypedValue ripple = new android.util.TypedValue();
+                mic.getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true);
+                mic.setBackgroundResource(ripple.resourceId);
+                mic.animate().scaleX(1f).scaleY(1f).setDuration(120).start();
+            }
+            mic.setImageTintList(on ? ColorStateList.valueOf(0xFFFFFFFF) : null);
             mic.setContentDescription(on ? "Stop dictating" : "Speak");
         }
         field.setHint(on ? "Listening…" : "Ask anything");
+    }
+
+    /** What is in the box plus the words of this stretch, with one space between. */
+    static String join(String before, String words) {
+        String kept = before == null ? "" : before.replaceAll("\\s+$", "");
+        String w = words == null ? "" : words.trim();
+        return kept.isEmpty() ? w : w.isEmpty() ? (before == null ? "" : before) : kept + " " + w;
     }
 
     private void put(String words, boolean done) {
@@ -92,8 +121,7 @@ public final class Dictation implements ListenCallback {
         if (done && !w.isEmpty()) {
             w = w.substring(0, 1).toUpperCase(Locale.getDefault()) + w.substring(1);
         }
-        String kept = before.replaceAll("\\s+$", "");
-        String text = kept.isEmpty() ? w : w.isEmpty() ? before : kept + " " + w;
+        String text = join(before, w);
         field.setText(text);
         field.setSelection(field.getText().length());
         if (done) {
