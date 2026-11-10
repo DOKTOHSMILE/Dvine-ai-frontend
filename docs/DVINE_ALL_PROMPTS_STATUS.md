@@ -244,6 +244,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 211 | Remove the tools and attachment buttons from the composer; what goes there now | P12 | Built (the tools button went in 0.99.61; the paperclip replaced by a Think pill; Media attaches; JVM tests) | 0.99.62 |
 | 212 | The GitHub icon is cropped | P12 | Fixed (ic_branch redrawn inside its frame) | 0.99.62 |
 | 213 | A formula to coin all its knowledge together on a foundation of truth | P12 | Built (`formulas/Truth` G1–G7, `Dvine1.foundation`; JVM tests) | 0.99.62 |
+| 214 | Question every data it takes in and gives out: is this true or false? Add to the formula | P12 | Built (`formulas/Truth` G8, `BuiltIn.check`, `Facts.check`, in and out; JVM tests) | 0.99.63 |
 
 ## Still open, in the order that matters
 

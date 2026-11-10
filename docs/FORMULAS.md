@@ -12,7 +12,7 @@ to one line. Tests: `app/src/test/java/ai/dvine/dvine1/` and `app/src/test/java/
 | `Confidence.java` | How sure DVINE is of a fact (strength 0–5) | C1 first sight · C2 seen again · C3 contradicted · C4 accepted · C5 corrected · C6 30-day fade · C7 answers at ≥ 2 · C8 tie asks |
 | `Shapes.java` | New ways a fact is written, learned from reading | S1 PII mask · S2 value · S3 shape · S4 caps · S5 promote · S6 prune |
 | `Score.java` | The learning score | A accuracy · K knowledge · R reading rules · U understanding |
-| `Truth.java` | The foundation every answer stands on: all that is known about a request, from every store, settled by how trustworthy each source is, with how sure it is | G1 ranks (you told me › you confirmed › built-in › read today › learned, not checked › a model's memory) · G2 two different sources agreeing make it firm · G3 the higher rank stands; equal ranks that differ are said to differ · G4 the newer dated source wins at equal rank · G5 say how sure, never invent a fact or a source, posts are opinions · G6 a claim against a firm one is held back · G7 every answer built on this, in order, before any reasoning |
+| `Truth.java` | The foundation every answer stands on: all that is known about a request, from every store, settled by how trustworthy each source is, with how sure it is | G1 ranks (you told me › you confirmed › built-in › read today › learned, not checked › a model's memory) · G2 two different sources agreeing make it firm · G3 the higher rank stands; equal ranks that differ are said to differ · G4 the newer dated source wins at equal rank · G5 say how sure, never invent a fact or a source, posts are opinions · G6 a claim against a firm one is held back · G7 every answer built on this, in order, before any reasoning · G8 question everything: each sentence going in (research, what it learns, what the pilot teaches) and coming out (every reply from any brain) is asked "true or false?" against the most trusted source that knows; FALSE is not learned and is corrected after the reply with its source; UNKNOWN is never stated as certain; denials, hedges, questions and the past are not judged |
 | `Reflection.java` | Learning from its own replies: how each went, judged by the pilot's next message, and the lessons handed to the next reply of the same kind | R1 outcome (corrected −2, retried −1, restyled, accepted +1) · R2 record (score and the last 3 lessons) · R3 style (shorter/longer, list/prose, simpler) · R4 trust (score ≤ −2: slow down and check) · R5 tick +2 / cross −3 · R6 forgetting (×0.9) · R7 apply to every brain |
 | `Foresight.java` | Premeditation: what the pilot is likely to need next after a request like this one, and the check run before answering or acting | P1 transition · P2 forgetting (0.95) · P3 likelihood (Laplace) · P4 offered at mass ≥ 2.5 and P ≥ 0.40 · P5 look before (what is asked, what for, what could go wrong, what comes next) · P6 offer, never act unasked · P7 a 6-hour gap is a new session |
 
@@ -39,6 +39,12 @@ The foundation (`Truth.java`) is put together for every request, before Foresigh
 about themselves, what they confirmed, the built-in reference, what was read, what was learned and not checked, each
 marked with its source and how sure it is, and the rules for when they disagree. DVINE 1's own answers follow the same
 ranks: a built-in fact outranks a lesson that was never confirmed.
+
+Question everything (G8): `BuiltIn.check` and `Facts.check` judge one sentence each (true, false or unknown), the built-in
+reference first, then facts held at strength 3 or more. Research is learned only from its true and unknown sentences;
+an answer found false is not learned at all. Every reply is checked on the device after it is shown, and a false
+sentence is followed by "A correction to what I just said: …" with where the correction comes from. When the pilot
+teaches something the reference contradicts, it is kept (the pilot outranks it) and the difference is said.
 
 Reflection (`Reflection.java`) judges every reply, from any brain, by what the pilot does next: a correction or the same
 request asked again counts against it, thanks or moving on counts for it, and "shorter" or "in a list" teaches the

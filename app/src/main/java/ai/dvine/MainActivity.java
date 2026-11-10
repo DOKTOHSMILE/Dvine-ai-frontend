@@ -3237,6 +3237,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * when the answer holds up.
      */
     private void factCheck(final int id, final String persona, final String question, final String answer) {
+        // G8 (formulas/Truth): every reply asked "true or false?" against what is known for certain, on the device
+        if (answer != null && !answer.trim().isEmpty()) {
+            hub.worker.execute(() -> {
+                final String own = dvine1().questionReply(answer);
+                if (own != null && alive(id)) {
+                    handler.post(() -> {
+                        if (chatPane != null && !isFinishing()) {
+                            chatPane.assistant(persona, own);
+                        }
+                    });
+                }
+            });
+        }
         if (!prefs.getBoolean("fact_check", false) || connectivity == null || !connectivity.isOnline() || model == null
                 || !ai.dvine.llm.FactCheck.worth(question, answer)) {
             return;

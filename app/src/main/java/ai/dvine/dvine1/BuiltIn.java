@@ -157,6 +157,127 @@ public final class BuiltIn {
         return String.format(Locale.US, about.said, name, values.get(0));
     }
 
+    /** What a sentence can be judged on, and the words that show it states one (G8). */
+    private static final java.util.Map<About, java.util.regex.Pattern> STATES = new java.util.EnumMap<About, java.util.regex.Pattern>(About.class);
+
+    static {
+        STATES.put(About.CAPITAL, java.util.regex.Pattern.compile("\\bcapital\\b"));
+        STATES.put(About.CURRENCY, java.util.regex.Pattern.compile("\\b(currency|legal tender)\\b"));
+        STATES.put(About.LANGUAGE, java.util.regex.Pattern.compile("\\bofficial languages?\\b"));
+        STATES.put(About.CONTINENT, java.util.regex.Pattern.compile("\\b(continent|is in|lies in|located in|is part of)\\b"));
+        STATES.put(About.SYMBOL, java.util.regex.Pattern.compile("\\bsymbol\\b"));
+        STATES.put(About.NUMBER, java.util.regex.Pattern.compile("\\batomic number\\b"));
+    }
+
+    private final Map<About, java.util.Set<String>> allValues = new java.util.EnumMap<About, java.util.Set<String>>(About.class);
+
+    private synchronized java.util.Set<String> valuesOf(About a) {
+        java.util.Set<String> v = allValues.get(a);
+        if (v == null) {
+            v = new java.util.HashSet<String>();
+            for (Map<About, List<String>> of : facts.values()) {
+                List<String> l = of.get(a);
+                if (l != null) {
+                    v.addAll(l);
+                }
+            }
+            allValues.put(a, v);
+        }
+        return v;
+    }
+
+    private static String plain(String s) {
+        return " " + s.toLowerCase(Locale.US).replaceAll("[\u2019']s\\b", " ").replaceAll("[^\\p{L}\\p{Nd} -]", " ").replaceAll("\\s+", " ") + " ";
+    }
+
+    /** Whether a value stands in the sentence as whole words (a symbol, case and all). */
+    private static boolean says(About a, String sentence, String q, String value) {
+        if (a == About.SYMBOL) {
+            return java.util.regex.Pattern.compile("(?<![\\p{L}])" + java.util.regex.Pattern.quote(value) + "(?![\\p{L}])").matcher(sentence).find();
+        }
+        return q.contains(plain(value));
+    }
+
+    /**
+     * G8 (formulas/Truth): one sentence judged against what shipped with the app. TRUE when it names the right value,
+     * FALSE when it names another value of the same kind (another capital, currency, continent, symbol or number) for
+     * the one thing it is about, UNKNOWN otherwise, or when it names more than one thing.
+     */
+    public ai.dvine.dvine1.formulas.Truth.Checked check(String sentence) {
+        ai.dvine.dvine1.formulas.Truth.Checked unknown = ai.dvine.dvine1.formulas.Truth.Checked.unknown(sentence);
+        if (sentence == null || facts.isEmpty() || !ai.dvine.dvine1.formulas.Truth.claims(sentence)) {
+            return unknown;
+        }
+        String q = plain(sentence);
+        if (q.matches(".* (was|were|had been) .*")) {
+            return unknown; // the past: a capital or a currency that changed
+        }
+        List<String> named = new ArrayList<String>();
+        for (String n : facts.keySet()) {
+            if (n.length() >= 3 && q.contains(" " + n + " ")) {
+                named.add(n);
+            }
+        }
+        named.removeIf(n -> {
+            for (String o : named) {
+                if (!o.equals(n) && o.contains(n)) {
+                    return true; // "Sudan" inside "South Sudan"
+                }
+            }
+            return false;
+        });
+        if (named.size() != 1) {
+            return unknown;
+        }
+        String thing = named.get(0);
+        for (Map.Entry<About, java.util.regex.Pattern> e : STATES.entrySet()) {
+            About a = e.getKey();
+            List<String> right = facts.get(thing).get(a);
+            if (right == null || right.isEmpty() || !e.getValue().matcher(q).find()) {
+                continue;
+            }
+            for (String v : right) {
+                if (says(a, sentence, q, v)) {
+                    return new ai.dvine.dvine1.formulas.Truth.Checked(ai.dvine.dvine1.formulas.Truth.Verdict.TRUE, sentence, null, "built-in reference");
+                }
+            }
+            String claimed = a == About.CAPITAL ? claimedCapital(q, thing) : null;
+            if (claimed != null) {
+                return new ai.dvine.dvine1.formulas.Truth.Checked(ai.dvine.dvine1.formulas.Truth.Verdict.FALSE, sentence,
+                        answer("what is the capital of " + shown.get(thing)), "built-in reference");
+            }
+            for (String other : valuesOf(a)) {
+                if (!right.contains(other) && !plain(other).equals(" " + thing + " ") && says(a, sentence, q, other)) {
+                    String fix = answer("what is the " + a.name + " of " + shown.get(thing));
+                    return new ai.dvine.dvine1.formulas.Truth.Checked(ai.dvine.dvine1.formulas.Truth.Verdict.FALSE, sentence,
+                            fix, "built-in reference");
+                }
+            }
+        }
+        return unknown;
+    }
+
+    private static final java.util.Set<String> NOT_A_PLACE = new java.util.HashSet<String>(java.util.Arrays.asList("it", "this", "that",
+            "which", "what", "city", "town", "here", "there", "its", "the", "a", "an", "and", "also", "now", "today", "so", "fact", "in"));
+
+    /** The city a sentence names as a country's capital ("Lagos is the capital of Nigeria"), or null. */
+    static String claimedCapital(String q, String thing) {
+        String t = java.util.regex.Pattern.quote(thing), w = "([\\p{L}-]+(?: [\\p{L}-]+)?)";
+        String[] forms = {"capital (?:city )?of (?:the )?" + t + " is (?:the city of )?" + w,
+                " " + t + " capital (?:city )?is (?:the city of )?" + w, w + " is (?:the |its )?capital (?:city )?of (?:the )?" + t};
+        for (String f : forms) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(f).matcher(q);
+            if (m.find()) {
+                java.util.List<String> words = new java.util.ArrayList<String>(java.util.Arrays.asList(m.group(1).trim().split(" ")));
+                words.removeIf(NOT_A_PLACE::contains);
+                if (!words.isEmpty()) {
+                    return String.join(" ", words);
+                }
+            }
+        }
+        return null;
+    }
+
     /** The longest known name that stands as whole words in the question, so "South Sudan" is not read as "Sudan". */
     private static String longest(String q, Map<String, ?> names) {
         String best = null;
