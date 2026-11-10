@@ -71,6 +71,6 @@ public class TermuxToolTest {
         CodeAgent agent = new CodeAgent(ws, (system, transcript) -> replies.isEmpty() ? null : replies.remove(0), host, "", 20_000);
         assertTrue(agent.system().contains("<tool name=\"termux\""));
         assertEquals("It prints hello.", agent.run("run my hello script", ""));
-        assertEquals(Arrays.asList("asked termux: python3 main.py", "hello: python3 main.py"), ran);
+        assertEquals(Arrays.asList("asked python3 main.py", "hello: python3 main.py"), ran);
     }
 }

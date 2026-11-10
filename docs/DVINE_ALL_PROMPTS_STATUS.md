@@ -214,6 +214,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 181 | Persona icon beside the name on replies; Listen reads only the response, in that persona's voice; African voices | P12 | Built (icons and names; Listen per persona; African voices ranked first; the voices themselves must be installed on the device; device check pending) | 0.99.49 |
 | 182 | Switch completely to the group chat, permanently; build what was missing | P12 | Built (the group is the only chat; Share › DVINE added). Still not built: several personas at once, post watcher, offline neural voices | 0.99.49 |
 | 183 | Device bugs (screenshots): `<severity>0</severity>` as a reply; Ibiko's line under Obi's name; "Pull it now" searched on the web; Obi pointing to Termux; survey reading bookkeeping files; squeezed Workload line | P12 | Built (JVM tests; device check pending) | 0.99.49 |
+| 184 | Convert every word command to a code command: no word activates a command, only the model reads context and intent | P12 | Built for every route that ran a function from wording while a model is in use (new codes §HO §WP §TT §RF §CO §DR §YS §CX). Sizing heuristics still read wording; with no model the wording routes remain | 0.99.50 |
+| 185 | Tools in the group chat: all tools available, rows to a grid, a small switch top right of each card | P12 | Built (JVM test; device check pending) | 0.99.50 |
+| 186 | Models dispatch multi workers during real work, on command | P12 | Built (`workers` tool, `agent/Squad`; parallel on an API, in turn on the device model; device check pending) | 0.99.50 |
+| 187 | Deep look at the whole UI: every button and widget does and shows what it says | P12 | Partial (static check of switches and buttons, stale texts fixed, hand-off button fixed; not exercised on a device) | 0.99.50 |
 
 ## Still open, in the order that matters
 

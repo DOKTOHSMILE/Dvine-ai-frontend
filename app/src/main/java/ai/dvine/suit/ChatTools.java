@@ -26,6 +26,7 @@ public final class ChatTools {
         FILES("Make files", "PDF, Word, spreadsheets and more", FunctionCode.MF),
         SHARE("Share, post or copy", "Through the device's apps (you approve each)", FunctionCode.AC),
         SOCIAL("Social accounts", "Search, trending, posts now or scheduled, and replies you approve", FunctionCode.SO),
+        WORKERS("Workers", "Split a big job among several workers at once", null),
         DEEP("Deep thinking", "Plan, draft, check and revise before answering (slower, more calls)", null);
 
         public final String title, about;
@@ -41,33 +42,15 @@ public final class ChatTools {
 
     /** The suit's own controls: always available, whatever tools are on. */
     static final Set<FunctionCode> ALWAYS = EnumSet.of(FunctionCode.CA, FunctionCode.TM, FunctionCode.NM, FunctionCode.NC,
-            FunctionCode.SW, FunctionCode.RT, FunctionCode.OS);
+            FunctionCode.SW, FunctionCode.RT, FunctionCode.OS, FunctionCode.HO, FunctionCode.WP, FunctionCode.TT, FunctionCode.RF,
+            FunctionCode.CO, FunctionCode.YS, FunctionCode.CX);
 
-    /** The tools a persona offers, in the order the sheet lists them. */
+    /**
+     * The tools on offer, in the order the sheet shows them. The chat is a group: Obi, Ivie and Ibiko are all in it, so
+     * every tool is there whoever answers.
+     */
     public static List<Tool> offered(String persona) {
-        List<Tool> t = new ArrayList<Tool>();
-        String p = persona == null ? "" : persona.toLowerCase(Locale.US);
-        if (p.equals("ibiko")) {
-            t.add(Tool.GITHUB);
-            t.add(Tool.SHELL);
-            t.add(Tool.WEB);
-            t.add(Tool.CONNECTORS);
-            t.add(Tool.FILES);
-        } else if (p.equals("ivie")) {
-            t.add(Tool.PHOTOS);
-            t.add(Tool.DESIGN3D);
-            t.add(Tool.WEB);
-            t.add(Tool.FILES);
-            t.add(Tool.SHARE);
-        } else {
-            t.add(Tool.WEB);
-            t.add(Tool.CONNECTORS);
-            t.add(Tool.FILES);
-            t.add(Tool.SHARE);
-            t.add(Tool.SOCIAL);
-        }
-        t.add(Tool.DEEP);
-        return t;
+        return new ArrayList<Tool>(java.util.Arrays.asList(Tool.values()));
     }
 
     private final String persona;
@@ -117,6 +100,11 @@ public final class ChatTools {
         }
     }
 
+    /** Whether the lead may start several workers at once on a big job. */
+    public boolean workers() {
+        return on.contains(Tool.WORKERS);
+    }
+
     public boolean deep() {
         return on.contains(Tool.DEEP);
     }
@@ -130,6 +118,9 @@ public final class ChatTools {
             }
             if (t == Tool.GITHUB) {
                 s.add(FunctionCode.TL); // GitHub's own tools go through the connector code
+            }
+            if (t == Tool.DESIGN3D) {
+                s.add(FunctionCode.DR); // changes to what is on the canvas
             }
         }
         if (on.contains(Tool.SOCIAL)) {

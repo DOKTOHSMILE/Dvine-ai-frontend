@@ -2012,8 +2012,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     // to it, pause / continue / show the download). Without it there is nothing to read the words.
                     return modelCommand(control(t));
                 })
-                .route("measurements for the build", this::measurementsGiven)
-                .route("post, share or copy", t -> stagedAction(t)) // shown first, carried out on a yes (or auto-approve)
+                // with a brain in the suit no wording runs anything: the brain reads the sizes (\u00A7BD) and the yes or no
+                // to an action shown waiting (\u00A7YS, \u00A7CX); the card's own buttons are the pilot's direct control
+                .route("measurements for the build", t -> !brainReads() && measurementsGiven(t))
+                .route("post, share or copy", t -> !brainReads() && stagedAction(t))
                 // no "make a file", "retry" or "read the meaning" by wording: the brain gives those as codes
                 .route("brain", t -> {
                     askTheBrain(t);
@@ -2033,6 +2035,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         brainGate = new ai.dvine.gate.BrainGateway("brain", messageGate())
                 .route("agent carries on", t -> {
                     String said = brainAsked == null ? t : brainAsked;
+                    if (brainReads() && !"ibiko".equals(stage.agent())) {
+                        return false; // Obi and Ivie carry on by the brain's code (\u00A7CO); Ibiko's agent keeps its own work
+                    }
                     if (!(carriesOn(said) && !agentWork(stage.agent()).isEmpty() && model != null && model.ready())) {
                         return false;
                     }
@@ -2041,7 +2046,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("who am I", t -> {
-                    if (apiDirect()) {
+                    if (brainReads()) {
                         return false;
                     }
                     String who = ai.dvine.llm.PersonaPrompt.introduce(stage.agent(), t);
@@ -2051,14 +2056,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     play(LocalTurn.speakAs(stage.agent(), who), null);
                     return true;
                 })
-                .route("Ivie's 3D canvas", this::ivieGraphics) // Ivie draws, builds or changes it on her canvas
-                .route("read the device's files", t -> {
-                    if ("ibiko".equals(stage.agent()) || !modelOn() || !aboutPhoneFiles(t)) {
-                        return false;
-                    }
-                    runAgent(t, stage.agent(), true); // Obi or Ivie read the cloned files, with any model
-                    return true;
-                })
+                // Ivie's canvas by wording only when no brain is in the suit; a brain gives \u00A7BD and \u00A7DR.
+                // Reading the workspace files is the brain's code too (\u00A7RF), never a file name in the message
+                .route("Ivie's 3D canvas", t -> !brainReads() && ivieGraphics(t))
                 .route("attachment", t -> {
                     if (!ai.dvine.chat.Attachments.has(t) || !modelOn()) {
                         return false;
@@ -2071,25 +2071,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     return true;
                 })
-                .route("writing plan", t -> {
-                    // a story, a script, a report: Ivie and Obi plan it, check the plan, then write it section by section
-                    if ("ibiko".equals(stage.agent()) || model == null || !model.ready() || !ai.dvine.agent.WritingPlan.applies(t)) {
-                        return false;
-                    }
-                    runWritingPlan(stage.agent(), t);
-                    return true;
-                })
-                .route("hand to Ibiko", t -> {
-                    if (apiDirect() || "ibiko".equals(stage.agent()) || !prefs.getBoolean("handoff", true) || !ai.dvine.agent.Handoff.forIbiko(t)) {
-                        return false;
-                    }
-                    offerHandoff(stage.agent(), t); // Ibiko's work: Obi or Ivie offer to hand it to him
-                    return true;
-                })
+                // a long piece planned first (\u00A7WP) and work passed to the one it belongs to (\u00A7HO) are the brain's codes
                 .route("Ibiko's coding agent", t -> {
-                    if (!"ibiko".equals(stage.agent()) || !modelOn() || ai.dvine.agent.Council.wanted(t, false)
-                            || t.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
-                        return false; // "think together" in Ibiko's chat: the council
+                    if (!"ibiko".equals(stage.agent()) || !modelOn()) {
+                        return false;
                     }
                     ai.dvine.llm.BrainOrder known = null; // Ibiko's own brain reads the words: no wording shortcut
                     boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
@@ -2107,7 +2092,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     // and the model is asked properly (it teaches the box afresh)
                     String wrong = boxBefore;
                     boxBefore = null;
-                    if (wrong == null || !ai.dvine.learn.BrainBox.correction(t)) {
+                    if (wrong == null || brainReads() || !ai.dvine.learn.BrainBox.correction(t)) {
                         return false;
                     }
                     brainBox().forget(wrong);
@@ -2119,8 +2104,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 })
                 .route("learned", t -> {
                     // DVINE's own brain: an action it learned from the models, carried out without asking one.
-                    // Not while an API is selected: then the API decides (the box keeps learning from it)
-                    if (apiDirect()) {
+                    // Only when no brain is in the suit: with one, the brain reads every message (the box keeps learning from it)
+                    if (brainReads()) {
                         return false;
                     }
                     String learned = brainBox().recall(t);
@@ -2154,14 +2139,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("think together", t -> {
-                    if (!ai.dvine.agent.Council.wanted(t, prefs.getBoolean("think_together", false)) || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
+                    // the Settings switch sends weighty questions to the three; asked for in words, it is the brain's code (\u00A7TT)
+                    if (!prefs.getBoolean("think_together", false) || !ai.dvine.agent.Council.wanted(t, true) || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
                         return false;
                     }
                     thinkTogether(t, stage.agent()); // a weighty question: Obi, Ivie and Ibiko work on it, one answer
                     return true;
                 })
                 .route("full answer", t -> {
-                    if (apiDirect()) {
+                    if (brainReads()) {
                         return false; // the one call below answers in full, and may act
                     }
                     if (ai.dvine.llm.TaskSize.of(t, false) != ai.dvine.llm.TaskSize.Tier.STRONG || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
@@ -2188,8 +2174,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     String toolsKey(String persona) {
+        // the chat is a group: one set of tools for the conversation, whoever answers
         String group = chats == null ? "" : chats.current().group;
-        return "tools:" + group + ":" + persona;
+        return "tools:" + group + ":group";
     }
 
     /** The suit's codes this page's brain is told about: only the tools switched on, and the suit's own controls. */
@@ -2460,6 +2447,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return brainBox;
     }
 
+    /**
+     * A brain is in the suit (the device's model, or an API): it alone reads what the pilot's words mean and gives DVINE
+     * the code of what to do. No wording runs a function then; the buttons stay the pilot's direct controls.
+     */
+    private boolean brainReads() {
+        return modelOn() || apiDirect();
+    }
+
     private boolean modelOn() {
         return !dvineOwn() && model != null && model.ready() && prefs.getBoolean("llm_on", true);
     }
@@ -2592,6 +2587,51 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     selectPersona(order.arg, "ibiko".equals(order.arg));
                 }
                 return;
+            case HANDOVER:
+                handOver(agent, question, order.arg);
+                return;
+            case WRITEPLAN:
+                if (model != null && model.ready() && !"ibiko".equals(agent)) {
+                    runWritingPlan(agent, question);
+                } else {
+                    askLocal(question, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
+                }
+                return;
+            case THINKTOGETHER:
+                thinkTogether(question, agent);
+                return;
+            case READFILES:
+            case CARRYON:
+                if (modelOn()) {
+                    runAgent(order.kind == ai.dvine.llm.BrainOrder.Kind.CARRYON ? "continue" : question, agent, !"ibiko".equals(agent));
+                } else {
+                    play(LocalTurn.speakAs(agent, "That needs a model, and none is ready."), null);
+                }
+                return;
+            case CANVAS:
+                showIvieCanvas(true);
+                if (!ivieStudio(order.arg) && !create(order.arg)) {
+                    play(LocalTurn.speakAs(agent, "Nothing on the canvas takes that change."), null);
+                }
+                return;
+            case CONFIRM: {
+                PendingAction waiting = stager.pending(System.currentTimeMillis());
+                if (waiting == null) {
+                    play(LocalTurn.speakAs(agent, "Nothing is waiting for a yes."), null);
+                } else {
+                    doAction(stager.take(), false);
+                }
+                return;
+            }
+            case CANCEL:
+                if (stager.pending(System.currentTimeMillis()) != null) {
+                    stager.take();
+                    closeStaged();
+                    play(LocalTurn.speakAs(agent, "Cancelled. Nothing was sent."), null);
+                } else {
+                    play(LocalTurn.speakAs(agent, "Nothing was waiting."), null);
+                }
+                return;
             case PLANMODE:
                 command(ai.dvine.turn.Meaning.Command.MODE_PLAN);
                 return;
@@ -2614,6 +2654,33 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : "I can't carry that out. " + order.speech;
                 play(LocalTurn.speakAs(agent, why), null);
         }
+    }
+
+    /** One hand-over a message: the one it was passed to answers it and does not pass it on again. */
+    private boolean handedOver;
+
+    /**
+     * The brain said this message is another persona's work (\u00A7HO, or Ibiko's hand-over tool): that persona takes
+     * it and answers, in the same group thread. The pilot's message is not shown twice.
+     */
+    private void handOver(String from, String question, String to) {
+        if (to == null || !to.matches("ivie|obi|ibiko") || handedOver || question == null) {
+            // already passed once, or to itself: it answers as it is, with no codes, so the message is never dropped
+            askLocal(question, null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
+            return;
+        }
+        handedOver = true;
+        selectPersona(to);
+        runChat = chats == null || chats.current() == null ? null : pageKey();
+        runAgent = to;
+        if (chats != null) {
+            chats.workOn(to);
+        }
+        if (chatPane != null) {
+            chatPane.workFor(to);
+            chatPane.activityStep(labelOf(from) + " passed this to " + labelOf(to));
+        }
+        brainGate().handle(question, System.currentTimeMillis());
     }
 
     /**
@@ -2801,7 +2868,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     model.window() * 3 > 24_000 ? 24_000 : model.window() * 3)
                     .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
                     .steps(rounds ? Math.min(pace.roundSteps, agentSteps) : agentSteps)
-                    .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> {
+                    .as(who, readOnly).planning(planning).keepGoing(rounds).squad(chatTools(persona).workers())
+                    .handover("ibiko".equals(persona) && !readOnly && !handedOver).checkpoint(w -> {
                         saveAgentWork(workAt, w);
                         scribe.checkpoint(w);
                     })
@@ -2888,6 +2956,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             markRunning(null, null); // finished (or stopped): nothing to carry on after a restart
             final String answer = result;
+            final String passedTo = agent.handedTo();
             changed.addAll(agent.changed());
             scribe.finish(answer, host.stopped(), changed);
             saveAgentWork(workAt, agent.work());
@@ -2902,6 +2971,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 endThink();
+                if (passedTo != null) {
+                    handOver(persona, task, passedTo); // not Ibiko's work: Obi or Ivie answers it
+                    return;
+                }
                 attachWork(readOnly ? null : changed, since); // the diff, pull requests and files, under this reply
                 play(LocalTurn.speakAs(persona, answer), null);
                 if (planning && answer != null && !answer.trim().isEmpty() && !host.stopped()) {
@@ -3105,21 +3178,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         chatPane.show();
     }
 
-    /** The hand-off button: a new chat under the persona, named after the task, where they start on it at once. */
+    /** The hand-off button under a plan: that persona starts on the task at once, in this same group thread. */
     private void handOff(String persona, String task) {
         if (chats == null || task == null || task.trim().isEmpty()) {
             return;
         }
-        ai.dvine.chat.ChatBook.Section s = chats.fresh(persona);
-        chats.rename(s.id, ai.dvine.agent.Handoff.title(task));
-        selectPersona(persona); // the new conversation, this persona's empty page
-        chatPane.show();
-        noteUser(task);
-        if ("ibiko".equals(persona)) {
-            runIbiko(task);
-        } else {
-            askTheBrain(task);
+        if (thisChatBusy()) {
+            note("Something is still working here. Tap Stop first, or wait for it to finish.");
+            return;
         }
+        handedOver = false;
+        handOver(stage.agent(), task, persona);
     }
 
     /** A clear-out of the working memory is under way (one at a time). */
@@ -3513,8 +3582,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             // a task meant for another persona goes to their page before it is shown anywhere: it is sent there, as if
             // typed there, and the page that got it by mistake keeps nothing of it
             String mentioned = ai.dvine.agent.Handoff.mentioned(text); // "@Ivie draw a cat": the one named answers
-            String owner = groupChat() ? ai.dvine.agent.Handoff.groupRoute(text, stage.agent()) // no buttons: the words choose
-                    : mentioned != null ? mentioned : ai.dvine.agent.Handoff.owner(text);
+            // a persona addressed by name answers. Otherwise, with a brain in the suit, whoever is in the conversation
+            // reads the message and passes it on by code when it is another's work (\u00A7HO); only with no brain do the
+            // words themselves choose
+            handedOver = false;
+            String owner = mentioned != null ? mentioned : brainReads() ? stage.agent()
+                    : ai.dvine.agent.Handoff.groupRoute(text, stage.agent());
             if (owner != null && !owner.equals(stage.agent())) {
                 selectPersona(owner);
                 if (!groupChat()) {
@@ -3532,12 +3605,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             // said on this page and kept there, not a notice that fades: the message is waiting, not lost
             String busyWith = runAgent == null ? "Another chat" : labelOf(runAgent);
-            chats.noteHere(stage == null ? null : stage.agent(), "Waiting: " + busyWith + " is still working in another chat. Your message goes out"
-                    + " the moment that finishes. Tap Stop there to end it sooner.");
+            chats.noteHere(stage == null ? null : stage.agent(), "Waiting: " + busyWith + " is still working. Your message goes out"
+                    + " the moment that finishes. Tap Stop to end it sooner.");
             if (chatPane != null) {
                 chatPane.show();
             }
-            note("Sent. This chat answers when the other one finishes.");
+            note("Sent. It is answered when " + busyWith + " finishes.");
             return;
         }
         replacing = true;
@@ -4633,8 +4706,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return ai.dvine.llm.PersonaPrompt.situation(face, examiner.lastTopic(),
                 stage.pictureShown() ? lastDrawn : null, part,
                 connectivity != null && connectivity.isOnline())
+                + waitingAction()
                 + (chats == null ? ""
                         : blank(chats.transcript(700)) + blank(chats.memoryForPrompt(6)));
+    }
+
+    /** For the brain: the action shown waiting for the pilot's yes, so it can read a yes or a no to it (\u00A7YS, \u00A7CX). */
+    private String waitingAction() {
+        PendingAction p = stager == null ? null : stager.pending(System.currentTimeMillis());
+        return p == null ? "" : " An action is shown waiting for the user's yes: " + ai.dvine.brain.ActionPlanner.question(p)
+                + " If their message agrees, give \u00A7YS; if it refuses, \u00A7CX.";
     }
 
 
@@ -4718,7 +4799,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
             }
             final String english = asked;
-            final boolean look = online && (research || ai.dvine.llm.FreshFacts.worthLooking(english));
+            // when the brain may act it asks for a search itself (\u00A7SR); the wording decides only for a plain answer
+            final boolean look = online && (research || !acts && ai.dvine.llm.FreshFacts.worthLooking(english));
             if (look) {
                 activity("Searching the web for \u201c" + clip(english) + "\u201d");
             }
@@ -6314,7 +6396,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (waiting != null && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 runShell(waiting[0], waiting[1]); // allowed: the command the user asked for runs now
             } else if (waiting != null) {
-                play(LocalTurn.speakAs(stage.agent(), "Without that permission I can't run commands in Termux. You can allow it"
+                play(LocalTurn.speakAs(stage.agent(), "Without that permission I can't run that command. You can allow it"
                         + " the next time I ask."), null);
             }
             return;

@@ -7,7 +7,8 @@ public final class BrainOrder {
     public enum Kind {
         SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, BUILD, SOCIAL, CANNOT,
         // the suit's controls, only ever from a brain's code (never from the user's words)
-        CALC, MAKEFILE, STAGE, SOCIALINTEL, SCHEDULEPOST, NEWCHAT, SWITCH, PLANMODE, AUTOON, AUTOOFF, RETRY, SETTINGS
+        CALC, MAKEFILE, STAGE, SOCIALINTEL, SCHEDULEPOST, NEWCHAT, SWITCH, PLANMODE, AUTOON, AUTOOFF, RETRY, SETTINGS,
+        HANDOVER, WRITEPLAN, THINKTOGETHER, READFILES, CARRYON, CANVAS, CONFIRM, CANCEL
     }
 
     public final Kind kind;
@@ -69,6 +70,14 @@ public final class BrainOrder {
             case SP: return new BrainOrder(Kind.SCHEDULEPOST, c.args, "");
             case NC: return new BrainOrder(Kind.NEWCHAT, "", "");
             case SW: return new BrainOrder(Kind.SWITCH, c.args.trim().toLowerCase(java.util.Locale.US), "");
+            case HO: return new BrainOrder(Kind.HANDOVER, c.args.trim().toLowerCase(java.util.Locale.US).replaceAll("[^a-z].*$", ""), "");
+            case WP: return new BrainOrder(Kind.WRITEPLAN, "", "");
+            case TT: return new BrainOrder(Kind.THINKTOGETHER, "", "");
+            case RF: return new BrainOrder(Kind.READFILES, "", "");
+            case CO: return new BrainOrder(Kind.CARRYON, "", "");
+            case DR: return new BrainOrder(Kind.CANVAS, c.args, "");
+            case YS: return new BrainOrder(Kind.CONFIRM, "", "");
+            case CX: return new BrainOrder(Kind.CANCEL, "", "");
             case PM: return new BrainOrder(Kind.PLANMODE, "", "");
             case AO: return new BrainOrder(Kind.AUTOON, "", "");
             case AF: return new BrainOrder(Kind.AUTOOFF, "", "");

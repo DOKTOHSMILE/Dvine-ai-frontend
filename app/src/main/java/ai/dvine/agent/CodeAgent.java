@@ -102,7 +102,7 @@ public final class CodeAgent {
 
         /** Runs a command in Termux in the project {@code folder} (copied there first); what it printed. */
         default String termux(String command, File folder) {
-            return "Termux isn't available.";
+            return "Linux isn't set up on this device yet.";
         }
 
         /** The user stopped the work. */
@@ -242,6 +242,96 @@ public final class CodeAgent {
         return this;
     }
 
+    /** One of several workers the lead started ({@link Squad}): its part only, no blueprint and no workers of its own. */
+    private boolean worker;
+
+    /** Every worker started in this run, for the count in the summary. */
+    private int workersUsed;
+
+    public int workersUsed() {
+        return workersUsed;
+    }
+
+    /**
+     * The {@code workers} tool: each part goes to a worker of its own (an agent like this one, with the same tools, the
+     * same workspace and the same approvals), all at the same time. Their words are not streamed into the chat; their
+     * steps show there, and each has its row on the workers board.
+     */
+    private String dispatch(Call c) {
+        if (worker || !squad) {
+            return worker ? "Error: a worker does its own part; only the lead starts workers."
+                    : "Workers are switched off for this chat (Tools \u203A Workers). Do the parts yourself, one after another.";
+        }
+        if (blueprint != null && blueprint.phase() != Blueprint.Phase.BUILD && blueprint.phase() != Blueprint.Phase.VERIFY) {
+            return "Blueprint: workers build. Finish UNDERSTAND, PLAN and CHECK in PLAN.md first, then start them from the plan's steps.";
+        }
+        final List<String> parts = Squad.parts(c.body);
+        if (parts.size() < 2) {
+            return "Error: workers needs at least two <part> blocks, one for each worker. Do a single part yourself.";
+        }
+        final String whole = task;
+        final Brain quiet = new Brain() {
+            @Override
+            public String ask(String system, String transcript) {
+                return brain.askQuiet(system, transcript);
+            }
+
+            @Override
+            public String why() {
+                return brain.why();
+            }
+        };
+        host.step("Started " + parts.size() + " workers on " + parts.size() + " parts at once");
+        workersUsed += parts.size();
+        String result = Squad.run(parts, (number, part) -> {
+            String row = AgentBoard.start(persona + " \u00B7 worker " + number, part);
+            CodeAgent w = new CodeAgent(workspace, quiet, host, connectorTools, budgetChars).useGit(git)
+                    .steps(Math.max(8, maxSteps)).as(persona + " worker " + number, false).compact(compact);
+            w.worker = true;
+            try {
+                AgentBoard.step(row, "Working on its part");
+                String report = w.run(Squad.brief(number, parts.size(), part, whole), "");
+                synchronized (changed) {
+                    for (String f : w.changed()) {
+                        if (!changed.contains(f)) {
+                            changed.add(f);
+                        }
+                    }
+                }
+                AgentBoard.end(row, host.stopped() ? AgentBoard.Outcome.STOPPED : AgentBoard.Outcome.DONE);
+                host.step("Worker " + number + " of " + parts.size() + " finished");
+                return report;
+            } catch (RuntimeException e) {
+                AgentBoard.end(row, AgentBoard.Outcome.FAILED);
+                return "Error: " + e.getMessage();
+            }
+        }, brain.readers(), host::stopped);
+        return result;
+    }
+
+    private boolean squad = true, handoverOn;
+    private String handover;
+
+    /** Whether the lead may start workers (the chat's Workers tool). */
+    public CodeAgent squad(boolean on) {
+        squad = on;
+        return this;
+    }
+
+    /** In the group chat: a message that is not this agent's work can be passed to Obi or Ivie. */
+    public CodeAgent handover(boolean on) {
+        handoverOn = on;
+        return this;
+    }
+
+    /** "obi" or "ivie" when the agent passed the message on instead of answering; else null. */
+    public String handedTo() {
+        return handover;
+    }
+
+    /** The task this run is for (a worker is told the whole job for context). */
+    private String task = "";
+
     /** Git with GitHub (the GitHub connector's token); null leaves the git tool out. */
     public CodeAgent useGit(ai.dvine.connect.GitHubGit git) {
         this.git = git;
@@ -351,11 +441,15 @@ public final class CodeAgent {
                         + " Alpine Linux as run, inside DVINE. The Termux app is not opened. path is the folder it runs in."
                         + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
+                + (readOnly || worker || !squad ? "" : Squad.TOOL)
+                + (worker || !handoverOn ? "" : "<tool name=\"handover\" to=\"obi|ivie\"/> (only when the message is not yours at all:"
+                        + " ordinary talk, a question about the world, research or a report is Obi's; a story, a script, a drawing or a"
+                        + " design is Ivie's. They answer it instead of you. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
                         + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
-                        + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the phone; writes no file)\n"
-                        + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the phone; overlapping edits stay as conflicts)\n"
+                        + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the device; writes no file)\n"
+                        + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the device; overlapping edits stay as conflicts)\n"
                         + "<tool name=\"git\" action=\"sync\" path=\"folder\" branch=\"main\"/> (fetch, then merge)\n"
                         + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step; a push that errors did not land)\n"
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
@@ -428,6 +522,7 @@ public final class CodeAgent {
     }
 
     private String work(String task, String earlier) {
+        this.task = task == null ? "" : task;
         outOfSteps = false;
         StringBuilder work = new StringBuilder();
         if (resume != null && !resume.trim().isEmpty()) {
@@ -531,6 +626,13 @@ public final class CodeAgent {
                 work.append("\n<result>\nThat word is part of the working reply, not the user ending the task. It is not a"
                         + " new prompt. Carry on with the next tool, or put the finished answer inside <final>…</final>.\n</result>\n");
                 continue;
+            }
+            if (call != null && "handover".equals(call.name) && !worker && handoverOn) {
+                String to = first(call.attrs, "to", "persona", "name").trim().toLowerCase(Locale.US);
+                if (to.matches("obi|ivie")) {
+                    handover = to; // not this agent's work: the other one answers it, and nothing is said here
+                    return "";
+                }
             }
             if (call != null) {
                 String said = noteBefore(text, call);
@@ -1123,8 +1225,8 @@ public final class CodeAgent {
     /** A real task gets a blueprint; one carried on picks up its PLAN.md where it was. */
     private void startBlueprint(String task, StringBuilder work) {
         blueprintNudges = 0;
-        if (planning || readOnly) {
-            blueprint = null; // plan mode has its own rules; reading answers no build
+        if (planning || readOnly || worker) {
+            blueprint = null; // plan mode has its own rules; reading answers no build; a worker follows the lead's plan
             return;
         }
         boolean carryOn = resume != null && !resume.trim().isEmpty();
@@ -1262,6 +1364,8 @@ public final class CodeAgent {
                     : "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
         }
         switch (c.name) {
+            case "workers":
+                return dispatch(c);
             case "list_files": {
                 String listed = listFiles(c.a("path").isEmpty() ? "." : c.a("path"));
                 host.step("Listed the files in " + show(c.a("path")), show(c.a("path")), lines(listed), -1, -1);
@@ -1375,13 +1479,13 @@ public final class CodeAgent {
                     return "No command given.";
                 }
                 if (!host.termuxReady()) {
-                    return "Termux isn't available; use run (the device's small shell) instead.";
+                    return "Linux isn't set up on this device yet; use run (the device's small shell) instead.";
                 }
                 File folder = c.a("path").trim().isEmpty() || c.a("path").trim().equals(".") ? workspace : inside(c.a("path"));
                 if (!folder.isDirectory()) {
                     return "No such folder: " + c.a("path");
                 }
-                if (!host.allowRun("termux: " + cmd)) {
+                if (!host.allowRun(cmd)) {
                     host.step("Not run: " + clip(cmd, 60));
                     return "The user didn't allow this command. Find another way, or ask them in your final answer.";
                 }
@@ -1390,7 +1494,7 @@ public final class CodeAgent {
                 shown.add("$ " + cmd);
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
                 host.step(CommandWords.describe(cmd) + " in Linux", "$ " + clip(cmd, 80), shown, -1, -1);
-                return out == null ? "Termux gave nothing back." : clipResult(out, RESULT_CHARS);
+                return out == null ? "The command gave nothing back." : clipResult(out, RESULT_CHARS);
             }
             case "fetch": {
                 String url = c.a("url");

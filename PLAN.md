@@ -1,3 +1,10 @@
+# Only the brain commands; workers; tools grid (0.99.50)
+
+- [x] With a model in use, no wording runs a function: the brain gives a code.
+- [x] The lead model starts workers on parts of the real work.
+- [x] One tools grid for the group, every tool, small switches.
+- [ ] The whole UI exercised on a device (only a static pass was done).
+
 # The group chat only, voices, device fixes (0.99.49)
 
 - [x] The group chat is permanent: no setting, no separate pages.
