@@ -1,3 +1,8 @@
+# Answered during a job on the device (0.99.67)
+
+- [x] A message sent while a job runs on the device's own model is answered between two of the job's steps.
+- [x] Every visible string checked for old names: none shows.
+
 # The device's model starts in seconds (0.99.66)
 
 - [x] No hidden thinking on the device's model unless asked.

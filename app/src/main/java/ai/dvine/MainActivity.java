@@ -4748,7 +4748,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * it as the next turn.
      */
     private void steerIntoTask(String text, boolean attached) {
-        if (!attached && model != null && model.coding && model.remoteOn() && text != null && !text.trim().isEmpty()) {
+        if (!attached && model != null && model.coding && (model.remoteOn() || model.localReady()) && text != null
+                && !text.trim().isEmpty()) {
             sideReply(text.trim()); // a long job keeps running in the background; the message is answered now
             return;
         }
@@ -4780,20 +4781,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     private void sideReply(final String text) {
         noteUser(text);
-        note("The job keeps running. Answering you meanwhile.");
+        final boolean onDevice = !model.remoteOn();
+        note(onDevice ? "The job keeps running. I'll answer you between two of its steps."
+                : "The job keeps running. Answering you meanwhile.");
         final String agent = stage == null ? "ibiko" : stage.agent();
         final String job = backgroundTask == null ? "a long job" : backgroundTask;
         final String last = chatPane == null ? "" : chatPane.lastStep();
-        final String system = ai.dvine.llm.PersonaPrompt.system(agent, brain.userName(),
-                new java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.UK).format(new java.util.Date()), selfSheet())
+        final String system = systemFor(agent, false)
                 + " A job is running in the background right now: " + clip(job) + (last.isEmpty() ? "" : " (last step: " + last + ")")
                 + ". It keeps going while you answer. Answer the user's new message yourself, briefly. Only if the message is an"
                 + " instruction or a correction for that job (change what it does, add to it, stop part of it), write \u00A7ST and"
                 + " the instruction alone on the first line, then one short sentence; the job reads it on its next step.";
-        final String context = chats == null ? "" : chats.transcript(4000, 1500);
+        final String context = chats == null ? "" : chats.transcript(onDevice ? 1200 : 4000, onDevice ? 400 : 1500);
         hub.worker.execute(() -> {
-            String said = model.remoteTask(system, (context.isEmpty() ? "" : "The chat so far:\n" + context + "\n\n")
-                    + "The user's new message: " + text, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
+            String asked = (context.isEmpty() ? "" : "The chat so far:\n" + context + "\n\n") + "The user's new message: " + text;
+            // on an API, beside the job; on the device's own model, between two of the job's steps (the model keeps the
+            // job's reading in another of its memory slots, so the job carries on where it was)
+            String said = onDevice ? model.task(system, asked, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs), null)
+                    : model.remoteTask(system, asked, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
             handler.post(() -> {
                 if (isFinishing() || chatPane == null) {
                     return;
