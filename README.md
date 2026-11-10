@@ -44,7 +44,7 @@ The repository and the Java package keep their old names (`Dvine-ai-frontend`, `
 
 The check and cross under a reply teach it faster.
 
-**Thinking ahead.** Before it answers or acts, Ibiko weighs what you are really asking, what it is for, what could go wrong and what you will need next (`dvine1/formulas/Foresight`). It also learns your habits, such as pushing after a fix. When it is sure, it offers the likely next step in one line, and never does it unasked.
+**Thinking ahead.** Before it answers or acts, Ibiko weighs what you are really asking, what it is for, what could go wrong and what you will need next (`dvine1/formulas/Foresight`). It also learns your habits, such as pushing after a fix. It learns from its own replies too (`dvine1/formulas/Reflection`): what you do next tells it how each reply went, such as a correction, the same question again, "shorter" or "thanks", and it keeps the lesson for the next reply of that kind. When it is sure, it offers the likely next step in one line, and never does it unasked.
 
 ## Built in
 

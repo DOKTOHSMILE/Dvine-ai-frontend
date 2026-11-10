@@ -181,17 +181,33 @@ public final class Dvine1 {
 
     /** For any brain, with the request: think ahead, and the next step this pilot usually takes after one like it. */
     public String premeditate(String request) {
-        return foresight().hint(Methods.kind(request));
+        return foresight().hint(Methods.kind(request)) + reflection().hint(Methods.kind(request));
     }
+
+    /** Learning from its own replies: how each one went, judged by what the pilot did next ({@code formulas/Reflection}). */
+    public ai.dvine.dvine1.formulas.Reflection reflection() {
+        return Store.reflection(dir);
+    }
+
+    /** The pilot's last request and whether a reply to it has been given since (any brain's). */
+    private volatile String lastRequest;
+    private volatile boolean replied;
 
     /** One of the pilot's messages, to any brain: it may judge DVINE 1's last answer, and it is read for language. */
     public void hear(String said) {
+        String before = lastRequest;
+        if (before != null && replied) {
+            reflection().observe(Methods.kind(before), before, said); // the next message judges the last reply
+        }
+        lastRequest = said;
+        replied = false;
         foresight().heard(said, Methods.kind(said), System.currentTimeMillis()); // what this pilot asks after what
         learner().heard(said, System.currentTimeMillis());
     }
 
     /** Any model's answer: read for language only (a model's claim is not a fact). */
     public void readReply(String reply) {
+        replied = reply != null && !reply.trim().isEmpty();
         learner().read(reply, Learner.Source.MODEL, System.currentTimeMillis());
     }
 
@@ -496,6 +512,7 @@ public final class Dvine1 {
         }
         learner().judged(right, System.currentTimeMillis());
         methods().judge(question, right); // the way that reached it, too
+        reflection().judged(Methods.kind(question), right); // and the record of how replies like it go
         if (right) {
             knowledge().confirm(question, answer);
             host.learnTalk(question, answer);
