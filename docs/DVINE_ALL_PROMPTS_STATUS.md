@@ -246,6 +246,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 213 | A formula to coin all its knowledge together on a foundation of truth | P12 | Built (`formulas/Truth` G1–G7, `Dvine1.foundation`; JVM tests) | 0.99.62 |
 | 214 | Question every data it takes in and gives out: is this true or false? Add to the formula | P12 | Built (`formulas/Truth` G8, `BuiltIn.check`, `Facts.check`, in and out; JVM tests) | 0.99.63 |
 | 215 | The humming sound from the speaker while the AI runs | P12 | Fixed (no audio stream unless something plays; `AmbientPadTest`) | 0.99.64 |
+| 216 | It also saves false data and true data | P12 | Built (`formulas/TruthLedger`, Truth G9, Memory card; JVM tests) | 0.99.65 |
 
 ## Still open, in the order that matters
 

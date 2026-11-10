@@ -217,7 +217,13 @@ public final class Dvine1 {
         } catch (RuntimeException e) {
             // a store that can't be read leaves the rules alone
         }
-        return ai.dvine.dvine1.formulas.Truth.brief(claims);
+        String checkedBefore = "";
+        try {
+            checkedBefore = ledger().about(request, 3); // G9: the known mistakes and checked truths about this
+        } catch (RuntimeException e) {
+            // the ledger can't be read: the rest stands
+        }
+        return ai.dvine.dvine1.formulas.Truth.brief(claims) + checkedBefore;
     }
 
     /** G8: the witnesses a sentence is asked of, most trusted first (the built-in reference, then facts held firmly). */
@@ -225,13 +231,26 @@ public final class Dvine1 {
         List<ai.dvine.dvine1.formulas.Truth.Witness> w = new ArrayList<ai.dvine.dvine1.formulas.Truth.Witness>();
         w.add(builtIn()::check);
         w.add(facts()::check);
+        w.add(ledger()); // G9: what was judged before, when nothing above speaks to it now
         return w;
+    }
+
+    /** G9: every sentence judged true or false, kept. */
+    public ai.dvine.dvine1.formulas.TruthLedger ledger() {
+        return Store.truthLedger(dir);
     }
 
     /** G8 out: a reply from any brain, asked "true or false?" sentence by sentence; the correction to say, or null. */
     public String questionReply(String reply) {
+        return questionReply(reply, "out");
+    }
+
+    /** As {@link #questionReply(String)}; {@code way} is where the text came from ("out", "in", "pilot"), for the ledger. */
+    public String questionReply(String reply, String way) {
         try {
-            return ai.dvine.dvine1.formulas.Truth.correction(ai.dvine.dvine1.formulas.Truth.question(reply, witnesses()));
+            List<ai.dvine.dvine1.formulas.Truth.Checked> checked = ai.dvine.dvine1.formulas.Truth.question(reply, witnesses());
+            ledger().record(checked, way, System.currentTimeMillis()); // G9: true and false both kept
+            return ai.dvine.dvine1.formulas.Truth.correction(checked);
         } catch (RuntimeException e) {
             return null;
         }
@@ -239,7 +258,9 @@ public final class Dvine1 {
 
     /** G8 in: a text to learn from, without the sentences found false. */
     public String trueOnly(String text) {
-        return ai.dvine.dvine1.formulas.Truth.trueOnly(text, witnesses());
+        List<ai.dvine.dvine1.formulas.Truth.Checked> checked = ai.dvine.dvine1.formulas.Truth.question(text, witnesses());
+        ledger().record(checked, "in", System.currentTimeMillis());
+        return ai.dvine.dvine1.formulas.Truth.trueOnly(checked);
     }
 
     /** Learning from its own replies: how each one went, judged by what the pilot did next ({@code formulas/Reflection}). */
@@ -550,7 +571,7 @@ public final class Dvine1 {
         if (m.matches()) {
             String subject = (m.group(1) == null ? "" : m.group(1) + " ") + m.group(2);
             String verb = m.group(3).toLowerCase(Locale.US);
-            String differs = questionReply(said); // G8: the pilot's word is kept, and a difference is said
+            String differs = questionReply(said, "pilot"); // G8: the pilot's word is kept, and a difference is said
             knowledge().confirm("What " + verb + " " + subject + "?", said);
             facts().learn(said, null, 2, System.currentTimeMillis()); // the pilot's own words: as good as a source
             if (Character.isUpperCase(m.group(2).charAt(0)) && m.group(1) == null) {

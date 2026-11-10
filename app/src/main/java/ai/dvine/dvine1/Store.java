@@ -44,6 +44,17 @@ public final class Store {
         return (ai.dvine.dvine1.formulas.Reflection) o;
     }
 
+    /** The truth ledger (formulas/Truth G9): every sentence judged true or false. */
+    public static synchronized ai.dvine.dvine1.formulas.TruthLedger truthLedger(File dir) {
+        String k = key(dir, "truth.tsv");
+        Object o = OPEN.get(k);
+        if (o == null) {
+            o = new ai.dvine.dvine1.formulas.TruthLedger(new File(dir, "truth.tsv"));
+            OPEN.put(k, o);
+        }
+        return (ai.dvine.dvine1.formulas.TruthLedger) o;
+    }
+
     public static synchronized ai.dvine.dvine1.formulas.Foresight foresight(File dir) {
         String k = key(dir, "foresight.tsv");
         Object o = OPEN.get(k);

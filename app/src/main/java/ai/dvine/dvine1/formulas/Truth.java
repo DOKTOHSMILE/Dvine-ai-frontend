@@ -38,6 +38,9 @@ import java.util.Map;
  *                     FALSE  a more trusted source says otherwise, about something with one answer
  *                     UNKNOWN nothing trusted speaks to it: kept as unsure, never stated as certain (G5)
  *                     a sentence that denies, hedges, asks or speaks of the past is not judged
+ * G9  ledger          every TRUE and FALSE judgment is kept, both sides ({@link TruthLedger}): the true are confirmed
+ *                     knowledge, the false are known mistakes; a sentence judged before is judged the same again, and
+ *                     the mistakes and truths about a request go to every brain with it, the mistakes first
  * </pre>
  */
 public final class Truth {
@@ -218,8 +221,13 @@ public final class Truth {
 
     /** G8 in: the text without the sentences found FALSE, to learn from. */
     public static String trueOnly(String text, List<Witness> witnesses) {
+        return trueOnly(question(text, witnesses));
+    }
+
+    /** G8 in: the sentences of a pass not found FALSE. */
+    public static String trueOnly(List<Checked> checked) {
         StringBuilder b = new StringBuilder();
-        for (Checked c : question(text, witnesses)) {
+        for (Checked c : checked) {
             if (c.verdict != Verdict.FALSE) {
                 b.append(b.length() == 0 ? "" : " ").append(c.sentence);
             }

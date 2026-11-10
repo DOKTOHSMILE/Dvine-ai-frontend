@@ -1,3 +1,7 @@
+# The truth ledger (0.99.65)
+
+- [x] Every sentence judged true or false is kept, both sides; recognised again; mistakes told to every brain.
+
 # The speaker hum (0.99.64)
 
 - [x] No audio stream opened unless something is playing; closed, not paused, when it stops.
