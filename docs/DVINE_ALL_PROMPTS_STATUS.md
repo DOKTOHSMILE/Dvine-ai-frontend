@@ -199,6 +199,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 166 | Learning at any time, not only at night; formulas for language understanding, sentence formulation and intent to parse any information; a standard drag drawer | P12 | Built (JVM and Robolectric; device check pending) | 0.99.11 |
 | 167 | Split MainActivity; DVINE model code in one detachable folder with its own endpoint, linked to the app-functions file; easier taps; narrate work and end with a summary; Settings in step; the ohmmm sound | P12 | Built (JVM and Robolectric; device check pending). MainActivity split is partial: drawer, tools, model menu and DVINE 1 moved; the rest still to do | 0.99.12 |
 | 168 | The device hums and overheats while DVINE runs a task: find and fix | P12 | Built (seven causes fixed from reading the code; not measured on a device) | 0.99.13 |
+| 169 | Bigger models not as effective or fast as they should be; DVINE 1 self-sufficient, self-learning, self-evolving per PLAN.md; learn from every interaction, conversation and social reading; grammar (nouns, pronouns, adjectives, verbs…); all formula code in one traceable folder | P12 | Built (big models 0.99.37; learner T1–T7 0.99.38, JVM tests; device check pending) | 0.99.38 |
 
 ## Still open, in the order that matters
 

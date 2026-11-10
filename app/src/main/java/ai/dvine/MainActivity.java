@@ -1338,6 +1338,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // The chat is laid out inside the status and navigation bars. It does not draw under them.
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
 
+        ai.dvine.social.SocialWeb.onRead = text -> new Thread(() -> dvine1().readSocial(text), "dvine-read").start();
         stage = new StageView(this);
         stage.setListener(this);
         podView = new ai.dvine.render.PodView(this);
@@ -3429,6 +3430,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 pilotProfile().notice(said); // what the pilot says about themselves
                 // what the pilot asks about, with any model: learned at night if DVINE 1 doesn't know it yet
                 dvine1().noticeQuestion(said);
+                dvine1().hear(said); // DVINE 1 learns from every message: grammar, shapes, the pilot's word on its answers
             }, "dvine-profile").start();
         }
         if (!interpreted && needsInternet() && (connectivity == null || !connectivity.isOnline())) {
@@ -4436,7 +4438,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     ai.dvine.llm.ReplyNotice.show(MainActivity.this, agent, kept);
                     final String learnQ = question, learnA = kept;
-                    hub.worker.execute(() -> brainBox().learnTalk(learnQ, learnA));
+                    hub.worker.execute(() -> {
+                        brainBox().learnTalk(learnQ, learnA);
+                        dvine1().readReply(learnA);
+                    });
                     return;
                 }
                 endThink();
@@ -4481,7 +4486,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     // after it is shown: a correction follows only if one is needed (checked in English)
                     factCheck(id, agent, english, lang == null ? body : englishBody);
                     final String learnQ = question, learnA = body;
-                    hub.worker.execute(() -> brainBox().learnTalk(learnQ, learnA)); // DVINE grows with every answer
+                    hub.worker.execute(() -> {
+                        brainBox().learnTalk(learnQ, learnA); // DVINE grows with every answer
+                        dvine1().readReply(learnA); // and DVINE 1 learns the language of it
+                    });
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
                     walker.setAfter(() -> switchFace(switchTo, true));

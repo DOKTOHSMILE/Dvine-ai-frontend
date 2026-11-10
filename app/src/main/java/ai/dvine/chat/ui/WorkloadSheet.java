@@ -86,6 +86,7 @@ public final class WorkloadSheet {
                     + " so nothing here fills up or needs clearing.", 13, Ui.SUB, false), Ui.wide(a, 8));
             ai.dvine.dvine1.Knowledge k = new ai.dvine.dvine1.Knowledge(new java.io.File(a.getFilesDir(), "brain/knowledge.tsv"));
             card.addView(row(a, "Answers you confirmed", String.valueOf(k.size())), Ui.wide(a, 10));
+            card.addView(Ui.text(a, ai.dvine.dvine1.Dvine1.scoreLine(a.getFilesDir()), 13, Ui.SUB, false), Ui.wide(a, 8));
         } else {
             UsageLog.Call c = model.usage.last();
             int window = c != null ? c.window : model.window();
