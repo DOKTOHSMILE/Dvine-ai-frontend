@@ -55,6 +55,9 @@ public final class SocialPoster {
         if (p == null) {
             return false;
         }
+        if (!c.getSharedPreferences("dvine", Context.MODE_PRIVATE).getBoolean("social_direct", true)) {
+            return false; // the pilot chose to press Post themselves
+        }
         SocialAccounts all = SocialWeb.accounts(c);
         SocialAccounts.Account a = all.inUse(p);
         return a != null && all.on(p, true);

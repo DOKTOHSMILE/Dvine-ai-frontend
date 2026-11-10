@@ -125,6 +125,19 @@ public final class AccountProvider implements SocialProvider {
     public SocialProfile readOwn(int recent) {
         SocialAccounts.Account a = account();
         String handle = a == null ? "" : a.label.trim();
+        if (a != null && !handle.matches("@?[A-Za-z0-9._]{2,40}") && (platform == Platform.FACEBOOK || platform == Platform.REDDIT)) {
+            // the account is named by a person's name, not a username: the network's own "my profile" address, with
+            // the sign-in, opens it all the same
+            String me = platform == Platform.FACEBOOK ? "https://m.facebook.com/me/" : "https://www.reddit.com/user/me/";
+            SocialProfile own = new SocialProfile(platform.shown, handle, handle, "", me, -1, -1, true);
+            String page = SocialWeb.open(context, me, 8000);
+            own.recent.addAll(lines(page, me, Math.max(1, recent)));
+            if (own.recent.isEmpty()) {
+                own.limits.add(page.length() > 300 ? page.substring(0, 300) : page);
+            }
+            own.limits.add("Read with the user's own sign-in as the profile page shows it; private insights need the platform's business API.");
+            return own;
+        }
         if (a == null || !handle.matches("@?[A-Za-z0-9._]{2,40}")) {
             SocialProfile p = new SocialProfile(platform.shown, handle, "", "", "", -1, -1, true);
             p.limits.add(a == null ? unavailableReason()
