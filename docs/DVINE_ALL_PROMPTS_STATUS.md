@@ -201,6 +201,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 168 | The device hums and overheats while DVINE runs a task: find and fix | P12 | Built (seven causes fixed from reading the code; not measured on a device) | 0.99.13 |
 | 169 | Bigger models not as effective or fast as they should be; DVINE 1 self-sufficient, self-learning, self-evolving per PLAN.md; learn from every interaction, conversation and social reading; grammar (nouns, pronouns, adjectives, verbs…); all formula code in one traceable folder | P12 | Built (big models 0.99.37; learner T1–T7 0.99.38, JVM tests; device check pending) | 0.99.38 |
 | 170 | Check the Linux engine and wire it properly: full Linux UI and functionality | P12 | Built (real terminal device, xterm screen, one shell for the screen and chat; JVM tests; device check pending) | 0.99.40 |
+| 171 | Deep audit and diagnosis of the codebase; device bugs: DVINE 1 "Try again" loop, gpt-5 thinking 2 minutes, Send busy on Ivie, a reply on a page never asked, chats leaking into other chats, Ibiko's nonsense step words, a message with no response | P12 | Built (11 fixes, docs/AUDIT_2026-11-10.md; JVM tests; device check pending) | 0.99.41 |
 
 ## Still open, in the order that matters
 
