@@ -28,6 +28,19 @@ public final class SocialFlow {
         /** The model writes the post. {@code tokens} is how long the reply may be. */
         void writePost(String prompt, int tokens);
 
+        /** The model writes several versions of a post for {@code platform} about {@code words}; the pilot picks one. */
+        default void writeVersions(ai.dvine.social.Platform platform, String words) {
+        }
+
+        /** Several versions to pick from (Social accounts › Three versions to pick from). */
+        default boolean versions() {
+            return true;
+        }
+
+        /** A comment under the post at {@code link} on {@code app} ("facebook", "x"): read it, write one, ask first. */
+        default void writeComment(String app, String link, String what) {
+        }
+
         int chatTokens();
 
         void search(String question, String call);
@@ -87,7 +100,20 @@ public final class SocialFlow {
                         + " saying on Reddit about Flutter\u201d, \u201ccheck trending posts on X\u201d, or \u201cwrite a post for Facebook about"
                         + " our sale\u201d, then \u201cpost it on Facebook\u201d to open Facebook with it ready. I also check facts against what people post.");
                 return;
+            case "comment": {
+                java.util.regex.Matcher link = java.util.regex.Pattern.compile("https?://\\S+").matcher(p.words);
+                if (!link.find()) {
+                    host.say("Send me the link of the post to comment under (Share, then Copy link).");
+                    return;
+                }
+                host.writeComment(p.net, link.group(), (p.words.substring(0, link.start()) + p.words.substring(link.end())).trim());
+                return;
+            }
             case "post": {
+                if ((platform == ai.dvine.social.Platform.FACEBOOK || platform == ai.dvine.social.Platform.X) && host.versions()) {
+                    host.writeVersions(platform, p.words); // several versions to choose from, then posted from the account
+                    return;
+                }
                 String where = platform == null ? "social media" : platform.shown;
                 host.writePost("Write one ready-to-post " + where + " post" + (p.words.isEmpty() ? "" : " about " + p.words)
                         + ": the post text only, natural and engaging, the right length for " + where + ", with a few hashtags if"

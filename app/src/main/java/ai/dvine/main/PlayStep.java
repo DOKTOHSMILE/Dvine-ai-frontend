@@ -242,7 +242,8 @@ public final class PlayStep {
         }
         final TurnLine line = lines.get(index);
         index++;
-        final String who = host.stage().agent();
+        // the one the line belongs to ("Ibiko online!" is Ibiko's, though Obi was on it a moment ago)
+        final String who = line.agent != null && line.agent.matches("obi|ivie|ibiko") ? line.agent : host.stage().agent();
         host.stage().ensureFace(who, () -> {
             if (!host.samePlay(token)) {
                 return;

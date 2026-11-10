@@ -44,6 +44,16 @@ public final class CodeAgent {
         default String why() {
             return null;
         }
+
+        /** A call that is not shown in the chat: a survey reader's own reading. */
+        default String askQuiet(String system, String text) {
+            return ask(system, text);
+        }
+
+        /** How many survey readers may ask at once: an API takes several, the device's own model one at a time. */
+        default int readers() {
+            return 1;
+        }
     }
 
     /** What the phone does for the agent. */
@@ -92,7 +102,7 @@ public final class CodeAgent {
 
         /** Runs a command in Termux in the project {@code folder} (copied there first); what it printed. */
         default String termux(String command, File folder) {
-            return "Termux isn't available.";
+            return "Linux isn't set up on this device yet.";
         }
 
         /** The user stopped the work. */
@@ -232,6 +242,96 @@ public final class CodeAgent {
         return this;
     }
 
+    /** One of several workers the lead started ({@link Squad}): its part only, no blueprint and no workers of its own. */
+    private boolean worker;
+
+    /** Every worker started in this run, for the count in the summary. */
+    private int workersUsed;
+
+    public int workersUsed() {
+        return workersUsed;
+    }
+
+    /**
+     * The {@code workers} tool: each part goes to a worker of its own (an agent like this one, with the same tools, the
+     * same workspace and the same approvals), all at the same time. Their words are not streamed into the chat; their
+     * steps show there, and each has its row on the workers board.
+     */
+    private String dispatch(Call c) {
+        if (worker || !squad) {
+            return worker ? "Error: a worker does its own part; only the lead starts workers."
+                    : "Workers are switched off for this chat (Tools \u203A Workers). Do the parts yourself, one after another.";
+        }
+        if (blueprint != null && blueprint.phase() != Blueprint.Phase.BUILD && blueprint.phase() != Blueprint.Phase.VERIFY) {
+            return "Blueprint: workers build. Finish UNDERSTAND, PLAN and CHECK in PLAN.md first, then start them from the plan's steps.";
+        }
+        final List<String> parts = Squad.parts(c.body);
+        if (parts.size() < 2) {
+            return "Error: workers needs at least two <part> blocks, one for each worker. Do a single part yourself.";
+        }
+        final String whole = task;
+        final Brain quiet = new Brain() {
+            @Override
+            public String ask(String system, String transcript) {
+                return brain.askQuiet(system, transcript);
+            }
+
+            @Override
+            public String why() {
+                return brain.why();
+            }
+        };
+        host.step("Started " + parts.size() + " workers on " + parts.size() + " parts at once");
+        workersUsed += parts.size();
+        String result = Squad.run(parts, (number, part) -> {
+            String row = AgentBoard.start(persona + " \u00B7 worker " + number, part);
+            CodeAgent w = new CodeAgent(workspace, quiet, host, connectorTools, budgetChars).useGit(git)
+                    .steps(Math.max(8, maxSteps)).as(persona + " worker " + number, false).compact(compact);
+            w.worker = true;
+            try {
+                AgentBoard.step(row, "Working on its part");
+                String report = w.run(Squad.brief(number, parts.size(), part, whole), "");
+                synchronized (changed) {
+                    for (String f : w.changed()) {
+                        if (!changed.contains(f)) {
+                            changed.add(f);
+                        }
+                    }
+                }
+                AgentBoard.end(row, host.stopped() ? AgentBoard.Outcome.STOPPED : AgentBoard.Outcome.DONE);
+                host.step("Worker " + number + " of " + parts.size() + " finished");
+                return report;
+            } catch (RuntimeException e) {
+                AgentBoard.end(row, AgentBoard.Outcome.FAILED);
+                return "Error: " + e.getMessage();
+            }
+        }, brain.readers(), host::stopped);
+        return result;
+    }
+
+    private boolean squad = true, handoverOn;
+    private String handover;
+
+    /** Whether the lead may start workers (the chat's Workers tool). */
+    public CodeAgent squad(boolean on) {
+        squad = on;
+        return this;
+    }
+
+    /** In the group chat: a message that is not this agent's work can be passed to Obi or Ivie. */
+    public CodeAgent handover(boolean on) {
+        handoverOn = on;
+        return this;
+    }
+
+    /** "obi" or "ivie" when the agent passed the message on instead of answering; else null. */
+    public String handedTo() {
+        return handover;
+    }
+
+    /** The task this run is for (a worker is told the whole job for context). */
+    private String task = "";
+
     /** Git with GitHub (the GitHub connector's token); null leaves the git tool out. */
     public CodeAgent useGit(ai.dvine.connect.GitHubGit git) {
         this.git = git;
@@ -244,6 +344,8 @@ public final class CodeAgent {
     }
 
     private boolean planning;
+    /** A real task follows the blueprint (understand, plan, check, build, verify); null for a quick question. */
+    private Blueprint blueprint;
     /** Long work in rounds: when the steps run out, a short progress note, and the work goes on ({@link #outOfSteps}). */
     private boolean keepGoing;
     private boolean outOfSteps;
@@ -310,6 +412,7 @@ public final class CodeAgent {
                 : "You are " + persona + ", DVINE's coding agent, working like Claude Code on the user's device. You have a project"
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it."))
+                + (blueprint != null ? "\n" + Blueprint.RULES : "")
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
@@ -338,11 +441,15 @@ public final class CodeAgent {
                         + " Alpine Linux as run, inside DVINE. The Termux app is not opened. path is the folder it runs in."
                         + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
+                + (readOnly || worker || !squad ? "" : Squad.TOOL)
+                + (worker || !handoverOn ? "" : "<tool name=\"handover\" to=\"obi|ivie\"/> (only when the message is not yours at all:"
+                        + " ordinary talk, a question about the world, research or a report is Obi's; a story, a script, a drawing or a"
+                        + " design is Ivie's. They answer it instead of you. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
                         + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
-                        + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the phone; writes no file)\n"
-                        + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the phone; overlapping edits stay as conflicts)\n"
+                        + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the device; writes no file)\n"
+                        + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the device; overlapping edits stay as conflicts)\n"
                         + "<tool name=\"git\" action=\"sync\" path=\"folder\" branch=\"main\"/> (fetch, then merge)\n"
                         + "<tool name=\"git\" action=\"push\" path=\"folder\" message=\"commit message\" branch=\"(optional new branch)\"/> (commits and pushes in one step; a push that errors did not land)\n"
                         + "<tool name=\"git\" action=\"pr\" path=\"folder\" title=\"...\" base=\"(optional)\">description</tool>\n")
@@ -415,6 +522,7 @@ public final class CodeAgent {
     }
 
     private String work(String task, String earlier) {
+        this.task = task == null ? "" : task;
         outOfSteps = false;
         StringBuilder work = new StringBuilder();
         if (resume != null && !resume.trim().isEmpty()) {
@@ -427,6 +535,7 @@ public final class CodeAgent {
             work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
         }
         this.work = work;
+        startBlueprint(task, work);
         String direct = directGit(task);
         if (direct != null) {
             return direct;
@@ -440,10 +549,17 @@ public final class CodeAgent {
             }
             String incoming = host.steer();
             if (incoming != null && !incoming.trim().isEmpty()) {
-                work.append("\n<user>\nThe user sent this while you were working. Read it and continue the same task."
-                        + " Do not stop the task and do not start over.\n")
-                        .append(incoming.trim()).append("\n</user>\n");
-                host.step("Reading what you just sent");
+                if (blueprint != null && blueprint.phase() != Blueprint.Phase.UNDERSTAND) {
+                    // an addition mid-task: into the blueprint, checked again, then building goes on where it was
+                    blueprint.reopen();
+                    work.append("\n<user>\n").append(Blueprint.CHANGE).append("\n").append(incoming.trim()).append("\n</user>\n");
+                    host.step("Adding what you just sent to the blueprint");
+                } else {
+                    work.append("\n<user>\nThe user sent this while you were working. Read it and continue the same task."
+                            + " Do not stop the task and do not start over.\n")
+                            .append(incoming.trim()).append("\n</user>\n");
+                    host.step("Reading what you just sent");
+                }
                 saved();
             }
             String reply = brain.ask(system(), trimmed(work.toString()));
@@ -483,6 +599,14 @@ public final class CodeAgent {
                 work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(DO_IT_NOW).append("\n</result>\n");
                 continue;
             }
+            if (fin != null && !fin.isEmpty() && blueprint != null && blueprintNudges < 2 && !host.stopped()) {
+                String left = blueprint.unfinished();
+                if (left != null) {
+                    blueprintNudges++; // "done" with steps left in the blueprint: back to them
+                    work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(left).append("\n</result>\n");
+                    continue;
+                }
+            }
             if (fin != null && !fin.isEmpty()) {
                 if (big && !reportAsked && fin.length() < REPORT_CHARS) {
                     reportAsked = true; // "<final>Done.</final>" for an audit: the report itself, please
@@ -503,6 +627,13 @@ public final class CodeAgent {
                         + " new prompt. Carry on with the next tool, or put the finished answer inside <final>…</final>.\n</result>\n");
                 continue;
             }
+            if (call != null && "handover".equals(call.name) && !worker && handoverOn) {
+                String to = first(call.attrs, "to", "persona", "name").trim().toLowerCase(Locale.US);
+                if (to.matches("obi|ivie")) {
+                    handover = to; // not this agent's work: the other one answers it, and nothing is said here
+                    return "";
+                }
+            }
             if (call != null) {
                 String said = noteBefore(text, call);
                 if (said != null && said.length() >= NOTE_MIN && (lastNote == null || callsSinceNote >= NOTE_EVERY)
@@ -516,10 +647,16 @@ public final class CodeAgent {
                 pending = null; // it carried on: whatever it wrote before was not the answer
                 String result;
                 lastStep = null;
-                try {
-                    result = carryOut(call);
-                } catch (IOException | RuntimeException e) {
-                    result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+                String refused = blueprint == null ? null : blueprint.gate(call.name, call.a("path"));
+                if (refused != null) {
+                    result = refused; // plan first: nothing but PLAN.md changes before the blueprint passes its check
+                } else {
+                    try {
+                        result = carryOut(call);
+                    } catch (IOException | RuntimeException e) {
+                        result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+                    }
+                    result = blueprintAfter(call, result);
                 }
                 if (!modelSaid && narrate) {
                     // never silent: what it was doing and what came back, in the chat between the steps
@@ -608,12 +745,13 @@ public final class CodeAgent {
      * The shape of the finished answer for long work, like Claude's end-of-task summary: the outcome first, then short
      * sections under bold headings with bullets, and plainly what is left or needs the user.
      */
-    static final String SUMMARY_SHAPE = "Write that final answer as a summary the user can read in one go: first one or two"
-            + " sentences with the outcome (done or not, and the one thing that matters most). Then short sections, each"
-            + " under a bold heading of a few words (**What I found**, **What I changed**, **Checks**, **What's left** or"
-            + " whatever fits), with short bullets: file names, what each change does, what was checked and its result. Say"
-            + " plainly what failed or wasn't done and what you need from the user. No filler, no repeating the steps one by"
-            + " one.\n";
+    static final String SUMMARY_SHAPE = "Write that final answer as ONE summary of the whole job, the only report the user"
+            + " reads (your notes along the way are folded away once you finish): plain flowing paragraphs, like a short essay,"
+            + " not a list of steps and not headings. Open with the outcome in one or two sentences (done or not, and the one"
+            + " thing that matters most). Then say what you found, what you changed and why, naming the files, what you"
+            + " checked and what the check showed, and end with anything that failed, was not done, or that you need from the"
+            + " user. A few bullets are fine only for things that really are a list (files, commands). No filler, and never a"
+            + " replay of the steps one by one.\n";
 
     /** Text without a tool call or <final>: the model is asked, once, which it is. */
     static final String DONE_OR_GO_ON = "You wrote text without a tool call. If the task is finished, give your complete answer"
@@ -1083,6 +1221,143 @@ public final class CodeAgent {
         return "";
     }
 
+    private int blueprintNudges;
+
+    /** A real task gets a blueprint; one carried on picks up its PLAN.md where it was. */
+    private void startBlueprint(String task, StringBuilder work) {
+        blueprintNudges = 0;
+        if (planning || readOnly || worker) {
+            blueprint = null; // plan mode has its own rules; reading answers no build; a worker follows the lead's plan
+            return;
+        }
+        boolean carryOn = resume != null && !resume.trim().isEmpty();
+        File kept = carryOn ? latestBlueprint() : null;
+        if (kept == null && !Blueprint.applies(task)) {
+            blueprint = null;
+            return;
+        }
+        blueprint = new Blueprint();
+        if (kept != null) {
+            try {
+                String rel = workspace.getCanonicalFile().toPath().relativize(kept.getCanonicalFile().toPath()).toString();
+                blueprint.resume(rel, new String(Files.readAllBytes(kept.toPath()), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                blueprint = new Blueprint();
+            }
+        }
+        String line = blueprint.announce();
+        if (line != null) {
+            host.step(line);
+        }
+        if (kept == null && !host.stopped()) {
+            // understand first: several readers go through the code at once, line by line, and write down what is there
+            File root = projectOf(task);
+            String map = null;
+            try {
+                File keep = new File(workspace, ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()));
+                map = Survey.run(root, keep, task, brain::askQuiet, brain.readers(), host::step);
+            } catch (RuntimeException e) {
+                map = null;
+            }
+            if (map != null) {
+                String rel = ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()) + "/";
+                work.append("\nCodebase map, written by the survey readers (each file read line by line; the notes are in ")
+                        .append(rel).append("). This is what the code is now: use it for '## Found' and '## Reuse',"
+                                + " and read a file yourself only where a note is not enough.\n")
+                        .append(clip(map, Math.max(4000, budgetChars / 3))).append('\n');
+            }
+        }
+    }
+
+    /** The project a task is about: a workspace folder it names, else the whole workspace. */
+    private File projectOf(String task) {
+        File[] in = workspace.listFiles(File::isDirectory);
+        String t = task == null ? "" : task.toLowerCase(Locale.US);
+        if (in != null) {
+            for (File d : in) {
+                String n = d.getName().toLowerCase(Locale.US);
+                if (n.length() > 2 && !n.startsWith(".") && (t.contains(n) || t.contains(n.replace('-', ' ')))) {
+                    return d;
+                }
+            }
+            if (in.length == 1 && !in[0].getName().startsWith(".") && !in[0].getName().equals("sandbox")) {
+                return in[0]; // one project here: that one
+            }
+        }
+        return workspace;
+    }
+
+    /** The newest PLAN.md in the workspace that is a blueprint, or null. */
+    private File latestBlueprint() {
+        File best = null;
+        java.util.ArrayDeque<File> todo = new java.util.ArrayDeque<File>();
+        todo.add(workspace);
+        int seen = 0;
+        while (!todo.isEmpty() && seen < 4000) {
+            File d = todo.poll();
+            File[] in = d.listFiles();
+            if (in == null) {
+                continue;
+            }
+            for (File f : in) {
+                seen++;
+                if (f.isDirectory() && !f.getName().startsWith(".") && !f.getName().equals("node_modules") && !f.getName().equals("build")) {
+                    todo.add(f);
+                } else if (f.getName().equalsIgnoreCase("PLAN.md") && (best == null || f.lastModified() > best.lastModified())) {
+                    try {
+                        if (new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).contains("# Blueprint")) {
+                            best = f;
+                        }
+                    } catch (IOException ignored) {
+                        // not readable: not ours
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /** After a call: PLAN.md re-read and checked, the phase shown, and a warning when the work goes round in circles. */
+    private String blueprintAfter(Call c, String result) {
+        if (blueprint == null) {
+            return result;
+        }
+        String said = null;
+        if ((c.name.equals("write_file") || c.name.equals("edit_file")) && Blueprint.isPlanFile(c.a("path"))) {
+            try {
+                File f = inside(c.a("path"));
+                if (f.isFile()) {
+                    said = blueprint.planned(c.a("path"), new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
+                    if (blueprint.phase() == Blueprint.Phase.CHECK && said != null && said.startsWith("Blueprint check failed")) {
+                        // it set BUILD with gaps left: the file says CHECK again, so a later run doesn't skip the check
+                        String now = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)
+                                .replaceAll("(?im)^(\\s*Phase:\\s*)BUILD\\b", "$1CHECK");
+                        Files.write(f.toPath(), now.getBytes(StandardCharsets.UTF_8));
+                    }
+                }
+            } catch (IOException ignored) {
+                // the plan is read again next time it is written
+            }
+        }
+        String line = blueprint.announce();
+        if (line != null) {
+            host.step(line);
+        }
+        for (String ticked : blueprint.takeTicked()) {
+            host.step("Blueprint step done: " + ticked); // into the Scribe's record, so it is not done again
+        }
+        String args = c.attrs.toString() + "\u0000" + (c.body == null ? "" : c.body.hashCode());
+        String circling = blueprint.circling(c.name, args, result);
+        StringBuilder out = new StringBuilder(result == null ? "" : result);
+        if (said != null) {
+            out.append("\n").append(said);
+        }
+        if (circling != null) {
+            out.append("\n").append(circling);
+        }
+        return out.toString();
+    }
+
     private String carryOut(Call c) throws IOException {
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
                 || c.name.equals("make_file") || c.name.equals("zip") || c.name.equals("unzip"))) {
@@ -1090,6 +1365,8 @@ public final class CodeAgent {
                     : "Only reading here: changing files, commands and git are Ibiko's. Tell the user to ask Ibiko for that.";
         }
         switch (c.name) {
+            case "workers":
+                return dispatch(c);
             case "list_files": {
                 String listed = listFiles(c.a("path").isEmpty() ? "." : c.a("path"));
                 host.step("Listed the files in " + show(c.a("path")), show(c.a("path")), lines(listed), -1, -1);
@@ -1203,13 +1480,13 @@ public final class CodeAgent {
                     return "No command given.";
                 }
                 if (!host.termuxReady()) {
-                    return "Termux isn't available; use run (the device's small shell) instead.";
+                    return "Linux isn't set up on this device yet; use run (the device's small shell) instead.";
                 }
                 File folder = c.a("path").trim().isEmpty() || c.a("path").trim().equals(".") ? workspace : inside(c.a("path"));
                 if (!folder.isDirectory()) {
                     return "No such folder: " + c.a("path");
                 }
-                if (!host.allowRun("termux: " + cmd)) {
+                if (!host.allowRun(cmd)) {
                     host.step("Not run: " + clip(cmd, 60));
                     return "The user didn't allow this command. Find another way, or ask them in your final answer.";
                 }
@@ -1218,7 +1495,7 @@ public final class CodeAgent {
                 shown.add("$ " + cmd);
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
                 host.step(CommandWords.describe(cmd) + " in Linux", "$ " + clip(cmd, 80), shown, -1, -1);
-                return out == null ? "Termux gave nothing back." : clipResult(out, RESULT_CHARS);
+                return out == null ? "The command gave nothing back." : clipResult(out, RESULT_CHARS);
             }
             case "fetch": {
                 String url = c.a("url");

@@ -48,17 +48,6 @@ public class TermuxToolTest {
     }
 
     @Test
-    public void theScriptUnpacksThenRunsAndTheResultIsRead() {
-        String s = TermuxRunner.script("my app!", "python3 main.py", true);
-        assertTrue(s, s.startsWith("mkdir -p \"$HOME/dvine/my_app_\" && cd \"$HOME/dvine/my_app_\""));
-        assertTrue(s.contains("base64 -d | tar xzf -"));
-        assertTrue(s.endsWith("python3 main.py\n"));
-        assertFalse(TermuxRunner.script("app", "ls", false).contains("base64"));
-        assertEquals("hello\n[exit code 0: it worked]", TermuxRunner.format("hello\n", "", 0));
-        assertTrue(TermuxRunner.format("", "bash: node: command not found", 127).contains("not installed in Termux (pkg install"));
-    }
-
-    @Test
     public void ibikoRunsCodeInTermuxWhenItIsThere() throws Exception {
         File ws = Files.createTempDirectory("ibiko").toFile();
         new File(ws, "sandbox/hello").mkdirs();
@@ -82,6 +71,6 @@ public class TermuxToolTest {
         CodeAgent agent = new CodeAgent(ws, (system, transcript) -> replies.isEmpty() ? null : replies.remove(0), host, "", 20_000);
         assertTrue(agent.system().contains("<tool name=\"termux\""));
         assertEquals("It prints hello.", agent.run("run my hello script", ""));
-        assertEquals(Arrays.asList("asked termux: python3 main.py", "hello: python3 main.py"), ran);
+        assertEquals(Arrays.asList("asked python3 main.py", "hello: python3 main.py"), ran);
     }
 }

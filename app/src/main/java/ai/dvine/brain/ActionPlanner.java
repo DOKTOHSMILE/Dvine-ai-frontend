@@ -77,6 +77,11 @@ public final class ActionPlanner {
         return Reply.NONE;
     }
 
+    /** An action made elsewhere (a post version the pilot picked, a comment), waiting for the same yes. */
+    public synchronized void offer(PendingAction p) {
+        pending = p;
+    }
+
     /** Takes the confirmed action out of the planner. */
     public synchronized PendingAction take() {
         PendingAction p = pending;

@@ -259,11 +259,51 @@ public final class ChatBook {
         return t.startsWith("I closed unexpectedly last time") || t.startsWith("Welcome back,");
     }
 
+    /**
+     * Where each persona's work writes: the page it was asked on. A job keeps writing there when the user opens
+     * another page or another chat meanwhile, so one conversation's replies, notes and steps never land in another.
+     */
+    private final java.util.Map<String, String> workPage = new java.util.HashMap<String, String>();
+
+    /** {@code persona}'s work from now on belongs to the page on screen. */
+    public synchronized void workOn(String persona) {
+        Section cur = current();
+        workPage.put(personaOf(persona), cur.id);
+    }
+
+    /** The page {@code persona}'s work writes to: the page it was asked on, else the one on screen. */
+    public synchronized Section pageFor(String persona) {
+        String id = workPage.get(personaOf(persona));
+        if (id != null) {
+            for (Section s : sections) {
+                if (s.id.equals(id) && !s.archived) {
+                    return s;
+                }
+            }
+        }
+        return current();
+    }
+
+    /** A line from DVINE on the page on screen, whatever work is bound elsewhere ("your message is waiting"). */
+    public synchronized void noteHere(String persona, String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        current().messages.add(new Message("assistant", "text", text.trim(), persona));
+        save();
+    }
+
+    /** True when {@code persona}'s work belongs to the page on screen. */
+    public synchronized boolean onScreen(String persona) {
+        return pageFor(persona) == current();
+    }
+
     public synchronized void add(String role, String kind, String body, String persona) {
         if (body == null || body.trim().isEmpty()) {
             return;
         }
-        Section s = current();
+        // the user writes on the page on screen; an answer, a step or a file goes to the page its work was asked on
+        Section s = "user".equals(role) ? current() : pageFor(persona);
         if ("user".equals(role) && (s.title == null || s.title.equals("Chat") || s.title.equals("New chat")
                 || s.title.equals("Obi") || s.title.equals("Ivie") || s.title.equals("Ibiko code"))
                 && s.messages.isEmpty()) {
@@ -296,11 +336,12 @@ public final class ChatBook {
 
     public synchronized void reply(String persona, String text) {
         boolean wrote = false;
+        Section page = pageFor(persona);
         for (Message m : blocks("assistant", persona, text)) {
             if (m.body.trim().isEmpty()) {
                 continue;
             }
-            current().messages.add(m);
+            page.messages.add(m);
             wrote = true;
         }
         if (wrote) {
@@ -315,7 +356,8 @@ public final class ChatBook {
     public synchronized void replyToPage(String persona, String text) {
         String p = personaOf(persona);
         Section cur = current();
-        Section page = p.equals(cur.persona) ? cur : null;
+        Section bound = workPage.containsKey(p) ? pageFor(p) : null;
+        Section page = bound != null ? bound : p.equals(cur.persona) ? cur : null;
         for (int i = sections.size() - 1; page == null && i >= 0; i--) {
             Section s = sections.get(i);
             if (!s.archived && p.equals(s.persona) && cur.group.equals(s.group)) {

@@ -96,4 +96,23 @@ public class SuitTest {
         assertNull(c.answerAlone("write me a poem"));
         assertTrue(c.context("hello").startsWith("DVINE's reading of the message: greeting"));
     }
+
+    /** Passing work on, planning a piece, thinking together, the yes to an action: codes from the brain, never words. */
+    @org.junit.Test
+    public void theBrainsCodesForWhatWordsUsedToDo() {
+        ai.dvine.llm.BrainOrder o = ai.dvine.llm.BrainOrder.leading("\u00A7HO ibiko\nThat is Ibiko's work.");
+        org.junit.Assert.assertEquals(ai.dvine.llm.BrainOrder.Kind.HANDOVER, o.kind);
+        org.junit.Assert.assertEquals("ibiko", o.arg);
+        org.junit.Assert.assertEquals("ivie", ai.dvine.llm.BrainOrder.leading("[[HO]] Ivie.").arg);
+        org.junit.Assert.assertEquals(ai.dvine.llm.BrainOrder.Kind.WRITEPLAN, ai.dvine.llm.BrainOrder.leading("\u00A7WP").kind);
+        org.junit.Assert.assertEquals(ai.dvine.llm.BrainOrder.Kind.THINKTOGETHER, ai.dvine.llm.BrainOrder.leading("\u00A7TT").kind);
+        org.junit.Assert.assertEquals(ai.dvine.llm.BrainOrder.Kind.CONFIRM, ai.dvine.llm.BrainOrder.leading("\u00A7YS\nPosting it.").kind);
+        org.junit.Assert.assertEquals(ai.dvine.llm.BrainOrder.Kind.CANCEL, ai.dvine.llm.BrainOrder.leading("\u00A7CX").kind);
+        org.junit.Assert.assertEquals("make the wheels bigger", ai.dvine.llm.BrainOrder.leading("\u00A7DR make the wheels bigger").arg);
+        // the pilot's own words are never a code
+        org.junit.Assert.assertNull(ai.dvine.llm.BrainOrder.leading("pull it now"));
+        org.junit.Assert.assertNull(ai.dvine.llm.BrainOrder.leading("yes, post it"));
+        org.junit.Assert.assertNull(ai.dvine.llm.BrainOrder.leading("hand this to Ibiko"));
+        org.junit.Assert.assertTrue(FunctionCode.instructions("", null).contains("\u00A7HO"));
+    }
 }

@@ -31,7 +31,7 @@ public final class TermuxResultInterpreter {
     }
 
     private static String explainFailure(String purpose, String why) {
-        String low = (why == null ? "" : why).toLowerCase();
+        String low = (why == null ? "" : why).toLowerCase(java.util.Locale.ROOT);
         if (low.contains("address already in use") || low.contains("port") && low.contains("bind")) {
             return "The process could not start because another process is already using its network port. I have not changed anything.";
         }

@@ -34,6 +34,6 @@ public final class TaskRecord {
 
     public String oneLine() {
         String d = description == null || description.isEmpty() ? instruction : description;
-        return d + " · " + state.name().toLowerCase().replace('_', ' ');
+        return d + " · " + state.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
     }
 }

@@ -22,11 +22,11 @@ public final class GlbAssetImporter {
         int i = 0;
         while (m.find()) {
             String name = m.group(1);
-            String id = name.toLowerCase().replace(' ', '_').replaceAll("[^a-z0-9_]", "");
+            String id = name.toLowerCase(java.util.Locale.ROOT).replace(' ', '_').replaceAll("[^a-z0-9_]", "");
             if (id.isEmpty()) {
                 id = "node_" + i;
             }
-            scene.add(new EditableScene.Node(id, name, "grey", name.toLowerCase() + " | box | grey | middle centre | medium"));
+            scene.add(new EditableScene.Node(id, name, "grey", name.toLowerCase(java.util.Locale.ROOT) + " | box | grey | middle centre | medium"));
             i++;
         }
         if (scene.nodes().isEmpty()) {

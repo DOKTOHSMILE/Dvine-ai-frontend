@@ -237,6 +237,23 @@ public final class LocalModel {
         return !chain.isEmpty() && online.getAsBoolean();
     }
 
+    /**
+     * An API is the chosen brain, online or not. While it is, the device's own model never answers in its place: a
+     * moment without internet is said as that, not quietly answered by another model.
+     */
+    public boolean apiChosen() {
+        return !chain.isEmpty();
+    }
+
+    /** The API is chosen but the device is offline right now: nothing answers, and the user hears why. */
+    private boolean apiUnreachable() {
+        if (apiChosen() && !remoteOn()) {
+            problem = "no internet connection, so the API you picked couldn't be reached";
+            return true;
+        }
+        return false;
+    }
+
     /** "Claude didn't answer (…), so OpenAI did." once, after a switch; then null. */
     public String takeSwitchNote() {
         String n = switchNote;
@@ -492,6 +509,9 @@ public final class LocalModel {
             // quietly take over (problem says why the API didn't answer)
             return null;
         }
+        if (apiUnreachable()) {
+            return null;
+        }
         if (!ensureFitted(system, asked)) {
             return null;
         }
@@ -591,6 +611,9 @@ public final class LocalModel {
             // the chosen model does the task (a design's measurements, a plan, a file) or says why it couldn't:
             // the device's own model never takes over behind the user's back
             return answer == null ? null : answer.trim();
+        }
+        if (apiUnreachable()) {
+            return null;
         }
         if (!ensureFitted(system, prompt)) {
             return null;

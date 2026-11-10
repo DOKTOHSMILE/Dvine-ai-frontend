@@ -622,9 +622,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         @Override
         public void chatsForPersona(String persona) {
-            if (chats != null) {
-                chats.forPersona(persona);
+            if (chats != null && !groupChat()) {
+                chats.forPersona(persona); // three pages: the persona's own page; the group stays in its one thread
             }
+            refreshSend(); // Stop belongs to the page that is working; another page shows Send
+            handler.post(releaseHeld); // a message that waited on this page goes out if nothing is running now
         }
 
         @Override
@@ -719,6 +721,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         personaTabs.offerTermux();
     }
 
+    /**
+     * The Obi · Ivie · Ibiko buttons are for the three-page chat. In the group chat they are hidden: who answers comes
+     * from the message ({@link ai.dvine.agent.Handoff#groupRoute}), as in a group of people.
+     */
+    private void showPersonaBar() {
+        android.view.View bar = findViewById(R.id.personaTabs);
+        if (bar != null) {
+            bar.setVisibility(groupChat() ? android.view.View.GONE : android.view.View.VISIBLE);
+        }
+    }
+
     private void bindChatHeader() {
         android.view.View ivie = findViewById(R.id.tabIvie);
         android.view.View obi = findViewById(R.id.tabObi);
@@ -764,7 +777,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (socialRow != null)
             socialRow.setOnClickListener(v -> {
                 closeDrawer();
-                startActivity(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class));
+                startActivityForResult(new android.content.Intent(this, ai.dvine.chat.ui.SocialActivity.class), SOCIAL);
             });
         android.view.View providers = findViewById(R.id.btnProviders);
         if (providers != null)
@@ -920,19 +933,47 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private final java.util.ArrayDeque<String[]> heldChat = new java.util.ArrayDeque<String[]>();
     private boolean replacing;
 
+    private static String labelOf(String persona) {
+        return persona == null || persona.isEmpty() ? "DVINE" : Character.toUpperCase(persona.charAt(0)) + persona.substring(1);
+    }
+
+    /** The persona whose page the current run belongs to. */
+    private String runAgent;
+
+    /**
+     * The chat is a group: one thread for Obi, Ivie and Ibiko, like a group of people. Everyone's messages are in the
+     * one conversation and the words choose who answers. It is the only kind of chat (the three separate pages are gone).
+     */
+    boolean groupChat() {
+        return true;
+    }
+
+    /**
+     * What one run belongs to: the page (three pages), or the conversation and the persona addressed (the group: Ibiko
+     * coding doesn't make a question to Obi wait as if it were for Ibiko).
+     */
+    private String pageKey() {
+        String id = chats == null || chats.current() == null ? "" : chats.current().id;
+        return groupChat() && stage != null ? id + "#" + stage.agent() : id;
+    }
+
     private boolean thisChatBusy() {
         if (!modelGoing()) {
             return false;
         }
-        String here = chats == null || chats.current() == null ? "" : chats.current().id;
-        return runChat == null || runChat.equals(here);
+        String here = pageKey();
+        if (runChat != null) {
+            return runChat.equals(here);
+        }
+        // work that did not start from a message here (an agent's job): busy only on the page it writes to
+        return chats == null || runAgent == null || chats.onScreen(runAgent);
     }
 
     private boolean runningElsewhere() {
         if (!modelGoing() || runChat == null || chats == null || chats.current() == null) {
             return false;
         }
-        return !runChat.equals(chats.current().id);
+        return !runChat.equals(pageKey());
     }
 
     private void sendComposer() {
@@ -1090,6 +1131,26 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** Adds a picked file to the message being written (read off the main thread). */
+    /**
+     * Share › DVINE from another app ({@link ai.dvine.chat.ui.ShareActivity}): the files and pictures are attached to
+     * the composer and shared text is put in the field. Nothing is sent until the user sends it.
+     */
+    private void takeShared() {
+        ai.dvine.chat.ui.ShareActivity.Shared got = ai.dvine.chat.ui.ShareActivity.take();
+        if (got == null) {
+            return;
+        }
+        for (android.net.Uri u : got.files) {
+            attachPicked(u);
+        }
+        android.widget.EditText field = findViewById(R.id.et_message);
+        if (got.text != null && !got.text.isEmpty() && field != null) {
+            String before = field.getText().toString();
+            field.setText(before.trim().isEmpty() ? got.text : before + "\n" + got.text);
+            field.setSelection(field.getText().length());
+        }
+    }
+
     private void attachPicked(final android.net.Uri uri) {
         note("Attaching\u2026");
         new Thread(() -> {
@@ -1388,6 +1449,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public void onWorkSteps(final java.util.List<String> steps) {
+                final String asked = lastAsked;
+                if (asked == null || steps == null || steps.isEmpty()) {
+                    return;
+                }
+                // learned as we go, from every brain's work: how the answer was reached, not only what it was
+                new Thread(() -> dvine1().learnWay(ai.dvine.chat.Attachments.withoutImages(asked)
+                        .replaceAll("(?s)<attachment.*?</attachment>", "").trim(), steps), "dvine-method").start();
+            }
+
+            @Override
+            public boolean onReadAloudToggle(String text, String persona) {
+                return readAloudHelper.toggleReading(text, persona);
+            }
+
+            @Override
             public void onHandoff(String persona, String task) {
                 handOff(persona, task);
             }
@@ -1462,6 +1539,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
         bindChatHeader();
+        showPersonaBar();
         ai.dvine.turn.Names.restore(prefs.getString("name_aliases", null));
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
@@ -1495,22 +1573,35 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         library = new ai.dvine.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
         assistant = new ai.dvine.ops.AssistantCore(new File(getFilesDir(), "ops"),
                 new ai.dvine.ops.termux.TermuxCapabilityDetector.Probe() {
+                    // the task system's device commands run in DVINE's one Alpine Linux, not in another app
                     @Override
                     public boolean installed() {
-                        return ai.dvine.ops.TermuxAndroid.installed(MainActivity.this);
+                        return ai.dvine.linux.AlpineRun.ready(MainActivity.this);
                     }
 
                     @Override
                     public boolean permissionGranted() {
-                        return checkSelfPermission(
-                                "com.termux.permission.RUN_COMMAND") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                        return true;
                     }
 
                     @Override
                     public boolean resultBridgeConnected() {
-                        return false;
+                        return true;
                     }
-                }, null, null, null);
+                }, (argv, timeoutMs) -> {
+                    if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+                        // never wait for Linux on the screen's thread: the task uses its own quick reading instead
+                        return new ai.dvine.ops.termux.TermuxExecutionService.Result(127, "", "on the main thread", false, false);
+                    }
+                    StringBuilder line = new StringBuilder();
+                    for (String a : argv) {
+                        line.append(line.length() == 0 ? "" : " ").append(ai.dvine.linux.Guest.quote(a));
+                    }
+                    String text = ai.dvine.linux.LinuxHub.run(MainActivity.this, line.toString(), null);
+                    java.util.regex.Matcher exit = java.util.regex.Pattern.compile("\\[exit (\\d+)\\]\\s*$").matcher(text.trim());
+                    int code = exit.find() ? Integer.parseInt(exit.group(1)) : 0;
+                    return new ai.dvine.ops.termux.TermuxExecutionService.Result(code, text, "", false, false);
+                }, null, null);
         String restored = assistant.restoredSummary();
         if (restored != null) {
             stage.activity("TASK", restored);
@@ -1629,6 +1720,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private ai.dvine.ops.task.DvineCommandGateway.VoiceSession commandSession;
     private static final int PICK_CONTENT = 47;
     private static final int HISTORY = 48;
+    /** The Social accounts screen; it may come back with words for the message box ("Write a Facebook post about "). */
+    private static final int SOCIAL = 49;
     private boolean generating;
     private boolean pickerLearn;
     private boolean pickerReconstruct;
@@ -1890,7 +1983,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private void askTheBrain(String question) {
         boxBefore = actedFromBox; // only the very next message can say the brain got it wrong
         actedFromBox = null;
-        lastAsked = question;
+        if (!isRetry(question)) {
+            lastAsked = question; // "try again" is never what a retry asks again: that would ask itself forever
+        }
         brainAsked = question; // as said: "carry on" is read as the agent's own work going on
         String bare = question.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
         boolean carryOnWords = bare.matches("^(continue|go on|carry on|again|keep going)$");
@@ -1928,8 +2023,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     // to it, pause / continue / show the download). Without it there is nothing to read the words.
                     return modelCommand(control(t));
                 })
-                .route("measurements for the build", this::measurementsGiven)
-                .route("post, share or copy", t -> stagedAction(t)) // shown first, carried out on a yes (or auto-approve)
+                // with a brain in the suit no wording runs anything: the brain reads the sizes (\u00A7BD) and the yes or no
+                // to an action shown waiting (\u00A7YS, \u00A7CX); the card's own buttons are the pilot's direct control
+                .route("measurements for the build", t -> !brainReads() && measurementsGiven(t))
+                .route("post, share or copy", t -> !brainReads() && stagedAction(t))
                 // no "make a file", "retry" or "read the meaning" by wording: the brain gives those as codes
                 .route("brain", t -> {
                     askTheBrain(t);
@@ -1949,6 +2046,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         brainGate = new ai.dvine.gate.BrainGateway("brain", messageGate())
                 .route("agent carries on", t -> {
                     String said = brainAsked == null ? t : brainAsked;
+                    if (brainReads() && !"ibiko".equals(stage.agent())) {
+                        return false; // Obi and Ivie carry on by the brain's code (\u00A7CO); Ibiko's agent keeps its own work
+                    }
                     if (!(carriesOn(said) && !agentWork(stage.agent()).isEmpty() && model != null && model.ready())) {
                         return false;
                     }
@@ -1957,7 +2057,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("who am I", t -> {
-                    if (apiDirect()) {
+                    if (brainReads()) {
                         return false;
                     }
                     String who = ai.dvine.llm.PersonaPrompt.introduce(stage.agent(), t);
@@ -1967,14 +2067,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     play(LocalTurn.speakAs(stage.agent(), who), null);
                     return true;
                 })
-                .route("Ivie's 3D canvas", this::ivieGraphics) // Ivie draws, builds or changes it on her canvas
-                .route("read the device's files", t -> {
-                    if ("ibiko".equals(stage.agent()) || !modelOn() || !aboutPhoneFiles(t)) {
-                        return false;
-                    }
-                    runAgent(t, stage.agent(), true); // Obi or Ivie read the cloned files, with any model
-                    return true;
-                })
+                // Ivie's canvas by wording only when no brain is in the suit; a brain gives \u00A7BD and \u00A7DR.
+                // Reading the workspace files is the brain's code too (\u00A7RF), never a file name in the message
+                .route("Ivie's 3D canvas", t -> !brainReads() && ivieGraphics(t))
                 .route("attachment", t -> {
                     if (!ai.dvine.chat.Attachments.has(t) || !modelOn()) {
                         return false;
@@ -1987,17 +2082,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     return true;
                 })
-                .route("hand to Ibiko", t -> {
-                    if (apiDirect() || "ibiko".equals(stage.agent()) || !prefs.getBoolean("handoff", true) || !ai.dvine.agent.Handoff.forIbiko(t)) {
-                        return false;
-                    }
-                    offerHandoff(stage.agent(), t); // Ibiko's work: Obi or Ivie offer to hand it to him
-                    return true;
-                })
+                // a long piece planned first (\u00A7WP) and work passed to the one it belongs to (\u00A7HO) are the brain's codes
                 .route("Ibiko's coding agent", t -> {
-                    if (!"ibiko".equals(stage.agent()) || !modelOn() || ai.dvine.agent.Council.wanted(t, false)
-                            || t.trim().toLowerCase(java.util.Locale.US).matches("^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)[.!]*$")) {
-                        return false; // "think together" in Ibiko's chat: the council
+                    if (!"ibiko".equals(stage.agent()) || !modelOn()) {
+                        return false;
                     }
                     ai.dvine.llm.BrainOrder known = null; // Ibiko's own brain reads the words: no wording shortcut
                     boolean shortcut = known != null && (known.kind == ai.dvine.llm.BrainOrder.Kind.UNZIP
@@ -2015,7 +2103,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     // and the model is asked properly (it teaches the box afresh)
                     String wrong = boxBefore;
                     boxBefore = null;
-                    if (wrong == null || !ai.dvine.learn.BrainBox.correction(t)) {
+                    if (wrong == null || brainReads() || !ai.dvine.learn.BrainBox.correction(t)) {
                         return false;
                     }
                     brainBox().forget(wrong);
@@ -2027,8 +2115,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 })
                 .route("learned", t -> {
                     // DVINE's own brain: an action it learned from the models, carried out without asking one.
-                    // Not while an API is selected: then the API decides (the box keeps learning from it)
-                    if (apiDirect()) {
+                    // Only when no brain is in the suit: with one, the brain reads every message (the box keeps learning from it)
+                    if (brainReads()) {
                         return false;
                     }
                     String learned = brainBox().recall(t);
@@ -2062,14 +2150,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("think together", t -> {
-                    if (!ai.dvine.agent.Council.wanted(t, prefs.getBoolean("think_together", false)) || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
+                    // the Settings switch sends weighty questions to the three; asked for in words, it is the brain's code (\u00A7TT)
+                    if (!prefs.getBoolean("think_together", false) || !ai.dvine.agent.Council.wanted(t, true) || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
                         return false;
                     }
                     thinkTogether(t, stage.agent()); // a weighty question: Obi, Ivie and Ibiko work on it, one answer
                     return true;
                 })
                 .route("full answer", t -> {
-                    if (apiDirect()) {
+                    if (brainReads()) {
                         return false; // the one call below answers in full, and may act
                     }
                     if (ai.dvine.llm.TaskSize.of(t, false) != ai.dvine.llm.TaskSize.Tier.STRONG || ai.dvine.llm.TaskSize.mayNeedAction(t)) {
@@ -2096,8 +2185,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     String toolsKey(String persona) {
+        // the chat is a group: one set of tools for the conversation, whoever answers
         String group = chats == null ? "" : chats.current().group;
-        return "tools:" + group + ":" + persona;
+        return "tools:" + group + ":group";
     }
 
     /** The suit's codes this page's brain is told about: only the tools switched on, and the suit's own controls. */
@@ -2138,7 +2228,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Schedule this " + where + " post?")
                 .setMessage(plan.text + "\n\nFirst: " + when + "\nRepeats: " + plan.repeatWords()
-                        + "\n\nWhen it's due, DVINE reminds you and opens " + where + " with it ready; you press post.")
+                        + (ai.dvine.social.SocialPoster.ready(this, ai.dvine.social.SocialPoster.direct(plan.network))
+                                ? "\n\nWhen it's due, DVINE posts it from your signed-in " + where + " account and tells you."
+                                : "\n\nWhen it's due, DVINE reminds you and opens " + where + " with it ready; you press post."))
                 .setPositiveButton("Schedule", (d, w) -> {
                     ai.dvine.social.PostAlarm.add(this, plan);
                     ai.dvine.act.ActionLog.add(getFilesDir(), "schedule", where, "approved", "scheduled", plan.text);
@@ -2245,7 +2337,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** What the pilot has said about themselves, kept on the device and told to every brain. */
     private synchronized ai.dvine.learn.PilotProfile pilotProfile() {
         if (pilotProfile == null) {
-            pilotProfile = new ai.dvine.learn.PilotProfile(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
+            pilotProfile = ai.dvine.learn.PilotProfile.at(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
         }
         return pilotProfile;
     }
@@ -2353,8 +2445,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * An API is selected and reachable: the user talks to it directly. It reads the meaning and decides every action
      * of the app; no rule, learned shortcut or separate classifying call acts on the words first.
      */
+    /** An API is the chosen brain (online or not): it decides, and no shortcut or device model answers instead. */
     private boolean apiDirect() {
-        return model != null && model.remoteOn();
+        return model != null && model.apiChosen();
     }
 
     /** DVINE's own light brain: how the user's words became actions, learned from every model it works with. */
@@ -2363,6 +2456,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             brainBox = new ai.dvine.learn.BrainBox(new java.io.File(getFilesDir(), "learning/brainbox.tsv"));
         }
         return brainBox;
+    }
+
+    /**
+     * A brain is in the suit (the device's model, or an API): it alone reads what the pilot's words mean and gives DVINE
+     * the code of what to do. No wording runs a function then; the buttons stay the pilot's direct controls.
+     */
+    private boolean brainReads() {
+        return modelOn() || apiDirect();
     }
 
     private boolean modelOn() {
@@ -2497,6 +2598,51 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     selectPersona(order.arg, "ibiko".equals(order.arg));
                 }
                 return;
+            case HANDOVER:
+                handOver(agent, question, order.arg);
+                return;
+            case WRITEPLAN:
+                if (model != null && model.ready() && !"ibiko".equals(agent)) {
+                    runWritingPlan(agent, question);
+                } else {
+                    askLocal(question, null, false, ai.dvine.chat.Tuning.BIG_TOKENS.get(prefs));
+                }
+                return;
+            case THINKTOGETHER:
+                thinkTogether(question, agent);
+                return;
+            case READFILES:
+            case CARRYON:
+                if (modelOn()) {
+                    runAgent(order.kind == ai.dvine.llm.BrainOrder.Kind.CARRYON ? "continue" : question, agent, !"ibiko".equals(agent));
+                } else {
+                    play(LocalTurn.speakAs(agent, "That needs a model, and none is ready."), null);
+                }
+                return;
+            case CANVAS:
+                showIvieCanvas(true);
+                if (!ivieStudio(order.arg) && !create(order.arg)) {
+                    play(LocalTurn.speakAs(agent, "Nothing on the canvas takes that change."), null);
+                }
+                return;
+            case CONFIRM: {
+                PendingAction waiting = stager.pending(System.currentTimeMillis());
+                if (waiting == null) {
+                    play(LocalTurn.speakAs(agent, "Nothing is waiting for a yes."), null);
+                } else {
+                    doAction(stager.take(), false);
+                }
+                return;
+            }
+            case CANCEL:
+                if (stager.pending(System.currentTimeMillis()) != null) {
+                    stager.take();
+                    closeStaged();
+                    play(LocalTurn.speakAs(agent, "Cancelled. Nothing was sent."), null);
+                } else {
+                    play(LocalTurn.speakAs(agent, "Nothing was waiting."), null);
+                }
+                return;
             case PLANMODE:
                 command(ai.dvine.turn.Meaning.Command.MODE_PLAN);
                 return;
@@ -2519,6 +2665,33 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         : "I can't carry that out. " + order.speech;
                 play(LocalTurn.speakAs(agent, why), null);
         }
+    }
+
+    /** One hand-over a message: the one it was passed to answers it and does not pass it on again. */
+    private boolean handedOver;
+
+    /**
+     * The brain said this message is another persona's work (\u00A7HO, or Ibiko's hand-over tool): that persona takes
+     * it and answers, in the same group thread. The pilot's message is not shown twice.
+     */
+    private void handOver(String from, String question, String to) {
+        if (to == null || !to.matches("ivie|obi|ibiko") || handedOver || question == null) {
+            // already passed once, or to itself: it answers as it is, with no codes, so the message is never dropped
+            askLocal(question, null, false, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs));
+            return;
+        }
+        handedOver = true;
+        selectPersona(to);
+        runChat = chats == null || chats.current() == null ? null : pageKey();
+        runAgent = to;
+        if (chats != null) {
+            chats.workOn(to);
+        }
+        if (chatPane != null) {
+            chatPane.workFor(to);
+            chatPane.activityStep(labelOf(from) + " passed this to " + labelOf(to));
+        }
+        brainGate().handle(question, System.currentTimeMillis());
     }
 
     /**
@@ -2583,8 +2756,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 : (taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier) : ai.dvine.llm.TaskSize.Tier.FAST);
         final ai.dvine.llm.TaskSize.Tier reportTier = taskTier > 0 ? ai.dvine.llm.TaskSize.Tier.of(taskTier)
                 : ai.dvine.llm.TaskSize.Tier.STRONG;
+        final ai.dvine.scribe.Scribe[] scribed = {null}; // the Scribe writes every step down, once it is open
         final ai.dvine.agent.CodeAgent.Host host = new ai.dvine.agent.PhoneHost(this, prefs, handler, connectors, id, () -> latestJob(id),
                 line -> {
+                    ai.dvine.scribe.Scribe sc = scribed[0];
+                    if (sc != null) {
+                        sc.step(ai.dvine.agent.StepDetail.words(line));
+                    }
                     if (chatPane != null) {
                         chatPane.activityStep(line); // with its detail, opened by a tap
                     }
@@ -2609,6 +2787,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             // the final report: room to write all of it, on the strong model
                             return asked(system, transcript, Math.max(12000, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs) * 3),
                                     reportTier);
+                        }
+
+                        @Override
+                        public String askQuiet(String system, String text) {
+                            // a survey reader: its reading is not streamed into the chat, and it stops with the task
+                            return model.task(system, text, ai.dvine.chat.Tuning.AGENT_TOKENS.get(prefs), piece -> alive(id), stepTier);
+                        }
+
+                        @Override
+                        public int readers() {
+                            return model.remoteOn() ? 4 : 1; // the device's own model answers one call at a time
                         }
 
                         /**
@@ -2676,6 +2865,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     ? Math.max(MAX_WORK_MS, pace.workMs) : pace.workMs;
             final ai.dvine.scribe.Scribe scribe = new ai.dvine.scribe.Scribe(workspace);
             scribe.begin(persona, task);
+            scribed[0] = scribe;
             if (ai.dvine.scribe.Scribe.worth(task)) {
                 handler.post(() -> {
                     if (alive(id) && chatPane != null) {
@@ -2689,7 +2879,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     model.window() * 3 > 24_000 ? 24_000 : model.window() * 3)
                     .useGit(connectors.git().maxFiles(ai.dvine.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
                     .steps(rounds ? Math.min(pace.roundSteps, agentSteps) : agentSteps)
-                    .as(who, readOnly).planning(planning).keepGoing(rounds).checkpoint(w -> {
+                    .as(who, readOnly).planning(planning).keepGoing(rounds).squad(chatTools(persona).workers())
+                    .handover("ibiko".equals(persona) && !readOnly && !handedOver).checkpoint(w -> {
                         saveAgentWork(workAt, w);
                         scribe.checkpoint(w);
                     })
@@ -2706,10 +2897,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 // An audit used to be answered by a planner that cannot open files. The chat then showed the
                 // tool call and "the step could not be done". The coding agent does the job, so the files are read.
+                final String already = scribe.doneSoFar();
                 final String asked = ai.dvine.scribe.Scribe.worth(task) ? task
                         + "\n\nA project record is already in memory/projects. Read PROJECT_PLAN.md and PROJECT_MAP.md"
                         + " before creating files. If they describe this job, continue them. Do not start a second project."
-                        : task;
+                        + (already.isEmpty() ? "" : "\n\nAlready done in this project (the Scribe's record of every step)."
+                                + " Do not do these again; build on them:\n" + already)
+                        : task + dvine1().methods().hint(task).replaceFirst("^ ", "\n\n");
                 result = agent.run(asked, earlier);
                 long began = System.currentTimeMillis();
                 int round = 1;
@@ -2740,6 +2934,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             markRunning(null, null); // finished (or stopped): nothing to carry on after a restart
             final String answer = result;
+            final String passedTo = agent.handedTo();
             changed.addAll(agent.changed());
             scribe.finish(answer, host.stopped(), changed);
             saveAgentWork(workAt, agent.work());
@@ -2748,10 +2943,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             handler.post(() -> {
                 model.coding = false;
+                handler.post(releaseHeld); // a message held while Ibiko worked goes now, even if this page moved on
+                refreshSend();
                 if (!alive(id) || isFinishing()) {
                     return;
                 }
                 endThink();
+                if (passedTo != null) {
+                    handOver(persona, task, passedTo); // not Ibiko's work: Obi or Ivie answers it
+                    return;
+                }
                 attachWork(readOnly ? null : changed, since); // the diff, pull requests and files, under this reply
                 String spoken = ai.dvine.chat.ReplyText.prepare(answer);
                 play(LocalTurn.speakAs(persona, spoken.isEmpty() ? answer : spoken), null);
@@ -2956,21 +3157,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         chatPane.show();
     }
 
-    /** The hand-off button: a new chat under the persona, named after the task, where they start on it at once. */
+    /** The hand-off button under a plan: that persona starts on the task at once, in this same group thread. */
     private void handOff(String persona, String task) {
         if (chats == null || task == null || task.trim().isEmpty()) {
             return;
         }
-        ai.dvine.chat.ChatBook.Section s = chats.fresh(persona);
-        chats.rename(s.id, ai.dvine.agent.Handoff.title(task));
-        selectPersona(persona); // the new conversation, this persona's empty page
-        chatPane.show();
-        noteUser(task);
-        if ("ibiko".equals(persona)) {
-            runIbiko(task);
-        } else {
-            askTheBrain(task);
+        if (thisChatBusy()) {
+            note("Something is still working here. Tap Stop first, or wait for it to finish.");
+            return;
         }
+        handedOver = false;
+        handOver(stage.agent(), task, persona);
     }
 
     /** A clear-out of the working memory is under way (one at a time). */
@@ -3238,17 +3435,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
             handler.post(() -> activity("Ran " + cmd + " in DVINE"));
-            java.io.File linux = new java.io.File(getFilesDir(), "linux");
-            ai.dvine.linux.WorkspaceManager.ensure(linux);
-            String shared = ai.dvine.linux.LinuxHub.ask(cmd);
-            ai.dvine.linux.LinuxEngine.Result ran = shared != null
-                    ? new ai.dvine.linux.LinuxEngine.Result(true, shared)
-                    : ai.dvine.linux.AlpineRun.run(this,
-                            ai.dvine.linux.LinuxCwd.script(ai.dvine.linux.LinuxRoot.root(this), cmd), linux);
-            if (ran == null) {
-                ran = ai.dvine.linux.LinuxEngine.run(cmd, linux, shellRoots());
-            }
-            String out = ran == null ? "The shell didn't run that." : ran.text;
+            String out = ai.dvine.linux.LinuxHub.run(this, cmd, null); // the one Alpine, the same as the Shell screen
             final String result = out == null || out.trim().isEmpty() ? "(no output)" : out;
             String answer = model == null || !model.ready() ? null
                     : model.reply(system, question, "Output of `" + cmd + "`:\n" + cut(result, 6000), 700, piece -> modelPiece(id, piece));
@@ -3374,21 +3561,52 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (text == null || text.trim().isEmpty()) {
             return;
         }
+        if (!interpreted && !resending && stage != null && (groupChat() || prefs.getBoolean("handoff", true))) {
+            // a task meant for another persona goes to their page before it is shown anywhere: it is sent there, as if
+            // typed there, and the page that got it by mistake keeps nothing of it
+            String mentioned = ai.dvine.agent.Handoff.mentioned(text); // "@Ivie draw a cat": the one named answers
+            // a persona addressed by name answers. Otherwise, with a brain in the suit, whoever is in the conversation
+            // reads the message and passes it on by code when it is another's work (\u00A7HO); only with no brain do the
+            // words themselves choose
+            handedOver = false;
+            String owner = mentioned != null ? mentioned : brainReads() ? stage.agent()
+                    : ai.dvine.agent.Handoff.groupRoute(text, stage.agent());
+            if (owner != null && !owner.equals(stage.agent())) {
+                selectPersona(owner);
+                if (!groupChat()) {
+                    note("Sent to " + labelOf(owner) + ": " + ai.dvine.agent.Handoff.why(owner) + ".");
+                }
+            }
+        }
         if (runningElsewhere()) {
             // this chat is not the one running: show the message here and do not cancel the other chat
             if (!interpreted) {
                 noteUser(text);
             }
             if (chats != null && chats.current() != null) {
-                heldChat.add(new String[] { chats.current().id, text });
+                heldChat.add(new String[] { pageKey(), text });
             }
-            note("Sent. This chat answers when the other one finishes.");
+            // said on this page and kept there, not a notice that fades: the message is waiting, not lost
+            String busyWith = runAgent == null ? "Another chat" : labelOf(runAgent);
+            chats.noteHere(stage == null ? null : stage.agent(), "Waiting: " + busyWith + " is still working. Your message goes out"
+                    + " the moment that finishes. Tap Stop to end it sooner.");
+            if (chatPane != null) {
+                chatPane.show();
+            }
+            note("Sent. It is answered when " + busyWith + " finishes.");
             return;
         }
         replacing = true;
         interruptReply();
         replacing = false;
-        runChat = chats == null || chats.current() == null ? null : chats.current().id;
+        runChat = chats == null || chats.current() == null ? null : pageKey();
+        runAgent = stage == null ? null : stage.agent();
+        if (chats != null && runAgent != null) {
+            chats.workOn(runAgent); // its replies, notes and steps go to this page, whatever is on screen when they come
+        }
+        if (chatPane != null) {
+            chatPane.workFor(runAgent);
+        }
         // a new message ends reading an old reply aloud
         readAloudHelper.stop();
         fromBrain = interpreted;
@@ -3521,7 +3739,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             play(LocalTurn.speakAs(stage.agent(), "I couldn't tell what to share or where."), null);
             return;
         }
-        if (prefs.getBoolean("actions_auto", false)) {
+        if (prefs.getBoolean("actions_auto", false) || autoPost() && p.kind != PendingAction.Kind.COPY) {
             stager.take();
             doAction(p, true); // the user chose auto-approve
             return;
@@ -3556,7 +3774,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         @Override
         public void openAccounts() {
-            startActivity(new android.content.Intent(MainActivity.this, ai.dvine.chat.ui.SocialActivity.class));
+            startActivityForResult(new android.content.Intent(MainActivity.this, ai.dvine.chat.ui.SocialActivity.class), SOCIAL);
         }
 
         @Override
@@ -3583,6 +3801,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public void writePost(String prompt, int tokens) {
             askLocal(prompt, null, false, tokens);
+        }
+
+        @Override
+        public boolean versions() {
+            return prefs.getBoolean("post_versions", true);
+        }
+
+        @Override
+        public void writeVersions(ai.dvine.social.Platform platform, String words) {
+            postVersions(platform, words);
+        }
+
+        @Override
+        public void writeComment(String app, String link, String what) {
+            commentDraft(app, link, what);
         }
 
         @Override
@@ -3751,9 +3984,194 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** The staged action's card: the exact text, where it goes, Send it or Cancel. */
+    /**
+     * "Write a Facebook post about success and tag John": the model writes several versions (professional, personal,
+     * short), they are shown in the chat and in a picker, and the one the pilot picks waits for their yes like any
+     * post. People are tagged only by name; random people are not.
+     */
+    private void postVersions(final ai.dvine.social.Platform platform, String words) {
+        final String agent = stage.agent();
+        if (ai.dvine.social.PostDrafts.randomTags(words)) {
+            play(LocalTurn.speakAs(agent, "I won't tag random people: it reads as spam to them and gets accounts limited."
+                    + " Tell me who to tag by name and I'll add them. Writing the post now."), null);
+        }
+        final java.util.List<String> tags = ai.dvine.social.PostDrafts.tags(words);
+        final String about = ai.dvine.social.PostDrafts.withoutTags(words);
+        armThink("Writing " + ai.dvine.social.PostDrafts.VERSIONS + " versions for " + platform.shown, "Writing");
+        new Thread(() -> {
+            String answer = model == null ? null : model.task("You write social media posts for the user, in their own voice.",
+                    ai.dvine.social.PostDrafts.prompt(platform.shown, about), Math.max(1200, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs) * 3),
+                    piece -> true, ai.dvine.llm.TaskSize.Tier.STRONG);
+            final java.util.List<String> versions = ai.dvine.social.PostDrafts.parse(answer);
+            handler.post(() -> {
+                endThink();
+                if (versions.isEmpty()) {
+                    String why = model == null ? null : model.problem();
+                    play(LocalTurn.speakAs(agent, "I couldn't write the post" + (why == null || why.isEmpty() ? "." : ": " + why + ".")), null);
+                    return;
+                }
+                StringBuilder shown = new StringBuilder("Here " + (versions.size() == 1 ? "is the post" : "are " + versions.size()
+                        + " versions") + " for " + platform.shown + (tags.isEmpty() ? "" : ", tagging " + String.join(", ", tags))
+                        + ". Pick one below:");
+                for (int i = 0; i < versions.size(); i++) {
+                    shown.append("\n\n**Version ").append(i + 1).append("**\n").append(versions.get(i));
+                }
+                if (autoPost()) {
+                    shown.append("\n\nAuto-post is on, so version 1 is going out now.");
+                }
+                if (chatPane != null) {
+                    chatPane.assistant(agent, shown.toString());
+                }
+                if (autoPost()) {
+                    String first = versions.get(0);
+                    String app = platform == ai.dvine.social.Platform.X ? "x" : "facebook";
+                    if (ai.dvine.social.PostDrafts.tooLong(app, first) == null) {
+                        offerOrPost(new PendingAction(PendingAction.Kind.SHARE, first, app, System.currentTimeMillis(), tags, null));
+                        return;
+                    }
+                }
+                pickVersion(platform, versions, tags);
+            });
+        }, "dvine-post-versions").start();
+    }
+
+    /** The versions as cards: tap one to use it (it then waits for the pilot's yes). */
+    private void pickVersion(final ai.dvine.social.Platform platform, java.util.List<String> versions, final java.util.List<String> tags) {
+        android.widget.LinearLayout list = new android.widget.LinearLayout(this);
+        list.setOrientation(android.widget.LinearLayout.VERTICAL);
+        list.setPadding(dp(16), 0, dp(16), dp(16));
+        final android.app.Dialog[] sheet = {null};
+        for (int i = 0; i < versions.size(); i++) {
+            final String text = versions.get(i);
+            String count = ai.dvine.social.PostDrafts.length(platform == ai.dvine.social.Platform.X ? "x" : "facebook", text);
+            android.view.View row = modelMenu.brainLink("Version " + (i + 1) + (count.isEmpty() ? "" : " \u00B7 " + count), text, null);
+            final int n = i + 1;
+            row.setOnClickListener(v -> {
+                if (sheet[0] != null) {
+                    sheet[0].dismiss();
+                }
+                versionChoice(platform, n, text, tags);
+            });
+            list.addView(row);
+        }
+        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(this, "Pick a version", list);
+    }
+
+    /**
+     * The pilot's choice in Social accounts › Posting: posts and comments on their behalf go out without asking each
+     * time. Off (the default): every one waits for their yes.
+     */
+    private boolean autoPost() {
+        return prefs != null && prefs.getBoolean("social_auto", false);
+    }
+
+    /** A post or comment: straight out when auto-post is on, otherwise shown and waiting for the yes. */
+    private void offerOrPost(PendingAction p) {
+        stager.offer(p);
+        if (autoPost()) {
+            stager.take();
+            doAction(p, true);
+            return;
+        }
+        showStaged(p);
+    }
+
+    /** One version picked: post it (after the yes), edit it first, schedule it, or copy it. */
+    private void versionChoice(final ai.dvine.social.Platform platform, int n, final String text, final java.util.List<String> tags) {
+        final String app = platform == ai.dvine.social.Platform.X ? "x" : "facebook";
+        final String tooLong = ai.dvine.social.PostDrafts.tooLong(app, text);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Version " + n)
+                .setMessage(text + (tooLong == null ? "" : "\n\n" + tooLong))
+                .setItems(new String[] {tooLong == null ? "Post it" : "Edit it to fit", "Edit first", "Schedule\u2026", "Copy"}, (d, which) -> {
+                    if (which == 0 && tooLong == null) {
+                        offerOrPost(new PendingAction(PendingAction.Kind.SHARE, text, app, System.currentTimeMillis(), tags, null));
+                    } else if (which <= 1) {
+                        editVersion(platform, text, tags);
+                    } else if (which == 2) {
+                        scheduleVersion(app, text);
+                    } else {
+                        ai.dvine.act.Actions.copy(this, text);
+                        note("Copied.");
+                    }
+                })
+                .show();
+    }
+
+    /** The version in an editor; the edited words then wait for the yes. */
+    private void editVersion(final ai.dvine.social.Platform platform, String text, final java.util.List<String> tags) {
+        final String app = platform == ai.dvine.social.Platform.X ? "x" : "facebook";
+        final android.widget.EditText box = new android.widget.EditText(this);
+        box.setText(text);
+        box.setMinLines(4);
+        box.setGravity(android.view.Gravity.TOP);
+        android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+        wrap.setPadding(dp(20), dp(8), dp(20), 0);
+        wrap.addView(box);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Edit the post")
+                .setView(wrap)
+                .setPositiveButton("Use this", (d, w) -> {
+                    String edited = box.getText().toString().trim();
+                    String tooLong = ai.dvine.social.PostDrafts.tooLong(app, edited);
+                    if (edited.isEmpty() || tooLong != null) {
+                        note(edited.isEmpty() ? "The post is empty." : tooLong);
+                        return;
+                    }
+                    offerOrPost(new PendingAction(PendingAction.Kind.SHARE, edited, app, System.currentTimeMillis(), tags, null));
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** A date and a time for the version, then the usual schedule card (shown, kept on the yes). */
+    private void scheduleVersion(final String app, final String text) {
+        final java.util.Calendar at = java.util.Calendar.getInstance();
+        at.add(java.util.Calendar.HOUR_OF_DAY, 1);
+        new android.app.DatePickerDialog(this, (dp, y, m, day) -> new android.app.TimePickerDialog(this, (tp, h, min) -> {
+            at.set(y, m, day, h, min, 0);
+            String line = app + " " + String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d", y, m + 1, day, h, min) + ": " + text;
+            schedulePost(line);
+        }, at.get(java.util.Calendar.HOUR_OF_DAY), at.get(java.util.Calendar.MINUTE), android.text.format.DateFormat.is24HourFormat(this)).show(),
+                at.get(java.util.Calendar.YEAR), at.get(java.util.Calendar.MONTH), at.get(java.util.Calendar.DAY_OF_MONTH)).show();
+    }
+
+    /**
+     * "Comment under this post: <link>": the post is read with the pilot's account, the model writes a comment in
+     * their voice, and it waits for their yes before DVINE posts it there.
+     */
+    private void commentDraft(final String app, final String link, final String what) {
+        final String agent = stage.agent();
+        final ai.dvine.social.Platform net = ai.dvine.social.SocialPoster.direct(app);
+        armThink("Reading the post", "Writing a comment");
+        new Thread(() -> {
+            String post = net != null && ai.dvine.social.SocialPoster.ready(this, net) ? ai.dvine.social.SocialWeb.open(this, link, 3000) : "";
+            String answer = model == null ? null : model.task("You write social media comments for the user, in their own voice.",
+                    ai.dvine.social.PostDrafts.commentPrompt(post, what), Math.max(400, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs)),
+                    piece -> true, null);
+            final String text = answer == null ? null : answer.trim().replaceAll("^\"|\"$", "");
+            handler.post(() -> {
+                endThink();
+                if (text == null || text.isEmpty()) {
+                    play(LocalTurn.speakAs(agent, "I couldn't write the comment."), null);
+                    return;
+                }
+                PendingAction p = new PendingAction(PendingAction.Kind.COMMENT, text, app, System.currentTimeMillis(), null, link);
+                play(LocalTurn.speakAs(agent, "Here's the comment for that post:\n\n" + text
+                        + (autoPost() ? "\n\nPosting it now (auto-post is on)." : "\n\nSay yes to post it.")), null);
+                offerOrPost(p);
+            });
+        }, "dvine-comment").start();
+    }
+
     private void showStaged(final PendingAction p) {
         closeStaged();
+        boolean direct = p.kind != PendingAction.Kind.COPY
+                && ai.dvine.social.SocialPoster.ready(this, ai.dvine.social.SocialPoster.direct(p.app));
         String where = p.kind == PendingAction.Kind.COPY ? "To: your clipboard"
+                : direct ? "To: " + p.appName() + ", from your signed-in account (DVINE presses Post)"
+                + (p.tags.isEmpty() ? "" : "\nTagging: " + String.join(", ", p.tags))
+                + (p.kind == PendingAction.Kind.COMMENT ? "\nUnder: " + p.target : "")
                 : "To: " + p.appName() + " (it opens with this text; you press send there)";
         stagedCard = new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(p.kind == PendingAction.Kind.COPY ? "Copy this?" : "Post on " + p.appName() + "?")
@@ -3779,10 +4197,130 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stagedCard = null;
     }
 
+    /**
+     * The Blueprint for writing ({@link ai.dvine.agent.WritingPlan}): the outline first, checked for loopholes, then
+     * each section written with the plan and what is already written, then the piece in one. Each phase shows in the
+     * steps; the plan is shown too, so the user sees what is coming.
+     */
+    private void runWritingPlan(final String persona, final String task) {
+        final int id = nextAsk();
+        stopPlay();
+        armThink("Understanding the request", "Writing");
+        final ai.dvine.llm.TaskSize.Tier strong = ai.dvine.llm.TaskSize.Tier.STRONG;
+        final int room = Math.max(1500, ai.dvine.chat.Tuning.CHAT_TOKENS.get(prefs) * 4);
+        final String system = "You are " + labelOf(persona) + ", writing for the user. You plan a piece before you write it.";
+        new Thread(() -> {
+            activity("Drawing the plan: the outline");
+            String outline = model.task(system, ai.dvine.agent.WritingPlan.outlinePrompt(task), room, piece -> alive(id), strong);
+            if (outline == null || !alive(id)) {
+                handler.post(() -> {
+                    endThink();
+                    String why = model.problem();
+                    play(LocalTurn.speakAs(persona, "I couldn't plan it" + (why == null || why.isEmpty() ? "." : ": " + why + ".")), null);
+                });
+                return;
+            }
+            activity("Checking the plan for gaps");
+            String checked = model.task(system, ai.dvine.agent.WritingPlan.checkPrompt(task, outline), room, piece -> alive(id), strong);
+            if (checked != null && ai.dvine.agent.WritingPlan.sections(checked).size() >= 2) {
+                outline = checked;
+            }
+            final String plan = outline;
+            final java.util.List<String> sections = ai.dvine.agent.WritingPlan.sections(plan);
+            handler.post(() -> {
+                if (alive(id) && chatPane != null) {
+                    chatPane.assistant(persona, "The plan, checked:\n\n" + plan.trim());
+                }
+            });
+            java.util.List<String> parts = new java.util.ArrayList<String>();
+            StringBuilder written = new StringBuilder();
+            for (int i = 0; i < sections.size() && alive(id); i++) {
+                activity("Writing " + (i + 1) + " of " + sections.size() + ": " + clip(sections.get(i).replaceAll(":.*$", "")));
+                String part = model.task(system, ai.dvine.agent.WritingPlan.sectionPrompt(task, plan, written.toString(), i + 1, sections.get(i)),
+                        room, piece -> alive(id), strong);
+                if (part == null) {
+                    break;
+                }
+                parts.add(part);
+                written.append(part.trim()).append("\n\n");
+            }
+            final String piece = ai.dvine.agent.WritingPlan.join(ai.dvine.agent.WritingPlan.title(plan), parts);
+            final boolean whole = parts.size() == sections.size();
+            handler.post(() -> {
+                if (!alive(id)) {
+                    return;
+                }
+                endThink();
+                if (piece.isEmpty()) {
+                    play(LocalTurn.speakAs(persona, "I planned it but couldn't write it: " + model.problem() + "."), null);
+                    return;
+                }
+                if (chatPane != null) {
+                    chatPane.assistant(persona, piece + (whole ? "" : "\n\n(Stopped after " + parts.size() + " of " + sections.size()
+                            + " sections. Say \u201ccontinue\u201d to write the rest.)"));
+                }
+                note("Say \u201cmake it a PDF\u201d or \u201ca Word document\u201d to save it as a file.");
+            });
+        }, "dvine-writing-plan").start();
+    }
+
+    /** An approved comment: posted under the post from the account, or copied with the post opened for the pilot. */
+    private void comment(final PendingAction p, final boolean auto) {
+        final String agent = stage.agent();
+        final ai.dvine.social.Platform net = ai.dvine.social.SocialPoster.direct(p.app);
+        if (net == null || !ai.dvine.social.SocialPoster.ready(this, net)) {
+            ai.dvine.act.Actions.copy(this, p.content);
+            try {
+                startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(p.target)));
+            } catch (RuntimeException ignored) {
+                // no app opens it: the words are on the clipboard
+            }
+            play(LocalTurn.speakAs(agent, "I can't comment from here without your " + p.appName() + " account signed in, so I copied the"
+                    + " comment and opened the post: paste it there."), null);
+            return;
+        }
+        note("Commenting on " + net.shown + "\u2026");
+        new Thread(() -> {
+            ai.dvine.social.SocialPoster.Result r = ai.dvine.social.SocialPoster.post(this, net, p.content, null, p.target);
+            if (r.posted) {
+                dvine1().readReply(p.content); // DVINE 1 learns the language of what the pilot approved
+            }
+            handler.post(() -> play(LocalTurn.speakAs(agent, r.said), null));
+        }, "dvine-comment-post").start();
+    }
+
     /** Carries out an approved (or auto-approved) action and logs it; says what really happened. */
     private void doAction(PendingAction p, boolean auto) {
         closeStaged();
         if (p == null) {
+            return;
+        }
+        if (p.kind == PendingAction.Kind.COMMENT) {
+            comment(p, auto);
+            return;
+        }
+        final ai.dvine.social.Platform net = p.kind == PendingAction.Kind.SHARE ? ai.dvine.social.SocialPoster.direct(p.app) : null;
+        if (net != null && ai.dvine.social.SocialPoster.ready(this, net)) {
+            // the pilot said yes: DVINE posts it from their signed-in account, and says only what the network showed
+            final String agent = stage.agent();
+            note("Posting on " + net.shown + "\u2026");
+            new Thread(() -> {
+                ai.dvine.social.SocialPoster.Result r = ai.dvine.social.SocialPoster.post(this, net, p.content, p.tags, null);
+                if (r.posted) {
+                    dvine1().readReply(p.content); // DVINE 1 learns the language of what the pilot approved
+                }
+                handler.post(() -> {
+                    if (r.posted) {
+                        play(LocalTurn.speakAs(agent, r.said), null);
+                        return;
+                    }
+                    boolean handed = ai.dvine.act.Actions.share(this, p); // couldn't do it here: the app, for the pilot to press Post
+                    ai.dvine.act.ActionLog.add(getFilesDir(), "share", p.appName(), auto ? "auto-approved" : "approved",
+                            handed ? "handed off" : "failed", p.content);
+                    play(LocalTurn.speakAs(agent, r.said + (handed ? " I've opened " + p.appName() + " with it ready; press Post there."
+                            : " Nothing was sent.")), null);
+                });
+            }, "dvine-post").start();
             return;
         }
         boolean ok = p.kind == PendingAction.Kind.COPY ? ai.dvine.act.Actions.copy(this, p.content) : ai.dvine.act.Actions.share(this, p);
@@ -3940,31 +4478,31 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
+    /** "Retry", "try again", "ask that again": words that ask for the message before them, never asked again themselves. */
+    static boolean isRetry(String text) {
+        String t = text == null ? "" : text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
+        return t.matches("^(?:please )?(retry|try (that )?again|again|redo|regenerate|ask (that )?again|one more time)( please)?$");
+    }
+
     /**
      * "Retry", "try again": the user's last message before this one is asked again, as it was (with any file it
      * carried), instead of being read as a new request.
      */
     private void retryLast() {
-        if (lastAsked != null && !lastAsked.trim().isEmpty()) {
+        if (lastAsked != null && !lastAsked.trim().isEmpty() && !isRetry(lastAsked)) {
             String shown = ai.dvine.chat.Attachments.withoutImages(lastAsked).replaceAll("(?s)<attachment.*?</attachment>", "").trim();
             askTheBrain(lastAsked); // the whole question, with the file it carried
             return;
         }
         java.util.List<ai.dvine.chat.ChatBook.Message> msgs = chats == null ? new java.util.ArrayList<ai.dvine.chat.ChatBook.Message>()
                 : chats.current().messages;
-        boolean skippedThis = false;
         for (int i = msgs.size() - 1; i >= 0; i--) {
             ai.dvine.chat.ChatBook.Message m = msgs.get(i);
             if (!"user".equals(m.role) || !"text".equals(m.kind) || m.body == null) {
                 continue;
             }
-            String t = m.body.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
-            if (!skippedThis && t.matches("^(retry|try again|again|redo|regenerate|ask again|one more time)( please)?$")) {
-                skippedThis = true; // the "retry" itself
-                continue;
-            }
-            if (ai.dvine.turn.Meaning.Command.RETRY == meanings().get(m.body)) {
-                continue;
+            if (isRetry(m.body) || ai.dvine.turn.Meaning.Command.RETRY == meanings().get(m.body)) {
+                continue; // every "retry" is passed over, not only the newest
             }
             askTheBrain(m.body);
             return;
@@ -4053,7 +4591,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 handler.postDelayed(this, 400);
                 return;
             }
-            String here = chats.current().id;
+            String here = pageKey();
             String[] match = null;
             for (String[] h : heldChat) {
                 if (here.equals(h[0])) {
@@ -4151,8 +4689,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return ai.dvine.llm.PersonaPrompt.situation(face, examiner.lastTopic(),
                 stage.pictureShown() ? lastDrawn : null, part,
                 connectivity != null && connectivity.isOnline())
+                + waitingAction()
                 + (chats == null ? ""
                         : blank(chats.transcript(700)) + blank(chats.memoryForPrompt(6)));
+    }
+
+    /** For the brain: the action shown waiting for the pilot's yes, so it can read a yes or a no to it (\u00A7YS, \u00A7CX). */
+    private String waitingAction() {
+        PendingAction p = stager == null ? null : stager.pending(System.currentTimeMillis());
+        return p == null ? "" : " An action is shown waiting for the user's yes: " + ai.dvine.brain.ActionPlanner.question(p)
+                + " If their message agrees, give \u00A7YS; if it refuses, \u00A7CX.";
     }
 
 
@@ -4224,7 +4770,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final boolean online = prefs.getBoolean("fresh_facts", true) && connectivity != null
                 && connectivity.isOnline();
         armThink("Thinking\u2026", "Thinking\u2026");
-        final String around = situation(ivie);
+        final String around = situation(ivie) + dvine1().methods().hint(question); // and the way that worked before
         hub.worker.execute(() -> {
             String asked = question;
             if (lang != null && alive(id)) {
@@ -4236,7 +4782,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
             }
             final String english = asked;
-            final boolean look = online && (research || ai.dvine.llm.FreshFacts.worthLooking(english));
+            // when the brain may act it asks for a search itself (\u00A7SR); the wording decides only for a plain answer
+            final boolean look = online && (research || !acts && ai.dvine.llm.FreshFacts.worthLooking(english));
             if (look) {
                 activity("Searching the web for \u201c" + clip(english) + "\u201d");
             }
@@ -4737,7 +5284,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         android.widget.TextView sub = findViewById(R.id.tv_header_sub);
         if (sub != null && stage != null) {
             String face = stage.agent();
-            sub.setText(face.substring(0, 1).toUpperCase() + face.substring(1) + " · " + brainLabel());
+            sub.setText(face.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + face.substring(1) + " · " + brainLabel());
         }
     }
 
@@ -5526,6 +6073,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SOCIAL) {
+            String words = data == null ? null : data.getStringExtra("compose");
+            android.widget.EditText field = findViewById(R.id.et_message);
+            if (words != null && field != null) {
+                field.setText(words);
+                field.setSelection(words.length());
+                field.requestFocus();
+            }
+            return;
+        }
         if (requestCode == HISTORY) {
             if (chats != null) {
                 chats.reload();
@@ -5822,7 +6379,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (waiting != null && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 runShell(waiting[0], waiting[1]); // allowed: the command the user asked for runs now
             } else if (waiting != null) {
-                play(LocalTurn.speakAs(stage.agent(), "Without that permission I can't run commands in Termux. You can allow it"
+                play(LocalTurn.speakAs(stage.agent(), "Without that permission I can't run that command. You can allow it"
                         + " the next time I ask."), null);
             }
             return;
@@ -5875,7 +6432,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onResume() {
         super.onResume();
+        handler.postDelayed(this::takeShared, 400); // something shared to DVINE from another app
         inFront = true;
+        showPersonaBar(); // Settings may have turned the group chat on or off
         connectivity.start();
         ai.dvine.llm.ReplyNotice.clear(this);
         handler.postDelayed(this::sendWaiting, 1000);

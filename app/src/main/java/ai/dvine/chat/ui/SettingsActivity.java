@@ -82,6 +82,10 @@ public final class SettingsActivity extends AppCompatActivity {
 
         // ---- chat
         LinearLayout chat = group("Chat", "Enter to send, thinking together, fact-checks, working steps");
+        chat.addView(Ui.text(this, "One conversation with Obi, Ivie and Ibiko, like a group: each reply carries its icon and name, and"
+                + " the right one answers from what you write (code and commands: Ibiko; stories, scripts and drawings: Ivie;"
+                + " everything else: Obi). To pick one yourself, start with their name: \u201cIvie, \u2026\u201d or @Ibiko.", 13, Ui.SUB, false),
+                Ui.wide(this, 8));
         chat.addView(toggle("Enter sends the message", "Off: Enter starts a new line; send with the arrow.", "send_enter", false, null));
         chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: Obi, Ivie and Ibiko each"
                 + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",
@@ -104,6 +108,14 @@ public final class SettingsActivity extends AppCompatActivity {
         voice.addView(Ui.text(this, "Speaking speed", 16, Ui.TEXT, false), Ui.wide(this, 14));
         voice.addView(choice(new String[]{"Slower", "Normal", "Faster"}, new String[]{"0.85", "1.0", "1.2"},
                 prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
+        voice.addView(toggle("Natural voices (online)", "Use the device's most human-sounding voices, which need the"
+                + " internet. Off: only voices on the device. Takes effect the next time DVINE opens.", "natural_voices", false, null),
+                Ui.wide(this, 10));
+        android.view.View moreVoices = Ui.button(this, "Download better voices", false);
+        moreVoices.setOnClickListener(v -> ai.dvine.voice.TalkBridge.installVoices(this));
+        voice.addView(moreVoices, Ui.wide(this, 8));
+        voice.addView(Ui.text(this, "Opens the device's voice download page (Google Speech Services): install English (Nigeria),"
+                + " (UK) and (US). DVINE then picks the highest-quality voices it finds.", 13, Ui.SUB, false), Ui.wide(this, 6));
         voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
                 + " no sound but the voice. Takes effect the next time DVINE opens.", "music", false, null), Ui.wide(this, 10));
         voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",
@@ -202,6 +214,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
         // ---- actions on the user's behalf
         LinearLayout acts = group("Actions", "Whether posts and shares wait for your yes");
+        acts.addView(toggle("Auto-post on your behalf", "Posts and comments you ask for go out from your account at once,"
+                + " without asking first (also in Social accounts). Off: each one waits for your yes.", "social_auto", false, null));
         acts.addView(toggle("Auto-approve actions", "Posts, shares and copies go ahead without asking first. Off: each one is"
                 + " shown with its exact text and where it goes, and waits for your yes.", "actions_auto", false, null));
 
@@ -442,8 +456,8 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             int n;
             try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
-                n = ai.dvine.dvine1.Training.write(o, new ai.dvine.dvine1.Knowledge(new java.io.File(dir, "knowledge.tsv")),
-                        new ai.dvine.dvine1.Facts(new java.io.File(dir, "facts.tsv")), new ai.dvine.dvine1.Lexicon(new java.io.File(dir, "words.tsv")));
+                n = ai.dvine.dvine1.Training.write(o, ai.dvine.dvine1.Store.knowledge(dir),
+                        ai.dvine.dvine1.Store.facts(dir), ai.dvine.dvine1.Store.lexicon(dir));
             }
             said = n == 0 ? "Nothing learned yet." : "Saved " + n + " examples to Downloads/DVINE/" + name;
         } catch (java.io.IOException | RuntimeException e) {

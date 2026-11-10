@@ -15,7 +15,7 @@ public final class LanguageInferenceOptimizer {
     }
 
     public Path route(String utterance) {
-        String n = utterance == null ? "" : utterance.toLowerCase();
+        String n = utterance == null ? "" : utterance.toLowerCase(java.util.Locale.ROOT);
         if (n.matches(".*(pause|resume|rotate|open the selected|list the files).*")) {
             return Path.FAST;
         }

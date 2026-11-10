@@ -22,11 +22,19 @@ public final class VoiceTuning {
         /** "male", "female", or "" when the engine doesn't say. */
         public final String gender;
 
+        /** The engine's own rating (Android's Voice.QUALITY_*: 500 very high, 400 high, 300 normal, 200 low). */
+        public final int quality;
+
         public Candidate(String name, String country, boolean network, String gender) {
+            this(name, country, network, gender, 300);
+        }
+
+        public Candidate(String name, String country, boolean network, String gender, int quality) {
             this.name = name;
             this.country = country;
             this.network = network;
             this.gender = gender == null ? "" : gender;
+            this.quality = quality;
         }
     }
 
@@ -221,9 +229,18 @@ public final class VoiceTuning {
      * English, then British, then any English.
      */
     public static List<Candidate> rank(List<Candidate> all) {
+        return rank(all, false);
+    }
+
+    /**
+     * The voices best first: the accent first (Nigerian, other African, British, any English), then the most natural
+     * of that accent (the engine's quality rating). {@code natural}: the online voices (the most human-sounding, they need the
+     * internet) may be used too; otherwise only voices on the device.
+     */
+    public static List<Candidate> rank(List<Candidate> all, boolean natural) {
         List<Candidate> out = new ArrayList<Candidate>();
         for (Candidate c : all) {
-            if (!c.network) {
+            if (natural || !c.network) {
                 out.add(c);
             }
         }
@@ -233,9 +250,24 @@ public final class VoiceTuning {
         Collections.sort(out, (a, b) -> {
             int ra = score(a);
             int rb = score(b);
-            return ra != rb ? ra - rb : a.name.compareTo(b.name);
+            if (ra != rb) {
+                return ra - rb; // an African voice first: Nigerian, then Ghanaian, Kenyan, South African, Tanzanian
+            }
+            int qa = band(a.quality), qb = band(b.quality);
+            if (qa != qb) {
+                return qb - qa; // of the same accent, the more natural voice
+            }
+            if (a.network != b.network) {
+                return a.network ? -1 : 1; // the same rating: the online (neural) one sounds more human
+            }
+            return a.name.compareTo(b.name);
         });
         return out;
+    }
+
+    /** Quality in bands, so a small difference in rating doesn't beat the accent: very high, high, the rest. */
+    static int band(int quality) {
+        return quality >= 500 ? 2 : quality >= 400 ? 1 : 0;
     }
 
     /**
@@ -337,6 +369,16 @@ public final class VoiceTuning {
             "sfg", "iob", "iog", "tpc", "tpf", "gba", "gbc", "gbg", "afh", "aua", "auc", "ahp", "cxx", "ene"));
     static final java.util.Set<String> GOOGLE_MALE = new java.util.HashSet<String>(java.util.Arrays.asList(
             "iol", "iom", "tpd", "gbb", "gbd", "rjs", "aub", "aud", "ena", "end"));
+
+    /** True when {@code name} is one of these voices and its accent is African (Nigerian, Ghanaian, Kenyan, South African, Tanzanian). */
+    public static boolean african(List<Candidate> voices, String name) {
+        for (Candidate c : voices) {
+            if (c.name.equals(name)) {
+                return score(c) <= 1;
+            }
+        }
+        return false;
+    }
 
     static int score(Candidate c) {
         String country = c.country.toUpperCase(Locale.US);

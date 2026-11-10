@@ -15,7 +15,8 @@ public enum FunctionCode {
     CA("CALC", "work out arithmetic exactly", "<expression>"),
     PH("PHOTO", "show a real photograph", "<subject>"),
     BD("BUILD", "model a thing in 3D", "<thing, with every size given>"),
-    SO("SOCIAL", "the pilot's social accounts", "SEARCH <network>: <words> | TRENDING <network> | CONNECT <network> | POST <network>: <about>"),
+    SO("SOCIAL", "the pilot's social accounts", "SEARCH <network>: <words> | TRENDING <network> | CONNECT <network> | POST <network>: <about, and any people to tag by name>"
+            + " | COMMENT <network>: <post link> <what to say>"),
     SI("SOCIALINTEL", "social intelligence: investigate posts, find similar posts, public sentiment, profiles",
             "<capability> <arguments>"),
     SP("SCHEDULEPOST", "schedule a post on the pilot's own account, once or repeating; the pilot sees it and says yes first."
@@ -29,6 +30,16 @@ public enum FunctionCode {
     FZ("FINDZIP", "find zip files on this device", ""),
     NC("NEWCHAT", "start a new chat", ""),
     SW("SWITCH", "switch to another persona", "<ivie|obi|ibiko>"),
+    HO("HANDOVER", "pass this message to the one whose work it is, who then answers it: ibiko for code, commands, files,"
+            + " repositories, GitHub and the built-in Linux; ivie for stories, scripts, poems, drawings, design and 3D; obi for"
+            + " conversation, questions, research, reports and plans. Only when it is not your own work", "<ivie|obi|ibiko>"),
+    WP("WRITEPLAN", "a long piece (a story, a script, a report, an essay): outline it, check the outline, then write it section by section", ""),
+    TT("THINKTOGETHER", "a weighty decision or question: Obi, Ivie and Ibiko work on it together and give one answer", ""),
+    RF("READFILES", "read the files in the workspace on this device (cloned repositories, projects) to answer this", ""),
+    CO("CARRYON", "carry on with the unfinished work in this chat from where it stopped", ""),
+    DR("CANVAS", "change what is on Ivie's canvas: edit a part, turn or view it, undo, save, open or export", "<the change, in plain words>"),
+    YS("CONFIRM", "the pilot agrees to the action that is shown waiting for their yes: carry it out", ""),
+    CX("CANCEL", "the pilot does not want the action that is shown waiting: drop it", ""),
     PM("PLANMODE", "Ibiko plans and asks before changing anything", ""),
     AO("AUTOON", "Ibiko runs commands, pushes and pull requests without asking", ""),
     AF("AUTOOFF", "Ibiko asks before commands, pushes and pull requests", ""),

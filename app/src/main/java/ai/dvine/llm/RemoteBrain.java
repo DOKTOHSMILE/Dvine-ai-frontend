@@ -600,7 +600,9 @@ public final class RemoteBrain {
                     req.put("reasoning_effort", "low"); // a small local-class model spends less time thinking
                 } else if (reasoning()) {
                     // medium, not low: low reasoning on a large model is what came back empty. Real work thinks harder.
-                    req.put("reasoning_effort", "high".equals(effort) ? "high" : "medium");
+                    // a quick message thinks little (gpt-5 at medium spent minutes before a one-line question back);
+                    // the completion room above leaves space for the thinking, so the answer is not empty
+                    req.put("reasoning_effort", "high".equals(effort) ? "high" : "low".equals(effort) ? "low" : "medium");
                 }
             } else {
                 // a thinking model in the plain form still spends its hidden thinking from max_tokens
@@ -799,7 +801,8 @@ public final class RemoteBrain {
         if (used == null && out > 0) {
             used = new Used(-1, out);
         }
-        if (all.length() == 0) {
+        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
+            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
             problem = "the server sent no answer";
             return null;
         }
@@ -865,7 +868,8 @@ public final class RemoteBrain {
             problem = "the model declined to answer that";
             return null;
         }
-        if (all.length() == 0) {
+        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
+            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
             problem = "the server sent no answer";
             return null;
         }

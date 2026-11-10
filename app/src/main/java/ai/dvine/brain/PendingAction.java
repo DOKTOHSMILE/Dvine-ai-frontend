@@ -4,7 +4,9 @@ package ai.dvine.brain;
 public final class PendingAction {
     public enum Kind {
         SHARE,
-        COPY
+        COPY,
+        /** A comment under someone's post, at {@link #target} (the post's link). */
+        COMMENT
     }
 
     public final Kind kind;
@@ -12,12 +14,22 @@ public final class PendingAction {
     /** Target app key (whatsapp, x, facebook, instagram, linkedin, telegram) or null for the chooser. */
     public final String app;
     public final long createdAt;
+    /** People the pilot named to tag in the post (each typed as @Name and picked from the network's list). */
+    public final java.util.List<String> tags;
+    /** For a comment: the link of the post it goes under; else null. */
+    public final String target;
 
     public PendingAction(Kind kind, String content, String app, long createdAt) {
+        this(kind, content, app, createdAt, null, null);
+    }
+
+    public PendingAction(Kind kind, String content, String app, long createdAt, java.util.List<String> tags, String target) {
         this.kind = kind;
         this.content = content;
         this.app = app;
         this.createdAt = createdAt;
+        this.tags = tags == null ? new java.util.ArrayList<String>() : new java.util.ArrayList<String>(tags);
+        this.target = target;
     }
 
     public String appName() {

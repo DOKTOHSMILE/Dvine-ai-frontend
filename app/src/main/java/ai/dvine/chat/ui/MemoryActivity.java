@@ -88,7 +88,7 @@ public final class MemoryActivity extends AppCompatActivity {
         }
 
         // ---- what the pilot said about themselves, told to every brain
-        final ai.dvine.learn.PilotProfile profile = new ai.dvine.learn.PilotProfile(new File(getFilesDir(), "brain/pilot.tsv"));
+        final ai.dvine.learn.PilotProfile profile = ai.dvine.learn.PilotProfile.at(new File(getFilesDir(), "brain/pilot.tsv"));
         List<String> about = profile.lines();
         LinearLayout pr = section("What DVINE knows about you", about.size(), "Forget everything it knows about you?", profile::clear);
         if (about.isEmpty()) {
@@ -100,7 +100,7 @@ public final class MemoryActivity extends AppCompatActivity {
         }
 
         // ---- answers confirmed with the check
-        final ai.dvine.dvine1.Knowledge known = new ai.dvine.dvine1.Knowledge(new File(getFilesDir(), "brain/knowledge.tsv"));
+        final ai.dvine.dvine1.Knowledge known = ai.dvine.dvine1.Store.knowledge(new File(getFilesDir(), "brain"));
         List<ai.dvine.dvine1.Knowledge.Fact> sure = known.confirmed();
         LinearLayout kc = section("Answers you marked correct", sure.size(), "Forget every answer you marked correct?", known::clear);
         if (sure.isEmpty()) {
@@ -114,9 +114,8 @@ public final class MemoryActivity extends AppCompatActivity {
 
         // ---- what DVINE 1 learned on its own: facts with their strength, reading rules, words, its journal
         final File brain = new File(getFilesDir(), "brain");
-        final ai.dvine.dvine1.Facts selfRead = new ai.dvine.dvine1.Facts(new File(brain, "facts.tsv"));
-        final ai.dvine.dvine1.learner.Learner learner = new ai.dvine.dvine1.learner.Learner(brain, selfRead,
-                new ai.dvine.dvine1.Lexicon(new File(brain, "words.tsv")));
+        final ai.dvine.dvine1.Facts selfRead = ai.dvine.dvine1.Store.facts(brain);
+        final ai.dvine.dvine1.learner.Learner learner = ai.dvine.dvine1.Store.learner(brain);
         LinearLayout dl = section("What DVINE 1 learned by itself", selfRead.size(), "Forget every fact, reading rule and word DVINE 1 learned?",
                 () -> {
                     selfRead.clear();

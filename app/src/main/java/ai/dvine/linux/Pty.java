@@ -1,61 +1,90 @@
 package ai.dvine.linux;
 
-import android.system.ErrnoException;
-import android.system.Os;
-import android.system.OsConstants;
+import android.os.ParcelFileDescriptor;
 
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * A real terminal device. Programs inside Linux then see a tty, so their output is not held back
- * and Ctrl-C reaches the running program. Returns null when this phone will not open one.
+ * A real terminal device. Programs inside Linux then see a tty: they draw full screens, ask for its size, and CTRL-C
+ * reaches the program that is running. Android 14 and later give Java no way to open one, so three small system calls
+ * are made by {@code libdvpty.so} (source: {@code src/main/cpp/pty/dvpty.c}). Null when the phone will not open one.
  */
 public final class Pty {
-    /** Linux _IOW('T', 0x31, int): unlock the slave. */
-    private static final int TIOCSPTLCK = 0x40045431;
-    /** Linux _IOR('T', 0x30, unsigned int): the slave number. */
-    private static final int TIOCGPTN = 0x80045430;
+    private static final boolean LOADED = load();
 
-    final FileDescriptor master;
+    private final ParcelFileDescriptor master;
+    private final int fd;
+    /** The other end, opened by the shell: {@code /dev/pts/N}. */
     public final String slave;
 
-    private Pty(FileDescriptor master, String slave) {
+    private Pty(ParcelFileDescriptor master, int fd, String slave) {
         this.master = master;
+        this.fd = fd;
         this.slave = slave;
     }
 
-    public static Pty tryOpen() {
+    private static boolean load() {
         try {
-            FileDescriptor master = Os.open("/dev/ptmx", OsConstants.O_RDWR | OsConstants.O_NOCTTY, 0);
-            // Int32Ref and this ioctlInt are hidden in the public SDK: reached by reflection, so the app builds with
-            // any android.jar and the phone still gets its real terminal
-            Class<?> ref = Class.forName("android.system.Int32Ref");
-            java.lang.reflect.Method ioctl = Os.class.getMethod("ioctlInt", FileDescriptor.class, int.class, ref);
-            ioctl.invoke(null, master, TIOCSPTLCK, ref.getConstructor(int.class).newInstance(0));
-            Object number = ref.getConstructor(int.class).newInstance(0);
-            ioctl.invoke(null, master, TIOCGPTN, number);
-            int n = ref.getField("value").getInt(number);
-            if (n < 0) {
+            System.loadLibrary("dvpty");
+            return true;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    public static Pty tryOpen() {
+        if (!LOADED) {
+            return null;
+        }
+        try {
+            int fd = nativeOpen();
+            if (fd < 0) {
                 return null;
             }
-            return new Pty(master, "/dev/pts/" + n);
-        } catch (ErrnoException e) {
-            return null;
+            int n = nativeNumber(fd);
+            if (n < 0) {
+                nativeClose(fd);
+                return null;
+            }
+            return new Pty(ParcelFileDescriptor.adoptFd(fd), fd, "/dev/pts/" + n);
         } catch (Throwable e) {
             return null;
         }
     }
 
-    InputStream in() {
-        return new FileInputStream(master);
+    /** Tells the programs inside how big the screen is. */
+    public void resize(int rows, int cols) {
+        try {
+            nativeResize(fd, Math.max(1, rows), Math.max(1, cols));
+        } catch (Throwable ignored) {
+            // the size stays as it was
+        }
     }
 
-    OutputStream out() throws IOException {
-        return new FileOutputStream(master);
+    InputStream in() {
+        return new FileInputStream(master.getFileDescriptor());
     }
+
+    OutputStream out() {
+        return new FileOutputStream(master.getFileDescriptor());
+    }
+
+    void close() {
+        try {
+            master.close();
+        } catch (Throwable ignored) {
+            // already closed
+        }
+    }
+
+    private static native int nativeOpen();
+
+    private static native int nativeNumber(int fd);
+
+    private static native int nativeResize(int fd, int rows, int cols);
+
+    private static native int nativeClose(int fd);
 }

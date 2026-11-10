@@ -12,8 +12,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * One Alpine shell that stays open, so {@code cd}, installed packages and variables last.
- * Output is delivered as it is written. Stop sends interrupt to the whole session.
+ * One Alpine shell on a pipe, for a phone that will not open a terminal device ({@link TermSession} is the real
+ * terminal). It stays open, so {@code cd}, installed packages and variables last. Output is delivered as it is
+ * written. Stop sends interrupt to the whole session.
  */
 public final class ProotSession {
     private final Process proc;
@@ -45,25 +46,13 @@ public final class ProotSession {
         File linux = new File(c.getFilesDir(), "linux");
         new File(c.getFilesDir(), "ibiko").mkdirs();
         List<String> cmd = ProotCommand.line(proot, rootfs, linux);
-        Pty pty = Pty.tryOpen();
-        if (pty != null) {
-            try {
-                ProcessBuilder pb = builder(c, cmd, tmp);
-                pb.redirectInput(ProcessBuilder.Redirect.from(new File(pty.slave)));
-                pb.redirectOutput(ProcessBuilder.Redirect.to(new File(pty.slave)));
-                pb.redirectError(ProcessBuilder.Redirect.to(new File(pty.slave)));
-                return new ProotSession(pb.start(), pty.out(), pty.in(), true);
-            } catch (Throwable ignored) {
-                // this phone opened a tty but would not attach it; use a pipe
-            }
-        }
         ProcessBuilder pb = builder(c, cmd, tmp);
         pb.redirectErrorStream(true);
         Process proc = pb.start();
         return new ProotSession(proc, proc.getOutputStream(), proc.getInputStream(), false);
     }
 
-    private static ProcessBuilder builder(Context c, List<String> cmd, File tmp) {
+    static ProcessBuilder builder(Context c, List<String> cmd, File tmp) {
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(new File(c.getFilesDir(), "linux"));
         Map<String, String> env = pb.environment();

@@ -36,7 +36,7 @@ public final class HistoryActivity extends AppCompatActivity {
                 }
 
                 public void onTextChanged(CharSequence s, int start, int before, int count) {
-                    query = s == null ? "" : s.toString().trim().toLowerCase();
+                    query = s == null ? "" : s.toString().trim().toLowerCase(java.util.Locale.ROOT);
                     fill();
                 }
 
@@ -55,7 +55,7 @@ public final class HistoryActivity extends AppCompatActivity {
         list.removeAllViews();
         for (ChatBook.Section s : book.sections()) {
             String title = s.title == null ? "Chat" : s.title;
-            if (!query.isEmpty() && !title.toLowerCase().contains(query) && !preview(s).toLowerCase().contains(query)) {
+            if (!query.isEmpty() && !title.toLowerCase(java.util.Locale.ROOT).contains(query) && !preview(s).toLowerCase(java.util.Locale.ROOT).contains(query)) {
                 continue;
             }
             TextView row = new TextView(this);

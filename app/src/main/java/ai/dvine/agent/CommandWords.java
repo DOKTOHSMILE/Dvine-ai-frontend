@@ -18,15 +18,15 @@ public final class CommandWords {
             return "Ran a command";
         }
         List<String> parts = new ArrayList<String>();
-        for (String p : command.split("\\s*(?:;|&&|\\|\\|)\\s*")) {
+        for (String p : grouped(split(command))) {
             String t = p.trim();
-            if (t.isEmpty() || t.matches("^(echo|printf)\\s+['\"]?-*['\"]?$") || t.matches("^cd\\s.*")) {
-                continue; // separators and directory changes say nothing on their own
+            if (t.isEmpty() || t.matches("^cd\\s.*") || label(t)) {
+                continue; // directory changes and "=== section ===" labels say nothing on their own
             }
             parts.add(t);
         }
         if (parts.isEmpty()) {
-            return "Ran a command";
+            return label(command.trim()) ? "Printed a line" : "Ran a command";
         }
         // every command named, none counted away: "Listed the files in app, then read app/Main.java"
         StringBuilder b = new StringBuilder();
@@ -41,8 +41,141 @@ public final class CommandWords {
         return b.toString();
     }
 
+    /** An echo or printf to the screen only: a label between commands ("=== git config"), not work. */
+    static boolean label(String t) {
+        return t.matches("(?s)^(echo|printf)(\\s.*)?$") && !t.matches("(?s).*[^2]>.*");
+    }
+
+    /**
+     * The commands of a line, split at ; && || and line ends, but never inside quotes, $(...), or a here-document:
+     * {@code python3 -c "import json; print(1)"} is one command, not two.
+     */
+    static List<String> split(String line) {
+        List<String> out = new ArrayList<String>();
+        StringBuilder cur = new StringBuilder();
+        char quote = 0;
+        int paren = 0;
+        String s = line;
+        int heredoc = s.indexOf("<<");
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (heredoc >= 0 && i == heredoc) {
+                cur.append(s.substring(i)); // a here-document runs to the end: the rest is its text
+                break;
+            }
+            if (quote != 0) {
+                cur.append(c);
+                if (c == '\\' && quote == '"' && i + 1 < s.length()) {
+                    cur.append(s.charAt(++i));
+                } else if (c == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                quote = c;
+                cur.append(c);
+                continue;
+            }
+            if (c == '(' ) {
+                paren++;
+            } else if (c == ')' && paren > 0) {
+                paren--;
+            }
+            boolean cut = paren == 0 && (c == ';' || c == '\n'
+                    || (c == '&' || c == '|') && i + 1 < s.length() && s.charAt(i + 1) == c);
+            if (cut) {
+                out.add(cur.toString());
+                cur.setLength(0);
+                if (c == '&' || c == '|') {
+                    i++;
+                }
+                continue;
+            }
+            cur.append(c);
+        }
+        out.add(cur.toString());
+        return out;
+    }
+
+    /** A loop or an if, from its first word to its done or fi, kept as one command. */
+    static List<String> grouped(List<String> parts) {
+        List<String> out = new ArrayList<String>();
+        StringBuilder block = null;
+        int depth = 0;
+        for (String p : parts) {
+            String t = p.trim();
+            String first = t.split("\\s+", 2)[0];
+            if (first.matches("for|while|until|if|case")) {
+                depth++;
+                if (block == null) {
+                    block = new StringBuilder();
+                }
+            }
+            if (block != null) {
+                block.append(block.length() == 0 ? "" : "; ").append(t);
+                if (first.matches("done|fi|esac") || t.matches("(?s).*\\b(done|fi|esac)$")) {
+                    depth--;
+                }
+                if (depth <= 0) {
+                    out.add(block.toString());
+                    block = null;
+                    depth = 0;
+                }
+                continue;
+            }
+            out.add(t);
+        }
+        if (block != null) {
+            out.add(block.toString());
+        }
+        return out;
+    }
+
+    /** A loop, an if, or a script given inline, in words: what it goes through and what it does each time. */
+    static String script(String cmd) {
+        String t = cmd.trim();
+        java.util.regex.Matcher inline = java.util.regex.Pattern.compile("^(python3?|node|perl|ruby|php|sh|bash|ash)\\b.*?\\s-[ce]\\s").matcher(t);
+        if (inline.find()) {
+            String lang = inline.group(1).replaceAll("\\d", "");
+            String name = lang.equals("python") ? "Python" : lang.equals("node") ? "JavaScript" : lang.equals("perl") ? "Perl"
+                    : lang.equals("ruby") ? "Ruby" : lang.equals("php") ? "PHP" : "shell";
+            return "Ran a short " + name + " script";
+        }
+        if (t.contains("<<")) {
+            return t.matches("(?s)^cat\\s*>.*") ? "Wrote " + clean(t.replaceAll("(?s)^cat\\s*>+\\s*(\\S+).*", "$1")) : "Ran a script";
+        }
+        java.util.regex.Matcher loop = java.util.regex.Pattern.compile("(?s)^(for|while|until)\\s+(\\w+)?(?:\\s+in\\s+(.*?))?;\\s*do\\s*(.*?);?\\s*done.*$").matcher(t);
+        if (loop.matches()) {
+            String over = loop.group(3) == null ? "" : loop.group(3).trim();
+            String body = loop.group(4) == null ? "" : loop.group(4);
+            List<String> inner = new ArrayList<String>();
+            for (String p : grouped(split(body))) {
+                String q = p.trim();
+                if (!q.isEmpty() && !label(q) && !q.matches("^(if|then|else|elif|fi|do|done)\\b.*") && inner.size() < 2) {
+                    inner.add(lower(one(q)));
+                }
+            }
+            String what = over.isEmpty() ? "each item" : over.startsWith("$(") ? "each file found" : over.split("\\s+").length == 1
+                    ? clean(over) : "each of " + over.split("\\s+").length + " items";
+            return "Went through " + what + (inner.isEmpty() ? "" : " and " + String.join(" and ", inner));
+        }
+        if (t.startsWith("if ")) {
+            return "Checked a condition and acted on it";
+        }
+        return null;
+    }
+
+    private static String lower(String said) {
+        return said.isEmpty() ? said : Character.toLowerCase(said.charAt(0)) + said.substring(1);
+    }
+
     /** One command (with its pipes) in words. */
     static String one(String cmd) {
+        String scripted = script(cmd);
+        if (scripted != null) {
+            return scripted;
+        }
         String[] piped = cmd.split("\\s*\\|\\s*");
         String main = piped[0].trim();
         String[] w = words(main);

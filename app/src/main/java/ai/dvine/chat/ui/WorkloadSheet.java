@@ -84,7 +84,7 @@ public final class WorkloadSheet {
             card.addView(bar(a, 0f, heat), Ui.wide(a, 12));
             card.addView(Ui.text(a, "DVINE 1 answers from what it has learned and from research, without a context window,"
                     + " so nothing here fills up or needs clearing.", 13, Ui.SUB, false), Ui.wide(a, 8));
-            ai.dvine.dvine1.Knowledge k = new ai.dvine.dvine1.Knowledge(new java.io.File(a.getFilesDir(), "brain/knowledge.tsv"));
+            ai.dvine.dvine1.Knowledge k = ai.dvine.dvine1.Store.knowledge(new java.io.File(a.getFilesDir(), "brain"));
             card.addView(row(a, "Answers you confirmed", String.valueOf(k.size())), Ui.wide(a, 10));
             card.addView(Ui.text(a, ai.dvine.dvine1.Dvine1.scoreLine(a.getFilesDir()), 13, Ui.SUB, false), Ui.wide(a, 8));
         } else {
@@ -235,7 +235,11 @@ public final class WorkloadSheet {
         into.addView(row(a, e.ended == 0 ? "Working for" : "Took", ai.dvine.stage.ChatPane.duration(e.took(t) / 1000)
                 + (e.ended == 0 ? "" : ", " + ago(t - e.ended))), Ui.wide(a, 4));
         if (e.ended == 0 && !e.step.isEmpty()) {
-            into.addView(row(a, "Now", e.step), Ui.wide(a, 4));
+            // a long step ("Reading projects/…/DECISIONS.md") on its own line: beside its label it squeezed "Now" into a column
+            TextView now = Ui.text(a, "Now: " + e.step, 13, Ui.TEXT, false);
+            now.setMaxLines(2);
+            now.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+            into.addView(now, Ui.wide(a, 4));
         }
         if (!e.task.isEmpty()) {
             TextView task = Ui.text(a, e.task, 13, Ui.SUB, false);

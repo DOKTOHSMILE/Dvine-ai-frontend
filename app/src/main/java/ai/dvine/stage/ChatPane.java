@@ -39,6 +39,15 @@ public final class ChatPane extends LinearLayout {
             return false;
         }
 
+        /** A turn's work ended: the steps it showed, in order, so the way the answer was reached can be learned. */
+        default void onWorkSteps(List<String> steps) {
+        }
+
+        /** As {@link #onReadAloudToggle(String)}, in the voice of the persona who wrote the reply. */
+        default boolean onReadAloudToggle(String text, String persona) {
+            return onReadAloudToggle(text);
+        }
+
         /**
          * The user edited their message at {@code index} of the open chat: it and everything after it are already
          * removed; the edited text is to be sent as a new message.
@@ -149,8 +158,19 @@ public final class ChatPane extends LinearLayout {
         if (from > 0) {
             thread.addView(earlier(from));
         }
+        final int[] foldTo = folds(cur.messages, from, working());
+        turnParts.clear();
+        turnBars.clear();
+        openGroup = null;
         for (int i = from; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
+            if (foldTo[i] >= 0) {
+                // a finished turn: its whole process (steps and the notes along the way) is one row at the top, and
+                // only the answer shows under it
+                thread.addView(processRow(cur.messages, i, foldTo[i]));
+                i = foldTo[i];
+                continue;
+            }
             if (attachment(m)) {
                 android.widget.LinearLayout col = new android.widget.LinearLayout(getContext());
                 col.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -190,10 +210,16 @@ public final class ChatPane extends LinearLayout {
                         // on its own (and a long report is never one huge block that is slow to lay out)
                         for (String para : paragraphs(m.body)) {
                             for (String piece : para.length() > CHUNK ? chunks(para, CHUNK) : java.util.Collections.singletonList(para)) {
-                                shown = bubble(new ChatBook.Message(m.role, m.kind, piece, m.persona, m.language));
+                                // the name once, over the first part of what they say
+                                shown = bubble(new ChatBook.Message(m.role, m.kind, piece, named ? "" : m.persona, m.language));
+                                named = true;
+                                listenAs = m.persona;
                                 thread.addView(shown);
                                 lastPartBar = partActions(piece);
+                                lastPartBar.setVisibility(GONE); // shown by a tap on the reply
                                 thread.addView(lastPartBar);
+                                turnParts.add(shown);
+                                turnBars.add(lastPartBar);
                                 parts++;
                             }
                         }
@@ -223,7 +249,13 @@ public final class ChatPane extends LinearLayout {
                 reply.append(reply.length() == 0 ? "" : "\n\n").append("code".equals(m.kind) ? "```" + (m.language == null ? "" : m.language)
                         + "\n" + m.body + "\n```" : m.body);
             }
-            boolean lastOfTurn = i == cur.messages.size() - 1 || "user".equals(cur.messages.get(i + 1).role);
+            listenAs = m.persona;
+            ChatBook.Message after = i == cur.messages.size() - 1 ? null : cur.messages.get(i + 1);
+            // a turn ends at the user's next message, and where another persona starts speaking: each one's words
+            // get their own Copy and Listen, read in their own voice
+            boolean lastOfTurn = after == null || "user".equals(after.role)
+                    || "text".equals(m.kind) && "text".equals(after.kind) && after.persona != null && !after.persona.isEmpty()
+                            && m.persona != null && !m.persona.isEmpty() && !after.persona.equals(m.persona);
             if (lastOfTurn && work != null) {
                 workPills(work);
                 work = null;
@@ -231,32 +263,42 @@ public final class ChatPane extends LinearLayout {
             if (lastOfTurn && reply.length() > 0) {
                 if (parts == 1 && lastPartBar != null) {
                     thread.removeView(lastPartBar); // one part: the end's Listen is the same, shown once
+                    turnBars.remove(lastPartBar);
                 }
+                View bar;
                 // at the end: Copy for the whole reply at once, and Listen to all of it, as icons
                 boolean lastReply = i == cur.messages.size() - 1;
                 if (rateAnswer != null && lastReply && reply.toString().contains(rateAnswer)) {
                     // DVINE asks whether its answer was right: check and cancel beside Copy and Listen
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), rateQuestion, rateAnswer));
+                    bar = actions(reply.toString(), stripCode(reply.toString()), rateQuestion, rateAnswer);
+                    bar.setTag("asked"); // DVINE asked: its check and cross stay in view
                 } else if (lastReply && lastAsked != null && !reply.toString().equals(ratedReply)
                         && (ratedAnswer == null || !reply.toString().contains(ratedAnswer))) {
                     // every answer can be marked right or wrong, whichever model wrote it: DVINE keeps learning
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString()), lastAsked, stripCode(reply.toString()).trim()));
+                    bar = actions(reply.toString(), stripCode(reply.toString()), lastAsked, stripCode(reply.toString()).trim());
                 } else {
-                    thread.addView(actions(reply.toString(), stripCode(reply.toString())));
+                    bar = actions(reply.toString(), stripCode(reply.toString()));
                 }
+                thread.addView(bar);
+                turnBars.add(bar);
+                // Copy, Listen and the rest stay out of the way: a tap on the reply shows them, another hides them
+                tapGroup(new ArrayList<View>(turnParts), new ArrayList<View>(turnBars), "asked".equals(bar.getTag()));
+                turnParts.clear();
+                turnBars.clear();
                 reply.setLength(0);
                 parts = 0;
                 lastPartBar = null;
+                named = false;
             }
         }
         title(cur);
         thinkingRow = null;
         liveRow = null;
-        if (working()) {
+        if (working() && workHere()) {
             thinkingRow = activityBlock();
             thread.addView(thinkingRow);
         }
-        if (liveText != null) {
+        if (liveText != null && workHere()) {
             liveRow = liveView(liveText.substring(0, Math.max(0, Math.min(liveShown, liveText.length()))));
             thread.addView(liveRow);
         }
@@ -330,6 +372,24 @@ public final class ChatPane extends LinearLayout {
         return thinkingText != null || !steps.isEmpty();
     }
 
+    /** The persona whose work the live steps belong to (set when the work starts on its page). */
+    private String workPersona;
+
+    /** The work starting now belongs to {@code persona}'s page, the one on screen. */
+    public void workFor(String persona) {
+        workPersona = persona;
+    }
+
+    /** The persona the work in progress writes as, or the page on screen when nothing is working. */
+    private String writer() {
+        return workPersona != null && working() ? workPersona : book.current().persona;
+    }
+
+    /** The work in progress belongs to the page on screen: only then are its live steps drawn here. */
+    private boolean workHere() {
+        return workPersona == null || book.onScreen(workPersona);
+    }
+
     /**
      * The live status line (what is happening this second, with a timer, e.g. "Writing · 12s"); null when the turn
      * is over. Shown at the top of the activity panel, with the steps so far under it.
@@ -379,6 +439,13 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void activityEnd() {
+        if (!steps.isEmpty() && host != null) {
+            List<String> words = new ArrayList<String>();
+            for (String s : steps) {
+                words.add(ai.dvine.agent.StepDetail.words(s));
+            }
+            host.onWorkSteps(words);
+        }
         keepSteps();
         kept = 0;
         if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
@@ -412,7 +479,7 @@ public final class ChatPane extends LinearLayout {
         for (int i = kept; i < timed.size(); i++) {
             body.append(timed.get(i).replace('\n', ' ')).append('\n'); // each with its time after a tab
         }
-        book.add("assistant", "activity", body.toString().trim(), book.current().persona);
+        book.add("assistant", "activity", body.toString().trim(), writer()); // on the page the work was asked on
         kept = steps.size();
     }
 
@@ -422,7 +489,7 @@ public final class ChatPane extends LinearLayout {
             thread.removeViewAt(at);
         }
         thinkingRow = null;
-        if (working()) {
+        if (working() && workHere()) {
             thinkingRow = activityBlock();
             int liveAt = liveRow != null && liveRow.getParent() == thread ? thread.indexOfChild(liveRow) : -1;
             thread.addView(thinkingRow, at >= 0 ? at : liveAt >= 0 ? liveAt : thread.getChildCount());
@@ -1181,6 +1248,9 @@ public final class ChatPane extends LinearLayout {
     }
 
     private void renderLive(String shown) {
+        if (shown != null && !workHere()) {
+            shown = null; // the reply being written belongs to another page: it is not drawn on this one
+        }
         if (shown != null && shown.length() > LIVE_TAIL) {
             shown = liveTail(shown);
         }
@@ -1539,13 +1609,13 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void image(String path) {
-        book.add("assistant", "image", path, book.current().persona);
+        book.add("assistant", "image", path, writer());
         show();
     }
 
     /** Keeps a reply's work (its id in files/work) with the chat; the reply shows it as pills. */
     public void work(String id) {
-        book.add("assistant", "work", id, book.current().persona);
+        book.add("assistant", "work", id, writer());
         show();
     }
 
@@ -1572,8 +1642,45 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void video(String path) {
-        book.add("assistant", "video", path, book.current().persona);
+        book.add("assistant", "video", path, writer());
         show();
+    }
+
+    /** In the group chat each reply starts with who wrote it, in that persona's colour, as in a group of people. */
+    private CharSequence speaker(ChatBook.Message m, CharSequence body) {
+        if (m.persona == null || m.persona.isEmpty() || !"text".equals(m.kind)) {
+            return body;
+        }
+        // their own icon, then their name, both in their colour
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder("\uFFFC " + labelOf(m.persona));
+        android.graphics.drawable.Drawable d = getContext().getDrawable(personaIcon(m.persona));
+        if (d != null) {
+            d = d.mutate();
+            d.setTint(personaColor(m.persona));
+            d.setBounds(0, 0, dp(16), dp(16));
+            b.setSpan(new android.text.style.ImageSpan(d, android.text.style.ImageSpan.ALIGN_BASELINE), 0, 1, 0);
+        }
+        b.setSpan(new android.text.style.ForegroundColorSpan(personaColor(m.persona)), 0, b.length(), 0);
+        b.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, b.length(), 0);
+        b.setSpan(new android.text.style.RelativeSizeSpan(0.85f), 2, b.length(), 0);
+        b.append('\n').append(body);
+        return b;
+    }
+
+    static int personaIcon(String persona) {
+        return "ivie".equals(persona) ? R.drawable.ic_persona_graphics : "ibiko".equals(persona) ? R.drawable.ic_persona_tools
+                : R.drawable.ic_persona_chat;
+    }
+
+    static int personaColor(String persona) {
+        switch (persona) {
+            case "ivie":
+                return 0xFFE58FD0;
+            case "ibiko":
+                return 0xFF6FCF8E;
+            default:
+                return 0xFF7AA7FF; // Obi
+        }
     }
 
     private View bubble(ChatBook.Message m) {
@@ -1621,7 +1728,7 @@ public final class ChatPane extends LinearLayout {
             return activityRecord(m);
         }
         if ("handoff".equals(m.kind)) {
-            // "Hand to Ibiko": the task goes to him, in a new chat of his
+            // "Hand to Ibiko": the task goes to him, here in the group
             String[] parts = (m.body == null ? "" : m.body).split("\n", 2);
             final String to = parts[0], task = parts.length > 1 ? parts[1] : "";
             final String name = to.isEmpty() ? "Ibiko" : to.substring(0, 1).toUpperCase(java.util.Locale.US) + to.substring(1);
@@ -1637,7 +1744,7 @@ public final class ChatPane extends LinearLayout {
                 b.setCompoundDrawablesRelative(icon, null, null, null);
                 b.setCompoundDrawablePadding(dp(8));
             }
-            b.setContentDescription("Hand this task to " + name + ": a new chat of his, where he starts on it");
+            b.setContentDescription("Hand this task to " + name + ": he starts on it here");
             b.setOnClickListener(v -> host.onHandoff(to, task));
             LinearLayout wrap = new LinearLayout(getContext());
             wrap.setPadding(0, dp(4), 0, dp(10));
@@ -1651,7 +1758,9 @@ public final class ChatPane extends LinearLayout {
             card.setOrientation(VERTICAL);
             card.setBackgroundResource(R.drawable.bg_user_bubble);
             card.setPadding(dp(14), dp(10), dp(14), dp(10));
-            TextView n = plain("\uD83D\uDCC4  " + parts[0]);
+            TextView n = plain(parts[0]);
+            n.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_file, 0, 0, 0); // the file icon, not an emoji
+            n.setCompoundDrawablePadding(dp(8));
             n.setTextSize(14f);
             n.setPadding(0, 0, 0, 0);
             card.addView(n);
@@ -1718,7 +1827,7 @@ public final class ChatPane extends LinearLayout {
         int layout = user ? R.layout.item_message_user : R.layout.item_message_assistant;
         View row = LayoutInflater.from(getContext()).inflate(layout, thread, false);
         TextView body = row.findViewById(R.id.tv_message);
-        body.setText(user ? (m.body == null ? "" : m.body) : styled(m.body));
+        body.setText(user ? (m.body == null ? "" : m.body) : speaker(m, styled(m.body)));
         body.setTextIsSelectable(true); // hold to select any part and copy it
         if (!user) {
             body.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
@@ -1785,6 +1894,9 @@ public final class ChatPane extends LinearLayout {
 
     /** The Listen under the part drawn last (removed when the reply has only that part). */
     private View lastPartBar;
+    /** While drawing: the persona whose words the next Listen reads, and whether their name is already shown. */
+    private String listenAs;
+    private boolean named;
 
     /** Listen under one part of a reply: that part alone is read aloud (Copy is once, at the end, for all of it). */
     private View partActions(String piece) {
@@ -1828,11 +1940,12 @@ public final class ChatPane extends LinearLayout {
     /** A speaker icon that reads {@code spoken} aloud, and turns to Pause while it does. */
     private View listenButton(final String spoken, final String label) {
         final android.widget.ImageButton listen = (android.widget.ImageButton) icon(R.drawable.ic_speaker, label, null);
+        final String as = listenAs; // the one who wrote it: their voice reads it, and only their words (never the name)
         listen.setOnClickListener(v -> {
             if (readingButton != null && readingButton != listen) {
                 readingStopped(); // another button goes back to Listen
             }
-            boolean on = host.onReadAloudToggle(spoken);
+            boolean on = as == null || as.isEmpty() ? host.onReadAloudToggle(spoken) : host.onReadAloudToggle(spoken, as);
             listen.setImageResource(on ? R.drawable.ic_pause : R.drawable.ic_speaker);
             listen.setContentDescription(on ? "Pause reading" : label);
             readingButton = on ? listen : null;
@@ -1854,6 +1967,137 @@ public final class ChatPane extends LinearLayout {
     }
 
     /** Copy under the user's own message, on its side (right), as under a reply. */
+    /** While drawing a turn: its parts, and the bars under them (each part's Listen, then Copy and Listen for all). */
+    private final List<View> turnParts = new ArrayList<View>(), turnBars = new ArrayList<View>();
+    /** The bars open after a tap on a reply; null when none is. */
+    private List<View> openGroup;
+
+    /** A tap on any part of a reply shows its bars, another tap hides them; opening one reply's closes another's. */
+    private void tapGroup(final List<View> parts, final List<View> bars, boolean open) {
+        for (View b : bars) {
+            b.setVisibility(open ? VISIBLE : GONE);
+        }
+        if (open) {
+            openGroup = bars;
+        }
+        final Runnable toggle = () -> {
+            boolean show = bars.isEmpty() || bars.get(bars.size() - 1).getVisibility() != VISIBLE;
+            if (openGroup != null && openGroup != bars) {
+                for (View b : openGroup) {
+                    b.setVisibility(GONE);
+                }
+            }
+            if (openActions != null) {
+                openActions.setVisibility(GONE);
+                openActions = null;
+            }
+            for (View b : bars) {
+                b.setVisibility(show ? VISIBLE : GONE);
+            }
+            openGroup = show ? bars : null;
+        };
+        for (View part : parts) {
+            View text = part.findViewById(R.id.tv_message);
+            (text != null ? text : part).setOnClickListener(v -> toggle.run()); // a long press still selects text
+        }
+    }
+
+    /**
+     * Which stretches of the chat fold into one process row. For each finished assistant turn that did some work and
+     * then answered, the entry at the turn's first folded message is the index of its last one (its steps and the notes
+     * written along the way); every other entry is -1. The turn still being worked on is never folded.
+     */
+    static int[] folds(List<ChatBook.Message> all, int from, boolean working) {
+        int n = all.size();
+        int[] out = new int[n];
+        java.util.Arrays.fill(out, -1);
+        int s = Math.max(0, from);
+        while (s < n) {
+            if ("user".equals(all.get(s).role)) {
+                s++;
+                continue;
+            }
+            int e = s;
+            while (e + 1 < n && !"user".equals(all.get(e + 1).role)) {
+                e++;
+            }
+            int first = -1, last = -1;
+            for (int k = s; k <= e; k++) {
+                if ("activity".equals(all.get(k).kind)) {
+                    first = first < 0 ? k : first;
+                    last = k;
+                }
+            }
+            boolean answered = false;
+            for (int k = last + 1; last >= 0 && k <= e; k++) {
+                ChatBook.Message m = all.get(k);
+                answered |= ("text".equals(m.kind) || "code".equals(m.kind)) && m.body != null && !m.body.trim().isEmpty();
+            }
+            boolean plain = true; // only steps and notes fold; a picture, a file or a button in between stays where it is
+            for (int k = first; first >= 0 && k <= last; k++) {
+                String kind = all.get(k).kind;
+                plain &= "activity".equals(kind) || "text".equals(kind);
+            }
+            if (first >= 0 && answered && plain && !(working && e == n - 1)) {
+                out[first] = last;
+            }
+            s = e + 1;
+        }
+        return out;
+    }
+
+    /** "Worked for 3m 45s · 17 steps ›": a finished turn's whole process in one row; a tap opens every step and note. */
+    private View processRow(List<ChatBook.Message> all, int from, int to) {
+        final List<String> every = new ArrayList<String>();
+        long secs = 0;
+        boolean tools = false;
+        for (int k = from; k <= to; k++) {
+            ChatBook.Message m = all.get(k);
+            String[] lines = (m.body == null ? "" : m.body).split("\n");
+            if ("activity".equals(m.kind)) {
+                try {
+                    secs += Long.parseLong(lines[0].trim());
+                } catch (NumberFormatException old) {
+                    // kept before stretches had times
+                }
+                for (int i = 1; i < lines.length; i++) {
+                    String l = lines[i].trim();
+                    if (!l.isEmpty() && !providerLine(l)) {
+                        every.add(l);
+                        tools |= !ai.dvine.agent.StepDetail.words(l.split("\t")[0]).matches("(?i)^(thinking|replying|writing).*");
+                    }
+                }
+            } else if (m.body != null && !m.body.trim().isEmpty()) {
+                String note = m.body.trim().replaceAll("\\s+", " ");
+                every.add("Note: " + (note.length() > 400 ? note.substring(0, 400) + "\u2026" : note));
+            }
+        }
+        final String label = (tools ? "Worked for " : "Thought for ") + duration(Math.max(1, secs))
+                + (every.size() > 2 ? "  \u00B7  " + every.size() + " steps" : "");
+        TextView row = plain("");
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        appendColoured(b, label + "  \u203A", color(R.color.text_secondary));
+        row.setText(b);
+        row.setTextSize(14f);
+        row.setMaxLines(1);
+        row.setPadding(0, dp(12), 0, dp(12));
+        row.setMinHeight(dp(48));
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(ripple());
+        android.graphics.drawable.Drawable icon = getContext().getDrawable(R.drawable.ic_deep);
+        if (icon != null) {
+            icon = icon.mutate();
+            icon.setTint(color(R.color.text_secondary));
+            icon.setBounds(0, 0, dp(18), dp(18));
+            row.setCompoundDrawablesRelative(icon, null, null, null);
+            row.setCompoundDrawablePadding(dp(10));
+        }
+        row.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        row.setContentDescription(label + ", open the process");
+        row.setOnClickListener(v -> openSteps("Process", every, false));
+        return row;
+    }
+
     /** The message box's actions, open after a tap on it; null when none is open. */
     private View openActions;
 
@@ -2127,7 +2371,7 @@ public final class ChatPane extends LinearLayout {
         if (persona == null || persona.isEmpty()) {
             return "Obi";
         }
-        return persona.substring(0, 1).toUpperCase() + persona.substring(1);
+        return persona.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + persona.substring(1);
     }
 
     private TextView plain(String text) {

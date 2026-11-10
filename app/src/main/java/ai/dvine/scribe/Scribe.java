@@ -101,6 +101,58 @@ public final class Scribe {
         write("EXECUTION.json", execution());
     }
 
+    private String lastStep;
+
+    /**
+     * Every step of the work, written down as it happens (a file created or changed, a command run, a blueprint step
+     * done), so the next round knows what was already done and does not do it again.
+     */
+    public void step(String line) {
+        if (!active || current == null || line == null) {
+            return;
+        }
+        String l = line.replaceAll("\\u2063.*$", "").replaceAll("\\s+", " ").trim(); // the step's detail mark is not kept
+        if (l.isEmpty() || l.equals(lastStep)) {
+            return;
+        }
+        lastStep = l;
+        String at = new java.text.SimpleDateFormat("HH:mm:ss", Locale.US).format(new java.util.Date());
+        append("PROGRESS.md", "- " + at + " " + l + "\n");
+    }
+
+    /**
+     * What was already done in this project, from the record: the files created or changed and the steps finished.
+     * Given to the agent at the start of a round so it is not repeated. Empty when nothing is recorded yet.
+     */
+    public String doneSoFar() {
+        if (!active || projectDir == null) {
+            return "";
+        }
+        File f = new File(projectDir, "PROGRESS.md");
+        if (!f.isFile()) {
+            return "";
+        }
+        java.util.LinkedHashSet<String> done = new java.util.LinkedHashSet<String>();
+        try {
+            for (String line : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
+                String l = line.replaceFirst("^- \\d\\d:\\d\\d:\\d\\d ", "").trim();
+                if (l.matches("(?i)^(created|edited|rewrote|wrote|made|deleted|moved|copied|committed|pushed|opened a pull request|done:|blueprint step done).*")) {
+                    done.add(l);
+                }
+            }
+        } catch (IOException e) {
+            return "";
+        }
+        if (done.isEmpty()) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
+        for (String d : done) {
+            b.append("- ").append(d).append('\n');
+        }
+        return clip(b.toString(), 3000);
+    }
+
     /** A checkpoint after a round of work. The text is the work log, not a claim that the job is finished. */
     public void checkpoint(String work) {
         if (!active || current == null) {

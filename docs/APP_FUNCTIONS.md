@@ -14,7 +14,7 @@ Accepted forms on the first line: `§XX arguments`, `[[XX]] arguments`, `⟦XX�
 | `§CA` | CALC | work out arithmetic exactly | `<expression>` |
 | `§PH` | PHOTO | show a real photograph | `<subject>` |
 | `§BD` | BUILD | model a thing in 3D | `<thing, with every size given>` |
-| `§SO` | SOCIAL | the pilot's social accounts | `SEARCH <network>: <words> \| TRENDING <network> \| CONNECT <network> \| POST <network>: <about>` |
+| `§SO` | SOCIAL | the pilot's social accounts | `SEARCH <network>: <words> \| TRENDING <network> \| CONNECT <network> \| POST <network>: <about, and any people to tag by name> \| COMMENT <network>: <post link> <what to say>` |
 | `§SI` | SOCIALINTEL | social intelligence: investigate posts, find similar posts, public sentiment, profiles | `<capability> <arguments>` |
 | `§SP` | SCHEDULEPOST | schedule a post on the pilot's own account, once or repeating; the pilot sees it and says yes first. LIST shows the scheduled posts | `<network> <yyyy-MM-dd HH:mm \| HH:mm \| in 2h> [daily\|weekly\|weekdays\|every 6h]: <text> \| LIST` |
 | `§MF` | MAKEFILE | make a file of the last answer | `<pdf\|docx\|xlsx\|csv\|md\|html\|txt>` |
@@ -25,6 +25,14 @@ Accepted forms on the first line: `§XX arguments`, `[[XX]] arguments`, `⟦XX�
 | `§FZ` | FINDZIP | find zip files on this device | none |
 | `§NC` | NEWCHAT | start a new chat | none |
 | `§SW` | SWITCH | switch to another persona | `<ivie\|obi\|ibiko>` |
+| `§HO` | HANDOVER | pass this message to the one whose work it is, who then answers it: ibiko for code, commands, files, repositories, GitHub and the built-in Linux; ivie for stories, scripts, poems, drawings, design and 3D; obi for conversation, questions, research, reports and plans. Only when it is not your own work | `<ivie\|obi\|ibiko>` |
+| `§WP` | WRITEPLAN | a long piece (a story, a script, a report, an essay): outline it, check the outline, then write it section by section | none |
+| `§TT` | THINKTOGETHER | a weighty decision or question: Obi, Ivie and Ibiko work on it together and give one answer | none |
+| `§RF` | READFILES | read the files in the workspace on this device (cloned repositories, projects) to answer this | none |
+| `§CO` | CARRYON | carry on with the unfinished work in this chat from where it stopped | none |
+| `§DR` | CANVAS | change what is on Ivie's canvas: edit a part, turn or view it, undo, save, open or export | `<the change, in plain words>` |
+| `§YS` | CONFIRM | the pilot agrees to the action that is shown waiting for their yes: carry it out | none |
+| `§CX` | CANCEL | the pilot does not want the action that is shown waiting: drop it | none |
 | `§PM` | PLANMODE | Ibiko plans and asks before changing anything | none |
 | `§AO` | AUTOON | Ibiko runs commands, pushes and pull requests without asking | none |
 | `§AF` | AUTOOFF | Ibiko asks before commands, pushes and pull requests | none |

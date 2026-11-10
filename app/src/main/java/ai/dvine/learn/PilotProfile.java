@@ -45,6 +45,19 @@ public final class PilotProfile {
     private final File file;
     private final Map<String, String> facts = new LinkedHashMap<String, String>();
 
+    private static final Map<String, PilotProfile> OPEN = new java.util.HashMap<String, PilotProfile>();
+
+    /** The one copy for this file, shared by the chat and the Memory screen so neither saves over the other. */
+    public static synchronized PilotProfile at(File file) {
+        String k = file.getAbsolutePath();
+        PilotProfile p = OPEN.get(k);
+        if (p == null) {
+            p = new PilotProfile(file);
+            OPEN.put(k, p);
+        }
+        return p;
+    }
+
     public PilotProfile(File file) {
         this.file = file;
         load();

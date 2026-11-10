@@ -1,6 +1,92 @@
-# An audit reads the files (0.99.40)
+# An audit reads the files (0.99.52)
 
 - [x] An audit is done by the coding agent, which can open files. It is no longer a plan that prints the tool call and then says the step could not be done.
+
+# One summary, icons on a tap, learning the method (0.99.51)
+
+- [x] A finished turn: the process in one row at the top, one summary under it.
+- [x] Copy, Listen and the rest show on a tap of the reply.
+- [x] DVINE 1 learns how an answer was reached from every reply, with no tap.
+- [ ] DVINE 1 composing new methods from parts of old ones.
+
+# Only the brain commands; workers; tools grid (0.99.50)
+
+- [x] With a model in use, no wording runs a function: the brain gives a code.
+- [x] The lead model starts workers on parts of the real work.
+- [x] One tools grid for the group, every tool, small switches.
+- [ ] The whole UI exercised on a device (only a static pass was done).
+
+# The group chat only, voices, device fixes (0.99.49)
+
+- [x] The group chat is permanent: no setting, no separate pages.
+- [x] Each reply: the persona's icon and name; Listen reads only their words, in their voice.
+- [x] African voices first (Nigerian, then other African English).
+- [x] Device fixes: the right name on each line, gateway tags never shown, commands to Ibiko and the built-in Linux, no web search for commands, a quieter survey.
+- [x] Share › DVINE from other apps.
+- [ ] Two or three personas working at the same time in the group.
+- [ ] Offline neural voices.
+
+# Group chat without buttons (0.99.48)
+
+- [x] The persona buttons are hidden in the group chat; the message chooses who answers, Obi by default.
+
+# Group chat and auto-post (0.99.47)
+
+- [x] One thread for Obi, Ivie and Ibiko; names on replies; buttons and @names pick who answers.
+- [x] Auto-post on your behalf, off by default.
+- [x] The version choices (post, edit, schedule, copy; X length) that 0.99.46 announced but did not contain.
+- [ ] Two or three personas working at the same time in the group.
+
+# The right persona, writing plans, social screen (0.99.46)
+
+- [x] A task given to the wrong persona goes to the right page, as if sent there.
+- [x] Stories, scripts and reports: outline, check, write section by section.
+- [x] Social accounts: icons, counts, quick actions, posting settings, scheduled posts, recent activity.
+- [x] Each post version: post, edit, schedule or copy; X length checked.
+- [x] One group chat for Obi, Ivie and Ibiko (built in 0.99.47).
+
+# Posts, tags, comments and the Scribe (0.99.45)
+
+- [x] With an API chosen, the device's model never answers instead, even offline.
+- [x] app/module.toml is bumped with build.gradle (a test checks they match).
+- [x] The Scribe records every step and hands the done list to the next round.
+- [x] Three post versions to pick from; named people tagged; comments under a post by its link; each after a yes.
+- [ ] Watch a person's new posts and draft a comment for each, posted after a yes (not unattended).
+
+# Voice, survey readers and posting (0.99.44)
+
+- [x] Dictation keeps what was said before a pause; the mic is the standard icon, red and pulsing while recording.
+- [x] The most natural voice is picked first; online voices and a voice download page in Settings.
+- [x] Several readers survey the code at once in the Blueprint's first phase and write a map.
+- [x] Facebook and X posts go out from the signed-in account after a yes; scheduled ones by themselves.
+- [ ] An on-device neural voice (Piper through sherpa-onnx) for human voices without the internet.
+
+# The Blueprint and a standard shell (0.99.43)
+
+- [x] A real task goes: understand the code, write the blueprint, check it for gaps, build, verify.
+- [x] Nothing but PLAN.md changes before the check passes; additions mid-task go into the plan and it is checked again.
+- [x] Repeated calls and repeated failures are stopped; "done" with unticked steps goes back to them.
+- [x] The Shell screen looks and works like a standard terminal.
+
+# One Linux (0.99.42)
+
+- [x] Chat, Ibiko, the task system and the Shell screen run commands in the same Alpine, through `LinuxHub.run`.
+- [x] Alpine installs itself the first time anything needs it; the small built-in shell answers only when it cannot be installed, and says so.
+- [x] No Termux permission, package query or engine path left in use.
+
+# Audit fixes (0.99.41)
+
+- [x] A job's replies, notes and steps go to the page it was asked on, never to another chat or page.
+- [x] "Try again" asks the message before it once; it never asks itself.
+- [x] Stop shows only on the page that is working; a held message is sent when the other work ends, and says it is waiting.
+- [ ] Pages run their jobs in parallel (needs the MainActivity split, #73).
+- [ ] Remove the Termux path and the 18 unused classes.
+
+# A real terminal (0.99.40)
+
+- [x] The shell is a terminal device: every key goes to Alpine; vi, nano, top, htop and less draw full screens; CTRL-C and CTRL-Z reach the program.
+- [x] Pinch changes the text size and the program is told the new size; a drag scrolls back.
+- [x] One shell for the shell screen, chat and Ibiko; leaving the screen leaves a program open.
 
 # Same folder (0.99.39)
 

@@ -64,7 +64,7 @@ public final class DvineApp extends Application {
             }
         };
         ai.dvine.dvine1.Plug.interests = () -> {
-            ai.dvine.learn.PilotProfile profile = new ai.dvine.learn.PilotProfile(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
+            ai.dvine.learn.PilotProfile profile = ai.dvine.learn.PilotProfile.at(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
             java.util.List<String> out = new java.util.ArrayList<String>();
             for (String key : new String[] { "building", "likes", "works as", "works at", "home", "from" }) {
                 if (profile.get(key) != null) {

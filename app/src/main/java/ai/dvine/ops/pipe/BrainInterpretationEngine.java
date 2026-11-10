@@ -71,13 +71,13 @@ public final class BrainInterpretationEngine {
     }
 
     static boolean contradicts(SemanticTypes.Decomposition d, SemanticTypes.Interpretation proposed) {
-        boolean userForbidsDelete = d.original.toLowerCase().contains("do not") || d.original.toLowerCase().contains("don't")
-                || d.original.toLowerCase().contains("what would happen");
+        boolean userForbidsDelete = d.original.toLowerCase(java.util.Locale.ROOT).contains("do not") || d.original.toLowerCase(java.util.Locale.ROOT).contains("don't")
+                || d.original.toLowerCase(java.util.Locale.ROOT).contains("what would happen");
         boolean proposesDelete = "delete".equals(proposed.operation) || "remove".equals(proposed.operation) && d.question;
         if (userForbidsDelete && ("delete".equals(proposed.operation) || proposesDelete && d.question)) {
             return true;
         }
-        if (!d.negations.isEmpty() && "delete".equals(proposed.operation) && d.original.toLowerCase().contains("do not delete")) {
+        if (!d.negations.isEmpty() && "delete".equals(proposed.operation) && d.original.toLowerCase(java.util.Locale.ROOT).contains("do not delete")) {
             return true;
         }
         for (String keep : d.preserve) {
