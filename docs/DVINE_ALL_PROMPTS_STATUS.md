@@ -222,11 +222,11 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 189 | Tap the text body to show and hide the bottom icons (copy, listen and the rest) | P12 | Built (JVM; device check pending) | 0.99.51 |
 | 190 | DVINE learns without the check being tapped; learns the process behind answers, masters thinking steps, evolves | P12 | Partial (`dvine1/Methods`: ways of reaching answers learned from every reply, strengthened, weakened and dropped; a procedural memory, not model training) | 0.99.51 |
 | 191 | Fix the Capital Oracle Dependabot alerts | other repo | Built (jackson-databind 2.18.12, capital-oracle-projects PR #19 merged; that module did not compile before or after) | n/a |
-| 192 | Stop command codes leaking into the conversation | P12 | Built (JVM test; device check pending) | 0.99.52 |
-| 193 | Why is the APK 6 MB; embed knowledge so DVINE 1 works on install; push size with intelligence data | P12 | Partial (answer given; `dvine1/BuiltIn` with a 375-fact starter file and a builder script; the large dataset is not in yet) | 0.99.52 |
-| 194 | Merge all personas into Ibiko with every function; trace Obi and Ivie out of the codebase | P12 | Partial (Ibiko answers everything when a model is in use; Obi and Ivie code not removed) | 0.99.52 |
-| 195 | Agent organisation: Scribe, UCIX, UCUX, CPGC, ROLX, ARCH, plus roles from how organisations are structured; mini workers under agents; timed, focused work | P12 | Built (`agent/Org`, role and minutes on each part, hands, time limit, send-back; JVM tests; behaviour with real models not measured) | 0.99.52 |
-| 196 | One record file a project, a folder a section, agents limited to it, exact resume point | P12 | Built for new records and for workers' file tools (shell commands are not confined) | 0.99.52 |
+| 192 | Stop command codes leaking into the conversation | P12 | Built (JVM test; device check pending) | 0.99.53 |
+| 193 | Why is the APK 6 MB; embed knowledge so DVINE 1 works on install; push size with intelligence data | P12 | Partial (answer given; `dvine1/BuiltIn` with a 375-fact starter file and a builder script; the large dataset is not in yet) | 0.99.53 |
+| 194 | Merge all personas into Ibiko with every function; trace Obi and Ivie out of the codebase | P12 | Partial (Ibiko answers everything when a model is in use; Obi and Ivie code not removed) | 0.99.53 |
+| 195 | Agent organisation: Scribe, UCIX, UCUX, CPGC, ROLX, ARCH, plus roles from how organisations are structured; mini workers under agents; timed, focused work | P12 | Built (`agent/Org`, role and minutes on each part, hands, time limit, send-back; JVM tests; behaviour with real models not measured) | 0.99.53 |
+| 196 | One record file a project, a folder a section, agents limited to it, exact resume point | P12 | Built for new records and for workers' file tools (shell commands are not confined) | 0.99.53 |
 | 197 | Apply the same technology to features and functions across the app | P12 | Not built (the organisation is used by the coding agent only) | — |
 
 ## Still open, in the order that matters

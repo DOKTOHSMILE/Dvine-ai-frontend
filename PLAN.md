@@ -1,4 +1,4 @@
-# One assistant, the organisation, one record (0.99.52)
+# One assistant, the organisation, one record (0.99.53)
 
 - [x] Command codes never reach the conversation.
 - [x] Ibiko answers everything when a model is in use; real work starts the agents by code.
@@ -8,6 +8,10 @@
 - [ ] Remove Obi and Ivie from the code itself (classes, voices, canvas wiring, tests).
 - [ ] The full built-in dataset (run tools/build_world_facts.py when Wikidata allows; then more subjects).
 - [ ] The organisation for features outside the coding agent.
+
+# An audit reads the files (0.99.52)
+
+- [x] An audit is done by the coding agent, which can open files. It is no longer a plan that prints the tool call and then says the step could not be done.
 
 # One summary, icons on a tap, learning the method (0.99.51)
 
