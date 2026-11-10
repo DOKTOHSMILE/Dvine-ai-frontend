@@ -251,6 +251,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 218 | Even the 0.6B takes 40 minutes to start replying: look deep into it | P12 | Fixed in code (hidden thinking off on the device, instructions cut from ~1,900 to ~560 tokens, no reload or release churn, first-word time shown; device check pending) | 0.99.66 |
 | 219 | The same long request again (rename to Ibiko, Scribe resume, audits sorted with time and date, UI/UX, background jobs) | P12 | Checked: built in 0.99.57; names searched again and none shows; a message during a job on the device's model is now answered between steps | 0.99.67 |
 | 220 | Fix the app package name | P12 | Built (ai.ibiko everywhere, the user's choice; native libraries rebuilt; JVM tests) | 0.99.68 |
+| 221 | Design a custom logo: a futuristic, cute AI bot icon | P12 | Built (adaptive, monochrome and PNG icons from one vector design; render test) | 0.99.69 |
 
 ## Still open, in the order that matters
 

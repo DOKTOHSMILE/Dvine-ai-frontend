@@ -1,5 +1,7 @@
 # Ibiko (Android)
 
+<img src="docs/brand/ibiko_icon_512.png" width="128" alt="Ibiko icon: a cute robot head with a glowing antenna and eyes">
+
 Ibiko is one AI assistant on your Android device. There are no personas to pick and no other names: you talk to Ibiko, and Ibiko talks, researches, writes, designs in 3D, and writes and runs code on the device.
 
 The app's package is `ai.ibiko` (since 0.99.68; before that `ai.dvine`, so it installs as a new app beside an older build, and the model is downloaded again). The repository keeps its old name, `Dvine-ai-frontend`. Everything a person sees says Ibiko.
