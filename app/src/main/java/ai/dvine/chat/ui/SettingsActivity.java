@@ -82,11 +82,10 @@ public final class SettingsActivity extends AppCompatActivity {
 
         // ---- chat
         LinearLayout chat = group("Chat", "Enter to send, thinking together, fact-checks, working steps");
-        chat.addView(toggle("Group chat", "One conversation with Obi, Ivie and Ibiko, like a group: each reply carries its name, the"
-                + " right one answers from what you write (code: Ibiko; stories, scripts and drawings: Ivie; everything else: Obi; or"
-                + " write @Ivie, @Obi, @Ibiko), so the persona buttons are hidden. Off: three separate pages with their buttons.", "group_chat", true, null));
-        chat.addView(toggle("Send tasks to the right one", "Code goes to Ibiko; stories, scripts and drawings to Ivie; reports and"
-                + " analyses to Obi, whoever you were talking to.", "handoff", true, null));
+        chat.addView(Ui.text(this, "One conversation with Obi, Ivie and Ibiko, like a group: each reply carries its icon and name, and"
+                + " the right one answers from what you write (code and commands: Ibiko; stories, scripts and drawings: Ivie;"
+                + " everything else: Obi). To pick one yourself, start with their name: \u201cIvie, \u2026\u201d or @Ibiko.", 13, Ui.SUB, false),
+                Ui.wide(this, 8));
         chat.addView(toggle("Enter sends the message", "Off: Enter starts a new line; send with the arrow.", "send_enter", false, null));
         chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: Obi, Ivie and Ibiko each"
                 + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",

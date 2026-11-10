@@ -13,11 +13,11 @@ public final class Handoff {
     }
 
     private static final String DO = "(write|code|fix|debug|build|compile|implement|refactor|create|make|set up|setup|deploy"
-            + "|run|install|clone|push|pull|commit|merge|audit|review|test|migrate|port|scaffold|generate)";
+            + "|run|install|clone|push|pull|commit|merge|audit|review|test|migrate|port|scaffold|generate|update|upgrade|sync|fetch|uninstall|execute)";
     private static final String CODE = "(code|function|class|method|script|program|app|apk|bug|bugs|error|crash|stack trace|compile"
             + "|build|repo|repository|github|git|pull request|branch|commit|codebase|api|endpoint|database|sql|query|server|website|web app"
             + "|termux|terminal|shell|command|package|library|gradle|android|kotlin|java|python|javascript|typescript|html|css|react"
-            + "|node|flutter|docker|unit tests?|test suite)";
+            + "|node|flutter|docker|unit tests?|test suite|linux|alpine|pip|npm|apk add|packages?|dependenc(?:y|ies))";
 
     /** True when the words ask Ibiko's kind of work. */
     public static boolean forIbiko(String text) {
@@ -28,6 +28,13 @@ public final class Handoff {
         }
         if (t.matches("(?s).*\\b(pdf|word document|spreadsheet|excel)\\b.*") && !t.matches("(?s).*\\b(parser|reader|library)\\b.*")) {
             return false; // a document to make: any persona does that
+        }
+        if (t.matches("(?s)^(?:(?:hey |ok |okay )?ibiko[,:]?\\s+)?(?:please\\s+|just\\s+|now\\s+)?(pull|clone|run|execute|install|build|compile|deploy|push|commit|merge)"
+                + " (it|that|this|them|these|those)\\b.*")) {
+            return true; // "pull it now", "run it directly": a command to carry out, which is his
+        }
+        if (t.matches("(?s).*\\b((linux|alpine) (environment|terminal|shell)|(built-?in|internal|in-?app) (linux|terminal|shell))\\b.*")) {
+            return true; // the Linux inside the app is where he works
         }
         return t.matches("(?s).*\\b" + DO + "\\b.*\\b" + CODE + "\\b.*") || t.matches("(?s).*```.*");
     }
@@ -68,7 +75,7 @@ public final class Handoff {
     /** "@Ivie …", "Obi, …": the persona the message names first, or null. */
     public static String mentioned(String text) {
         String t = text == null ? "" : text.trim().toLowerCase(Locale.US);
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:^|\\s)@(obi|ivie|ibiko)\\b|^(obi|ivie|ibiko)\\s*[,:]").matcher(t);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:^|\\s)@(obi|ivie|ibiko)\\b|^(?:hey |hi |ok |okay )?(obi|ivie|ibiko)\\b(?!\\s+(?:is|was|said|says|and|or|did|does|has)\\b)").matcher(t);
         if (m.find()) {
             return m.group(1) != null ? m.group(1) : m.group(2);
         }

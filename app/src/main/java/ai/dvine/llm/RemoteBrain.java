@@ -801,7 +801,8 @@ public final class RemoteBrain {
         if (used == null && out > 0) {
             used = new Used(-1, out);
         }
-        if (all.length() == 0) {
+        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
+            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
             problem = "the server sent no answer";
             return null;
         }
@@ -867,7 +868,8 @@ public final class RemoteBrain {
             problem = "the model declined to answer that";
             return null;
         }
-        if (all.length() == 0) {
+        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
+            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
             problem = "the server sent no answer";
             return null;
         }

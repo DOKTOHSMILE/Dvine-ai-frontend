@@ -29,8 +29,14 @@ public class DictationJoinTest {
                 new VoiceTuning.Candidate("en-ng-x-plain", "NG", false, "male", 300),
                 new VoiceTuning.Candidate("en-gb-x-rich", "GB", false, "male", 500),
                 new VoiceTuning.Candidate("en-us-x-net", "US", true, "male", 500));
-        assertEquals("on the device only: the higher quality beats the accent", "en-gb-x-rich", VoiceTuning.rank(all).get(0).name);
-        assertEquals("natural voices on: the online one first", "en-us-x-net", VoiceTuning.rank(all, true).get(0).name);
+        assertEquals("an African voice first, whatever its rating", "en-ng-x-plain", VoiceTuning.rank(all).get(0).name);
+        assertEquals("natural voices on: still the African one", "en-ng-x-plain", VoiceTuning.rank(all, true).get(0).name);
         assertEquals(2, VoiceTuning.rank(all).size());
+        java.util.List<VoiceTuning.Candidate> ng = java.util.Arrays.asList(
+                new VoiceTuning.Candidate("en-ng-x-plain", "NG", false, "male", 300),
+                new VoiceTuning.Candidate("en-ng-x-rich", "NG", false, "male", 500),
+                new VoiceTuning.Candidate("en-ke-x-rich", "KE", false, "male", 500));
+        assertEquals("of the same accent, the more natural one", "en-ng-x-rich", VoiceTuning.rank(ng).get(0).name);
+        assertEquals("Nigerian before other African", "en-ke-x-rich", VoiceTuning.rank(ng).get(2).name);
     }
 }

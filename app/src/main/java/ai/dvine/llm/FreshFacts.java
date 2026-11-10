@@ -17,18 +17,20 @@ public final class FreshFacts {
 
     /** Whether a question is about the world, so a reference can help. */
     public static boolean worthLooking(String question) {
-        String q = question.toLowerCase(Locale.US).trim();
+        String q = question.toLowerCase(Locale.US).trim().replaceFirst("^@?(obi|ivie|ibiko)[,:]?\\s+", "");
         if (q.matches(".*\\b(my|me|mine|i|i'm|im|you|your|yours|we|our|us)\\b.*") && !q.matches(".*\\b(who|what) (is|are|was) the\\b.*")) {
             return false;
         }
         // a request to write or do something ("generate a new post about success and post it") is not a question
         // about the world: "new" in it is not news, and searching the whole request finds an encyclopedia page
         if (q.matches("^(please\\s+)?(generate|write|draft|create|make|compose|post|publish|share|design|build|draw|"
-                + "rewrite|edit|translate|summari[sz]e|schedule|send|reply|caption|give me|come up with)\\b.*")) {
+                + "rewrite|edit|translate|summari[sz]e|schedule|send|reply|caption|give me|come up with|pull|clone|run|execute|install|"
+                + "update|upgrade|use|fix|open|start|stop|continue|proceed|go|do|let's|lets|push|commit|deploy|download|delete|remove|"
+                + "show|add|set|turn|switch|connect|try|check out|sync|fetch)\\b.*")) {
             return false;
         }
         return q.matches("^(who|what|when|where|which|how many|how much|how old|how tall|how long|how far|is|are|was|were|did|does|tell me about|explain)\\b.+")
-                || q.matches(".*\\b(latest|current|currently|now|today|this year|recent|recently|new|newest|still)\\b.*");
+                || q.matches(".*\\b(latest|current|currently|right now|today|this year|recent|recently|newest)\\b.*");
     }
 
     /** What to search for: the question without its question words. */

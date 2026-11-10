@@ -39,6 +39,11 @@ public final class ChatPane extends LinearLayout {
             return false;
         }
 
+        /** As {@link #onReadAloudToggle(String)}, in the voice of the persona who wrote the reply. */
+        default boolean onReadAloudToggle(String text, String persona) {
+            return onReadAloudToggle(text);
+        }
+
         /**
          * The user edited their message at {@code index} of the open chat: it and everything after it are already
          * removed; the edited text is to be sent as a new message.
@@ -190,7 +195,10 @@ public final class ChatPane extends LinearLayout {
                         // on its own (and a long report is never one huge block that is slow to lay out)
                         for (String para : paragraphs(m.body)) {
                             for (String piece : para.length() > CHUNK ? chunks(para, CHUNK) : java.util.Collections.singletonList(para)) {
-                                shown = bubble(new ChatBook.Message(m.role, m.kind, piece, m.persona, m.language));
+                                // the name once, over the first part of what they say
+                                shown = bubble(new ChatBook.Message(m.role, m.kind, piece, named ? "" : m.persona, m.language));
+                                named = true;
+                                listenAs = m.persona;
                                 thread.addView(shown);
                                 lastPartBar = partActions(piece);
                                 thread.addView(lastPartBar);
@@ -223,7 +231,13 @@ public final class ChatPane extends LinearLayout {
                 reply.append(reply.length() == 0 ? "" : "\n\n").append("code".equals(m.kind) ? "```" + (m.language == null ? "" : m.language)
                         + "\n" + m.body + "\n```" : m.body);
             }
-            boolean lastOfTurn = i == cur.messages.size() - 1 || "user".equals(cur.messages.get(i + 1).role);
+            listenAs = m.persona;
+            ChatBook.Message after = i == cur.messages.size() - 1 ? null : cur.messages.get(i + 1);
+            // a turn ends at the user's next message, and where another persona starts speaking: each one's words
+            // get their own Copy and Listen, read in their own voice
+            boolean lastOfTurn = after == null || "user".equals(after.role)
+                    || "text".equals(m.kind) && "text".equals(after.kind) && after.persona != null && !after.persona.isEmpty()
+                            && m.persona != null && !m.persona.isEmpty() && !after.persona.equals(m.persona);
             if (lastOfTurn && work != null) {
                 workPills(work);
                 work = null;
@@ -247,6 +261,7 @@ public final class ChatPane extends LinearLayout {
                 reply.setLength(0);
                 parts = 0;
                 lastPartBar = null;
+                named = false;
             }
         }
         title(cur);
@@ -1599,16 +1614,28 @@ public final class ChatPane extends LinearLayout {
 
     /** In the group chat each reply starts with who wrote it, in that persona's colour, as in a group of people. */
     private CharSequence speaker(ChatBook.Message m, CharSequence body) {
-        boolean group = getContext().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).getBoolean("group_chat", true);
-        if (!group || m.persona == null || m.persona.isEmpty() || !"text".equals(m.kind)) {
+        if (m.persona == null || m.persona.isEmpty() || !"text".equals(m.kind)) {
             return body;
         }
-        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder(labelOf(m.persona));
+        // their own icon, then their name, both in their colour
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder("\uFFFC " + labelOf(m.persona));
+        android.graphics.drawable.Drawable d = getContext().getDrawable(personaIcon(m.persona));
+        if (d != null) {
+            d = d.mutate();
+            d.setTint(personaColor(m.persona));
+            d.setBounds(0, 0, dp(16), dp(16));
+            b.setSpan(new android.text.style.ImageSpan(d, android.text.style.ImageSpan.ALIGN_BASELINE), 0, 1, 0);
+        }
         b.setSpan(new android.text.style.ForegroundColorSpan(personaColor(m.persona)), 0, b.length(), 0);
         b.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, b.length(), 0);
-        b.setSpan(new android.text.style.RelativeSizeSpan(0.85f), 0, b.length(), 0);
+        b.setSpan(new android.text.style.RelativeSizeSpan(0.85f), 2, b.length(), 0);
         b.append('\n').append(body);
         return b;
+    }
+
+    static int personaIcon(String persona) {
+        return "ivie".equals(persona) ? R.drawable.ic_persona_graphics : "ibiko".equals(persona) ? R.drawable.ic_persona_tools
+                : R.drawable.ic_persona_chat;
     }
 
     static int personaColor(String persona) {
@@ -1697,7 +1724,9 @@ public final class ChatPane extends LinearLayout {
             card.setOrientation(VERTICAL);
             card.setBackgroundResource(R.drawable.bg_user_bubble);
             card.setPadding(dp(14), dp(10), dp(14), dp(10));
-            TextView n = plain("\uD83D\uDCC4  " + parts[0]);
+            TextView n = plain(parts[0]);
+            n.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_file, 0, 0, 0); // the file icon, not an emoji
+            n.setCompoundDrawablePadding(dp(8));
             n.setTextSize(14f);
             n.setPadding(0, 0, 0, 0);
             card.addView(n);
@@ -1831,6 +1860,9 @@ public final class ChatPane extends LinearLayout {
 
     /** The Listen under the part drawn last (removed when the reply has only that part). */
     private View lastPartBar;
+    /** While drawing: the persona whose words the next Listen reads, and whether their name is already shown. */
+    private String listenAs;
+    private boolean named;
 
     /** Listen under one part of a reply: that part alone is read aloud (Copy is once, at the end, for all of it). */
     private View partActions(String piece) {
@@ -1874,11 +1906,12 @@ public final class ChatPane extends LinearLayout {
     /** A speaker icon that reads {@code spoken} aloud, and turns to Pause while it does. */
     private View listenButton(final String spoken, final String label) {
         final android.widget.ImageButton listen = (android.widget.ImageButton) icon(R.drawable.ic_speaker, label, null);
+        final String as = listenAs; // the one who wrote it: their voice reads it, and only their words (never the name)
         listen.setOnClickListener(v -> {
             if (readingButton != null && readingButton != listen) {
                 readingStopped(); // another button goes back to Listen
             }
-            boolean on = host.onReadAloudToggle(spoken);
+            boolean on = as == null || as.isEmpty() ? host.onReadAloudToggle(spoken) : host.onReadAloudToggle(spoken, as);
             listen.setImageResource(on ? R.drawable.ic_pause : R.drawable.ic_speaker);
             listen.setContentDescription(on ? "Pause reading" : label);
             readingButton = on ? listen : null;

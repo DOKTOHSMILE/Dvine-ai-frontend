@@ -54,6 +54,11 @@ public final class Survey {
             "this", "from", "into", "make", "build", "create", "add", "fix", "please", "should", "would", "could", "when",
             "then", "also", "have", "what", "need", "want", "like", "app", "code", "file", "files", "using", "use", "new"));
 
+    /** The Scribe's own files in a project folder: never surveyed. */
+    private static final Set<String> NOTES = new HashSet<String>(java.util.Arrays.asList("NEXT_ACTIONS.md", "DECISIONS.md",
+            "ERRORS.md", "EXECUTION.json", "PROJECT_MANIFEST.json", "PROGRESS.md", "PROJECT_MAP.md", "PROJECT_PLAN.md", "FILES.md",
+            "RECOVERY.md", "PLAN.md", "MAP.md"));
+
     private Survey() {
     }
 
@@ -76,7 +81,7 @@ public final class Survey {
         List<String> out = new ArrayList<String>();
         for (String w : (task == null ? "" : task).split("[^A-Za-z0-9_]+")) {
             String l = w.toLowerCase(Locale.US);
-            if (l.length() >= 4 && !COMMON.contains(l) && !out.contains(l)) {
+            if (l.length() >= 4 && !COMMON.contains(l) && !out.contains(l) && !l.matches("https?|github|gitlab|clone|pull|repo|repository")) {
                 out.add(l);
             }
         }
@@ -93,7 +98,11 @@ public final class Survey {
         walk(root, all, 0);
         final Map<File, Integer> score = new LinkedHashMap<File, Integer>();
         for (File f : all) {
-            String path = f.getPath().toLowerCase(Locale.US);
+            if (NOTES.contains(f.getName())) {
+                continue; // DVINE's own bookkeeping of the work, not the project's code
+            }
+            // the path inside the project: the project folder is named after the task, so its own name says nothing
+            String path = root.toPath().relativize(f.toPath()).toString().toLowerCase(Locale.US);
             int s = 0;
             for (String w : words) {
                 if (path.contains(w)) {

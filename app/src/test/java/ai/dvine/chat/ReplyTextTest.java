@@ -26,4 +26,10 @@ public class ReplyTextTest {
         assertFalse(out.contains("read_file"));
         assertEquals("Looking now.\n\nOpenRouter didn't answer (the account is out of credit (402)).", out);
     }
+
+    @org.junit.Test
+    public void aGatewaysOwnTagsAreNotTheReply() {
+        org.junit.Assert.assertEquals("", ReplyText.prepare("<severity>0</severity>").trim());
+        org.junit.Assert.assertEquals("Good morning.", ReplyText.prepare("<severity>0</severity>\nGood morning.").trim());
+    }
 }

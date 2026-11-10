@@ -1,3 +1,13 @@
+# The group chat only, voices, device fixes (0.99.49)
+
+- [x] The group chat is permanent: no setting, no separate pages.
+- [x] Each reply: the persona's icon and name; Listen reads only their words, in their voice.
+- [x] African voices first (Nigerian, then other African English).
+- [x] Device fixes: the right name on each line, gateway tags never shown, commands to Ibiko and the built-in Linux, no web search for commands, a quieter survey.
+- [x] Share › DVINE from other apps.
+- [ ] Two or three personas working at the same time in the group.
+- [ ] Offline neural voices.
+
 # Group chat without buttons (0.99.48)
 
 - [x] The persona buttons are hidden in the group chat; the message chooses who answers, Obi by default.

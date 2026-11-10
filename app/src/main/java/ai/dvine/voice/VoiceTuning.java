@@ -233,8 +233,8 @@ public final class VoiceTuning {
     }
 
     /**
-     * The voices best first: the most natural (the engine's quality rating) first, then the accent (Nigerian, other
-     * African, British, any English). {@code natural}: the online voices (the most human-sounding, they need the
+     * The voices best first: the accent first (Nigerian, other African, British, any English), then the most natural
+     * of that accent (the engine's quality rating). {@code natural}: the online voices (the most human-sounding, they need the
      * internet) may be used too; otherwise only voices on the device.
      */
     public static List<Candidate> rank(List<Candidate> all, boolean natural) {
@@ -248,16 +248,19 @@ public final class VoiceTuning {
             out.addAll(all);
         }
         Collections.sort(out, (a, b) -> {
+            int ra = score(a);
+            int rb = score(b);
+            if (ra != rb) {
+                return ra - rb; // an African voice first: Nigerian, then Ghanaian, Kenyan, South African, Tanzanian
+            }
             int qa = band(a.quality), qb = band(b.quality);
             if (qa != qb) {
-                return qb - qa; // the more natural voice first
+                return qb - qa; // of the same accent, the more natural voice
             }
             if (a.network != b.network) {
                 return a.network ? -1 : 1; // the same rating: the online (neural) one sounds more human
             }
-            int ra = score(a);
-            int rb = score(b);
-            return ra != rb ? ra - rb : a.name.compareTo(b.name);
+            return a.name.compareTo(b.name);
         });
         return out;
     }
@@ -366,6 +369,16 @@ public final class VoiceTuning {
             "sfg", "iob", "iog", "tpc", "tpf", "gba", "gbc", "gbg", "afh", "aua", "auc", "ahp", "cxx", "ene"));
     static final java.util.Set<String> GOOGLE_MALE = new java.util.HashSet<String>(java.util.Arrays.asList(
             "iol", "iom", "tpd", "gbb", "gbd", "rjs", "aub", "aud", "ena", "end"));
+
+    /** True when {@code name} is one of these voices and its accent is African (Nigerian, Ghanaian, Kenyan, South African, Tanzanian). */
+    public static boolean african(List<Candidate> voices, String name) {
+        for (Candidate c : voices) {
+            if (c.name.equals(name)) {
+                return score(c) <= 1;
+            }
+        }
+        return false;
+    }
 
     static int score(Candidate c) {
         String country = c.country.toUpperCase(Locale.US);

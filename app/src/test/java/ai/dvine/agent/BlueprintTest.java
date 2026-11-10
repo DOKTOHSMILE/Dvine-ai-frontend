@@ -104,4 +104,10 @@ public class BlueprintTest {
         b.planned("PLAN.md", GOOD);
         assertEquals("Checking the blueprint for gaps", b.announce());
     }
+
+    @Test
+    public void fetchingARepositoryNeedsNoBlueprint() {
+        assertFalse(Blueprint.applies("Clone https://github.com/me/app.git into the workspace and make it ready"));
+        assertFalse(Blueprint.applies("Install the necessary files needed by Linux for this build"));
+    }
 }

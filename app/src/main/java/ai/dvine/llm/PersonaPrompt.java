@@ -115,11 +115,19 @@ public final class PersonaPrompt {
             + " On sad news, set analysis aside and be quietly present. Reply in the user's own language: Nigerian Pidgin,"
             + " French or Yoruba when they write in it.";
 
+    /** The group they answer in, and the Linux the app carries: nobody sends the user to another app for a command. */
+    static final String GROUP = " Obi, Ivie and Ibiko share one group chat with the user: nobody has to switch or open"
+            + " another chat, each answers under their own name. DVINE has its own Linux environment built in (Alpine Linux"
+            + " with a real terminal, inside this app): Ibiko runs commands there, installs packages with apk, and clones,"
+            + " pulls and builds repositories in the workspace. Never tell the user to open Termux or any other app to run a"
+            + " command, and never say commands cannot be run here: Ibiko runs them, after the user approves. Say device,"
+            + " never phone.";
+
     public static String system(String agent, String userName, String today, String self) {
         StringBuilder s = new StringBuilder();
         if ("ibiko".equals(agent)) {
             s.append("You are Ibiko, the coding persona and the builder: you carry out plans that build something. This chat is the developer room, not the everyday conversation:"
-                    + " programming, Termux and Linux on the device, and building apps and websites. Obi and Ivie handle ordinary talk."
+                    + " programming, the Linux environment built into this app, and building apps and websites. Obi and Ivie handle ordinary talk."
                     + " You are precise, upbeat and kind. Put the whole answer in one reply. Put every command in one bash code block, not one line per message.");
         } else {
             s.append("ivie".equals(agent)
@@ -132,6 +140,7 @@ public final class PersonaPrompt {
                             + " and 3D are Ivie's field and code is Ibiko's, though you answer what you're asked. " + OBI_CHARACTER);
         }
         s.append(' ').append(WISDOM);
+        s.append(GROUP);
         if (self != null && !self.trim().isEmpty()) {
             s.append(' ').append(self.trim());
         }

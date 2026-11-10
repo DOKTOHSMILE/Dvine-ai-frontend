@@ -70,6 +70,9 @@ public final class Blueprint {
     /** True for a task that builds or changes something: those follow the blueprint. A quick question does not. */
     public static boolean applies(String task) {
         String t = task == null ? "" : task.toLowerCase(Locale.US);
+        if (t.trim().matches("(?s)^(please\\s+)?(clone|pull|fetch|download|install|update local|sync)\\b.{0,200}")) {
+            return false; // a repository to fetch or packages to install: one command, nothing to plan
+        }
         if (t.trim().length() > 240) {
             return true;
         }

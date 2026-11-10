@@ -42,4 +42,14 @@ public class FreshFactsTest {
         org.junit.Assert.assertFalse(FreshFacts.worthLooking("write a new caption for my photo"));
         org.junit.Assert.assertTrue(FreshFacts.worthLooking("who is the current president of Nigeria"));
     }
+
+    @Test
+    public void aCommandIsNotAQuestionAboutTheWorld() {
+        assertFalse(FreshFacts.worthLooking("Pull it now"));
+        assertFalse(FreshFacts.worthLooking("ibiko Pull it now"));
+        assertFalse(FreshFacts.worthLooking("Run it directly"));
+        assertFalse(FreshFacts.worthLooking("Use the internal Linux environment"));
+        assertTrue(FreshFacts.worthLooking("Who is the president of Ghana?"));
+        assertTrue(FreshFacts.worthLooking("the latest fuel price in Lagos"));
+    }
 }
