@@ -1,7 +1,7 @@
 package ai.dvine;
 
 /**
- * The tools button by the microphone: each tool of this chat with its icon and switch, its own settings from its name, and the GitHub repositories the chat works on.
+ * The tools button by the microphone: a grid of every tool of this chat, each a card with its icon and a small switch, its own settings from its name, and the GitHub repositories the chat works on.
  */
 final class ToolsMenu {
     private final MainActivity a;
@@ -19,59 +19,93 @@ final class ToolsMenu {
         final ai.dvine.suit.ChatTools tools = a.chatTools(persona);
         final android.widget.LinearLayout box = new android.widget.LinearLayout(a);
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = (int) (16 * a.getResources().getDisplayMetrics().density);
+        int pad = a.dp(12);
         box.setPadding(pad, 0, pad, pad);
         final android.app.Dialog[] sheet = new android.app.Dialog[1];
-        for (final ai.dvine.suit.ChatTools.Tool t : ai.dvine.suit.ChatTools.offered(persona)) {
-            android.widget.LinearLayout row = new android.widget.LinearLayout(a);
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setMinimumHeight(pad * 4);
-            // the tool's icon, tinted like the rest of the app
-            android.widget.ImageView icon = new android.widget.ImageView(a);
-            icon.setImageResource(toolIcon(t));
-            icon.setColorFilter(a.getColor(R.color.text_primary));
-            android.widget.LinearLayout.LayoutParams ip = new android.widget.LinearLayout.LayoutParams(a.dp(22), a.dp(22));
-            ip.rightMargin = a.dp(14);
-            row.addView(icon, ip);
-            android.widget.LinearLayout words = new android.widget.LinearLayout(a);
-            words.setOrientation(android.widget.LinearLayout.VERTICAL);
-            android.widget.TextView name = new android.widget.TextView(a);
-            name.setText(t.title);
-            name.setTextSize(16f);
-            name.setTextColor(a.getColor(R.color.text_primary));
-            words.addView(name);
-            final android.widget.TextView about = new android.widget.TextView(a);
-            about.setTextSize(13f);
-            about.setTextColor(a.getColor(R.color.text_secondary));
-            about.setText(t == ai.dvine.suit.ChatTools.Tool.GITHUB && !tools.repos().isEmpty()
-                    ? String.join(", ", tools.repos()) + "  \u00B7  change" : t.about);
-            words.addView(about);
-            row.addView(words, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            final Runnable inner = toolSettings(t, persona, tools, about, sheet);
-            if (inner != null) {
-                // a tool with settings of its own: its name opens them (the switch still turns it on and off)
-                name.setText(t.title + "  \u203A");
-                words.setOnClickListener(v -> inner.run());
-                words.setContentDescription(t.title + " settings");
-                android.util.TypedValue ripple = new android.util.TypedValue();
-                a.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
-                words.setBackgroundResource(ripple.resourceId);
+        final java.util.List<ai.dvine.suit.ChatTools.Tool> all = ai.dvine.suit.ChatTools.offered(persona);
+        final int columns = 2;
+        android.widget.LinearLayout line = null;
+        for (int i = 0; i < all.size(); i++) {
+            if (i % columns == 0) {
+                line = new android.widget.LinearLayout(a);
+                line.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                box.addView(line, new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
             }
-            android.widget.Switch sw = new android.widget.Switch(a);
-            sw.setChecked(tools.isOn(t));
-            sw.setContentDescription(t.title);
-            sw.setOnCheckedChangeListener((b, on) -> {
-                tools.set(t, on);
-                a.prefs.edit().putString(a.toolsKey(persona), tools.write()).apply();
-                if (on && t == ai.dvine.suit.ChatTools.Tool.GITHUB && tools.repos().isEmpty()) {
-                    chooseRepos(persona, tools, about);
-                }
-            });
-            row.addView(sw);
-            box.addView(row);
+            android.widget.LinearLayout.LayoutParams cp = new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            cp.setMargins(a.dp(4), a.dp(4), a.dp(4), a.dp(4));
+            line.addView(cell(all.get(i), persona, tools, sheet), cp);
         }
-        String who = persona.substring(0, 1).toUpperCase(java.util.Locale.US) + persona.substring(1);
-        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(a, who + "'s tools in this chat", box);
+        if (all.size() % columns != 0 && line != null) {
+            line.addView(new android.view.View(a), new android.widget.LinearLayout.LayoutParams(0, 1, 1f)); // the last row keeps its column width
+        }
+        sheet[0] = ai.dvine.chat.ui.BottomSheet.showView(a, "Tools in this chat", box);
+    }
+
+    /**
+     * One tool as a card in the grid: its icon top left, a small switch top right, then its name and what it does. The
+     * switch turns the tool on and off; a card whose tool has settings of its own opens them on a tap (marked \u203A).
+     */
+    private android.view.View cell(final ai.dvine.suit.ChatTools.Tool t, final String persona, final ai.dvine.suit.ChatTools tools,
+            final android.app.Dialog[] sheet) {
+        android.widget.LinearLayout card = new android.widget.LinearLayout(a);
+        card.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(a.dp(14));
+        bg.setColor(0x14FFFFFF);
+        bg.setStroke(a.dp(1), 0x1FFFFFFF);
+        card.setBackground(bg);
+        card.setPadding(a.dp(12), a.dp(8), a.dp(6), a.dp(12));
+        card.setMinimumHeight(a.dp(104));
+        android.widget.LinearLayout top = new android.widget.LinearLayout(a);
+        top.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.widget.ImageView icon = new android.widget.ImageView(a);
+        icon.setImageResource(toolIcon(t));
+        icon.setColorFilter(a.getColor(R.color.text_primary));
+        top.addView(icon, new android.widget.LinearLayout.LayoutParams(a.dp(22), a.dp(22)));
+        top.addView(new android.view.View(a), new android.widget.LinearLayout.LayoutParams(0, 1, 1f));
+        final android.widget.Switch sw = new android.widget.Switch(a);
+        sw.setScaleX(0.72f); // small, in the card's corner
+        sw.setScaleY(0.72f);
+        sw.setPivotX(a.dp(48));
+        sw.setChecked(tools.isOn(t));
+        sw.setContentDescription(t.title);
+        top.addView(sw, new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, a.dp(40)));
+        card.addView(top);
+        final android.widget.TextView name = new android.widget.TextView(a);
+        name.setTextSize(15f);
+        name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        name.setTextColor(a.getColor(R.color.text_primary));
+        name.setMaxLines(2);
+        card.addView(name);
+        final android.widget.TextView about = new android.widget.TextView(a);
+        about.setTextSize(12f);
+        about.setTextColor(a.getColor(R.color.text_secondary));
+        about.setMaxLines(3);
+        about.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        about.setText(t == ai.dvine.suit.ChatTools.Tool.GITHUB && !tools.repos().isEmpty()
+                ? String.join(", ", tools.repos()) + "  \u00B7  change" : t.about);
+        about.setPadding(0, a.dp(2), a.dp(6), 0);
+        card.addView(about);
+        final Runnable inner = toolSettings(t, persona, tools, about, sheet);
+        name.setText(inner == null ? t.title : t.title + "  \u203A");
+        if (inner != null) {
+            card.setOnClickListener(v -> inner.run());
+            card.setContentDescription(t.title + " settings");
+        } else {
+            card.setOnClickListener(v -> sw.toggle()); // nothing to open: the whole card is the switch
+            card.setContentDescription(t.title);
+        }
+        card.setAlpha(tools.isOn(t) ? 1f : 0.6f);
+        sw.setOnCheckedChangeListener((b, on) -> {
+            tools.set(t, on);
+            a.prefs.edit().putString(a.toolsKey(persona), tools.write()).apply();
+            card.setAlpha(on ? 1f : 0.6f);
+            if (on && t == ai.dvine.suit.ChatTools.Tool.GITHUB && tools.repos().isEmpty()) {
+                chooseRepos(persona, tools, about);
+            }
+        });
+        return card;
     }
 
     /** Each tool's icon. */
@@ -86,6 +120,7 @@ final class ToolsMenu {
             case FILES: return R.drawable.ic_file;
             case SHARE: return R.drawable.ic_share;
             case SOCIAL: return R.drawable.ic_people;
+            case WORKERS: return R.drawable.ic_people;
             default: return R.drawable.ic_deep;
         }
     }

@@ -1694,7 +1694,7 @@ public final class ChatPane extends LinearLayout {
             return activityRecord(m);
         }
         if ("handoff".equals(m.kind)) {
-            // "Hand to Ibiko": the task goes to him, in a new chat of his
+            // "Hand to Ibiko": the task goes to him, here in the group
             String[] parts = (m.body == null ? "" : m.body).split("\n", 2);
             final String to = parts[0], task = parts.length > 1 ? parts[1] : "";
             final String name = to.isEmpty() ? "Ibiko" : to.substring(0, 1).toUpperCase(java.util.Locale.US) + to.substring(1);
@@ -1710,7 +1710,7 @@ public final class ChatPane extends LinearLayout {
                 b.setCompoundDrawablesRelative(icon, null, null, null);
                 b.setCompoundDrawablePadding(dp(8));
             }
-            b.setContentDescription("Hand this task to " + name + ": a new chat of his, where he starts on it");
+            b.setContentDescription("Hand this task to " + name + ": he starts on it here");
             b.setOnClickListener(v -> host.onHandoff(to, task));
             LinearLayout wrap = new LinearLayout(getContext());
             wrap.setPadding(0, dp(4), 0, dp(10));

@@ -12,10 +12,11 @@ import org.junit.Test;
 public class ChatToolsTest {
     @Test
     public void eachPersonaOffersItsOwnTools() {
-        assertTrue(ChatTools.offered("ibiko").contains(ChatTools.Tool.GITHUB));
-        assertFalse(ChatTools.offered("obi").contains(ChatTools.Tool.GITHUB));
-        assertTrue(ChatTools.offered("ivie").contains(ChatTools.Tool.DESIGN3D));
-        assertTrue(ChatTools.offered("obi").contains(ChatTools.Tool.DEEP));
+        // the chat is a group: every tool is on offer whoever answers
+        for (String who : new String[] { "obi", "ivie", "ibiko" }) {
+            assertEquals(Arrays.asList(ChatTools.Tool.values()), ChatTools.offered(who));
+        }
+        assertTrue(ChatTools.defaults("obi").workers());
     }
 
     @Test
@@ -26,8 +27,11 @@ public class ChatToolsTest {
         t.set(ChatTools.Tool.SHELL, false);
         assertFalse(t.allowedCodes().contains(FunctionCode.SH));
         assertTrue("the suit's own controls stay", t.allowedCodes().contains(FunctionCode.NC));
-        t.set(ChatTools.Tool.DESIGN3D, true); // not Ibiko's: stays off
-        assertFalse(t.isOn(ChatTools.Tool.DESIGN3D));
+        assertTrue("the codes only a brain gives: hand over, plan the writing, think together, carry on, yes and no",
+                t.allowedCodes().containsAll(Arrays.asList(FunctionCode.HO, FunctionCode.WP, FunctionCode.TT, FunctionCode.CO,
+                        FunctionCode.YS, FunctionCode.CX)));
+        t.set(ChatTools.Tool.DESIGN3D, false);
+        assertFalse("canvas changes go with 3D design", t.allowedCodes().contains(FunctionCode.DR));
         String brief = FunctionCode.instructions("", t.allowedCodes());
         assertFalse(brief.contains("§SH"));
     }

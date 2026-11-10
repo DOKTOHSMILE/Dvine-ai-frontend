@@ -869,15 +869,13 @@ public class LaunchTest {
         java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
         pf.setAccessible(true);
         ai.dvine.stage.ChatPane pane = (ai.dvine.stage.ChatPane) pf.get(c.get());
-        android.view.View button = described(pane, "Hand this task to Ibiko: a new chat of his, where he starts on it");
+        android.view.View button = described(pane, "Hand this task to Ibiko: he starts on it here");
         assertNotNull("the hand-off button", button);
         String obiChat = chats.current().id;
         button.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        org.junit.Assert.assertNotEquals(obiChat, chats.current().id); // a new chat
-        org.junit.Assert.assertEquals("ibiko", chats.current().persona);
-        org.junit.Assert.assertEquals("Fix the login crash in my Android app", chats.current().title);
-        org.junit.Assert.assertEquals("Fix the login crash in my Android app", chats.current().messages.get(0).body);
+        org.junit.Assert.assertEquals("the same group thread, no new chat", obiChat, chats.current().id);
+
         // the ring: a tap opens the workload sheet
         c.get().findViewById(ai.dvine.R.id.workload).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
@@ -1189,8 +1187,25 @@ public class LaunchTest {
         found.clear();
         sheet.getWindow().getDecorView().findViewsWithText(found, "Deep thinking", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         org.junit.Assert.assertFalse(found.isEmpty());
-        ((android.widget.Switch) found.get(0)).setChecked(true);
+        android.widget.Switch deep = null;
+        for (android.view.View v : found) {
+            if (v instanceof android.widget.Switch) {
+                deep = (android.widget.Switch) v; // the small switch in the card's corner (the card carries the name too)
+            }
+        }
+        assertNotNull("the card's switch", deep);
+        org.junit.Assert.assertTrue("small, to fit the corner", deep.getScaleX() < 1f);
+        deep.setChecked(true);
         org.junit.Assert.assertTrue(c.get().getSharedPreferences("dvine", 0).getAll().toString().contains("DEEP"));
+        // the chat is a group: every tool is there whoever answers, in a grid two to a row
+        found.clear();
+        sheet.getWindow().getDecorView().findViewsWithText(found, "3D design", android.view.View.FIND_VIEWS_WITH_TEXT);
+        org.junit.Assert.assertFalse("every tool is offered", found.isEmpty());
+        android.view.View github = described(sheet.getWindow().getDecorView(), "GitHub settings");
+        android.view.View shell = described(sheet.getWindow().getDecorView(), "Commands on this device settings");
+        assertNotNull(github);
+        assertNotNull(shell);
+        org.junit.Assert.assertSame("two cards share a row", github.getParent(), shell.getParent());
         // every tool has its icon; one with settings of its own opens them from its name
         java.util.ArrayList<android.view.View> icons = new java.util.ArrayList<android.view.View>();
         collect(sheet.getWindow().getDecorView(), android.widget.ImageView.class, icons);

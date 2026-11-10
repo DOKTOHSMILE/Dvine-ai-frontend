@@ -25,6 +25,14 @@ Accepted forms on the first line: `§XX arguments`, `[[XX]] arguments`, `⟦XX�
 | `§FZ` | FINDZIP | find zip files on this device | none |
 | `§NC` | NEWCHAT | start a new chat | none |
 | `§SW` | SWITCH | switch to another persona | `<ivie\|obi\|ibiko>` |
+| `§HO` | HANDOVER | pass this message to the one whose work it is, who then answers it: ibiko for code, commands, files, repositories, GitHub and the built-in Linux; ivie for stories, scripts, poems, drawings, design and 3D; obi for conversation, questions, research, reports and plans. Only when it is not your own work | `<ivie\|obi\|ibiko>` |
+| `§WP` | WRITEPLAN | a long piece (a story, a script, a report, an essay): outline it, check the outline, then write it section by section | none |
+| `§TT` | THINKTOGETHER | a weighty decision or question: Obi, Ivie and Ibiko work on it together and give one answer | none |
+| `§RF` | READFILES | read the files in the workspace on this device (cloned repositories, projects) to answer this | none |
+| `§CO` | CARRYON | carry on with the unfinished work in this chat from where it stopped | none |
+| `§DR` | CANVAS | change what is on Ivie's canvas: edit a part, turn or view it, undo, save, open or export | `<the change, in plain words>` |
+| `§YS` | CONFIRM | the pilot agrees to the action that is shown waiting for their yes: carry it out | none |
+| `§CX` | CANCEL | the pilot does not want the action that is shown waiting: drop it | none |
 | `§PM` | PLANMODE | Ibiko plans and asks before changing anything | none |
 | `§AO` | AUTOON | Ibiko runs commands, pushes and pull requests without asking | none |
 | `§AF` | AUTOOFF | Ibiko asks before commands, pushes and pull requests | none |
