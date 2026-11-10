@@ -54,7 +54,15 @@ public final class ReplyText {
             blanks = 0;
             out.append(t);
         }
-        return out.toString().replaceAll("^\\s*\\n", "").replaceAll("\\s+$", "");
+        String ready = out.toString().replaceAll("^\\s*\\n", "").replaceAll("\\s+$", "");
+        if (ai.dvine.linux.CloneFolder.progressLines(ready) >= 1) {
+            ready = ai.dvine.linux.CloneFolder.quiet(ready);
+        }
+        // a cut-off stream joined as "logic.Found": a sentence end then a capital is a new sentence
+        if (!ready.contains("```")) {
+            ready = ready.replaceAll("([a-z][.!?])([A-Z])", "$1\n\n$2");
+        }
+        return ready;
     }
 
     /**

@@ -109,6 +109,8 @@ public final class ChatPane extends LinearLayout {
     private View thinkingRow;
     /** The reply as the model writes it, shown before it is finished; null when nothing is being written. */
     private String liveText;
+    /** The reply already saved above a message sent while it was still writing, so it is not written again below. */
+    private String heldLive;
     private View liveRow;
 
     public ChatPane(Context context, ChatBook book, Host host) {
@@ -1115,14 +1117,34 @@ public final class ChatPane extends LinearLayout {
     }
 
     /**
-     * Shows the reply while it is being written, under the activity panel; null removes it (the finished reply
-     * then takes its place).
+     * A new message is about to join a reply that is still on screen. The words already written are saved first,
+     * so that message sits under the running reply instead of above it.
      */
+    public void freezeLive() {
+        if (liveText == null || liveText.trim().isEmpty() || book == null || book.current() == null) {
+            return;
+        }
+        String frozen = liveText.trim();
+        setLive(null);
+        heldLive = frozen; // setLive(null) must not drop this: the same stream is still writing
+        book.reply(writer(), frozen);
+    }
     public void setLive(String text) {
         // a command code is for DVINE, not the conversation: never typed out, not even while the reply streams
         String clean = text == null ? null : ai.dvine.suit.FunctionCode.hidden(text)
                 .replaceFirst("(?s)(^|\\n)[*_`>\\s]*[\u00A7\u27E6][^\\n]*$", "$1");
         String t = clean == null || clean.trim().isEmpty() ? null : clean.trim();
+        if (t != null && ai.dvine.linux.CloneFolder.progressLines(t) >= 1) {
+            t = ai.dvine.linux.CloneFolder.quiet(t);
+            if (t.trim().isEmpty()) {
+                t = null;
+            }
+        }
+        // the start of this reply is already in the chat, above the message just sent: show only what is new
+        if (t != null && heldLive != null && t.startsWith(heldLive)) {
+            String more = t.substring(heldLive.length()).trim();
+            t = more.isEmpty() ? null : more;
+        }
         if (t == null) {
             removeCallbacks(typeLive);
             liveText = null;
@@ -1601,6 +1623,18 @@ public final class ChatPane extends LinearLayout {
     }
 
     public void assistant(String persona, String text) {
+        // the final answer arrives after the work stops. Anything already saved above the user's message stays there.
+        if (!working() && heldLive != null && text != null) {
+            String t = text.trim();
+            if (t.startsWith(heldLive)) {
+                t = t.substring(heldLive.length()).trim();
+            }
+            heldLive = null;
+            if (t.isEmpty()) {
+                return;
+            }
+            text = t;
+        }
         if (working()) {
             keepSteps(); // a note during the work goes after the steps that led to it
         }

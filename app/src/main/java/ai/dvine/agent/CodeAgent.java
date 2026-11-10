@@ -494,7 +494,7 @@ public final class CodeAgent {
                         + " ordinary talk, a question about the world, research or a report; a story, a script, a drawing or a"
                         + " design. It is answered as a reply instead. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
-                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into a folder named after the repo)\n"
+                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into memory/projects/, the folder the workspace screen shows)\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
                         + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the device; writes no file)\n"
                         + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the device; overlapping edits stay as conflicts)\n"
@@ -628,7 +628,7 @@ public final class CodeAgent {
                     String answer = pending; // asked whether it was done, it had nothing to add: that text was the answer
                     pending = null;
                     String full = big && answer.length() < REPORT_CHARS && !reportAsked ? report(work, answer) : null;
-                    return full != null && full.length() > answer.length() ? full : answer;
+                    return full != null && full.length() > answer.length() ? full : done(answer);
                 }
                 // a failed request is not "nothing to add": the work stopped, and the user hears why and where
                 String why = failed;
@@ -647,7 +647,7 @@ public final class CodeAgent {
                 work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(EMPTY_FINAL).append("\n</result>\n");
                 continue;
             }
-            if (fin != null && !fin.isEmpty() && promise(fin) && promises < 2) {
+            if (fin != null && !fin.isEmpty() && promise(fin) && promises < PROMISE_TRIES) {
                 promises++; // "<final>Next: verify each tool.</final>": a plan dressed as the answer
                 work.append("\n").append(clip(text, 600)).append("\n<result>\n").append(DO_IT_NOW).append("\n</result>\n");
                 continue;
@@ -668,7 +668,7 @@ public final class CodeAgent {
                         return full;
                     }
                 }
-                return withoutDump(fin); // the model said it is finished
+                return done(fin); // the model said it is finished
             }
             Call call = parse(text);
             if (call != null && text.indexOf(call.raw) > 1200) {
@@ -741,18 +741,18 @@ public final class CodeAgent {
             if (text.isEmpty()) {
                 continue;
             }
-            if (compact && !text.startsWith("<") && !(promise(text) && promises < 2)) {
+            if (compact && !text.startsWith("<") && !(promise(text) && promises < PROMISE_TRIES)) {
                 // a small model (the short instructions): asking it again whether it is done costs minutes on a device
                 // and it can't tell the difference anyway; its plain answer is the answer, unless it only promised the
                 // work ("Next: …"), which goes back to be done, as with an API model
-                return text;
+                return done(text);
             }
             if (pending == null && text.length() < REPORT_CHARS) {
                 pending = text; // asked once whether it is done (DVINE's own check: not a step the user sees)
                 work.append("\n").append(text).append("\n<result>\n").append(DONE_OR_GO_ON).append("\n</result>\n");
                 continue;
             }
-            if (promise(text) && promises < 2) {
+            if (promise(text) && promises < PROMISE_TRIES) {
                 // "Picking up the audit: verifying each tool next." is a plan, not the answer: back to work
                 promises++;
                 work.append("\n").append(text).append("\n<result>\n").append(DO_IT_NOW).append("\n</result>\n");
@@ -763,9 +763,9 @@ public final class CodeAgent {
             if (big && answer.length() < REPORT_CHARS && !reportAsked) {
                 reportAsked = true; // a short answer to an audit or research: one round to write it in full
                 String full = report(work, answer);
-                return full != null && full.length() > answer.length() ? full : answer;
+                return full != null && full.length() > answer.length() ? full : done(answer);
             }
-            return withoutDump(answer);
+            return done(answer);
         }
         if (keepGoing) {
             // a round of long work is over: a short note for the user, and the work goes on from here
@@ -851,8 +851,7 @@ public final class CodeAgent {
             return true;
         }
         String w = why.toLowerCase(Locale.US);
-        return !(w.contains("too long") || w.contains("too much for") || w.contains("no address")
-                || w.contains("unable to resolve") || w.contains("unknown host") || w.contains("couldn't be loaded")
+        return !(w.contains("too long") || w.contains("too much for") || w.contains("couldn't be loaded")
                 || w.contains("(401") || w.contains("(403") || w.contains("(402"));
     }
 
@@ -909,6 +908,46 @@ public final class CodeAgent {
     static final int NOTE_EVERY = 3;
     /** How many times a reply that only promised work was sent back to do it. */
     private int promises;
+    /** A status line ("I'll map the repo next") is sent back this many times, then the round carries on. */
+    static final int PROMISE_TRIES = 5;
+
+    /**
+     * The answer, unless it only says what is about to happen on a job that is meant to keep going. Then the round
+     * ends so the next one picks the work up, instead of stopping for the user to say continue.
+     */
+    private String done(String answer) {
+        String clean = withoutDump(answer);
+        if (keepGoing && (bigTask(task) || bigTask(resume)) && unfinished(clean)) {
+            outOfSteps = true; // a status line is not the audit: the next round does the work
+        }
+        return clean;
+    }
+
+    /**
+     * Not a finished report. A promise ("I'll map the repo"), or any short note on a long job, so the work goes on
+     * instead of stopping for the user to say continue.
+     */
+    public static boolean unfinished(String text) {
+        if (promise(text)) {
+            return true;
+        }
+        if (text == null) {
+            return false;
+        }
+        String t = text.trim();
+        if (t.isEmpty() || t.length() >= 500 || t.contains("```")) {
+            return false;
+        }
+        return !t.matches("(?is).*\\b(fixed|passes|passed|committed|pushed|no bugs|nothing (is|was) wrong)\\b.*");
+    }
+
+    /** Git's object-counting log is not something to put in the chat or hand back to the model. */
+    private static String shownCommand(String out) {
+        if (out != null && ai.dvine.linux.CloneFolder.progressLines(out) >= 1) {
+            return ai.dvine.linux.CloneFolder.quiet(out);
+        }
+        return out;
+    }
 
     static final String DO_IT_NOW = "That describes work still to do, not its result. Do it now with tools, then give the"
             + " result inside <final>\u2026</final>. Never end on what you are about to do.";
@@ -917,22 +956,34 @@ public final class CodeAgent {
      * A short reply that only says what is about to happen ("Picking up the audit: verifying each tool next.",
      * "Next: build and test.", "I'll check the runner."), not a result.
      */
-    static boolean promise(String text) {
+    public static boolean promise(String text) {
         if (text == null) {
             return false;
         }
         String t = text.trim();
-        if (t.isEmpty() || t.length() > 600 || t.contains("```")) {
+        if (t.isEmpty() || t.length() > 800 || t.contains("```")) {
             return false;
         }
         String last = t.substring(Math.max(0, t.lastIndexOf('\n') + 1)).trim();
         if (t.matches("(?s)^(?:Nothing|Something|Everything|Anything|During|According|Including|Following|Thing)\\b.*")) {
             return false; // "-ing" words that start results, not plans
         }
-        return t.length() < 300 && t.matches("(?s)^(?:[A-Z][a-z]+ing|Now [a-z]+ing)\\b.*")
-                || t.matches("(?s)^(?:Next|I'll|I will|I'm going to|Let me|Going to)\\b.*")
-                || last.matches("(?is)^(?:next|then|now)\\b.*")
-                || t.matches("(?is).*\\b(?:next|then)\\s*[:\u2014-]\\s*\\w+.*") && t.length() < 300;
+        if (t.length() < 300 && t.matches("(?s)^(?:[A-Z][a-z]+ing|Now [a-z]+ing)\\b.*")) {
+            return true;
+        }
+        if (t.matches("(?s)^(?:Next|I'll|I will|I'm going to|Let me|Going to)\\b.*")) {
+            return true;
+        }
+        if (last.matches("(?is)^(?:next|then|now)\\b.*")) {
+            return true;
+        }
+        if (t.matches("(?is).*\\b(?:next|then)\\s*[:\u2014-]\\s*\\w+.*") && t.length() < 300) {
+            return true;
+        }
+        // "I'll now map the repo", "I'm fetching the branch" — the work has not happened yet
+        return t.length() < 700 && t.matches("(?is).*\\b(i'll|i will|i'm going to|let me|i'm (now )?"
+                + "(fetching|checking|cloning|forcing|reconcil\\w*|mapping|running|about to))\\b.*")
+                && !t.matches("(?is).*\\b(fixed|passes|passed|committed|pushed)\\b.*");
     }
 
     /** Two notes that say mostly the same (half their words or more shared). */
@@ -1532,7 +1583,7 @@ public final class CodeAgent {
                     host.step("Not run: " + clip(cmd, 60));
                     return "The user didn't allow this command. Find another way, or ask them in your final answer.";
                 }
-                String out = host.run(cmd, workspace);
+                String out = shownCommand(host.run(cmd, workspace));
                 List<String> shown = new ArrayList<String>();
                 shown.add("$ " + cmd);
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
@@ -1555,7 +1606,7 @@ public final class CodeAgent {
                     host.step("Not run: " + clip(cmd, 60));
                     return "The user didn't allow this command. Find another way, or ask them in your final answer.";
                 }
-                String out = host.termux(cmd, folder);
+                String out = shownCommand(host.termux(cmd, folder));
                 List<String> shown = new ArrayList<String>();
                 shown.add("$ " + cmd);
                 shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
@@ -1590,7 +1641,10 @@ public final class CodeAgent {
         switch (action) {
             case "clone": {
                 String repo = c.a("repo");
-                String folder = c.a("path").isEmpty() ? repo.replaceAll("(\\.git)?/*$", "").replaceAll(".*/", "") : c.a("path");
+                String name = repo.replaceAll("(\\.git)?/*$", "").replaceAll(".*/", "");
+                String folder = c.a("path").isEmpty() ? "memory/projects/" + name
+                        : c.a("path").startsWith("memory/projects") ? c.a("path")
+                        : "memory/projects/" + name;
                 host.step("Cloning " + clip(repo, 60));
                 return git.clone(repo, c.a("branch"), inside(folder));
             }

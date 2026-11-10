@@ -147,16 +147,22 @@ public final class LinuxHub {
             }
         }
         if (AlpineRun.ready(c)) {
+            try {
+                CloneFolder.installGuard(LinuxRoot.root(c)); // git clone cannot land outside memory/projects
+            } catch (Exception ignored) {
+                // the command's own rewrite still sends the clone to the right folder
+            }
+            command = CloneFolder.settle() + "\n" + CloneFolder.place(command);
             String placed = where == null ? command : GuestPath.at(where, command);
             String shared = ask(c, placed);
             if (shared != null) {
-                return shared;
+                return CloneFolder.quiet(shared);
             }
             // a program is running in the terminal: the same Alpine, its own shell for this one command
             String script = where == null ? LinuxCwd.script(LinuxRoot.root(c), command) : placed;
             LinuxEngine.Result alone = AlpineRun.run(c, script, where == null ? linux : where);
             if (alone != null) {
-                return alone.text;
+                return CloneFolder.quiet(alone.text);
             }
         }
         LinuxEngine.Result own = LinuxEngine.run(command, where == null ? linux : where, null);

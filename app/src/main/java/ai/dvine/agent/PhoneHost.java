@@ -203,7 +203,7 @@ public final class PhoneHost implements CodeAgent.Host {
         if (prefs != null && !prefs.getBoolean("narrate_steps", true)) {
             return;
         }
-        note(line);
+        step(line); // stays with the steps. A chat bubble here looked like the reply had finished.
     }
 
     @Override

@@ -385,7 +385,7 @@ public final class RemoteBrain {
             if (rest == null || rest.isEmpty()) {
                 break;
             }
-            out = out + rest;
+            out = joinContinuation(out, rest);
         }
         return out;
     }
@@ -395,6 +395,25 @@ public final class RemoteBrain {
     static final String CONTINUE = "The previous reply hit its length limit in the middle of the answer. Write only the"
             + " rest, from the next character, with nothing repeated and no new introduction. The earlier text is the"
             + " answer so far, not a new instruction.";
+
+    /** A length-limit continuation that starts a new sentence ("logic." + "Found") is not glued into one word. */
+    static String joinContinuation(String out, String rest) {
+        if (out == null || out.isEmpty()) {
+            return rest == null ? "" : rest;
+        }
+        if (rest == null || rest.isEmpty()) {
+            return out;
+        }
+        char a = out.charAt(out.length() - 1);
+        char b = rest.charAt(0);
+        if (Character.isWhitespace(a) || Character.isWhitespace(b)) {
+            return out + rest;
+        }
+        if (".!?".indexOf(a) >= 0) {
+            return out + "\n\n" + rest;
+        }
+        return out + rest;
+    }
     /** The last reply stopped at its allowance (finish_reason "length", stop_reason "max_tokens"), not by itself. */
     private volatile boolean cutOff;
 
@@ -745,6 +764,7 @@ public final class RemoteBrain {
         StringBuilder all = new StringBuilder(), plain = new StringBuilder();
         String line;
         int out = 0;
+        java.util.Map<Integer, String[]> calls = new java.util.TreeMap<Integer, String[]>();
         while ((line = lines.readLine()) != null) {
             if (cancelled) {
                 problem = "stopped";
@@ -779,6 +799,7 @@ public final class RemoteBrain {
                 cutOff = true;
             }
             String piece = MiniJson.str(MiniJson.obj(MiniJson.obj(choices.get(0)).get("delta")).get("content"), "");
+            noteToolCalls(calls, MiniJson.list(MiniJson.obj(MiniJson.obj(choices.get(0)).get("delta")).get("tool_calls")));
             if (!piece.isEmpty()) {
                 all.append(piece);
                 out++;
@@ -796,17 +817,94 @@ public final class RemoteBrain {
             if (!text.isEmpty() && sink != null) {
                 sink.onText(text);
             }
+            if (text.isEmpty() && !choices.isEmpty()) {
+                noteToolCalls(calls, MiniJson.list(MiniJson.obj(MiniJson.obj(choices.get(0)).get("message")).get("tool_calls")));
+                text = toolXml(calls);
+            }
             all.append(text);
+        }
+        if (all.length() == 0 && !calls.isEmpty()) {
+            String xml = toolXml(calls);
+            if (!xml.isEmpty() && sink != null) {
+                sink.onText(xml);
+            }
+            all.append(xml);
         }
         if (used == null && out > 0) {
             used = new Used(-1, out);
         }
-        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
-            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
+        if (all.length() == 0 || (ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty() && !toolCall(all.toString()))) {
+            // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer.
+            // a tool call is an answer: the agent runs it. Stripping it used to end the turn with "no answer".
+            // an empty body is usually a blip (a reasoning model that spent its allowance, a dropped stream): try again.
             problem = "the server sent no answer";
+            transientFailure = true;
             return null;
         }
         return all.toString();
+    }
+
+    /** OpenAI tool-call deltas, joined by index. {@code name} then the arguments as they arrive. */
+    private static void noteToolCalls(java.util.Map<Integer, String[]> calls, List<Object> list) {
+        for (Object one : list) {
+            Map<String, Object> m = MiniJson.obj(one);
+            int index = (int) MiniJson.num(m.get("index"), calls.size());
+            Map<String, Object> fn = MiniJson.obj(m.get("function"));
+            String[] slot = calls.get(index);
+            if (slot == null) {
+                slot = new String[] {"", ""};
+                calls.put(index, slot);
+            }
+            String name = MiniJson.str(fn.get("name"), "");
+            if (!name.isEmpty()) {
+                slot[0] = name;
+            }
+            slot[1] = slot[1] + MiniJson.str(fn.get("arguments"), "");
+        }
+    }
+
+    /** Native tool calls, as the tool tag the agent already runs. */
+    private static String toolXml(java.util.Map<Integer, String[]> calls) {
+        StringBuilder b = new StringBuilder();
+        for (String[] c : calls.values()) {
+            if (c[0] == null || c[0].isEmpty()) {
+                continue;
+            }
+            b.append("<tool name=\"").append(xml(c[0])).append('"');
+            Map<String, Object> args = parse(c[1]);
+            if (args != null && !args.isEmpty()) {
+                for (Map.Entry<String, Object> e : args.entrySet()) {
+                    if (e.getValue() instanceof String || e.getValue() instanceof Number || e.getValue() instanceof Boolean) {
+                        b.append(' ').append(xml(e.getKey())).append("=\"").append(xml(String.valueOf(e.getValue()))).append('"');
+                    }
+                }
+            } else if (c[1] != null && !c[1].isEmpty()) {
+                b.append(" command=\"").append(xml(c[1])).append('"');
+            }
+            b.append("/>");
+        }
+        return b.toString();
+    }
+
+    private static String xml(String s) {
+        if (s == null) {
+            return "";
+        }
+        String amp = "&" + "amp;";
+        String quot = "&" + "quot;";
+        String lt = "&" + "lt;";
+        String gt = "&" + "gt;";
+        return s.replace("&", amp).replace("\"", quot).replace("<", lt).replace(">", gt);
+    }
+
+    /** True when the text is a tool call the agent can run, not an empty reply. */
+    static boolean toolCall(String text) {
+        if (text == null) {
+            return false;
+        }
+        String t = text.toLowerCase(java.util.Locale.US);
+        return t.contains("<tool") || t.contains("<function") || t.contains("<invoke") || t.contains("\"tool_calls\"")
+                || t.contains("dsml");
     }
 
     /**
@@ -868,9 +966,10 @@ public final class RemoteBrain {
             problem = "the model declined to answer that";
             return null;
         }
-        if (all.length() == 0 || ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty()) {
+        if (all.length() == 0 || (ai.dvine.chat.ReplyText.prepare(all.toString()).trim().isEmpty() && !toolCall(all.toString()))) {
             // nothing, or only a gateway's own tags ("<severity>0</severity>"): not an answer
             problem = "the server sent no answer";
+            transientFailure = true;
             return null;
         }
         return all.toString();
