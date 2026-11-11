@@ -120,7 +120,10 @@ public final class Dvine1Screen implements Dvine1.Host {
 
     @Override
     public void learnTalk(String question, String answer) {
-        parts.brainBox().learnTalk(question, answer);
+        // Settings › Data and privacy: with learning off, Ibiko 1 answers but keeps nothing new
+        if (ai.ibiko.chat.ui.UsageActivity.learningOn(activity.getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE))) {
+            parts.brainBox().learnTalk(question, answer);
+        }
     }
 
     @Override

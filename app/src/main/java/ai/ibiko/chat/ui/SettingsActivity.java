@@ -19,13 +19,13 @@ import ai.ibiko.llm.ModelHub;
  * Settings, in one place: the model on this phone (its download with live progress, pause, resume and remove),
  * whether replies are read aloud, day or night, and the ways into AI providers, Connectors and Usage.
  */
-public final class SettingsActivity extends AppCompatActivity {
-    private LinearLayout body;
-    private ModelHub hub;
-    private SharedPreferences prefs;
-    private ProgressBar bar;
-    private TextView modelState, modelDetail, modelAction, modelRemove;
-    private final Runnable onChange = this::refreshModel;
+public class SettingsActivity extends AppCompatActivity {
+    protected LinearLayout body;
+    protected ModelHub hub;
+    protected SharedPreferences prefs;
+    protected ProgressBar bar;
+    protected TextView modelState, modelDetail, modelAction, modelRemove;
+    protected final Runnable onChange = this::refreshModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,292 +33,87 @@ public final class SettingsActivity extends AppCompatActivity {
         Ui.init(this);
         hub = ModelHub.get(this);
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
+        setContentView(layoutRes()); // each section's screen has its own layout file
+        android.view.View root = findViewById(ai.ibiko.R.id.settings_root);
         root.setBackgroundColor(Ui.BG);
-        int pad = Ui.dp(this, 16);
-        LinearLayout head = new LinearLayout(this);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 8));
-        TextView close = Ui.text(this, "✕", 22, Ui.TEXT, false);
-        close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
-        close.setOnClickListener(v -> finish());
-        head.addView(close);
-        section = getIntent().getStringExtra(EXTRA_SECTION);
-        TextView title = Ui.text(this, section == null ? "Settings" : section, 19, Ui.TEXT, true);
-        title.setGravity(Gravity.CENTER);
-        head.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        head.addView(Ui.gap(this, 1), new LinearLayout.LayoutParams(Ui.dp(this, 34), 1));
-        root.addView(head);
-        ScrollView scroll = new ScrollView(this);
-        body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(pad, 0, pad, Ui.dp(this, 32));
-        scroll.addView(body);
-        root.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-        setContentView(root);
+        findViewById(ai.ibiko.R.id.settings_close).setOnClickListener(v -> finish());
+        section = sectionTitle();
+        if (section == null && getIntent().getStringExtra(EXTRA_SECTION) != null) {
+            // an older link to a section: that section's own screen opens instead
+            startActivity(intentFor(this, getIntent().getStringExtra(EXTRA_SECTION)));
+            finish();
+            return;
+        }
+        TextView title = findViewById(ai.ibiko.R.id.settings_title);
+        title.setText(section == null ? "Settings" : section);
+        title.setTextColor(Ui.TEXT);
+        body = findViewById(ai.ibiko.R.id.settings_body);
         Ui.fitInsets(root);
         fill();
     }
 
-    private void fill() {
+    protected void fill() {
         body.removeAllViews();
         if (section == null) {
             home();
             return;
         }
+        buildSection();
 
-        if (page("Profile")) {
-            // ---- profile
-            LinearLayout profile = group("Profile", "Your name and who starts the chat");
-            profile.addView(Ui.text(this, "What should Ibiko call you?", 16, Ui.TEXT, false));
-            final android.widget.EditText name = Ui.field(this, "Your name", prefs.getString("user_name", ""), false, false);
-            name.setOnFocusChangeListener((v, focused) -> {
-                if (!focused) {
-                    String n = name.getText().toString().trim();
-                    prefs.edit().putString("user_name", n).putString("given_name", n).apply();
-                }
-            });
-            profile.addView(name, Ui.wide(this, 10));
+    }
 
-        }
-        if (page("Chat")) {
-            // ---- chat
-            LinearLayout chat = group("Chat", "Enter to send, thinking together, fact-checks, working steps");
-            chat.addView(toggle("Enter sends the message", "Off: Enter starts a new line; send with the arrow.", "send_enter", false, null));
-            chat.addView(toggle("Think together on weighty questions", "Decisions, plans and comparisons: three passes each"
-                    + " work on it, then you get one answer. Slower; say \u201cthink together\u201d to ask for it any time.",
-                    "think_together", false, null));
-            chat.addView(toggle("Clear working memory when full", "The ring at the top shows how full the model's memory is. Past 85%,"
-                    + " the conversation is summed up and the rest cleared, so replies stay quick.", "auto_clear", true, null));
-            chat.addView(toggle("Fact-check answers", "Online: names, numbers and dates in a factual answer are looked up after it is"
-                    + " shown; a correction follows only if something was wrong.", "fact_check", false, null));
-            chat.addView(toggle("Interpreter for Pidgin, Yoruba and French", "A message in Pidgin, Yoruba or French is put into"
-                    + " English for the model, and the answer put back into your language. Models think best in English; it takes"
-                    + " a little longer.", "interpreter", true, null));
-            chat.addView(toggle("Show the working steps", "What Ibiko is doing while it answers: searches, sources, models.", "show_steps", true, null),
-                    Ui.wide(this, 10));
+    /** This screen's layout: the list of sections; each section's own screen has its own. */
+    protected int layoutRes() {
+        return ai.ibiko.R.layout.activity_settings;
+    }
 
-        }
-        if (page("Voice")) {
-            // ---- voice
-            LinearLayout voice = group("Voice", "Reading replies aloud and how fast");
-            voice.addView(Ui.text(this, "Read replies aloud", 16, Ui.TEXT, false));
-            voice.addView(choice(new String[]{"Always", "After the mic", "Never"}, new String[]{"always", "mic", "off"},
-                    prefs.getString("read_aloud", "always"), k -> prefs.edit().putString("read_aloud", k).apply()), Ui.wide(this, 10));
-            voice.addView(Ui.text(this, "Speaking speed", 16, Ui.TEXT, false), Ui.wide(this, 14));
-            voice.addView(choice(new String[]{"Slower", "Normal", "Faster"}, new String[]{"0.85", "1.0", "1.2"},
-                    prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
-            voiceChoices(voice);
-            voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
-                    + " no sound but the voice, and no audio stream is open while nothing is read aloud. Takes effect the next time Ibiko opens.", "music", false, null), Ui.wide(this, 10));
-            voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",
-                    13, Ui.SUB, false), Ui.wide(this, 10));
+    /** The section this screen shows; null for the list. Each section's own Activity names itself. */
+    protected String sectionTitle() {
+        return null;
+    }
 
-        }
-        if (page("Ibiko 1 and learning")) {
-            // ---- DVINE 1, the work in the chat, and actions (in step with the model menu and the tools sheet)
-            LinearLayout own = group("Ibiko 1 and learning", "The brain in use, the learning schedule, training file");
-            String pick = prefs.getString("brain_pick", "api");
-            own.addView(Ui.text(this, "Answering now: " + ("dvine".equals(pick) ? ai.ibiko.dvine1.Dvine1.NAME : "device".equals(pick)
-                    ? "the offline model" : "your API models") + ". Change it from the model name under the chat's title.", 14, Ui.SUB, false));
-            final ai.ibiko.dvine1.LearningSchedule.Plan plan = ai.ibiko.dvine1.LearningJob.plan(this);
-            own.addView(toggle("Learn on a schedule", (plan.on ? "On, " : "Hours: ") + plan.words() + ". " + ai.ibiko.dvine1.Dvine1.NAME
-                    + " goes online and learns from what you asked. Set the hours from the model menu.", "learn_schedule_on", plan.on,
-                    on -> ai.ibiko.dvine1.LearningJob.setPlan(this, new ai.ibiko.dvine1.LearningSchedule.Plan(on, plan.start, plan.end,
-                            plan.wifiOnly, plan.chargingOnly, plan.most))), Ui.wide(this, 10));
-            own.addView(Ui.text(this, ai.ibiko.dvine1.Dvine1.NAME + " learns from every message, every model's answer, what it researches"
-                    + " and the social pages it reads (language only: people's words are never taken as facts). "
-                    + ai.ibiko.dvine1.Dvine1.scoreLine(getFilesDir()) + ". See it under Memory.", 13, Ui.SUB, false), Ui.wide(this, 10));
-            android.view.View learnNow = Ui.button(this, "Learn now", false);
-            learnNow.setOnClickListener(v -> {
-                ai.ibiko.dvine1.LearningJob.learnNow(this);
-                android.widget.Toast.makeText(this, "Learning now. The Workload sheet shows it.", android.widget.Toast.LENGTH_SHORT).show();
-            });
-            own.addView(learnNow, Ui.wide(this, 10));
-            android.view.View train = Ui.button(this, "Export Ibiko 1's training file", false);
-            train.setOnClickListener(v -> exportTraining());
-            own.addView(train, Ui.wide(this, 8));
-            own.addView(Ui.text(this, "Everything Ibiko 1 learned (confirmed answers, facts, words) as a JSONL file in Downloads/Ibiko,"
-                    + " for training a model of your own.", 13, Ui.SUB, false), Ui.wide(this, 6));
+    /** Builds this section's controls (in each section's own Activity). */
+    protected void buildSection() {
+    }
 
-        }
-        if (page("Work and actions")) {
-            LinearLayout work = group("Work and actions", "What long work says in the chat; sharing and posting");
-            work.addView(toggle("Say what each step found", "During long work, a line in the chat after each step: what it looked for"
-                    + " and what it found. The full summary comes at the end.", "narrate_steps", true, null));
-            work.addView(toggle("Share and post without asking first", "Off (recommended): each share, post or copy is shown and waits"
-                    + " for your yes.", "actions_auto", false, null), Ui.wide(this, 10));
-            work.addView(link("What Ibiko remembers", "Answers you marked correct, what it knows about you, actions done", MemoryActivity.class),
-                    Ui.wide(this, 10));
+    /** The screens of the sections, in the order of {@link #SECTIONS}. */
+    static final Class<?>[] SCREENS = {SettingsProfileActivity.class, SettingsChatActivity.class, SettingsVoiceActivity.class,
+            SettingsLearningActivity.class, SettingsWorkActivity.class, SettingsModelsActivity.class, SettingsWebActivity.class,
+            SettingsActionsActivity.class, SettingsCodingActivity.class, SettingsAppearanceActivity.class, SettingsDataActivity.class,
+            SettingsAdvancedActivity.class, SettingsAboutActivity.class};
 
-        }
-        if (page("Models")) {
-            // ---- models
-            LinearLayout apis = group("Models", "AI providers and the model on this device");
-            apis.addView(link("AI providers", "API keys, up to three that take over from each other, fast and strong models",
-                    ProvidersActivity.class));
-            LinearLayout model = new LinearLayout(this);
-            model.setOrientation(LinearLayout.VERTICAL);
-            model.setPadding(0, Ui.dp(this, 14), 0, 0);
-            modelTitle = Ui.text(this, "", 17, Ui.TEXT, true);
-            model.addView(modelTitle);
-            modelAbout = Ui.text(this, "", 13, Ui.SUB, false);
-            model.addView(modelAbout, Ui.wide(this, 4));
-            modelState = Ui.text(this, "", 15, Ui.TEXT, false);
-            model.addView(modelState, Ui.wide(this, 12));
-            bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-            bar.setMax(100);
-            bar.setProgressTintList(android.content.res.ColorStateList.valueOf(Ui.CORAL));
-            model.addView(bar, Ui.wide(this, 8));
-            modelDetail = Ui.text(this, "", 13, Ui.SUB, false);
-            model.addView(modelDetail, Ui.wide(this, 4));
-            LinearLayout buttons = new LinearLayout(this);
-            modelAction = Ui.button(this, "Download", true);
-            modelAction.setOnClickListener(v -> modelAction());
-            buttons.addView(modelAction, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            modelRemove = Ui.button(this, "Remove", false);
-            modelRemove.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setMessage("Remove the model from this device? It frees " + hub.chosen().sizeWords()
-                            + ". Answers then need an API until you download it again.")
-                    .setPositiveButton("Remove", (d, w) -> {
-                        hub.stopDownload();
-                        new Thread(() -> {
-                            hub.model.uninstall();
-                            runOnUiThread(this::refreshModel);
-                        }, "dvine-remove-model").start();
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show());
-            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            rp.leftMargin = Ui.dp(this, 10);
-            buttons.addView(modelRemove, rp);
-            model.addView(buttons, Ui.wide(this, 14));
-            model.addView(action("Change the offline model", "Qwen3, Llama, Gemma or Phi, each in sizes: bigger answers better,"
-                    + " smaller is faster", this::chooseModel), Ui.wide(this, 10));
-            speed = Ui.text(this, "", 13, Ui.SUB, false);
-            speed.setVisibility(View.GONE);
-            model.addView(action("Test the speed", "Runs the same question on the device's own model and measures it",
-                    this::speedTest), Ui.wide(this, 10));
-            model.addView(speed, Ui.wide(this, 4));
-            onPhone = new LinearLayout(this);
-            onPhone.setOrientation(LinearLayout.VERTICAL);
-            model.addView(onPhone, Ui.wide(this, 6));
-            apis.addView(model);
-            refreshModel();
-
-        }
-        if (page("Web and services")) {
-            // ---- web and services
-            LinearLayout web = group("Web and services", "Web look-ups and connectors");
-            web.addView(toggle("Look things up on the web", "For news, prices and anything recent; the sources are listed.", "fresh_facts", true, null));
-            web.addView(link("Connectors", "Web search provider, GitHub, calendar, Notion, MCP servers", ConnectorsActivity.class), Ui.wide(this, 10));
-
-        }
-        if (page("Actions")) {
-            // ---- actions on the user's behalf
-            LinearLayout acts = group("Actions", "Whether posts and shares wait for your yes");
-            acts.addView(toggle("Auto-post on your behalf", "Posts and comments you ask for go out from your account at once,"
-                    + " without asking first (also in Social accounts). Off: each one waits for your yes.", "social_auto", false, null));
-            acts.addView(toggle("Auto-approve actions", "Posts, shares and copies go ahead without asking first. Off: each one is"
-                    + " shown with its exact text and where it goes, and waits for your yes.", "actions_auto", false, null));
-
-        }
-        if (page("Coding")) {
-            // ---- ibiko
-            LinearLayout ibiko = group("Coding", "Commands, long jobs and the workspace");
-            ibiko.addView(toggle("Run commands without asking", "Auto-accept: shell commands, git pushes and pull requests go ahead.",
-                    "auto_accept", false, null));
-            ibiko.addView(toggle("Keep Ibiko running in the background", "Ibiko stays ready with the screen off or another app"
-                    + " open, with a quiet notification; Back goes to the background instead of quitting. Close it from the"
-                    + " notification or by swiping it away from the recent apps. Off: Android may stop it in the background.",
-                    ai.ibiko.main.KeepAlive.PREF, true, on -> {
-                        if (on) {
-                            ai.ibiko.main.KeepAlive.opened(this);
-                        } else {
-                            ai.ibiko.main.KeepAlive.stop(this);
-                        }
-                    }), Ui.wide(this, 10));
-            ibiko.addView(toggle("Keep working until done", "Long jobs run for hours if needed: plan, build, test, with a short progress"
-                    + " note in the chat every few steps. Off: Ibiko stops after one batch of steps.", "ibiko_keep_going", true, null),
-                    Ui.wide(this, 10));
-            ibiko.addView(toggle("Mini agents for heavy jobs", "Audits, research and whole-repo reviews are split into parts; a fresh"
-                    + " helper takes each in turn (on the device's model too) and its findings come as it finishes.", "mini_agents", true, null),
-                    Ui.wide(this, 10));
-            final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
-            ibiko.addView(action("Clear Ibiko's workspace", "Deletes the cloned repositories and files on this device (" + bytes(size(ws)) + ").",
-                    () -> confirm("Delete everything in Ibiko's workspace? Unpushed changes are lost.", () -> {
-                        delete(ws);
-                        toast("Workspace cleared.");
-                        fill();
-                    })), Ui.wide(this, 10));
-
-        }
-        if (page("Appearance")) {
-            // ---- appearance
-            LinearLayout look = group("Appearance", "System, light or dark");
-            look.addView(choice(new String[]{"System", "Light", "Dark"}, new String[]{"system", "light", "dark"},
-                    prefs.getString("theme", "system"), k -> {
-                        prefs.edit().putString("theme", k).apply();
-                        ai.ibiko.MainActivity.applyTheme(k);
-                    }));
-
-        }
-        if (page("Data and privacy")) {
-            // ---- data and privacy
-            LinearLayout data = group("Data and privacy", "Memory, learning, export and deleting chats");
-            data.addView(toggle("Learn from the API models", "Their answers are kept on this device to teach Ibiko's own model.",
-                    "learn_on", true, on -> hub.model.learning = on ? new ai.ibiko.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null));
-            data.addView(link("What Ibiko remembers", "Notes, facts you taught, how it reads your words: forget any of them",
-                    MemoryActivity.class), Ui.wide(this, 10));
-            data.addView(link("Usage and learning", "Context, tokens today, what was learned, export", UsageActivity.class), Ui.wide(this, 10));
-            data.addView(action("Export chats", "Saves all chats to Downloads/Ibiko.", this::exportChats), Ui.wide(this, 6));
-            data.addView(action("Delete all chats", "Every chat and attached image on this device.",
-                    () -> confirm("Delete all chats? This can't be undone.", () -> {
-                        new java.io.File(getFilesDir(), "chats.json").delete();
-                        delete(new java.io.File(getFilesDir(), "attachments"));
-                        prefs.edit().putBoolean("chats_reset", true).apply();
-                        toast("All chats deleted.");
-                    })), Ui.wide(this, 6));
-            data.addView(Ui.text(this, "Keys, chats and what Ibiko learns stay on this device. A message goes only to the AI provider you chose.",
-                    13, Ui.SUB, false), Ui.wide(this, 10));
-
-        }
-        if (page("Advanced")) {
-            // ---- advanced: the limits DVINE works within. Closed until opened on purpose; each number is a row, changed only
-            // in its own editor (a slider in a scrolling list moved whenever a finger scrolled past it)
-            LinearLayout adv = group("Advanced", "Reply lengths, agent steps, offline memory and other limits");
-            adv.addView(Ui.text(this, "The numbers Ibiko works with. The defaults suit most people: change one only for a reason."
-                    + " Each provider's own settings are under AI providers › a provider › Advanced.", 13, Ui.SUB, false));
-            for (final ai.ibiko.chat.Tuning.Knob k : ai.ibiko.chat.Tuning.ALL) {
-                adv.addView(knobRow(k), Ui.wide(this, 4));
+    /** Opens one section's own screen ("Voice"), or the list when the title is unknown. */
+    public static Intent intentFor(android.content.Context c, String title) {
+        for (int i = 0; i < SECTIONS.length; i++) {
+            if (SECTIONS[i][0].equals(title)) {
+                return new Intent(c, SCREENS[i]).putExtra(EXTRA_SECTION, title);
             }
-            TextView reset = Ui.text(this, "Back to the defaults", 15, Ui.ACCENT, false);
-            reset.setPadding(0, Ui.dp(this, 16), 0, Ui.dp(this, 4));
-            reset.setOnClickListener(x -> confirm("Put every advanced number back to its default?", () -> {
-                android.content.SharedPreferences.Editor e = prefs.edit();
-                for (ai.ibiko.chat.Tuning.Knob k : ai.ibiko.chat.Tuning.ALL) {
-                    e.remove(k.key);
-                }
-                e.apply();
-                fill();
-            }));
-            adv.addView(reset);
+        }
+        return new Intent(c, SettingsActivity.class);
+    }
 
+    /** The screen an intent from {@link #intentFor} opens (for building it directly, as the tests do). */
+    @SuppressWarnings("unchecked")
+    public static Class<SettingsActivity> screen(Intent i) {
+        String name = i.getComponent() == null ? null : i.getComponent().getClassName();
+        for (Class<?> c : SCREENS) {
+            if (c.getName().equals(name)) {
+                return (Class<SettingsActivity>) c;
+            }
         }
-        if (page("About")) {
-            // ---- about
-            LinearLayout about = card();
-            about.addView(Ui.text(this, "Ibiko " + version(), 16, Ui.TEXT, false));
-            about.addView(Ui.text(this, "Ibiko, with your models or the one on this device.", 13, Ui.SUB, false), Ui.wide(this, 4));
-            body.addView(about, Ui.wide(this, 8));
+        String section = i.getStringExtra(EXTRA_SECTION);
+        for (int k = 0; section != null && k < SECTIONS.length; k++) {
+            if (SECTIONS[k][0].equals(section)) {
+                return (Class<SettingsActivity>) SCREENS[k];
+            }
         }
+        return SettingsActivity.class;
     }
 
     /** Open on one section's page ("Voice"); without it, Settings is the list of sections. */
     public static final String EXTRA_SECTION = "section";
     /** The section this page shows, or null for the list. */
-    private String section;
+    protected String section;
 
     /**
      * The sections, in order: Settings opens as this list, and each section is its own page, built only when it is
@@ -341,12 +136,12 @@ public final class SettingsActivity extends AppCompatActivity {
     };
 
     /** Whether this page builds that section: only the section opened, never the rest. */
-    private boolean page(String title) {
+    protected boolean page(String title) {
         return title.equals(section);
     }
 
     /** Settings' first page: one row a section; a tap opens that section on its own page. */
-    private void home() {
+    protected void home() {
         for (final String[] s : SECTIONS) {
             LinearLayout row = card();
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -359,27 +154,27 @@ public final class SettingsActivity extends AppCompatActivity {
             row.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             row.addView(Ui.text(this, "\u203A", 20, Ui.SUB, false));
             row.setContentDescription(s[0]);
-            row.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class).putExtra(EXTRA_SECTION, s[0])));
+            row.setOnClickListener(v -> startActivity(intentFor(this, s[0])));
             body.addView(row, Ui.wide(this, 10));
         }
     }
 
     /** The groups the user opened, kept while the screen is rebuilt. */
-    private final java.util.Set<String> opened = new java.util.HashSet<String>();
+    protected final java.util.Set<String> opened = new java.util.HashSet<String>();
 
     /**
      * A section folded to one row (its title, a line saying what is inside, and a chevron); the settings show only
      * after a tap, so a scrolling finger never lands on them. Returns the box to put the settings in.
      */
     /** A voice played here to try a choice ("Hear it"); made on the first tap, closed with the screen. */
-    private ai.ibiko.voice.TalkBridge preview;
+    protected ai.ibiko.voice.TalkBridge preview;
 
     /**
      * Settings › Voice: one voice for every reply, a man's or a woman's. The human voice (Kokoro) comes with the app
      * files on the first start; a fast voice (Piper) can be downloaded here, with its progress; the device's own
      * speech engines (another voice app installed) can be chosen too.
      */
-    private void voiceChoices(LinearLayout section) {
+    protected void voiceChoices(LinearLayout section) {
         voiceBox = new LinearLayout(this);
         voiceBox.setOrientation(LinearLayout.VERTICAL);
         section.addView(voiceBox);
@@ -387,9 +182,9 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** The voice options' own box: a choice redraws only this, in place, so nothing else on the page moves or folds. */
-    private LinearLayout voiceBox;
+    protected LinearLayout voiceBox;
 
-    private void fillVoice() {
+    protected void fillVoice() {
         if (voiceBox == null || isFinishing()) {
             return;
         }
@@ -547,7 +342,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** Says a line in the voice chosen above (the human voice takes a moment to load the first time). */
-    private void hearVoice(final TextView state) {
+    protected void hearVoice(final TextView state) {
         if (preview == null) {
             preview = new ai.ibiko.voice.TalkBridge(this);
         } else {
@@ -573,7 +368,7 @@ public final class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    private LinearLayout group(final String title, String summary) {
+    protected LinearLayout group(final String title, String summary) {
         if (section != null) {
             LinearLayout c = card();
             body.addView(c, Ui.wide(this, 10));
@@ -615,7 +410,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** One advanced number as a row: its name and value; a tap opens its editor. Nothing changes from the list itself. */
-    private View knobRow(final ai.ibiko.chat.Tuning.Knob k) {
+    protected View knobRow(final ai.ibiko.chat.Tuning.Knob k) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setMinimumHeight(Ui.dp(this, 52));
@@ -640,7 +435,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** The editor for one number: what it does, minus and plus, a slider, Default; kept only with Save. */
-    private void editKnob(final ai.ibiko.chat.Tuning.Knob k) {
+    protected void editKnob(final ai.ibiko.chat.Tuning.Knob k) {
         final int[] stops = k.stops();
         final int[] at = {k.stopFor(k.get(prefs))};
         LinearLayout box = new LinearLayout(this);
@@ -721,7 +516,7 @@ public final class SettingsActivity extends AppCompatActivity {
     /** Keeps a number, brought into its range (the field shows what was kept). */
     /** A switch row kept in the preferences; {@code changed} also runs when it flips. */
     /** DVINE 1's learning as a training file in Downloads/DVINE. */
-    private void exportTraining() {
+    protected void exportTraining() {
         java.io.File dir = new java.io.File(getFilesDir(), "brain");
         String name = "dvine1-training-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(new java.util.Date()) + ".jsonl";
         android.content.ContentValues v = new android.content.ContentValues();
@@ -746,7 +541,7 @@ public final class SettingsActivity extends AppCompatActivity {
         android.widget.Toast.makeText(this, said, android.widget.Toast.LENGTH_LONG).show();
     }
 
-    private View toggle(String title, String about, final String key, boolean def, final java.util.function.Consumer<Boolean> changed) {
+    protected View toggle(String title, String about, final String key, boolean def, final java.util.function.Consumer<Boolean> changed) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout words = new LinearLayout(this);
@@ -771,7 +566,7 @@ public final class SettingsActivity extends AppCompatActivity {
         return r;
     }
 
-    private View action(String title, String about, final Runnable run) {
+    protected View action(String title, String about, final Runnable run) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.VERTICAL);
         r.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
@@ -781,17 +576,17 @@ public final class SettingsActivity extends AppCompatActivity {
         return r;
     }
 
-    private void confirm(String message, final Runnable yes) {
+    protected void confirm(String message, final Runnable yes) {
         new androidx.appcompat.app.AlertDialog.Builder(this).setMessage(message)
                 .setPositiveButton("Delete", (d, w) -> yes.run())
                 .setNegativeButton("Cancel", null).show();
     }
 
-    private void toast(String s) {
+    protected void toast(String s) {
         android.widget.Toast.makeText(this, s, android.widget.Toast.LENGTH_SHORT).show();
     }
 
-    private void exportChats() {
+    protected void exportChats() {
         java.io.File f = new java.io.File(getFilesDir(), "chats.json");
         if (!f.isFile()) {
             toast("No chats yet.");
@@ -816,7 +611,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private static void delete(java.io.File f) {
+    protected static void delete(java.io.File f) {
         java.io.File[] kids = f.listFiles();
         if (kids != null) {
             for (java.io.File k : kids) {
@@ -826,7 +621,7 @@ public final class SettingsActivity extends AppCompatActivity {
         f.delete();
     }
 
-    private static long size(java.io.File f) {
+    protected static long size(java.io.File f) {
         if (!f.exists()) {
             return 0;
         }
@@ -843,12 +638,12 @@ public final class SettingsActivity extends AppCompatActivity {
         return t;
     }
 
-    private static String bytes(long b) {
+    protected static String bytes(long b) {
         return b >= 1_000_000 ? String.format(java.util.Locale.US, "%.1f MB", b / 1e6) : b >= 1000
                 ? String.format(java.util.Locale.US, "%.0f kB", b / 1e3) : b + " bytes";
     }
 
-    private String version() {
+    protected String version() {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (android.content.pm.PackageManager.NameNotFoundException e) {
@@ -857,7 +652,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** The model's state, progress and buttons, kept live while the screen is open. */
-    private void refreshModel() {
+    protected void refreshModel() {
         if (modelState == null) {
             return;
         }
@@ -894,17 +689,17 @@ public final class SettingsActivity extends AppCompatActivity {
         fillOnPhone();
     }
 
-    private LinearLayout onPhone;
+    protected LinearLayout onPhone;
 
     /** Every model on the phone (whole or part-downloaded) with its size and a Delete, to free the space. */
     /** The full list of offline models is folded until opened, so Settings stays short. */
-    private boolean modelsOpen;
+    protected boolean modelsOpen;
 
     /**
      * Every offline model DVINE offers, downloaded or not: its size, the memory it needs (against this device's) and
      * its state. A downloaded one has Use and Delete; one not yet here has Download. Folded behind one row.
      */
-    private void fillOnPhone() {
+    protected void fillOnPhone() {
         if (onPhone == null) {
             return;
         }
@@ -982,7 +777,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private void deleteModel(final ai.ibiko.llm.ModelSpec m, long bytes, final boolean using) {
+    protected void deleteModel(final ai.ibiko.llm.ModelSpec m, long bytes, final boolean using) {
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setMessage("Delete " + m.weights + " from this device? It frees " + bytes(bytes) + "."
                         + (using ? " Answers then need an API until you download a model again." : ""))
@@ -1003,7 +798,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** Downloads a model that isn't here: it becomes the offline model and its download starts. */
-    private void downloadModel(final ai.ibiko.llm.ModelSpec m, boolean tooBig, long ram) {
+    protected void downloadModel(final ai.ibiko.llm.ModelSpec m, boolean tooBig, long ram) {
         if (hub.downloading()) {
             toast("One download at a time: pause the one running first.");
             return;
@@ -1023,13 +818,13 @@ public final class SettingsActivity extends AppCompatActivity {
                 .show();
     }
 
-    private TextView modelTitle, modelAbout, speed;
+    protected TextView modelTitle, modelAbout, speed;
 
     /**
      * Measures the phone's own model where it runs, on this phone: how long it takes to start, to say its first word,
      * and how many tokens a second it writes. The same question every time, so models and memory sizes compare.
      */
-    private void speedTest() {
+    protected void speedTest() {
         if (!hub.model.installed()) {
             toast("Download " + hub.chosen().weights + " first.");
             return;
@@ -1061,7 +856,7 @@ public final class SettingsActivity extends AppCompatActivity {
      * The offline models on offer: first the family (Qwen3, Llama 3.2, Gemma 3, Phi-4), then its size, as Claude
      * comes as Haiku, Sonnet and Opus. Each size shows its download, the memory it wants and whether it is here.
      */
-    private void chooseModel() {
+    protected void chooseModel() {
         final java.util.List<String> families = ai.ibiko.llm.ModelSpec.families();
         BottomSheet.Item[] items = new BottomSheet.Item[families.size()];
         for (int i = 0; i < families.size(); i++) {
@@ -1078,7 +873,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** One family's sizes: smaller is faster and lighter, bigger answers better. */
-    private void chooseSize(String family) {
+    protected void chooseSize(String family) {
         final java.util.List<ai.ibiko.llm.ModelSpec> sizes = ai.ibiko.llm.ModelSpec.sizes(family);
         long ram = phoneMemoryGb();
         BottomSheet.Item[] items = new BottomSheet.Item[sizes.size()];
@@ -1095,7 +890,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** Switches to {@code next}, asking first whether to keep the model in use on the phone. */
-    private void pick(final ai.ibiko.llm.ModelSpec next) {
+    protected void pick(final ai.ibiko.llm.ModelSpec next) {
         final ai.ibiko.llm.ModelSpec now = hub.chosen();
         if (next.file.equals(now.file)) {
             return;
@@ -1116,7 +911,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private void switchModel(ai.ibiko.llm.ModelSpec next, boolean deleteOld) {
+    protected void switchModel(ai.ibiko.llm.ModelSpec next, boolean deleteOld) {
         new ai.ibiko.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE)).clear(next.file); // chosen on purpose: tried again
         hub.choose(this, next, deleteOld);
         refreshModel();
@@ -1125,7 +920,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** The phone's memory, in whole gigabytes (0 when unknown). */
-    private long phoneMemoryGb() {
+    protected long phoneMemoryGb() {
         android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
         if (am == null) {
             return 0;
@@ -1135,7 +930,7 @@ public final class SettingsActivity extends AppCompatActivity {
         return Math.round(info.totalMem / 1e9);
     }
 
-    private void modelAction() {
+    protected void modelAction() {
         if (hub.downloading()) {
             hub.stopDownload();
         } else {
@@ -1168,13 +963,13 @@ public final class SettingsActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------ pieces
 
-    private void section(String s) {
+    protected void section(String s) {
         TextView t = Ui.text(this, s, 15, Ui.SUB, false);
         t.setPadding(Ui.dp(this, 6), Ui.dp(this, 20), 0, Ui.dp(this, 4));
         body.addView(t);
     }
 
-    private LinearLayout card() {
+    protected LinearLayout card() {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setBackground(Ui.round(this, Ui.SURFACE, 0, 20));
@@ -1184,7 +979,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     /** A row of options, the chosen one filled with the accent. */
-    private View choice(final String[] labels, final String[] keys, String now, final java.util.function.Consumer<String> pick) {
+    protected View choice(final String[] labels, final String[] keys, String now, final java.util.function.Consumer<String> pick) {
         final LinearLayout row = new LinearLayout(this);
         row.setBackground(Ui.round(this, Ui.FIELD, 0, 14));
         row.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
@@ -1214,7 +1009,7 @@ public final class SettingsActivity extends AppCompatActivity {
         return row;
     }
 
-    private View link(String name, String about, final Class<?> screen) {
+    protected View link(String name, String about, final Class<?> screen) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.VERTICAL);
         r.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));

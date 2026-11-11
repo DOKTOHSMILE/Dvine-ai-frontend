@@ -116,6 +116,58 @@
             android:exported="false"
             android:theme="@style/Theme.Dvine" />
         <activity
+            android:name=".chat.ui.SettingsProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsChatActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsVoiceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsLearningActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsWorkActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsModelsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsWebActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsActionsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsCodingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsAppearanceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsDataActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsAdvancedActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
+            android:name=".chat.ui.SettingsAboutActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dvine" />
+        <activity
             android:name=".chat.ui.UsageActivity"
             android:exported="false"
             android:theme="@style/Theme.Dvine" />

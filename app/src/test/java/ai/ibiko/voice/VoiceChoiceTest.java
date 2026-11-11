@@ -53,8 +53,8 @@ public class VoiceChoiceTest {
     public void choosingAVoiceRedrawsOnlyTheVoiceOptions() {
         android.app.Application app = RuntimeEnvironment.getApplication();
         app.getSharedPreferences("dvine", 0).edit().putString("voice_gender", "male").apply();
-        ActivityController<ai.ibiko.chat.ui.SettingsActivity> c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.class,
-                new android.content.Intent(app, ai.ibiko.chat.ui.SettingsActivity.class)
+        ActivityController<? extends ai.ibiko.chat.ui.SettingsActivity> c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsVoiceActivity.class,
+                new android.content.Intent(app, ai.ibiko.chat.ui.SettingsVoiceActivity.class)
                         .putExtra(ai.ibiko.chat.ui.SettingsActivity.EXTRA_SECTION, "Voice")).create().start().resume().visible();
         ShadowLooper.idleMainLooper();
         View root = c.get().getWindow().getDecorView();

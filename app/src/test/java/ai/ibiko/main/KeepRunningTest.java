@@ -35,22 +35,20 @@ public class KeepRunningTest {
     }
 
     @Test
-    public void itStartsWithTheAppAndStopsOnlyWhenClosed() {
+    public void nothingRunsIdleAndCloseIsRemembered() {
         android.app.Application app = RuntimeEnvironment.getApplication();
         app.getSharedPreferences("dvine", 0).edit().clear().apply();
         ActivityController<ai.ibiko.MainActivity> c = Robolectric.buildActivity(ai.ibiko.MainActivity.class).create();
-        Intent started = null;
         Intent i;
         while ((i = Shadows.shadowOf(app).getNextStartedService()) != null) {
-            if (i.getComponent() != null && i.getComponent().getClassName().equals(KeepAlive.class.getName())) {
-                started = i;
-            }
+            boolean keep = i.getComponent() != null && i.getComponent().getClassName().equals(KeepAlive.class.getName());
+            assertFalse("idle, no background service and no notification", keep);
         }
-        assertNotNull("the keep-running service starts with Ibiko", started);
-        // Close from the notification: remembered, so nothing starts it again until Ibiko is opened
+        // Close from the notification: remembered, so no work starts it again until Ibiko is opened
         KeepAlive s = Robolectric.buildService(KeepAlive.class, new Intent(app, KeepAlive.class).setAction(KeepAlive.ACTION_CLOSE)).create().get();
         s.onStartCommand(new Intent(app, KeepAlive.class).setAction(KeepAlive.ACTION_CLOSE), 0, 1);
         assertTrue(app.getSharedPreferences("dvine", 0).getBoolean("closed_by_pilot", false));
+        assertFalse("closed: work shows its own notification", KeepAlive.status(app, "dl:y", "Cloning", "", 10));
         KeepAlive.opened(app);
         assertFalse("opening Ibiko again clears the Close", app.getSharedPreferences("dvine", 0).getBoolean("closed_by_pilot", false));
         c.destroy();
@@ -121,8 +119,12 @@ public class KeepRunningTest {
     @Test
     public void workShowsInTheOneNotification() {
         android.app.Application app = RuntimeEnvironment.getApplication();
+        app.getSharedPreferences("dvine", 0).edit().clear().apply();
         KeepAlive.running = false;
-        assertFalse("not running: the caller shows its own", KeepAlive.status(app, "dl:x", "Cloning a/b", "Downloading main", 40));
+        assertTrue("work starts the service", KeepAlive.status(app, "dl:x", "Cloning a/b", "Downloading main", 40));
+        Intent started = Shadows.shadowOf(app).getNextStartedService();
+        assertNotNull(started);
+        assertEquals(KeepAlive.class.getName(), started.getComponent().getClassName());
         KeepAlive.running = true;
         try {
             assertTrue(KeepAlive.status(app, "reply", "Ibiko is thinking", "The reply will be in the chat.", -2));
@@ -134,7 +136,7 @@ public class KeepRunningTest {
             n = KeepAlive.note(app);
             assertEquals("Ibiko is thinking", n.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString());
             KeepAlive.done(app, "reply");
-            assertEquals("Ibiko is running", KeepAlive.note(app).extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString());
+            assertTrue("no work left: nothing to keep", KeepAlive.idle());
             android.app.NotificationManager nm = app.getSystemService(android.app.NotificationManager.class);
             assertEquals("no download notification of its own", 0,
                     Shadows.shadowOf(nm).getAllNotifications().stream().filter(x -> "downloads".equals(x.getChannelId())).count());

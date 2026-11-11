@@ -86,7 +86,8 @@ public class LiveFaceTest {
                 strip.compress(Bitmap.CompressFormat.PNG, 100, o);
             }
         }
-        assertTrue("the eyes go to many places: " + where.size(), where.size() > 25);
+        // calmer glances while thinking (0.99.94) visit fewer places, still never still
+        assertTrue("the eyes go to many places: " + where.size(), where.size() > 12);
         assertTrue("it blinks (or smiles) now and then: " + shut, shut > 0);
         assertTrue(SystemClock.uptimeMillis() > 0);
     }

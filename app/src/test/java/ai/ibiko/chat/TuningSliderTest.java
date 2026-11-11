@@ -48,7 +48,7 @@ public class TuningSliderTest {
         found.get(0).performClick(); // Advanced opens on its own page
         android.content.Intent page = org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity();
         c.pause().stop().destroy();
-        c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.class, page).create().start().resume().visible();
+        c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.screen(page), page).create().start().resume().visible();
         ShadowLooper.idleMainLooper();
         root = c.get().getWindow().getDecorView();
         found.clear();

@@ -334,7 +334,12 @@ public final class ChatPane extends LinearLayout {
             liveRow = liveView(liveText.substring(0, Math.max(0, Math.min(liveShown, liveText.length()))));
             thread.addView(liveRow);
         }
-        boolean noMessages = cur.messages.isEmpty() && !working() && liveText == null;
+        for (java.util.Map.Entry<String, String> e : making.entrySet()) {
+            if (e.getValue().startsWith(cur.id + "\n")) {
+                thread.addView(makingCard(e.getValue().substring(cur.id.length() + 1)));
+            }
+        }
+        boolean noMessages = cur.messages.isEmpty() && !working() && liveText == null && making.isEmpty();
         View empty = ((Activity) getContext()).findViewById(R.id.emptyChatHint);
         if (empty != null) {
             empty.setVisibility(noMessages ? VISIBLE : GONE);
@@ -650,7 +655,10 @@ public final class ChatPane extends LinearLayout {
             if (stepsSheet == null || !stepsSheet.isShowing() || !stepsLive) {
                 return;
             }
-            fillSteps(timedSteps(System.currentTimeMillis()), false);
+            List<String> now = timedSteps(System.currentTimeMillis());
+            if (!tickOnly(now)) { // a second passing only moves the running time on: the sheet isn't built again
+                fillSteps(now, false);
+            }
             postDelayed(this, 1000);
         }
     };
@@ -693,7 +701,66 @@ public final class ChatPane extends LinearLayout {
      * files", each opening to its steps, and each of those to its code (the command, or the changes in green and red);
      * other steps one to a line with a check when done.
      */
+    /**
+     * A step's detail, read from its file once: a step's file never changes after it is written, and the open sheet
+     * redraws every second, which read every step's file from storage each time.
+     */
+    private final java.util.LinkedHashMap<String, ai.ibiko.agent.StepDetail.Detail> detailCache =
+            new java.util.LinkedHashMap<String, ai.ibiko.agent.StepDetail.Detail>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, ai.ibiko.agent.StepDetail.Detail> e) {
+                    return size() > 300;
+                }
+            };
+
+    private ai.ibiko.agent.StepDetail.Detail detail(String id) {
+        if (detailCache.containsKey(id)) {
+            return detailCache.get(id);
+        }
+        ai.ibiko.agent.StepDetail.Detail d = ai.ibiko.agent.StepDetail.load(getContext().getFilesDir(), id);
+        if (d != null) {
+            detailCache.put(id, d);
+        }
+        return d;
+    }
+
+    /** What the sheet showed last: how many steps, and the running row's time (the tick only moves that on). */
+    private int filledCount = -1;
+    private TextView runningTime;
+    private long runningBefore;
+
+    /** The running step's time moved on without rebuilding the sheet; false when the sheet must be drawn again. */
+    private boolean tickOnly(List<String> all) {
+        int n = 0;
+        String last = null;
+        for (String step : all) {
+            if (!providerLine(step)) {
+                n++;
+                last = step;
+            }
+        }
+        if (runningTime == null || n != filledCount || last == null) {
+            return false;
+        }
+        String[] parts = last.split("\t");
+        long t;
+        try {
+            t = parts.length > 1 ? Long.parseLong(parts[1].trim()) : -1;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (t < 0) {
+            return false;
+        }
+        String d = duration(runningBefore + t);
+        runningTime.setText(d);
+        runningTime.setContentDescription("running for " + d);
+        return true;
+    }
+
     private void fillSteps(List<String> all, boolean allDone) {
+        runningTime = null;
+        filledCount = -1;
         if (stepsList == null) {
             return;
         }
@@ -725,7 +792,7 @@ public final class ChatPane extends LinearLayout {
                 }
             }
             String id = ai.ibiko.agent.StepDetail.id(parts[0]);
-            ai.ibiko.agent.StepDetail.Detail d = id == null ? null : ai.ibiko.agent.StepDetail.load(getContext().getFilesDir(), id);
+            ai.ibiko.agent.StepDetail.Detail d = id == null ? null : detail(id);
             words.add(ai.ibiko.agent.StepDetail.words(parts[0]));
             titles.add(d == null ? null : d.title);
             secs.add(t);
@@ -733,6 +800,7 @@ public final class ChatPane extends LinearLayout {
         }
         List<ai.ibiko.agent.StepGroups.Group> groups = ai.ibiko.agent.StepGroups.fold(words, titles, secs);
         int lastIndex = list.size() - 1;
+        filledCount = allDone ? -1 : list.size();
         for (int g = 0; g < groups.size(); g++) {
             final ai.ibiko.agent.StepGroups.Group group = groups.get(g);
             boolean holdsLast = group.items.get(group.items.size() - 1).index == lastIndex;
@@ -741,11 +809,21 @@ public final class ChatPane extends LinearLayout {
                 ai.ibiko.agent.StepGroups.Item it = group.items.get(0);
                 String raw = list.get(it.index).split("\t")[0];
                 stepsList.addView(timedRow(stepLine(raw, !running, running), it.secs, running));
+                if (running) {
+                    runningBefore = 0;
+                }
                 continue;
             }
             final String key = "g" + g;
             Boolean chosen = stepOpen.get(key);
             final boolean open = chosen != null ? chosen : running; // the group being worked on is open
+            if (running) {
+                long before = 0;
+                for (int k = 0; k < group.items.size() - 1; k++) {
+                    before += Math.max(0, group.items.get(k).secs);
+                }
+                runningBefore = before;
+            }
             stepsList.addView(groupHead(group, open, running, () -> {
                 stepOpen.put(key, !open);
                 fillSteps(all, allDone);
@@ -783,16 +861,19 @@ public final class ChatPane extends LinearLayout {
         icon.setColorFilter(color(running ? R.color.accent : R.color.text_secondary));
         row.addView(icon, new LayoutParams(dp(18), dp(18)));
         TextView label = plain(group.label);
-        label.setTextSize(14f);
+        label.setTextSize(15.5f); // a little larger: easy to read and to tap
         label.setTextColor(color(running ? R.color.text_primary : R.color.text_secondary));
         label.setPadding(dp(10), 0, dp(6), 0);
         row.addView(label, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         if (group.secs >= 0) {
             TextView time = plain(duration(group.secs));
-            time.setTextSize(12f);
+            time.setTextSize(13f);
             time.setTextColor(color(running ? R.color.accent : R.color.text_secondary));
             time.setPadding(dp(6), 0, dp(6), 0);
             row.addView(time);
+            if (running) {
+                runningTime = time;
+            }
         }
         android.widget.ImageView chev = new android.widget.ImageView(getContext());
         chev.setImageResource(open ? R.drawable.ic_chevron_down : R.drawable.ic_chevron_right);
@@ -820,11 +901,11 @@ public final class ChatPane extends LinearLayout {
         }
         TextView t = plain("");
         t.setText(b);
-        t.setTextSize(13f);
+        t.setTextSize(14.5f);
         t.setMaxLines(open ? 4 : 1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        t.setPadding(dp(28), dp(4), 0, dp(4)); // close together, like a list of steps (it was too spread out)
-        t.setMinHeight(dp(30));
+        t.setPadding(dp(28), dp(6), 0, dp(6)); // close together, like a list of steps, yet each easy to tap
+        t.setMinHeight(dp(38));
         t.setGravity(Gravity.CENTER_VERTICAL);
         if (d != null) {
             t.setContentDescription(it.verb + " " + it.target + (open ? ", hide" : ", show"));
@@ -965,6 +1046,9 @@ public final class ChatPane extends LinearLayout {
         time.setPadding(dp(10), 0, 0, 0);
         time.setContentDescription((running ? "running for " : "took ") + duration(secs));
         row.addView(time);
+        if (running) {
+            runningTime = time;
+        }
         return row;
     }
 
@@ -975,7 +1059,7 @@ public final class ChatPane extends LinearLayout {
     private TextView stepLine(String text, boolean done, boolean current) {
         final String words = ai.ibiko.agent.StepDetail.words(text);
         final String id = ai.ibiko.agent.StepDetail.id(text);
-        final ai.ibiko.agent.StepDetail.Detail d = id == null ? null : ai.ibiko.agent.StepDetail.load(getContext().getFilesDir(), id);
+        final ai.ibiko.agent.StepDetail.Detail d = id == null ? null : detail(id);
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder(words);
         if (d != null && d.diff()) {
             appendColoured(b, "  +" + d.added, ai.ibiko.chat.ui.DetailSheet.GREEN);
@@ -1045,7 +1129,7 @@ public final class ChatPane extends LinearLayout {
                 }
             }
             String id = ai.ibiko.agent.StepDetail.id(parts[0]);
-            ai.ibiko.agent.StepDetail.Detail d = id == null ? null : ai.ibiko.agent.StepDetail.load(getContext().getFilesDir(), id);
+            ai.ibiko.agent.StepDetail.Detail d = id == null ? null : detail(id);
             words.add(ai.ibiko.agent.StepDetail.words(parts[0]));
             titles.add(d == null ? null : d.title);
             secs.add(t);
@@ -1184,10 +1268,13 @@ public final class ChatPane extends LinearLayout {
         heldLive = frozen; // setLive(null) must not drop this: the same stream is still writing
         book.reply(writer(), frozen);
     }
+    /** A function line still being written at the end of a streaming reply (built once: it ran on every new word). */
+    private static final java.util.regex.Pattern TRAILING_CODE =
+            java.util.regex.Pattern.compile("(?s)(^|\\n)[*_`>\\s]*[\u00A7\u27E6][^\\n]*$");
+
     public void setLive(String text) {
         // a command code is for DVINE, not the conversation: never typed out, not even while the reply streams
-        String clean = text == null ? null : ai.ibiko.suit.FunctionCode.hidden(text)
-                .replaceFirst("(?s)(^|\\n)[*_`>\\s]*[\u00A7\u27E6][^\\n]*$", "$1");
+        String clean = text == null ? null : TRAILING_CODE.matcher(ai.ibiko.suit.FunctionCode.hidden(text)).replaceFirst("$1");
         String t = clean == null || clean.trim().isEmpty() ? null : clean.trim();
         if (t != null && ai.ibiko.linux.CloneFolder.progressLines(t) >= 1) {
             t = ai.ibiko.linux.CloneFolder.quiet(t);
@@ -1721,6 +1808,69 @@ public final class ChatPane extends LinearLayout {
     public void image(String path) {
         book.add("assistant", "image", path, writer());
         show();
+    }
+
+    /** Pictures being made in the background: a token to its chat id and words. Not kept: work in hand only. */
+    private final java.util.LinkedHashMap<String, String> making = new java.util.LinkedHashMap<String, String>();
+    private int makingSerial;
+
+    /**
+     * A picture is being made in the background: a small card with a turning ring shows where it will appear, and the
+     * chat carries on meanwhile. Returns the token for {@link #madeImage}.
+     */
+    public String makingImage(String what) {
+        String token = "m" + (++makingSerial);
+        making.put(token, book.current().id + "\n" + what);
+        show();
+        return token;
+    }
+
+    /** The picture is ready (path) or failed (null): its card goes and the picture is pasted in its chat. */
+    public void madeImage(String token, String path) {
+        String was = making.remove(token);
+        if (path != null && was != null) {
+            String chat = was.substring(0, was.indexOf('\n'));
+            String here = book.current().id;
+            if (!chat.equals(here) && book.use(chat)) {
+                book.add("assistant", "image", path, writer()); // pasted into the chat it was asked in
+                book.use(here);
+            } else {
+                book.add("assistant", "image", path, writer());
+            }
+        }
+        show();
+    }
+
+    /** True while any picture is being made. */
+    public boolean makingImages() {
+        return !making.isEmpty();
+    }
+
+    private View makingCard(String what) {
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(14), dp(12), dp(16), dp(12));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(color(R.color.code_bg));
+        bg.setCornerRadius(dp(14));
+        bg.setStroke(Math.max(1, dp(1) / 2), color(R.color.line));
+        card.setBackground(bg);
+        android.widget.ProgressBar ring = new android.widget.ProgressBar(getContext());
+        ring.setIndeterminate(true);
+        ring.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(color(R.color.accent)));
+        card.addView(ring, new LayoutParams(dp(22), dp(22)));
+        TextView t = plain("Making the picture: " + (what.length() > 70 ? what.substring(0, 70) + "\u2026" : what));
+        t.setTextSize(13f);
+        t.setTextColor(color(R.color.text_secondary));
+        t.setPadding(dp(12), 0, 0, 0);
+        card.addView(t, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        card.setContentDescription("Making the picture in the background");
+        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(8);
+        lp.gravity = Gravity.START;
+        card.setLayoutParams(lp);
+        return card;
     }
 
     /** Keeps a reply's work (its id in files/work) with the chat; the reply shows it as pills. */

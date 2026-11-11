@@ -13,10 +13,10 @@ import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 
 /**
- * Keeps Ibiko running in the background until the pilot closes it: a quiet notification ("Ibiko is running") with a
- * Close button, and a foreground service the system restarts if it has to stop it. Work, replies, downloads and the
- * shell carry on with the screen off or another app open. Closing: the notification's Close, or swiping Ibiko away
- * from the recent apps. Settings › Advanced › Keep running in the background turns it off.
+ * Keeps Ibiko working in the background while it has work: a reply being written, a clone, a download. One quiet
+ * notification says what is going on (with its bar) and has a Close button; when the work ends the service stops and
+ * the notification goes. Idle, nothing runs and nothing shows: there is no work to keep, and the chats are saved.
+ * Closing: the notification's Close, or swiping Ibiko away from the recent apps. Settings › Coding turns it off.
  */
 public final class KeepAlive extends Service {
     static final String CHANNEL = "running";
@@ -50,15 +50,35 @@ public final class KeepAlive extends Service {
      * bar, -2 no bar. False when Ibiko isn't running in the background: the caller shows its own notification then.
      */
     public static boolean status(Context c, String key, String title, String line, int percent) {
-        if (!running) {
+        if (!allowed(c)) {
             return false;
         }
+        mark(key, title, line, percent);
+        if (running) {
+            refresh(c);
+            return true;
+        }
+        if (start(c)) {
+            return true;
+        }
+        synchronized (now) {
+            now.remove(key);
+        }
+        return false;
+    }
+
+    /** Records work without starting this service (a service that is in front already shows the one notification). */
+    public static void mark(String key, String title, String line, int percent) {
         synchronized (now) {
             now.remove(key);
             now.put(key, new Status(title, line, percent));
         }
-        refresh(c);
-        return true;
+    }
+
+    static boolean idle() {
+        synchronized (now) {
+            return now.isEmpty();
+        }
     }
 
     /** The work under {@code key} ended: the notification goes back to the next thing, or to "Ibiko is running". */
@@ -67,7 +87,20 @@ public final class KeepAlive extends Service {
         synchronized (now) {
             had = now.remove(key) != null;
         }
-        if (had && running) {
+        if (!had) {
+            return;
+        }
+        if (idle()) {
+            // nothing left to keep: the service stops and its notification goes
+            if (running) {
+                stop(c);
+            }
+            try {
+                c.getSystemService(NotificationManager.class).cancel(NOTE);
+            } catch (RuntimeException ignored) {
+                // nothing to cancel
+            }
+        } else if (running) {
             refresh(c);
         }
     }
@@ -84,16 +117,22 @@ public final class KeepAlive extends Service {
         }
     }
 
-    /** Starts it (from a screen in front): only while the setting is on. */
-    public static void start(Context c) {
+    /** Whether work may be kept running in the background: the setting is on and the pilot hasn't closed Ibiko. */
+    static boolean allowed(Context c) {
         SharedPreferences p = c.getSharedPreferences("dvine", Context.MODE_PRIVATE);
-        if (!p.getBoolean(PREF, true) || p.getBoolean("closed_by_pilot", false)) {
-            return;
+        return p.getBoolean(PREF, true) && !p.getBoolean("closed_by_pilot", false);
+    }
+
+    /** Starts it for work in hand; false when it may not run (the setting is off, or not allowed from here). */
+    static boolean start(Context c) {
+        if (!allowed(c)) {
+            return false;
         }
         try {
             c.startForegroundService(new Intent(c, KeepAlive.class));
+            return true;
         } catch (RuntimeException e) {
-            // not allowed from here (the app is not in front): the next time a screen opens starts it
+            return false; // not allowed from here (the app is not in front)
         }
     }
 
@@ -102,10 +141,9 @@ public final class KeepAlive extends Service {
         c.stopService(new Intent(c, KeepAlive.class));
     }
 
-    /** Opening Ibiko again clears an earlier Close. */
+    /** Opening Ibiko again clears an earlier Close. Nothing starts: the service runs only while there is work. */
     public static void opened(Context c) {
         c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putBoolean("closed_by_pilot", false).apply();
-        start(c);
     }
 
     @Override
@@ -117,18 +155,27 @@ public final class KeepAlive extends Service {
         channel(this);
         try {
             startForeground(NOTE, note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-            running = true;
         } catch (RuntimeException e) {
             stopSelf(); // not allowed to run in front now: nothing held
             return START_NOT_STICKY;
         }
-        // stopped by the system (memory): started again when it can
-        return START_STICKY;
+        if (idle()) {
+            // the work ended before it started (or the system restarted it with none): nothing to keep
+            running = false;
+            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        running = true;
+        return START_NOT_STICKY; // only for work in hand: never restarted idle
     }
 
     /** The notification's Close: every screen closes, the service stops, and nothing starts it until Ibiko is opened. */
     private void close() {
         running = false;
+        synchronized (now) {
+            now.clear();
+        }
         getSharedPreferences("dvine", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
         sendBroadcast(new Intent(CLOSED).setPackage(getPackageName()));
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -156,9 +203,9 @@ public final class KeepAlive extends Service {
         return null;
     }
 
-    static void channel(Context c) {
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "Ibiko running", NotificationManager.IMPORTANCE_MIN);
-        ch.setDescription("Shown while Ibiko keeps running in the background");
+    public static void channel(Context c) {
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "Ibiko working", NotificationManager.IMPORTANCE_MIN);
+        ch.setDescription("Shown only while Ibiko works in the background: what it is doing");
         ch.setShowBadge(false);
         c.getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
@@ -185,7 +232,7 @@ public final class KeepAlive extends Service {
                 .setSmallIcon(ai.ibiko.R.drawable.ic_launcher_monochrome) // the eyes, in one colour
                 .setOnlyAlertOnce(true);
         if (top == null) {
-            b.setContentTitle("Ibiko is running").setContentText("Ready in the background. Tap to open.");
+            b.setContentTitle("Ibiko is working").setContentText("Tap to open.");
         } else {
             b.setContentTitle(top.percent >= 0 ? top.title + " \u00B7 " + top.percent + "%" : top.title)
                     .setContentText(top.line);

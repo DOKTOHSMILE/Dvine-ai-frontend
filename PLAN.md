@@ -1,3 +1,15 @@
+# A smaller MainActivity; Settings as screens; pictures in the background (0.99.95)
+
+- [x] MainActivity: ImageTurn, VoiceWiring, ModelWords, WritingTurns, ThinkTurns, ShellTurn, FileTurns moved out.
+- [x] Settings: each section its own Activity with its own XML layout.
+- [x] Pictures made in the background, pasted into their chat when done.
+- [x] No idle "Ibiko is running": the service and its notification only while work runs.
+- [x] Steps sheet: details cached, the tick moves only the running time; larger text.
+- [x] Ibiko 1 follows the web look-ups and learning settings.
+- [ ] MainActivity: onCreate's wiring and the turn loop into classes of their own.
+- [ ] The Speak button: a hands-free voice conversation.
+- [ ] An image model choice in Settings › Models.
+
 # A steady voice; Ibiko's own design board; the face and the player (0.99.94)
 
 - [x] Only sayable words reach the voice; each sentence made whole before it plays.

@@ -48,7 +48,7 @@ public class SettingsLayoutTest {
         // the section opens on its own page, built only then
         android.content.Intent page = org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity();
         assertEquals("Advanced", page.getStringExtra(SettingsActivity.EXTRA_SECTION));
-        ActivityController<SettingsActivity> p = Robolectric.buildActivity(SettingsActivity.class, page).create().start().resume().visible();
+        ActivityController<SettingsActivity> p = Robolectric.buildActivity(SettingsActivity.screen(page), page).create().start().resume().visible();
         ShadowLooper.idleMainLooper();
         View proot = p.get().getWindow().getDecorView();
         found.clear();
