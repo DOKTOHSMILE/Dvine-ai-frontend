@@ -22,10 +22,8 @@ import java.util.Set;
 public final class Codes {
     /** id → the sentence. */
     private final Map<String, String> text = new LinkedHashMap<String, String>();
-    /** tag → the ids filed under it. */
-    private final Map<String, List<String>> byTag = new HashMap<String, List<String>>();
-    /** id → its tags. */
-    private final Map<String, Set<String>> tagsOf = new HashMap<String, Set<String>>();
+    /** tag id ({@link Symbols}) → the sentence ids filed under it: found by number, not by spelling. */
+    private final Map<Integer, List<String>> byTag = new HashMap<Integer, List<String>>();
 
     /** Words that say nothing about the subject. */
     static final Set<String> SMALL = new HashSet<String>(java.util.Arrays.asList(("a an the and or but if then so to of in on"
@@ -92,9 +90,8 @@ public final class Codes {
             return;
         }
         text.put(id, sentence);
-        tagsOf.put(id, tags);
         for (String t : tags) {
-            byTag.computeIfAbsent(t, k -> new ArrayList<String>()).add(id);
+            byTag.computeIfAbsent(Symbols.id(t), k -> new ArrayList<String>()).add(id);
         }
     }
 
@@ -120,7 +117,7 @@ public final class Codes {
 
     /** The ids filed under a tag. */
     public synchronized List<String> ids(String tag) {
-        List<String> l = byTag.get(stem(tag.toLowerCase(Locale.US)));
+        List<String> l = byTag.get(Symbols.known(stem(tag.toLowerCase(Locale.US))));
         return l == null ? new ArrayList<String>() : new ArrayList<String>(l);
     }
 
@@ -135,7 +132,7 @@ public final class Codes {
         Map<String, Integer> shared = new HashMap<String, Integer>();
         double all = Math.max(1, text.size());
         for (String t : want) {
-            List<String> ids = byTag.get(t);
+            List<String> ids = byTag.get(Symbols.known(t)); // the question's words as ids: a word never filed finds nothing
             if (ids == null) {
                 continue;
             }

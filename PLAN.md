@@ -1,3 +1,9 @@
+# The mind works by ids (0.99.115)
+
+- [x] learn/Symbols: word ids kept for good (files/brain/words.tsv).
+- [x] learn/Identifier: text into sentence and word ids and back; conversations saved as ids per chat.
+- [x] Facts, BrainBox, BuiltIn and Codes look up by id; same answers, a fraction of the reading.
+
 # Workers on every task; thinking in probabilities (0.99.114)
 
 - [x] Workers always on; a one-part job gets a checker; the setting sets how many run at once.

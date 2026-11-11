@@ -335,6 +335,15 @@ public final class ChatBook {
         if (!"user".equals(role) && "text".equals(kind) && ReplyText.repeats(lastAnswer(s), body)) {
             return; // the same answer twice in one turn (a progress note, then the result): shown once
         }
+        if ("text".equals(kind) && file != null) {
+            String chatId = s.group != null ? s.group : s.id;
+            // identified and saved as ids too (learn/Identifier): every sentence its id, every word its id
+            Message m = new Message(role, kind, body, persona);
+            s.messages.add(m);
+            ai.ibiko.learn.Identifier.save(file.getParentFile(), chatId, role, m.id, body);
+            save();
+            return;
+        }
         if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
                 || "html".equals(kind) || "text".equals(kind) || "activity".equals(kind) || "step".equals(kind) || "file".equals(kind)
                 || "work".equals(kind) || "handoff".equals(kind)) {
@@ -379,6 +388,9 @@ public final class ChatBook {
                 continue;
             }
             page.messages.add(m);
+            if ("text".equals(m.kind) && file != null) {
+                ai.ibiko.learn.Identifier.save(file.getParentFile(), page.group != null ? page.group : page.id, "assistant", m.id, m.body);
+            }
             wrote = true;
         }
         if (wrote) {
