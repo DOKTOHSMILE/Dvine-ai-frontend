@@ -1,3 +1,8 @@
+# A clone is not stopped at 3 minutes (0.99.81)
+
+- [x] Git clone (and apk, wget, curl) may run for 2 hours. The shell is not a terminal, so git prints nothing while it fetches, and the old clock killed it at 3 minutes with an empty card.
+- [x] Any other command still stops after 3 minutes of silence. Output keeps it going, up to 2 hours.
+
 # First-start download; Ibiko 1 runs code and the app (0.99.80)
 
 - [x] ConceptNet out of the app, downloaded on the first start as "Downloading app files"; no opening without it.

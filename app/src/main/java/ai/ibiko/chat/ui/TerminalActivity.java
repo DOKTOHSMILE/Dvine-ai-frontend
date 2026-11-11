@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import ai.ibiko.linux.AlpineRun;
+import ai.ibiko.linux.CommandWait;
 import ai.ibiko.linux.Complete;
 import ai.ibiko.linux.Guest;
 import ai.ibiko.linux.LinuxHub;
@@ -801,10 +802,12 @@ public final class TerminalActivity extends AppCompatActivity {
             return;
         }
         final long began = System.currentTimeMillis();
+        final long budget = CommandWait.ms(line);
         new Thread(() -> {
             long seen = 0;
+            long deadline = began + budget;
             boolean ended = false;
-            while (!closed && !pipeStop && System.currentTimeMillis() - began < 180000) {
+            while (!closed && !pipeStop && System.currentTimeMillis() < deadline) {
                 try {
                     if (out.isFile()) {
                         java.io.RandomAccessFile raf = new java.io.RandomAccessFile(out, "r");
@@ -815,6 +818,8 @@ public final class TerminalActivity extends AppCompatActivity {
                                 int n = raf.read(buf);
                                 if (n > 0) {
                                     seen += n;
+                                    deadline = Math.min(began + CommandWait.LONG_MS,
+                                            Math.max(deadline, System.currentTimeMillis() + CommandWait.SHORT_MS));
                                     String more = new String(buf, 0, n, java.nio.charset.StandardCharsets.UTF_8);
                                     runOnUiThread(() -> {
                                         if (!closed) {
