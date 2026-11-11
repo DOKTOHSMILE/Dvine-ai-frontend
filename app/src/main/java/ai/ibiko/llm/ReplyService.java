@@ -1,9 +1,5 @@
 package ai.ibiko.llm;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -11,7 +7,6 @@ import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.os.PowerManager;
 
-import ai.ibiko.R;
 
 /**
  * Keeps the phone from freezing the brain while a reply is being written and the app is not on screen.
@@ -20,8 +15,6 @@ import ai.ibiko.R;
 public final class ReplyService extends Service {
     static final String ACTION_START = "ai.ibiko.action.KEEP_THINKING";
     static final String ACTION_STOP = "ai.ibiko.action.STOP_THINKING";
-    private static final String CHANNEL = "reply";
-    private static final int NOTE = 7003;
 
     private PowerManager.WakeLock wake;
     /** Keeps Wi-Fi awake too while a reply is on its way, so a minimised app doesn't lose the connection. */
@@ -79,22 +72,18 @@ public final class ReplyService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        channel(this);
+        ai.ibiko.main.KeepAlive.channel(this);
         boolean stopping = intent != null && ACTION_STOP.equals(intent.getAction());
-        // one notification only: while Ibiko runs in the background its own notification says "Ibiko is thinking"
-        boolean shared = ai.ibiko.main.KeepAlive.running();
-        if (shared && !stopping) {
-            ai.ibiko.main.KeepAlive.status(this, "reply", "Ibiko is thinking", "The reply will be in the chat when you come back.", -2);
+        // one notification only, shared with the background work's (main/KeepAlive): "Ibiko is thinking"
+        if (!stopping) {
+            ai.ibiko.main.KeepAlive.mark("reply", "Ibiko is thinking", "The reply will be in the chat when you come back.", -2);
         }
-        if (shared) {
-            startForeground(ai.ibiko.main.KeepAlive.NOTE_ID, ai.ibiko.main.KeepAlive.note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        } else {
-            startForeground(NOTE, note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        }
+        startForeground(ai.ibiko.main.KeepAlive.NOTE_ID, ai.ibiko.main.KeepAlive.note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         if (stopping) {
             unlock();
+            boolean shared = ai.ibiko.main.KeepAlive.running();
             ai.ibiko.main.KeepAlive.done(this, "reply");
-            stopForeground(shared ? STOP_FOREGROUND_DETACH : STOP_FOREGROUND_REMOVE);
+            stopForeground(shared && ai.ibiko.main.KeepAlive.running() ? STOP_FOREGROUND_DETACH : STOP_FOREGROUND_REMOVE);
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -131,32 +120,5 @@ public final class ReplyService extends Service {
             wifi.release();
         }
         wifi = null;
-    }
-
-    private static void channel(Context c) {
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "Reply", NotificationManager.IMPORTANCE_LOW);
-        ch.setDescription("Shown while Ibiko is still writing a reply");
-        ch.setShowBadge(false);
-        c.getSystemService(NotificationManager.class).createNotificationChannel(ch);
-    }
-
-    private static Notification note(Context c) {
-        Intent open = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
-        if (open == null) {
-            open = new Intent();
-        }
-        open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent tap = PendingIntent.getActivity(c, 2, open,
-                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        return new Notification.Builder(c, CHANNEL)
-                .setSmallIcon(R.drawable.ic_stat_download)
-                .setContentTitle("Ibiko is thinking")
-                .setContentText("The reply will be in the chat when you come back.")
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .setCategory(Notification.CATEGORY_PROGRESS)
-                .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-                .setContentIntent(tap)
-                .build();
     }
 }

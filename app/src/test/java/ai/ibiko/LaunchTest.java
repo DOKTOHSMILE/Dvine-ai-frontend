@@ -309,7 +309,7 @@ public class LaunchTest {
             android.content.Intent page = org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity();
             org.junit.Assert.assertEquals("Models", page.getStringExtra(ai.ibiko.chat.ui.SettingsActivity.EXTRA_SECTION));
             c.pause().stop().destroy();
-            c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.class, page).create().start().resume().visible();
+            c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.screen(page), page).create().start().resume().visible();
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
             found.clear();
             c.get().getWindow().getDecorView().findViewsWithText(found, "Change the offline model", android.view.View.FIND_VIEWS_WITH_TEXT);

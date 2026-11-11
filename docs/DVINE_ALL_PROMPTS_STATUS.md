@@ -292,7 +292,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 259 | All voices the same, no fallback; a floating play control | P12 | Built (no device-voice fallback; PlayerBar with play/pause, 15 s back and forward, speed, time, close) | 0.99.92 |
 | 260 | A tap on a part shows only its Listen and Copy | P12 | Built | 0.99.92 |
 | 261 | Near the bottom, keep the chat at the bottom as new text comes | P12 | Built (within 120 dp it follows; scrolled up it stays) | 0.99.92 |
-| 262 | Settings as their own fragments or activity files with XML; the Speak button (screenshot) | P12 | Next (0.99.95) | |
+| 262 | Settings as their own fragments or activity files with XML; the Speak button (screenshot) | P12 | Partial (Settings: 13 Activities, each with its own XML, 0.99.95; the Speak button next) | 0.99.95 |
 | 263 | Why is the response cut | P12 | Fixed (a reply cut by its length limit is carried on, whatever the limit) | 0.99.93 |
 | 264 | Not every generation is 3D: remove 3D entirely; image generation from the API and other brains; an image tool in the app | P12 | Built (3D removed from functions, tools, routes and prompts; ImageMaker and §IM for every brain) | 0.99.93 |
 | 265 | The app icon background should match the app's colour | P12 | Done (the accent purple) | 0.99.93 |
@@ -304,6 +304,12 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 271 | The player: a loading ring while the voice starts, buttons spaced, sitting down by the Tools row | P12 | Built | 0.99.94 |
 | 272 | The process sheet rows are too far apart | P12 | Fixed (rows closer together) | 0.99.94 |
 | 273 | Too many hanging notifications | P12 | Fixed (one notification while Ibiko runs; thinking and downloads show inside it) | 0.99.94 |
+| 274 | Split the MainActivity god class; move methods to classes | P12 | Partial (6,262 to 5,430 lines; seven classes; onCreate and the turn loop next) | 0.99.95 |
+| 275 | Boost speed and efficiency across the app | P12 | Built (steps sheet cached and ticked in place; no idle background service; patterns built once) | 0.99.95 |
+| 276 | Image generation in the background, pasted when complete | P12 | Built | 0.99.95 |
+| 277 | Is "Ibiko is running" necessary? If not, remove it | P12 | Removed (a notification only while work runs) | 0.99.95 |
+| 278 | Processing sheet: larger text, easy to tap | P12 | Built | 0.99.95 |
+| 279 | Does Settings apply to Ibiko 1? | P12 | Fixed (web look-ups and learning now apply to it too) | 0.99.95 |
 
 ## Still open, in the order that matters
 

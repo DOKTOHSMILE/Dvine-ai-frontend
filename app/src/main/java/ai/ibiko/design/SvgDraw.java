@@ -474,11 +474,13 @@ public final class SvgDraw {
         }
     }
 
+    private static final Pattern NUM = Pattern.compile("^\\s*([-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?)");
+
     static float num(String v, float fallback) {
         if (v == null) {
             return fallback;
         }
-        Matcher m = Pattern.compile("^\\s*([-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?)").matcher(v);
+        Matcher m = NUM.matcher(v);
         return m.find() ? Float.parseFloat(m.group(1)) : fallback;
     }
 
