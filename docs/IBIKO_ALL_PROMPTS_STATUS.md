@@ -338,6 +338,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 305 | Make the speech while the message shows, keep it, clear it after a while, make it again when wanted | P12 | Built (voice/SpeechCache: one day, 60 MB; made again on Listen after that) | 0.99.103 |
 | 306 | Models page: list every model; Use and Test for downloaded ones, Download for the rest | P12 | Built (always listed; Test on any downloaded model) | 0.99.103 |
 | 307 | Test is faster than chat: use the same simple channel for chat; prepare the model ahead as the voice is | P12 | Built (everyday messages skip the extras; the model loads and reads its instructions while you type) | 0.99.103 |
+| 308 | Several models in the model menu: add, switch when wanted; an Edit button beside the model in use | P12 | Built (every model kept for a provider listed; Add a model; Edit opens that provider) | 0.99.104 |
 
 ## Still open, in the order that matters
 

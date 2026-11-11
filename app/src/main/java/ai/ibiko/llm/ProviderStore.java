@@ -155,6 +155,68 @@ public final class ProviderStore {
         return prefs.getString(p.name() + ".model", p.model);
     }
 
+    /**
+     * Every model the user keeps for this provider, the one in use first: the brain picker lists them all, so the user
+     * switches between them with one tap. Kept as one line, separated by commas.
+     */
+    public java.util.List<String> models(Providers p) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<String>();
+        String now = model(p);
+        if (now != null && !now.trim().isEmpty()) {
+            out.add(now.trim());
+        }
+        for (String m : prefs.getString(p.name() + ".models", "").split(",")) {
+            if (!m.trim().isEmpty()) {
+                out.add(m.trim());
+            }
+        }
+        return new java.util.ArrayList<String>(out);
+    }
+
+    /** Keeps {@code model} in this provider's list (nothing if it is there or empty). True when it was added. */
+    public boolean addModel(Providers p, String model) {
+        String m = model == null ? "" : model.trim().replace(",", "");
+        java.util.List<String> all = models(p);
+        if (m.isEmpty() || all.contains(m)) {
+            return false;
+        }
+        all.add(m);
+        keepModels(p, all);
+        return true;
+    }
+
+    /** Takes {@code model} off this provider's list; the model in use stays (switch first). */
+    public void removeModel(Providers p, String model) {
+        java.util.List<String> all = models(p);
+        if (model == null || model.equals(model(p))) {
+            return;
+        }
+        all.remove(model);
+        keepModels(p, all);
+    }
+
+    /** Answers with {@code model} from now on; the one it replaces stays on the list, to switch back to. */
+    public void useModel(Providers p, String model) {
+        String m = model == null ? "" : model.trim();
+        if (m.isEmpty() || m.equals(model(p))) {
+            return;
+        }
+        java.util.List<String> all = models(p);
+        if (!all.contains(m)) {
+            all.add(m);
+        }
+        prefs.edit().putString(p.name() + ".model", m).apply();
+        keepModels(p, all);
+    }
+
+    private void keepModels(Providers p, java.util.List<String> all) {
+        StringBuilder b = new StringBuilder();
+        for (String m : all) {
+            b.append(b.length() == 0 ? "" : ",").append(m);
+        }
+        prefs.edit().putString(p.name() + ".models", b.toString()).apply();
+    }
+
     /** The fast model for simple questions; empty means the main model answers everything. */
     public String fastModel(Providers p) {
         return prefs.getString(p.name() + ".fast", p.fast);
@@ -276,6 +338,11 @@ public final class ProviderStore {
     public void save(Providers p, String address, String model, String key, String backup, String ca) {
         boolean changed = !RemoteBrain.normalise(address).equals(RemoteBrain.normalise(address(p))) || !model.trim().equals(model(p))
                 || !key.trim().equals(key(p)) || !ca.trim().equals(certificate(p));
+        if (!model.trim().isEmpty() && !model.trim().equals(model(p))) {
+            java.util.List<String> all = models(p); // the model it replaces stays on the list, to switch back to
+            all.add(model.trim());
+            keepModels(p, all);
+        }
         SharedPreferences.Editor e = prefs.edit()
                 .putString(p.name() + ".address", RemoteBrain.normalise(address))
                 .putString(p.name() + ".model", model.trim())
@@ -295,7 +362,7 @@ public final class ProviderStore {
     /** Forgets this provider's keys and settings. */
     public void clear(Providers p) {
         SharedPreferences.Editor e = prefs.edit();
-        for (String f : new String[]{"address", "model", "fast", "key", "backup", "ca", "ok", "window", "vision", "reasoning", "max_out",
+        for (String f : new String[]{"address", "model", "models", "fast", "key", "backup", "ca", "ok", "window", "vision", "reasoning", "max_out",
                 "timeout", "extra"}) {
             e.remove(p.name() + "." + f);
         }

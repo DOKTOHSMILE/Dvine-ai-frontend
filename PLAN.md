@@ -1,3 +1,9 @@
+# Several API models in the model menu; Edit beside the one in use (0.99.104)
+
+- [x] ProviderStore keeps a list of models a provider; switching keeps the old one on the list.
+- [x] The model menu lists every kept model; one tap switches; "Add a model"; long press takes one off.
+- [x] Edit beside "In use" opens that provider's settings.
+
 # A child's voice; reply audio made ahead; the Models list; a faster device model in chat (0.99.103)
 
 - [x] "A child's voice": Kokoro's Sky with the pitch raised at playback (Kokoro has no child speaker).

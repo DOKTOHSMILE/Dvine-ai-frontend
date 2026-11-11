@@ -103,13 +103,40 @@ final class ModelMenu {
             list.addView(brainHeader("API models"));
             for (int i = 0; i < apis.size(); i++) {
                 final ai.ibiko.llm.Providers p = apis.get(i);
-                boolean on = "api".equals(pick) && i == 0;
-                list.addView(brainRow(providers.model(p), p.title + (i == 0 ? " \u00B7 primary" : " \u00B7 backup"), on, () -> {
-                    providers.setActive(p);
-                    a.prefs.edit().putString("brain_pick", "api").apply();
-                    a.applyProvider();
-                    sheet[0].dismiss();
-                }));
+                final String now = providers.model(p);
+                // every model kept for this provider: one tap switches, the one in use has Edit beside it
+                for (final String m : providers.models(p)) {
+                    boolean on = "api".equals(pick) && i == 0 && m.equals(now);
+                    String about = p.title + (m.equals(now) ? (i == 0 ? " \u00B7 primary" : " \u00B7 backup") : "");
+                    android.view.View row = brainRow(m, about, on, () -> {
+                        providers.useModel(p, m);
+                        providers.setActive(p);
+                        a.prefs.edit().putString("brain_pick", "api").apply();
+                        a.applyProvider();
+                        sheet[0].dismiss();
+                    }, m.equals(now) ? () -> {
+                        sheet[0].dismiss();
+                        a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.ProvidersActivity.class)
+                                .putExtra(ai.ibiko.chat.ui.ProvidersActivity.EXTRA_PROVIDER, p.name()));
+                    } : null);
+                    if (!m.equals(now)) {
+                        row.setOnLongClickListener(v -> {
+                            new androidx.appcompat.app.AlertDialog.Builder(a)
+                                    .setMessage("Take " + m + " off the list? You can add it again any time.")
+                                    .setPositiveButton("Take off", (d, w) -> {
+                                        providers.removeModel(p, m);
+                                        sheet[0].dismiss();
+                                        showModelSwitch();
+                                    })
+                                    .setNegativeButton("Cancel", null)
+                                    .show();
+                            return true;
+                        });
+                    }
+                    list.addView(row);
+                }
+                list.addView(brainLink("Add a " + p.title + " model", "Another model with the same key; switch to it here any time",
+                        () -> addModel(providers, p, sheet[0])));
             }
         }
         boolean anyHere = false;
@@ -164,6 +191,53 @@ final class ModelMenu {
      * what it is; the row in use is tinted with an accent edge and says "In use", so it can't be missed.
      */
     android.view.View brainRow(String name, String about, boolean selected, final Runnable pick) {
+        return brainRow(name, about, selected, pick, null);
+    }
+
+    /** Asks for a model name (or one of the provider's suggestions), keeps it on the list and switches to it. */
+    void addModel(final ai.ibiko.llm.ProviderStore providers, final ai.ibiko.llm.Providers p, final android.app.Dialog sheet) {
+        android.widget.LinearLayout box = new android.widget.LinearLayout(a);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setPadding(a.dp(20), a.dp(8), a.dp(20), 0);
+        final android.widget.EditText name = new android.widget.EditText(a);
+        name.setHint("Model name, as " + p.title + " writes it");
+        name.setSingleLine(true);
+        box.addView(name);
+        java.util.List<String> have = providers.models(p);
+        for (final String m : p.suggestions()) {
+            if (have.contains(m)) {
+                continue;
+            }
+            android.widget.TextView chip = new android.widget.TextView(a);
+            chip.setText(m);
+            chip.setTextSize(14f);
+            chip.setTextColor(a.getColor(R.color.accent));
+            chip.setPadding(a.dp(4), a.dp(10), a.dp(4), a.dp(10));
+            chip.setOnClickListener(v -> name.setText(m));
+            box.addView(chip);
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(a)
+                .setTitle("Add a " + p.title + " model")
+                .setView(box)
+                .setPositiveButton("Add and use", (d, w) -> {
+                    String m = name.getText().toString().trim();
+                    if (m.isEmpty()) {
+                        return;
+                    }
+                    providers.addModel(p, m);
+                    providers.useModel(p, m);
+                    providers.setActive(p);
+                    a.prefs.edit().putString("brain_pick", "api").apply();
+                    a.applyProvider();
+                    sheet.dismiss();
+                    a.note("Now answering with " + m + ". Switch back from the model menu any time.");
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** As above; {@code edit} (when not null) puts an Edit button beside "In use", to change that model's settings. */
+    android.view.View brainRow(String name, String about, boolean selected, final Runnable pick, final Runnable edit) {
         android.widget.LinearLayout row = new android.widget.LinearLayout(a);
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(a.dp(12), a.dp(12), a.dp(12), a.dp(12));
@@ -227,6 +301,24 @@ final class ModelMenu {
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
             ip.leftMargin = a.dp(8);
             row.addView(inUse, ip);
+        }
+        if (edit != null) {
+            android.widget.TextView change = new android.widget.TextView(a);
+            change.setText("Edit");
+            change.setTextSize(14f);
+            change.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            change.setTextColor(accent);
+            android.graphics.drawable.GradientDrawable ring = new android.graphics.drawable.GradientDrawable();
+            ring.setCornerRadius(a.dp(10));
+            ring.setStroke(a.dp(1), accent);
+            change.setBackground(ring);
+            change.setPadding(a.dp(10), a.dp(4), a.dp(10), a.dp(4));
+            change.setContentDescription("Edit " + name);
+            change.setOnClickListener(v -> edit.run());
+            android.widget.LinearLayout.LayoutParams ep = new android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            ep.leftMargin = a.dp(8);
+            row.addView(change, ep);
         }
         row.setContentDescription(name + (selected ? ", in use" : ""));
         row.setOnClickListener(v -> pick.run());

@@ -16,6 +16,29 @@ import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35)
 public class ProviderOrderTest {
+    /** Several models a provider: added, switched between (the old one stays), taken off; the one in use can't be. */
+    @Test
+    public void manyModelsAProviderSwitchedWithOneTap() {
+        ProviderStore s = new ProviderStore(RuntimeEnvironment.getApplication());
+        Providers p = Providers.OPENAI;
+        String first = s.model(p);
+        assertEquals(Arrays.asList(first), s.models(p));
+        assertTrue(s.addModel(p, "gpt-6-luna"));
+        assertFalse(s.addModel(p, "gpt-6-luna")); // once
+        assertFalse(s.addModel(p, "  "));
+        s.useModel(p, "gpt-6-luna");
+        assertEquals("gpt-6-luna", s.model(p));
+        assertEquals(Arrays.asList("gpt-6-luna", first), s.models(p)); // in use first, the old one kept
+        s.removeModel(p, "gpt-6-luna"); // in use: stays
+        assertEquals(2, s.models(p).size());
+        s.removeModel(p, first);
+        assertEquals(Arrays.asList("gpt-6-luna"), s.models(p));
+        s.useModel(p, "gpt-6.1-sol"); // a new name is kept too
+        assertEquals(Arrays.asList("gpt-6.1-sol", "gpt-6-luna"), s.models(p));
+        s.clear(p);
+        assertEquals(Arrays.asList(s.model(p)), s.models(p));
+    }
+
     @Test
     public void primaryThenBackupsAtMostThree() {
         ProviderStore s = new ProviderStore(RuntimeEnvironment.getApplication());
