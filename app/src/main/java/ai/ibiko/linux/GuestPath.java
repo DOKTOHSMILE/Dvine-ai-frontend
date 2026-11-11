@@ -15,6 +15,12 @@ public final class GuestPath {
             return "/workspace";
         }
         String path = dir.getAbsolutePath().replace('\\', '/');
+        java.io.File chat = ai.ibiko.main.ChatSpace.chatOf(dir);
+        if (chat != null) {
+            // a chat's command runs with only that chat's folder mounted at /workspace
+            String rest = path.substring(chat.getAbsolutePath().replace('\\', '/').length());
+            return "/workspace" + rest;
+        }
         String workspace = map(path, "/ibiko", "/workspace");
         if (workspace != null) {
             return workspace;

@@ -15,20 +15,20 @@ import org.junit.Test;
 public class ProjectBackupsTest {
     @Test
     public void onlyThisProjectsNotesAndRecordMayBeRead() {
-        String bp = ".blueprint/shop-app", rec = "memory/projects/section-shop";
+        String bp = ".blueprint/shop-app", rec = "memory/records/section-shop";
         assertNull(CodeAgent.othersRecord(".blueprint/shop-app/MAP.md", bp, rec));
-        assertNull(CodeAgent.othersRecord("memory/projects/section-shop/RECORD.md", bp, rec));
+        assertNull(CodeAgent.othersRecord("memory/records/section-shop/RECORD.md", bp, rec));
         assertNull("the project's own code", CodeAgent.othersRecord("shop-app/src/Main.java", bp, rec));
         assertNotNull(CodeAgent.othersRecord(".blueprint/bank-app/SURVEY.md", bp, rec));
-        assertNotNull(CodeAgent.othersRecord("memory/projects/section-bank/RECORD.md", bp, rec));
+        assertNotNull(CodeAgent.othersRecord("memory/records/section-bank/RECORD.md", bp, rec));
         assertNotNull(CodeAgent.othersRecord("memory/tasks/42.json", bp, rec));
-        assertNotNull("no record of its own: none may be read", CodeAgent.othersRecord("memory/projects/x/RECORD.md", bp, null));
+        assertNotNull("no record of its own: none may be read", CodeAgent.othersRecord("memory/records/x/RECORD.md", bp, null));
     }
 
     private static File workspace() throws Exception {
         File ws = Files.createTempDirectory("ws").toFile();
         for (String p : new String[] {"shop-app/src/Main.java", ".blueprint/shop-app/MAP.md", ".blueprint/bank-app/MAP.md",
-                "memory/projects/section-shop/RECORD.md", "memory/projects/section-bank/RECORD.md", "memory/tasks/1.json"}) {
+                "memory/records/section-shop/RECORD.md", "memory/records/section-bank/RECORD.md", "memory/tasks/1.json"}) {
             File f = new File(ws, p);
             f.getParentFile().mkdirs();
             Files.write(f.toPath(), ("secret of " + p + "\n").getBytes("UTF-8"));
@@ -40,13 +40,13 @@ public class ProjectBackupsTest {
     public void anAgentOnOneProjectCannotOpenListOrSearchAnothersBackups() throws Exception {
         File ws = workspace();
         CodeAgent a = new CodeAgent(ws, (s, t) -> null, new CodeAgentTestHelper.Quiet(), "", 20_000)
-                .ownRecord("memory/projects/section-shop/RECORD.md");
+                .ownRecord("memory/records/section-shop/RECORD.md");
         java.lang.reflect.Field bp = CodeAgent.class.getDeclaredField("ownBlueprint");
         bp.setAccessible(true);
         bp.set(a, ".blueprint/shop-app");
         assertTrue(a.inside(".blueprint/shop-app/MAP.md").isFile());
-        assertTrue(a.inside("memory/projects/section-shop/RECORD.md").isFile());
-        for (String other : new String[] {".blueprint/bank-app/MAP.md", "memory/projects/section-bank/RECORD.md", "memory/tasks/1.json",
+        assertTrue(a.inside("memory/records/section-shop/RECORD.md").isFile());
+        for (String other : new String[] {".blueprint/bank-app/MAP.md", "memory/records/section-bank/RECORD.md", "memory/tasks/1.json",
                 "shop-app/../.blueprint/bank-app/MAP.md"}) {
             try {
                 a.inside(other);
@@ -73,20 +73,20 @@ public class ProjectBackupsTest {
     @Test
     public void aClonedRepositoryInTheProjectsFolderIsCodeNotARecord() {
         java.util.function.Predicate<String> clone = name -> name.equals("Dvine-ai-frontend");
-        String bp = ".blueprint/workspace", rec = "memory/projects/workspace";
+        String bp = ".blueprint/workspace", rec = "memory/records/workspace";
         assertNull("the repository the agent cloned is read",
-                CodeAgent.othersRecord("memory/projects/Dvine-ai-frontend/app/build.gradle", bp, rec, clone));
-        assertNull(CodeAgent.othersRecord("memory/projects/Dvine-ai-frontend", bp, rec, clone));
-        assertNotNull("its record stays private to its own project",
-                CodeAgent.othersRecord("memory/projects/Dvine-ai-frontend/RECORD.md", bp, rec, clone));
+                CodeAgent.othersRecord("repos/Dvine-ai-frontend/app/build.gradle", bp, rec, clone));
+        assertNull(CodeAgent.othersRecord("repos/Dvine-ai-frontend", bp, rec, clone));
+        assertNull("a repository's files are code: records are apart, in memory/records",
+                CodeAgent.othersRecord("repos/Dvine-ai-frontend/RECORD.md", bp, rec, clone));
         assertNotNull("another project's record folder is still refused",
-                CodeAgent.othersRecord("memory/projects/bank-app/RECORD.md", bp, rec, clone));
+                CodeAgent.othersRecord("memory/records/bank-app/RECORD.md", bp, rec, clone));
     }
 
     @Test
     public void thePlanNamesTheOneFolderTheRepositoryIsPulledInto() {
         assertTrue(Blueprint.RULES.contains("'## Repository'"));
-        assertTrue(Blueprint.RULES.contains("memory/projects/<name>"));
+        assertTrue(Blueprint.RULES.contains("repos/<name>"));
         assertTrue(Blueprint.RULES.contains("pull it there"));
     }
 
@@ -94,19 +94,19 @@ public class ProjectBackupsTest {
     public void cloningIntoANewFolderIsNotRefused() throws Exception {
         File ws = Files.createTempDirectory("ws").toFile();
         CodeAgent a = new CodeAgent(ws, null, null, "", 20_000);
-        a.ownRecord("memory/projects/section-g2/RECORD.md");
-        assertNotNull("the clone's folder is allowed before it exists", a.inside("memory/projects/Dvine-ai-frontend"));
-        File rec = new File(ws, "memory/projects/bank-app");
+        a.ownRecord("memory/records/section-g2/RECORD.md");
+        assertNotNull("the clone's folder is allowed before it exists", a.inside("repos/Dvine-ai-frontend"));
+        File rec = new File(ws, "memory/records/bank-app");
         rec.mkdirs();
         Files.write(new File(rec, "RECORD.md").toPath(), "# record".getBytes("UTF-8"));
         try {
-            a.inside("memory/projects/bank-app/RECORD.md");
+            a.inside("memory/records/bank-app/RECORD.md");
             org.junit.Assert.fail("another project's record stays private");
         } catch (java.io.IOException expected) {
             assertTrue(expected.getMessage().contains("record"));
         }
-        File clone = new File(ws, "memory/projects/Dvine-ai-frontend");
+        File clone = new File(ws, "repos/Dvine-ai-frontend");
         new File(clone, ".git").mkdirs();
-        assertNotNull("a cd into the clone is not refused", a.othersRecordIn("cd memory/projects/Dvine-ai-frontend && ls") == null ? "ok" : null);
+        assertNotNull("a cd into the clone is not refused", a.othersRecordIn("cd repos/Dvine-ai-frontend && ls") == null ? "ok" : null);
     }
 }

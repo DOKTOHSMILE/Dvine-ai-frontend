@@ -121,8 +121,15 @@ public final class ProotCommand {
         return c;
     }
 
-    /** {@code files/ibiko}, whether {@code dir} is that folder or something inside it. */
+    /**
+     * The folder mounted at /workspace: a chat's own folder ({@code files/ibiko/chats/<chat>}) when {@code dir} is in
+     * one, so a chat's commands see only its own files; otherwise {@code files/ibiko}.
+     */
     static File workspaceRoot(File dir) {
+        File chat = ai.ibiko.main.ChatSpace.chatOf(dir);
+        if (chat != null) {
+            return chat;
+        }
         File cur = dir;
         while (cur != null) {
             if ("ibiko".equals(cur.getName())) {

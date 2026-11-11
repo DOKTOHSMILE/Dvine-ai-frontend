@@ -20,7 +20,7 @@ final class ImageTurn {
         final String job = "image:" + (token == null ? System.nanoTime() : token);
         // carries on with the screen off or another app open, in the one "working" notification
         ai.ibiko.main.KeepAlive.status(a, job, "Making a picture", what, -1);
-        final java.io.File out = new java.io.File(a.getFilesDir(), "chat-images");
+        final java.io.File out = new java.io.File(a.chatSpace(), ai.ibiko.main.ChatSpace.IMAGES); // deleted with its chat
         final java.util.List<ai.ibiko.llm.ImageMaker.Source> sources = ai.ibiko.llm.ImageMaker.sources(
                 new ai.ibiko.llm.ProviderStore(a), a.prefs.getString("image_model", ""));
         final boolean design = ai.ibiko.design.SvgDraw.designish(what) || sources.isEmpty();
@@ -47,10 +47,38 @@ final class ImageTurn {
         String by, error;
     }
 
+    /**
+     * The brain's whole part: it imagines the picture (subject, composition, colours, light, style) in a short
+     * paragraph. The generator then makes exactly that: an image model, or Ibiko's design board.
+     */
+    static final String IMAGINE = "You imagine pictures for an image generator. Describe the one picture asked for in a single"
+            + " paragraph of at most 90 words: the subject, its pose or shape, the composition and framing, the colours, the"
+            + " light, the style (photo, flat icon, illustration, 3D render, line art) and the background. Concrete and"
+            + " visual, no story, no preamble, no quotes, no lists.";
+
+    /** What the brain imagined, or the ask itself when no brain answered. */
+    String imagine(String what) {
+        String said = a.model.remoteTask(IMAGINE, what, 300);
+        if (said == null) {
+            said = a.model.task(IMAGINE, what, 220, null);
+        }
+        return imagined(what, said);
+    }
+
+    /** The brain's picture when it is a usable description; otherwise the pilot's own words. */
+    static String imagined(String what, String said) {
+        String t = said == null ? "" : said.replaceAll("(?s)```.*?```", "").replaceAll("[*_#>`]", "").trim();
+        if (t.length() < 20 || t.length() > 1200 || t.contains("<svg")) {
+            return what;
+        }
+        return t;
+    }
+
     private Made draw(String what, java.util.List<ai.ibiko.llm.ImageMaker.Source> sources, boolean design, java.io.File out) {
         Made m = new Made();
+        String seen = imagine(what); // the brain only imagines; the generator below makes the picture
         if (!design) {
-            ai.ibiko.llm.ImageMaker.Result r = ai.ibiko.llm.ImageMaker.make(sources, what, out, ai.ibiko.llm.ImageMaker.WEB);
+            ai.ibiko.llm.ImageMaker.Result r = ai.ibiko.llm.ImageMaker.make(sources, seen, out, ai.ibiko.llm.ImageMaker.WEB);
             m.file = r.file;
             m.by = r.made;
             m.error = r.error;
@@ -59,7 +87,7 @@ final class ImageTurn {
             return m;
         }
         String sys = ai.ibiko.design.SvgDraw.SYSTEM;
-        String ask = ai.ibiko.design.SvgDraw.brief(what);
+        String ask = ai.ibiko.design.SvgDraw.brief(what) + (seen.equals(what) ? "" : "\nAs imagined: " + seen);
         String reply = a.model.remoteTask(sys, ask, 3000);
         boolean local = reply == null;
         if (local) {

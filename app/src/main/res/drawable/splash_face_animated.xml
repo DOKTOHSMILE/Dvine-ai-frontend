@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ibiko's face on the splash screen, alive as in the chat (stage/LiveFace): the eyes glance left and right, settle,
+     then blink once. The same head as the live face: a dark rounded square pressed a little in height, cyan eyes. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="240dp"
+            android:height="240dp"
+            android:viewportWidth="240"
+            android:viewportHeight="240">
+            <path
+                android:fillColor="#FF070B0E"
+                android:strokeColor="#3330D8F0"
+                android:strokeWidth="2"
+                android:pathData="M93,71 h54 a33,33 0 0 1 33,33 v32 a33,33 0 0 1 -33,33 h-54 a33,33 0 0 1 -33,-33 v-32 a33,33 0 0 1 33,-33 z" />
+            <group android:name="look">
+                <group
+                    android:name="blink"
+                    android:pivotX="120"
+                    android:pivotY="120">
+                    <path
+                        android:fillColor="#FF2BE4FF"
+                        android:pathData="M101.4,105.3 a7.8,7.8 0 0 1 7.8,7.8 v13.8 a7.8,7.8 0 0 1 -15.6,0 v-13.8 a7.8,7.8 0 0 1 7.8,-7.8 z" />
+                    <path
+                        android:fillColor="#FF2BE4FF"
+                        android:pathData="M138.6,105.3 a7.8,7.8 0 0 1 7.8,7.8 v13.8 a7.8,7.8 0 0 1 -15.6,0 v-13.8 a7.8,7.8 0 0 1 7.8,-7.8 z" />
+                    <path
+                        android:fillColor="#FFE9FDFF"
+                        android:pathData="M99.5,111 h3.8 v14 h-3.8 z M136.7,111 h3.8 v14 h-3.8 z" />
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+    <target android:name="look">
+        <aapt:attr name="android:animation">
+            <set android:ordering="sequentially">
+                <objectAnimator
+                    android:duration="260"
+                    android:interpolator="@android:interpolator/fast_out_slow_in"
+                    android:propertyName="translateX"
+                    android:valueFrom="0"
+                    android:valueTo="-7" />
+                <objectAnimator
+                    android:duration="320"
+                    android:interpolator="@android:interpolator/fast_out_slow_in"
+                    android:propertyName="translateX"
+                    android:valueFrom="-7"
+                    android:valueTo="7" />
+                <objectAnimator
+                    android:duration="200"
+                    android:interpolator="@android:interpolator/fast_out_slow_in"
+                    android:propertyName="translateX"
+                    android:valueFrom="7"
+                    android:valueTo="0" />
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="blink">
+        <aapt:attr name="android:animation">
+            <set android:ordering="sequentially">
+                <objectAnimator
+                    android:duration="800"
+                    android:propertyName="scaleY"
+                    android:valueFrom="1"
+                    android:valueTo="1" />
+                <objectAnimator
+                    android:duration="80"
+                    android:interpolator="@android:interpolator/fast_out_linear_in"
+                    android:propertyName="scaleY"
+                    android:valueFrom="1"
+                    android:valueTo="0.1" />
+                <objectAnimator
+                    android:duration="110"
+                    android:interpolator="@android:interpolator/linear_out_slow_in"
+                    android:propertyName="scaleY"
+                    android:valueFrom="0.1"
+                    android:valueTo="1" />
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>

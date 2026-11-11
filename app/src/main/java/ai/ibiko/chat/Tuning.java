@@ -104,7 +104,7 @@ public final class Tuning {
             "How many workers run side by side: agents on the parts of a job, their hands, the readers that go through the"
                     + " code, and the writers of a long piece. With an API model they all work at once. The device's own model"
                     + " answers one call at a time, so there two run at once (one thinks while the other runs its commands).",
-            8, 1, 16);
+            4, 1, 16); // four: fast on a job without hitting providers' rate limits or warming the device (eight did both)
 
     /** Workers that really run at once: the setting with an API model, two with the device's own model. */
     public static int workersAtOnce(android.content.SharedPreferences prefs, boolean api) {

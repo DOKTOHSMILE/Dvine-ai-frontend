@@ -7,11 +7,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A cloned repository belongs in {@code memory/projects}, the folder the workspace screen shows, not in Linux's
- * home directory.
+ * A cloned repository belongs in {@code repos} (the chat's own folder: pulled data, apart from its memories), the
+ * folder the workspace screen shows, not in Linux's home directory.
  */
 public final class CloneFolder {
-    public static final String RELATIVE = "memory/projects";
+    public static final String RELATIVE = "repos";
     /** That folder inside Alpine, where the coding workspace is mounted. */
     public static final String GUEST = "/workspace/" + RELATIVE;
     private static final Pattern PROGRESS = Pattern.compile(
@@ -34,7 +34,7 @@ public final class CloneFolder {
 
     /**
      * The same command, with every {@code git clone} writing into {@link #GUEST}. A destination the model invented
-     * (such as {@code /root/workspace/...}) is replaced, even when the same command also mentions {@code memory/projects}.
+     * (such as {@code /root/workspace/...}) is replaced, even when the same command also mentions {@code repos}.
      * Flags between {@code git} and {@code clone} ({@code git -c key=value clone}) are kept.
      */
     public static String place(String command) {
@@ -110,7 +110,7 @@ public final class CloneFolder {
             + "  esac\n"
             + "done\n"
             + "if [ \"$cmd\" != clone ]; then exec \"$REAL\" \"$@\"; fi\n"
-            + "mkdir -p /workspace/memory/projects\n"
+            + "mkdir -p /workspace/repos\n"
             + "url=\n"
             + "skip=0\n"
             + "for a in \"$@\"; do\n"
@@ -141,13 +141,13 @@ public final class CloneFolder {
             + "    *) if [ \"$seen\" = 0 ]; then printf '%s\\n' \"$a\" >> \"$list\"; seen=1; fi ;;\n"
             + "  esac\n"
             + "done\n"
-            + "printf '%s\\n' \"/workspace/memory/projects/$name\" >> \"$list\"\n"
+            + "printf '%s\\n' \"/workspace/repos/$name\" >> \"$list\"\n"
             + "set --\n"
             + "while IFS= read -r line; do set -- \"$@\" \"$line\"; done < \"$list\"\n"
             + "rm -f \"$list\"\n"
             + "\"$REAL\" \"$@\"\n"
             + "status=$?\n"
-            + "dest=\"/workspace/memory/projects/$name\"\n"
+            + "dest=\"/workspace/repos/$name\"\n"
             + "if [ -d \"$dest/.git\" ]; then\n"
             + "  left=$(find \"$dest\" -mindepth 1 -maxdepth 1 ! -name .git -print -quit)\n"
             + "  if [ -z \"$left\" ]; then \"$REAL\" -C \"$dest\" checkout -f HEAD; fi\n"

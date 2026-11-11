@@ -11,7 +11,7 @@ import org.junit.Test;
 
 /** The blueprint's acceptance examples, read against the real WordNet and ConceptNet files. */
 public class ComprehensionTest {
-    static final File K = new File("src/main/assets/knowledge");
+    static final File K = new File("../ibiko1/src/main/assets/knowledge");
 
     static Dictionary dict() {
         return new Dictionary(new SortedTable(new File(K, "lexicon.tsv")));

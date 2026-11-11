@@ -44,7 +44,7 @@ public final class ProotSession {
         File tmp = new File(c.getCacheDir(), "proot-tmp");
         tmp.mkdirs();
         File linux = new File(c.getFilesDir(), "linux");
-        new File(c.getFilesDir(), "ibiko/memory/projects").mkdirs();
+        new File(c.getFilesDir(), "ibiko").mkdirs();
         try {
             CloneFolder.installGuard(rootfs);
         } catch (IOException ignored) {

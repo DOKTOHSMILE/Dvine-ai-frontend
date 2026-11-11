@@ -1,25 +1,25 @@
 package ai.ibiko.agent;
 
 /**
- * A cloned repository lives in one folder: {@code memory/projects/<name>} (on the phone's Linux,
- * {@code /workspace/memory/projects/<name>}). {@code projects/<name>} is not a folder. File tools, shell
- * commands and plan steps are pointed at the real folder, so a plan that still says {@code projects/<name>}
- * reads the clone instead of being told the path does not exist.
+ * A cloned repository lives in one folder: {@code repos/<name>} in the chat's own folder (on the phone's Linux,
+ * {@code /workspace/repos/<name>}), apart from the chat's memories ({@code memory/}). {@code projects/<name>} and the
+ * old {@code memory/projects/<name>} are not folders: file tools, shell commands and plan steps that still say them
+ * are pointed at the real folder.
  */
 public final class RepoFolder {
-    public static final String RELATIVE = "memory/projects";
+    public static final String RELATIVE = "repos";
 
     private RepoFolder() {
     }
 
     /**
-     * {@code projects/<name>} becomes {@code memory/projects/<name>}. A path that already says
-     * {@code memory/projects} is left as it is. Anything else is left as it is.
+     * {@code projects/<name>} and {@code memory/projects/<name>} become {@code repos/<name>}. Anything else is left as
+     * it is.
      */
     public static String place(String path) {
         if (path == null || path.isEmpty()) {
             return path;
         }
-        return path.replaceAll("(?<!memory/)(?<![\\w.-])projects/", "memory/projects/");
+        return path.replaceAll("(?<![\\w.-])(memory/)?projects/", "repos/");
     }
 }

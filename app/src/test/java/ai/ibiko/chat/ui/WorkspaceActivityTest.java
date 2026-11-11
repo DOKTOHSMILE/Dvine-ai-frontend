@@ -28,12 +28,16 @@ import java.nio.file.Files;
 public class WorkspaceActivityTest {
     @Test
     public void foldersOpenAndFilesShow() throws Exception {
-        File ws = new File(RuntimeEnvironment.getApplication().getFilesDir(), "ibiko/harvana/app");
+        // the screen shows the open chat's own folder only
+        File ws = new File(WorkspaceActivity.chatFolder(RuntimeEnvironment.getApplication(), null), "harvana/app");
+        File other = new File(ai.ibiko.main.ChatSpace.of(RuntimeEnvironment.getApplication().getFilesDir(), "another-chat"), "secret");
+        other.mkdirs();
         ws.mkdirs();
         Files.write(new File(ws, "Main.java").toPath(), "class Main {}\n".getBytes(StandardCharsets.UTF_8));
         new File(ws.getParentFile(), ".git").mkdirs();
         ActivityController<WorkspaceActivity> c = Robolectric.buildActivity(WorkspaceActivity.class).create().start().resume().visible();
         View root = c.get().getWindow().getDecorView();
+        assertNull("another chat's files aren't listed", text(root, "secret"));
         tap(root, "harvana");
         assertNull("git's own folder isn't listed", text(c.get().getWindow().getDecorView(), ".git"));
         tap(c.get().getWindow().getDecorView(), "app");

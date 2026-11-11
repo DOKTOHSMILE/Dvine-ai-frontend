@@ -310,6 +310,14 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 277 | Is "Ibiko is running" necessary? If not, remove it | P12 | Removed (a notification only while work runs) | 0.99.95 |
 | 278 | Processing sheet: larger text, easy to tap | P12 | Built | 0.99.95 |
 | 279 | Does Settings apply to Ibiko 1? | P12 | Fixed (web look-ups and learning now apply to it too) | 0.99.95 |
+| 280 | Folders strictly per chat; no chat sees another's files; the workspace shows only this chat's; deleting a chat deletes its files | P12 | Built (files/ibiko/chats/<chat>; Linux commands mounted to that folder only) | 0.99.96 |
+| 281 | The model only imagines the image; the image generator generates it | P12 | Built | 0.99.96 |
+| 282 | Pulled data out of the memory folder; memory only for that chat's memories | P12 | Built (repos/ and memory/ apart; records in memory/records) | 0.99.96 |
+| 283 | Treat Ibiko 1 as the other models, all in one folder with entry points, to publish it alone | P12 | Built (ibiko1/ library module, Ibiko1Model, README; its tests still in the app) | 0.99.96 |
+| 284 | Too jammed information, hard to read: fix it across the app | P12 | Built (line spacing, padded rows, dividers, larger sheet text) | 0.99.96 |
+| 285 | Default settings at their best for standard performance | P12 | Built (workers 4; others reviewed) | 0.99.96 |
+| 286 | The animated Ibiko face on the splash screen | P12 | Built | 0.99.96 |
+| 287 | A Retry button | P12 | Built | 0.99.96 |
 
 ## Still open, in the order that matters
 

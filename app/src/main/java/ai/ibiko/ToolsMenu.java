@@ -170,7 +170,9 @@ final class ToolsMenu {
         name.setPadding(0, a.dp(10), 0, 0);
         card.addView(name);
         final android.widget.TextView about = new android.widget.TextView(a);
-        about.setTextSize(12f);
+        about.setTextSize(13.5f);
+        about.setLineSpacing(a.dp(3), 1f); // airy: small explanations read easily
+        about.setPadding(0, a.dp(3), 0, 0);
         about.setLineSpacing(0, 1.1f);
         about.setTextColor(a.getColor(R.color.text_secondary));
         about.setMaxLines(2);

@@ -1,3 +1,14 @@
+# Each chat its own files; Ibiko 1 on its own; imagine then generate (0.99.96)
+
+- [x] files/ibiko/chats/<chat>: repos/ (pulled), memory/ (this chat's memories), images/; deleted with the chat.
+- [x] A chat's Linux commands see only its folder; the workspace screen shows only it.
+- [x] Ibiko 1 is the ibiko1 library module with Ibiko1Model as its entry point.
+- [x] The brain imagines; the generator generates.
+- [x] Retry button; airy rows and line spacing; the face on the splash; workers default 4.
+- [ ] Ibiko 1's tests into ibiko1/src/test (they run from the app for now).
+- [ ] CodeAssist on the device: check it builds a two-module project (ibiko1 + app).
+- [ ] The Speak button; an image model choice in Settings.
+
 # A smaller MainActivity; Settings as screens; pictures in the background (0.99.95)
 
 - [x] MainActivity: ImageTurn, VoiceWiring, ModelWords, WritingTurns, ThinkTurns, ShellTurn, FileTurns moved out.

@@ -1,0 +1,20 @@
+// Ibiko 1: Ibiko's own language brain as a library of its own (no network, no other model needed). The app uses it
+// like any other model, through its entry point (ai.ibiko.dvine1.Ibiko1Model); another app can copy this folder and
+// do the same. Everything it needs is in here: its code (src/main/java), its built-in knowledge (src/main/assets).
+plugins {
+    id "com.android.library"
+}
+
+android {
+    namespace "ai.ibiko.dvine1"
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 34
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

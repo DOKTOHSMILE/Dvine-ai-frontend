@@ -48,7 +48,7 @@ public class LookupTest {
         ai.ibiko.dvine1.Plug.asset = p -> {
             opened.incrementAndGet();
             try {
-                return new FileInputStream(new File("src/main/assets", p));
+                return new FileInputStream(new File("../ibiko1/src/main/assets", p));
             } catch (java.io.IOException e) {
                 return null;
             }
@@ -57,7 +57,7 @@ public class LookupTest {
             File a = ai.ibiko.dvine1.Store.unpacked(dir, "local_facts.tsv");
             File b = ai.ibiko.dvine1.Store.unpacked(dir, "local_facts.tsv");
             assertEquals(a, b);
-            assertEquals(new File("src/main/assets/knowledge/local_facts.tsv").length(), a.length());
+            assertEquals(new File("../ibiko1/src/main/assets/knowledge/local_facts.tsv").length(), a.length());
             assertEquals("read from the app only the first time", 1, opened.get());
             assertNull(ai.ibiko.dvine1.Store.unpacked(dir, "nothing.tsv"));
         } finally {

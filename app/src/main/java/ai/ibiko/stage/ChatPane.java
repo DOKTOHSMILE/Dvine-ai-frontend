@@ -63,6 +63,11 @@ public final class ChatPane extends LinearLayout {
         /** Correct ({@code right}) or Wrong on an answer DVINE asked about: it learns from it. */
         default void onRate(String question, String answer, boolean right) {
         }
+
+        /** Retry tapped under a reply that stopped: the last question is asked again. */
+        default void onRetry() {
+            onSend("retry");
+        }
     }
 
     private final ChatBook book;
@@ -313,6 +318,9 @@ public final class ChatPane extends LinearLayout {
                 }
                 thread.addView(bar);
                 turnBars.add(bar);
+                if (lastReply && stoppedReply(reply.toString())) {
+                    thread.addView(retryButton()); // a reply that stopped: one tap asks again, always in view
+                }
                 // Copy, Listen and the rest stay out of the way: a tap on the reply shows them, another hides them
                 tapGroup(new ArrayList<View>(turnParts), new ArrayList<View>(turnBars), "asked".equals(bar.getTag()));
                 turnParts.clear();
@@ -2510,10 +2518,20 @@ public final class ChatPane extends LinearLayout {
         }
         new androidx.appcompat.app.AlertDialog.Builder(getContext())
                 .setTitle("Delete this chat?")
-                .setMessage("Its messages are removed. What Ibiko learned from it is kept.")
+                .setMessage("Its messages and its files (repositories, pictures, its memories) are removed. What Ibiko"
+                        + " learned in general is kept.")
                 .setPositiveButton("Delete", (d, w) -> {
                     boolean wasOpen = id.equals(book.current().id);
+                    ChatBook.Section gone = find(id);
+                    final String group = gone == null ? id : gone.group != null ? gone.group : gone.id;
+                    final List<String> pages = new ArrayList<String>();
+                    for (ChatBook.Section x : book.sections()) {
+                        if (group.equals(x.group != null ? x.group : x.id)) {
+                            pages.add(x.id);
+                        }
+                    }
                     if (book.delete(id)) {
+                        deleteFilesOf(group, pages);
                         if (wasOpen) {
                             host.onSection(book.current());
                         }
@@ -2522,6 +2540,50 @@ public final class ChatPane extends LinearLayout {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    /** A deleted chat's folder (its repositories, memories and pictures) and its kept work go with it, off the main thread. */
+    private void deleteFilesOf(final String group, final List<String> pages) {
+        final java.io.File files = getContext().getFilesDir();
+        new Thread(() -> {
+            ai.ibiko.main.ChatSpace.delete(files, group);
+            for (String page : pages) {
+                java.io.File[] kept = files.listFiles((dir, name) -> name.startsWith("agent-") && name.endsWith("-"
+                        + page.replaceAll("[^A-Za-z0-9_-]", "") + ".txt"));
+                for (java.io.File f : kept == null ? new java.io.File[0] : kept) {
+                    f.delete();
+                }
+            }
+        }, "ibiko-delete-chat-files").start();
+    }
+
+    /** A reply that ended in an error and offers to ask again. */
+    static boolean stoppedReply(String text) {
+        return text != null && (text.contains("to ask again") || text.startsWith("My reply stopped"));
+    }
+
+    private View retryButton() {
+        TextView b = plain("Retry");
+        b.setTextSize(15f);
+        b.setTextColor(color(R.color.accent));
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(20), dp(10), dp(20), dp(10));
+        b.setMinHeight(dp(44));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(dp(22));
+        bg.setStroke(Math.max(1, dp(1)), color(R.color.accent));
+        b.setBackground(bg);
+        b.setCompoundDrawablePadding(dp(8));
+        b.setContentDescription("Retry: ask again");
+        b.setOnClickListener(v -> {
+            v.setEnabled(false);
+            host.onRetry();
+        });
+        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(8);
+        lp.setMarginStart(dp(4));
+        b.setLayoutParams(lp);
+        return b;
     }
 
     private ChatBook.Section find(String id) {

@@ -544,11 +544,15 @@ public class SettingsActivity extends AppCompatActivity {
     protected View toggle(String title, String about, final String key, boolean def, final java.util.function.Consumer<Boolean> changed) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
+        // each setting its own row with air around it: title, then its explanation a little below, the switch apart
+        r.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
+        r.setMinimumHeight(Ui.dp(this, 56));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
+        words.setPadding(0, 0, Ui.dp(this, 16), 0);
         words.addView(Ui.text(this, title, 16, Ui.TEXT, false));
         if (about != null) {
-            words.addView(Ui.text(this, about, 13, Ui.SUB, false));
+            words.addView(Ui.text(this, about, 13, Ui.SUB, false), Ui.wide(this, 4));
         }
         r.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         android.widget.Switch sw = new android.widget.Switch(this);
@@ -569,9 +573,9 @@ public class SettingsActivity extends AppCompatActivity {
     protected View action(String title, String about, final Runnable run) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.VERTICAL);
-        r.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+        r.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
         r.addView(Ui.text(this, title, 16, Ui.ACCENT, false));
-        r.addView(Ui.text(this, about, 13, Ui.SUB, false));
+        r.addView(Ui.text(this, about, 13, Ui.SUB, false), Ui.wide(this, 4));
         r.setOnClickListener(v -> run.run());
         return r;
     }
@@ -974,7 +978,13 @@ public class SettingsActivity extends AppCompatActivity {
         c.setOrientation(LinearLayout.VERTICAL);
         c.setBackground(Ui.round(this, Ui.SURFACE, 0, 20));
         int p = Ui.dp(this, 18);
-        c.setPadding(p, p, p, p);
+        c.setPadding(p, Ui.dp(this, 6), p, Ui.dp(this, 6));
+        // a thin line between one setting and the next, so each reads on its own
+        android.graphics.drawable.GradientDrawable line = new android.graphics.drawable.GradientDrawable();
+        line.setColor(Ui.LINE);
+        line.setSize(1, Math.max(1, Ui.dp(this, 1) / 2 + 1));
+        c.setDividerDrawable(line);
+        c.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
         return c;
     }
 

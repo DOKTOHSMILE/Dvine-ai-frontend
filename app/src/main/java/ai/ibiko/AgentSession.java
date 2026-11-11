@@ -23,7 +23,7 @@ final class AgentSession {
         a.stage.setMode(StageMode.THINKING);
         String who = "Ibiko";
         a.armThink(planning ? "Planning" : readOnly ? "Reading the files" : "Thinking", "Writing");
-        final java.io.File workspace = new java.io.File(a.getFilesDir(), "ibiko");
+        final java.io.File workspace = a.chatSpace();
         final ai.ibiko.connect.ConnectorStore connectors = new ai.ibiko.connect.ConnectorStore(a);
         final String earlier = a.chats == null ? "" : a.chats.transcript(a.model.remoteOn() ? 12000 : Math.max(1500, a.model.window()),
                 a.model.remoteOn() ? 6000 : Math.max(220, a.model.window() / 6)); // what was already found, as much as the model can hold

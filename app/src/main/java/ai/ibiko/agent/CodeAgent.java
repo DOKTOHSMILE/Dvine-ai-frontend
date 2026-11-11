@@ -505,7 +505,7 @@ public final class CodeAgent {
                         + " ordinary talk, a question about the world, research or a report; a story, a script, a drawing or a"
                         + " design. It is answered as a reply instead. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
-                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into memory/projects/<name>, the folder the workspace screen shows. That folder is where you read, edit, run and pull for this repository: write it in PLAN.md under '## Repository')\n"
+                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into repos/<name>, the chat's folder for pulled code that the workspace screen shows. That folder is where you read, edit, run and pull for this repository: write it in PLAN.md under '## Repository')\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
                         + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the device; writes no file)\n"
                         + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the device; overlapping edits stay as conflicts)\n"
@@ -712,7 +712,7 @@ public final class CodeAgent {
                 pending = null; // it carried on: whatever it wrote before was not the answer
                 String result;
                 lastStep = null;
-                placePaths(call); // projects/<name> is the clone at memory/projects/<name>
+                placePaths(call); // projects/<name> is the clone at repos/<name>
                 String refused = blueprint == null ? null : blueprint.gate(call.name, call.a("path"));
                 if (refused != null) {
                     result = refused; // plan first: nothing but PLAN.md changes before the blueprint passes its check
@@ -1503,7 +1503,7 @@ public final class CodeAgent {
         return out.toString();
     }
 
-    /** {@code projects/<name>} in a tool path or a shell command is the clone at {@code memory/projects/<name>}. */
+    /** {@code projects/<name>} in a tool path or a shell command is the clone at {@code repos/<name>}. */
     private static void placePaths(Call c) {
         for (String key : new String[] {"path", "to", "command"}) {
             String v = c.attrs.get(key);
@@ -1714,9 +1714,8 @@ public final class CodeAgent {
             case "clone": {
                 String repo = c.a("repo");
                 String name = repo.replaceAll("(\\.git)?/*$", "").replaceAll(".*/", "");
-                String folder = c.a("path").isEmpty() ? "memory/projects/" + name
-                        : c.a("path").startsWith("memory/projects") ? c.a("path")
-                        : "memory/projects/" + name;
+                String folder = c.a("path").startsWith(RepoFolder.RELATIVE + "/") ? c.a("path")
+                        : RepoFolder.RELATIVE + "/" + name;
                 host.step("Cloning " + clip(repo, 60));
                 return git.clone(repo, c.a("branch"), inside(folder));
             }
@@ -1872,7 +1871,7 @@ public final class CodeAgent {
         return f != null && f.getName().matches("(?i)(plan|blueprint|todo|to-do|roadmap|tasks)(\\.[a-z0-9_-]+)*\\.(md|txt)");
     }
 
-    /** This run's own project record folder ("memory/projects/<key>"), from the Scribe; null when there is none. */
+    /** This run's own project record folder ("memory/records/<key>"), from the Scribe; null when there is none. */
     private String ownRecord;
     /** This run's own reading notes (".blueprint/<project>"); set when the blueprint starts. */
     private String ownBlueprint;
@@ -1884,13 +1883,13 @@ public final class CodeAgent {
     public CodeAgent ownRecord(String recordFile) {
         String r = recordFile == null ? "" : recordFile.trim().replace('\\', '/');
         int slash = r.lastIndexOf('/');
-        ownRecord = r.startsWith("memory/projects/") && slash > "memory/projects/".length() ? r.substring(0, slash) : null;
+        ownRecord = r.startsWith("memory/records/") && slash > "memory/records/".length() ? r.substring(0, slash) : null;
         return this;
     }
 
     /**
      * Why a path is another project's backup and may not be read: its reading notes (.blueprint/<other>), its record
-     * (memory/projects/<other>) or the saved task states of every project (memory/tasks). Null when it may be read.
+     * (memory/records/<other>) or the saved task states of every project (memory/tasks). Null when it may be read.
      * {@code rel} is relative to the workspace.
      */
     static String othersRecord(String rel, String ownBlueprint, String ownRecord) {
@@ -1902,28 +1901,22 @@ public final class CodeAgent {
             ai.ibiko.scribe.Scribe.RECORD, "RECOVERY.md"));
 
     /**
-     * As above; {@code isClone} says whether memory/projects/<name> is a cloned repository. A clone is code the agent
+     * As above; {@code isClone} says whether repos/<name> is a cloned repository. A clone is code the agent
      * pulled from GitHub to work on (it lives in the same folder as the records, the one the workspace screen shows),
      * so it may be read; only the Scribe's record files in another project's folder stay private.
      */
     static String othersRecord(String rel, String ownBlueprint, String ownRecord, java.util.function.Predicate<String> isClone) {
         String r = rel == null ? "" : rel.replace('\\', '/').replaceAll("^\\./", "").replaceAll("/+$", "");
         String[] seg = r.split("/");
-        if (seg.length >= 3 && "memory".equals(seg[0]) && "projects".equals(seg[1]) && isClone.test(seg[2])) {
-            String mine = ownRecord == null ? null : ownRecord.replaceAll("^memory/projects/", "");
-            return seg.length == 4 && RECORD_FILES.contains(seg[3]) && !seg[2].equals(mine)
-                    ? "that is another project's record (memory/projects/" + seg[2] + "/" + seg[3] + "): the repository's code"
-                    + " can be read, its record can't" : null;
-        }
         if (seg.length >= 2 && ".blueprint".equals(seg[0])) {
             String mine = ownBlueprint == null ? null : ownBlueprint.replaceAll("^\\.blueprint/", "").replaceAll("/+$", "");
             return seg[1].equals(mine) ? null : "that is another project's backup (" + seg[0] + "/" + seg[1] + "): only this"
                     + " project's own notes" + (mine == null ? "" : " (.blueprint/" + mine + ")") + " can be read";
         }
-        if (seg.length >= 3 && "memory".equals(seg[0]) && "projects".equals(seg[1])) {
-            String mine = ownRecord == null ? null : ownRecord.replaceAll("^memory/projects/", "");
-            return seg[2].equals(mine) ? null : "that is another project's record (memory/projects/" + seg[2] + "): only this"
-                    + " project's own record" + (mine == null ? "" : " (memory/projects/" + mine + ")") + " can be read";
+        if (seg.length >= 3 && "memory".equals(seg[0]) && "records".equals(seg[1])) {
+            String mine = ownRecord == null ? null : ownRecord.replaceAll("^memory/records/", "");
+            return seg[2].equals(mine) ? null : "that is another project's record (memory/records/" + seg[2] + "): only this"
+                    + " project's own record" + (mine == null ? "" : " (memory/records/" + mine + ")") + " can be read";
         }
         if (seg.length >= 2 && "memory".equals(seg[0]) && "tasks".equals(seg[1])) {
             return "the saved task states belong to every project and are not read by an agent; this project's record says"
@@ -1933,12 +1926,11 @@ public final class CodeAgent {
     }
 
     /**
-     * memory/projects/<name> is code, not another project's record: a repository cloned there (by git, or by the
-     * device's own GitHub tools), or a folder not made yet (where a clone is about to go). Only a folder holding the
-     * Scribe's record and no repository is a project's record.
+     * repos/<name> is code: a repository cloned there (by git, or by the device's own GitHub tools), or a folder not
+     * made yet (where a clone is about to go). Records are apart, in memory/records.
      */
     boolean isClone(String name) {
-        File d = new File(new File(workspace, "memory/projects"), name);
+        File d = new File(new File(workspace, RepoFolder.RELATIVE), name);
         if (!d.exists() || new File(d, ".git").exists() || new File(d, ai.ibiko.connect.GitHubGit.RECORD).isFile()) {
             return true;
         }
@@ -1947,7 +1939,7 @@ public final class CodeAgent {
 
     /** A shell command that names another project's backup folder (it would read around the file tools' guard). */
     String othersRecordIn(String cmd) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\.blueprint/[^\\s'\"/;|&)]+|memory/projects/[^\\s'\"/;|&)]+|memory/tasks\\b)")
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\.blueprint/[^\\s'\"/;|&)]+|memory/records/[^\\s'\"/;|&)]+|memory/tasks\\b)")
                 .matcher(cmd == null ? "" : cmd);
         while (m.find()) {
             String why = othersRecord(m.group(1) + "/x", ownBlueprint, ownRecord, this::isClone);
