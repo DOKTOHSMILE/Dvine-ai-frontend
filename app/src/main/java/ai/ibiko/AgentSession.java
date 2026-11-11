@@ -1,5 +1,8 @@
 package ai.ibiko;
 
+import ai.ibiko.stage.StageMode;
+import ai.ibiko.turn.LocalTurn;
+
 /** The coding agent at work on the phone's files. The chat screen starts it; this is not the screen. */
 final class AgentSession {
     private final MainActivity a;
@@ -158,7 +161,8 @@ final class AgentSession {
             // long work (Ibiko changing things): rounds of steps, a progress note in the chat after each, until it is
             // done, stopped, or the time limit; the phone's foreground service keeps it going while minimised
             // every agent (Ibiko changing things, Obi or Ivie reading files) except a plan being drawn up
-            final boolean rounds = !planning && a.prefs.getBoolean("ibiko_keep_going", true);
+            final boolean rounds = !planning && !ai.ibiko.agent.Blueprint.pointed(task)
+                    && a.prefs.getBoolean("ibiko_keep_going", true);
             final ai.ibiko.scribe.RunMode pace = ai.ibiko.scribe.RunMode.of(ai.ibiko.chat.Tuning.RUN_MODE.get(a.prefs));
             a.model.watchIdleMs = pace.idleMs;
             a.model.watchCapMs = pace.replyCapMs;

@@ -1,3 +1,8 @@
+# A compiler error is one edit (0.99.91)
+
+- [x] `StageMode` and `LocalTurn` import in `AgentSession`; `StageView` imports in `ChatChrome`.
+- [x] A compiler log that names the file is not a blueprint. The agent opens those files, fixes the symbols, and stops. It does not survey the repository.
+
 # The chat answer, the download bar, and a smaller main screen (0.99.90)
 
 - [x] A status line ("I'll fix those paths", "Alright, I am continuing now") stays with the steps. It is not another chat bubble, and the steps of a turn still running fold into one "Working" row.

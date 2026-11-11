@@ -86,6 +86,9 @@ public final class Blueprint {
 
     /** True for a task that builds or changes something: those follow the blueprint. A quick question does not. */
     public static boolean applies(String task) {
+        if (pointed(task)) {
+            return false; // a compiler error that names the file: one edit, not a survey of the repo
+        }
         String t = task == null ? "" : task.toLowerCase(Locale.US);
         if (t.trim().matches("(?s)^(please\\s+)?(clone|pull|fetch|download|install|update local|sync)\\b.{0,200}")) {
             return false; // a repository to fetch or packages to install: one command, nothing to plan
@@ -99,6 +102,21 @@ public final class Blueprint {
         return t.matches("(?s).*\\b(build|make|create|add|implement|develop|design|fix|refactor|upgrade|rewrite|wire|"
                 + "integrate|migrate|port|feature|redesign|restructure|set up|setup|convert|replace|remove|delete the|"
                 + "update the|improve|optimi[sz]e)\\b.*") && !t.matches("(?s)^\\s*(git |run |ls |cat |what |who |why |how much |is |are |does |do )\\b.*");
+    }
+
+    /**
+     * A compiler error that names the file and the line. That is one edit. A paste of the log is long, which used to
+     * start the whole blueprint (read the repo, write PLAN.md, check it) before the import was added.
+     */
+    public static boolean pointed(String task) {
+        if (task == null || task.isEmpty()) {
+            return false;
+        }
+        String t = task.toLowerCase(Locale.US);
+        boolean namesLine = t.matches("(?s).*\\.[a-z]{1,5}:\\d+.*");
+        boolean compiler = t.contains("cannot be resolved") || t.contains("cannot find symbol")
+                || t.contains("does not exist") || t.contains("error:");
+        return namesLine && compiler;
     }
 
     /** The phase the blueprint is in: UNDERSTAND until PLAN.md says otherwise. */

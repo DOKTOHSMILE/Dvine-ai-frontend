@@ -443,6 +443,11 @@ public final class CodeAgent {
             + " You work in"
             + " rounds; between rounds the user gets a short progress note, and the work goes on by itself.\n";
 
+    /** A compiler error that names the file: one edit, then stop. Not a survey and not a plan. */
+    static final String POINTED = "This is a compiler error, not a project. Open only the files the errors name."
+            + " Fix the symbols they name (a missing import is an import, nothing else) and stop."
+            + " Do not list the repository, do not read other files, and do not write PLAN.md.\n";
+
     static final String PROGRESS_NOW = "Your steps for this round are used. Write a short progress note for the user, in a"
             + " few plain lines: what you did and found so far, what works now, and what you will do next. No tool calls;"
             + " not the final report. The work goes on after this.";
@@ -512,7 +517,7 @@ public final class CodeAgent {
                 + "Use exactly this <tool …> form, nothing else (no <tool_call>, no JSON), and end the reply immediately after the"
                 + " tool call: its result comes back in the next message. Never write a tool call into your final answer.\n"
                 + (readOnly || compact ? "" : SANDBOX + (git == null ? "" : GIT_WAY))
-                + (keepGoing && !readOnly ? KEEP_GOING : "")
+                + (Blueprint.pointed(task) ? POINTED : (keepGoing && !readOnly ? KEEP_GOING : ""))
                 + "When the task is done, give the complete answer inside <final>\u2026</final>. Never stop to ask whether to"
                 + " continue or to describe what you are about to do: keep calling tools until the job is finished.\n"
                 + (compact ? "" : SUMMARY_SHAPE)
@@ -586,7 +591,8 @@ public final class CodeAgent {
             if (earlier != null && !earlier.trim().isEmpty()) {
                 work.append("Earlier in this chat:\n").append(earlier.trim()).append("\n\n");
             }
-            work.append("Workspace files now:\n").append(listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
+            work.append("Workspace files now:\n").append(Blueprint.pointed(task) ? "(not listed: the errors name the files)"
+                    : listFiles(".")).append("\n\nTask: ").append(task.trim()).append('\n');
         }
         this.work = work;
         startBlueprint(task, work);

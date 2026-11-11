@@ -1,5 +1,7 @@
 package ai.ibiko;
 
+import ai.ibiko.stage.StageView;
+
 /** The chat header, the drawer rows and the composer. The activity only opens them. */
 final class ChatChrome {
     private final MainActivity a;

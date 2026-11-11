@@ -28,6 +28,17 @@ public class BlueprintTest {
     }
 
     @Test
+    public void aCompilerErrorIsOneEditNotASurvey() {
+        String log = "error: /storage/emulated/0/projects/Dvine-ai-frontend/app/src/main/java/ai/ibiko/AgentSession.java:20:25:"
+                + " StageMode cannot be resolved to a variable [java]\n"
+                + "a.stage.setMode(StageMode.THINKING);\n"
+                + "error: ChatChrome.java:97:27: StageView cannot be resolved to a variable";
+        assertTrue(log.length() > 240);
+        assertTrue(Blueprint.pointed(log));
+        assertFalse(Blueprint.applies(log));
+    }
+
+    @Test
     public void nothingButThePlanChangesBeforeTheCheckPasses() {
         Blueprint b = new Blueprint();
         assertEquals(Blueprint.Phase.UNDERSTAND, b.phase());
