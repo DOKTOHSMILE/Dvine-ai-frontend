@@ -354,6 +354,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 321 | Teach it to work like Claude Opus: how it thinks and moves through tasks | P12 | Built (agent/WorkingMethod W1–W12) | 0.99.111 |
 | 322 | The head more of a rectangle, not full size | P12 | Built (LiveFace: 74% of its square, height 80% of the width) | 0.99.112 |
 | 323 | IDs on messages and sentences, tags registered for them; think by the codes and read only the words they pull | P12 | Built (learn/Codes; chat recall and learned answers by code) | 0.99.112 |
+| 324 | Separate what goes into the plan file from questions and requests sent while the agent works | P12 | Built (agent/Intake I1–I6; only project changes reach the plan) | 0.99.113 |
 
 ## Still open, in the order that matters
 

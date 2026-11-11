@@ -1,3 +1,8 @@
+# Messages during a job sorted; only project changes reach the plan (0.99.113)
+
+- [x] agent/Intake: chat, question, request, steer, plan change (I1–I6), no model call.
+- [x] Questions, requests and chat answered beside the job; a steer note read without re-planning; only plan changes go into PLAN.md.
+
 # Memory codes; a smaller rectangular head (0.99.112)
 
 - [x] learn/Codes: sentence ids and tags; recall by tags; read back only those sentences.

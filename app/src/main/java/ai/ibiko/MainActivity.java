@@ -3936,10 +3936,25 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * it as the next turn.
      */
     void steerIntoTask(String text, boolean attached) {
-        if (!attached && model != null && model.coding && (model.remoteOn() || model.localReady()) && text != null
-                && !text.trim().isEmpty()) {
-            sideReply(text.trim()); // a long job keeps running in the background; the message is answered now
-            return;
+        if (!attached && model != null && model.coding && text != null && !text.trim().isEmpty()) {
+            // sorted first (agent/Intake, no model call): only a change to the project reaches the job's plan; a note on
+            // how to work reaches the job without re-planning; a question, a separate request or a "thanks" is answered
+            // beside the job, which keeps working
+            String t = text.trim();
+            ai.ibiko.agent.Intake.Kind kind = ai.ibiko.agent.Intake.sort(t, backgroundTask);
+            if (kind == ai.ibiko.agent.Intake.Kind.PLAN_CHANGE || kind == ai.ibiko.agent.Intake.Kind.STEER) {
+                noteUser(t);
+                steer.add(ai.ibiko.agent.Intake.forJob(kind, t));
+                note(kind == ai.ibiko.agent.Intake.Kind.PLAN_CHANGE ? "Added to the plan. The job keeps going."
+                        : "Passed to the job. It keeps going as planned.");
+                handler.removeCallbacks(releaseUnseenSteer);
+                handler.postDelayed(releaseUnseenSteer, 500);
+                return;
+            }
+            if (model.remoteOn() || model.localReady()) {
+                sideReply(t); // answered now, beside the job; nothing is added to its plan
+                return;
+            }
         }
         String payload = text == null ? "" : text.trim();
         if (attached && attachments != null && !attachments.isEmpty()) {
@@ -3977,9 +3992,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final String last = chatPane == null ? "" : chatPane.lastStep();
         final String system = systemFor(agent, false)
                 + " A job is running in the background right now: " + clip(job) + (last.isEmpty() ? "" : " (last step: " + last + ")")
-                + ". It keeps going while you answer. Answer the user's new message yourself, briefly. Only if the message is an"
-                + " instruction or a correction for that job (change what it does, add to it, stop part of it), write \u00A7ST and"
-                + " the instruction alone on the first line, then one short sentence; the job reads it on its next step.";
+                + ". It keeps going while you answer. The user's new message is a question, a separate request or a remark: answer"
+                + " it yourself, briefly (for a question about the job, say what it is doing from the last step). It is not"
+                + " added to the job's plan. Only if it clearly tells the job how to go on (stop part of it, do something"
+                + " first), write \u00A7ST and that instruction alone on the first line, then one short sentence.";
         final String context = chats == null ? "" : chats.transcript(onDevice ? 1200 : 4000, onDevice ? 400 : 1500);
         hub.worker.execute(() -> {
             String asked = (context.isEmpty() ? "" : "The chat so far:\n" + context + "\n\n") + "The user's new message: " + text;
@@ -3993,7 +4009,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }
                 ai.ibiko.suit.FunctionCode.Call c = said == null ? null : ai.ibiko.suit.FunctionCode.parse(said);
                 if (c != null && c.code == ai.ibiko.suit.FunctionCode.ST) {
-                    steer.add(c.args.isEmpty() ? text : c.args); // for the job: it reads it on its next step
+                    // for the job, as a note on how to go on: it reads it on its next step, without re-planning
+                    steer.add(ai.ibiko.agent.Intake.STEER + (c.args.isEmpty() ? text : c.args));
                     handler.removeCallbacks(releaseUnseenSteer);
                     handler.postDelayed(releaseUnseenSteer, 500);
                 }
