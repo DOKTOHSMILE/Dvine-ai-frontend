@@ -18,6 +18,12 @@ public final class DvineApp extends Application {
             // no notifications: downloads still run
         }
         ai.ibiko.chat.Tuning.resetOnce(getSharedPreferences("dvine", MODE_PRIVATE));
+        android.content.SharedPreferences p = getSharedPreferences("dvine", MODE_PRIVATE);
+        if (!p.getBoolean("approvals_back_v1", false)) {
+            // "Always run" in the old approval dialog turned asking off for good, without saying so: asking is back on
+            // once; Settings › Coding › Run commands without asking turns it off again
+            p.edit().putBoolean("auto_accept", false).putBoolean("approvals_back_v1", true).apply();
+        }
         if (!"robolectric".equals(android.os.Build.FINGERPRINT)) {
             // Google search with no key: google.com read in a browser on the device that isn't shown
             ai.ibiko.net.WebSearch.browser = (q, most) -> ai.ibiko.net.GoogleWeb.search(this, q, most);

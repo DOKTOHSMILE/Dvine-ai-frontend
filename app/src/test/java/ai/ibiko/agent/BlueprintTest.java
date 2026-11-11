@@ -14,7 +14,7 @@ public class BlueprintTest {
     static final String GOOD = "# Blueprint: dark mode\nPhase: CHECK\n## Goal\nA dark theme the user can switch on in Settings.\n"
             + "## Found\nSettingsActivity.java:toggle, Ui.java:colors, values-night/colors.xml\n"
             + "## Reuse\nSettingsActivity.toggle for the switch; Ui colors\n"
-            + "## Steps\n- [ ] 1. Add the switch (files: SettingsActivity.java)\n- [ ] 2. Night colors (files: values-night/colors.xml)\n"
+            + "## Steps\n- [ ] 1. Add the switch (files: SettingsActivity.java; check: SettingsTest)\n- [ ] 2. Night colors (files: values-night/colors.xml; check: read the file back)\n"
             + "## Risks\n- old screens keep light colors -> every screen reads Ui colors\n"
             + "## Check\ngradle testDebugUnitTest and open Settings\n## Changes\n";
 
@@ -60,6 +60,18 @@ public class BlueprintTest {
         // a new file for something the code already has
         String dup = GOOD.replace("- [ ] 2. Night colors", "- [ ] 2. Create SettingsActivity.java again");
         assertTrue(String.join("|", Blueprint.check(dup)), String.join("|", Blueprint.check(dup)).contains("reuse or change it"));
+    }
+
+    @Test
+    public void eachStepIsCheckedInOrderAndARepositoryHasItsFolder() {
+        String noCheck = GOOD.replace("; check: SettingsTest", "");
+        assertTrue(String.join("|", Blueprint.check(noCheck)), String.join("|", Blueprint.check(noCheck)).contains("'check:'"));
+        String outOfOrder = GOOD.replace("- [ ] 2. Night", "- [ ] 3. Night");
+        assertTrue(String.join("|", Blueprint.check(outOfOrder)).contains("not numbered in order"));
+        String github = GOOD.replace("## Goal\n", "## Goal\nOn GitHub: ");
+        assertTrue(String.join("|", Blueprint.check(github)).contains("'## Repository'"));
+        assertTrue(Blueprint.check(github.replace("## Goal\n", "## Repository\nDOKTOHSMILE/app -> memory/projects/app\n## Goal\n")).isEmpty());
+        assertTrue("a step is ticked only when its check passed", Blueprint.RULES.contains("only when the check passed"));
     }
 
     @Test

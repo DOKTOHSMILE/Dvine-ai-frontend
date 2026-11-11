@@ -40,13 +40,18 @@ public final class Blueprint {
             + " '## Repository' (when the task is on a GitHub repository: 'owner/name -> memory/projects/<name>', the one"
             + " folder it is cloned into; the first step is to pull it there (clone it there the first time), and every read,"
             + " edit, command and push for it uses that same folder, never a copy elsewhere), '## Goal', '## Found' (what is there now, file:name), '## Reuse' (existing code you will use instead of"
-            + " writing it again, file:name, or 'none: <why>'), '## Steps' (numbered '- [ ] 1. … (files: a, b)'), '## Risks'"
+            + " writing it again, file:name, or 'none: <why>'), '## Steps' (numbered in order '- [ ] 1. … (files: a, b;"
+            + " check: how this step is proved done, such as the test to run or the lines to read back)', one change per"
+            + " step, small enough to check), '## Risks'"
             + " (each with its answer after ' -> '), '## Check' (the build or test that proves it works), '## Changes'"
             + " (what the user adds later).\n"
-            + "3 CHECK: set 'Phase: CHECK' and scrutinise the plan for loopholes: a step without files, new code that"
+            + "3 CHECK: set 'Phase: CHECK' and scrutinise the plan for loopholes: a step without files or without a check,"
+            + " steps out of order or depending on a later one, new code that"
             + " duplicates something in Found, a risk without an answer, no test, an open question. Fix the plan. When"
             + " nothing is missing, set 'Phase: BUILD'. Files other than PLAN.md cannot be changed before that.\n"
-            + "4 BUILD: do the steps in order, quickly, ticking '- [x]' in PLAN.md as each is done. Do not re-read what"
+            + "4 BUILD: do the steps in order, quickly. After each step run its check (read the changed lines back, run"
+            + " the test) and tick '- [x]' in PLAN.md only when the check passed; a step whose check fails is fixed before"
+            + " the next one starts. Do not re-read what"
             + " you already read or redo a ticked step. If something fails twice, stop and fix the plan instead of trying"
             + " the same thing again.\n"
             + "5 VERIFY: set 'Phase: VERIFY', run the Check, fix what fails, then give the report.\n"
@@ -219,6 +224,29 @@ public final class Blueprint {
                 out.add("step '" + clip(s[1], 50) + "' names no files");
                 break;
             }
+        }
+        for (String[] s : steps) {
+            if (!s[1].toLowerCase(Locale.US).matches("(?s).*\\bcheck(ed)?\\s*:.*")) {
+                out.add("step '" + clip(s[1], 50) + "' says no 'check:' (how it is proved done before it is ticked)");
+                break;
+            }
+        }
+        // numbered 1, 2, 3… in order, none twice: a step out of order is a step done before what it needs
+        int want = 1;
+        for (String[] s : steps) {
+            Matcher n = Pattern.compile("^(\\d+)\\.").matcher(s[1]);
+            if (n.find()) {
+                int got = Integer.parseInt(n.group(1));
+                if (got != want) {
+                    out.add("the steps are not numbered in order (step " + got + " where " + want + " was expected)");
+                    break;
+                }
+                want++;
+            }
+        }
+        // work on a GitHub repository: the one folder it lives in is written down
+        if (p.matches("(?is).*\\b(git\\s+(clone|pull|push)|github|pull request)\\b.*") && section(p, "Repository").trim().isEmpty()) {
+            out.add("a '## Repository' section: 'owner/name -> memory/projects/<name>', the folder it is pulled into and worked in");
         }
         String risks = section(p, "Risks");
         if (risks.trim().isEmpty()) {

@@ -15,6 +15,8 @@ import ai.ibiko.R;
  */
 public final class HtmlViewActivity extends AppCompatActivity {
     public static final String EXTRA_HTML = "html";
+    /** A page too big for an Intent, in a file (read here, off nothing else). */
+    public static final String EXTRA_FILE = "file";
 
     private WebView web;
 
@@ -36,8 +38,16 @@ public final class HtmlViewActivity extends AppCompatActivity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setDomStorageEnabled(false);
-        web.loadDataWithBaseURL("https://dvine.local/", page(getIntent().getStringExtra(EXTRA_HTML)),
-                "text/html", "utf-8", null);
+        String html = getIntent().getStringExtra(EXTRA_HTML);
+        String path = getIntent().getStringExtra(EXTRA_FILE);
+        if (html == null && path != null) {
+            try {
+                html = new String(java.nio.file.Files.readAllBytes(new java.io.File(path).toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            } catch (java.io.IOException | OutOfMemoryError e) {
+                html = "<p>The page couldn't be opened.</p>";
+            }
+        }
+        web.loadDataWithBaseURL("https://dvine.local/", page(html), "text/html", "utf-8", null);
     }
 
     @Override

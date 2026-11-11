@@ -40,7 +40,8 @@ public class WorkspaceActivityTest {
         tap(c.get().getWindow().getDecorView(), "Main.java");
         Intent shown = Shadows.shadowOf(c.get()).getNextStartedActivity();
         assertNotNull(shown);
-        assertEquals("class Main {}\n", shown.getStringExtra(CodeViewActivity.EXTRA_CODE));
+        assertNull("only the path travels, never the text (a big file crashed the viewer)", shown.getStringExtra(CodeViewActivity.EXTRA_CODE));
+        assertEquals(new File(ws, "Main.java").getPath(), shown.getStringExtra(CodeViewActivity.EXTRA_FILE));
         assertEquals("java", shown.getStringExtra(CodeViewActivity.EXTRA_LANG));
         c.get().onBackPressed(); // up to harvana
         assertNotNull(text(c.get().getWindow().getDecorView(), "app"));
