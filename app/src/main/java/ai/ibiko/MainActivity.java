@@ -1268,8 +1268,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_image, "Photo", "From your gallery"),
                 new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_video, "Video", null),
                 new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_audio, "Audio", null),
-                new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_file, "Files", "Any kind, several at once"),
-                new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_cube, "Several photos of one object", "Builds a 3D model from them") };
+                new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_file, "Files", "Any kind, several at once") };
         ai.ibiko.chat.ui.BottomSheet.show(this, "Add to the chat", items, which -> {
             if (which == 0) {
                 toggleDictation();
@@ -1281,8 +1280,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 openContentPicker("audio", false);
             } else if (which == 4) {
                 openContentPicker("document", false);
-            } else {
-                openReconstructionPicker();
             }
         });
     }
@@ -1353,6 +1350,38 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** When the pilot last sent a message, and how long a reply to it may still be read out by itself. */
     long askedAt;
     static final long SPEAK_WINDOW_MS = 3 * 60_000L;
+
+    /**
+     * Makes a picture with the image tool (\u00A7IM, from any brain): an image model on one of the pilot's providers
+     * draws it, it is saved and shown in the chat. While it is made, the working line says so.
+     */
+    void makeImage(final String agent, final String what) {
+        if (chatPane != null) {
+            chatPane.activityStep("Making the picture: " + (what.length() > 80 ? what.substring(0, 80) + "\u2026" : what));
+        }
+        final java.io.File out = new java.io.File(getFilesDir(), "chat-images");
+        final java.util.List<ai.ibiko.llm.ImageMaker.Source> sources = ai.ibiko.llm.ImageMaker.sources(
+                new ai.ibiko.llm.ProviderStore(this), prefs.getString("image_model", ""));
+        hub.worker.execute(() -> {
+            final ai.ibiko.llm.ImageMaker.Result r = ai.ibiko.llm.ImageMaker.make(sources, what, out, ai.ibiko.llm.ImageMaker.WEB);
+            handler.post(() -> {
+                if (isFinishing()) {
+                    return;
+                }
+                if (chatPane != null) {
+                    chatPane.activityEnd();
+                }
+                if (r.file != null) {
+                    if (chatPane != null) {
+                        chatPane.image(r.file.getAbsolutePath());
+                    }
+                    play(LocalTurn.speakAs(agent, "Here it is, made by " + r.made + "."), null);
+                } else {
+                    play(LocalTurn.speakAs(agent, r.error), null);
+                }
+            });
+        });
+    }
 
     /** The floating player over the chat while a reply is read aloud. */
     private ai.ibiko.stage.PlayerBar playerBar;
@@ -2079,7 +2108,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 })
                 // with a brain in the suit no wording runs anything: the brain reads the sizes (\u00A7BD) and the yes or no
                 // to an action shown waiting (\u00A7YS, \u00A7CX); the card's own buttons are the pilot's direct control
-                .route("measurements for the build", t -> !brainReads() && measurementsGiven(t))
                 .route("post, share or copy", t -> !brainReads() && stagedAction(t))
                 // no "make a file", "retry" or "read the meaning" by wording: the brain gives those as codes
                 .route("brain", t -> {
@@ -2123,7 +2151,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 })
                 // Ivie's canvas by wording only when no brain is in the suit; a brain gives \u00A7BD and \u00A7DR.
                 // Reading the workspace files is the brain's code too (\u00A7RF), never a file name in the message
-                .route("Ivie's 3D canvas", t -> !brainReads() && ivieGraphics(t))
                 .route("attachment", t -> {
                     if (!ai.ibiko.chat.Attachments.has(t) || !modelOn()) {
                         return false;
@@ -2142,7 +2169,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     boolean shortcut = known != null && (known.kind == ai.ibiko.llm.BrainOrder.Kind.UNZIP
                             || known.kind == ai.ibiko.llm.BrainOrder.Kind.FINDZIP || known.kind == ai.ibiko.llm.BrainOrder.Kind.TIME
                             || known.kind == ai.ibiko.llm.BrainOrder.Kind.NAME || known.kind == ai.ibiko.llm.BrainOrder.Kind.SOCIAL
-                            || known.kind == ai.ibiko.llm.BrainOrder.Kind.BUILD);
+                            || known.kind == ai.ibiko.llm.BrainOrder.Kind.IMAGE);
                     if (shortcut) {
                         return false;
                     }

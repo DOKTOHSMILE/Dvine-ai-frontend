@@ -293,6 +293,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 260 | A tap on a part shows only its Listen and Copy | P12 | Built | 0.99.92 |
 | 261 | Near the bottom, keep the chat at the bottom as new text comes | P12 | Built (within 120 dp it follows; scrolled up it stays) | 0.99.92 |
 | 262 | Settings as their own fragments or activity files with XML; the Speak button (screenshot) | P12 | Next (0.99.93) | |
+| 263 | Why is the response cut | P12 | Fixed (a reply cut by its length limit is carried on, whatever the limit) | 0.99.93 |
+| 264 | Not every generation is 3D: remove 3D entirely; image generation from the API and other brains; an image tool in the app | P12 | Built (3D removed from functions, tools, routes and prompts; ImageMaker and §IM for every brain) | 0.99.93 |
+| 265 | The app icon background should match the app's colour | P12 | Done (the accent purple) | 0.99.93 |
 
 ## Still open, in the order that matters
 

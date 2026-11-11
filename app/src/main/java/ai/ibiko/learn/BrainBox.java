@@ -291,7 +291,7 @@ public final class BrainBox {
 
     /** Kinds whose argument may be new words in a learned shape (never shell, posting or scheduling). */
     private static final Set<String> TEMPLATED = new HashSet<String>(java.util.Arrays.asList(
-            "SR", "SEARCH", "PH", "PHOTO", "CA", "CALC", "BD", "BUILD", "NM", "NAME", "SW", "SWITCH", "MF", "MAKEFILE", "SI", "SOCIALINTEL"));
+            "SR", "SEARCH", "PH", "PHOTO", "CA", "CALC", "IM", "IMAGE", "NM", "NAME", "SW", "SWITCH", "MF", "MAKEFILE", "SI", "SOCIALINTEL"));
 
     /**
      * A learned shape: "what's the weather in {x}" became "§SR weather in {x}", so "what's the weather in Abuja" becomes

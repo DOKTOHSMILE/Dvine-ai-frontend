@@ -5,10 +5,10 @@ package ai.ibiko.llm;
  */
 public final class BrainOrder {
     public enum Kind {
-        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, BUILD, SOCIAL, CANNOT,
+        SAY, PHOTO, UNZIP, FINDZIP, NAME, GREET, TIME, SHELL, SEARCH, TOOL, IMAGE, SOCIAL, CANNOT,
         // the suit's controls, only ever from a brain's code (never from the user's words)
         CALC, MAKEFILE, STAGE, SOCIALINTEL, SCHEDULEPOST, NEWCHAT, SWITCH, PLANMODE, AUTOON, AUTOOFF, RETRY, SETTINGS,
-        HANDOVER, WORK, WRITEPLAN, THINKTOGETHER, READFILES, CARRYON, CANVAS, CONFIRM, CANCEL
+        HANDOVER, WORK, WRITEPLAN, THINKTOGETHER, READFILES, CARRYON, CONFIRM, CANCEL
     }
 
     public final Kind kind;
@@ -57,7 +57,7 @@ public final class BrainOrder {
             case SH: return new BrainOrder(Kind.SHELL, c.args, "");
             case TL: return new BrainOrder(Kind.TOOL, c.args, "");
             case PH: return new BrainOrder(Kind.PHOTO, c.args, "");
-            case BD: return new BrainOrder(Kind.BUILD, c.args, "");
+            case IM: return new BrainOrder(Kind.IMAGE, c.args, "");
             case SO: return read("DO SOCIAL " + c.args);
             case TM: return new BrainOrder(Kind.TIME, "", "");
             case NM: return new BrainOrder(Kind.NAME, c.args, "");
@@ -76,7 +76,6 @@ public final class BrainOrder {
             case TT: return new BrainOrder(Kind.THINKTOGETHER, "", "");
             case RF: return new BrainOrder(Kind.READFILES, "", "");
             case CO: return new BrainOrder(Kind.CARRYON, "", "");
-            case DR: return new BrainOrder(Kind.CANVAS, c.args, "");
             case YS: return new BrainOrder(Kind.CONFIRM, "", "");
             case CX: return new BrainOrder(Kind.CANCEL, "", "");
             case PM: return new BrainOrder(Kind.PLANMODE, "", "");
@@ -108,7 +107,7 @@ public final class BrainOrder {
                 + " installed, listed or checked on this device: write the real command yourself, e.g. \"which python\""
                 + " becomes DO SHELL python3 --version; a full Linux with python3, node, git, gcc, pip and pkg is here when"
                 + " Termux is installed),"
-                + " DO BUILD <the thing to build in 3D, with every size they said> (a house, a car, a chair: anything to model),"
+                + " DO IMAGE <what the picture shows, its style and colours> (an icon, a logo, an illustration, any picture to make),"
                 + " DO SOCIAL SEARCH <network>: <words> (what people post), DO SOCIAL TRENDING <network>,"
                 + " DO SOCIAL CONNECT <network> (sign in), DO SOCIAL POST <network>: <what about> (write a post),"
                 + " DO SOCIAL HELP (how to use their social accounts). Networks: facebook, x, instagram, reddit."
@@ -171,8 +170,8 @@ public final class BrainOrder {
             if ("TOOL".equals(code) && !arg.isEmpty()) {
                 return new BrainOrder(Kind.TOOL, arg, "");
             }
-            if ("BUILD".equals(code) && !arg.isEmpty()) {
-                return new BrainOrder(Kind.BUILD, arg, "");
+            if (("IMAGE".equals(code) || "BUILD".equals(code)) && !arg.isEmpty()) {
+                return new BrainOrder(Kind.IMAGE, arg, ""); // an older brain's BUILD: a picture of it (there is no 3D)
             }
             if ("SOCIAL".equals(code) && !arg.isEmpty()) {
                 return new BrainOrder(Kind.SOCIAL, arg.replaceFirst("^(?i)(search|trending|connect|post|help)\\b", "$1").toLowerCase(java.util.Locale.US)
@@ -211,9 +210,9 @@ public final class BrainOrder {
         if (social != null) {
             return social;
         }
-        ai.ibiko.create.ObjectRequestInterpreter.Request build = ai.ibiko.create.ObjectRequestInterpreter.interpret(said, null);
-        if (build != null && build.kind == ai.ibiko.create.ObjectRequestInterpreter.Kind.CREATE) {
-            return new BrainOrder(Kind.BUILD, said, "");
+        String picture = imageOf(said);
+        if (picture != null) {
+            return new BrainOrder(Kind.IMAGE, picture, ""); // a picture to make: "generate a call icon", "draw a lion"
         }
         String photo = pictureOf(said);
         if (photo != null) {
@@ -307,5 +306,16 @@ public final class BrainOrder {
         }
         String s = raw.trim().replaceAll("^(a|an|the|some) ", "");
         return s.isEmpty() || s.split(" ").length > 6 ? null : s;
+    }
+
+    private static final java.util.regex.Pattern IMAGE_ASK = java.util.regex.Pattern.compile("(?i)^(?:please |can you |could you )?"
+            + "(?:generate|create|make|draw|design|paint|sketch|render)(?: me| us)? (?:a |an |the |some )?"
+            + "(?:(?:[a-z-]+ ){0,3}(?:image|picture|icon|logo|illustration|drawing|artwork"
+            + "|poster|wallpaper|banner|sticker|avatar|emoji|cartoon|painting|sketch|graphic))s?\\b.*$");
+
+    /** What to picture when the words plainly ask for a picture to be made ("generate a call icon"), else null. */
+    public static String imageOf(String said) {
+        String t = said == null ? "" : said.trim().replaceAll("[.!?]+$", "");
+        return IMAGE_ASK.matcher(t).matches() ? t : null;
     }
 }

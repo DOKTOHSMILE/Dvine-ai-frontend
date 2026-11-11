@@ -1,6 +1,6 @@
 # Ibiko (Android)
 
-<img src="docs/brand/ibiko_icon_512.png" width="128" alt="Ibiko icon: a black rounded face with two glowing cyan eyes and circuit traces, on a teal background">
+<img src="docs/brand/ibiko_icon_512.png" width="128" alt="Ibiko icon: a black rounded face with two glowing cyan eyes and circuit traces, on the app's purple">
 
 Ibiko is one AI assistant on your Android device. There are no personas to pick and no other names: you talk to Ibiko, and Ibiko talks, researches, writes, designs in 3D, and writes and runs code on the device.
 
@@ -60,6 +60,8 @@ A tool switched off for the chat is never used.
 
 **Listening.** While a reply is read aloud, a floating player sits over the chat: play or pause, back and forward 15 seconds, speed (1x to 2x), the time and close. One sound plays at a time anywhere in Ibiko (`voice/AudioGate`); other apps pause while Ibiko speaks, and a call pauses Ibiko. The voice is loaded once as Ibiko starts and kept ready.
 
+**Pictures.** Ask for an icon, a logo, an illustration or any picture and Ibiko makes it with an image model on your own provider (OpenAI or Google Gemini, or a gateway with an images endpoint), then shows it in the chat (`llm/ImageMaker`, the §IM function every brain can use). There is no 3D.
+
 **Asking first.** Ibiko asks before a shell command, a push, a pull request and any connector call that changes something (creating, deleting, posting, merging, sending); reading, searching and editing files in the workspace go ahead. "Allow for this task" lets the rest of one task go ahead; Settings › Coding › Run commands without asking turns asking off, and the steps then say so. Every plan step names its files and its check, and is ticked only after the check passed.
 
 **Plans grow.** A plan file (`PLAN.md`) is only added to. New work goes after the existing steps, or right after the last finished step when you call it a priority. A finished step is ticked, never deleted. A write that would drop a step is refused.
@@ -104,7 +106,7 @@ gradle testDebugUnitTest assembleDebug
 Regenerate assets:
 - `python3 tools/build_world_facts.py`: built-in facts from Wikidata;
 - `python3 tools/build_more_facts.py`: the further facts (countries' codes, the elements in full, Nigeria's states, the planets);
-- `python3 tools/make_icon.py app/src/main/res`: the app icon from the pilot's art (the face on a teal background, every density, round, store image); the face in the chat is drawn in code (`stage/LiveFace`);
+- `python3 tools/make_icon.py app/src/main/res`: the app icon from the pilot's art (the face on the app's purple, every density, round, store image); the face in the chat is drawn in code (`stage/LiveFace`);
 - `python3 tools/make_logo.py`: logo and launcher icons;
 - `python3 tools/pack_source.py`: knowledge pack;
 - `python3 tools/build_lexicon.py` and `python3 tools/build_concepts.py`: the comprehension files from Open English WordNet and ConceptNet (the second writes the first-start download and prints its checksum).

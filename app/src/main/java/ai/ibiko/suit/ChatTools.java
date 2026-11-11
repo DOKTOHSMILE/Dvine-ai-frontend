@@ -22,7 +22,7 @@ public final class ChatTools {
         WEB("Web search", "Look up news, prices, anything recent", FunctionCode.SR),
         CONNECTORS("Connectors", "Gmail, calendar, Notion and more", FunctionCode.TL),
         PHOTOS("Photos", "Find and show real photographs", FunctionCode.PH),
-        DESIGN3D("3D design", "Model and change things in 3D", FunctionCode.BD),
+        IMAGES("Images", "Make pictures: icons, logos, illustrations", FunctionCode.IM),
         FILES("Make files", "PDF, Word, sheets, web pages", FunctionCode.MF),
         SHARE("Share and copy", "Through your apps, after your yes", FunctionCode.AC),
         SOCIAL("Social accounts", "Trends, posts, comments, schedules", FunctionCode.SO),
@@ -118,9 +118,6 @@ public final class ChatTools {
             }
             if (t == Tool.GITHUB) {
                 s.add(FunctionCode.TL); // GitHub's own tools go through the connector code
-            }
-            if (t == Tool.DESIGN3D) {
-                s.add(FunctionCode.DR); // changes to what is on the canvas
             }
         }
         if (on.contains(Tool.SOCIAL)) {

@@ -13,7 +13,7 @@ Accepted forms on the first line: `§XX arguments`, `[[XX]] arguments`, `⟦XX�
 | `§TL` | TOOL | use a connector tool | `<tool> <argument>` |
 | `§CA` | CALC | work out arithmetic exactly | `<expression>` |
 | `§PH` | PHOTO | show a real photograph | `<subject>` |
-| `§BD` | BUILD | model a thing in 3D | `<thing, with every size given>` |
+| `§IM` | IMAGE | make a picture: an icon, a logo, an illustration, artwork or a picture of anything (not a real photograph of something that exists: §PH finds those) | `<what it shows: subject, style, colours, layout>` |
 | `§SO` | SOCIAL | the pilot's social accounts | `SEARCH <network>: <words> \| TRENDING <network> \| CONNECT <network> \| POST <network>: <about, and any people to tag by name> \| COMMENT <network>: <post link> <what to say>` |
 | `§SI` | SOCIALINTEL | social intelligence: investigate posts, find similar posts, public sentiment, profiles | `<capability> <arguments>` |
 | `§SP` | SCHEDULEPOST | schedule a post on the pilot's own account, once or repeating; the pilot sees it and says yes first. LIST shows the scheduled posts | `<network> <yyyy-MM-dd HH:mm \| HH:mm \| in 2h> [daily\|weekly\|weekdays\|every 6h]: <text> \| LIST` |
@@ -31,7 +31,6 @@ Accepted forms on the first line: `§XX arguments`, `[[XX]] arguments`, `⟦XX�
 | `§TT` | THINKTOGETHER | a weighty decision or question: it is planned, checked against the real world and tested for what could break, then answered once | none |
 | `§RF` | READFILES | read the files in the workspace on this device (cloned repositories, projects) to answer this | none |
 | `§CO` | CARRYON | carry on with the unfinished work in this chat from where it stopped | none |
-| `§DR` | CANVAS | change what is on the canvas: edit a part, turn or view it, undo, save, open or export | `<the change, in plain words>` |
 | `§ST` | STEER | only while a job runs in the background: pass the user's instruction to that job | `<the instruction>` |
 | `§YS` | CONFIRM | the pilot agrees to the action that is shown waiting for their yes: carry it out | none |
 | `§CX` | CANCEL | the pilot does not want the action that is shown waiting: drop it | none |

@@ -403,39 +403,6 @@ public class LaunchTest {
     }
 
     @Test
-    public void aBuildWithoutMeasurementsAsksForThemFirst() throws Exception {
-        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
-        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        android.widget.EditText field = c.get().findViewById(ai.ibiko.R.id.et_message);
-        field.setText("build a house for my family");
-        c.get().findViewById(ai.ibiko.R.id.btn_send).performClick();
-        ShadowLooper.idleMainLooper(3, java.util.concurrent.TimeUnit.SECONDS);
-        java.lang.reflect.Field pb = MainActivity.class.getDeclaredField("pendingBuild");
-        pb.setAccessible(true);
-        org.junit.Assert.assertNull("the words alone build nothing", pb.get(c.get()));
-        brainSays(c, "\u00A7BD build a house for my family"); // the brain decided: a 3D build
-        org.junit.Assert.assertEquals("build a house for my family", pb.get(c.get()));
-        java.lang.reflect.Method gate = MainActivity.class.getDeclaredMethod("messageGate");
-        gate.setAccessible(true);
-        ai.ibiko.gate.BrainGateway g = (ai.ibiko.gate.BrainGateway) gate.invoke(c.get());
-        java.util.List<ai.ibiko.gate.BrainGateway.Decision> d = g.recent();
-        org.junit.Assert.assertFalse("no route acts on the wording", g.order().contains("a known order"));
-        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
-        // the build lights up the stage; without a GPU its frames would keep the looper busy forever
-        java.lang.reflect.Field st = MainActivity.class.getDeclaredField("stage");
-        st.setAccessible(true);
-        java.lang.reflect.Method stop = ai.ibiko.stage.StageView.class.getDeclaredMethod("stopFrames");
-        stop.setAccessible(true);
-        field.setText("you choose");
-        c.get().findViewById(ai.ibiko.R.id.btn_send).performClick();
-        stop.invoke(st.get(c.get()));
-        ShadowLooper.idleMainLooper();
-        org.junit.Assert.assertEquals("the answer goes to the build waiting for it", "message \u2192 measurements for the build", g.last().toString());
-        org.junit.Assert.assertNull(pb.get(c.get()));
-        c.pause().stop().destroy();
-    }
-
-    @Test
     public void aMessageSentDuringWorkWaitsForItInsteadOfCuttingItOff() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
@@ -1227,7 +1194,7 @@ public class LaunchTest {
         org.junit.Assert.assertEquals("On", String.valueOf(deep.getStateDescription()));
         org.junit.Assert.assertTrue(c.get().getSharedPreferences("dvine", 0).getAll().toString().contains("DEEP"));
         found.clear();
-        sheet.getWindow().getDecorView().findViewsWithText(found, "3D design", android.view.View.FIND_VIEWS_WITH_TEXT);
+        sheet.getWindow().getDecorView().findViewsWithText(found, "Images", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertFalse("every tool is offered", found.isEmpty());
         found.clear();
         sheet.getWindow().getDecorView().findViewsWithText(found, "on in this chat", android.view.View.FIND_VIEWS_WITH_TEXT);
