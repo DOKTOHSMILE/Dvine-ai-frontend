@@ -1,3 +1,8 @@
+# The send button never sticks on Stop (0.99.73)
+
+- [x] Redrawn on every stream change and when a job ends; while Stop shows it checks again each second.
+- [ ] A finished plan marked DONE with its date, and dated ticks (proposed, waiting for the pilot's yes).
+
 # Workers from the setting; plans cannot be wiped (0.99.72)
 
 - [x] The Workers setting sets workers, readers and writers (default 8, up to 16; two at once on the device's model).

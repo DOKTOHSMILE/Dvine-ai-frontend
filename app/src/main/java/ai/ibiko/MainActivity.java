@@ -156,12 +156,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         @Override
         public void clearStreaming() {
-            streamOpen = false;
+            setStreamOpen(false);
         }
 
         @Override
         public void setStreaming() {
-            streamOpen = true;
+            setStreamOpen(true);
         }
 
         @Override
@@ -1987,7 +1987,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         readToken++;
         stopVisibleJob();
         walker.abandon();
-        streamOpen = false;
+        setStreamOpen(false);
         endThink();
         keepAwake(false);
         if (talk != null) {
@@ -2049,6 +2049,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** Send is lit when there is something to send, or a reply to stop; grey otherwise. */
+    /**
+     * Whether a reply is still streaming. Every change redraws the send button: a reply that finished used to redraw it
+     * just before this went false, so the button kept showing Stop.
+     */
+    private void setStreamOpen(boolean open) {
+        streamOpen = open;
+        handler.post(this::refreshSend);
+    }
+
+    /** While Stop shows, the button looks again each second, so it turns back into Send the moment nothing runs. */
+    private final Runnable sendRecheck = this::refreshSend;
+
     private void refreshSend() {
         android.view.View send = findViewById(R.id.btn_send);
         android.widget.EditText field = findViewById(R.id.et_message);
@@ -2065,6 +2077,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             ((android.widget.ImageButton) send).setImageResource(stop ? R.drawable.ic_stop : R.drawable.ic_send);
         }
         send.setContentDescription(stop ? "Stop" : here ? "Send to the running task" : "Send");
+        handler.removeCallbacks(sendRecheck);
+        if (here && !isFinishing()) {
+            handler.postDelayed(sendRecheck, 1000); // work can end on another thread without telling the button
+        }
     }
 
     private void openHistory() {
@@ -3089,6 +3105,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             handler.post(() -> {
                 model.coding = false;
+                refreshSend(); // the job is over: Stop goes back to Send
                 showIbikoMode(false); // the job is over: the mode goes back into the Tools sheet
                 handler.post(releaseHeld); // a message held while Ibiko worked goes now, even if this page moved on
                 refreshSend();
@@ -4998,7 +5015,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.setMode(StageMode.THINKING);
         stage.activity("MODEL", "thinking offline");
         final List<TurnLine> stream = new ArrayList<TurnLine>();
-        streamOpen = true;
+        setStreamOpen(true);
         walker.follow(stream);
         final String system = systemFor(agent, acts);
         final ai.ibiko.suit.ChatTools pageTools = chatTools(agent);
@@ -5196,7 +5213,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     // finished while DVINE is in the background: kept in its chat at once (nothing typed out to an
                     // empty screen, nothing lost if Android closes the screen), and a notification says it's there
                     endThink();
-                    streamOpen = false;
+                    setStreamOpen(false);
                     if (chatPane != null) {
                         chatPane.setLive(null);
                     }
@@ -5218,7 +5235,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (!body.isEmpty()) {
                         stream.add(new TurnLine(agent, "SAY", body));
                     }
-                    streamOpen = false;
+                    setStreamOpen(false);
                     carryOut(agent, question, order);
                     return;
                 }
@@ -5262,7 +5279,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (switchTo != null && !switchTo.equals(agent)) {
                     walker.setAfter(() -> switchFace(switchTo, true));
                 } // the microphone never opens by itself: only a tap on the mic
-                streamOpen = false;
+                setStreamOpen(false);
             });
         });
         return true;
