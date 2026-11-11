@@ -1,0 +1,17 @@
+Ibiko's comprehension files
+
+lexicon.tsv
+  Made by tools/build_lexicon.py from Open English WordNet 2024 (https://en-word.net/).
+  Open English WordNet is released under the Creative Commons Attribution 4.0 International
+  licence (CC BY 4.0), and is derived from Princeton WordNet 3.0 (WordNet 3.0 Copyright 2006
+  by Princeton University). Changes: up to three senses kept per word, definitions shortened
+  to 220 characters, reorganised into one sorted table.
+
+concepts.tsv
+  Made by tools/build_concepts.py from ConceptNet 5.7 (https://conceptnet.io/), English
+  links only. ConceptNet is released under the Creative Commons Attribution-ShareAlike 4.0
+  International licence (CC BY-SA 4.0); it includes data from the Open Mind Common Sense
+  project, Wiktionary, DBPedia and others credited at https://github.com/commonsense/conceptnet5/wiki/Copying-and-sharing-ConceptNet.
+  Changes: English only, a chosen set of relations, links of weight 1 or more, a limited
+  number per concept, and the reverse of PartOf added as HasPart. This adapted table is
+  shared under the same licence, CC BY-SA 4.0.

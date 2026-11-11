@@ -1,8 +1,16 @@
+# Comprehension: what a message means (0.99.79)
+
+- [x] Open English WordNet and ConceptNet downloaded and built into sorted tables, read by binary search.
+- [x] Universal Comprehension Layer v1: intent, operations, word senses, pronouns, object parts; "Understood: …" in the foundation.
+- [x] Offline answers: meanings, synonyms, opposites, uses, abilities, parts, places, materials.
+- [ ] ATOMIC 2020 for the intent engine (why people do things, what follows).
+- [ ] The reasoning engine (cause and effect) and action planning from the blueprint.
+
 # More built-in knowledge; the terminal as Termux shows it (0.99.78)
 
 - [x] Countries' codes and regions, the elements in full, Nigeria's states, the planets (2,122 facts).
 - [x] Terminal: short greeting, smaller text, bright keys, selection with a floating Copy / Paste / More bar.
-- [ ] A dictionary (Open English WordNet, CC BY 4.0): definitions offline.
+- [x] A dictionary (Open English WordNet, CC BY 4.0): definitions offline (0.99.79).
 
 # Reports never vanish; downloads in the notification bar (0.99.77)
 

@@ -41,7 +41,10 @@ The app's package is `ai.ibiko` (since 0.99.68; before that `ai.dvine`, so it in
 - `elements_more.tsv` (1,027): each element's atomic mass, category, state at room temperature, discovery, melting and boiling points, density, electron configuration, group and period;
 - `local_facts.tsv` (106): Nigeria's 36 states and the FCT with their capitals; the eight planets (order from the Sun, diameter, year, kind);
 - `base_knowledge.json`: everyday talk, maths, units, wisdom;
-- `shards/dictionary_en.json`: the English dictionary (WordNet).
+- `shards/dictionary_en.json`: the English dictionary (WordNet);
+- `lexicon.tsv` (198,273 senses of 152,137 words, Open English WordNet 2024, CC BY 4.0) and `concepts.tsv` (316,294 common-sense links between 133,754 things, ConceptNet 5.7, CC BY-SA 4.0): the comprehension layer's files, unpacked once and read by binary search, never loaded whole into memory (`dvine1/comprehend`, licences in `COMPREHENSION_LICENSE.txt`).
+
+**Comprehension.** Before any brain reads a message, `dvine1/comprehend/Comprehension` works out what it means: the intent (ten kinds), each action with its target, attributes and position ("take the red tyre off the car": remove, tyre, red, from car, and whether a car has tyres), the word sense in context (a river bank or a money bank), and what "it" and "its" refer to in the conversation. The reading goes into the foundation as "Understood: …", and dictionary and common-sense questions ("what does X mean", "what is a knife used for", "parts of a car") are answered offline.
 
 **Learning.** Ibiko 1 learns from every reply, from any brain, without waiting for a tap:
 - facts and sentence shapes;
@@ -72,7 +75,8 @@ Regenerate assets:
 - `python3 tools/build_more_facts.py`: the further facts (countries' codes, the elements in full, Nigeria's states, the planets);
 - `python3 tools/make_icon.py app/src/main/res <thinking.gif>`: the icon and thinking animation from the pilot's art;
 - `python3 tools/make_logo.py`: logo and launcher icons;
-- `python3 tools/pack_source.py`: knowledge pack.
+- `python3 tools/pack_source.py`: knowledge pack;
+- `python3 tools/build_lexicon.py` and `python3 tools/build_concepts.py`: the comprehension files from Open English WordNet and ConceptNet.
 
 No provider key belongs in this project. Keys are entered in the app and stay on the device.
 

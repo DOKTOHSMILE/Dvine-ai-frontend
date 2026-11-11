@@ -199,6 +199,10 @@ public final class Dvine1 {
                 claims.add(new ai.ibiko.dvine1.formulas.Truth.Claim(about, k.answer,
                         k.sure ? ai.ibiko.dvine1.formulas.Truth.Source.CONFIRMED : ai.ibiko.dvine1.formulas.Truth.Source.LEARNED, now));
             }
+            String looked = lookUp(request);
+            if (looked != null) {
+                claims.add(new ai.ibiko.dvine1.formulas.Truth.Claim(about, looked, ai.ibiko.dvine1.formulas.Truth.Source.BUILT_IN, now));
+            }
             String shipped = builtIn().answer(request);
             if (shipped != null) {
                 claims.add(new ai.ibiko.dvine1.formulas.Truth.Claim(about, shipped, ai.ibiko.dvine1.formulas.Truth.Source.BUILT_IN, now));
@@ -224,7 +228,16 @@ public final class Dvine1 {
         } catch (RuntimeException e) {
             // the ledger can't be read: the rest stands
         }
-        return ai.ibiko.dvine1.formulas.Truth.brief(claims) + checkedBefore;
+        String meaning = "";
+        try {
+            ai.ibiko.dvine1.comprehend.Comprehension.Meaning m = understood(request);
+            if (m != null && (!m.operations.isEmpty() || !m.references.isEmpty() || !m.senses.isEmpty() || m.negated)) {
+                meaning = " " + m.brief(); // what the message means, worked out before any brain reads it
+            }
+        } catch (RuntimeException e) {
+            // no reading: the rest stands
+        }
+        return ai.ibiko.dvine1.formulas.Truth.brief(claims) + checkedBefore + meaning;
     }
 
     /** G8: the witnesses a sentence is asked of, most trusted first (the built-in reference, then facts held firmly). */
@@ -264,6 +277,56 @@ public final class Dvine1 {
         return ai.ibiko.dvine1.formulas.Truth.trueOnly(checked);
     }
 
+    private ai.ibiko.dvine1.comprehend.Comprehension comprehension;
+    private ai.ibiko.dvine1.comprehend.Lookup lookup;
+    private volatile ai.ibiko.dvine1.comprehend.Comprehension.Meaning lastMeaning;
+    private volatile String lastRead;
+
+    /**
+     * The comprehension layer (dvine1/comprehend): WordNet and ConceptNet, unpacked once from the app and read in
+     * place, and the reading of each message with its conversation context.
+     */
+    public synchronized ai.ibiko.dvine1.comprehend.Comprehension comprehension() {
+        if (comprehension == null) {
+            File k = new File(dir, "knowledge");
+            File lex = Store.unpacked(k, "lexicon.tsv"), con = Store.unpacked(k, "concepts.tsv");
+            ai.ibiko.dvine1.comprehend.Dictionary d = new ai.ibiko.dvine1.comprehend.Dictionary(
+                    new ai.ibiko.dvine1.comprehend.SortedTable(lex));
+            ai.ibiko.dvine1.comprehend.Concepts c = new ai.ibiko.dvine1.comprehend.Concepts(
+                    new ai.ibiko.dvine1.comprehend.SortedTable(con));
+            comprehension = new ai.ibiko.dvine1.comprehend.Comprehension(d, c);
+            lookup = new ai.ibiko.dvine1.comprehend.Lookup(d, c);
+        }
+        return comprehension;
+    }
+
+    /** A dictionary or common-sense question answered offline ("what does X mean", "what is a knife used for"), or null. */
+    public String lookUp(String question) {
+        comprehension();
+        try {
+            return lookup.answer(question);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** What the latest message means, read once (a second call for the same words returns the same reading). */
+    public ai.ibiko.dvine1.comprehend.Comprehension.Meaning understood(String message) {
+        if (message == null) {
+            return null;
+        }
+        if (message.equals(lastRead) && lastMeaning != null) {
+            return lastMeaning;
+        }
+        try {
+            lastMeaning = comprehension().read(message);
+            lastRead = message;
+        } catch (RuntimeException e) {
+            lastMeaning = null;
+        }
+        return lastMeaning;
+    }
+
     /** Learning from its own replies: how each one went, judged by what the pilot did next ({@code formulas/Reflection}). */
     public ai.ibiko.dvine1.formulas.Reflection reflection() {
         return Store.reflection(dir);
@@ -281,6 +344,7 @@ public final class Dvine1 {
         }
         lastRequest = said;
         replied = false;
+        understood(said); // the comprehension layer reads every message, so "it" in the next one has something to mean
         foresight().heard(said, Methods.kind(said), System.currentTimeMillis()); // what this pilot asks after what
         learner().heard(said, System.currentTimeMillis());
     }
@@ -378,6 +442,16 @@ public final class Dvine1 {
                 });
                 return;
             }
+        }
+        // the dictionary (WordNet) and common sense (ConceptNet), offline
+        final String looked = lookUp(t);
+        if (looked != null) {
+            how = How.MEMORY;
+            think(Arrays.asList("Reading your question", "Looking it up in my built-in dictionary and common sense"), () -> {
+                says(who, looked);
+                rateable(t, looked);
+            });
+            return;
         }
         // the language formulas: the question parsed, matched to a fact it read, the answer said as a sentence
         final String formed = facts().answer(t);
