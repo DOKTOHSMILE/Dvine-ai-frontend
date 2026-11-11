@@ -35,6 +35,16 @@ public final class ChatPane extends LinearLayout {
          * Listen tapped: reads the reply aloud, or pauses it when it is being read (a second tap carries on from the
          * sentence it stopped at). True when it is now reading.
          */
+        /** Whether this reply's voice is made and kept, so Listen plays it at once (true: no need to wait). */
+        default boolean audioReady(String text) {
+            return true;
+        }
+
+        /** Makes this reply's voice now and keeps it; {@code ready} runs (on any thread) when it is done. */
+        default void prepareAudio(String text, Runnable ready) {
+            ready.run();
+        }
+
         default boolean onReadAloudToggle(String text) {
             onReadAloud(text);
             return false;
@@ -195,7 +205,14 @@ public final class ChatPane extends LinearLayout {
         turnParts.clear();
         turnBars.clear();
         openGroup = null;
+        int lastAsk = -1;
+        for (int k = cur.messages.size() - 1; k >= 0 && lastAsk < 0; k--) {
+            if ("user".equals(cur.messages.get(k).role)) {
+                lastAsk = k;
+            }
+        }
         for (int i = from; i < cur.messages.size(); i++) {
+            latestTurn = i > lastAsk;
             ChatBook.Message m = cur.messages.get(i);
             if (foldTo[i] >= 0) {
                 // a finished turn, and the one still working: its steps are one row. The answer after them still shows.
@@ -357,6 +374,7 @@ public final class ChatPane extends LinearLayout {
                 hello.setText(greeting());
             }
         }
+        latestTurn = true; // a reply added after this drawing is the latest one
         setVisibility(noMessages ? GONE : VISIBLE);
         followBottom();
     }
@@ -377,14 +395,30 @@ public final class ChatPane extends LinearLayout {
      */
     static int firstShown(List<ChatBook.Message> messages, int most) {
         int n = messages.size();
-        if (n <= most) {
+        // counted as they are drawn: a run of work steps folds into one row, so it is one item, not one per step (a
+        // long job's 77 steps used to fill the whole window, and the chat above the job's row was drawn empty)
+        int units = 0, i = n - 1;
+        while (i >= 0 && units < most) {
+            if ("activity".equals(messages.get(i).kind)) {
+                while (i >= 0 && "activity".equals(messages.get(i).kind)) {
+                    i--;
+                }
+            } else {
+                i--;
+            }
+            units++;
+        }
+        int from = i + 1;
+        if (from <= 0) {
             return 0;
         }
-        int from = n - most;
-        for (int i = from; i < n && i < from + 8; i++) {
-            if ("user".equals(messages.get(i).role)) {
-                return i;
+        for (int k = from; k < n && k < from + 8; k++) {
+            if ("user".equals(messages.get(k).role)) {
+                return k; // the next question near by
             }
+        }
+        while (from > 0 && !"user".equals(messages.get(from).role)) {
+            from--; // else back to the question this turn answers: a reply is never shown without it
         }
         return from;
     }
@@ -2216,8 +2250,22 @@ public final class ChatPane extends LinearLayout {
             readingButton = on ? listen : null;
         });
         listen.setTag(label);
+        if (latestTurn && !host.audioReady(spoken)) {
+            // the reply's voice is being made: Listen is dimmed until it is ready, then plays the kept sound at once
+            listen.setEnabled(false);
+            listen.setAlpha(0.35f);
+            listen.setContentDescription("Preparing the voice");
+            host.prepareAudio(spoken, () -> listen.post(() -> {
+                listen.setEnabled(true);
+                listen.animate().alpha(1f).setDuration(200).start();
+                listen.setContentDescription(label);
+            }));
+        }
         return listen;
     }
+
+    /** True while drawing the latest turn (after the user's last message): only its voice is made at once. */
+    private boolean latestTurn = true;
 
     /** The Listen button of the reply being read aloud (showing pause); null when nothing is being read. */
     private android.widget.ImageButton readingButton;

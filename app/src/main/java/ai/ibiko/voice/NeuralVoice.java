@@ -29,6 +29,8 @@ public final class NeuralVoice {
         final int speaker, epoch;
         final float speed, volume;
         final Events events;
+        /** For a {@link #MARK}: run when everything queued before it has been made. */
+        Runnable after;
 
         Item(Events events, String id, String text, int speaker, float speed, float volume, int epoch) {
             this.events = events;
@@ -135,6 +137,27 @@ public final class NeuralVoice {
 
     /** An item that only makes a sentence's sound ahead, to keep (not to play): marked by this epoch. */
     static final int AHEAD = -2;
+    /** A mark in the queue: its runnable runs once all the sound queued before it is made (or couldn't be). */
+    static final int MARK = -3;
+
+    /** Runs {@code then} (on the voice's thread) once all the sentences prepared before this call are made. */
+    public void afterMade(Runnable then) {
+        Item mark = new Item(null, "mark", "", 0, 0, 0, MARK);
+        mark.after = then;
+        queue.offer(mark);
+    }
+
+    /** Whether this sentence's sound is made and kept (in memory, or on the device for a week). */
+    public boolean has(String text, int speaker, float speed) {
+        String key = madeKey(text, speaker, speed);
+        synchronized (made) {
+            if (made.containsKey(key)) {
+                return true;
+            }
+        }
+        SpeechCache c = said();
+        return c != null && c.has(key);
+    }
 
     /**
      * Sentences made ahead (text, speaker and speed to the sound): reading aloud asks for the next sentence while this
@@ -213,6 +236,16 @@ public final class NeuralVoice {
         try {
             while (!closed) {
                 Item it = queue.take();
+                if (it.epoch == MARK) {
+                    try {
+                        if (it.after != null) {
+                            it.after.run();
+                        }
+                    } catch (RuntimeException ignored) {
+                        // a screen gone away: nothing to light up
+                    }
+                    continue;
+                }
                 if (it.epoch == AHEAD) {
                     if (ready) {
                         makeAhead(it);

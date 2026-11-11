@@ -36,9 +36,9 @@ public class SettingsVoiceActivity extends SettingsActivity {
             voice.addView(choice(new String[]{"Slower", "Normal", "Faster"}, new String[]{"0.85", "1.0", "1.2"},
                     prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
             voiceChoices(voice);
-            voice.addView(toggle("Have each reply's audio ready", "While you read a reply, its audio is made in the background"
-                    + " and kept on this device for a day, so Listen plays at once. After that it is cleared and made again when"
-                    + " you listen. Off: the audio is made when you tap Listen.", "voice_prepare", true, null), Ui.wide(this, 10));
+            voice.addView(toggle("Have each reply's audio ready", "As soon as a reply arrives its voice is made and kept on this"
+                    + " device for 7 days: Listen is dimmed while it is made, then plays the kept sound at once. After 7 days it"
+                    + " is deleted and made again if you listen. Off: the voice is made when you tap Listen.", "voice_prepare", true, null), Ui.wide(this, 10));
             voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
                     + " no sound but the voice, and no audio stream is open while nothing is read aloud. Takes effect the next time Ibiko opens.", "music", false, null), Ui.wide(this, 10));
             voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",

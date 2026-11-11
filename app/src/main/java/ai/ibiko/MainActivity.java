@@ -1490,6 +1490,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public boolean audioReady(String text) {
+                // made ahead only for the human voice, and only while Settings › Voice keeps it on
+                return talk == null || !prefs.getBoolean("voice_prepare", true) || talk.prepared(text);
+            }
+
+            @Override
+            public void prepareAudio(String text, Runnable ready) {
+                if (talk == null) {
+                    ready.run();
+                    return;
+                }
+                talk.prepareAll(text, ready); // made now, kept for a week: Listen lights up when it is done
+            }
+
+            @Override
             public boolean onReadAloudToggle(String text) {
                 return toggleReading(text);
             }
@@ -2321,7 +2336,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     play(LocalTurn.speakAs(stage.agent(), "Scheduled for " + when + (plan.repeat == ai.ibiko.social.PostPlan.Repeat.ONCE ? ""
                             : ", " + plan.repeatWords().toLowerCase(java.util.Locale.US)) + "."), null);
                 })
-                .setNegativeButton("Cancel", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Not scheduled."), null))
+                .setNegativeButton("Cancel", null) // closing a dialog is not a message: no reply in the chat
                 .show();
     }
 
@@ -3599,11 +3614,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         doAction(now, false);
                     }
                 })
-                .setNegativeButton("Cancel", (d, w) -> {
-                    if (stager.take() != null) {
-                        play(LocalTurn.speakAs(stage.agent(), "Cancelled. Nothing was sent."), null);
-                    }
-                })
+                .setNegativeButton("Cancel", (d, w) -> stager.take()) // dropped quietly: Cancel is not a message
                 .show();
     }
 
@@ -3876,7 +3887,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     handler.post(() -> play(LocalTurn.speakAs(stage.agent(),
                             "Done. This chat's files are deleted; other chats keep theirs."), null));
                 }, "ibiko-clear-workspace").start())
-                .setNegativeButton("Keep it", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Okay, nothing was deleted."), null))
+                .setNegativeButton("Keep it", null) // nothing happened, so nothing is said
                 .show();
     }
 
@@ -5173,13 +5184,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         intent.putExtra(android.provider.MediaStore.EXTRA_PICK_IMAGES_MAX, Math.min(20, android.provider.MediaStore.getPickImagesMaxLimit()));
         try {
             startActivityForResult(intent, PICK_CONTENT);
-            play(LocalTurn.speakAs(stage.agent(),
-                    "Choose two or more overlapping photographs of one object. I'll triangulate those views."),
-                    null);
+            note("Choose two or more overlapping photographs of one object.");
         } catch (android.content.ActivityNotFoundException e) {
             pickerReconstruct = false;
-            play(LocalTurn.speakAs(stage.agent(), "This device has no file picker I can open."),
-                    null);
+            note("This device has no file picker.");
         }
     }
 
@@ -5212,9 +5220,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             pickerReconstruct = false;
             pickerLearn = false;
             if (resultCode != RESULT_OK || data == null) {
-                play(LocalTurn.speakAs(stage.agent(),
-                        "You closed the picker. I didn't reconstruct anything."), null);
-                return;
+                return; // the picker was closed: that is the answer, nothing to say
             }
             java.util.ArrayList<android.net.Uri> uris = new java.util.ArrayList<android.net.Uri>();
             android.content.ClipData clip = data.getClipData();
@@ -5230,8 +5236,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 uris.add(data.getData());
             }
             if (uris.isEmpty()) {
-                play(LocalTurn.speakAs(stage.agent(), "The picker didn't give me any photographs."),
-                        null);
+                note("No photographs were chosen.");
                 return;
             }
             for (android.net.Uri uri : uris) {
@@ -5262,9 +5267,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             pickerLearn = false;
-            play(LocalTurn.speakAs(stage.agent(), "You closed the picker. I didn't open a file."),
-                    null);
-            return;
+            return; // the picker was closed: no reply in the chat
         }
         final android.net.Uri uri = data.getData();
         final boolean learn = pickerLearn;
@@ -5377,8 +5380,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             if (waiting != null && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 runShell(waiting[0], waiting[1]); // allowed: the command the user asked for runs now
             } else if (waiting != null) {
-                play(LocalTurn.speakAs(stage.agent(), "Without that permission I can't run that command. You can allow it"
-                        + " the next time I ask."), null);
+                note("Not run: that command needs the permission. It is asked again next time.");
             }
             return;
         }
@@ -5389,9 +5391,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             toggleDictation(); // the tap that asked for the permission: dictation into the box, as the mic button does
         } else {
-            play(LocalTurn.speakAs(stage.agent(),
-                    "I need the microphone to hear you. You can still type by pressing and holding the screen."),
-                    null);
+            note("The microphone needs the permission. You can still type.");
         }
     }
 

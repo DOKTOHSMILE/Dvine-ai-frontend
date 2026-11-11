@@ -1,3 +1,10 @@
+# Quiet cancels; no blank chat; no doubled replies; Listen ready from the cache (0.99.109)
+
+- [x] Closing a picker or a dialog posts nothing in the chat.
+- [x] The drawing window counts a run of steps as one item and starts at the user's message.
+- [x] Doubled replies dropped; chats.json written atomically.
+- [x] The latest reply's voice is made at once, Listen dimmed until it is; kept 7 days.
+
 # Only the chosen GitHub repositories (0.99.108)
 
 - [x] agent/RepoScope: listing, cloning (git tool and shell) and GitHub calls limited to the ticked repositories.

@@ -315,6 +315,9 @@ public final class ChatBook {
                 }
             }
         }
+        if (!"user".equals(role) && "text".equals(kind) && ReplyText.repeats(lastAnswer(s), body)) {
+            return; // the same answer twice in one turn (a progress note, then the result): shown once
+        }
         if ("code".equals(kind) || "image".equals(kind) || "video".equals(kind) || "audio".equals(kind)
                 || "html".equals(kind) || "text".equals(kind) || "activity".equals(kind) || "step".equals(kind) || "file".equals(kind)
                 || "work".equals(kind) || "handoff".equals(kind)) {
@@ -334,9 +337,26 @@ public final class ChatBook {
         return out;
     }
 
+    /** The last answer in this page's current turn (after the latest question), or null. */
+    private static String lastAnswer(Section s) {
+        for (int i = s.messages.size() - 1; i >= 0; i--) {
+            Message m = s.messages.get(i);
+            if ("user".equals(m.role)) {
+                return null;
+            }
+            if ("text".equals(m.kind)) {
+                return m.body;
+            }
+        }
+        return null;
+    }
+
     public synchronized void reply(String persona, String text) {
         boolean wrote = false;
         Section page = pageFor(persona);
+        if (ReplyText.repeats(lastAnswer(page), text)) {
+            return; // said already in this turn: a second copy is not shown
+        }
         for (Message m : blocks("assistant", persona, text)) {
             if (m.body.trim().isEmpty()) {
                 continue;
@@ -851,6 +871,10 @@ public final class ChatBook {
     }
 
     public synchronized void reload() {
+        if (writeWaiting) {
+            writeWaiting = false;
+            writeNow(); // lines not written yet would be lost by reading the file back
+        }
         sections.clear();
         shared.clear();
         currentId = null;
@@ -932,6 +956,13 @@ public final class ChatBook {
             currentId = MiniJson.str(root.get("current"), sections.isEmpty() ? null : sections.get(0).id);
             freshFrom = (int) MiniJson.num(root.get("freshFrom"), 0);
         } catch (RuntimeException | IOException ignored) {
+            // an unreadable file is kept aside before anything is written over it, so no chat is lost for good
+            try {
+                Files.copy(file.toPath(), new File(file.getPath() + ".unreadable").toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException | RuntimeException kept) {
+                // nothing more to do
+            }
             sections.clear();
             shared.clear();
             projects.clear();
@@ -1034,7 +1065,16 @@ public final class ChatBook {
             if (parent != null) {
                 parent.mkdirs();
             }
-            Files.write(file.toPath(), MiniJson.write(root).getBytes(StandardCharsets.UTF_8));
+            // written beside, then moved over in one step: a crash or a reader mid-write never sees half a file
+            // (a half file read back as no chats, and the next save then wrote that emptiness over everything)
+            File part = new File(file.getPath() + ".part");
+            Files.write(part.toPath(), MiniJson.write(root).getBytes(StandardCharsets.UTF_8));
+            try {
+                Files.move(part.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(part.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException ignored) {
             // the transcript stays in memory for this run
         }

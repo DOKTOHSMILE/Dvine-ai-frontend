@@ -930,6 +930,26 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    /** Closing a picker (or a permission prompt) is not a message: the chat gets no reply for it. */
+    @Test(timeout = 120000)
+    public void closingAPickerSaysNothingInTheChat() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field bf = MainActivity.class.getDeclaredField("chats");
+        bf.setAccessible(true);
+        ai.ibiko.chat.ChatBook book = (ai.ibiko.chat.ChatBook) bf.get(c.get());
+        int before = book.current().messages.size();
+        java.lang.reflect.Method result = MainActivity.class.getDeclaredMethod("onActivityResult", int.class, int.class,
+                android.content.Intent.class);
+        result.setAccessible(true);
+        result.invoke(c.get(), MainActivity.PICK_CONTENT, android.app.Activity.RESULT_CANCELED, null);
+        c.get().onRequestPermissionsResult(MainActivity.MIC, new String[]{android.Manifest.permission.RECORD_AUDIO},
+                new int[]{android.content.pm.PackageManager.PERMISSION_DENIED});
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("no reply for closing a picker", before, book.current().messages.size());
+        c.pause().stop().destroy();
+    }
+
     /** Obi, Ivie and Ibiko are three named pages of one chat; Ibiko 1 thinks in steps; night learning is set from the picker. */
     @Test(timeout = 120000)
     public void pagesThinkingAndNightLearning() throws Exception {

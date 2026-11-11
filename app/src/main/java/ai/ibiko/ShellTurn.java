@@ -69,8 +69,7 @@ final class ShellTurn {
             if (!ask.allowRun(cmd)) {
                 a.handler.post(() -> {
                     if (a.alive(id)) {
-                        a.endThink();
-                        a.play(LocalTurn.speakAs(agent, "Okay, I didn't run it."), null);
+                        a.endThink(); // "Don't allow" is the answer: nothing more is said in the chat
                     }
                 });
                 return;

@@ -344,6 +344,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 311 | Restyle every icon as the app's own, in the app colour | P12 | Built (two-tone Ibiko set, accent colour, both themes; docs/ibiko-icons.png) | 0.99.106 |
 | 312 | Make all icon sizes match perfectly | P12 | Built (two sizes only: 24 dp on its own, 18 dp beside words; checked by IconSetTest) | 0.99.107 |
 | 313 | One repo chosen in the GitHub tool, but the agent picked every repo on the account | P12 | Fixed (agent/RepoScope: only the chosen ones, and any named in the message) | 0.99.108 |
+| 314 | Exiting a picker and other cancels send a reply | P12 | Fixed (cancels are silent) | 0.99.109 |
+| 315 | Left the page and came back: the chat was empty, then came back | P12 | Fixed (a long job's steps no longer fill the drawing window) | 0.99.109 |
+| 316 | Make the speech when the message lands, Listen dimmed until ready, keep 7 days | P12 | Built (latest reply; 7 days, 300 MB) | 0.99.109 |
 
 ## Still open, in the order that matters
 

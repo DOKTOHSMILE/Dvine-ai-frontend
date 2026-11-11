@@ -494,13 +494,44 @@ public final class TalkBridge extends UtteranceProgressListener {
      * it at once. Only for the human voice; something said now always comes first.
      */
     public void prepareAll(String text) {
+        prepareAll(text, null);
+    }
+
+    /**
+     * As {@link #prepareAll(String)}, then {@code ready} once every sentence is made and kept (at once when the device's
+     * own voice reads, which needs nothing made ahead). Listen is lit by it: until then it is dimmed.
+     */
+    public void prepareAll(String text, Runnable ready) {
         if (neural == null || !humanChosen() || text == null) {
+            if (ready != null) {
+                ready.run();
+            }
             return;
         }
         boolean ivie = woman();
         for (String sentence : SentenceStream.split(text)) {
             prepare(ivie, sentence);
         }
+        if (ready != null) {
+            neural.afterMade(ready);
+        }
+    }
+
+    /** Whether every sentence of {@code text} is made and kept, so Listen plays it at once. */
+    public boolean prepared(String text) {
+        if (neural == null || !humanChosen() || text == null) {
+            return true; // the device's voice: nothing to make ahead
+        }
+        boolean ivie = woman();
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        for (String sentence : SentenceStream.split(text)) {
+            String said = SentenceStream.speakable(sentence);
+            if (said != null && !said.trim().isEmpty()
+                    && !neural.has(said, speakerFor(ivie), t.rate * rateScale * playerSpeed)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** The inner-thought voice: same voice, softer, a touch lower and slower. */
