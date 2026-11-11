@@ -1,3 +1,9 @@
+# Dictionary ids, short codes, answers confirmed or overturned (0.99.116)
+
+- [x] learn/WordBook: every dictionary word a fixed id (1000 + its place), small words 1–999.
+- [x] learn/Shorthand: words ↔ base-36 codes; conversations saved as codes.
+- [x] learn/Corroborate V1–V7 in BrainBox: confirm, count against, mark false, learn the new.
+
 # The mind works by ids (0.99.115)
 
 - [x] learn/Symbols: word ids kept for good (files/brain/words.tsv).

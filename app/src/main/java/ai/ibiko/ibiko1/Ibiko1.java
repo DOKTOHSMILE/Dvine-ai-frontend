@@ -149,9 +149,10 @@ public final class Ibiko1 {
      * unpacked in place. Call it off the main thread at start (the app does it while its splash shows).
      */
     public static void warm(File filesDir) {
-        builtIn();
         File k = new File(new File(filesDir, "brain"), "knowledge");
-        Store.unpacked(k, "lexicon.tsv");
+        File lexicon = Store.unpacked(k, "lexicon.tsv");
+        ai.ibiko.learn.WordBook.open(lexicon); // first: every English word its fixed id before anything files words
+        builtIn();
         Store.unpacked(k, "concepts.tsv");
     }
 
