@@ -23,15 +23,15 @@ public class AppFilesTest {
         assertFalse(AppFiles.ready(files));
         int[] opened = {0};
         int[] last = {-1};
-        AppFiles.Source repo = (url, length) -> {
+        AppFiles.Source repo = (url, from, length) -> {
             opened[0]++;
             assertTrue(url, url.startsWith("https://raw.githubusercontent.com/") && url.endsWith(GZ.getName()));
             length[0] = GZ.length();
             return new FileInputStream(GZ);
         };
         java.util.List<String> lines = new java.util.ArrayList<String>();
-        AppFiles.Source both = (url, length) -> url.endsWith("tiny-voice.tar.bz2")
-                ? new FileInputStream(new File("src/test/resources/voice/tiny-voice.tar.bz2")) : repo.open(url, length);
+        AppFiles.Source both = (url, from, length) -> url.endsWith("tiny-voice.tar.bz2")
+                ? new FileInputStream(new File("src/test/resources/voice/tiny-voice.tar.bz2")) : repo.open(url, from, length);
         AppFiles.fetch(files, both, (pct, line) -> {
             last[0] = Math.max(last[0], pct);
             lines.add(line);
@@ -51,9 +51,10 @@ public class AppFilesTest {
 
     @Test
     public void aWrongOrBrokenDownloadKeepsTheAppClosed() throws Exception {
+        AppFiles.pause = ms -> { }; // the retries don't wait in a test
         File files = Files.createTempDirectory("files").toFile();
         try {
-            AppFiles.fetch(files, (url, length) -> new ByteArrayInputStream("not the file".getBytes("UTF-8")), null,
+            AppFiles.fetch(files, (url, from, length) -> new ByteArrayInputStream("not the file".getBytes("UTF-8")), null,
                     ai.ibiko.voice.VoicePacksTest.TINY);
             fail("a wrong file is refused");
         } catch (IOException expected) {
@@ -61,7 +62,7 @@ public class AppFilesTest {
         }
         assertFalse(AppFiles.ready(files));
         try {
-            AppFiles.fetch(files, (url, length) -> {
+            AppFiles.fetch(files, (url, from, length) -> {
                 throw new IOException("no network");
             }, null, ai.ibiko.voice.VoicePacksTest.TINY);
             fail("no network");

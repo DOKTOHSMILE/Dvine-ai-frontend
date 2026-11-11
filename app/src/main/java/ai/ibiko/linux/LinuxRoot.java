@@ -233,54 +233,37 @@ public final class LinuxRoot {
     }
 
     private static void download(String url, File to, Progress progress, String sha256) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-        conn.setConnectTimeout(20000);
-        conn.setReadTimeout(120000);
-        conn.setInstanceFollowRedirects(true);
-        conn.setRequestProperty("User-Agent", "Ibiko");
-        int code = conn.getResponseCode();
-        if (code != HttpURLConnection.HTTP_OK) {
-            throw new IOException("Download failed (" + code + ").");
-        }
-        long len = conn.getContentLengthLong();
         final String what = "Downloading " + (to.getName().contains("proot") ? "the Linux starter" : "Linux");
         ai.ibiko.net.Transfers.progress("linux", what, to.getName(), -1);
         File tmp = new File(to.getAbsolutePath() + ".part");
-        tmp.getParentFile().mkdirs();
-        try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(tmp)) {
-            byte[] buf = new byte[16384];
-            long got = 0;
-            int last = -1;
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                out.write(buf, 0, n);
-                got += n;
-                if (len > 0) {
-                    int pct = (int) (got * 100 / len);
-                    if (pct != last && pct % 2 == 0) {
-                        ai.ibiko.net.Transfers.progress("linux", what, (got / 1024) + " of " + (len / 1024) + " KB", pct);
-                    }
+        final int[] last = {-1, -1};
+        try {
+            // what arrived before is kept: a broken download carries on from there, not from the start
+            ai.ibiko.net.Resume.fetch(url, tmp, ai.ibiko.net.Resume.WEB, (got, len) -> {
+                if (len <= 0) {
+                    return;
                 }
-                if (len > 0 && progress != null) {
-                    int pct = (int) (got * 100 / len);
-                    if (pct >= last + 10) {
-                        last = pct;
-                        progress.say("Downloading Linux… " + pct + "%");
-                    }
+                int pct = (int) (got * 100 / len);
+                if (pct != last[0] && pct % 2 == 0) {
+                    last[0] = pct;
+                    ai.ibiko.net.Transfers.progress("linux", what, (got / 1024) + " of " + (len / 1024) + " KB", pct);
                 }
-            }
+                if (progress != null && pct >= last[1] + 10) {
+                    last[1] = pct;
+                    progress.say("Downloading Linux\u2026 " + pct + "%");
+                }
+            }, ai.ibiko.net.Resume.TRIES, ai.ibiko.net.Resume.WAIT);
         } catch (IOException e) {
-            ai.ibiko.net.Transfers.end("linux", what, e.getMessage() == null ? "The download broke off" : e.getMessage(), false);
+            ai.ibiko.net.Transfers.end("linux", what, (e.getMessage() == null ? "The download broke off" : e.getMessage())
+                    + ". Try again: it carries on where it stopped.", false);
             throw e;
-        } finally {
-            conn.disconnect();
         }
         ai.ibiko.net.Transfers.end("linux", what, to.getName(), true);
         String got = sha256(tmp);
         if (!got.equals(sha256)) {
             tmp.delete();
             throw new IOException("The download of " + to.getName() + " was not the expected file (checksum " + got.substring(0, 12)
-                    + "…). Nothing was installed. Try again on another network.");
+                    + "\u2026). Nothing was installed. Try again on another network.");
         }
         if (to.exists() && !to.delete()) {
             throw new IOException("Couldn't replace " + to.getName());

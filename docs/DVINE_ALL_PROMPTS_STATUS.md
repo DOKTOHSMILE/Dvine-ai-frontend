@@ -279,6 +279,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 246 | Add a permission check for approval (none seemed to exist) | P12 | Built (changing connector calls ask too; "Allow for this task" instead of a silent always; asking switched back on once) | 0.99.83 |
 | 247 | The working face: zoomed out, curved edges, blinking, moving sideways smoothly, alive and not a short GIF; different looks for thinking, reading, writing, working, replying | P12 | Built (LiveFace drawn live, random blinks, a spring, five looks) | 0.99.84 |
 | 248 | Zoom out the app icon with space for a background colour | P12 | Built (face at 54 of 108 units on teal; PNGs, round, store and themed layers) | 0.99.84 |
+| 249 | Make the app icon a little smaller (screenshot) | P12 | Done (the face 46 of 108 units, a ring of teal round it in a circle launcher) | 0.99.85 |
+| 250 | A download the network broke carries on instead of starting over | P12 | Built (Range requests, the part kept, retried by itself and on Try again) | 0.99.85 |
 
 ## Still open, in the order that matters
 

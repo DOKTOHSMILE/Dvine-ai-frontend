@@ -166,9 +166,8 @@ public final class VoicePacks {
         return out;
     }
 
-    /** Where a download comes from (the web on the device, a file in tests). */
-    public interface Source {
-        InputStream open(String url, long[] length) throws IOException;
+    /** Where a download comes from (the web on the device, a file in tests); it can start part-way (resume). */
+    public interface Source extends ai.ibiko.net.Resume.Source {
     }
 
     /** Progress: {@code stage} is "Downloading" or "Unpacking"; percent 0 to 100, or -1 when not known. */
@@ -176,20 +175,10 @@ public final class VoicePacks {
         void at(String stage, int percent);
     }
 
-    public static final Source WEB = (url, length) -> {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(20000);
-        c.setReadTimeout(60000);
-        c.setInstanceFollowRedirects(true); // GitHub sends the file from another host
-        c.setRequestProperty("User-Agent", "Ibiko");
-        int code = c.getResponseCode();
-        if (code != HttpURLConnection.HTTP_OK) {
-            c.disconnect();
-            throw new IOException("The voice server answered " + code + ".");
-        }
-        length[0] = c.getContentLengthLong();
-        return c.getInputStream();
-    };
+    public static final Source WEB = ai.ibiko.net.Resume.WEB::open;
+
+    /** How long a broken download waits before it carries on (tests don't wait). */
+    static ai.ibiko.net.Resume.Pause pause = ai.ibiko.net.Resume.WAIT;
 
     /** Downloads, checks and unpacks a pack. Nothing is left half-made: a failure removes what it wrote. */
     public static synchronized void install(File filesDir, Pack p, Source source, Progress progress) throws IOException {
@@ -199,38 +188,17 @@ public final class VoicePacks {
         File root = root(filesDir);
         root.mkdirs();
         File archive = new File(root, p.key + ".tar.bz2.part");
-        MessageDigest sha;
-        try {
-            sha = MessageDigest.getInstance("SHA-256");
-        } catch (java.security.NoSuchAlgorithmException e) {
-            throw new IOException(e);
-        }
-        long[] length = {-1};
-        try (InputStream in = source.open(p.url, length); OutputStream o = new FileOutputStream(archive)) {
-            long total = length[0] > 0 ? length[0] : p.bytes, got = 0;
-            int shown = -2;
-            byte[] buf = new byte[65536];
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                o.write(buf, 0, n);
-                sha.update(buf, 0, n);
-                got += n;
-                int pct = (int) Math.min(100, got * 100 / Math.max(1, total));
-                if (pct != shown && progress != null) {
-                    shown = pct;
-                    progress.at("Downloading", pct);
-                }
+        // what arrived before (a broken download, the app closed) is kept: the download carries on from there
+        final int[] said = {-2};
+        ai.ibiko.net.Resume.fetch(p.url, archive, source, (got, total) -> {
+            int pct = (int) Math.min(100, got * 100 / Math.max(1, total > 0 ? total : p.bytes));
+            if (pct != said[0] && progress != null) {
+                said[0] = pct;
+                progress.at("Downloading", pct);
             }
-        } catch (IOException e) {
-            archive.delete();
-            throw e;
-        }
-        StringBuilder hex = new StringBuilder();
-        for (byte b : sha.digest()) {
-            hex.append(String.format("%02x", b));
-        }
-        if (!p.sha256.equals(hex.toString())) {
-            archive.delete();
+        }, ai.ibiko.net.Resume.TRIES, pause);
+        if (!p.sha256.equals(ai.ibiko.net.Resume.sha256(archive))) {
+            archive.delete(); // the wrong file: the next try starts clean
             throw new IOException("The voice download was not the expected file. Try again.");
         }
         File into = new File(root, p.key + ".unpacking");
@@ -248,9 +216,8 @@ public final class VoicePacks {
         } catch (IOException e) {
             deleteAll(into);
             throw e;
-        } finally {
-            archive.delete();
         }
+        archive.delete();
         File made = new File(into, p.dir), dest = folder(filesDir, p);
         if (!new File(made, p.model).isFile()) {
             deleteAll(into);

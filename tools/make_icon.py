@@ -2,7 +2,7 @@
 
 Inputs:  docs/brand/source/ibiko_icon_art.png  (the icon: black rounded square, two glowing eyes, circuit traces)
          a GIF of the eyes glancing (pass its path), for the in-chat thinking animation.
-Outputs: the launcher icon's back layer (drawable-nodpi/ic_launcher_art.png: the face, 54 of the 108 adaptive units, on
+Outputs: the launcher icon's back layer (drawable-nodpi/ic_launcher_art.png: the face, 46 of the 108 adaptive units, on
          a teal background with room around it), the PNG icons in every density, the store image, and (with a GIF)
          res/raw/thinking_eyes.gif. The chat's live face is drawn in code (stage/LiveFace), not from the GIF.
 
@@ -30,8 +30,9 @@ art = square_art()
 
 # The face sits smaller on a coloured background, with room around it, so every launcher's mask (circle, squircle,
 # rounded square) shows the whole face with its own curved corners, never cut. FACE is its side in the 108-unit
-# adaptive canvas (the launcher shows the middle 72; a circle mask is 72 across, and a 54-unit face fits inside it).
-FACE = 54
+# adaptive canvas (the launcher shows the middle 72; a circle mask is 72 across: a 46-unit face, corners and all,
+# sits well inside it with a ring of the background round it).
+FACE = 46
 BG_TOP, BG_BOTTOM = (16, 86, 100), (5, 34, 44)  # a deep teal that sets off the cyan eyes
 
 
@@ -67,17 +68,17 @@ canvas.convert("RGB").save(os.path.join(RES, "drawable-nodpi/ic_launcher_art.png
 # the PNG icons (older launchers): a rounded square of the background colour with the face inside, and a circle
 for dens, size in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)):
     big = size * 4
-    sq = face_on(background(big), round(big * 0.72))
+    sq = face_on(background(big), round(big * 0.62))
     mask = Image.new("L", (big, big), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, big - 1, big - 1), radius=big * 0.22, fill=255)
     sq.putalpha(mask)
     sq.resize((size, size), Image.LANCZOS).save(os.path.join(RES, f"mipmap-{dens}/ic_launcher.png"), optimize=True)
-    rd = face_on(background(big), round(big * 0.64))
+    rd = face_on(background(big), round(big * 0.56))
     mask = Image.new("L", (big, big), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, big - 1, big - 1), fill=255)
     rd.putalpha(mask)
     rd.resize((size, size), Image.LANCZOS).save(os.path.join(RES, f"mipmap-{dens}/ic_launcher_round.png"), optimize=True)
-face_on(background(512), 380).save(os.path.join(ROOT, "docs/brand/ibiko_icon_512.png"), optimize=True)
+face_on(background(512), 330).save(os.path.join(ROOT, "docs/brand/ibiko_icon_512.png"), optimize=True)
 
 # the thinking animation: every frame, cropped to the art and made small for the chat, the same timing
 if GIF:

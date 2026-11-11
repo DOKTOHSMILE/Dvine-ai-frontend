@@ -61,7 +61,7 @@ public class LauncherIconTest {
                 }
             }
         }
-        assertTrue("the eyes are drawn (the face is 54 of 108 units, with room for the background): " + eyes, eyes > 250);
+        assertTrue("the eyes are drawn (the face is 46 of 108 units, with room for the background): " + eyes, eyes > 150);
         assertTrue("no eye outside the safe circle: " + outside, outside == 0);
         assertTrue("the themed layer covers the eyes: " + covered + " of " + eyes, covered > eyes * 0.8);
         for (String d : new String[] {"mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"}) {
