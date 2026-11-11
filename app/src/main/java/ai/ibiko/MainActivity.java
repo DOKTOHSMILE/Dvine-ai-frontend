@@ -1447,8 +1447,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             closeDrawer();
             return;
         }
-        super.onBackPressed();
+        // Back never quits Ibiko: it goes to the background like Home, and everything carries on. Closing is the
+        // notification's "Close Ibiko", or swiping it away from the recent apps.
+        moveTaskToBack(true);
     }
+
+    /** The pilot closed Ibiko from the notification: the screen goes too. */
+    private final android.content.BroadcastReceiver closedByPilot = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context c, android.content.Intent i) {
+            finishAndRemoveTask();
+        }
+    };
 
     @Override
     public void onConfigurationChanged(android.content.res.Configuration config) {
@@ -1506,6 +1516,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         crash.install();
+        // kept running in the background until the pilot closes it (main/KeepAlive); opening Ibiko clears a Close
+        ai.ibiko.main.KeepAlive.opened(this);
+        registerReceiver(closedByPilot, new android.content.IntentFilter(ai.ibiko.main.KeepAlive.CLOSED), RECEIVER_NOT_EXPORTED);
+        handler.postDelayed(() -> {
+            if (!isFinishing()) {
+                ai.ibiko.main.KeepAlive.askBatteryOnce(this); // once: so the system doesn't freeze Ibiko in the background
+            }
+        }, 4000);
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         window.setStatusBarColor(getColor(R.color.bg_main)); // and the theme sets light or dark bar icons
@@ -6801,6 +6819,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (waitingForFiles) {
             super.onDestroy(); // closed at once for the first-start download: nothing was set up
             return;
+        }
+        try {
+            unregisterReceiver(closedByPilot);
+        } catch (IllegalArgumentException notRegistered) {
+            // never registered
         }
         handler.removeCallbacks(thinkBeat);
         try {

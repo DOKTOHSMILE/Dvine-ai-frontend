@@ -207,6 +207,16 @@ public final class SettingsActivity extends AppCompatActivity {
         LinearLayout ibiko = group("Coding", "Commands, long jobs and the workspace");
         ibiko.addView(toggle("Run commands without asking", "Auto-accept: shell commands, git pushes and pull requests go ahead.",
                 "auto_accept", false, null));
+        ibiko.addView(toggle("Keep Ibiko running in the background", "Ibiko stays ready with the screen off or another app"
+                + " open, with a quiet notification; Back goes to the background instead of quitting. Close it from the"
+                + " notification or by swiping it away from the recent apps. Off: Android may stop it in the background.",
+                ai.ibiko.main.KeepAlive.PREF, true, on -> {
+                    if (on) {
+                        ai.ibiko.main.KeepAlive.opened(this);
+                    } else {
+                        ai.ibiko.main.KeepAlive.stop(this);
+                    }
+                }), Ui.wide(this, 10));
         ibiko.addView(toggle("Keep working until done", "Long jobs run for hours if needed: plan, build, test, with a short progress"
                 + " note in the chat every few steps. Off: Ibiko stops after one batch of steps.", "ibiko_keep_going", true, null),
                 Ui.wide(this, 10));
