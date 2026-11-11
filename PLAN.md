@@ -1,3 +1,11 @@
+# A human voice; speech only when asked; one folder per repository (0.99.82)
+
+- [x] Kokoro and Piper voices on the device (sherpa-onnx); no pitch shifting.
+- [x] One voice, a man's or a woman's, from Settings; speech only for a reply just asked for, on screen.
+- [x] The voice downloaded with the app files on the first start, one progress bar.
+- [x] PLAN.md names the repository's folder; a clone in memory/projects is readable by the agent.
+- [ ] Measure Kokoro's speed on the device; switch to Piper by itself when it can't keep up.
+
 # A clone is not stopped at 3 minutes (0.99.81)
 
 - [x] Git clone (and apk, wget, curl) may run for 2 hours. The shell is not a terminal, so git prints nothing while it fetches, and the old clock killed it at 3 minutes with an empty card.

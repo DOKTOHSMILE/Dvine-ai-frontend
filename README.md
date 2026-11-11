@@ -21,6 +21,13 @@ The app's package is `ai.ibiko` (since 0.99.68; before that `ai.dvine`, so it in
 - a model downloaded to the device (Qwen3, Llama, Gemma, Phi GGUF files), working offline;
 - Ibiko 1, the app's own learning brain, which needs no model.
 
+**Voice.** Ibiko speaks in one voice, a man's or a woman's, as chosen in Settings › Voice; there are no personas. The voice is human-sounding and runs on the device with no internet (`voice/NeuralVoice`, sherpa-onnx 1.13.8 in `src/main/jniLibs`, its Java API in `com/k2fsa/sherpa/onnx`, Apache 2.0):
+- Kokoro (82M, Apache 2.0): 11 voices, men and women, American and British, downloaded on the first start; the voice within it is chosen in Settings;
+- Piper Ryan and Piper Amy: one fast voice each (a man's, a woman's), downloaded from Settings with a progress bar, for slower devices;
+- the device's own voice, with any speech engine installed on the device (another voice app) chosen in Settings.
+
+There is no pitch shifting: each voice speaks at its own pitch, a short pause after each sentence. The packs come from the sherpa-onnx model releases as `.tar.bz2`; `voice/Bzip2InputStream` and `voice/TarUnpack` unpack them in pure Java after the checksum. Ibiko reads a reply aloud by itself only while the chat is on screen and only a reply to something you asked in the last three minutes (then the "Read replies aloud" setting decides); a morning report, a job that ends in the background, a note or a message that waited is shown, not spoken. The play button under a reply always reads it.
+
 **Ibiko 1 runs code and the app.** With no model at all, Ibiko 1 (`dvine1/formulas/Commands` and `CodeTasks`) turns a clear request into one of the app's function codes and carries it out through the same gate every model uses:
 - code tasks become one shell command in the built-in Linux, shown for your yes before it runs:
   - a command typed as it is (`git status`, `ls -la`, `python3 app.py`, or anything in backticks or after `$ `);
@@ -43,6 +50,8 @@ A tool switched off for the chat is never used.
 - The Scribe keeps one record file per project (`memory/projects/<project>/RECORD.md`): the state, the last step and its time, the last change and its file, what is done and what is pending. A new round starts from that point.
 - A codebase survey keeps every part it has read (`.blueprint/<project>/pieces/`) and its progress (`SURVEY.md`). After a broken connection or "continue", only the parts not yet read are read. The map (`MAP.md`) is sorted by file and line, with the time each part was read.
 
+**One folder per repository.** A repository is cloned into `memory/projects/<name>` (the folder the workspace screen shows), and the agent's PLAN.md names it under `## Repository` ("owner/name -> memory/projects/<name>"): the first step pulls it there, and every read, edit, command and push uses that folder. A cloned repository there is code any task may read; only another project's record files (RECORD.md, RECOVERY.md) stay private.
+
 **Plans grow.** A plan file (`PLAN.md`) is only added to. New work goes after the existing steps, or right after the last finished step when you call it a priority. A finished step is ticked, never deleted. A write that would drop a step is refused.
 
 **Built-in knowledge.** `app/src/main/assets/knowledge/` ships what Ibiko knows on install, with no internet:
@@ -54,7 +63,7 @@ A tool switched off for the chat is never used.
 - `shards/dictionary_en.json`: the English dictionary (WordNet);
 - `lexicon.tsv` (198,273 senses of 152,137 words, Open English WordNet 2024, CC BY 4.0) and `concepts.tsv` (316,294 common-sense links between 133,754 things, ConceptNet 5.7, CC BY-SA 4.0): the comprehension layer's files, unpacked once and read by binary search, never loaded whole into memory (`dvine1/comprehend`, licences in `COMPREHENSION_LICENSE.txt`). `concepts.tsv` is not inside the app: see "First start" below.
 
-**First start.** On the first start Ibiko downloads the app files it needs before it opens (today the common-sense table, `downloads/knowledge/concepts-<version>.tsv.gz` in this repository, 2.6 MB). The screen and the notification only say "Downloading app files", with the progress. The file is checked against its checksum (`main/AppFiles`) and unpacked to `brain/knowledge/concepts.tsv`. If the download fails or the file is wrong, the app does not open: it says so and offers Try again or Close. After that the app opens with no internet. A rebuilt table (`tools/build_concepts.py`) gets a new version name and checksum in `AppFiles`.
+**First start.** On the first start Ibiko downloads the app files it needs before it opens: the common-sense table (`downloads/knowledge/concepts-<version>.tsv.gz` in this repository, 2.6 MB) and the human voice (Kokoro, 103 MB, see "Voice"). Models (llama and the others) are not among them: they are chosen and downloaded in Settings. The screen and the notification only say "Downloading app files", with one progress bar over everything (percent and MB), never a file's name. The file is checked against its checksum (`main/AppFiles`) and unpacked to `brain/knowledge/concepts.tsv`. If the download fails or the file is wrong, the app does not open: it says so and offers Try again or Close. After that the app opens with no internet. A rebuilt table (`tools/build_concepts.py`) gets a new version name and checksum in `AppFiles`.
 
 **Comprehension.** Before any brain reads a message, `dvine1/comprehend/Comprehension` works out what it means: the intent (ten kinds), each action with its target, attributes and position ("take the red tyre off the car": remove, tyre, red, from car, and whether a car has tyres), the word sense in context (a river bank or a money bank), and what "it" and "its" refer to in the conversation. The reading goes into the foundation as "Understood: …", and dictionary and common-sense questions ("what does X mean", "what is a knife used for", "parts of a car") are answered offline.
 

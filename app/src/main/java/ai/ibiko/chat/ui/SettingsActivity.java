@@ -99,14 +99,7 @@ public final class SettingsActivity extends AppCompatActivity {
         voice.addView(Ui.text(this, "Speaking speed", 16, Ui.TEXT, false), Ui.wide(this, 14));
         voice.addView(choice(new String[]{"Slower", "Normal", "Faster"}, new String[]{"0.85", "1.0", "1.2"},
                 prefs.getString("speech_rate", "1.0"), k -> prefs.edit().putString("speech_rate", k).apply()), Ui.wide(this, 10));
-        voice.addView(toggle("Natural voices (online)", "Use the device's most human-sounding voices, which need the"
-                + " internet. Off: only voices on the device. Takes effect the next time Ibiko opens.", "natural_voices", false, null),
-                Ui.wide(this, 10));
-        android.view.View moreVoices = Ui.button(this, "Download better voices", false);
-        moreVoices.setOnClickListener(v -> ai.ibiko.voice.TalkBridge.installVoices(this));
-        voice.addView(moreVoices, Ui.wide(this, 8));
-        voice.addView(Ui.text(this, "Opens the device's voice download page (Google Speech Services): install English (Nigeria),"
-                + " (UK) and (US). Ibiko then picks the highest-quality voices it finds.", 13, Ui.SUB, false), Ui.wide(this, 6));
+        voiceChoices(voice);
         voice.addView(toggle("Soft music under the voice", "A low, quiet chord that swells while a reply is read aloud. Off:"
                 + " no sound but the voice, and no audio stream is open while nothing is read aloud. Takes effect the next time Ibiko opens.", "music", false, null), Ui.wide(this, 10));
         voice.addView(Ui.text(this, "The mic writes what you say into the message box, so you can edit it before sending.",
@@ -289,6 +282,182 @@ public final class SettingsActivity extends AppCompatActivity {
      * A section folded to one row (its title, a line saying what is inside, and a chevron); the settings show only
      * after a tap, so a scrolling finger never lands on them. Returns the box to put the settings in.
      */
+    /** A voice played here to try a choice ("Hear it"); made on the first tap, closed with the screen. */
+    private ai.ibiko.voice.TalkBridge preview;
+
+    /**
+     * Settings › Voice: one voice for every reply, a man's or a woman's. The human voice (Kokoro) comes with the app
+     * files on the first start; a fast voice (Piper) can be downloaded here, with its progress; the device's own
+     * speech engines (another voice app installed) can be chosen too.
+     */
+    private void voiceChoices(LinearLayout voice) {
+        voice.addView(Ui.text(this, "Voice", 16, Ui.TEXT, false), Ui.wide(this, 14));
+        voice.addView(choice(new String[]{"A man's voice", "A woman's voice"}, new String[]{"male", "female"},
+                prefs.getString("voice_gender", "male"), k -> {
+                    prefs.edit().putString("voice_gender", k).apply();
+                    recreate();
+                }), Ui.wide(this, 10));
+        final boolean woman = "female".equals(prefs.getString("voice_gender", "male"));
+        final java.io.File files = getFilesDir();
+        // which voice speaks
+        java.util.List<String> labels = new java.util.ArrayList<String>(), keys = new java.util.ArrayList<String>();
+        for (ai.ibiko.voice.VoicePacks.Pack p : ai.ibiko.voice.VoicePacks.ALL) {
+            boolean fits = "kokoro".equals(p.kind) || p.speakers.get(0).male != woman;
+            if (fits) {
+                labels.add(p.title + (ai.ibiko.voice.VoicePacks.installed(files, p) ? "" : " (" + p.size() + " download)"));
+                keys.add(p.key);
+            }
+        }
+        labels.add("The device's own voice");
+        keys.add("device");
+        voice.addView(Ui.text(this, "Human voice", 16, Ui.TEXT, false), Ui.wide(this, 14));
+        final String chosen = prefs.getString("voice_pack", "kokoro");
+        final TextView state = Ui.text(this, "", 13, Ui.SUB, false);
+        final ProgressBar get = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        get.setMax(100);
+        get.setProgressTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
+        get.setVisibility(View.GONE);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < keys.size(); i++) {
+            final String key = keys.get(i);
+            final ai.ibiko.voice.VoicePacks.Pack p = ai.ibiko.voice.VoicePacks.byKey(key);
+            android.widget.RadioButton r = new android.widget.RadioButton(this);
+            r.setText(labels.get(i));
+            r.setTextColor(Ui.TEXT);
+            r.setChecked(key.equals(chosen));
+            r.setOnClickListener(v -> {
+                if (p == null || ai.ibiko.voice.VoicePacks.installed(files, p)) {
+                    prefs.edit().putString("voice_pack", key).apply();
+                    recreate();
+                    return;
+                }
+                // a voice not on the device yet: downloaded here, with its progress, then chosen
+                state.setText("Downloading " + p.title + "\u2026");
+                get.setVisibility(View.VISIBLE);
+                get.setProgress(0);
+                new Thread(() -> {
+                    try {
+                        ai.ibiko.voice.VoicePacks.install(files, p, ai.ibiko.voice.VoicePacks.WEB, (stage, pct) -> {
+                            ai.ibiko.net.Transfers.progress("voice:" + p.key, stage + " a voice", p.title, pct);
+                            runOnUiThread(() -> {
+                                get.setProgress(pct);
+                                state.setText(stage + " " + p.title + ": " + pct + "%");
+                            });
+                        });
+                        ai.ibiko.net.Transfers.end("voice:" + p.key, "Voice ready", p.title, true);
+                        prefs.edit().putString("voice_pack", key).apply();
+                        runOnUiThread(this::recreate);
+                    } catch (java.io.IOException e) {
+                        ai.ibiko.net.Transfers.end("voice:" + p.key, "Voice not downloaded", p.title, false);
+                        runOnUiThread(() -> {
+                            get.setVisibility(View.GONE);
+                            state.setText("Couldn't download the voice: " + e.getMessage() + " Check the connection and tap it again.");
+                        });
+                    }
+                }, "ibiko-voice-download").start();
+            });
+            list.addView(r);
+        }
+        voice.addView(list, Ui.wide(this, 6));
+        voice.addView(get, Ui.wide(this, 6));
+        voice.addView(state, Ui.wide(this, 4));
+        // which of Kokoro's voices
+        final ai.ibiko.voice.VoicePacks.Pack kokoro = ai.ibiko.voice.VoicePacks.KOKORO;
+        if ("kokoro".equals(chosen) && ai.ibiko.voice.VoicePacks.installed(files, kokoro)) {
+            java.util.List<String> names = new java.util.ArrayList<String>(), ids = new java.util.ArrayList<String>();
+            for (ai.ibiko.voice.VoicePacks.Speaker sp : kokoro.speakers) {
+                if (sp.male != woman) {
+                    names.add(sp.title);
+                    ids.add(sp.name);
+                }
+            }
+            final String prefKey = woman ? "voice_human_woman" : "voice_human_man";
+            String now = kokoro.speaker(!woman, prefs.getString(prefKey, "")).name;
+            android.widget.Spinner pickVoice = new android.widget.Spinner(this);
+            pickVoice.setAdapter(new android.widget.ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, names));
+            pickVoice.setSelection(Math.max(0, ids.indexOf(now)));
+            pickVoice.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                    prefs.edit().putString(prefKey, ids.get(position)).apply();
+                }
+
+                @Override
+                public void onNothingSelected(android.widget.AdapterView<?> parent) {
+                }
+            });
+            voice.addView(Ui.text(this, "Which voice", 14, Ui.TEXT, false), Ui.wide(this, 10));
+            voice.addView(pickVoice, Ui.wide(this, 4));
+        }
+        View hear = Ui.button(this, "Hear it", false);
+        hear.setOnClickListener(v -> hearVoice(state));
+        voice.addView(hear, Ui.wide(this, 10));
+        // the device's speech engines: another voice app installed on the device can speak for Ibiko
+        if ("device".equals(chosen)) {
+            java.util.List<String> engines = new java.util.ArrayList<String>(), packages = new java.util.ArrayList<String>();
+            engines.add("The device's default");
+            packages.add("");
+            try {
+                android.speech.tts.TextToSpeech probe = new android.speech.tts.TextToSpeech(this, status -> { });
+                for (android.speech.tts.TextToSpeech.EngineInfo e : probe.getEngines()) {
+                    engines.add(e.label);
+                    packages.add(e.name);
+                }
+                probe.shutdown();
+            } catch (RuntimeException ignored) {
+                // no engines listed: the default speaks
+            }
+            voice.addView(Ui.text(this, "Speech engine", 14, Ui.TEXT, false), Ui.wide(this, 10));
+            android.widget.Spinner engine = new android.widget.Spinner(this);
+            engine.setAdapter(new android.widget.ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, engines));
+            engine.setSelection(Math.max(0, packages.indexOf(prefs.getString("tts_engine", ""))));
+            engine.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                    prefs.edit().putString("tts_engine", packages.get(position)).apply();
+                }
+
+                @Override
+                public void onNothingSelected(android.widget.AdapterView<?> parent) {
+                }
+            });
+            voice.addView(engine, Ui.wide(this, 4));
+            voice.addView(Ui.text(this, "A voice app you installed (its voices) speaks for Ibiko from the next time Ibiko opens.",
+                    13, Ui.SUB, false), Ui.wide(this, 4));
+            View moreVoices = Ui.button(this, "Download the device's voices", false);
+            moreVoices.setOnClickListener(v -> ai.ibiko.voice.TalkBridge.installVoices(this));
+            voice.addView(moreVoices, Ui.wide(this, 8));
+        }
+    }
+
+    /** Says a line in the voice chosen above (the human voice takes a moment to load the first time). */
+    private void hearVoice(final TextView state) {
+        if (preview == null) {
+            preview = new ai.ibiko.voice.TalkBridge(this);
+        } else {
+            preview.refreshVoice();
+        }
+        state.setText("Getting the voice ready\u2026");
+        final long until = System.currentTimeMillis() + 20000;
+        final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+        final boolean human = !"device".equals(prefs.getString("voice_pack", "kokoro"));
+        h.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || preview == null) {
+                    return;
+                }
+                if (human && !preview.human() && System.currentTimeMillis() < until) {
+                    h.postDelayed(this, 250);
+                    return;
+                }
+                state.setText(preview.human() ? "" : human ? "The human voice didn't load: the device's voice speaks instead." : "");
+                preview.speak(false, "Hello, I'm Ibiko. This is the voice I'll use to read my replies to you.", null);
+            }
+        });
+    }
+
     private LinearLayout group(final String title, String summary) {
         final LinearLayout c = card();
         c.setPadding(0, 0, 0, 0);
@@ -853,6 +1022,15 @@ public final class SettingsActivity extends AppCompatActivity {
             hub.startDownload(this);
         }
         modelState.postDelayed(this::refreshModel, 300);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (preview != null) {
+            preview.shutdown();
+            preview = null;
+        }
+        super.onDestroy();
     }
 
     @Override

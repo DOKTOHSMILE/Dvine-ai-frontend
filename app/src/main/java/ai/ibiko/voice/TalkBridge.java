@@ -111,6 +111,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (tts != null) {
             tts.stop();
         }
+        neural.stop();
         paused = true;
         tell(true, true, pausedSay != null ? pausedSay : pausedLines.isEmpty() ? "" : pausedLines.get(0).text, lastIvie);
         return true;
@@ -182,15 +183,76 @@ public final class TalkBridge extends UtteranceProgressListener {
     private final android.content.SharedPreferences prefs;
 
     public TalkBridge(Context context) {
+        filesDirCache = context.getFilesDir();
         prefs = context.getSharedPreferences("dvine", Context.MODE_PRIVATE);
         natural = prefs.getBoolean("natural_voices", false);
-        tts = new TextToSpeech(context.getApplicationContext(), status -> {
+        // Settings › Voice › Speech engine: another text-to-speech app installed on the device (its voices), or the default
+        String engine = prefs.getString("tts_engine", "");
+        TextToSpeech.OnInitListener init = status -> {
             ready = status == TextToSpeech.SUCCESS;
             if (ready) {
                 main.post(this::loadVoices);
             }
-        });
+        };
+        tts = engine == null || engine.isEmpty() ? new TextToSpeech(context.getApplicationContext(), init)
+                : new TextToSpeech(context.getApplicationContext(), init, engine);
         tts.setOnUtteranceProgressListener(this);
+        neural = new NeuralVoice(context.getFilesDir(), new NeuralVoice.Events() {
+            @Override
+            public void onStart(String id) {
+                TalkBridge.this.onStart(id);
+            }
+
+            @Override
+            public void onDone(String id) {
+                TalkBridge.this.onDone(id);
+            }
+
+            @Override
+            public void onError(String id) {
+                TalkBridge.this.onError(id);
+            }
+        });
+        refreshVoice();
+    }
+
+    /**
+     * A human voice downloaded into the app (downloaded with the app files on the first start; Settings › Voice): every
+     * reply is spoken with it, on the device, at its own natural pitch; until it is in place, the device's voice speaks.
+     */
+    private final NeuralVoice neural;
+    private String neuralKey = "";
+
+    /** Picks up the voice chosen in Settings (call when the chat comes back from Settings). */
+    public void refreshVoice() {
+        String key = prefs.getString("voice_pack", "kokoro");
+        VoicePacks.Pack p = VoicePacks.byKey(key == null ? "" : key);
+        String want = p != null && VoicePacks.installed(filesDir(), p) ? p.key : "";
+        if (!want.equals(neuralKey)) {
+            neuralKey = want;
+            neural.use(want.isEmpty() ? null : p);
+        }
+    }
+
+    private java.io.File filesDirCache;
+
+    private java.io.File filesDir() {
+        return filesDirCache;
+    }
+
+    /** The downloaded voice is speaking (loaded and chosen). */
+    public boolean human() {
+        return neural != null && !neuralKey.isEmpty() && neural.ready();
+    }
+
+    /** The speaker in the downloaded pack: a woman's or a man's voice, as chosen in Settings. */
+    private int speakerFor(boolean ivie) {
+        VoicePacks.Pack p = neural.pack();
+        if (p == null) {
+            return 0;
+        }
+        String named = prefs.getString(ivie ? "voice_human_woman" : "voice_human_man", "");
+        return p.speaker(!ivie, named).id;
     }
 
     /** Opens the device's page for downloading voices (Google's voice data: the higher-quality voices). */
@@ -230,11 +292,19 @@ public final class TalkBridge extends UtteranceProgressListener {
      * edge the system voice used to have.
      */
     private float bright(boolean ivie) {
-        return robot && !ivie ? VoiceTuning.ROBOT_BRIGHT : 1f;
+        return 1f; // one assistant, one voice: no brightened "robot" pitch on top of the voice chosen
     }
 
     private float quick(boolean ivie) {
-        return robot && !ivie ? VoiceTuning.ROBOT_QUICK : 1f;
+        return 1f;
+    }
+
+    /**
+     * There are no personas: every line is spoken in one voice, a woman's or a man's as chosen in Settings › Voice
+     * (voice_gender). The flag callers pass for who is speaking is not used.
+     */
+    private boolean woman() {
+        return "female".equals(prefs.getString("voice_gender", "male"));
     }
 
     private volatile boolean robot;
@@ -264,6 +334,7 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     private void say(boolean ivie, String text, TalkDone done, boolean thought, boolean again) {
+        ivie = woman();
         if (!again) {
             dropPause(); // something new to read: what was paused is let go
         }
@@ -273,11 +344,24 @@ public final class TalkBridge extends UtteranceProgressListener {
         pending = done;
         queued = 0; // a flush drops the queued sentences
         whenQuiet = null;
-        if (!ready || text == null || text.trim().isEmpty()) {
+        if (!(ready || human()) || text == null || text.trim().isEmpty()) {
             main.postDelayed(() -> finish(token), 280);
             return;
         }
         VoiceTuning t = tuning[ivie ? 1 : 0];
+        if (human()) {
+            speaking = text;
+            sayText = text;
+            sayIvie = ivie;
+            sayThought = thought;
+            lastIvie = ivie;
+            if (tts != null) {
+                tts.stop();
+            }
+            neural.speak((ivie ? "IVIE-" : "OBI-") + token, text, speakerFor(ivie),
+                    (thought ? t.thoughtRate() : t.rate) * rateScale, thought ? VoiceTuning.THOUGHT_VOLUME : 1f, true);
+            return;
+        }
         Voice v = t.voice == null ? null : byName.get(t.voice);
         if (v != null) {
             tts.setVoice(v);
@@ -311,15 +395,25 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     private void queue(boolean ivie, String text, boolean again) {
+        ivie = woman();
         if (!again && paused) {
             pausedLines.add(new Line(ivie, SentenceStream.clean(text), "")); // a reply still coming in: kept for Resume
             return;
         }
         text = SentenceStream.clean(text);
-        if (!ready || text == null || text.trim().isEmpty()) {
+        if (!(ready || human()) || text == null || text.trim().isEmpty()) {
             return;
         }
         VoiceTuning t = tuning[ivie ? 1 : 0];
+        if (human()) {
+            speaking = text;
+            queued++;
+            lastIvie = ivie;
+            String id = (ivie ? "IVIE-Q" : "OBI-Q") + generation + "x" + queued + "n" + (++serial);
+            lines.add(new Line(ivie, text, id));
+            neural.speak(id, text, speakerFor(ivie), t.rate * rateScale, 1f, false);
+            return;
+        }
         Voice v = t.voice == null ? null : byName.get(t.voice);
         if (v != null && queued == 0) {
             tts.setVoice(v);
@@ -387,6 +481,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (tts != null) {
             tts.stop();
         }
+        neural.stop();
         if (was) {
             tell(false, false, "", lastIvie);
         }
@@ -403,6 +498,7 @@ public final class TalkBridge extends UtteranceProgressListener {
 
     public void shutdown() {
         stop();
+        neural.shutdown();
         if (tts != null) {
             tts.shutdown();
         }
@@ -461,6 +557,12 @@ public final class TalkBridge extends UtteranceProgressListener {
 
     /** The voice each persona speaks with and its gender, for "test your voices". */
     public String describe(boolean ivie) {
+        ivie = woman();
+        if (human()) {
+            VoicePacks.Pack p = neural.pack();
+            VoicePacks.Speaker sp = p.speaker(!ivie, prefs.getString(ivie ? "voice_human_woman" : "voice_human_man", ""));
+            return sp.title + ", a human voice on the device";
+        }
         VoiceTuning t = tuning[ivie ? 1 : 0];
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
         return (t.voice == null ? "the device's default voice" : t.voice) + (g.isEmpty() ? "" : " (" + g + ")");

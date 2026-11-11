@@ -270,6 +270,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 237 | The master comprehension and knowledge engine blueprint (8 engines, UCL) | P12 | Built in part (v1: intent, grammar of actions, word senses, context and pronouns, object parts, offline lookups; next: ATOMIC intents, reasoning, action planning) | 0.99.79 |
 | 238 | ConceptNet downloaded on the first start, shown only as "Downloading app files"; the app does not open if it fails | P12 | Built (AppFiles, AppFilesActivity with Try again or Close) | 0.99.80 |
 | 239 | The Ibiko brain runs code tasks and controls the app's commands; README updated | P12 | Built (CodeTasks as approved shell commands; every plain-sentence app control in Commands) | 0.99.80 |
+| 240 | A human voice package instead of the high-pitched device voice that couldn't be linked | P12 | Built (Kokoro and Piper on the device through sherpa-onnx; device speech engines selectable) | 0.99.82 |
+| 241 | Clean up speech that starts when it shouldn't; one voice, a man's or a woman's | P12 | Built (spoken only for a reply just asked for, on screen; no personas or pitch lift) | 0.99.82 |
+| 242 | Every needed app file downloaded on startup (not the models), with a progress bar | P12 | Built (the table and the voice, one bar; a bar for voices in Settings) | 0.99.82 |
+| 243 | The agent's plan names the folder a repository is pulled into, and the agent works there | P12 | Built (PLAN.md '## Repository'; a clone in memory/projects is readable) | 0.99.82 |
 
 ## Still open, in the order that matters
 

@@ -128,9 +128,9 @@ public final class AlpineRun {
                     seen = now;
                     // still writing: another three quiet minutes, but never past two hours
                     long next = System.currentTimeMillis() + CommandWait.SHORT_MS;
-                    long cap = started + CommandWait.LONG_MS;
-                    if (next > cap) {
-                        next = cap;
+                    long ceiling = started + CommandWait.LONG_MS; // not "cap": that is the text limit passed in
+                    if (next > ceiling) {
+                        next = ceiling;
                     }
                     if (next > deadline) {
                         deadline = next;
