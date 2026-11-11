@@ -1,3 +1,8 @@
+# Listen in the human voice; Settings steady (0.99.89)
+
+- [x] Sentences wait for the human voice while it loads; the device voice only on failure, with the reason in Settings.
+- [x] A voice choice redraws only the voice options.
+
 # Settings split into pages (0.99.88)
 
 - [x] Settings opens as a list of sections; each section is its own page, built only when opened.

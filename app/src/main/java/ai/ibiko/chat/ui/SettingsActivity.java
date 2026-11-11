@@ -379,12 +379,27 @@ public final class SettingsActivity extends AppCompatActivity {
      * files on the first start; a fast voice (Piper) can be downloaded here, with its progress; the device's own
      * speech engines (another voice app installed) can be chosen too.
      */
-    private void voiceChoices(LinearLayout voice) {
+    private void voiceChoices(LinearLayout section) {
+        voiceBox = new LinearLayout(this);
+        voiceBox.setOrientation(LinearLayout.VERTICAL);
+        section.addView(voiceBox);
+        fillVoice();
+    }
+
+    /** The voice options' own box: a choice redraws only this, in place, so nothing else on the page moves or folds. */
+    private LinearLayout voiceBox;
+
+    private void fillVoice() {
+        if (voiceBox == null || isFinishing()) {
+            return;
+        }
+        LinearLayout voice = voiceBox;
+        voice.removeAllViews();
         voice.addView(Ui.text(this, "Voice", 16, Ui.TEXT, false), Ui.wide(this, 14));
         voice.addView(choice(new String[]{"A man's voice", "A woman's voice"}, new String[]{"male", "female"},
                 prefs.getString("voice_gender", "male"), k -> {
                     prefs.edit().putString("voice_gender", k).apply();
-                    recreate();
+                    fillVoice();
                 }), Ui.wide(this, 10));
         final boolean woman = "female".equals(prefs.getString("voice_gender", "male"));
         final java.io.File files = getFilesDir();
@@ -418,7 +433,7 @@ public final class SettingsActivity extends AppCompatActivity {
             r.setOnClickListener(v -> {
                 if (p == null || ai.ibiko.voice.VoicePacks.installed(files, p)) {
                     prefs.edit().putString("voice_pack", key).apply();
-                    recreate();
+                    fillVoice();
                     return;
                 }
                 // a voice not on the device yet: downloaded here, with its progress, then chosen
@@ -436,7 +451,7 @@ public final class SettingsActivity extends AppCompatActivity {
                         });
                         ai.ibiko.net.Transfers.end("voice:" + p.key, "Voice ready", p.title, true);
                         prefs.edit().putString("voice_pack", key).apply();
-                        runOnUiThread(this::recreate);
+                        runOnUiThread(this::fillVoice);
                     } catch (java.io.IOException e) {
                         ai.ibiko.net.Transfers.end("voice:" + p.key, "Voice not downloaded", p.title, false);
                         runOnUiThread(() -> {
@@ -449,6 +464,17 @@ public final class SettingsActivity extends AppCompatActivity {
             list.addView(r);
         }
         voice.addView(list, Ui.wide(this, 6));
+        java.io.File problem = new java.io.File(ai.ibiko.voice.VoicePacks.root(files), ai.ibiko.voice.NeuralVoice.PROBLEM);
+        if (!"device".equals(chosen) && problem.isFile()) {
+            try {
+                String why = new String(java.nio.file.Files.readAllBytes(problem.toPath()), java.nio.charset.StandardCharsets.UTF_8).trim();
+                TextView bad = Ui.text(this, "The human voice couldn't start on this device, so the device's voice reads instead. "
+                        + "What went wrong: " + why.replace("\n", " \u2014 "), 13, Ui.CORAL, false);
+                voice.addView(bad, Ui.wide(this, 6));
+            } catch (java.io.IOException ignored) {
+                // nothing to show
+            }
+        }
         voice.addView(get, Ui.wide(this, 6));
         voice.addView(state, Ui.wide(this, 4));
         // which of Kokoro's voices
@@ -1175,6 +1201,9 @@ public final class SettingsActivity extends AppCompatActivity {
             t.setOnClickListener(v -> {
                 pick.accept(key);
                 LinearLayout parent = (LinearLayout) row.getParent();
+                if (parent == null) {
+                    return; // the choice redrew its own part of the page (the voice options): nothing left to swap
+                }
                 int index = parent.indexOfChild(row);
                 android.view.ViewGroup.LayoutParams lp = row.getLayoutParams();
                 parent.removeView(row);

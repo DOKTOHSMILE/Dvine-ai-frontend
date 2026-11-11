@@ -212,6 +212,20 @@ public final class TalkBridge extends UtteranceProgressListener {
             public void onError(String id) {
                 TalkBridge.this.onError(id);
             }
+
+            @Override
+            public void fallback(String id, String text, float speed, float volume) {
+                main.post(() -> {
+                    if (tts == null || !ready) {
+                        TalkBridge.this.onError(id);
+                        return;
+                    }
+                    tts.setSpeechRate(speed);
+                    Bundle params = new Bundle();
+                    params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume);
+                    tts.speak(text, TextToSpeech.QUEUE_ADD, params, id); // its start and end come back with the same id
+                });
+            }
         });
         refreshVoice();
     }
@@ -245,9 +259,18 @@ public final class TalkBridge extends UtteranceProgressListener {
         return neural != null && !neuralKey.isEmpty() && neural.ready();
     }
 
+    /**
+     * The human voice is chosen and either ready or still loading: every sentence goes to it (one that comes while it
+     * loads waits for it), so the device's old voice never speaks in its place. Only when it fails to start does the
+     * device's voice take each sentence.
+     */
+    private boolean humanChosen() {
+        return neural != null && !neuralKey.isEmpty() && (neural.ready() || neural.loading());
+    }
+
     /** The speaker in the downloaded pack: a woman's or a man's voice, as chosen in Settings. */
     private int speakerFor(boolean ivie) {
-        VoicePacks.Pack p = neural.pack();
+        VoicePacks.Pack p = VoicePacks.byKey(neuralKey); // the chosen pack, even while it is still loading
         if (p == null) {
             return 0;
         }
@@ -344,12 +367,12 @@ public final class TalkBridge extends UtteranceProgressListener {
         pending = done;
         queued = 0; // a flush drops the queued sentences
         whenQuiet = null;
-        if (!(ready || human()) || text == null || text.trim().isEmpty()) {
+        if (!(ready || humanChosen()) || text == null || text.trim().isEmpty()) {
             main.postDelayed(() -> finish(token), 280);
             return;
         }
         VoiceTuning t = tuning[ivie ? 1 : 0];
-        if (human()) {
+        if (humanChosen()) {
             speaking = text;
             sayText = text;
             sayIvie = ivie;
@@ -401,11 +424,11 @@ public final class TalkBridge extends UtteranceProgressListener {
             return;
         }
         text = SentenceStream.clean(text);
-        if (!(ready || human()) || text == null || text.trim().isEmpty()) {
+        if (!(ready || humanChosen()) || text == null || text.trim().isEmpty()) {
             return;
         }
         VoiceTuning t = tuning[ivie ? 1 : 0];
-        if (human()) {
+        if (humanChosen()) {
             speaking = text;
             queued++;
             lastIvie = ivie;
