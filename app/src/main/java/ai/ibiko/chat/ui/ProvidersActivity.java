@@ -30,6 +30,8 @@ import ai.ibiko.llm.RemoteBrain;
  * on this phone only, encrypted ({@link ProviderStore}). Done saves and goes back to the chat.
  */
 public final class ProvidersActivity extends AppCompatActivity {
+    /** The provider to open (its name), from Edit beside the model in use. */
+    public static final String EXTRA_PROVIDER = "provider";
     private ProviderStore store;
     private Providers chosen;
     private LinearLayout cards;
@@ -48,6 +50,10 @@ public final class ProvidersActivity extends AppCompatActivity {
         Ui.init(this);
         store = new ProviderStore(this);
         chosen = store.active();
+        String asked = getIntent().getStringExtra(EXTRA_PROVIDER); // Edit in the brain picker opens that provider
+        if (asked != null) {
+            chosen = Providers.named(asked);
+        }
 
         FrameLayout dim = new FrameLayout(this);
         dim.setBackgroundColor(getColor(ai.ibiko.R.color.scrim));
