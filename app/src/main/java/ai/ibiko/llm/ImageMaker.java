@@ -76,7 +76,7 @@ public final class ImageMaker {
         for (Providers p : store.order()) {
             String m = defaultModel(p);
             boolean named = chosenModel != null && !chosenModel.trim().isEmpty();
-            if (m == null && named && (p == Providers.CUSTOM || p == Providers.DVINE_SERVER)) {
+            if (m == null && named && (p == Providers.CUSTOM || p == Providers.IBIKO_SERVER)) {
                 m = chosenModel.trim();
             }
             String key = store.key(p);

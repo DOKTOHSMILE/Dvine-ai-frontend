@@ -119,7 +119,7 @@ public final class KeepAlive extends Service {
 
     /** Whether work may be kept running in the background: the setting is on and the pilot hasn't closed Ibiko. */
     static boolean allowed(Context c) {
-        SharedPreferences p = c.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        SharedPreferences p = c.getSharedPreferences("ibiko", Context.MODE_PRIVATE);
         return p.getBoolean(PREF, true) && !p.getBoolean("closed_by_pilot", false);
     }
 
@@ -143,7 +143,7 @@ public final class KeepAlive extends Service {
 
     /** Opening Ibiko again clears an earlier Close. Nothing starts: the service runs only while there is work. */
     public static void opened(Context c) {
-        c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putBoolean("closed_by_pilot", false).apply();
+        c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).edit().putBoolean("closed_by_pilot", false).apply();
     }
 
     @Override
@@ -176,7 +176,7 @@ public final class KeepAlive extends Service {
         synchronized (now) {
             now.clear();
         }
-        getSharedPreferences("dvine", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
+        getSharedPreferences("ibiko", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
         sendBroadcast(new Intent(CLOSED).setPackage(getPackageName()));
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
@@ -186,7 +186,7 @@ public final class KeepAlive extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         running = false;
-        getSharedPreferences("dvine", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
+        getSharedPreferences("ibiko", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
         super.onTaskRemoved(rootIntent);
@@ -253,7 +253,7 @@ public final class KeepAlive extends Service {
 
     /** Asks once to be left out of battery saving, so the system doesn't freeze Ibiko in the background. */
     public static void askBatteryOnce(Activity a) {
-        SharedPreferences p = a.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        SharedPreferences p = a.getSharedPreferences("ibiko", Context.MODE_PRIVATE);
         if (p.getBoolean("battery_asked", false) || !p.getBoolean(PREF, true) || "robolectric".equals(android.os.Build.FINGERPRINT)) {
             return;
         }

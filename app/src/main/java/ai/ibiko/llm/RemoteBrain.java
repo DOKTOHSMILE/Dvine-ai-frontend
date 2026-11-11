@@ -84,7 +84,7 @@ public final class RemoteBrain {
     private String vision = "auto";
     /** "auto" (known reasoning model names), "on" or "off". */
     private String reasoningMode = "auto";
-    /** The most the model may write, in tokens; 0 lets DVINE decide per request. */
+    /** The most the model may write, in tokens; 0 lets Ibiko decide per request. */
     private int maxOutput;
     /**
      * How long the connection may stay silent (one read), not how long a reply may take. A large model that thinks
@@ -102,7 +102,7 @@ public final class RemoteBrain {
 
     /**
      * The provider's advanced settings: images ("auto", "on", "off"), reasoning ("auto", "on", "off"), the most it may
-     * write (0 = DVINE decides), the time it may take (seconds) and extra request fields as JSON ("" for none).
+     * write (0 = Ibiko decides), the time it may take (seconds) and extra request fields as JSON ("" for none).
      */
     public RemoteBrain options(String vision, String reasoning, int maxOutput, int timeoutSeconds, String extraJson) {
         this.vision = vision == null || vision.isEmpty() ? "auto" : vision;

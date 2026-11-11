@@ -61,7 +61,7 @@ public class LocalModelTest {
             data[i] = (byte) (i * 31);
         }
         ModelSpec s = spec(data);
-        File dir = Files.createTempDirectory("dvine-model").toFile();
+        File dir = Files.createTempDirectory("ibiko-model").toFile();
         File target = new File(dir, s.file);
         // the first try breaks after 1 MB
         ModelDownloader.Source flaky = from -> new ByteArrayInputStream(data, (int) from, data.length - (int) from) {
@@ -123,7 +123,7 @@ public class LocalModelTest {
         assertEquals(4, LocalModel.fastCores(new long[]{1800000, 1800000, 1800000, 1800000, 2600000, 2600000, 2600000, 3000000})); // 1 prime + 3 big + 4 small
         assertEquals(4, LocalModel.fastCores(new long[]{2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000})); // all alike: at most 4
         assertEquals(0, LocalModel.fastCores(new long[0])); // unknown: the old rule decides
-        File dir = Files.createTempDirectory("dvine-model").toFile();
+        File dir = Files.createTempDirectory("ibiko-model").toFile();
         LocalModel m = new LocalModel(dir, ModelSpec.QWEN3_1_7B, true);
         assertEquals(LocalModel.State.NOT_INSTALLED, m.state());
         assertFalse(m.ready());
@@ -173,7 +173,7 @@ public class LocalModelTest {
         assertEquals("Be brief. /no_think", ModelSpec.QWEN3_4B.prompt("Be brief. /no_think"));
         assertEquals("Be brief.", ModelSpec.LLAMA_3_2_3B.prompt("Be brief. /no_think"));
 
-        File dir = Files.createTempDirectory("dvine-models").toFile();
+        File dir = Files.createTempDirectory("ibiko-models").toFile();
         LocalModel m = new LocalModel(dir, ModelSpec.QWEN3_1_7B, true);
         m.remember("q", "a");
         File old = new File(dir, ModelSpec.QWEN3_1_7B.file);
@@ -200,7 +200,7 @@ public class LocalModelTest {
 
     @Test
     public void memoryIsASettingAndSlownessIsSaidOnce() throws Exception {
-        File dir = Files.createTempDirectory("dvine-memory").toFile();
+        File dir = Files.createTempDirectory("ibiko-memory").toFile();
         LocalModel m = new LocalModel(dir, ModelSpec.QWEN3_4B, true);
         assertEquals(8192, m.localWindow()); // 8,192 tokens unless the user picks another size
         assertEquals(8192, ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(null));

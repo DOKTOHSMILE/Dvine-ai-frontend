@@ -1,7 +1,7 @@
 package ai.ibiko.agent;
 
 /**
- * What DVINE can do on this phone right now, so it checks before it acts: whether the brain is ready, whether it's
+ * What Ibiko can do on this phone right now, so it checks before it acts: whether the brain is ready, whether it's
  * online and allowed to look things up, whether a designed body is on show to move. Each task either can be done
  * (null) or comes with the honest reason it can't. Pure Java.
  */

@@ -19,7 +19,7 @@ import ai.ibiko.chat.ChatBook;
 import ai.ibiko.turn.Meaning;
 
 /**
- * What DVINE remembers, each thing on its own line with a way to forget it (the engineering plan's memory review and
+ * What Ibiko remembers, each thing on its own line with a way to forget it (the engineering plan's memory review and
  * deletion): the notes every chat sees (taught with "remember …", or kept from a deleted chat), the facts and
  * corrections the user taught, how it learned to read their phrasings, and the words it learned as commands. The
  * chat screen shares the same live stores ({@link ChatBook#open} and the others), so a forgotten thing stays forgotten.
@@ -39,7 +39,7 @@ public final class MemoryActivity extends AppCompatActivity {
         chats = ChatBook.open(new File(getFilesDir(), "chats.json"));
         journal = LearningJournal.open(new File(getFilesDir(), "learning"));
         intents = LearnedIntents.open(new File(getFilesDir(), "learned_intents.txt"));
-        prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        prefs = getSharedPreferences("ibiko", MODE_PRIVATE);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -100,22 +100,22 @@ public final class MemoryActivity extends AppCompatActivity {
         }
 
         // ---- answers confirmed with the check
-        final ai.ibiko.dvine1.Knowledge known = ai.ibiko.dvine1.Store.knowledge(new File(getFilesDir(), "brain"));
-        List<ai.ibiko.dvine1.Knowledge.Fact> sure = known.confirmed();
+        final ai.ibiko.ibiko1.Knowledge known = ai.ibiko.ibiko1.Store.knowledge(new File(getFilesDir(), "brain"));
+        List<ai.ibiko.ibiko1.Knowledge.Fact> sure = known.confirmed();
         LinearLayout kc = section("Answers you marked correct", sure.size(), "Forget every answer you marked correct?", known::clear);
         if (sure.isEmpty()) {
             empty(kc, "None yet. Tap the check under an answer that's right: Ibiko answers it again however it's asked.");
         }
         for (int i = sure.size() - 1; i >= 0; i--) {
-            final ai.ibiko.dvine1.Knowledge.Fact f = sure.get(i);
+            final ai.ibiko.ibiko1.Knowledge.Fact f = sure.get(i);
             kc.addView(row("“" + f.question + "”", f.answer.length() > 140 ? f.answer.substring(0, 140) + "…" : f.answer,
                     () -> known.forget(f.question)));
         }
 
-        // ---- what DVINE 1 learned on its own: facts with their strength, reading rules, words, its journal
+        // ---- what Ibiko 1 learned on its own: facts with their strength, reading rules, words, its journal
         final File brain = new File(getFilesDir(), "brain");
-        final ai.ibiko.dvine1.Facts selfRead = ai.ibiko.dvine1.Store.facts(brain);
-        final ai.ibiko.dvine1.learner.Learner learner = ai.ibiko.dvine1.Store.learner(brain);
+        final ai.ibiko.ibiko1.Facts selfRead = ai.ibiko.ibiko1.Store.facts(brain);
+        final ai.ibiko.ibiko1.learner.Learner learner = ai.ibiko.ibiko1.Store.learner(brain);
         LinearLayout dl = section("What Ibiko 1 learned by itself", selfRead.size(), "Forget every fact, reading rule and word Ibiko 1 learned?",
                 () -> {
                     selfRead.clear();
@@ -128,24 +128,24 @@ public final class MemoryActivity extends AppCompatActivity {
         for (int i = days.size() - 1; i >= 0 && i >= days.size() - 3; i--) {
             dl.addView(row(days.get(i), null, null));
         }
-        List<ai.ibiko.dvine1.Facts.Row> rows = selfRead.rows();
+        List<ai.ibiko.ibiko1.Facts.Row> rows = selfRead.rows();
         for (int i = rows.size() - 1, k = 0; i >= 0 && k < 20; i--, k++) {
-            final ai.ibiko.dvine1.Facts.Row r = rows.get(i);
+            final ai.ibiko.ibiko1.Facts.Row r = rows.get(i);
             dl.addView(row(r.fact.subject + " · " + r.fact.relation + " · " + r.fact.object, "Strength " + r.n + " of 5",
                     () -> selfRead.forget(r.fact)));
         }
 
         // ---- the truth ledger (formulas/Truth G9): every sentence judged true or false, both kept
-        final ai.ibiko.dvine1.formulas.TruthLedger ledger = ai.ibiko.dvine1.Store.truthLedger(brain);
+        final ai.ibiko.ibiko1.formulas.TruthLedger ledger = ai.ibiko.ibiko1.Store.truthLedger(brain);
         int[] tf = ledger.counts();
         LinearLayout tl = section("Checked true or false", tf[0] + tf[1], "Forget every sentence Ibiko checked?", ledger::clear);
         tl.addView(row(tf[0] + " found true, " + tf[1] + " found false", "Every sentence read, taught or replied is asked whether it is"
                 + " true or false. Both are kept: the false ones are mistakes Ibiko will not repeat.", null));
-        List<ai.ibiko.dvine1.formulas.TruthLedger.Entry> judged = ledger.entries();
+        List<ai.ibiko.ibiko1.formulas.TruthLedger.Entry> judged = ledger.entries();
         java.text.DateFormat when = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT);
         for (int i = judged.size() - 1, k = 0; i >= 0 && k < 20; i--, k++) {
-            final ai.ibiko.dvine1.formulas.TruthLedger.Entry e = judged.get(i);
-            boolean right = e.verdict == ai.ibiko.dvine1.formulas.Truth.Verdict.TRUE;
+            final ai.ibiko.ibiko1.formulas.TruthLedger.Entry e = judged.get(i);
+            boolean right = e.verdict == ai.ibiko.ibiko1.formulas.Truth.Verdict.TRUE;
             String where = "out".equals(e.way) ? "in a reply" : "pilot".equals(e.way) ? "you said" : "read";
             tl.addView(row((right ? "True: " : "False: ") + e.sentence, (right ? "" : e.correction == null ? "" : "In fact: " + e.correction + " ")
                     + "(" + (e.source == null ? "" : e.source + ", ") + where + ", " + when.format(new java.util.Date(e.last))

@@ -9,12 +9,12 @@ import org.junit.Test;
 
 /**
  * The real bridge end to end (Java, JNI, llama.cpp, the model) on a desktop build of the same native code. Runs only
- * when DVINE_NATIVE_LIB (the desktop libdvine_llm.so) and DVINE_MODEL (the GGUF file) are set.
+ * when IBIKO_NATIVE_LIB (the desktop libibiko_llm.so) and IBIKO_MODEL (the GGUF file) are set.
  */
 public class NativeBridgeTest {
     @Test
     public void answersAsAPersonaAndStreams() throws Exception {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }
@@ -49,7 +49,7 @@ public class NativeBridgeTest {
 
     @Test
     public void drawsAPictureInShapes() throws Exception {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }
@@ -57,7 +57,7 @@ public class NativeBridgeTest {
         File f = new File(gguf);
         LocalModel m = new LocalModel(f.getParentFile(), new ModelSpec("test", f.getName(), "", f.length(), "", "Apache 2.0"), true);
         assertTrue(m.load(4));
-        String out = System.getenv("DVINE_DRAW_OUT");
+        String out = System.getenv("IBIKO_DRAW_OUT");
         for (String subject : new String[]{"a helicopter", "a lighthouse", "a cat", "a car", "a rocket", "a sailing boat"}) {
             long t0 = System.nanoTime();
             String shapes = m.task(DrawPrompt.system(), DrawPrompt.user(subject), 360, null);
@@ -75,7 +75,7 @@ public class NativeBridgeTest {
 
     @Test
     public void trustsWhatTheUserTaughtOverItsTraining() throws Exception {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }

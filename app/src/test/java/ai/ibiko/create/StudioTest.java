@@ -163,7 +163,7 @@ public class StudioTest {
         assertEquals(null, single.model);
         assertFalse(single.result.measured);
 
-        File dir = new File(System.getProperty("java.io.tmpdir"), "dvine-lib-" + System.nanoTime());
+        File dir = new File(System.getProperty("java.io.tmpdir"), "ibiko-lib-" + System.nanoTime());
         assertTrue(dir.mkdirs());
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, dir);

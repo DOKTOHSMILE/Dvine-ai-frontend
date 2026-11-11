@@ -240,9 +240,9 @@ public final class ProvidersActivity extends AppCompatActivity {
         TextView keyLabel = Ui.text(this, "API key", 13, Ui.SUB, false);
         card.addView(keyLabel, Ui.wide(this, 14));
         card.addView(keyBox, Ui.wide(this, 6));
-        if (p == Providers.DVINE_SERVER) {
+        if (p == Providers.IBIKO_SERVER) {
             keyLabel.setVisibility(View.GONE);
-            // no key: the phone signs in to its own DVINE server; the address is that server's unless changed
+            // no key: the phone signs in to its own Ibiko server; the address is that server's unless changed
             keyBox.setVisibility(View.GONE);
             card.addView(Ui.text(this, ai.ibiko.llm.ProviderStore.serverSession != null
                     ? "Signs in with this device's own account on the server. The server's owner runs the model (docs/SERVER_MODEL.md)."
@@ -256,7 +256,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         boolean hasBackup = !store.backupKey(p).isEmpty();
         f.backup.setVisibility(hasBackup ? View.VISIBLE : View.GONE);
         addBackup.setVisibility(hasBackup ? View.GONE : View.VISIBLE);
-        if (p == Providers.DVINE_SERVER) {
+        if (p == Providers.IBIKO_SERVER) {
             addBackup.setVisibility(View.GONE); // signed in, no keys
         }
         addBackup.setOnClickListener(v -> {
@@ -562,7 +562,7 @@ public final class ProvidersActivity extends AppCompatActivity {
                     fill();
                 }
             });
-        }, "dvine-provider-test").start();
+        }, "ibiko-provider-test").start();
     }
 
     @Override

@@ -15,7 +15,7 @@ import java.util.Set;
  *       ({@link #crashedWhileLoading});</li>
  *   <li>a model that fails to load for lack of memory is set aside too.</li>
  * </ul>
- * In each case DVINE falls back to the strongest model already on the phone that does fit ({@link #fallback}), and
+ * In each case Ibiko falls back to the strongest model already on the phone that does fit ({@link #fallback}), and
  * says so. Choosing the model again in Settings clears its mark: the user may know better (another app was open).
  */
 public final class ModelGuard {

@@ -42,8 +42,8 @@ public final class ConnectorStore {
 
     public ConnectorStore(Context c) {
         context = c.getApplicationContext();
-        prefs = context.getSharedPreferences("dvine_connectors", Context.MODE_PRIVATE);
-        app = context.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        prefs = context.getSharedPreferences("ibiko_connectors", Context.MODE_PRIVATE);
+        app = context.getSharedPreferences("ibiko", Context.MODE_PRIVATE);
     }
 
     public boolean on(Kind k) {

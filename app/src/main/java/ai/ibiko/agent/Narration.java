@@ -3,8 +3,8 @@ package ai.ibiko.agent;
 import java.util.Locale;
 
 /**
- * What a step was looking for and what it found, in one line for the chat, written by DVINE from the step itself
- * (not by the model), so long work is never silent: "Read PLAN.md (240 lines). It starts: # DVINE plan…", "Ran
+ * What a step was looking for and what it found, in one line for the chat, written by Ibiko from the step itself
+ * (not by the model), so long work is never silent: "Read PLAN.md (240 lines). It starts: # Ibiko plan…", "Ran
  * git status: 3 files changed, first: app/build.gradle". Pure Java.
  */
 public final class Narration {

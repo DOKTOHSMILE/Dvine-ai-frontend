@@ -15,7 +15,7 @@ import org.junit.Test;
 
 import ai.ibiko.brain.MiniJson;
 
-/** What DVINE keeps from the API models, the examples it gives its own model, and the training export. */
+/** What Ibiko keeps from the API models, the examples it gives its own model, and the training export. */
 public class LearningLogTest {
     private static List<String[]> ask(String q) {
         List<String[]> t = new ArrayList<String[]>();

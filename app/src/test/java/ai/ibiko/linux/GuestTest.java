@@ -12,7 +12,7 @@ public class GuestTest {
         String script = Guest.wrap("/root", "cd /usr && echo hi");
         assertTrue(script.contains("cd '/root'"));
         assertTrue(script.contains("echo hi"));
-        assertTrue(script.contains("pwd > /root/.dvine_cwd"));
+        assertTrue(script.contains("pwd > /root/.ibiko_cwd"));
         assertTrue(!script.contains("echo " + Guest.MARK));
         Guest.Answer answer = Guest.split("hi\n/usr\n" + Guest.MARK + "0\nThis ran in Ibiko's Linux.\n", "/root");
         assertEquals("hi\n", answer.text);
@@ -21,15 +21,15 @@ public class GuestTest {
         assertEquals("~/bin", Guest.prompt("/root/bin"));
         assertEquals("~", Guest.prompt("/root"));
         String piped = Guest.pipe("cd /usr && echo hi");
-        assertTrue(piped.startsWith("eval 'cd /usr && echo hi' > /root/.dvine_out"));
-        assertTrue(piped.indexOf(".dvine_cwd") < piped.indexOf(".dvine_status"));
+        assertTrue(piped.startsWith("eval 'cd /usr && echo hi' > /root/.ibiko_out"));
+        assertTrue(piped.indexOf(".ibiko_cwd") < piped.indexOf(".ibiko_status"));
     }
 
     @Test
     public void aStatusLineEndsTheCommandAndAPartialOneIsHeld() {
-        Guest.Stream held = Guest.drain("hello\nDVINE_STAT", "/root");
+        Guest.Stream held = Guest.drain("hello\nIBIKO_STAT", "/root");
         assertEquals("hello\n", held.show);
-        assertEquals("DVINE_STAT", held.rest);
+        assertEquals("IBIKO_STAT", held.rest);
         assertFalse(held.done);
         Guest.Stream done = Guest.drain("hello\n" + Guest.MARK + "0__/usr\n", "/root");
         assertEquals("hello\n", done.show);

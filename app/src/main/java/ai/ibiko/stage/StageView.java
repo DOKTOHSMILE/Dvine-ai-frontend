@@ -20,9 +20,9 @@ import ai.ibiko.render.pod.PodLayout;
 import ai.ibiko.render.pod.PodMotion;
 
 /**
- * The whole app on screen: the pod, floating in space, and above it whatever the user asks DVINE to draw or build,
+ * The whole app on screen: the pod, floating in space, and above it whatever the user asks Ibiko to draw or build,
  * in 3D. There is no face. One finger on the thing drawn turns it; two fingers pinch to zoom in for detail or out,
- * and move it. The pod shows what DVINE is doing (listening, thinking, speaking), and while it thinks its inner
+ * and move it. The pod shows what Ibiko is doing (listening, thinking, speaking), and while it thinks its inner
  * voice writes each step along the top of the screen, the older lines fading away like smoke. Captions and the
  * download bar are particles in the same scene. Touch and hold to speak, let go to send; double-tap to type.
  * This view is a transparent overlay over the GL scene ({@link ai.ibiko.render.PodView}); if the GL scene can't
@@ -63,7 +63,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
     /** Live activity: the latest few {tag, text, time} entries, newest last. */
     private final java.util.ArrayList<String[]> activityLog = new java.util.ArrayList<String[]>();
 
-    // the inner voice: what DVINE is thinking, line by line, the oldest drifting up and fading
+    // the inner voice: what Ibiko is thinking, line by line, the oldest drifting up and fading
     private static final int VOICE_LINES = 6;
     private final java.util.ArrayList<String> voiceText = new java.util.ArrayList<String>();
     private final java.util.ArrayList<Float> voiceBorn = new java.util.ArrayList<Float>();
@@ -160,7 +160,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
         renderer.displayDensity = density;
     }
 
-    /** A line of the inner voice: what DVINE is doing now ("Heard: …", "Checking I can do that…"). */
+    /** A line of the inner voice: what Ibiko is doing now ("Heard: …", "Checking I can do that…"). */
     public void innerVoice(String line) {
         if (line == null || line.trim().isEmpty()) {
             return;
@@ -587,7 +587,7 @@ public final class StageView extends View implements Choreographer.FrameCallback
 
     /**
      * The inner voice along the top: the newest line clear at the bottom of the block, each older one higher, fainter
-     * and softer, until the oldest fades away like smoke; the block fades once DVINE stops thinking.
+     * and softer, until the oldest fades away like smoke; the block fades once Ibiko stops thinking.
      */
     private void drawInnerVoice(Canvas canvas, float w) {
         if (voiceText.isEmpty()) {

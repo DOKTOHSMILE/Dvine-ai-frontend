@@ -2,7 +2,7 @@
 
 Run from the repository root:  python3 tools/build_world_facts.py
 It writes world_facts.tsv in the current folder; move it to ibiko1/src/main/assets/knowledge/.
-One line a fact: thing <TAB> what about it <TAB> value. dvine1/BuiltIn.java reads it.
+One line a fact: thing <TAB> what about it <TAB> value. ibiko1/BuiltIn.java reads it.
 Every sovereign state (capital, continent, currency, official language, population, area) and every
 chemical element (symbol, atomic number). Wikidata limits how fast it may be asked; if it answers
 429, wait and run it again.

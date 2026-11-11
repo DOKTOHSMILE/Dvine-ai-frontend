@@ -7,7 +7,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-/** A message is acted on by what it means, not its words: the reader names the command, DVINE runs its wording. */
+/** A message is acted on by what it means, not its words: the reader names the command, Ibiko runs its wording. */
 public class MeaningTest {
     @Test
     public void theReaderNamesTheCommandWhateverTheWords() {
@@ -25,11 +25,11 @@ public class MeaningTest {
         assertTrue(Meaning.userMeant("stop", Meaning.Command.STOP));
         assertTrue(Meaning.userMeant("please be quiet", Meaning.Command.STOP));
         assertEquals(Meaning.Command.NONE, Meaning.read(null));
-        // each command runs under the wording DVINE's code knows
+        // each command runs under the wording Ibiko's code knows
         assertEquals("give me the result", Meaning.Command.RESULT.canonical);
         assertEquals("continue", Meaning.Command.CONTINUE.canonical);
         assertEquals("delete the model", Meaning.Command.REMOVE_MODEL.canonical);
-        // the commands DVINE carries out with its own actions (its buttons'), not as a message
+        // the commands Ibiko carries out with its own actions (its buttons'), not as a message
         assertEquals(Meaning.Command.SWITCH_OBI, Meaning.read("COMMAND: switch_obi"));
         assertEquals(Meaning.Command.CLEAR_WORKSPACE, Meaning.read("COMMAND: clear_workspace"));
         for (Meaning.Command c : new Meaning.Command[]{Meaning.Command.NEW_CHAT, Meaning.Command.SWITCH_IVIE, Meaning.Command.SWITCH_OBI,

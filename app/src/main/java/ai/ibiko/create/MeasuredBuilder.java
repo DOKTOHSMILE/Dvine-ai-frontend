@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DVINE's builder: turns a design's measured part lines (kept in its spec as "design", written by the model from the
+ * Ibiko's builder: turns a design's measured part lines (kept in its spec as "design", written by the model from the
  * user's request, see {@link MeasuredDesign}) into a 3D model in metres, and checks it. There are no built-in
  * objects; a spec without a design builds nothing and says so. The same lines always build the same model, so undo,
  * redo, save and reopen rebuild exactly. Pure Java.

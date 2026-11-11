@@ -6,7 +6,7 @@ import java.math.RoundingMode;
 import java.util.Locale;
 
 /**
- * Exact arithmetic for the Cortex: language models guess at sums, so DVINE works them out and hands the model the
+ * Exact arithmetic for the Cortex: language models guess at sums, so Ibiko works them out and hands the model the
  * result. Reads symbols ("12*(3+4)", "2^10", "15% of 2400") and words ("twelve times seven", "15 percent of 2,400",
  * "square root of 81", "what is 7 divided by 2"). Decimal, not floating point: 0.1 + 0.2 is 0.3. Pure Java.
  */

@@ -9,12 +9,12 @@ import android.provider.MediaStore;
 import java.io.IOException;
 import java.io.OutputStream;
 
-/** Saves a file the user asked for into Downloads/DVINE, where the Files app and other apps find it. */
+/** Saves a file the user asked for into Downloads/Ibiko, where the Files app and other apps find it. */
 public final class Downloads {
     private Downloads() {
     }
 
-    /** Writes it; returns where it is ("Downloads/DVINE/bicycle.glb") and its address for sharing. */
+    /** Writes it; returns where it is ("Downloads/Ibiko/bicycle.glb") and its address for sharing. */
     public static Uri save(Context c, String name, String mime, byte[] bytes) throws IOException {
         ContentValues v = new ContentValues();
         v.put(MediaStore.Downloads.DISPLAY_NAME, name);

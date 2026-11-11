@@ -5,9 +5,9 @@ import java.util.Locale;
 import ai.ibiko.render.field.ShapeCommand;
 
 /**
- * Moving the drawing on show, said in words DVINE's own reader doesn't know ("make it do cartwheels", "can I see it
- * from above", "let it go round like a wheel"): the brain picks the one command it means from DVINE's list
- * ({@link ShapeCommand#CANONICAL}), DVINE carries that out and keeps the words for next time. Pure Java.
+ * Moving the drawing on show, said in words Ibiko's own reader doesn't know ("make it do cartwheels", "can I see it
+ * from above", "let it go round like a wheel"): the brain picks the one command it means from Ibiko's list
+ * ({@link ShapeCommand#CANONICAL}), Ibiko carries that out and keeps the words for next time. Pure Java.
  */
 public final class ViewIntent {
     private ViewIntent() {

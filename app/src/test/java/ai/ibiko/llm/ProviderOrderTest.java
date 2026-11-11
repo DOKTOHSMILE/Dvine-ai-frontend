@@ -40,21 +40,21 @@ public class ProviderOrderTest {
     }
 
     @Test
-    public void theDvineServerSignsInWithThePhonesSessionNotAKey() throws Exception {
+    public void theIbikoServerSignsInWithThePhonesSessionNotAKey() throws Exception {
         android.content.Context c = RuntimeEnvironment.getApplication();
-        c.getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).edit().putString("server", "https://dvine.example.org").apply();
+        c.getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE).edit().putString("server", "https://ibiko.example.org").apply();
         ProviderStore s = new ProviderStore(c);
         java.util.function.Supplier<String> was = ProviderStore.serverSession;
         try {
             ProviderStore.serverSession = null;
-            assertEquals("https://dvine.example.org/api/v1/llm", s.address(Providers.DVINE_SERVER)); // the server the app uses
-            assertEquals("qwen3-14b", s.model(Providers.DVINE_SERVER));
-            assertFalse(s.hasKey(Providers.DVINE_SERVER));
-            assertEquals(null, s.brain(Providers.DVINE_SERVER)); // not signed in yet: not usable
+            assertEquals("https://ibiko.example.org/api/v1/llm", s.address(Providers.IBIKO_SERVER)); // the server the app uses
+            assertEquals("qwen3-14b", s.model(Providers.IBIKO_SERVER));
+            assertFalse(s.hasKey(Providers.IBIKO_SERVER));
+            assertEquals(null, s.brain(Providers.IBIKO_SERVER)); // not signed in yet: not usable
             final String[] token = {"tok-1"};
             ProviderStore.serverSession = () -> token[0];
-            assertTrue(s.hasKey(Providers.DVINE_SERVER));
-            RemoteBrain b = s.brain(Providers.DVINE_SERVER);
+            assertTrue(s.hasKey(Providers.IBIKO_SERVER));
+            RemoteBrain b = s.brain(Providers.IBIKO_SERVER);
             assertTrue(b != null);
             // each request asks for the live session: a renewed token is used at once
             final java.util.List<String> auth = new java.util.ArrayList<String>();
@@ -63,15 +63,15 @@ public class ProviderOrderTest {
                 return new RemoteBrain.Response(200, new java.io.ByteArrayInputStream(
                         "data: {\"choices\":[{\"delta\":{\"content\":\"Hi.\"}}]}\ndata: [DONE]\n".getBytes("UTF-8")));
             };
-            RemoteBrain live = new RemoteBrain(RemoteBrain.Protocol.OPENAI, s.address(Providers.DVINE_SERVER), "qwen3-14b",
-                    s.key(Providers.DVINE_SERVER), "", t).keySource(ProviderStore.serverSession);
+            RemoteBrain live = new RemoteBrain(RemoteBrain.Protocol.OPENAI, s.address(Providers.IBIKO_SERVER), "qwen3-14b",
+                    s.key(Providers.IBIKO_SERVER), "", t).keySource(ProviderStore.serverSession);
             java.util.List<String[]> ask = new java.util.ArrayList<String[]>();
             ask.add(new String[]{"user", "hi"});
             assertEquals("Hi.", live.chat("s", ask, 48, 0.7f, null));
             token[0] = "tok-2";
             assertEquals("Hi.", live.chat("s", ask, 48, 0.7f, null));
-            assertEquals(java.util.Arrays.asList("https://dvine.example.org/api/v1/llm/chat/completions Bearer tok-1",
-                    "https://dvine.example.org/api/v1/llm/chat/completions Bearer tok-2"), auth);
+            assertEquals(java.util.Arrays.asList("https://ibiko.example.org/api/v1/llm/chat/completions Bearer tok-1",
+                    "https://ibiko.example.org/api/v1/llm/chat/completions Bearer tok-2"), auth);
             token[0] = null; // signed out: a clear reason, no request
             long[] waits = RemoteBrain.retryWaits;
             RemoteBrain.retryWaits = new long[]{0, 0};

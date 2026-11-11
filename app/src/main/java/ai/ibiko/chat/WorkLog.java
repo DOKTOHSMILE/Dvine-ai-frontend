@@ -11,7 +11,7 @@ import java.util.Map;
 import ai.ibiko.brain.MiniJson;
 
 /**
- * What DVINE's work has produced, kept on the phone for the chips above the message box: the pull requests Ibiko
+ * What Ibiko's work has produced, kept on the phone for the chips above the message box: the pull requests Ibiko
  * opened (number, title, address, repository) and the artifacts made (Ivie's exported models, files saved for the
  * user), newest first, at most 50 of each.
  */
@@ -33,7 +33,7 @@ public final class WorkLog {
     private final SharedPreferences prefs;
 
     public WorkLog(Context c) {
-        prefs = c.getApplicationContext().getSharedPreferences("dvine_work", Context.MODE_PRIVATE);
+        prefs = c.getApplicationContext().getSharedPreferences("ibiko_work", Context.MODE_PRIVATE);
     }
 
     public void pullRequest(String number, String title, String url, String repo) {

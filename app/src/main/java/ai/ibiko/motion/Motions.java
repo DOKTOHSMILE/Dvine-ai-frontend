@@ -6,7 +6,7 @@ import java.util.Locale;
  * The movement engine: a 17-bone body (hips, spine, chest, neck, head, two arms, forearms, hands, thighs, shins and
  * feet), the poses and moves it knows (standing, waving, walking, running, dancing, push-ups, cartwheels, flips and
  * more, each as joint angles over time) and the joint limits no move may break. It has no look of its own: it is
- * kept to move a body the user has DVINE design in 3D. Pure Java.
+ * kept to move a body the user has Ibiko design in 3D. Pure Java.
  */
 public final class Motions {
     private Motions() {

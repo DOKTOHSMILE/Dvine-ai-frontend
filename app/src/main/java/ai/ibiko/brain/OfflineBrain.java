@@ -246,7 +246,7 @@ public final class OfflineBrain {
         }
         String pose = posePhrase(text);
         if (pose != null) {
-            // the movement engine: it moves a body DVINE designed in 3D (the app checks one is on show)
+            // the movement engine: it moves a body Ibiko designed in 3D (the app checks one is on show)
             BrainAnswer a = one(speaker, pick(speaker, "Moving it: " + pose + ".", "Okay, " + pose + "."), "MOVE");
             a.command = "POSE";
             a.commandValue = pose;
@@ -1135,7 +1135,7 @@ public final class OfflineBrain {
         }
         String t = raw.toLowerCase(Locale.US).replace('’', '\'').replace('\u0000', ' ');
         t = t.replaceAll("\\s+", " ").trim();
-        t = t.replaceAll("^(hey |ok |okay |so )?(obi|ivie|eva|dvine)[, ]+", "");
+        t = t.replaceAll("^(hey |ok |okay |so )?(obi|ivie|eva|ibiko)[, ]+", "");
         t = t.replaceAll("[.!]+$", "").trim();
         return t;
     }
@@ -1146,7 +1146,7 @@ public final class OfflineBrain {
             return "";
         }
         String t = raw.replace('’', '\'').replace('\u0000', ' ').replaceAll("\\s+", " ").trim();
-        t = t.replaceAll("(?i)^(hey |ok |okay |so )?(obi|ivie|eva|dvine)[, ]+", "");
+        t = t.replaceAll("(?i)^(hey |ok |okay |so )?(obi|ivie|eva|ibiko)[, ]+", "");
         return t.replaceAll("[.!]+$", "").trim();
     }
 

@@ -23,7 +23,7 @@ import ai.ibiko.brain.MiniJson;
  * pulls a newer knowledge pack and the server's consolidated profile. These
  * are the engine's secondary jobs; nothing on the phone waits for them.
  * Does nothing while no desk URL is configured.
- * Contracts: docs/DVINE_MASTER_BUILD_HANDBOOK.md §5.
+ * Contracts: docs/IBIKO_MASTER_BUILD_HANDBOOK.md §5.
  */
 public final class SyncWorker {
     public interface TokenSource {

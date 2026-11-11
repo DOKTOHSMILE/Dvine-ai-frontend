@@ -7,12 +7,12 @@ import java.util.Locale;
  * It does not execute anything, and it is not used on ordinary chat, model text, code or documents.
  */
 public final class CommandPhrasing {
-    public final DvineCommandGateway.Action action;
+    public final IbikoCommandGateway.Action action;
     /** Null means the current task. */
     public final String name;
     public final boolean control;
 
-    private CommandPhrasing(DvineCommandGateway.Action action, String name, boolean control) {
+    private CommandPhrasing(IbikoCommandGateway.Action action, String name, boolean control) {
         this.action = action;
         this.name = name;
         this.control = control;
@@ -78,9 +78,9 @@ public final class CommandPhrasing {
 
     private static final class Lead {
         final String prefix;
-        final DvineCommandGateway.Action action;
+        final IbikoCommandGateway.Action action;
 
-        Lead(String prefix, DvineCommandGateway.Action action) {
+        Lead(String prefix, IbikoCommandGateway.Action action) {
             this.prefix = prefix;
             this.action = action;
         }
@@ -88,15 +88,15 @@ public final class CommandPhrasing {
 
     private static Lead lead(String n) {
         Lead[] leads = {
-                new Lead("carry on", DvineCommandGateway.Action.RESUME),
-                new Lead("hold on", DvineCommandGateway.Action.PAUSE),
-                new Lead("pause", DvineCommandGateway.Action.PAUSE),
-                new Lead("hold", DvineCommandGateway.Action.PAUSE),
-                new Lead("resume", DvineCommandGateway.Action.RESUME),
-                new Lead("continue", DvineCommandGateway.Action.RESUME),
-                new Lead("cancel", DvineCommandGateway.Action.CANCEL),
-                new Lead("abort", DvineCommandGateway.Action.CANCEL),
-                new Lead("stop", DvineCommandGateway.Action.STOP)
+                new Lead("carry on", IbikoCommandGateway.Action.RESUME),
+                new Lead("hold on", IbikoCommandGateway.Action.PAUSE),
+                new Lead("pause", IbikoCommandGateway.Action.PAUSE),
+                new Lead("hold", IbikoCommandGateway.Action.PAUSE),
+                new Lead("resume", IbikoCommandGateway.Action.RESUME),
+                new Lead("continue", IbikoCommandGateway.Action.RESUME),
+                new Lead("cancel", IbikoCommandGateway.Action.CANCEL),
+                new Lead("abort", IbikoCommandGateway.Action.CANCEL),
+                new Lead("stop", IbikoCommandGateway.Action.STOP)
         };
         for (Lead lead : leads) {
             if (n.equals(lead.prefix) || n.startsWith(lead.prefix + " ")) {

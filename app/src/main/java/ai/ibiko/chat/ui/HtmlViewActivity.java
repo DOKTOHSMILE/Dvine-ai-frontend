@@ -47,7 +47,7 @@ public final class HtmlViewActivity extends AppCompatActivity {
                 html = "<p>The page couldn't be opened.</p>";
             }
         }
-        web.loadDataWithBaseURL("https://dvine.local/", page(html), "text/html", "utf-8", null);
+        web.loadDataWithBaseURL("https://ibiko.local/", page(html), "text/html", "utf-8", null);
     }
 
     @Override

@@ -15,7 +15,7 @@ import ai.ibiko.llm.ModelHub;
 import ai.ibiko.llm.ProviderStore;
 
 /**
- * The first screen when DVINE has no brain yet: everything said or typed goes to a brain to be understood, so one
+ * The first screen when Ibiko has no brain yet: everything said or typed goes to a brain to be understood, so one
  * is needed before the chat. Two buttons: download the brain to this phone (with its progress here, and the chat
  * open while it downloads), or use an API key (the AI providers sheet). It comes back until one is chosen; on a
  * phone that can't run the downloaded brain, only the API is offered.
@@ -145,7 +145,7 @@ public final class SetupActivity extends AppCompatActivity {
         super.onPause();
     }
 
-    /** Back without a brain closes DVINE: it can't understand anything without one. */
+    /** Back without a brain closes Ibiko: it can't understand anything without one. */
     @Override
     public void onBackPressed() {
         if (needed(this)) {

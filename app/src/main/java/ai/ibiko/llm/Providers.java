@@ -20,7 +20,7 @@ public enum Providers {
             "Hundreds of models behind one key. Key from openrouter.ai."),
     CUSTOM("Custom gateway", RemoteBrain.Protocol.OPENAI, "", "", "", 128_000,
             "Any gateway in OpenAI's or Anthropic's format: OpenRouter, LiteLLM, a Claude relay, or a self-hosted endpoint."),
-    DVINE_SERVER("Ibiko server", RemoteBrain.Protocol.OPENAI, "", "qwen3-14b", "", 16_384,
+    IBIKO_SERVER("Ibiko server", RemoteBrain.Protocol.OPENAI, "", "qwen3-14b", "", 16_384,
             "Ibiko's own online model: a big model (Qwen3 14B, 32B…) on your Ibiko server. No key: the app signs in to"
                     + " the server it already uses.");
 

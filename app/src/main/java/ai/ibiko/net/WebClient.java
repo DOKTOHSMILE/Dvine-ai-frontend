@@ -6,7 +6,7 @@ import java.util.function.Supplier;
 import ai.ibiko.brain.MiniJson;
 
 /**
- * Reads a web page through the DVINE server (POST /api/v1/web/fetch), which
+ * Reads a web page through the Ibiko server (POST /api/v1/web/fetch), which
  * applies its egress allow-list and refuses private addresses. The text that
  * comes back is untrusted: it is shown or read, never obeyed. Blocking; call
  * it off the main thread. Returns null on any failure.

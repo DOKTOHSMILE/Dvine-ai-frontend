@@ -47,8 +47,8 @@ public class CrashLogTest {
     @Test
     public void whatAndroidRecordsIsReadable() {
         // a tombstone is binary: its readable runs are the signal, the libraries and the functions
-        byte[] tomb = "\u0001\u0002SIGSEGV\u0000\u0003libdvine_llm.so\u0000ggml_compute\u0005ab\u0000".getBytes(StandardCharsets.ISO_8859_1);
-        assertEquals("SIGSEGV\nlibdvine_llm.so\nggml_compute\n", CrashLog.readable(tomb));
+        byte[] tomb = "\u0001\u0002SIGSEGV\u0000\u0003libibiko_llm.so\u0000ggml_compute\u0005ab\u0000".getBytes(StandardCharsets.ISO_8859_1);
+        assertEquals("SIGSEGV\nlibibiko_llm.so\nggml_compute\n", CrashLog.readable(tomb));
         assertTrue(CrashLog.worthKeeping(ApplicationExitInfo.REASON_CRASH_NATIVE));
         assertTrue(CrashLog.worthKeeping(ApplicationExitInfo.REASON_ANR));
         assertFalse("the user closing the app is not a crash", CrashLog.worthKeeping(ApplicationExitInfo.REASON_USER_REQUESTED));

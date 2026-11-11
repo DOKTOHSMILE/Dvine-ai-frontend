@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 /**
  * A post on the pilot's own account, planned for later: once, or repeating (every day, every week, every few hours).
  * The brain writes it with {@code §SP}; the pilot sees the text, the account and the time and says yes before it is
- * kept. When it is due, DVINE brings it back with a notification and hands it to the network's app with the text
+ * kept. When it is due, Ibiko brings it back with a notification and hands it to the network's app with the text
  * ready, so the pilot's account posts it. Pure Java.
  *
  * <p>The brain's line: {@code <network> <when> [<repeat>]: <text>}, where {@code when} is {@code yyyy-MM-dd HH:mm},
@@ -162,7 +162,7 @@ public final class PostPlan {
         return c.getTimeInMillis();
     }
 
-    /** The network's app key, or null when DVINE can't post there. */
+    /** The network's app key, or null when Ibiko can't post there. */
     public static String network(String name) {
         String n = name == null ? "" : name.trim().toLowerCase(Locale.US).replaceAll("[^a-z]", "");
         switch (n) {

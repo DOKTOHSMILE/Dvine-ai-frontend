@@ -7,9 +7,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A change to one part (or some parts) of the thing DVINE built: "take out the tyres", "remove the left wing",
+ * A change to one part (or some parts) of the thing Ibiko built: "take out the tyres", "remove the left wing",
  * "make the wheels black", "make the roof bigger", "add a spoiler on the back", "show only the engine", "put the
- * tyres back". The thing is a set of named parts ({@link SolidSpec}), so DVINE knows what a tyre is in it: the
+ * tyres back". The thing is a set of named parts ({@link SolidSpec}), so Ibiko knows what a tyre is in it: the
  * words are matched to the parts by name, by what they are called in everyday words ({@link #KINDS}: a tyre is a
  * wheel, a windscreen is a window…), and by where they are (left, right, front, back, top, bottom). When nothing
  * matches, the brain is asked which parts the words mean. The rest of the thing stays exactly as it was. Pure Java.

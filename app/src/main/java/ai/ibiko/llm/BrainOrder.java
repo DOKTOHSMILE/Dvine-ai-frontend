@@ -1,7 +1,7 @@
 package ai.ibiko.llm;
 
 /**
- * The brain reads the user and answers with one order. DVINE carries out only an order it has a function for.
+ * The brain reads the user and answers with one order. Ibiko carries out only an order it has a function for.
  */
 public final class BrainOrder {
     public enum Kind {

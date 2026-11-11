@@ -19,15 +19,15 @@ public class TarGzTest {
         byte[] gz = gzip(tar(
                 entry("bin/note", "hello", '0', 0755, ""),
                 entry("bin/sh", "", '2', 0777, "busybox"),
-                entry("../dvine-tar-escape.txt", "no", '0', 0644, "")));
-        File dest = Files.createTempDirectory("dvine-tar").toFile();
+                entry("../ibiko-tar-escape.txt", "no", '0', 0644, "")));
+        File dest = Files.createTempDirectory("ibiko-tar").toFile();
         TarGz.extract(new ByteArrayInputStream(gz), dest);
         assertEquals("hello", new String(Files.readAllBytes(new File(dest, "bin/note").toPath()), StandardCharsets.UTF_8));
         assertTrue(new File(dest, "bin/note").canExecute());
         assertTrue(Files.isSymbolicLink(new File(dest, "bin/sh").toPath()));
         assertEquals("busybox", Files.readSymbolicLink(new File(dest, "bin/sh").toPath()).toString());
-        assertFalse(new File(dest.getParentFile(), "dvine-tar-escape.txt").exists());
-        assertFalse(new File(dest, "dvine-tar-escape.txt").exists());
+        assertFalse(new File(dest.getParentFile(), "ibiko-tar-escape.txt").exists());
+        assertFalse(new File(dest, "ibiko-tar-escape.txt").exists());
     }
 
     @Test
@@ -35,7 +35,7 @@ public class TarGzTest {
         byte[] gz = gzip(tar(
                 entry("bin/ls", "", '1', 0755, "bin/busybox"),
                 entry("bin/busybox", "box", '0', 0755, "")));
-        File dest = Files.createTempDirectory("dvine-link").toFile();
+        File dest = Files.createTempDirectory("ibiko-link").toFile();
         TarGz.extract(new ByteArrayInputStream(gz), dest);
         assertEquals("box", new String(Files.readAllBytes(new File(dest, "bin/ls").toPath()), StandardCharsets.UTF_8));
         java.util.List<String> once = ProotCommand.once(new File("/lib/libproot.so"), dest, new File("/work"), "pkg install python3");

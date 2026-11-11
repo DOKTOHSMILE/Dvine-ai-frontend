@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.List;
 
 /**
- * DVINE's own shell. Every command runs in the app, in {@link ShellSession}. Termux is not asked and not required.
+ * Ibiko's own shell. Every command runs in the app, in {@link ShellSession}. Termux is not asked and not required.
  * A program that is not built in comes back as exit 127. It is not handed to another app.
  */
 public final class LinuxEngine {
@@ -29,7 +29,7 @@ public final class LinuxEngine {
         }
     }
 
-    /** True when every command in the line is one DVINE's shell runs itself. */
+    /** True when every command in the line is one Ibiko's shell runs itself. */
     public static boolean knows(String command) {
         return ShellSession.supported(command);
     }

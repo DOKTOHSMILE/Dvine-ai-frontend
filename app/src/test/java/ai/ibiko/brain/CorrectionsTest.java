@@ -11,7 +11,7 @@ import org.junit.Test;
 
 import ai.ibiko.turn.TurnLine;
 
-/** The user sets facts straight; DVINE keeps them, trusts them over the model, and never argues. */
+/** The user sets facts straight; Ibiko keeps them, trusts them over the model, and never argues. */
 public class CorrectionsTest {
     private static String said(BrainAnswer a) {
         StringBuilder b = new StringBuilder();

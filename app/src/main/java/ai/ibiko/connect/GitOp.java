@@ -13,7 +13,7 @@ import java.nio.file.StandardCopyOption;
  * not done.
  */
 public final class GitOp {
-    public static final String FILE = ".dvine-git-op.json";
+    public static final String FILE = ".ibiko-git-op.json";
 
     private GitOp() {
     }

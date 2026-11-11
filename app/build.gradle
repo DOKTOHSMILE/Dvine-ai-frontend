@@ -16,8 +16,8 @@ android {
         applicationId "ai.ibiko"
         minSdk 34
         targetSdk 35
-        versionCode 291
-        versionName "0.99.98"
+        versionCode 292
+        versionName "0.99.99"
         // the on-device language model (llama.cpp) is built for 64-bit ARM phones only
         ndk {
             abiFilters "arm64-v8a"
@@ -56,7 +56,7 @@ android {
     // (CodeAssist on the phone) still ships it; a full build makes the same library from src/main/cpp and keeps one.
     // Linux is started by libproot.so. It has to be unpacked onto disk or the phone will not run it.
     packagingOptions {
-        pickFirst "lib/arm64-v8a/libdvine_llm.so"
+        pickFirst "lib/arm64-v8a/libibiko_llm.so"
         jniLibs {
             useLegacyPackaging = true
         }

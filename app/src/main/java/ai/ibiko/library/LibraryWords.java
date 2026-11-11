@@ -45,7 +45,7 @@ public final class LibraryWords {
         if (said == null) {
             return null;
         }
-        String t = said.trim().replaceAll("[.!?]+$", "").replaceAll("(?i)^(please|can you|could you|now|okay|ok|dvine|ivie|obi|ibiko),? ", "")
+        String t = said.trim().replaceAll("[.!?]+$", "").replaceAll("(?i)^(please|can you|could you|now|okay|ok|ibiko|ivie|obi|ibiko),? ", "")
                 .replaceAll("(?i)^(please|can you|could you) ", "").replaceAll("(?i),? please$", "").trim();
         String low = t.toLowerCase(Locale.US);
         if (low.matches("^(what|which) (drawings|designs|models|things) (have i|did i|do i have|are) (saved|kept|stored)?.*|^(list|show me|show) (all )?(my|the) (saved )?(drawings|designs|models)( i saved)?$|^(what have i saved|my drawings|my saved drawings)$")) {

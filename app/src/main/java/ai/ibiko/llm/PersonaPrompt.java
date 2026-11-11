@@ -81,7 +81,7 @@ public final class PersonaPrompt {
 
     /**
      * The persona speaking ("ivie", "obi" or "ibiko"), the user's name, today's date, and what the brain knows about
-     * the app it runs in ({@link DvineSelf#sheet}, may be null).
+     * the app it runs in ({@link IbikoSelf#sheet}, may be null).
      */
     public static String system(String agent, String userName, String today) {
         return system(agent, userName, today, null);

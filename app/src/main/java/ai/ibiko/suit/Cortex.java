@@ -3,7 +3,7 @@ package ai.ibiko.suit;
 import java.util.function.Function;
 
 /**
- * DVINE's own light brain, always present in the suit whatever model is plugged in. It does what a language model
+ * Ibiko's own light brain, always present in the suit whatever model is plugged in. It does what a language model
  * does badly or slowly, in microseconds and exactly: it reads the message ({@link Comprehension}) and works out any
  * arithmetic ({@link Arithmetic}), and hands both to the model as facts. With no model at all, it still answers
  * what it can: a sum, a greeting, thanks, or what it learned from earlier conversations ({@code learned}). It never
@@ -17,13 +17,13 @@ public final class Cortex {
         this.learned = learned;
     }
 
-    /** What the model is given with the message: DVINE's reading of it and any exact arithmetic. */
+    /** What the model is given with the message: Ibiko's reading of it and any exact arithmetic. */
     public String context(String message) {
         return Comprehension.of(message).brief();
     }
 
     /**
-     * An answer with no model, or null when it needs one (then DVINE says it has no brain for that yet). Only
+     * An answer with no model, or null when it needs one (then Ibiko says it has no brain for that yet). Only
      * arithmetic, greetings, thanks and what was learned: nothing is made up.
      */
     public String answerAlone(String message) {

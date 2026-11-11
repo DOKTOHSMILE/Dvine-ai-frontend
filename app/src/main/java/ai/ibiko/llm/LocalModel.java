@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DVINE's own language model on the phone: whether it is installed, downloading, loaded or can't run here,
+ * Ibiko's own language model on the phone: whether it is installed, downloading, loaded or can't run here,
  * plus the conversation it remembers (the last few turns). Loading and answering block: call them off the
  * UI thread. Android-free apart from what the caller passes in.
  */
@@ -726,7 +726,7 @@ public final class LocalModel {
                     return;
                 }
             }
-        }, "dvine-model-timeout");
+        }, "ibiko-model-timeout");
         watchdog.setDaemon(true);
         watchdog.start();
         try {
@@ -858,7 +858,7 @@ public final class LocalModel {
     }
 
     /**
-     * Where DVINE keeps what the API models answer, to learn from (null: not learning). When the phone's own model
+     * Where Ibiko keeps what the API models answer, to learn from (null: not learning). When the phone's own model
      * answers, the closest past answers are given to it as examples.
      */
     public volatile ai.ibiko.learn.LearningLog learning;

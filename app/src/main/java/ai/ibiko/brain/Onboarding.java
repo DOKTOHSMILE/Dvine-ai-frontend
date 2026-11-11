@@ -41,7 +41,7 @@ public final class Onboarding {
         }
         String out = sb.toString();
         String lower = out.toLowerCase(Locale.ROOT);
-        if (lower.matches("(yes|no|okay|ok|hello|hi|hey|what|why|who|nothing|obi|ivie|ibiko|dvine)")) {
+        if (lower.matches("(yes|no|okay|ok|hello|hi|hey|what|why|who|nothing|obi|ivie|ibiko|ibiko)")) {
             return null;
         }
         return out;
@@ -84,7 +84,7 @@ public final class Onboarding {
         if (name == null) {
             return false;
         }
-        return name.trim().toLowerCase(Locale.US).matches("obi|ivie|ibiko|dvine");
+        return name.trim().toLowerCase(Locale.US).matches("obi|ivie|ibiko|ibiko");
     }
 
     /** "call me Val" at any time after onboarding. */

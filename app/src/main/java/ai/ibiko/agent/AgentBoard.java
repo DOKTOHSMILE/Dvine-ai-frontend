@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * The workers: who is working right now, each with a code name (FALCON-1, LYNX-2…): the reply being written, the lead
- * agent on a task and its helpers, the council of three, the fact checker, the memory keeper, DVINE 1's researcher,
+ * agent on a task and its helpers, the council of three, the fact checker, the memory keeper, Ibiko 1's researcher,
  * the night learner. Each says its role, the brain it uses, its task, what it is doing at this moment and since when;
  * finished ones are kept a while with how long they took and how they ended. The Workload sheet lists them. Pure
  * Java; thread-safe (workers start and end on their own threads).
@@ -65,7 +65,7 @@ public final class AgentBoard {
         return start(role, task, "");
     }
 
-    /** A worker starts on {@code brain} (the model or DVINE 1): its code name, to end it with. */
+    /** A worker starts on {@code brain} (the model or Ibiko 1): its code name, to end it with. */
     public static synchronized String start(String role, String task, String brain) {
         count++;
         String code = NAMES[(count - 1) % NAMES.length] + "-" + count;

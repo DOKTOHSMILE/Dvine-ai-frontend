@@ -8,12 +8,12 @@ import org.junit.Test;
 
 /**
  * The three think tanks on the phone's own model (a desktop build of the same engine). Runs only with
- * DVINE_NATIVE_LIB and DVINE_MODEL set.
+ * IBIKO_NATIVE_LIB and IBIKO_MODEL set.
  */
 public class OfflineCouncilTest {
     @Test
     public void threeTanksOnTheOfflineModel() {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }

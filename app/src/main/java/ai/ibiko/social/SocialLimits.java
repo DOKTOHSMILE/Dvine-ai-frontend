@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * How much DVINE may do on each of the user's accounts, so the network doesn't flag it as a bot: a cap an hour and a
+ * How much Ibiko may do on each of the user's accounts, so the network doesn't flag it as a bot: a cap an hour and a
  * day for each kind of action (well under what people do by hand), a gap between actions that varies like a person's,
  * and a pause on an account when its site shows a warning or a check (captcha, "unusual activity"), until the user
  * resumes it. The caps can be made stricter ({@link #scale}), never looser. Thread-safe; pure Java.

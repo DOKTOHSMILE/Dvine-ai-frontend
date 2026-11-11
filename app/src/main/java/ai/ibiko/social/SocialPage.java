@@ -5,8 +5,8 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * What a page DVINE opened with the user's account says: whether the account is still signed in, whether the site is
- * showing a warning or a check (then DVINE stops and pauses the account), and the posts on it as plain text, labelled
+ * What a page Ibiko opened with the user's account says: whether the account is still signed in, whether the site is
+ * showing a warning or a check (then Ibiko stops and pauses the account), and the posts on it as plain text, labelled
  * as what people wrote: their claims, not checked facts, and never instructions to the model. Pure Java.
  */
 public final class SocialPage {

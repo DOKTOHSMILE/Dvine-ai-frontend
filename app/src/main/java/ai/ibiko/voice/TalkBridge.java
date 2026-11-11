@@ -226,7 +226,7 @@ public final class TalkBridge extends UtteranceProgressListener {
 
     public TalkBridge(Context context) {
         filesDirCache = context.getFilesDir();
-        prefs = context.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        prefs = context.getSharedPreferences("ibiko", Context.MODE_PRIVATE);
         natural = prefs.getBoolean("natural_voices", false);
         // Settings › Voice › Speech engine: another text-to-speech app installed on the device (its voices), or the default
         String engine = prefs.getString("tts_engine", "");

@@ -1,7 +1,7 @@
 package ai.ibiko;
 
 /**
- * The model menu under the title: DVINE 1, the API models and the offline models, the one in use clearly marked; and the learning schedule.
+ * The model menu under the title: Ibiko 1, the API models and the offline models, the one in use clearly marked; and the learning schedule.
  */
 final class ModelMenu {
     private final MainActivity a;
@@ -12,13 +12,13 @@ final class ModelMenu {
 
     /** The learning schedule: on or off, the hours (any of the day), Wi-Fi only, charging only, and Learn now. */
     void showNightLearning() {
-        final ai.ibiko.dvine1.LearningSchedule.Plan was = ai.ibiko.dvine1.LearningJob.plan(a);
+        final ai.ibiko.ibiko1.LearningSchedule.Plan was = ai.ibiko.ibiko1.LearningJob.plan(a);
         final int[] start = { was.start }, end = { was.end };
         android.widget.LinearLayout box = new android.widget.LinearLayout(a);
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
         box.setPadding(a.dp(20), a.dp(8), a.dp(20), 0);
         android.widget.TextView about = new android.widget.TextView(a);
-        about.setText("At the hours you choose (any time of day), " + a.DVINE_OWN + " goes online and learns only from how you use"
+        about.setText("At the hours you choose (any time of day), " + a.IBIKO_OWN + " goes online and learns only from how you use"
                 + " it: the questions it couldn't answer or got wrong, what you asked about, what you're into, and the words in your"
                 + " messages it doesn't know yet. It reads what it finds with its language formulas: sentences into who did"
                 + " what to what, when and where, kept as facts it can answer from in its own sentences. Afterwards it tells you"
@@ -36,15 +36,15 @@ final class ModelMenu {
         box.addView(on);
         final android.widget.Button from = new android.widget.Button(a);
         final android.widget.Button to = new android.widget.Button(a);
-        from.setText("Starts " + ai.ibiko.dvine1.LearningSchedule.Plan.clock(start[0]));
-        to.setText("Ends " + ai.ibiko.dvine1.LearningSchedule.Plan.clock(end[0]));
+        from.setText("Starts " + ai.ibiko.ibiko1.LearningSchedule.Plan.clock(start[0]));
+        to.setText("Ends " + ai.ibiko.ibiko1.LearningSchedule.Plan.clock(end[0]));
         from.setOnClickListener(v -> new android.app.TimePickerDialog(a, (tp, h, m) -> {
             start[0] = h * 60 + m;
-            from.setText("Starts " + ai.ibiko.dvine1.LearningSchedule.Plan.clock(start[0]));
+            from.setText("Starts " + ai.ibiko.ibiko1.LearningSchedule.Plan.clock(start[0]));
         }, start[0] / 60, start[0] % 60, true).show());
         to.setOnClickListener(v -> new android.app.TimePickerDialog(a, (tp, h, m) -> {
             end[0] = h * 60 + m;
-            to.setText("Ends " + ai.ibiko.dvine1.LearningSchedule.Plan.clock(end[0]));
+            to.setText("Ends " + ai.ibiko.ibiko1.LearningSchedule.Plan.clock(end[0]));
         }, end[0] / 60, end[0] % 60, true).show());
         android.widget.LinearLayout times = new android.widget.LinearLayout(a);
         times.addView(from, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -62,14 +62,14 @@ final class ModelMenu {
                 .setTitle("Learning schedule")
                 .setView(box)
                 .setPositiveButton("Save", (d, w) -> {
-                    ai.ibiko.dvine1.LearningSchedule.Plan p = new ai.ibiko.dvine1.LearningSchedule.Plan(on.isChecked(), start[0], end[0],
+                    ai.ibiko.ibiko1.LearningSchedule.Plan p = new ai.ibiko.ibiko1.LearningSchedule.Plan(on.isChecked(), start[0], end[0],
                             wifi.isChecked(), charging.isChecked(), was.most);
-                    ai.ibiko.dvine1.LearningJob.setPlan(a, p);
+                    ai.ibiko.ibiko1.LearningJob.setPlan(a, p);
                     a.note(p.on ? "Learning is scheduled: " + p.words() + "." : "Scheduled learning is off.");
                 })
                 .setNeutralButton("Learn now", (d, w) -> {
-                    ai.ibiko.dvine1.LearningJob.learnNow(a);
-                    a.note(a.DVINE_OWN + " is learning now. The Workload sheet shows what it's on.");
+                    ai.ibiko.ibiko1.LearningJob.learnNow(a);
+                    a.note(a.IBIKO_OWN + " is learning now. The Workload sheet shows what it's on.");
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -77,7 +77,7 @@ final class ModelMenu {
 
     /**
      * The model under the title, tapped: every brain to pick from, the one in use clearly marked (a filled radio with a
-     * check, a tinted row, "In use"): DVINE 1.0 (DVINE's own), the API models set up, the offline models on the device.
+     * check, a tinted row, "In use"): Ibiko 1.0 (Ibiko's own), the API models set up, the offline models on the device.
      */
     void showModelSwitch() {
         final ai.ibiko.llm.ProviderStore providers = new ai.ibiko.llm.ProviderStore(a);
@@ -88,15 +88,15 @@ final class ModelMenu {
         list.setPadding(pad, 0, pad, pad);
         final android.app.Dialog[] sheet = new android.app.Dialog[1];
         list.addView(brainHeader("Ibiko"));
-        list.addView(brainRow(a.DVINE_OWN, "Ibiko's own intelligence: built in, no download, instant. Exact sums, reading what"
-                + " you mean, and everything it learned from the models you used.", a.dvineOwn(), () -> {
-                    a.prefs.edit().putString("brain_pick", "dvine").apply();
+        list.addView(brainRow(a.IBIKO_OWN, "Ibiko's own intelligence: built in, no download, instant. Exact sums, reading what"
+                + " you mean, and everything it learned from the models you used.", a.ibikoOwn(), () -> {
+                    a.prefs.edit().putString("brain_pick", "ibiko").apply();
                     a.applyProvider();
                     if (a.model != null) {
                         final ai.ibiko.llm.LocalModel leaving = a.model;
-                        a.hub.worker.execute(leaving::releaseIfIdle); // no model in memory: DVINE thinks on its own
+                        a.hub.worker.execute(leaving::releaseIfIdle); // no model in memory: Ibiko thinks on its own
                     }
-                    a.note(a.DVINE_OWN + " is answering.");
+                    a.note(a.IBIKO_OWN + " is answering.");
                     sheet[0].dismiss();
                 }));
         java.util.List<ai.ibiko.llm.Providers> apis = providers.usable();
@@ -140,8 +140,8 @@ final class ModelMenu {
             }));
         }
         list.addView(brainHeader("More"));
-        ai.ibiko.dvine1.LearningSchedule.Plan night = ai.ibiko.dvine1.LearningJob.plan(a);
-        list.addView(brainLink("Learning schedule", night.on ? "On, " + night.words() : "Off. Let " + a.DVINE_OWN + " learn at the hours you choose",
+        ai.ibiko.ibiko1.LearningSchedule.Plan night = ai.ibiko.ibiko1.LearningJob.plan(a);
+        list.addView(brainLink("Learning schedule", night.on ? "On, " + night.words() : "Off. Let " + a.IBIKO_OWN + " learn at the hours you choose",
                 () -> {
                     sheet[0].dismiss();
                     showNightLearning();

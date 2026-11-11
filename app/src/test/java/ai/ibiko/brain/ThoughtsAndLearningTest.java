@@ -94,9 +94,9 @@ public class ThoughtsAndLearningTest {
 
     @Test
     public void syncCommands() {
-        BrainAnswer set = brain.respond("connect to server https://dvine.example.com", "obi");
+        BrainAnswer set = brain.respond("connect to server https://ibiko.example.com", "obi");
         assertEquals("SERVER_SET", set.command);
-        assertEquals("https://dvine.example.com", set.commandValue);
+        assertEquals("https://ibiko.example.com", set.commandValue);
         assertEquals(null, brain.respond("connect to server http://insecure.example.com", "obi").command);
         brain.respond("remember that the market opens at 7", "obi");
         BrainAnswer up = brain.respond("upload what you learned", "obi");

@@ -36,7 +36,7 @@ final class ChatChrome {
         if (workload != null)
             workload.setOnClickListener(v -> {
                 if (a.model != null) {
-                    ai.ibiko.chat.ui.WorkloadSheet.show(a, a.model, a.brainLabel(), a.dvineOwn()); // the context window, the agents at work, today
+                    ai.ibiko.chat.ui.WorkloadSheet.show(a, a.model, a.brainLabel(), a.ibikoOwn()); // the context window, the agents at work, today
                 }
             });
         android.view.View projects = a.findViewById(R.id.btnDrawerProjects);

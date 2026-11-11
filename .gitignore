@@ -12,7 +12,7 @@ captures/
 *.keystore
 .env
 .platform/
-.dvine-git.json
+.ibiko-git.json
 docs/brand/
 releases/
 !releases/README.md

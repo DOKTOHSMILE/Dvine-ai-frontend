@@ -12,12 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Share › DVINE from any app. It has no screen: it copies what was shared into DVINE's own cache (the other app's
- * permission to read it ends when this closes), keeps it for the chat, and opens DVINE, where the files appear in the
+ * Share › Ibiko from any app. It has no screen: it copies what was shared into Ibiko's own cache (the other app's
+ * permission to read it ends when this closes), keeps it for the chat, and opens Ibiko, where the files appear in the
  * composer and shared text in the field. Nothing is sent until the user sends it.
  */
 public final class ShareActivity extends Activity {
-    /** What was shared: copies of the files (as DVINE's own content links) and the text. */
+    /** What was shared: copies of the files (as Ibiko's own content links) and the text. */
     public static final class Shared {
         public final List<Uri> files = new ArrayList<Uri>();
         public String text;
@@ -114,7 +114,7 @@ public final class ShareActivity extends Activity {
                 }
                 finish();
             });
-        }, "dvine-share").start();
+        }, "ibiko-share").start();
     }
 
     private String nameOf(Uri u) {

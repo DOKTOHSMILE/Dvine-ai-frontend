@@ -29,7 +29,7 @@ import java.util.Locale;
  * app's own recent log.
  *
  * Each report is written twice: to {@code files/crash.txt}, for the banner on the next start, and to the phone's
- * Downloads folder as {@code Download/DVINE/dvine-crash-….txt}, where the user can open and copy it. Crashes the Java
+ * Downloads folder as {@code Download/Ibiko/ibiko-crash-….txt}, where the user can open and copy it. Crashes the Java
  * catcher can't see are collected on the next start from Android's own record of how the app last closed: a crash in
  * the native model engine, the app freezing (ANR), or the system killing it for memory. Writing to Downloads needs no
  * permission on Android 10 and later.
@@ -53,7 +53,7 @@ public final class CrashLog {
             try {
                 String report = report(app, "Crash on thread \"" + thread.getName() + "\"", stack(error), log());
                 keep(app, report);
-                toDownloads(app, "dvine-crash-" + stamp(System.currentTimeMillis()) + ".txt", report);
+                toDownloads(app, "ibiko-crash-" + stamp(System.currentTimeMillis()) + ".txt", report);
             } catch (Throwable ignored) {
                 // the report must never stop the app from closing
             }
@@ -72,7 +72,7 @@ public final class CrashLog {
         if (am == null) {
             return 0;
         }
-        SharedPreferences prefs = context.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        SharedPreferences prefs = context.getSharedPreferences("ibiko", Context.MODE_PRIVATE);
         long seen = prefs.getLong("exit_seen", 0L);
         long newest = seen;
         int saved = 0;
@@ -103,7 +103,7 @@ public final class CrashLog {
                     + "\nAndroid says: " + (e.getDescription() == null ? "(nothing)" : e.getDescription())
                     + "\nMemory at the end: " + e.getPss() / 1024 + " MB PSS, " + e.getRss() / 1024 + " MB RSS";
             String report = report(context, what, trace.isEmpty() ? "(Android kept no trace)" : trace, null);
-            if (toDownloads(context, "dvine-" + slug(e.getReason()) + "-" + stamp(e.getTimestamp()) + ".txt", report) != null) {
+            if (toDownloads(context, "ibiko-" + slug(e.getReason()) + "-" + stamp(e.getTimestamp()) + ".txt", report) != null) {
                 saved++;
             }
             if (e.getReason() != ApplicationExitInfo.REASON_CRASH) {
@@ -200,7 +200,7 @@ public final class CrashLog {
         }
     }
 
-    /** Writes {@code text} to Download/DVINE/{@code name}; the file's address, or null when it couldn't be written. */
+    /** Writes {@code text} to Download/Ibiko/{@code name}; the file's address, or null when it couldn't be written. */
     public static Uri toDownloads(Context c, String name, String text) {
         ContentResolver r = c.getContentResolver();
         ContentValues v = new ContentValues();

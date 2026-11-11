@@ -38,7 +38,7 @@ import ai.ibiko.linux.TermScreen;
 import ai.ibiko.linux.TermSession;
 
 /**
- * DVINE's Linux terminal. When the phone opens a terminal device this is a full terminal ({@link TermView} on a
+ * Ibiko's Linux terminal. When the phone opens a terminal device this is a full terminal ({@link TermView} on a
  * {@link TermSession}): every key goes to Alpine, and full-screen programs such as vi, nano, top and htop draw as
  * they do anywhere. When it cannot, the older line shell below is used: a prompt line, each command's text shown as
  * it arrives. Alpine runs the commands either way. Termux is not opened.
@@ -787,9 +787,9 @@ public final class TerminalActivity extends AppCompatActivity {
         pipeStop = false;
         markBusy();
         File root = LinuxRoot.root(this);
-        File out = new File(root, "root/.dvine_out");
-        File status = new File(root, "root/.dvine_status");
-        File cwdFile = new File(root, "root/.dvine_cwd");
+        File out = new File(root, "root/.ibiko_out");
+        File status = new File(root, "root/.ibiko_status");
+        File cwdFile = new File(root, "root/.ibiko_cwd");
         out.delete();
         status.delete();
         try {
@@ -863,13 +863,13 @@ public final class TerminalActivity extends AppCompatActivity {
                 }
                 int code = 0;
                 try {
-                    code = Integer.parseInt(readSmall("root/.dvine_status"));
+                    code = Integer.parseInt(readSmall("root/.ibiko_status"));
                 } catch (NumberFormatException ignored) {
                     code = pipeStop ? 130 : 0;
                 }
                 ended(code);
             });
-        }, "dvine-pipe").start();
+        }, "ibiko-pipe").start();
     }
 
     private void copySession() {
@@ -953,7 +953,7 @@ public final class TerminalActivity extends AppCompatActivity {
                     append(chunk);
                 });
             });
-            String folder = readSmall("root/.dvine_cwd");
+            String folder = readSmall("root/.ibiko_cwd");
             runOnUiThread(() -> {
                 if (closed) {
                     return;
@@ -967,7 +967,7 @@ public final class TerminalActivity extends AppCompatActivity {
                 }
                 int code = 0;
                 try {
-                    code = Integer.parseInt(readSmall("root/.dvine_status"));
+                    code = Integer.parseInt(readSmall("root/.ibiko_status"));
                 } catch (NumberFormatException ignored) {
                     code = 0;
                 }
@@ -1173,7 +1173,7 @@ public final class TerminalActivity extends AppCompatActivity {
             } catch (Exception ignored) {
                 // the session still works if it cannot be saved
             }
-        }, "dvine-term-keep").start();
+        }, "ibiko-term-keep").start();
     }
 
     @Override

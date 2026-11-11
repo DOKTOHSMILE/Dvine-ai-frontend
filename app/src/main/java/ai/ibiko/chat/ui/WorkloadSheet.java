@@ -33,7 +33,7 @@ public final class WorkloadSheet {
     }
 
     /**
-     * {@code brain}: the brain answering now (its name in the header); {@code own}: DVINE 1 is answering, which has no
+     * {@code brain}: the brain answering now (its name in the header); {@code own}: Ibiko 1 is answering, which has no
      * context window to fill.
      */
     public static Dialog show(final Activity a, final LocalModel model, final String brain, final boolean own) {
@@ -71,7 +71,7 @@ public final class WorkloadSheet {
             body.addView(who, Ui.wide(a, 4));
         }
 
-        // ---- context window (a model's working memory; DVINE 1 has none to fill)
+        // ---- context window (a model's working memory; Ibiko 1 has none to fill)
         body.addView(label(a, "Context"));
         LinearLayout card = card(a);
         int heat;
@@ -84,9 +84,9 @@ public final class WorkloadSheet {
             card.addView(bar(a, 0f, heat), Ui.wide(a, 12));
             card.addView(Ui.text(a, "Ibiko 1 answers from what it has learned and from research, without a context window,"
                     + " so nothing here fills up or needs clearing.", 13, Ui.SUB, false), Ui.wide(a, 8));
-            ai.ibiko.dvine1.Knowledge k = ai.ibiko.dvine1.Store.knowledge(new java.io.File(a.getFilesDir(), "brain"));
+            ai.ibiko.ibiko1.Knowledge k = ai.ibiko.ibiko1.Store.knowledge(new java.io.File(a.getFilesDir(), "brain"));
             card.addView(row(a, "Answers you confirmed", String.valueOf(k.size())), Ui.wide(a, 10));
-            card.addView(Ui.text(a, ai.ibiko.dvine1.Dvine1.scoreLine(a.getFilesDir()), 13, Ui.SUB, false), Ui.wide(a, 8));
+            card.addView(Ui.text(a, ai.ibiko.ibiko1.Ibiko1.scoreLine(a.getFilesDir()), 13, Ui.SUB, false), Ui.wide(a, 8));
         } else {
             UsageLog.Call c = model.usage.last();
             int window = c != null ? c.window : model.window();

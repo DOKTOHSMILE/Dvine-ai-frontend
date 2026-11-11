@@ -12,14 +12,14 @@ import java.util.zip.ZipOutputStream;
 /**
  * Turns what a model wrote (Markdown-ish text: # headings, - lists, **bold**, | tables |) into a real file of the
  * format asked for, on the phone, with no network and any model: PDF (A4 pages), Word (.docx), Excel (.xlsx), HTML,
- * Markdown, CSV, JSON or plain text. The model thinks it; DVINE makes the file. PDF needs Android's PdfDocument, so it
+ * Markdown, CSV, JSON or plain text. The model thinks it; Ibiko makes the file. PDF needs Android's PdfDocument, so it
  * is drawn by {@link #pdf} (Android only); the rest are pure Java.
  */
 public final class FileMaker {
     private FileMaker() {
     }
 
-    /** A format DVINE can make: its file extension and MIME type. */
+    /** A format Ibiko can make: its file extension and MIME type. */
     public enum Format {
         PDF("pdf", "application/pdf"),
         DOCX("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),

@@ -127,7 +127,7 @@ public final class CloneFolder {
             + "name=${name##*/}\n"
             + "name=${name##*:}\n"
             + "case \"$name\" in ''|*[!A-Za-z0-9._-]*) name=repo ;; esac\n"
-            + "list=/tmp/dvine-git-$$\n"
+            + "list=/tmp/ibiko-git-$$\n"
             + ": > \"$list\"\n"
             + "skip=0\n"
             + "seen=0\n"

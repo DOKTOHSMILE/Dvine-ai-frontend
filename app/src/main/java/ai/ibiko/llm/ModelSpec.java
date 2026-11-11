@@ -1,7 +1,7 @@
 package ai.ibiko.llm;
 
 /**
- * A language model DVINE can run on the phone, quantised to 4 bits (Q4_K_M) as a GGUF file for llama.cpp. The user
+ * A language model Ibiko can run on the phone, quantised to 4 bits (Q4_K_M) as a GGUF file for llama.cpp. The user
  * picks one in Settings ({@link #ALL}; Qwen3 1.7B by default). Each is downloaded once from Hugging Face at a pinned
  * revision and checked against its SHA-256 before it is ever loaded.
  */
@@ -35,7 +35,7 @@ public final class ModelSpec {
         this.thinks = thinks;
     }
 
-    /** The weights of the default model. The spoken name "DVINE model" is not a different model. */
+    /** The weights of the default model. The spoken name "Ibiko model" is not a different model. */
     public static final String WEIGHTS = "Qwen3 1.7B";
 
     private static final String HF = "https://huggingface.co/unsloth/";
@@ -130,7 +130,7 @@ public final class ModelSpec {
 
     /**
      * Where to fetch the file, in order: the project's own copies first (add a URL here once a copy is hosted, for
-     * example as a GitHub release asset on DVINE's own repository), the original last. Every copy is checked
+     * example as a GitHub release asset on Ibiko's own repository), the original last. Every copy is checked
      * against the same SHA-256, so a mirror can never hand the phone a different file.
      */
     public static final String[] MIRRORS = {};

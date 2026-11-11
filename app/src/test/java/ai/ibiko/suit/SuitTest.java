@@ -117,7 +117,7 @@ public class SuitTest {
         org.junit.Assert.assertTrue(FunctionCode.instructions("", null).contains("\u00A7HO"));
     }
 
-    /** A code is DVINE's, never the conversation's: found below a sentence, and taken out of what is shown. */
+    /** A code is Ibiko's, never the conversation's: found below a sentence, and taken out of what is shown. */
     @org.junit.Test
     public void aCodeNeverReachesTheConversation() {
         String reply = "Sure, on it.\n\u00A7SR weather in Lagos\nLooking that up.";

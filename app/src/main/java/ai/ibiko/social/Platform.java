@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
- * The social networks DVINE can use with the user's own accounts, signed in on the phone through the site itself (no
+ * The social networks Ibiko can use with the user's own accounts, signed in on the phone through the site itself (no
  * API keys): where to sign in, which cookie says an account is signed in, the sites whose cookies belong to it, and
  * how to search it. Pure Java.
  */

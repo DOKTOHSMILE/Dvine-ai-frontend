@@ -29,7 +29,7 @@ public class LinuxEngineTest {
 
     @Test
     public void unzipRunsInsideTheApp() throws Exception {
-        File root = Files.createTempDirectory("dvine-linux").toFile();
+        File root = Files.createTempDirectory("ibiko-linux").toFile();
         File zip = new File(root, "report.zip");
         try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zip))) {
             out.putNextEntry(new ZipEntry("note.txt"));
@@ -44,7 +44,7 @@ public class LinuxEngineTest {
 
     @Test
     public void aZipThatEscapesIsRefused() throws Exception {
-        File root = Files.createTempDirectory("dvine-linux-bad").toFile();
+        File root = Files.createTempDirectory("ibiko-linux-bad").toFile();
         File zip = new File(root, "bad.zip");
         try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zip))) {
             out.putNextEntry(new ZipEntry("../outside.txt"));
@@ -59,7 +59,7 @@ public class LinuxEngineTest {
 
     @Test
     public void aShellChainPipesAndRedirects() throws Exception {
-        File root = Files.createTempDirectory("dvine-shell").toFile();
+        File root = Files.createTempDirectory("ibiko-shell").toFile();
         LinuxEngine.Result wrote = LinuxEngine.run("mkdir box && echo hello > box/note.txt && cat box/note.txt", root, null);
         assertTrue(wrote.text, wrote.ok);
         assertEquals("hello", new String(Files.readAllBytes(new File(root, "box/note.txt").toPath())).trim());

@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Checks that a thing DVINE says it did is there before it says so: a saved file is read back, and its size must be
+ * Checks that a thing Ibiko says it did is there before it says so: a saved file is read back, and its size must be
  * what was written. Null when it checks out, otherwise what is wrong. Pure Java (the caller opens the file).
  */
 public final class Verify {

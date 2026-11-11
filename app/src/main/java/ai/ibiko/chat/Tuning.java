@@ -3,7 +3,7 @@ package ai.ibiko.chat;
 import android.content.SharedPreferences;
 
 /**
- * The limits DVINE works within, as settings rather than numbers fixed in the code (Settings › Advanced). Each has a
+ * The limits Ibiko works within, as settings rather than numbers fixed in the code (Settings › Advanced). Each has a
  * sensible default and a safe range; a value out of range is brought back into it.
  */
 public final class Tuning {

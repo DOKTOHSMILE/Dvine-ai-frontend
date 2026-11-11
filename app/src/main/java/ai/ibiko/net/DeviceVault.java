@@ -18,7 +18,7 @@ import javax.crypto.spec.GCMParameterSpec;
  * Keystore (it never leaves secure hardware). Only ciphertext is in prefs.
  */
 public final class DeviceVault {
-    private static final String KEY = "dvine_device_key";
+    private static final String KEY = "ibiko_device_key";
     private static final String PREF = "device_secret_enc";
 
     private final SharedPreferences prefs;

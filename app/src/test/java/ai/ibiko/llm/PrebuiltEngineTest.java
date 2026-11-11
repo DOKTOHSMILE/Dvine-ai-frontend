@@ -15,7 +15,7 @@ import org.junit.Test;
 public class PrebuiltEngineTest {
     @Test
     public void theReadyBuiltEngineIsThere() throws Exception {
-        File so = new File("src/main/jniLibs/arm64-v8a/libdvine_llm.so");
+        File so = new File("src/main/jniLibs/arm64-v8a/libibiko_llm.so");
         assertTrue("ready-built engine missing", so.isFile() && so.length() > 1_000_000);
         byte[] head = Files.readAllBytes(so.toPath());
         assertEquals(0x7f, head[0] & 0xff); // ELF
@@ -37,7 +37,7 @@ public class PrebuiltEngineTest {
         File best = null;
         if (runs != null) {
             for (File r : runs) {
-                File so = new File(r, "obj/arm64-v8a/libdvine_llm.so");
+                File so = new File(r, "obj/arm64-v8a/libibiko_llm.so");
                 if (so.isFile() && (best == null || so.lastModified() > best.lastModified())) {
                     best = so;
                 }

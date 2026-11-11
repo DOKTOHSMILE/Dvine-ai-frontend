@@ -32,12 +32,12 @@ Also found:
 
 * **One call per message.** The persona prompt gains a short list of the orders the model may give
   (`BrainOrder.actions`). The model answers; only when it decides the user wants something done does it put
-  `DO …` alone on the first line, which DVINE hides while streaming and carries out (`BrainOrder.leading`). The
+  `DO …` alone on the first line, which Ibiko hides while streaming and carries out (`BrainOrder.leading`). The
   classifying call and the routing call are gone. An action whose result needs explaining (a tool, a command) is
   the order call plus one call to read the result: two, never three.
 * **With an API selected, the API decides.** `apiDirect()`: the meaning reader, rule orders, the brain box,
   "who am I", hand-to-Ibiko, wording-based post plans and Ibiko's shortcut list stand aside. Replies to something
-  already on screen (yes/no to a staged post, retry, measurements DVINE asked for) still work: they answer the
+  already on screen (yes/no to a staged post, retry, measurements Ibiko asked for) still work: they answer the
   app, they don't start a function.
 * **Offline**, the same single call replaces routing + answer (one prefill instead of two); the warm-up reads the
   one prompt every message uses, not two. The brain box still acts offline (it is the fast path the device model
@@ -56,7 +56,7 @@ Also found:
 
 ## The engine (native)
 
-`app/src/main/cpp/dvine_llm.cpp` keeps up to 3 conversations' tokens side by side (`SLOTS`) and reuses the
+`app/src/main/cpp/ibiko_llm.cpp` keeps up to 3 conversations' tokens side by side (`SLOTS`) and reuses the
 longest matching prefix (`pick_slot`, `read_into`), so a prompt that starts the same is not read again. What still
 costs a re-read, and what to do about it:
 

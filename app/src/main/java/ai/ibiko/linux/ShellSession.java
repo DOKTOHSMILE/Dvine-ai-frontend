@@ -19,7 +19,7 @@ import java.util.Map;
 import ai.ibiko.agent.Zips;
 
 /**
- * One shell inside DVINE. The commands run in Java, in the app's own folder. There is no Termux and no system shell.
+ * One shell inside Ibiko. The commands run in Java, in the app's own folder. There is no Termux and no system shell.
  * A program that is not built in (python, git, a compiler) comes back as exit 127. It is not pretended to run.
  */
 public final class ShellSession {

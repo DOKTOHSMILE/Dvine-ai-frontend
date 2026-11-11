@@ -41,12 +41,12 @@ tasks.register("robolectricJars", Copy) {
 // copying that back would keep the old engine).
 tasks.register('refreshNativeEngine', Exec) {
     doFirst {
-        def built = fileTree("$buildDir/intermediates/cxx/Release") { include '*/obj/arm64-v8a/libdvine_llm.so' }.files
+        def built = fileTree("$buildDir/intermediates/cxx/Release") { include '*/obj/arm64-v8a/libibiko_llm.so' }.files
                 .max { it.lastModified() }
         if (built == null) {
             throw new GradleException("Build the C++ first: gradle :app:assembleDebug")
         }
         def strip = new File(android.ndkDirectory, "toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip")
-        commandLine strip.path, '--strip-unneeded', '-o', "$projectDir/src/main/jniLibs/arm64-v8a/libdvine_llm.so", built.path
+        commandLine strip.path, '--strip-unneeded', '-o', "$projectDir/src/main/jniLibs/arm64-v8a/libibiko_llm.so", built.path
     }
 }

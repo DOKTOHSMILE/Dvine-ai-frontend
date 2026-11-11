@@ -19,7 +19,7 @@ Everything it needs is in this folder:
 
 | Path | What it holds |
 |---|---|
-| `src/main/java/ai/ibiko/dvine1/` | The model: `Dvine1` (the brain), `Ibiko1Model` (the entry point), `formulas/` (grammar, commands, truth, foresight, …), `comprehend/` (dictionary and concepts), `learner/` |
+| `src/main/java/ai/ibiko/ibiko1/` | The model: `Ibiko1` (the brain), `Ibiko1Model` (the entry point), `formulas/` (grammar, commands, truth, foresight, …), `comprehend/` (dictionary and concepts), `learner/` |
 | `src/main/assets/knowledge/` | Its built-in knowledge and their licences |
 | `src/main/AndroidManifest.xml` | Its night-learning job |
 | `build.gradle` | An Android library (minSdk 34, Java 17, no dependencies) |
@@ -40,7 +40,7 @@ brain.feedback("What is the capital of Ghana?", r.text, true);   // it learns
 brain.close();
 ```
 
-Its id is `dvine-1-0.1` and its address is `dvine://dvine1/v1/chat` (`Ibiko1Model.ID` and `Ibiko1Model.ADDRESS`), the same kind of name other models have.
+Its id is `ibiko-1-0.1` and its address is `ibiko://ibiko1/v1/chat` (`Ibiko1Model.ID` and `Ibiko1Model.ADDRESS`), the same kind of name other models have.
 
 ### Optional plugs (`Plug`)
 
@@ -54,8 +54,8 @@ Set these once, at app start:
 
 ### On a chat screen
 
-To show working steps and right or wrong buttons, implement `Dvine1.Host` and create a `Dvine1` directly. That is how the Ibiko app uses it (`main/Dvine1Screen` in the app).
+To show working steps and right or wrong buttons, implement `Ibiko1.Host` and create a `Ibiko1` directly. That is how the Ibiko app uses it (`main/Ibiko1Screen` in the app).
 
 ## Tests
 
-Its tests are in the app for now (`app/src/test/java/ai/ibiko/dvine1/`), including `Ibiko1ModelTest` for the entry point.
+Its tests are in the app for now (`app/src/test/java/ai/ibiko/ibiko1/`), including `Ibiko1ModelTest` for the entry point.

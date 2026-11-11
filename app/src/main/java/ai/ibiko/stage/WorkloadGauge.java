@@ -10,7 +10,7 @@ import android.view.View;
 /**
  * The model's workload in the header: a small ring that fills with how much of its working memory (the context
  * window) the conversation uses, green while there is room, amber when it is filling, red when it is nearly full
- * (DVINE then sums up and clears it). The percentage is in its description for screen readers.
+ * (Ibiko then sums up and clears it). The percentage is in its description for screen readers.
  */
 public final class WorkloadGauge extends View {
     private final Paint track = new Paint(Paint.ANTI_ALIAS_FLAG), arc = new Paint(Paint.ANTI_ALIAS_FLAG),

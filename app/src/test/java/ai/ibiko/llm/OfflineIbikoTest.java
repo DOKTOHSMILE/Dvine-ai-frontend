@@ -9,25 +9,25 @@ import org.junit.Test;
 
 /**
  * Ibiko on the phone's own model, as the app runs it: the real CodeAgent, its real instructions, LocalModel.task with
- * the agent's allowance, the memory the app asks for. Runs only with DVINE_NATIVE_LIB and DVINE_MODEL set (a desktop
+ * the agent's allowance, the memory the app asks for. Runs only with IBIKO_NATIVE_LIB and IBIKO_MODEL set (a desktop
  * build of the same native code and a GGUF file), like NativeBridgeTest.
  */
 public class OfflineIbikoTest {
     @Test
     public void ibikoAnswersOnTheOfflineModel() throws Exception {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }
         assertTrue(NativeLlm.loadFrom(lib));
         File f = new File(gguf);
         LocalModel m = new LocalModel(f.getParentFile(), new ModelSpec("test", f.getName(), "", f.length(), "", "Gemma"), true);
-        m.context(Integer.parseInt(System.getenv().getOrDefault("DVINE_CONTEXT", "8192")));
+        m.context(Integer.parseInt(System.getenv().getOrDefault("IBIKO_CONTEXT", "8192")));
         assertTrue(m.load(4));
         System.out.println("OFFLINE window: " + m.localWindow());
         File ws = Files.createTempDirectory("ibiko").toFile();
         // a workspace with a cloned project in it, as on the user's phone
-        for (int i = 0; i < Integer.parseInt(System.getenv().getOrDefault("DVINE_FILES", "300")); i++) {
+        for (int i = 0; i < Integer.parseInt(System.getenv().getOrDefault("IBIKO_FILES", "300")); i++) {
             File d = new File(ws, "Dvine-ai-frontend/app/src/main/java/ai/ibiko/pkg" + (i % 30));
             d.mkdirs();
             Files.write(new File(d, "SomeLongClassName" + i + ".java").toPath(), "class X {}\n".getBytes("UTF-8"));
@@ -39,7 +39,7 @@ public class OfflineIbikoTest {
                 ai.ibiko.chat.Tuning.CHAT_TOKENS.get(null), null);
         System.out.println("OFFLINE obi: " + hello + " (problem " + m.problem() + ")");
         assertTrue("Obi said nothing: " + m.problem(), hello != null && !hello.trim().isEmpty());
-        String only = System.getenv("DVINE_TASK"); // one task, for a quicker run
+        String only = System.getenv("IBIKO_TASK"); // one task, for a quicker run
         for (String task : only != null ? new String[]{only} : new String[]{"Can you read code?", "Search me a car"}) {
             ai.ibiko.agent.CodeAgent agent = new ai.ibiko.agent.CodeAgent(ws, new ai.ibiko.agent.CodeAgent.Brain() {
                 @Override

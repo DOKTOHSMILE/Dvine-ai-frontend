@@ -59,7 +59,7 @@ public class SettingsModelsActivity extends SettingsActivity {
                         new Thread(() -> {
                             hub.model.uninstall();
                             runOnUiThread(this::refreshModel);
-                        }, "dvine-remove-model").start();
+                        }, "ibiko-remove-model").start();
                     })
                     .setNegativeButton("Cancel", null)
                     .show());

@@ -17,7 +17,7 @@ import java.util.function.Supplier;
 import ai.ibiko.brain.MiniJson;
 
 /**
- * Signs this phone in to the DVINE server by itself: registers once to get
+ * Signs this phone in to the Ibiko server by itself: registers once to get
  * a device secret (kept in {@link DeviceVault}), then trades it for 12-hour
  * session tokens. Call {@link #token()} off the main thread.
  */

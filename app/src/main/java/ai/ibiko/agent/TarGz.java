@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * A project folder as a .tar.gz, to hand to Termux (which can't see DVINE's own files): every file under it except
+ * A project folder as a .tar.gz, to hand to Termux (which can't see Ibiko's own files): every file under it except
  * what is rebuilt or kept elsewhere (.git, node_modules, build output, virtual environments), within a size limit.
  * Plain POSIX ustar, which Termux's tar reads. Pure Java.
  */

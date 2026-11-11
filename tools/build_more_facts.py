@@ -1,4 +1,4 @@
-"""Builds Ibiko's further built-in knowledge (dvine1/BuiltIn reads every file):
+"""Builds Ibiko's further built-in knowledge (ibiko1/BuiltIn reads every file):
 
   ibiko1/src/main/assets/knowledge/country_more.tsv   calling code, internet domain, region, ISO codes, UN membership
       from mledoze/countries (ODbL 1.0, the same source as world_facts.tsv)

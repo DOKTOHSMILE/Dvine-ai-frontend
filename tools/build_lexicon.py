@@ -2,7 +2,7 @@
 (https://github.com/globalwordnet/english-wordnet, CC BY 4.0).
 
 Run from the repository root:  python3 tools/build_lexicon.py [english-wordnet-2024.xml.gz]   (downloads it if not given)
-One line a sense, sorted by word (dvine1/comprehend reads it by binary search, never all at once):
+One line a sense, sorted by word (ibiko1/comprehend reads it by binary search, never all at once):
   word <TAB> part of speech <TAB> definition <TAB> synonyms <TAB> opposites <TAB> broader term
 At most three senses for each word and part of speech, the most common first, as WordNet orders them.
 """

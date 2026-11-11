@@ -27,9 +27,9 @@ public class DeviceSpeedTest {
 
     @Test
     public void theDevicesInstructionsAreAFractionOfTheFullOnes() {
-        DvineSelf.Facts f = new DvineSelf.Facts();
+        IbikoSelf.Facts f = new IbikoSelf.Facts();
         ChatTools t = ChatTools.defaults("ibiko");
-        String full = PersonaPrompt.system("ibiko", "Val", "Tuesday 10 November 2026", DvineSelf.sheet(f))
+        String full = PersonaPrompt.system("ibiko", "Val", "Tuesday 10 November 2026", IbikoSelf.sheet(f))
                 + FunctionCode.instructions("", t.allowedCodes());
         String lean = PersonaPrompt.lean("Val", "Tuesday 10 November 2026") + FunctionCode.lean("", t.allowedCodes());
         assertTrue(lean.length() + " against " + full.length(), lean.length() * 3 < full.length());

@@ -455,7 +455,7 @@ public class OpsPipelineTest {
 
     static File dir() {
         try {
-            File d = Files.createTempDirectory("dvine-ops").toFile();
+            File d = Files.createTempDirectory("ibiko-ops").toFile();
             d.deleteOnExit();
             return d;
         } catch (java.io.IOException e) {

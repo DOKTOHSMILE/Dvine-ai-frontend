@@ -2,11 +2,11 @@ package ai.ibiko.linux;
 
 /**
  * Reads one chat command's output out of the terminal's stream. The command is run from a small script that prints a
- * line {@code DVINE_BEGIN:} before it and {@code DVINE_STATUS:code__folder} after it. Those two lines are taken out
+ * line {@code IBIKO_BEGIN:} before it and {@code IBIKO_STATUS:code__folder} after it. Those two lines are taken out
  * of what the screen shows; the text between them is what chat gets. Pure Java.
  */
 public final class ChatCapture {
-    public static final String BEGIN = "DVINE_BEGIN:";
+    public static final String BEGIN = "IBIKO_BEGIN:";
 
     private final StringBuilder hold = new StringBuilder();
     private final StringBuilder out = new StringBuilder();

@@ -3,7 +3,7 @@ package ai.ibiko.render.pod;
 import ai.ibiko.stage.StageMode;
 
 /**
- * How the pod shows what DVINE is really doing; it has no face. Idle: a slow hover, a slow turn, a gentle pulse.
+ * How the pod shows what Ibiko is really doing; it has no face. Idle: a slow hover, a slow turn, a gentle pulse.
  * Listening (only while the microphone is open): the rim pulses. Thinking: light runs round the rings and rises
  * faster. Speaking: the emitter beats with the words as the voice reaches them (each word's syllables). Offline:
  * dimmed, still there. The light takes the colour of whoever is speaking (Obi cyan, Ivie violet, Ibiko green).

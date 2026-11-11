@@ -124,7 +124,7 @@ public final class Gltf {
     public static String fileName(String subject) {
         String s = subject == null ? "" : subject.toLowerCase(Locale.US).replaceAll("^(a|an|the|some) ", "")
                 .replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
-        return (s.isEmpty() ? "dvine-drawing" : s.length() > 40 ? s.substring(0, 40) : s) + ".glb";
+        return (s.isEmpty() ? "ibiko-drawing" : s.length() > 40 ? s.substring(0, 40) : s) + ".glb";
     }
 
     // ------------------------------------------------------------ the solids as triangles

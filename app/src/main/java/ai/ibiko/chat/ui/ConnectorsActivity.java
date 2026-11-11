@@ -17,7 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import ai.ibiko.connect.ConnectorStore;
 
 /**
- * Connectors: the services DVINE may use when it answers. Each card has an on/off switch and its
+ * Connectors: the services Ibiko may use when it answers. Each card has an on/off switch and its
  * status; a tapped card opens its token (hidden, with Show), the MCP server's address, and Test. The model is only
  * told about connectors that are on and ready.
  */
@@ -111,7 +111,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                 : paused != null ? "Paused: " + paused
                 : inUse == null || !inUse.signedIn ? "Signed out: tap to sign in again"
                 : "Connected as " + inUse.label + (on.size() > 1 ? " \u00b7 " + on.size() + " accounts" : "");
-        boolean switchedOn = ai.ibiko.social.SocialWeb.on(getSharedPreferences("dvine", MODE_PRIVATE), p);
+        boolean switchedOn = ai.ibiko.social.SocialWeb.on(getSharedPreferences("ibiko", MODE_PRIVATE), p);
         if (!switchedOn && !on.isEmpty()) {
             status = "Off \u00b7 " + (inUse == null ? "" : inUse.label + " stays signed in");
             ready = false;
@@ -135,7 +135,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
             go.setColorFilter(Ui.SUB);
             row.addView(go, new LinearLayout.LayoutParams(Ui.dp(this, 18), Ui.dp(this, 18)));
         } else {
-            // the switch, like the other connectors: off keeps the account signed in but DVINE doesn't use it
+            // the switch, like the other connectors: off keeps the account signed in but Ibiko doesn't use it
             android.widget.Switch toggle = new android.widget.Switch(this);
             toggle.setChecked(switchedOn);
             toggle.setContentDescription(p.shown + " on or off");
@@ -282,7 +282,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                                 android.widget.Toast.LENGTH_LONG).show();
                         fill();
                     });
-                }, "dvine-connector-test").start();
+                }, "ibiko-connector-test").start();
             });
             inside.addView(test, Ui.wide(this, 12));
             inside.addView(result, Ui.wide(this, 6));
@@ -311,7 +311,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
             del.setOnClickListener(v -> new Thread(() -> {
                 docs.remove(set.slug);
                 main.post(this::fill);
-            }, "dvine-docs-delete").start());
+            }, "ibiko-docs-delete").start());
             row.addView(del);
             inside.addView(row, Ui.wide(this, 4));
         }
@@ -336,7 +336,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                         docsBusy = failed == null ? null : "Couldn't get the list (" + failed + "). It needs the internet once.";
                         fill();
                     });
-                }, "dvine-docs-list").start();
+                }, "ibiko-docs-list").start();
             });
             inside.addView(choose, Ui.wide(this, 12));
             return;
@@ -375,7 +375,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                                 : "Couldn't download " + set.shown() + " (" + failed + ").";
                         fill();
                     });
-                }, "dvine-docs-download").start();
+                }, "ibiko-docs-download").start();
             });
             row.addView(get);
             inside.addView(row, Ui.wide(this, 4));
@@ -446,7 +446,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
 
     /**
      * The GitHub card's ways in: who is signed in (with Sign out), "Sign in with GitHub" in the browser (you sign in
-     * on github.com with your email or username and password, then approve DVINE with a short code), and "Create a
+     * on github.com with your email or username and password, then approve Ibiko with a short code), and "Create a
      * token" (GitHub's token page, filled in). GitHub doesn't let apps take your password directly.
      */
     private void githubSignIn(LinearLayout inside) {
@@ -532,7 +532,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                 return;
             }
             main.post(() -> showCode(login, code));
-        }, "dvine-github-code").start();
+        }, "ibiko-github-code").start();
     }
 
     private void showCode(final ai.ibiko.connect.GitHubLogin login, final ai.ibiko.connect.GitHubLogin.Code code) {
@@ -616,7 +616,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
                 }
                 fill();
             });
-        }, "dvine-github-wait").start();
+        }, "ibiko-github-wait").start();
     }
 
     private String status(ConnectorStore.Kind k) {

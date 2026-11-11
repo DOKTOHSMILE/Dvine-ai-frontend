@@ -14,7 +14,7 @@ import ai.ibiko.llm.FakeTurn;
 public class SourceReadTest {
     @Test
     public void readsARangeAndSaysWhenTheFileGoesOn() throws Exception {
-        File dir = Files.createTempDirectory("dvine-src").toFile();
+        File dir = Files.createTempDirectory("ibiko-src").toFile();
         File f = new File(dir, "A.java");
         StringBuilder body = new StringBuilder();
         for (int i = 1; i <= 50; i++) {

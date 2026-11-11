@@ -99,7 +99,7 @@ public final class Survey {
         final Map<File, Integer> score = new LinkedHashMap<File, Integer>();
         for (File f : all) {
             if (NOTES.contains(f.getName())) {
-                continue; // DVINE's own bookkeeping of the work, not the project's code
+                continue; // Ibiko's own bookkeeping of the work, not the project's code
             }
             // the path inside the project: the project folder is named after the task, so its own name says nothing
             String path = root.toPath().relativize(f.toPath()).toString().toLowerCase(Locale.US);
@@ -318,7 +318,7 @@ public final class Survey {
         }
         progress(keep, task, pieces, already.keySet(), null);
         ExecutorService pool = Executors.newFixedThreadPool(n, r -> {
-            Thread t = new Thread(r, "dvine-survey");
+            Thread t = new Thread(r, "ibiko-survey");
             t.setDaemon(true);
             return t;
         });

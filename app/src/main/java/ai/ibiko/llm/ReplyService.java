@@ -105,7 +105,7 @@ public final class ReplyService extends Service {
         if (pm == null) {
             return;
         }
-        wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dvine:reply");
+        wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:reply");
         wake.acquire(30 * 60 * 1000L); // a long API answer (up to 10 minutes) and its tools fit
         // no high-performance Wi-Fi lock: it holds the radio at full power for the whole task and warms the device;
         // the foreground service already keeps the connection alive

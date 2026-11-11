@@ -6,7 +6,7 @@ Without an argument it streams the 500 MB dump and keeps only English links betw
 that carry common sense (what a thing is, is for, can do, has, is part of, where it is, what it causes or needs, why
 people do things), weight 1 or more. Then: the strongest 12 links of each relation for each concept (8 for IsA; 40
 parts and possessions), the
-reverse of PartOf added as HasPart, sorted by concept for dvine1/comprehend's binary search.
+reverse of PartOf added as HasPart, sorted by concept for ibiko1/comprehend's binary search.
 The file is not in the app: the app downloads it on first start ("Downloading app files", ai.ibiko.main.AppFiles)
 and unpacks it to brain/knowledge/concepts.tsv. After a rebuild, set AppFiles.CONCEPTS_VERSION and CONCEPTS_SHA256
 (printed below) to the new file.

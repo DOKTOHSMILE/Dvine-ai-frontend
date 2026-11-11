@@ -6,7 +6,7 @@ import android.view.View;
 import ai.ibiko.turn.Meaning;
 
 /**
- * Reading a short message for a command DVINE carries out itself, then either doing that or passing the words on.
+ * Reading a short message for a command Ibiko carries out itself, then either doing that or passing the words on.
  *
  * <p>A working answer from the API is not a command. A trigger word inside a real task ("stop the null in the
  * login") is not {@link Meaning.Command#STOP}. The screen side lives in {@link ai.ibiko.MainActivity}.
@@ -48,7 +48,7 @@ public final class DirectCommands {
 
         void note(String line);
 
-        /** Carry out a command DVINE does itself (new chat, stop, settings). */
+        /** Carry out a command Ibiko does itself (new chat, stop, settings). */
         void perform(Meaning.Command command);
 
         void holdReply(boolean on);
@@ -111,7 +111,7 @@ public final class DirectCommands {
                 }
                 act(text, found, work);
             });
-        }, "dvine-meaning").start();
+        }, "ibiko-meaning").start();
     }
 
     /** Carries out what the message meant: the command, or the message itself. */

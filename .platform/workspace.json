@@ -2,8 +2,8 @@
   "version": 1,
   "projects": [
     {
-      "id": "Dvine",
-      "name": "Dvine",
+      "id": "Ibiko",
+      "name": "Ibiko",
       "root": "",
       "buildSystem": "gradle-compat",
       "settings": {},
@@ -12,6 +12,11 @@
           "id": "app",
           "name": "app",
           "dir": "app"
+        },
+        {
+          "id": "ibiko1",
+          "name": "ibiko1",
+          "dir": "ibiko1"
         }
       ],
       "libraries": []

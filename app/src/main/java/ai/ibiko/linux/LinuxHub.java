@@ -236,8 +236,8 @@ public final class LinuxHub {
     }
 
     private static String readPipe(ProotSession session, File root, String command) throws Exception {
-        File out = new File(root, "root/.dvine_out");
-        File status = new File(root, "root/.dvine_status");
+        File out = new File(root, "root/.ibiko_out");
+        File status = new File(root, "root/.ibiko_status");
         out.delete();
         status.delete();
         session.send(Guest.pipe(command));

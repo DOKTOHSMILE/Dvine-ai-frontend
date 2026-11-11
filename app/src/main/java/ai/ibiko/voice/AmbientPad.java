@@ -50,7 +50,7 @@ public final class AmbientPad implements Runnable {
             return;
         }
         running = true;
-        thread = new Thread(this, "dvine-ambient");
+        thread = new Thread(this, "ibiko-ambient");
         thread.setPriority(Thread.MIN_PRIORITY);
         thread.start();
     }

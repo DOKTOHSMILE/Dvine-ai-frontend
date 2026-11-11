@@ -27,7 +27,7 @@ import ai.ibiko.brain.LearningJournal;
 import ai.ibiko.chat.ChatBook;
 import ai.ibiko.turn.Meaning;
 
-/** "What DVINE remembers": every kind of memory is listed, and each can be forgotten, from the live stores. */
+/** "What Ibiko remembers": every kind of memory is listed, and each can be forgotten, from the live stores. */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35)
 public class MemoryActivityTest {
@@ -44,7 +44,7 @@ public class MemoryActivityTest {
         journal.add(LearningJournal.TAUGHT_FACT, "the capital of Nigeria", "Abuja");
         Meaning.Memory m = new Meaning.Memory();
         m.put("are you done", Meaning.Command.RESULT);
-        app.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putString("meanings", m.write()).commit();
+        app.getSharedPreferences("ibiko", Context.MODE_PRIVATE).edit().putString("meanings", m.write()).commit();
         LearnedIntents.open(new File(app.getFilesDir(), "learned_intents.txt")).learn("sketch me a lion", "draw a lion in 3d");
 
         ActivityController<MemoryActivity> c = Robolectric.buildActivity(MemoryActivity.class).create().start().resume().visible();
@@ -72,7 +72,7 @@ public class MemoryActivityTest {
         // a phrasing: forgotten in the saved memory the chat reads again
         root = c.get().getWindow().getDecorView();
         tapForget(root, "Forget: “are you done”");
-        assertEquals(null, Meaning.Memory.read(app.getSharedPreferences("dvine", Context.MODE_PRIVATE).getString("meanings", null)).get("are you done"));
+        assertEquals(null, Meaning.Memory.read(app.getSharedPreferences("ibiko", Context.MODE_PRIVATE).getString("meanings", null)).get("are you done"));
         root = c.get().getWindow().getDecorView();
         tapForget(root, "Forget: “sketch me a lion”");
         assertEquals(null, LearnedIntents.open(new File(app.getFilesDir(), "learned_intents.txt")).commandFor("sketch me a lion"));

@@ -1,7 +1,7 @@
 package ai.ibiko.scribe;
 
 /**
- * How long DVINE is willing to stay with one job. Quick and Balanced keep today's short-reply limits. Deep Reasoning,
+ * How long Ibiko is willing to stay with one job. Quick and Balanced keep today's short-reply limits. Deep Reasoning,
  * Extended Project and Autonomous Development do not: a live model is not failed just because a short timer ran out.
  * These are still budgets, not a promise that Android will keep the process alive forever.
  */
