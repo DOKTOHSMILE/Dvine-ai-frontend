@@ -524,7 +524,7 @@ public final class ChatPane extends LinearLayout {
             liveBlock.setBackgroundResource(ripple());
             // the live mark: Ibiko's eyes glancing about while the work goes on (the pilot's own animation)
             View mark = thinkingEyes();
-            int side = mark instanceof ThinkingMark ? dp(18) : dp(26);
+            int side = mark instanceof ThinkingMark ? dp(18) : dp(30);
             LayoutParams mp = new LayoutParams(side, side);
             mp.setMarginEnd(dp(10));
             liveBlock.addView(mark, mp);
@@ -549,6 +549,9 @@ public final class ChatPane extends LinearLayout {
         String now = !steps.isEmpty() ? ai.ibiko.agent.StepDetail.words(steps.get(steps.size() - 1))
                 : thinkingText != null ? stripTimer(thinkingText) : "Working";
         type(now);
+        if (liveFace != null) {
+            liveFace.setMood(moodNow()); // the face follows the work: reading, writing, running, replying
+        }
         long secs = workStarted == 0 ? 0 : (System.currentTimeMillis() - workStarted) / 1000;
         liveMeta.setText((secs > 0 ? duration(secs) : "") + (steps.isEmpty() ? "" : (secs > 0 ? " \u00B7 " : "") + steps.size()
                 + " step" + (steps.size() == 1 ? "" : "s")) + "  \u203A");
@@ -1161,6 +1164,10 @@ public final class ChatPane extends LinearLayout {
             if (t.trim().isEmpty()) {
                 t = null;
             }
+        }
+        replyStreaming = t != null; // the face smiles while the reply's words come in
+        if (liveFace != null) {
+            liveFace.setMood(moodNow());
         }
         // the start of this reply is already in the chat, above the message just sent: show only what is new
         if (t != null && heldLive != null && t.startsWith(heldLive)) {
@@ -2449,41 +2456,31 @@ public final class ChatPane extends LinearLayout {
     }
 
     /**
-     * The thinking mark: res/raw/thinking_eyes.gif, the eyes glancing left, right and up, played as an animated
-     * picture; a still first frame when the device's animations are off; the drawn spark if the picture can't be read.
+     * The thinking mark: Ibiko's face, drawn live ({@link LiveFace}): it blinks, glances and breathes, and its look
+     * follows the work (thinking, reading, writing, working, replying). The newest one is kept so the steps can set
+     * its mood.
      */
     View thinkingEyes() {
-        try {
-            android.graphics.drawable.Drawable d = android.graphics.ImageDecoder.decodeDrawable(
-                    android.graphics.ImageDecoder.createSource(getResources(), R.raw.thinking_eyes));
-            android.widget.ImageView eyes = new android.widget.ImageView(getContext());
-            eyes.setImageDrawable(d);
-            eyes.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-            eyes.setContentDescription("Working");
-            eyes.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-            boolean moving = android.provider.Settings.Global.getFloat(getContext().getContentResolver(),
-                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f;
-            if (d instanceof android.graphics.drawable.AnimatedImageDrawable && moving) {
-                final android.graphics.drawable.AnimatedImageDrawable anim = (android.graphics.drawable.AnimatedImageDrawable) d;
-                anim.setRepeatCount(android.graphics.drawable.AnimatedImageDrawable.REPEAT_INFINITE);
-                // plays only while it is on screen: a finished turn's mark does not keep animating out of sight
-                eyes.addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
-                    @Override
-                    public void onViewAttachedToWindow(View v) {
-                        anim.start();
-                    }
-
-                    @Override
-                    public void onViewDetachedFromWindow(View v) {
-                        anim.stop();
-                    }
-                });
-            }
-            return eyes;
-        } catch (java.io.IOException | RuntimeException e) {
-            return new ThinkingMark(getContext(), color(R.color.accent));
-        }
+        LiveFace f = new LiveFace(getContext());
+        f.setMood(moodNow());
+        liveFace = f;
+        return f;
     }
+
+    /** The face in the live line, if one is showing. */
+    private LiveFace liveFace;
+
+    /** What Ibiko is doing now, from the latest step or the live reply. */
+    private LiveFace.Mood moodNow() {
+        if (replyStreaming) {
+            return LiveFace.Mood.REPLYING;
+        }
+        String last = steps.isEmpty() ? thinkingText : ai.ibiko.agent.StepDetail.words(steps.get(steps.size() - 1));
+        return LiveFace.moodOf(last == null ? "" : stripTimer(last));
+    }
+
+    /** The reply is being written into the chat now (its words are coming in). */
+    private boolean replyStreaming;
 
     private TextView plain(String text) {
         TextView tv = new TextView(getContext());
