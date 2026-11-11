@@ -46,7 +46,7 @@ public final class SocialLoginActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 14), pad, Ui.dp(this, 6));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setContentDescription("Close");

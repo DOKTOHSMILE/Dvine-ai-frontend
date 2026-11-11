@@ -1,3 +1,9 @@
+# Ibiko's own icon set in the app colour (0.99.106)
+
+- [x] Every icon two-tone (soft fill under the outline) in @color/icon_brand, the accent.
+- [x] Grey tints in code moved to the app colour; off states stay grey.
+- [x] IconSetTest guards colour and canvas.
+
 # Fetch models from the API; Material icons everywhere (0.99.105)
 
 - [x] llm/ModelList: the provider's own model list, chat models only, the reason when it fails.

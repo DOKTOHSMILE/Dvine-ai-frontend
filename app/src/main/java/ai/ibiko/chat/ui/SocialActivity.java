@@ -39,7 +39,7 @@ public final class SocialActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 8));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setContentDescription("Close");
@@ -284,7 +284,7 @@ public final class SocialActivity extends AppCompatActivity {
         c.setPadding(Ui.dp(this, 10), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
         ImageView i = new ImageView(this);
         i.setImageResource(icon);
-        i.setColorFilter(Ui.TEXT);
+        i.setColorFilter(Ui.ACCENT);
         c.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 16), Ui.dp(this, 16)));
         TextView t = Ui.text(this, label, 13, Ui.TEXT, false);
         t.setPadding(Ui.dp(this, 6), 0, 0, 0);
@@ -304,7 +304,7 @@ public final class SocialActivity extends AppCompatActivity {
         r.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
         ImageView i = new ImageView(this);
         i.setImageResource(icon);
-        i.setColorFilter(Ui.SUB);
+        i.setColorFilter(Ui.ACCENT);
         r.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 20), Ui.dp(this, 20)));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
@@ -323,7 +323,7 @@ public final class SocialActivity extends AppCompatActivity {
         head.setPadding(Ui.dp(this, 6), Ui.dp(this, 20), Ui.dp(this, 6), Ui.dp(this, 6));
         ImageView i = new ImageView(this);
         i.setImageResource(icon);
-        i.setColorFilter(Ui.TEXT);
+        i.setColorFilter(Ui.ACCENT);
         head.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 22), Ui.dp(this, 22)));
         TextView t = Ui.text(this, name, 15, Ui.TEXT, true);
         t.setPadding(Ui.dp(this, 10), 0, 0, 0);
@@ -361,7 +361,7 @@ public final class SocialActivity extends AppCompatActivity {
         r.addView(words, new LinearLayout.LayoutParams(0, -2, 1f));
         ImageView edit = new ImageView(this);
         edit.setImageResource(ai.ibiko.R.drawable.ic_edit);
-        edit.setColorFilter(Ui.SUB);
+        edit.setColorFilter(Ui.ACCENT);
         int ep = Ui.dp(this, 12);
         edit.setPadding(ep, ep, ep, ep);
         edit.setContentDescription("Rename " + what);
@@ -369,7 +369,7 @@ public final class SocialActivity extends AppCompatActivity {
         r.addView(edit, new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44)));
         ImageView x = new ImageView(this);
         x.setImageResource(ai.ibiko.R.drawable.ic_close);
-        x.setColorFilter(Ui.SUB);
+        x.setColorFilter(Ui.ACCENT);
         int p = Ui.dp(this, 12);
         x.setPadding(p, p, p, p);
         x.setContentDescription("Remove " + what);

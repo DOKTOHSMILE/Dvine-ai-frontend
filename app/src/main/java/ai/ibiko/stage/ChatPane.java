@@ -866,7 +866,7 @@ public final class ChatPane extends LinearLayout {
         android.widget.ImageView icon = new android.widget.ImageView(getContext());
         icon.setImageResource(group.kind == ai.ibiko.agent.StepGroups.Kind.COMMAND ? R.drawable.ic_terminal
                 : group.kind == ai.ibiko.agent.StepGroups.Kind.EDIT ? R.drawable.ic_edit : R.drawable.ic_search);
-        icon.setColorFilter(color(running ? R.color.accent : R.color.text_secondary));
+        icon.setColorFilter(color(R.color.icon_brand));
         row.addView(icon, new LayoutParams(dp(18), dp(18)));
         TextView label = plain(group.label);
         label.setTextSize(15.5f); // a little larger: easy to read and to tap
@@ -885,7 +885,7 @@ public final class ChatPane extends LinearLayout {
         }
         android.widget.ImageView chev = new android.widget.ImageView(getContext());
         chev.setImageResource(open ? R.drawable.ic_chevron_down : R.drawable.ic_chevron_right);
-        chev.setColorFilter(color(R.color.text_secondary));
+        chev.setColorFilter(color(R.color.icon_brand));
         row.addView(chev, new LayoutParams(dp(16), dp(16)));
         row.setContentDescription(group.label + (open ? ", close" : ", open"));
         row.setOnClickListener(v -> toggle.run());
@@ -951,7 +951,7 @@ public final class ChatPane extends LinearLayout {
             head.setPadding(dp(12), dp(6), dp(6), dp(6));
             android.widget.ImageView term = new android.widget.ImageView(getContext());
             term.setImageResource(R.drawable.ic_terminal);
-            term.setColorFilter(color(R.color.text_secondary));
+            term.setColorFilter(color(R.color.icon_brand));
             head.addView(term, new LayoutParams(dp(16), dp(16)));
             TextView name = plain("Bash");
             name.setTextSize(13f);
@@ -959,7 +959,7 @@ public final class ChatPane extends LinearLayout {
             head.addView(name, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
             android.widget.ImageView copy = new android.widget.ImageView(getContext());
             copy.setImageResource(R.drawable.ic_copy);
-            copy.setColorFilter(color(R.color.text_secondary));
+            copy.setColorFilter(color(R.color.icon_brand));
             copy.setPadding(dp(8), dp(4), dp(8), dp(4));
             copy.setContentDescription("Copy the command");
             copy.setOnClickListener(v -> {
@@ -1559,7 +1559,7 @@ public final class ChatPane extends LinearLayout {
             android.graphics.drawable.Drawable d = getContext().getDrawable(icon);
             if (d != null) {
                 d = d.mutate();
-                d.setTint(color(R.color.icon));
+                d.setTint(color(R.color.icon_brand));
                 d.setBounds(0, 0, dp(18), dp(18));
                 row.setCompoundDrawablesRelative(d, null, null, null);
                 row.setCompoundDrawablePadding(dp(12));
@@ -2374,7 +2374,7 @@ public final class ChatPane extends LinearLayout {
         android.graphics.drawable.Drawable icon = getContext().getDrawable(R.drawable.ic_deep);
         if (icon != null) {
             icon = icon.mutate();
-            icon.setTint(color(R.color.text_secondary));
+            icon.setTint(color(R.color.icon_brand));
             icon.setBounds(0, 0, dp(18), dp(18));
             row.setCompoundDrawablesRelative(icon, null, null, null);
             row.setCompoundDrawablePadding(dp(10));

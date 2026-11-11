@@ -83,7 +83,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         TextView title = Ui.text(this, "AI providers", 26, Ui.TEXT, true);
         title.setPadding(Ui.dp(this, 10), 0, 0, 0);
         head.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
         close.setOnClickListener(v -> finish());

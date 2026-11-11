@@ -24,6 +24,8 @@
     <color name="code_bg">#0B0B10</color>
     <color name="code_header">#1A1A22</color>
     <color name="code_text">#E6E6EE</color>
+    <!-- Ibiko's icons: the app's own colour (the accent) -->
+    <color name="icon_brand">@color/accent</color>
     <color name="icon">#C6C5D3</color>
     <color name="line">#2E2D3A</color>
     <color name="line_strong">#3A3948</color>
