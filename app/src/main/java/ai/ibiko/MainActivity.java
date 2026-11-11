@@ -1477,9 +1477,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** Whether this reply is read out: always, after a dictated message, or never, as chosen in the drawer. */
+    /**
+     * Whether a line is read out by itself. Only a reply to something the pilot just asked, while the chat is on
+     * screen: a morning report, a job that ends in the background, a note or a message that waited are shown, not
+     * spoken (the play button under any reply still reads it). Then the read-aloud setting decides.
+     */
     private boolean speakReply() {
-        return readAloudHelper.speakReply();
+        return inFront && System.currentTimeMillis() - askedAt < SPEAK_WINDOW_MS && readAloudHelper.speakReply();
     }
+
+    /** When the pilot last sent a message, and how long a reply to it may still be read out by itself. */
+    private long askedAt;
+    static final long SPEAK_WINDOW_MS = 3 * 60_000L;
 
     /** This start only handed over to the first-start download (AppFilesActivity). */
     private boolean waitingForFiles;
@@ -1833,6 +1842,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     private boolean pickerReconstruct;
 
     private void answer(String text) {
+        askedAt = System.currentTimeMillis(); // a reply to this may be read out (speakReply)
         answer(text, false);
     }
 
@@ -1870,6 +1880,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             brain.setUserName(name == null || name.trim().isEmpty() ? null : name.trim());
         }
         if (talk != null) {
+            talk.refreshVoice(); // a human voice chosen or downloaded in Settings
             try {
                 talk.setRateScale(Float.parseFloat(prefs.getString("speech_rate", "1.0")));
             } catch (NumberFormatException ignored) {

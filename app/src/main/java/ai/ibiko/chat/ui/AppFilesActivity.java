@@ -87,21 +87,17 @@ public final class AppFilesActivity extends Activity {
         new Thread(() -> {
             final int[] shown = {-2};
             try {
-                AppFiles.fetch(files, AppFiles.WEB, (got, total) -> {
-                    int pct = total > 0 ? (int) (got * 100 / total) : -1;
+                AppFiles.fetch(files, AppFiles.WEB, (pct, line) -> {
                     if (pct == shown[0]) {
                         return;
                     }
                     shown[0] = pct;
-                    String mb = String.format(java.util.Locale.US, "%.1f", got / 1048576.0)
-                            + (total > 0 ? String.format(java.util.Locale.US, " of %.1f MB", total / 1048576.0) : " MB");
-                    ai.ibiko.net.Transfers.progress("appfiles", AppFiles.TITLE, mb, pct);
+                    // the screen and the notification bar show the same: a percent and the size, never a file's name
+                    ai.ibiko.net.Transfers.progress("appfiles", AppFiles.TITLE, line, pct);
                     runOnUiThread(() -> {
-                        bar.setIndeterminate(pct < 0);
-                        if (pct >= 0) {
-                            bar.setProgress(pct);
-                        }
-                        line.setText(pct >= 0 ? pct + "% · " + mb : mb);
+                        bar.setIndeterminate(false);
+                        bar.setProgress(pct);
+                        line(pct + "% \u00b7 " + line);
                     });
                 });
                 ai.ibiko.net.Transfers.end("appfiles", AppFiles.TITLE, "Done", true);
@@ -111,6 +107,12 @@ public final class AppFilesActivity extends Activity {
                 runOnUiThread(this::failed);
             }
         }, "ibiko-app-files").start();
+    }
+
+    private void line(String text) {
+        if (!gone) {
+            line.setText(text);
+        }
     }
 
     private void failed() {

@@ -16,8 +16,10 @@ import java.util.zip.GZIPInputStream;
 /**
  * The files Ibiko needs before it opens that are not inside the app: downloaded once, on the first start, and checked
  * against their checksum. The pilot only sees "Downloading app files"; until they are in place the app does not open
- * (AppFilesActivity). Today that is the common-sense table (brain/knowledge/concepts.tsv) the comprehension layer reads.
- * Pure Java: the network is behind {@link Source} so tests give a file instead.
+ * (AppFilesActivity). They are the common-sense table (brain/knowledge/concepts.tsv) the comprehension layer reads
+ * and the human voice (Kokoro: a man's and a woman's voices, {@link ai.ibiko.voice.VoicePacks}). Models (llama and
+ * the others) are not among them: they are chosen and downloaded in Settings. Pure Java: the network is behind
+ * {@link Source} so tests give a file instead.
  */
 public final class AppFiles {
     private AppFiles() {
@@ -37,10 +39,15 @@ public final class AppFiles {
         InputStream open(String url, long[] length) throws IOException;
     }
 
-    /** How far the download is: bytes so far and in all (-1 when not known). */
+    /** How far it is, over all the files: a percent (0 to 100) and a line such as "12.3 of 105.0 MB". */
     public interface Progress {
-        void at(long got, long total);
+        void at(int percent, String line);
     }
+
+    /** The voice every start needs: Kokoro holds both the man's and the woman's voices. */
+    public static final ai.ibiko.voice.VoicePacks.Pack VOICE = ai.ibiko.voice.VoicePacks.KOKORO;
+    /** The common-sense table's download size, for the one progress bar over everything. */
+    static final long CONCEPTS_BYTES = 2_622_379L;
 
     public static final Source WEB = (url, length) -> {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
@@ -67,6 +74,14 @@ public final class AppFiles {
 
     /** Everything is in place: the app can open. */
     public static boolean ready(File filesDir) {
+        return ready(filesDir, VOICE);
+    }
+
+    static boolean ready(File filesDir, ai.ibiko.voice.VoicePacks.Pack voice) {
+        return conceptsReady(filesDir) && (voice == null || ai.ibiko.voice.VoicePacks.installed(filesDir, voice));
+    }
+
+    static boolean conceptsReady(File filesDir) {
         File f = concepts(filesDir), m = mark(filesDir);
         try {
             return f.isFile() && f.length() > 0 && m.isFile()
@@ -77,13 +92,48 @@ public final class AppFiles {
     }
 
     /**
-     * Downloads what is missing, checks it and unpacks it. Throws when the download breaks off or is not the expected
-     * file; nothing half-made is left as if it were ready.
+     * Downloads what is missing, checks it and unpacks it, with one progress over all of it. Throws when a download
+     * breaks off or is not the expected file; nothing half-made is left as if it were ready.
      */
-    public static synchronized void fetch(File filesDir, Source source, Progress progress) throws IOException {
-        if (ready(filesDir)) {
-            return;
+    public static void fetch(File filesDir, Source source, Progress progress) throws IOException {
+        fetch(filesDir, source, progress, VOICE);
+    }
+
+    static synchronized void fetch(File filesDir, Source source, Progress progress, ai.ibiko.voice.VoicePacks.Pack voice)
+            throws IOException {
+        boolean needConcepts = !conceptsReady(filesDir);
+        boolean needVoice = voice != null && !ai.ibiko.voice.VoicePacks.installed(filesDir, voice);
+        final long a = needConcepts ? CONCEPTS_BYTES : 0, b = needVoice ? voice.bytes : 0, all = Math.max(1, a + b);
+        if (needConcepts) {
+            fetchConcepts(filesDir, source, (got, total) -> say(progress, got, all, null));
         }
+        if (needVoice) {
+            // the voice: downloaded (most of the bar), then unpacked (the last tenth)
+            ai.ibiko.voice.VoicePacks.install(filesDir, voice, source::open, (stage, pct) -> {
+                if ("Downloading".equals(stage)) {
+                    say(progress, a + (long) (b * 0.9 * pct / 100.0), all, null);
+                } else {
+                    say(progress, a + (long) (b * (0.9 + 0.1 * pct / 100.0)), all, "Setting up the app files");
+                }
+            });
+        }
+        if (progress != null) {
+            progress.at(100, "Done");
+        }
+    }
+
+    private static void say(Progress p, long got, long all, String line) {
+        if (p != null) {
+            p.at((int) Math.min(100, got * 100 / all), line != null ? line
+                    : String.format(java.util.Locale.US, "%.1f of %.1f MB", got / 1048576.0, all / 1048576.0));
+        }
+    }
+
+    private interface Bytes {
+        void at(long got, long total);
+    }
+
+    private static void fetchConcepts(File filesDir, Source source, Bytes progress) throws IOException {
         File out = concepts(filesDir);
         File dir = out.getParentFile();
         dir.mkdirs();
@@ -99,24 +149,19 @@ public final class AppFiles {
             byte[] buf = new byte[32768];
             long got = 0;
             int n;
-            if (progress != null) {
-                progress.at(0, length[0]);
-            }
             while ((n = in.read(buf)) > 0) {
                 o.write(buf, 0, n);
                 sha.update(buf, 0, n);
                 got += n;
-                if (progress != null) {
-                    progress.at(got, length[0]);
-                }
+                progress.at(got, length[0]);
             }
         } catch (IOException e) {
             gz.delete();
             throw e;
         }
         StringBuilder hex = new StringBuilder();
-        for (byte b : sha.digest()) {
-            hex.append(String.format("%02x", b));
+        for (byte x : sha.digest()) {
+            hex.append(String.format("%02x", x));
         }
         if (!CONCEPTS_SHA256.equals(hex.toString())) {
             gz.delete();

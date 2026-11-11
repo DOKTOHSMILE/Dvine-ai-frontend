@@ -22,22 +22,29 @@ public class AppFilesTest {
         File files = Files.createTempDirectory("files").toFile();
         assertFalse(AppFiles.ready(files));
         int[] opened = {0};
-        long[] last = {-1, -1};
+        int[] last = {-1};
         AppFiles.Source repo = (url, length) -> {
             opened[0]++;
             assertTrue(url, url.startsWith("https://raw.githubusercontent.com/") && url.endsWith(GZ.getName()));
             length[0] = GZ.length();
             return new FileInputStream(GZ);
         };
-        AppFiles.fetch(files, repo, (got, total) -> {
-            last[0] = got;
-            last[1] = total;
-        });
-        assertTrue(AppFiles.ready(files));
-        assertEquals("the progress reached the end", last[1], last[0]);
+        java.util.List<String> lines = new java.util.ArrayList<String>();
+        AppFiles.Source both = (url, length) -> url.endsWith("tiny-voice.tar.bz2")
+                ? new FileInputStream(new File("src/test/resources/voice/tiny-voice.tar.bz2")) : repo.open(url, length);
+        AppFiles.fetch(files, both, (pct, line) -> {
+            last[0] = Math.max(last[0], pct);
+            lines.add(line);
+        }, ai.ibiko.voice.VoicePacksTest.TINY);
+        assertTrue(AppFiles.ready(files, ai.ibiko.voice.VoicePacksTest.TINY));
+        assertFalse("the real voice is still needed to open", AppFiles.ready(files));
+        assertEquals("one bar over every file reached the end", 100, last[0]);
+        for (String l : lines) {
+            assertFalse("no file is named: " + l, l.contains("concepts") || l.contains("tiny") || l.contains(".tar"));
+        }
         File tsv = new File(files, "brain/knowledge/concepts.tsv");
         assertTrue(new String(Files.readAllBytes(tsv.toPath()), "UTF-8").contains("\tUsedFor\t"));
-        AppFiles.fetch(files, repo, null);
+        AppFiles.fetch(files, both, null, ai.ibiko.voice.VoicePacksTest.TINY);
         assertEquals("not downloaded again", 1, opened[0]);
         assertFalse("nothing half-made left", new File(files, "brain/knowledge/concepts.tsv.gz.part").exists());
     }
@@ -46,7 +53,8 @@ public class AppFilesTest {
     public void aWrongOrBrokenDownloadKeepsTheAppClosed() throws Exception {
         File files = Files.createTempDirectory("files").toFile();
         try {
-            AppFiles.fetch(files, (url, length) -> new ByteArrayInputStream("not the file".getBytes("UTF-8")), null);
+            AppFiles.fetch(files, (url, length) -> new ByteArrayInputStream("not the file".getBytes("UTF-8")), null,
+                    ai.ibiko.voice.VoicePacksTest.TINY);
             fail("a wrong file is refused");
         } catch (IOException expected) {
             assertTrue(expected.getMessage().contains("not the expected file"));
@@ -55,7 +63,7 @@ public class AppFilesTest {
         try {
             AppFiles.fetch(files, (url, length) -> {
                 throw new IOException("no network");
-            }, null);
+            }, null, ai.ibiko.voice.VoicePacksTest.TINY);
             fail("no network");
         } catch (IOException expected) {
             // the screen offers Try again or Close

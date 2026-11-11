@@ -500,7 +500,7 @@ public final class CodeAgent {
                         + " ordinary talk, a question about the world, research or a report; a story, a script, a drawing or a"
                         + " design. It is answered as a reply instead. Code, commands, files, repositories and Linux are yours.)\n")
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
-                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into memory/projects/, the folder the workspace screen shows)\n"
+                        + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into memory/projects/<name>, the folder the workspace screen shows. That folder is where you read, edit, run and pull for this repository: write it in PLAN.md under '## Repository')\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
                         + "<tool name=\"git\" action=\"fetch\" path=\"folder\" branch=\"main\"/> (lists that branch on the device; writes no file)\n"
                         + "<tool name=\"git\" action=\"merge\" path=\"folder\" branch=\"main\"/> (merges that branch in on the device; overlapping edits stay as conflicts)\n"
@@ -1863,8 +1863,27 @@ public final class CodeAgent {
      * {@code rel} is relative to the workspace.
      */
     static String othersRecord(String rel, String ownBlueprint, String ownRecord) {
+        return othersRecord(rel, ownBlueprint, ownRecord, name -> false);
+    }
+
+    /** The Scribe's files in a project folder: the record, not the code. */
+    static final java.util.Set<String> RECORD_FILES = new java.util.HashSet<String>(java.util.Arrays.asList(
+            ai.ibiko.scribe.Scribe.RECORD, "RECOVERY.md"));
+
+    /**
+     * As above; {@code isClone} says whether memory/projects/<name> is a cloned repository. A clone is code the agent
+     * pulled from GitHub to work on (it lives in the same folder as the records, the one the workspace screen shows),
+     * so it may be read; only the Scribe's record files in another project's folder stay private.
+     */
+    static String othersRecord(String rel, String ownBlueprint, String ownRecord, java.util.function.Predicate<String> isClone) {
         String r = rel == null ? "" : rel.replace('\\', '/').replaceAll("^\\./", "").replaceAll("/+$", "");
         String[] seg = r.split("/");
+        if (seg.length >= 3 && "memory".equals(seg[0]) && "projects".equals(seg[1]) && isClone.test(seg[2])) {
+            String mine = ownRecord == null ? null : ownRecord.replaceAll("^memory/projects/", "");
+            return seg.length == 4 && RECORD_FILES.contains(seg[3]) && !seg[2].equals(mine)
+                    ? "that is another project's record (memory/projects/" + seg[2] + "/" + seg[3] + "): the repository's code"
+                    + " can be read, its record can't" : null;
+        }
         if (seg.length >= 2 && ".blueprint".equals(seg[0])) {
             String mine = ownBlueprint == null ? null : ownBlueprint.replaceAll("^\\.blueprint/", "").replaceAll("/+$", "");
             return seg[1].equals(mine) ? null : "that is another project's backup (" + seg[0] + "/" + seg[1] + "): only this"
@@ -1882,12 +1901,18 @@ public final class CodeAgent {
         return null;
     }
 
+    /** memory/projects/<name> is a repository cloned there (by git, or by the device's own GitHub tools). */
+    boolean isClone(String name) {
+        File d = new File(new File(workspace, "memory/projects"), name);
+        return new File(d, ".git").exists() || new File(d, ai.ibiko.connect.GitHubGit.RECORD).isFile();
+    }
+
     /** A shell command that names another project's backup folder (it would read around the file tools' guard). */
     String othersRecordIn(String cmd) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\.blueprint/[^\\s'\"/;|&)]+|memory/projects/[^\\s'\"/;|&)]+|memory/tasks\\b)")
                 .matcher(cmd == null ? "" : cmd);
         while (m.find()) {
-            String why = othersRecord(m.group(1) + "/x", ownBlueprint, ownRecord);
+            String why = othersRecord(m.group(1) + "/x", ownBlueprint, ownRecord, this::isClone);
             if (why != null) {
                 return why;
             }
@@ -1906,7 +1931,7 @@ public final class CodeAgent {
             throw new IOException("that path is outside the workspace");
         }
         if (!f.getPath().equals(root)) {
-            String why = othersRecord(f.getPath().substring(root.length() + 1), ownBlueprint, ownRecord);
+            String why = othersRecord(f.getPath().substring(root.length() + 1), ownBlueprint, ownRecord, this::isClone);
             if (why != null) {
                 throw new IOException(why);
             }
@@ -1954,7 +1979,7 @@ public final class CodeAgent {
             }
             try {
                 String fromRoot = workspace.getCanonicalFile().toPath().relativize(k.getCanonicalFile().toPath()).toString();
-                if (othersRecord(fromRoot, ownBlueprint, ownRecord) != null) {
+                if (othersRecord(fromRoot, ownBlueprint, ownRecord, this::isClone) != null) {
                     continue; // another project's backups are not listed or searched
                 }
             } catch (IOException | IllegalArgumentException e) {
