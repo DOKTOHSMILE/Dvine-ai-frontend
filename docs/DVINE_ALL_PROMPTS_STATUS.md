@@ -266,6 +266,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 233 | A report the AI is writing suddenly disappears: find and fix it | P12 | Fixed (kept at each step's end and at the work's end; a tool call hides only itself; no duplicate; Robolectric test) | 0.99.77 |
 | 234 | Start building more in-app knowledge (ask for data if needed) | P12 | Built (2,122 more facts from open sources and the project; matching improved; JVM tests); no data needed from the pilot for this round | 0.99.78 |
 | 235 | The terminal compared with Termux (screenshots): text cut off, large text, dim keys, a copy dialog | P12 | Fixed (short greeting, 10 sp default, bright keys, Termux-style selection with a floating Copy/Paste/More bar) | 0.99.78 |
+| 236 | Download interaction and comprehension data (ConceptNet, WordNet, …) | P12 | Built (Open English WordNet 2024 and ConceptNet 5.7 English as sorted tables; training sets such as SQuAD and GLUE not shipped, as they teach a model rather than answer) | 0.99.79 |
+| 237 | The master comprehension and knowledge engine blueprint (8 engines, UCL) | P12 | Built in part (v1: intent, grammar of actions, word senses, context and pronouns, object parts, offline lookups; next: ATOMIC intents, reasoning, action planning) | 0.99.79 |
 
 ## Still open, in the order that matters
 

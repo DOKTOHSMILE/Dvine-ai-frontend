@@ -24,6 +24,43 @@ public final class Store {
         }
     }
 
+    /** Which version of the large knowledge files the app carries; a new version is unpacked again. */
+    static final String KNOWLEDGE_VERSION = "2026-11-11";
+
+    /**
+     * A large knowledge file shipped in the app (knowledge/<name>), unpacked once into {@code dir} so it can be read
+     * in place by binary search; null when the app carries none. Call it off the main thread (tens of MB, once).
+     */
+    public static synchronized File unpacked(File dir, String name) {
+        File out = new File(dir, name), mark = new File(dir, name + ".version");
+        try {
+            if (out.isFile() && out.length() > 0 && mark.isFile()
+                    && KNOWLEDGE_VERSION.equals(new String(java.nio.file.Files.readAllBytes(mark.toPath()), "UTF-8").trim())) {
+                return out;
+            }
+            java.io.InputStream in = Plug.asset.apply("knowledge/" + name);
+            if (in == null) {
+                return out.isFile() ? out : null;
+            }
+            dir.mkdirs();
+            File tmp = new File(dir, name + ".part");
+            try (java.io.InputStream src = in; java.io.OutputStream dst = new java.io.FileOutputStream(tmp)) {
+                byte[] buf = new byte[65536];
+                int n;
+                while ((n = src.read(buf)) > 0) {
+                    dst.write(buf, 0, n);
+                }
+            }
+            if (!tmp.renameTo(out)) {
+                java.nio.file.Files.move(tmp.toPath(), out.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            java.nio.file.Files.write(mark.toPath(), KNOWLEDGE_VERSION.getBytes("UTF-8"));
+            return out;
+        } catch (java.io.IOException e) {
+            return out.isFile() ? out : null;
+        }
+    }
+
     public static synchronized Knowledge knowledge(File dir) {
         String k = key(dir, "knowledge.tsv");
         Object o = OPEN.get(k);
