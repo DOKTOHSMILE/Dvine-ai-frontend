@@ -1,3 +1,8 @@
+# The app icon a little smaller; downloads carry on (0.99.85)
+
+- [x] The face 46 of 108 units, a teal ring round it in every launcher shape.
+- [x] A broken download carries on from where it stopped (app files, voices, Linux; models already did).
+
 # Ibiko's live face; the icon zoomed out (0.99.84)
 
 - [x] The working mark drawn live: blinks, glides, breathes; a look for thinking, reading, writing, working, replying.

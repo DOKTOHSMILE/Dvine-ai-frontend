@@ -3,8 +3,8 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- the face is 54 of 108 units now (it was 72): the eyes scale with it about the centre -->
-    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.75" android:scaleY="0.75">
+    <!-- the face is 46 of 108 units now (it was 72): the eyes scale with it about the centre -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.639" android:scaleY="0.639">
         <path android:fillColor="#FF000000"
             android:pathData="M41,41.8a4.8,4.8 0,0 1,4.8 4.8v14a4.8,4.8 0,0 1,-9.6 0v-14a4.8,4.8 0,0 1,4.8 -4.8z" />
         <path android:fillColor="#FF000000"

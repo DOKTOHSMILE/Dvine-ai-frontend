@@ -66,7 +66,7 @@ public class VoicePacksTest {
         File files = Files.createTempDirectory("files").toFile();
         assertFalse(VoicePacks.installed(files, TINY));
         int[] last = {-1};
-        VoicePacks.install(files, TINY, (url, len) -> new FileInputStream(new File(RES, "tiny-voice.tar.bz2")),
+        VoicePacks.install(files, TINY, (url, from, len) -> new FileInputStream(new File(RES, "tiny-voice.tar.bz2")),
                 (stage, pct) -> last[0] = pct);
         assertTrue(VoicePacks.installed(files, TINY));
         assertEquals(100, last[0]);
@@ -80,9 +80,10 @@ public class VoicePacksTest {
 
     @Test
     public void aWrongDownloadIsNotInstalled() throws Exception {
+        VoicePacks.pause = ms -> { };
         File files = Files.createTempDirectory("files").toFile();
         try {
-            VoicePacks.install(files, TINY, (url, len) -> new ByteArrayInputStream("nope".getBytes("UTF-8")), null);
+            VoicePacks.install(files, TINY, (url, from, len) -> new ByteArrayInputStream("nope".getBytes("UTF-8")), null);
             fail();
         } catch (IOException expected) {
             assertTrue(expected.getMessage().contains("not the expected file"));

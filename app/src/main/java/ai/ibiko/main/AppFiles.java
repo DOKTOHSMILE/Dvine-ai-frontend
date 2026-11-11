@@ -33,10 +33,8 @@ public final class AppFiles {
     /** What the pilot is shown, the same for every file. */
     public static final String TITLE = "Downloading app files";
 
-    /** Where a download comes from. */
-    public interface Source {
-        /** The stream to read; {@code length[0]} is set to its size in bytes, or -1 when not known. */
-        InputStream open(String url, long[] length) throws IOException;
+    /** Where a download comes from; it can start part-way, so a broken download carries on (resume). */
+    public interface Source extends ai.ibiko.net.Resume.Source {
     }
 
     /** How far it is, over all the files: a percent (0 to 100) and a line such as "12.3 of 105.0 MB". */
@@ -49,20 +47,10 @@ public final class AppFiles {
     /** The common-sense table's download size, for the one progress bar over everything. */
     static final long CONCEPTS_BYTES = 2_622_379L;
 
-    public static final Source WEB = (url, length) -> {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(20000);
-        c.setReadTimeout(60000);
-        c.setInstanceFollowRedirects(true);
-        c.setRequestProperty("User-Agent", "Ibiko");
-        int code = c.getResponseCode();
-        if (code != HttpURLConnection.HTTP_OK) {
-            c.disconnect();
-            throw new IOException("The server answered " + code + ".");
-        }
-        length[0] = c.getContentLengthLong();
-        return c.getInputStream();
-    };
+    public static final Source WEB = ai.ibiko.net.Resume.WEB::open;
+
+    /** How long a broken download waits before it carries on (tests don't wait). */
+    static ai.ibiko.net.Resume.Pause pause = ai.ibiko.net.Resume.WAIT;
 
     static File concepts(File filesDir) {
         return new File(new File(new File(filesDir, "brain"), "knowledge"), "concepts.tsv");
@@ -138,32 +126,9 @@ public final class AppFiles {
         File dir = out.getParentFile();
         dir.mkdirs();
         File gz = new File(dir, "concepts.tsv.gz.part"), tsv = new File(dir, "concepts.tsv.part");
-        long[] length = {-1};
-        MessageDigest sha;
-        try {
-            sha = MessageDigest.getInstance("SHA-256");
-        } catch (java.security.NoSuchAlgorithmException e) {
-            throw new IOException(e);
-        }
-        try (InputStream in = source.open(CONCEPTS_URL, length); OutputStream o = new FileOutputStream(gz)) {
-            byte[] buf = new byte[32768];
-            long got = 0;
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                o.write(buf, 0, n);
-                sha.update(buf, 0, n);
-                got += n;
-                progress.at(got, length[0]);
-            }
-        } catch (IOException e) {
-            gz.delete();
-            throw e;
-        }
-        StringBuilder hex = new StringBuilder();
-        for (byte x : sha.digest()) {
-            hex.append(String.format("%02x", x));
-        }
-        if (!CONCEPTS_SHA256.equals(hex.toString())) {
+        // what arrived before is kept: a broken download carries on from there
+        ai.ibiko.net.Resume.fetch(CONCEPTS_URL, gz, source, progress::at, ai.ibiko.net.Resume.TRIES, pause);
+        if (!CONCEPTS_SHA256.equals(ai.ibiko.net.Resume.sha256(gz))) {
             gz.delete();
             throw new IOException("The download was not the expected file.");
         }
