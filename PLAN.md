@@ -1,3 +1,10 @@
+# CodeAssist builds again; a faster terminal; a warmer Ibiko 1 (0.99.100)
+
+- [x] module.toml includes Ibiko 1's sources and assets; its job in the app manifest.
+- [x] Terminal drawn in runs; repeating arrows; key feedback; screen on.
+- [x] Ibiko 1 greets by name and time of day, without repeating itself.
+- [x] An unreachable API falls back to Ibiko 1 for that message.
+
 # The name is Ibiko everywhere (0.99.99)
 
 - [x] Code, packages, classes, theme, native engine, docs, file names: Ibiko.

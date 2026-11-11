@@ -1368,6 +1368,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return ai.ibiko.main.ChatSpace.of(getFilesDir(), s == null ? "chat" : s.group != null ? s.group : s.id);
     }
 
+    /** The API couldn't be reached at all (its address, the network path), not a refusal or an empty answer. */
+    public static boolean unreachable(String why) {
+        return why != null && why.matches("(?is).*(couldn't reach|could not reach|unable to resolve host|no address associated"
+                + "|failed to connect|connection refused|timed out|timeout|unreachable).*");
+    }
+
     /** Makes a picture in the background and pastes it into the chat when ready (ImageTurn). */
     void makeImage(final String agent, final String what) {
         new ImageTurn(this).make(agent, what);
@@ -2417,6 +2423,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** What Ibiko 1 is given of this screen (see main/Ibiko1Screen). */
     final ai.ibiko.main.Ibiko1Screen.Parts ibikoScreen = new ai.ibiko.main.Ibiko1Screen.Parts() {
+        @Override
+        public String pilotName() {
+            String n = brain == null ? null : brain.userName();
+            return n == null || n.trim().isEmpty() ? null : n.trim();
+        }
+
         @Override
         public String persona() {
             return stage.agent();
@@ -4344,6 +4356,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         }
                         said = "The internet connection dropped while " + apiName() + " was answering. Nothing is wrong with the"
                                 + " API: I'll ask again the moment you're back online.";
+                    }
+                    if (said == null && unreachable(why) && !aboutPhoneFiles(question)) {
+                        // the API's address can't be reached (a gateway down, a DNS failure): Ibiko 1, on this device,
+                        // answers instead of leaving only an error; Retry still asks the API again
+                        said = (why.startsWith("I couldn't reach") ? why : "I couldn't reach " + apiName() + " (" + why + ")")
+                                + ". Ibiko 1 is answering on this device instead; tap Retry to ask " + apiName() + " again.";
+                        final String again = question;
+                        handler.postDelayed(() -> {
+                            if (!isFinishing()) {
+                                ibiko1().endpoint().chat(again);
+                            }
+                        }, 1200);
                     }
                     stream.add(new TurnLine(agent, "SAY", said != null ? said
                             : why != null && !why.isEmpty() && !"stopped".equals(why)

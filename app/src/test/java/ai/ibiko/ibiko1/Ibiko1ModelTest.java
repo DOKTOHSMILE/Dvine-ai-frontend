@@ -32,7 +32,7 @@ public class Ibiko1ModelTest {
         try {
             Ibiko1Model.Reply hi = brain.reply("Hello", 10000);
             assertNotNull(hi.text);
-            assertTrue(hi.text, hi.text.contains(Ibiko1Model.NAME));
+            assertTrue(hi.text, hi.text.contains("it's Ibiko"));
             Ibiko1Model.Reply capital = brain.reply("What is the capital of Ghana?", 15000);
             assertNotNull(capital.text);
             assertTrue(capital.text, capital.text.contains("Accra"));

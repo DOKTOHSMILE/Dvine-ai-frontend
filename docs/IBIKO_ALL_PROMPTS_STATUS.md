@@ -323,6 +323,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 290 | Workers can be deployed to multitask, not just read files | P12 | Built (any task; they run during planning and in read-only runs too) | 0.99.97 |
 | 291 | Embed Ibiko with a critical reasoning formula for deeper thinking | P12 | Built (formulas/Critical K1–K12, in Ibiko 1 and for every brain; Deep Thinking passes deepened) | 0.99.98 |
 | 292 | Why is the name Dvine still traceable | P12 | Fixed (renamed everywhere in code, files and docs; settings carried over; the GitHub repository names are the owner's to change) | 0.99.99 |
+| 293 | CodeAssist errors: ai.ibiko.dvine1 cannot be resolved; targetSdk 35 edge-to-edge warning | P12 | Fixed (module.toml builds Ibiko 1's sources into the app; the warning needs nothing, insets are handled) | 0.99.100 |
+| 294 | Improve the Linux UI, UX and performance | P12 | Built (run-batched drawing, repeating arrow keys, key feedback, screen kept on) | 0.99.100 |
+| 295 | Same question twice: same answer or different? | P12 | Answered (Ibiko 1: the same answer unless it learned in between; API models: the same substance, different wording) | 0.99.100 |
+| 296 | Why is Ibiko responding like this (gateway errors; a robotic greeting next to GPT-5's) | P12 | Fixed (an unreachable API falls back to Ibiko 1; a warm greeting by name and time of day) | 0.99.100 |
 
 ## Still open, in the order that matters
 

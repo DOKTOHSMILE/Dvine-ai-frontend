@@ -144,6 +144,9 @@ public final class TermView extends View {
         paint.setTextSize(textPx);
         Paint.FontMetrics m = paint.getFontMetrics();
         cellW = paint.measureText("M");
+        // every printable ASCII character as wide as "M": then a run is one drawText (true for the monospace font)
+        monospaced = Math.abs(paint.measureText("i") - cellW) < 0.01f && Math.abs(paint.measureText("W") - cellW) < 0.01f
+                && Math.abs(paint.measureText("iiiiiiiiii") - cellW * 10) < 0.05f;
         cellH = (float) Math.ceil(m.descent - m.ascent);
         baseline = -m.ascent;
     }
@@ -203,6 +206,36 @@ public final class TermView extends View {
         return true;
     }
 
+    /** One row's run of characters, reused frame to frame. */
+    private char[] run = new char[256];
+    /** The font gives every ASCII character the cell's width, so a run can be drawn in one call. */
+    private boolean monospaced = true;
+
+    private static int fgOf(TermEmulator.Row row, int x) {
+        int attr = row.attr[x];
+        boolean reverse = (attr & TermEmulator.REVERSE) != 0;
+        int fg = TermEmulator.argb(reverse ? row.bg[x] : row.fg[x], !reverse);
+        if ((attr & TermEmulator.BOLD) != 0 && !reverse && row.fg[x] < 8) {
+            fg = TermEmulator.argb(row.fg[x] + 8, true); // bold brightens the eight plain colors
+        }
+        if ((attr & TermEmulator.DIM) != 0) {
+            fg = fg & 0xFF000000 | (fg >> 1 & 0x7F7F7F) + 0x202020;
+        }
+        return fg;
+    }
+
+    private static int bgOf(TermEmulator.Row row, int x) {
+        boolean reverse = (row.attr[x] & TermEmulator.REVERSE) != 0;
+        return TermEmulator.argb(reverse ? row.fg[x] : row.bg[x], reverse);
+    }
+
+    private void style(int fg, int attr) {
+        paint.setColor(fg);
+        paint.setFakeBoldText((attr & TermEmulator.BOLD) != 0);
+        paint.setTextSkewX((attr & TermEmulator.ITALIC) != 0 ? -0.2f : 0f);
+        paint.setUnderlineText((attr & TermEmulator.UNDERLINE) != 0);
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         canvas.drawColor(0xFF000000);
@@ -219,36 +252,67 @@ public final class TermView extends View {
                 TermEmulator.Row row = s.line(kept - back + y);
                 float lineTop = topPx + y * cellH;
                 int n = Math.min(cols, row.ch.length);
-                for (int x = 0; x < n; x++) {
+                // drawn in runs: neighbouring cells of one colour and style are one rectangle and one drawText, not
+                // one call each (a full screen was thousands of calls a frame, every time output came in)
+                int x = 0;
+                while (x < n) {
                     int attr = row.attr[x];
                     if ((attr & TermEmulator.WIDE_TAIL) != 0) {
+                        x++;
                         continue;
                     }
-                    boolean reverse = (attr & TermEmulator.REVERSE) != 0;
-                    int fg = TermEmulator.argb(reverse ? row.bg[x] : row.fg[x], !reverse);
-                    int bg = TermEmulator.argb(reverse ? row.fg[x] : row.bg[x], reverse);
-                    if ((attr & TermEmulator.BOLD) != 0 && !reverse && row.fg[x] < 8) {
-                        fg = TermEmulator.argb(row.fg[x] + 8, true); // bold brightens the eight plain colors
-                    }
-                    if ((attr & TermEmulator.DIM) != 0) {
-                        fg = fg & 0xFF000000 | (fg >> 1 & 0x7F7F7F) + 0x202020;
-                    }
+                    int fg = fgOf(row, x), bg = bgOf(row, x);
                     int ch = row.ch[x];
                     boolean wide = x + 1 < n && (row.attr[x + 1] & TermEmulator.WIDE_TAIL) != 0;
                     float cellLeft = left + x * cellW;
-                    if (bg != 0xFF000000) {
-                        fill.setColor(bg);
-                        canvas.drawRect(cellLeft, lineTop, cellLeft + (wide ? 2 : 1) * cellW, lineTop + cellH, fill);
-                    }
-                    if (ch == ' ' || ch == 0 || (attr & TermEmulator.HIDDEN) != 0) {
+                    if (wide || ch > 0x7E) {
+                        // a wide or non-ASCII character: on its own, at its cell
+                        if (bg != 0xFF000000) {
+                            fill.setColor(bg);
+                            canvas.drawRect(cellLeft, lineTop, cellLeft + (wide ? 2 : 1) * cellW, lineTop + cellH, fill);
+                        }
+                        if (ch != 0 && (attr & TermEmulator.HIDDEN) == 0) {
+                            style(fg, attr);
+                            int len = Character.toChars(ch, one, 0);
+                            canvas.drawText(one, 0, len, cellLeft, lineTop + baseline, paint);
+                        }
+                        x += wide ? 2 : 1;
                         continue;
                     }
-                    paint.setColor(fg);
-                    paint.setFakeBoldText((attr & TermEmulator.BOLD) != 0);
-                    paint.setTextSkewX((attr & TermEmulator.ITALIC) != 0 ? -0.2f : 0f);
-                    paint.setUnderlineText((attr & TermEmulator.UNDERLINE) != 0);
-                    int len = Character.toChars(ch, one, 0);
-                    canvas.drawText(one, 0, len, cellLeft, lineTop + baseline, paint);
+                    int end = x + 1;
+                    while (end < n && row.attr[end] == attr && row.ch[end] <= 0x7E && fgOf(row, end) == fg && bgOf(row, end) == bg
+                            && (end + 1 >= n || (row.attr[end + 1] & TermEmulator.WIDE_TAIL) == 0)) {
+                        end++;
+                    }
+                    if (bg != 0xFF000000) {
+                        fill.setColor(bg);
+                        canvas.drawRect(cellLeft, lineTop, left + end * cellW, lineTop + cellH, fill);
+                    }
+                    if ((attr & TermEmulator.HIDDEN) == 0) {
+                        if (run.length < end - x) {
+                            run = new char[end - x];
+                        }
+                        int count = 0;
+                        boolean any = false;
+                        for (int i = x; i < end; i++) {
+                            char c = row.ch[i] == 0 ? ' ' : (char) row.ch[i];
+                            run[count++] = c;
+                            any |= c != ' ';
+                        }
+                        if (any) {
+                            style(fg, attr);
+                            if (monospaced) {
+                                canvas.drawText(run, 0, count, cellLeft, lineTop + baseline, paint);
+                            } else {
+                                for (int i = 0; i < count; i++) {
+                                    if (run[i] != ' ') {
+                                        canvas.drawText(run, i, 1, cellLeft + i * cellW, lineTop + baseline, paint);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    x = end;
                 }
             }
             if (selecting) {

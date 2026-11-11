@@ -214,6 +214,12 @@
             android:name=".llm.ModelDownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- Ibiko 1's learning job. Also in ibiko1's own manifest (merged by Gradle); here too for CodeAssist, which builds
+             Ibiko 1's code into the app and doesn't merge its manifest -->
+        <service
+            android:name="ai.ibiko.ibiko1.LearningJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <service
             android:name=".llm.ReplyService"
             android:exported="false"
