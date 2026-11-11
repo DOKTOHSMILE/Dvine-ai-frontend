@@ -83,3 +83,17 @@ by itself" shows them and forgets them.
 - I4 STEER (stop, skip, focus on, first do, faster, don't push…): a note to the job; no re-planning.
 - I5 PLAN_CHANGE (add/also/include/change/use/instead…, "it should…", "what if we…", "can you also…?" about the job): into PLAN.md as new steps.
 - I6 Unsure: shares the job's subject → a note (I4); otherwise its own errand (I3).
+
+
+## Probability: thinking in chances (ibiko1/formulas/Probability, 0.99.114)
+
+- P1 Possibilities: at least two, "something else" included.
+- P2 Base rate: how often each is the case in general; start there, not at 50/50.
+- P3 Evidence: odds after = odds before × likelihood ratio (how much more likely the clue is under A than B).
+- P4 Independence: clues from one source count once.
+- P5 Expected value: Σ probability × gain or cost; pick the best, the cheaper-to-undo between near-equals.
+- P6 Cost of being wrong: act when p × gain − (1 − p) × loss > 0; otherwise check first.
+- P7 Value of a check: check first when its result could flip the decision.
+- P8 Calibration: "almost certainly" ≥ 95%, "very likely" ≥ 85%, "likely" ≥ 65%, "a toss-up" 45–55%, "unlikely" ≤ 35%.
+- P9 Chains: a plan is as likely as the product of its steps (0.9 × 0.9 × 0.9 = 0.73).
+- P10 Update with new evidence; don't swing on one weak clue.

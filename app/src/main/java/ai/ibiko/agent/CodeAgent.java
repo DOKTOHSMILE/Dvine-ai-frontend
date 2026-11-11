@@ -279,10 +279,18 @@ public final class CodeAgent {
         if (depth == 1 && given.size() > Squad.MOST_HANDS) {
             given = new ArrayList<Squad.Part>(given.subList(0, Squad.MOST_HANDS));
         }
-        final List<Squad.Part> plan = given;
-        if (plan.size() < 2) {
-            return "Error: workers needs at least two <part> blocks, one for each worker. Do a single part yourself.";
+        if (given.isEmpty()) {
+            return "Error: give each worker its part in a <part> block (at least one).";
         }
+        if (given.size() == 1) {
+            // one part: a second worker checks it, so every task still runs with workers (one does, one checks)
+            List<Squad.Part> two = new ArrayList<Squad.Part>(given);
+            two.add(new Squad.Part(null, given.get(0).minutes, "Check the work of the other worker on this part: "
+                    + given.get(0).text + "\nRead what it reads and changes, run the checks there are, and report every"
+                    + " problem with path:line. Change nothing yourself."));
+            given = two;
+        }
+        final List<Squad.Part> plan = given;
         final List<String> parts = new ArrayList<String>();
         for (Squad.Part p : plan) {
             parts.add(p.text);
@@ -487,6 +495,7 @@ public final class CodeAgent {
                 + (blueprint != null ? "\n" + Blueprint.RULES : "")
                 + (diagnosing ? Diagnosis.MAP : "")
                 + (readOnly || planning ? "" : compact ? WorkingMethod.SHORT : WorkingMethod.RULES) // how a careful engineer works
+                + (compact ? "" : ai.ibiko.ibiko1.formulas.Probability.AGENT) // decisions by likelihood and cost
                 + (shipping && !readOnly ? Shipping.RULES : "") // batch by batch to the repository
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"

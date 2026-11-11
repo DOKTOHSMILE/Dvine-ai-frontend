@@ -205,7 +205,7 @@ final class WritingTurns {
             StringBuilder written = new StringBuilder();
             // the same hands as the coding agents: on an API, with the Workers tool on, each section has its own writer
             // and they write at the same time; the plan keeps them in one voice and one order
-            if (a.model.remoteOn() && a.chatTools(persona).workers() && sections.size() >= 3) {
+            if (a.model.remoteOn() && sections.size() >= 3) { // workers on every task
                 a.activity("Writing " + sections.size() + " sections at once");
                 final java.util.List<String> secs = sections;
                 java.util.List<String> got = ai.ibiko.agent.Squad.all(secs, (n, s) -> {

@@ -643,4 +643,18 @@ public class CodeAgentTest {
         assertTrue(work, work.contains("A note from the user on how to go about the work") && work.contains("focus on the api"));
         org.junit.Assert.assertFalse("not added to the plan", work.contains("Add it to PLAN.md"));
     }
+
+    /** Every task has workers; a job given as one part gets a second worker that checks the first. */
+    @Test
+    public void oneWorkerPartGetsACheckerAndTheAgentThinksInProbabilities() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Script brain = new Script("<tool name=\"workers\"><part>list the files in the project</part></tool>", "Done: listed.",
+                "Checked: nothing wrong.", "Done.");
+        CodeAgent agent = new CodeAgent(ws, brain, new Phone(), "", 20_000);
+        agent.run("look over the project", "");
+        assertTrue(agent.system().contains("THINK IN PROBABILITIES"));
+        assertFalse("no longer refused for one part", agent.work().contains("needs at least two"));
+        assertTrue(agent.work(), agent.work().contains("Check the work of the other worker"));
+        assertTrue(ai.ibiko.suit.ChatTools.defaults("ibiko").workers());
+    }
 }

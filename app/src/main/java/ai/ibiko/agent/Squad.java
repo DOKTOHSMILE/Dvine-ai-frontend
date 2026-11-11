@@ -35,9 +35,10 @@ public final class Squad {
             + " THE SAME TIME, each with every tool you have, then their reports come back to you. role is the agent whose work"
             + " the part is; minutes is the time ROLX allows it (left out: " + Squad.MINUTES + "). A part can be any job, not only"
             + " reading files: research a question on the web, survey part of the code, write or edit files, run commands and"
-            + " tests, draft a section of a document, check another part's work. Use it whenever the job splits into"
-            + " independent parts (different questions, different files, different checks) or the user asks for more workers"
-            + " or speed; before the plan is checked, workers look and report but change nothing. Each part"
+            + " tests, draft a section of a document, check another part's work. Use it on EVERY task: split the work into"
+            + " independent parts (different questions, different files, different checks: a surveyor, a builder, a"
+            + " checker) and start them early; a task with one part gets a second worker that checks the first."
+            + " Before the plan is checked, workers look and report but change nothing. Each part"
             + " must stand on its own: say exactly what to do, in which folder and files, and what done looks like; an agent"
             + " knows only its part. Never give two agents the same file. Afterwards you check that the parts fit together,"
             + " send back any that failed or ran out of time, and finish the rest.)\n";

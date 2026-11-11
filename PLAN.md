@@ -1,3 +1,8 @@
+# Workers on every task; thinking in probabilities (0.99.114)
+
+- [x] Workers always on; a one-part job gets a checker; the setting sets how many run at once.
+- [x] formulas/Probability P1–P10: for decisions in every brain, and on every agent step.
+
 # Messages during a job sorted; only project changes reach the plan (0.99.113)
 
 - [x] agent/Intake: chat, question, request, steer, plan change (I1–I6), no model call.
