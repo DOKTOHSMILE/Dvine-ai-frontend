@@ -38,4 +38,13 @@ public class BuildFilesTest {
             assertEquals(dep, find(gradle, Pattern.quote(dep) + "([\\d.]+)"), find(toml, Pattern.quote(dep) + "([\\d.]+)"));
         }
     }
+
+    /** CodeAssist builds one module: Ibiko 1's code and knowledge are listed in it, and its job is in the app's manifest. */
+    @org.junit.Test
+    public void codeAssistBuildsIbiko1InTheApp() throws Exception {
+        String toml = read("module.toml");
+        org.junit.Assert.assertTrue(toml.contains("\"../ibiko1/src/main/java\""));
+        org.junit.Assert.assertTrue(toml.contains("\"../ibiko1/src/main/assets\""));
+        org.junit.Assert.assertTrue(read("src/main/AndroidManifest.xml").contains("ai.ibiko.ibiko1.LearningJob"));
+    }
 }

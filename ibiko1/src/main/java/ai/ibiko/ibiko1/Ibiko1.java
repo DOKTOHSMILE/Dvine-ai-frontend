@@ -81,6 +81,11 @@ public final class Ibiko1 {
 
         android.content.Context context();
 
+        /** What the person likes to be called, or null when they haven't said. */
+        default String pilotName() {
+            return null;
+        }
+
         /** Whether this chat's tools allow a function code ("SR"). */
         default boolean allows(String code) {
             return false;
@@ -397,8 +402,9 @@ public final class Ibiko1 {
             return;
         }
         if (parse.intent == Grammar.Intent.GREETING) {
-            think(Arrays.asList("Reading your message"), () -> saysPlain(who, "Hello, I'm " + NAME
-                    + ". Ask me anything: I answer what I know, research what I don't, and learn when you tell me Correct or Wrong."));
+            final String hello = greeting(host.pilotName(), java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
+                    greeted++);
+            think(Arrays.asList("Reading your message"), () -> saysPlain(who, hello));
             return;
         }
         // a clear command: Ibiko 1 operates the app like any model, by writing one of its function codes
@@ -610,6 +616,29 @@ public final class Ibiko1 {
                 then.run();
             }
         }, 120 + steps.size() * 650L + 250);
+    }
+
+    /** How many times it has greeted the person since it started: the first time it says what it can do. */
+    private int greeted;
+
+    /**
+     * A warm, short greeting for the time of day, by name when it knows one, as a person would say it: what it can do
+     * only the first time, and a different line after that, so it doesn't repeat itself word for word.
+     */
+    static String greeting(String name, int hour, int times) {
+        String part = hour < 5 ? "Hello" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+        String when = hour < 5 ? "tonight" : hour < 12 ? "this morning" : hour < 17 ? "this afternoon" : "this evening";
+        String who = name == null || name.trim().isEmpty() ? "" : " " + name.trim();
+        if (times == 0) {
+            return part + who + ", it's Ibiko here with you. How can I help you " + when + "? I answer from what I know,"
+                    + " look up what I don't, and learn when you tell me I'm right or wrong.";
+        }
+        String[] again = {
+            "Hello again" + who + ". What can I do for you?",
+            part + who + ". What would you like to know?",
+            "Hi" + who + ", I'm here. What's on your mind?",
+        };
+        return again[(times - 1) % again.length];
     }
 
     /** A set reply (a greeting, its memory list, "noted", "I don't know"): no check and cancel, nothing to learn. */

@@ -138,6 +138,8 @@ public final class TerminalActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Ui.init(this);
+        // a long install or build doesn't stop because the screen went dark
+        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // a terminal is black edge to edge, with light status and navigation icons, in day and night themes
         getWindow().setStatusBarColor(0xFF000000);
         getWindow().setNavigationBarColor(0xFF000000);
@@ -340,6 +342,53 @@ public final class TerminalActivity extends AppCompatActivity {
     private LinearLayout lineTop;
 
     /** A row of the standard terminal's extra keys: white labels on black, tall enough for a thumb. */
+    /** Keys that repeat while held, as a keyboard's do. */
+    static boolean repeats(String label) {
+        return "\u2190".equals(label) || "\u2192".equals(label) || "\u2191".equals(label) || "\u2193".equals(label)
+                || "PGUP".equals(label) || "PGDN".equals(label);
+    }
+
+    /**
+     * An extra key: a light tap felt on press and a highlight while held; the arrows and page keys repeat while held
+     * (after 400 ms, then every 60 ms), so moving through a long line or a file isn't a tap per step.
+     */
+    private void pressable(final TextView key, final String label) {
+        android.graphics.drawable.GradientDrawable down = new android.graphics.drawable.GradientDrawable();
+        down.setColor(0x33FFFFFF);
+        down.setCornerRadius(Ui.dp(this, 8));
+        final Runnable[] again = new Runnable[1];
+        again[0] = () -> {
+            onKey(label, key);
+            key.postDelayed(again[0], 60);
+        };
+        key.setOnTouchListener((v, e) -> {
+            switch (e.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    v.setBackground(down);
+                    v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                    if (repeats(label)) {
+                        onKey(label, key);
+                        v.postDelayed(again[0], 400);
+                    }
+                    return true;
+                case android.view.MotionEvent.ACTION_UP:
+                    v.setBackground(null);
+                    v.removeCallbacks(again[0]);
+                    if (!repeats(label)) {
+                        onKey(label, key);
+                    }
+                    v.performClick();
+                    return true;
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    v.setBackground(null);
+                    v.removeCallbacks(again[0]);
+                    return true;
+                default:
+                    return true;
+            }
+        });
+    }
+
     private LinearLayout bigKeys(String... labels) {
         LinearLayout row = new LinearLayout(this);
         row.setBackgroundColor(0xFF000000);
@@ -347,7 +396,7 @@ public final class TerminalActivity extends AppCompatActivity {
             TextView key = Ui.text(this, label, 15, 0xFFFFFFFF, false);
             key.setGravity(Gravity.CENTER);
             key.setMinHeight(Ui.dp(this, 44));
-            key.setOnClickListener(v -> onKey(label, key));
+            pressable(key, label);
             row.addView(key, new LinearLayout.LayoutParams(0, -2, 1f));
             if ("CTRL".equals(label)) {
                 ctrlKey = key;
@@ -366,7 +415,7 @@ public final class TerminalActivity extends AppCompatActivity {
             TextView key = Ui.text(this, label, 13, 0xFFF2F2F7, false); // bright, as Termux shows them
             key.setGravity(Gravity.CENTER);
             key.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
-            key.setOnClickListener(v -> onKey(label, key));
+            pressable(key, label);
             row.addView(key, new LinearLayout.LayoutParams(0, -2, 1f));
             if ("CTRL".equals(label)) {
                 ctrlKey = key;

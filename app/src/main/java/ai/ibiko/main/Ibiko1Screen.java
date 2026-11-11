@@ -23,6 +23,11 @@ public final class Ibiko1Screen implements Ibiko1.Host {
 
         List<String> aboutPilot();
 
+        /** What the person likes to be called, or null. */
+        default String pilotName() {
+            return null;
+        }
+
         void answered(Ibiko1.How how);
 
         void note(String text);
@@ -50,6 +55,11 @@ public final class Ibiko1Screen implements Ibiko1.Host {
     public Ibiko1Screen(android.app.Activity activity, Parts parts) {
         this.activity = activity;
         this.parts = parts;
+    }
+
+    @Override
+    public String pilotName() {
+        return parts.pilotName();
     }
 
     @Override
