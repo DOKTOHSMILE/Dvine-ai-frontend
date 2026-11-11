@@ -1,5 +1,6 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="20dp" android:height="20dp" android:viewportWidth="24" android:viewportHeight="24">
-    <!-- a code branch: two commits and a fork (GitHub repositories); every stroke kept 2 units inside the edge so nothing is cut -->
-    <path android:strokeColor="@color/icon" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"
-        android:pathData="M5,5a2,2 0,1 0,4 0a2,2 0,1 0,-4 0M5,19a2,2 0,1 0,4 0a2,2 0,1 0,-4 0M15,7a2,2 0,1 0,4 0a2,2 0,1 0,-4 0M7,7v10M17,9c0,4 -10,2 -10,6" />
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols Rounded "fork_right" (Google, Apache 2.0) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="20dp" android:height="20dp"
+    android:viewportWidth="960" android:viewportHeight="960" android:autoMirrored="false">
+    <path android:fillColor="@color/icon" android:pathData="M400,840Q383,840 371.5,828.5Q360,817 360,800L360,273L324,308Q313,319 296,319Q279,319 268,308Q256,296 256.5,279.5Q257,263 268,252L372,148Q384,136 400,136Q416,136 428,148L532,252Q544,264 543.5,280Q543,296 532,308Q520,320 504,320.5Q488,321 476,309L440,273L440,534Q475,503 519,489.5Q563,476 607,476Q618,476 628,477Q638,478 647,480L612,444Q601,433 601,416Q601,399 612,388Q624,376 640.5,376.5Q657,377 668,388L772,492Q784,504 784,520Q784,536 772,548L668,652Q657,663 640,663Q623,663 612,652Q600,640 600,623.5Q600,607 611,596L647,560Q636,558 625,556.5Q614,555 603,555Q549,555 503.5,585.5Q458,616 440,680L440,800Q440,817 428.5,828.5Q417,840 400,840Z" />
 </vector>

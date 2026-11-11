@@ -78,12 +78,13 @@ public final class ProvidersActivity extends AppCompatActivity {
 
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView icon = Ui.text(this, "⚿", 22, Ui.ACCENT, false);
+        android.widget.ImageView icon = Ui.glyph(this, ai.ibiko.R.drawable.ic_key, Ui.ACCENT, 26);
         head.addView(icon);
         TextView title = Ui.text(this, "AI providers", 26, Ui.TEXT, true);
         title.setPadding(Ui.dp(this, 10), 0, 0, 0);
         head.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView close = Ui.text(this, "✕", 22, Ui.TEXT, false);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 22);
+        close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
         close.setOnClickListener(v -> finish());
         head.addView(close);
@@ -301,6 +302,67 @@ public final class ProvidersActivity extends AppCompatActivity {
             chipsScroll.addView(chips);
             card.addView(chipsScroll, Ui.wide(this, 8));
         }
+        // the provider's own list of models, asked with the key and address above
+        LinearLayout fetchRow = new LinearLayout(this);
+        fetchRow.setGravity(Gravity.CENTER_VERTICAL);
+        android.widget.ImageView fetchIcon = Ui.glyph(this, ai.ibiko.R.drawable.ic_refresh_list, Ui.ACCENT, 20);
+        fetchRow.addView(fetchIcon);
+        TextView fetch = Ui.text(this, "Fetch models from " + p.title, 15, Ui.ACCENT, true);
+        fetch.setPadding(Ui.dp(this, 8), 0, 0, 0);
+        fetchRow.addView(fetch);
+        fetchRow.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
+        fetchRow.setContentDescription("Fetch models from " + p.title);
+        Ui.press(fetchRow);
+        card.addView(fetchRow, Ui.wide(this, 6));
+        final TextView fetchStatus = Ui.text(this, "", 13, Ui.SUB, false);
+        fetchStatus.setVisibility(View.GONE);
+        card.addView(fetchStatus);
+        final LinearLayout fetched = new LinearLayout(this);
+        fetched.setOrientation(LinearLayout.VERTICAL);
+        final ScrollView fetchedScroll = new ScrollView(this);
+        fetchedScroll.addView(fetched);
+        card.addView(fetchedScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        fetchRow.setOnClickListener(v -> {
+            saveAll(); // the key and address as typed now
+            fetchRow.setEnabled(false);
+            fetchStatus.setVisibility(View.VISIBLE);
+            fetchStatus.setText("Asking " + p.title + " for its models\u2026");
+            new Thread(() -> {
+                java.util.List<String> got = null;
+                String why = null;
+                try {
+                    got = store.fetchModels(p);
+                } catch (java.io.IOException e) {
+                    why = e.getMessage();
+                }
+                final java.util.List<String> list = got;
+                final String problem = why;
+                runOnUiThread(() -> {
+                    fetchRow.setEnabled(true);
+                    if (list == null) {
+                        fetchStatus.setText("I couldn't get the list: " + problem + ".");
+                        return;
+                    }
+                    fetchStatus.setText(list.size() + " models. Tap one to use it for real work; long press to keep it in the model menu.");
+                    fetched.removeAllViews();
+                    for (final String m : list) {
+                        TextView pickRow = Ui.text(this, m, 14, Ui.TEXT, false);
+                        pickRow.setPadding(Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10));
+                        pickRow.setOnClickListener(x -> f.model.setText(m));
+                        pickRow.setOnLongClickListener(x -> {
+                            store.addModel(p, m);
+                            android.widget.Toast.makeText(this, m + " is in the model menu now.", android.widget.Toast.LENGTH_SHORT).show();
+                            return true;
+                        });
+                        Ui.press(pickRow);
+                        fetched.addView(pickRow);
+                    }
+                    fetchedScroll.getLayoutParams().height = list.size() > 7 ? Ui.dp(this, 300) : LinearLayout.LayoutParams.WRAP_CONTENT;
+                    fetchedScroll.requestLayout();
+                });
+            }, "ibiko-model-list").start();
+        });
         f.ca = Ui.field(this, "CA certificate (optional)", store.certificate(p), false, true);
         advanced(card, p, f);
         if (p == Providers.ANTHROPIC) {

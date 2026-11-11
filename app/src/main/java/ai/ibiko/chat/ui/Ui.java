@@ -93,6 +93,46 @@ final class Ui {
         return d;
     }
 
+    /**
+     * A Material icon (res/drawable, Material Symbols Rounded) tinted {@code color}, {@code size} dp, with a round
+     * touch ripple and a 48 dp target when it is tapped: the same icon set and the same feedback everywhere.
+     */
+    public static android.widget.ImageView icon(Context c, int res, int color, int size) {
+        android.widget.ImageView v = new android.widget.ImageView(c);
+        v.setImageResource(res);
+        v.setImageTintList(android.content.res.ColorStateList.valueOf(color));
+        v.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        int pad = Math.max(0, (dp(c, 44) - dp(c, size)) / 2);
+        v.setPadding(pad, pad, pad, pad);
+        v.setMinimumWidth(dp(c, 44));
+        v.setMinimumHeight(dp(c, 44));
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(c, size) + 2 * pad, dp(c, size) + 2 * pad));
+        v.setBackground(new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf((color & 0x00FFFFFF) | 0x33000000), null, null));
+        return v;
+    }
+
+    /** An icon shown beside words (no tap of its own): {@code size} dp, tinted, no padding. */
+    public static android.widget.ImageView glyph(Context c, int res, int color, int size) {
+        android.widget.ImageView v = new android.widget.ImageView(c);
+        v.setImageResource(res);
+        v.setImageTintList(android.content.res.ColorStateList.valueOf(color));
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(c, size), dp(c, size)));
+        return v;
+    }
+
+    /**
+     * Touch feedback for a tappable row or card: a ripple over what it already shows, clipped to its rounded shape
+     * (a plain rectangle when it has no background).
+     */
+    public static void press(View v) {
+        android.graphics.drawable.Drawable now = v.getBackground();
+        android.graphics.drawable.Drawable mask = now != null ? now : new android.graphics.drawable.ColorDrawable(0xFFFFFFFF);
+        v.setBackground(new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf((TEXT & 0x00FFFFFF) | 0x22000000), now, mask));
+        v.setClickable(true);
+    }
+
     static TextView text(Context c, String s, float sp, int color, boolean bold) {
         TextView t = new TextView(c);
         t.setText(s);

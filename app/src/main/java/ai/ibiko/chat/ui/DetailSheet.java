@@ -33,7 +33,8 @@ public final class DetailSheet {
         LinearLayout head = new LinearLayout(a);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(Ui.dp(a, 16), Ui.dp(a, 16), Ui.dp(a, 16), Ui.dp(a, 4));
-        TextView close = Ui.text(a, "✕", 20, Ui.TEXT, false);
+        android.widget.ImageView close = Ui.icon(a, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 20);
+        close.setContentDescription("Close");
         close.setPadding(0, 0, Ui.dp(a, 16), 0);
         close.setOnClickListener(v -> dialog.dismiss());
         head.addView(close);

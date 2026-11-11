@@ -173,6 +173,22 @@ public final class ProviderStore {
         return new java.util.ArrayList<String>(out);
     }
 
+    /**
+     * The models this provider offers, from its own list (blocking: call off the main thread). Uses the key and
+     * address saved for it. Throws with the reason when it can't.
+     */
+    public java.util.List<String> fetchModels(Providers p) throws java.io.IOException {
+        String key = key(p);
+        java.util.function.Supplier<String> session = serverSession;
+        if (p == Providers.IBIKO_SERVER && session != null) {
+            key = session.get();
+        }
+        if (key == null || key.isEmpty()) {
+            throw new java.io.IOException("add the API key first");
+        }
+        return ModelList.fetch(protocol(p), address(p), key, ModelList.https(sockets(certificate(p))));
+    }
+
     /** Keeps {@code model} in this provider's list (nothing if it is there or empty). True when it was added. */
     public boolean addModel(Providers p, String model) {
         String m = model == null ? "" : model.trim().replace(",", "");

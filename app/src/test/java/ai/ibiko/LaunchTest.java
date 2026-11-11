@@ -966,7 +966,7 @@ public class LaunchTest {
 
         c.get().findViewById(R.id.tv_header_sub).performClick();
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        assertNotNull(find(sheet.getWindow().getDecorView(), "Learning schedule  \u203A"));
+        assertNotNull(find(sheet.getWindow().getDecorView(), "Learning schedule"));
         ai.ibiko.ibiko1.LearningJob.setPlan(c.get(), new ai.ibiko.ibiko1.LearningSchedule.Plan(true, 23 * 60, 6 * 60, true, true, 40));
         android.app.job.JobScheduler js = c.get().getSystemService(android.app.job.JobScheduler.class);
         org.junit.Assert.assertEquals(1, js.getAllPendingJobs().size());

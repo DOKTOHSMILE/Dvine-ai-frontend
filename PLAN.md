@@ -1,3 +1,11 @@
+# Fetch models from the API; Material icons everywhere (0.99.105)
+
+- [x] llm/ModelList: the provider's own model list, chat models only, the reason when it fails.
+- [x] Fetch buttons in the model menu (Add a model) and in AI providers.
+- [x] Every icon replaced by Material Symbols Rounded (names, sizes and colours kept); Settings section icons.
+- [x] Close buttons, chevrons and the key as icons, not characters; ripples on rows and icons.
+- [ ] Check every screen on a device.
+
 # Several API models in the model menu; Edit beside the one in use (0.99.104)
 
 - [x] ProviderStore keeps a list of models a provider; switching keeps the old one on the list.
