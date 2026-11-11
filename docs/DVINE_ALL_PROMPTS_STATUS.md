@@ -258,6 +258,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 225 | Why only 4 workers when Settings says 8: more workers for different tasks, not just readers | P12 | Fixed (the setting was never read; it now sets workers, readers and writers, up to 16; hands up to 8; JVM tests) | 0.99.72 |
 | 226 | How would the system mark a plan that has been completed? | P12 | Answered (steps ticked "- [x]", phases UNDERSTAND to VERIFY; DONE is never set and ticks carry no date: proposed) | 0.99.72 |
 | 227 | The send button sometimes gets stuck showing the stop sign | P12 | Fixed (redrawn on every stream change and at a job's end; rechecks each second while Stop shows; Robolectric test) | 0.99.73 |
+| 228 | The bot icon is too common: a private, generic and unique icon | P12 | Built (an abstract mark of three petals of light round a spark, in a broken orbit; render test) | 0.99.74 |
 
 ## Still open, in the order that matters
 
