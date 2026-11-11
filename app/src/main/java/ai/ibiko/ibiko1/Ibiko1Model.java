@@ -12,8 +12,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * Ibiko 1's entry point, the same shape as any other model: give it a message, get its reply. It needs no network
  * and no other model; it answers from its built-in knowledge and what it has learned, researches through
- * {@link Plug#web} when one is plugged in, and learns from feedback. Everything lives in this library folder
- * ({@code ibiko1/}), so another app can use it by copying the folder and adding {@code implementation project(':ibiko1')}.
+ * {@link Plug#web} when one is plugged in, and learns from feedback. Its code is this folder and its knowledge the
+ * app's {@code assets/knowledge}; {@code tools/export_ibiko1.sh} puts both into a standalone library folder, which another
+ * app adds with {@code implementation project(':ibiko1')}.
  *
  * <pre>
  * Ibiko1Model brain = new Ibiko1Model(context);          // or new Ibiko1Model(context, dataDir)

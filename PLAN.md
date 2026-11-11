@@ -1,3 +1,10 @@
+# CodeAssist builds again; Ibiko 1 learns how the brains think; professional phrasing (0.99.101)
+
+- [x] Ibiko 1 back in app/src/main/java/ai/ibiko/ibiko1; tools/export_ibiko1.sh makes the library.
+- [x] formulas/Thinking: reasoning moves learned from the live chat, followed in Ibiko 1's own steps.
+- [x] Phrasing: professional, varied "don't know" replies; repeated questions recognised.
+- [ ] If CodeAssist modules are wanted: the owner creates an Android Library module "ibiko1" there and pushes it, so its format can be matched.
+
 # CodeAssist builds again; a faster terminal; a warmer Ibiko 1 (0.99.100)
 
 - [x] module.toml includes Ibiko 1's sources and assets; its job in the app manifest.

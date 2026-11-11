@@ -1,11 +1,11 @@
 """Builds Ibiko's further built-in knowledge (ibiko1/BuiltIn reads every file):
 
-  ibiko1/src/main/assets/knowledge/country_more.tsv   calling code, internet domain, region, ISO codes, UN membership
+  app/src/main/assets/knowledge/country_more.tsv   calling code, internet domain, region, ISO codes, UN membership
       from mledoze/countries (ODbL 1.0, the same source as world_facts.tsv)
-  ibiko1/src/main/assets/knowledge/elements_more.tsv  for the 118 elements: atomic mass, category, state at room
+  app/src/main/assets/knowledge/elements_more.tsv  for the 118 elements: atomic mass, category, state at room
       temperature, discovery, melting and boiling points, density, electron configuration, group and period
       from Bowserinator/Periodic-Table-JSON (CC BY-SA 3.0; this file is shared under the same licence)
-  ibiko1/src/main/assets/knowledge/local_facts.tsv    Nigeria's 36 states and the FCT with their capitals; the eight
+  app/src/main/assets/knowledge/local_facts.tsv    Nigeria's 36 states and the FCT with their capitals; the eight
       planets (order, diameter, year length, kind; NASA figures, public domain). Facts written by the project.
 
 Run from the repository root:  python3 tools/build_more_facts.py   (downloads both sources; needs only Python)
@@ -15,7 +15,7 @@ import json
 import os
 import urllib.request
 
-OUT = "ibiko1/src/main/assets/knowledge"
+OUT = "app/src/main/assets/knowledge"
 COUNTRIES = "https://raw.githubusercontent.com/mledoze/countries/master/countries.json"
 ELEMENTS = "https://raw.githubusercontent.com/Bowserinator/Periodic-Table-JSON/master/PeriodicTableJSON.json"
 

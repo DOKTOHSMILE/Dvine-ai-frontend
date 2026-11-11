@@ -14,5 +14,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Ibiko"
 include ":app"
-// Ibiko 1, Ibiko's own brain, as a library of its own (copy the ibiko1 folder to use it in another app)
-include ":ibiko1"

@@ -12,11 +12,6 @@
           "id": "app",
           "name": "app",
           "dir": "app"
-        },
-        {
-          "id": "ibiko1",
-          "name": "ibiko1",
-          "dir": "ibiko1"
         }
       ],
       "libraries": []

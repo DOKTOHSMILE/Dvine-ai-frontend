@@ -174,6 +174,7 @@ public final class Ibiko1 {
      * with no tap needed. The pilot's check or cross later only makes it stronger or weaker.
      */
     public void learnWay(String request, List<String> shownSteps) {
+        learnThinking(request, String.join(". ", shownSteps)); // the steps' own moves (looked up, compared, checked)
         methods().observe(request, Methods.steps(shownSteps), System.currentTimeMillis());
     }
 
@@ -370,6 +371,9 @@ public final class Ibiko1 {
     public void readReply(String reply) {
         replied = reply != null && !reply.trim().isEmpty();
         learner().read(reply, Learner.Source.MODEL, System.currentTimeMillis());
+        if (replied && lastRequest != null) {
+            learnThinking(lastRequest, reply); // the reasoning written into a reply ("first…, then…, so…")
+        }
     }
 
     /** People's posts and pages: read for language only. */
@@ -395,6 +399,8 @@ public final class Ibiko1 {
         worker = Plug.workers.start(cap(who) + " · " + NAME, t, NAME);
         how = How.OTHER;
         critical = ai.ibiko.ibiko1.formulas.Critical.read(t); // K1–K8: what it asks and what it takes for granted
+        times = Phrasing.heard(t); // a question asked again is answered as a person would, not word for word
+        kind = Methods.kind(t);
         Grammar.Parse parse = Grammar.parse(t);
         final String sum = host.sum(t);
         if (sum != null) {
@@ -525,10 +531,8 @@ public final class Ibiko1 {
         if (!host.online()) {
             LearningJob.remember(host.context(), t);
             learner().unanswered(t, System.currentTimeMillis());
-            think(Arrays.asList("Reading your question", "Checking what I already know"), () -> saysPlain(who,
-                    "I don't know that yet, and there's no internet connection to research it. I've kept the question:"
-                            + " ask me again when you're online" + (LearningJob.plan(host.context()).on
-                                    ? ", or I'll learn it in my next learning session." : ".")));
+            final String offline = Phrasing.unknown(ResearchAnswer.subject(t), false, LearningJob.plan(host.context()).on, times);
+            think(Arrays.asList("Reading your question", "Checking what I already know"), () -> saysPlain(who, offline));
             return;
         }
         final String subject = ResearchAnswer.subject(t);
@@ -563,11 +567,8 @@ public final class Ibiko1 {
                             if (found == null) {
                                 LearningJob.remember(host.context(), t);
                                 learner().unanswered(t, System.currentTimeMillis());
-                                think(Arrays.asList("Nothing I found answers it"), () -> saysPlain(who,
-                                        "I don't know that yet, and what I found didn't answer it. Try asking it another way, or pick an API"
-                                                + " or offline model for this one: I learn from their answers too."
-                                                + (LearningJob.plan(host.context()).on ? " I've also kept it for my next learning session." : "")),
-                                        false);
+                                final String none = Phrasing.unknown(subject, true, LearningJob.plan(host.context()).on, times);
+                                think(Arrays.asList("Nothing I found answers it"), () -> saysPlain(who, none), false);
                                 return;
                             }
                             final String shown = found.shown();
@@ -595,7 +596,8 @@ public final class Ibiko1 {
     }
 
     private void think(List<String> given, final Runnable then, boolean fresh) {
-        final List<String> steps = new ArrayList<String>(given);
+        final List<String> steps = new ArrayList<String>(fresh && kind != null && !given.isEmpty()
+                && given.get(0).startsWith("Reading") ? thinking().steps(kind, given) : given);
         if (fresh && critical != null && !critical.findings.isEmpty() && !steps.isEmpty() && steps.get(0).startsWith("Reading")) {
             steps.add(1, "Questioning what it takes for granted"); // critical reasoning, before any answer
         }
@@ -647,6 +649,32 @@ public final class Ibiko1 {
         says(who, text);
     }
 
+    /** How many times this question was asked before in this run, and its kind (for the learned way of thinking). */
+    private volatile int times;
+    private volatile String kind;
+
+    /**
+     * How the other brains think, learned from the live chat ({@code formulas/Thinking}): Deep Thinking's plan and
+     * review, the working steps, the reasoning in a reply.
+     */
+    public ai.ibiko.ibiko1.formulas.Thinking thinking() {
+        synchronized (this) {
+            if (thinking == null) {
+                thinking = new ai.ibiko.ibiko1.formulas.Thinking(new File(dir, "thinking.tsv"));
+            }
+            return thinking;
+        }
+    }
+
+    private ai.ibiko.ibiko1.formulas.Thinking thinking;
+
+    /** A brain's reasoning for {@code request}, read in the live chat: its moves are learned (T1–T5). */
+    public void learnThinking(String request, String reasoning) {
+        if (request != null && reasoning != null) {
+            thinking().learn(Methods.kind(request), reasoning);
+        }
+    }
+
     /** How the request was read by critical reasoning ({@code formulas/Critical}); set as each message comes in. */
     private volatile ai.ibiko.ibiko1.formulas.Critical.Reading critical;
 
@@ -655,7 +683,8 @@ public final class Ibiko1 {
      * matters, and how sure the answer is from how it was reached (K9), never more.
      */
     private void saysSure(String who, String text, ai.ibiko.ibiko1.formulas.Critical.Ground ground) {
-        String notes = ai.ibiko.ibiko1.formulas.Critical.notes(critical);
+        String notes = times > 0 ? "" : ai.ibiko.ibiko1.formulas.Critical.notes(critical); // the notes once, not every time
+        text = Phrasing.again(text, times);
         says(who, text + (notes.isEmpty() ? "" : "\n\n" + notes) + "\n" + ai.ibiko.ibiko1.formulas.Critical.sure(ground));
     }
 

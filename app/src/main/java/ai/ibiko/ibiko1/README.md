@@ -15,18 +15,18 @@ Ibiko 1 is Ibiko's own language brain. It runs inside any Android app, with no n
 
   Every answer says the values it rests on, a false premise is corrected rather than explained, and nothing is invented. The rules are in `docs/FORMULAS.md`.
 
-Everything it needs is in this folder:
+Inside Ibiko it lives in the app's own sources (this folder) and its knowledge in `app/src/main/assets/knowledge/`, so every builder (CodeAssist on the device included) builds it with the app. `sh tools/export_ibiko1.sh [out]` puts it all together as a standalone library folder (default `build/ibiko1`):
 
 | Path | What it holds |
 |---|---|
-| `src/main/java/ai/ibiko/ibiko1/` | The model: `Ibiko1` (the brain), `Ibiko1Model` (the entry point), `formulas/` (grammar, commands, truth, foresight, …), `comprehend/` (dictionary and concepts), `learner/` |
+| `src/main/java/ai/ibiko/ibiko1/` (this folder) | The model: `Ibiko1` (the brain), `Ibiko1Model` (the entry point), `formulas/` (grammar, commands, truth, foresight, …), `comprehend/` (dictionary and concepts), `learner/` |
 | `src/main/assets/knowledge/` | Its built-in knowledge and their licences |
 | `src/main/AndroidManifest.xml` | Its night-learning job |
 | `build.gradle` | An Android library (minSdk 34, Java 17, no dependencies) |
 
 ## Use it in an app
 
-1. Copy this folder next to your app module.
+1. Run `sh tools/export_ibiko1.sh`, then copy `build/ibiko1` next to your app module.
 2. In `settings.gradle`, add `include ":ibiko1"`.
 3. In the app's `build.gradle`, add `implementation project(':ibiko1')`.
 
@@ -58,4 +58,4 @@ To show working steps and right or wrong buttons, implement `Ibiko1.Host` and cr
 
 ## Tests
 
-Its tests are in the app for now (`app/src/test/java/ai/ibiko/ibiko1/`), including `Ibiko1ModelTest` for the entry point.
+Its tests are in `app/src/test/java/ai/ibiko/ibiko1/`, including `Ibiko1ModelTest` for the entry point.

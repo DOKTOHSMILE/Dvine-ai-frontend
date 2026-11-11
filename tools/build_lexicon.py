@@ -1,4 +1,4 @@
-"""Builds Ibiko's offline dictionary, ibiko1/src/main/assets/knowledge/lexicon.tsv, from Open English WordNet 2024
+"""Builds Ibiko's offline dictionary, app/src/main/assets/knowledge/lexicon.tsv, from Open English WordNet 2024
 (https://github.com/globalwordnet/english-wordnet, CC BY 4.0).
 
 Run from the repository root:  python3 tools/build_lexicon.py [english-wordnet-2024.xml.gz]   (downloads it if not given)
@@ -13,7 +13,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 URL = "https://github.com/globalwordnet/english-wordnet/releases/download/2024-edition/english-wordnet-2024.xml.gz"
-OUT = "ibiko1/src/main/assets/knowledge/lexicon.tsv"
+OUT = "app/src/main/assets/knowledge/lexicon.tsv"
 POS = {"n": "noun", "v": "verb", "a": "adjective", "s": "adjective", "r": "adverb"}
 src = sys.argv[1] if len(sys.argv) > 1 else "/tmp/english-wordnet-2024.xml.gz"
 if not os.path.exists(src):

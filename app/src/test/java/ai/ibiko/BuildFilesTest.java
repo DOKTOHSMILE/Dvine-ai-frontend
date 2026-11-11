@@ -39,12 +39,12 @@ public class BuildFilesTest {
         }
     }
 
-    /** CodeAssist builds one module: Ibiko 1's code and knowledge are listed in it, and its job is in the app's manifest. */
+    /** CodeAssist builds one module: Ibiko 1 is in it (its own folder in the app's sources), its job in the manifest. */
     @org.junit.Test
     public void codeAssistBuildsIbiko1InTheApp() throws Exception {
-        String toml = read("module.toml");
-        org.junit.Assert.assertTrue(toml.contains("\"../ibiko1/src/main/java\""));
-        org.junit.Assert.assertTrue(toml.contains("\"../ibiko1/src/main/assets\""));
+        org.junit.Assert.assertTrue(new File(new File("src/main/java/ai/ibiko/ibiko1").isDirectory() ? "src/main/java/ai/ibiko/ibiko1"
+                : "app/src/main/java/ai/ibiko/ibiko1", "Ibiko1Model.java").isFile());
+        org.junit.Assert.assertFalse("no source folder outside the module", read("module.toml").contains("../"));
         org.junit.Assert.assertTrue(read("src/main/AndroidManifest.xml").contains("ai.ibiko.ibiko1.LearningJob"));
     }
 }

@@ -4246,11 +4246,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 // deep thinking, switched on for this chat: the same brain plans, drafts, checks and revises
                 raw = ai.ibiko.suit.DeepThink.think((sys, prompt) -> model.task(sys, prompt, length, null), system,
                         context + "\n\nThe user says: " + english, 3,
-                        (pass, result) -> handler.post(() -> {
-                            if (alive(id)) {
-                                activity(pass);
+                        (pass, result) -> {
+                            if (result != null && !result.isEmpty() && (pass.startsWith("Understood") || pass.startsWith("Reviewed"))) {
+                                ibiko1().learnThinking(english, result); // Ibiko 1 learns how the brain thought it through
                             }
-                        }), () -> !alive(id));
+                            handler.post(() -> {
+                                if (alive(id)) {
+                                    activity(pass);
+                                }
+                            });
+                        }, () -> !alive(id));
                 if (raw != null) {
                     sink.onText(raw);
                 }

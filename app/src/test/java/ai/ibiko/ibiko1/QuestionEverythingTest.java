@@ -14,7 +14,7 @@ import org.junit.Test;
 /** G8: every piece of data, in and out, asked "is this true or false?". */
 public class QuestionEverythingTest {
     private static BuiltIn world() throws Exception {
-        return new BuiltIn(new FileInputStream("../ibiko1/src/main/assets/knowledge/world_facts.tsv"));
+        return new BuiltIn(new FileInputStream("src/main/assets/knowledge/world_facts.tsv"));
     }
 
     private static Verdict v(BuiltIn b, String s) {
