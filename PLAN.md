@@ -1,3 +1,7 @@
+# Settings split into pages (0.99.88)
+
+- [x] Settings opens as a list of sections; each section is its own page, built only when opened.
+
 # Facts about the app under the download (0.99.87)
 
 - [x] A slow, looping roll of facts about Ibiko under the running line; the download is never slowed.

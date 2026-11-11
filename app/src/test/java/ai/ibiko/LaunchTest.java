@@ -295,7 +295,12 @@ public class LaunchTest {
             // the sections are closed until tapped: open Models first
             c.get().getWindow().getDecorView().findViewsWithText(found, "Models", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
             org.junit.Assert.assertFalse(found.isEmpty());
-            found.get(0).performClick();
+            found.get(0).performClick(); // Models opens on its own page
+            android.content.Intent page = org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity();
+            org.junit.Assert.assertEquals("Models", page.getStringExtra(ai.ibiko.chat.ui.SettingsActivity.EXTRA_SECTION));
+            c.pause().stop().destroy();
+            c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.class, page).create().start().resume().visible();
+            ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
             found.clear();
             c.get().getWindow().getDecorView().findViewsWithText(found, "Change the offline model", android.view.View.FIND_VIEWS_WITH_TEXT);
             org.junit.Assert.assertFalse(found.isEmpty());
