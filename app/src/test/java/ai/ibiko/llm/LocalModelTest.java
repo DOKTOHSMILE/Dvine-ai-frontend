@@ -243,4 +243,15 @@ public class LocalModelTest {
         assertTrue(fitted.contains("earlier work left out to fit the device's model"));
         assertEquals("short", LocalModel.fit("short", 6000)); // what fits is untouched
     }
+
+    /** An everyday message takes the speed test's lane on the device; real work still gets the examples and context. */
+    @Test
+    public void everydayMessagesTakeTheQuickLane() throws Exception {
+        LocalModel m = new LocalModel(Files.createTempDirectory("ibiko-quick").toFile(), ModelSpec.QWEN3_0_6B, true);
+        assertTrue(m.quick("Good morning, how are you?", 160));
+        assertFalse(m.quick("```java\nclass A {}\n``` why does this not compile?", 160));
+        // not installed: nothing to prepare, and no crash
+        assertFalse(m.prepare("You are Ibiko.", 2));
+        assertEquals(null, m.speedTest(ModelSpec.QWEN3_1_7B, 2, 8));
+    }
 }

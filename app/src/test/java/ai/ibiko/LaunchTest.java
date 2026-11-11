@@ -300,6 +300,7 @@ public class LaunchTest {
                 .create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         ai.ibiko.llm.ModelHub hub = ai.ibiko.llm.ModelHub.get(c.get());
+        java.io.File phi = null;
         try {
             java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
             // the sections are closed until tapped: open Models first
@@ -312,47 +313,34 @@ public class LaunchTest {
             c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.screen(page), page).create().start().resume().visible();
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
             found.clear();
-            c.get().getWindow().getDecorView().findViewsWithText(found, "Change the offline model", android.view.View.FIND_VIEWS_WITH_TEXT);
-            org.junit.Assert.assertFalse(found.isEmpty());
-            android.view.View v = found.get(0);
-            while (!v.hasOnClickListeners()) {
-                v = (android.view.View) v.getParent();
+            // every offline model is listed, not folded: one not here has Download
+            assertNotNull(described(c.get().getWindow().getDecorView(), "Download Qwen3 8B"));
+            assertNotNull(described(c.get().getWindow().getDecorView(), "Download Phi-4 mini"));
+            // a downloaded one has Use and Test (a sparse file of the full size stands in for the download)
+            phi = new java.io.File(hub.model.file().getParentFile(), ai.ibiko.llm.ModelSpec.PHI_4_MINI.file);
+            phi.getParentFile().mkdirs();
+            try (java.io.RandomAccessFile f = new java.io.RandomAccessFile(phi, "rw")) {
+                f.setLength(ai.ibiko.llm.ModelSpec.PHI_4_MINI.bytes);
             }
-            v.performClick();
+            c.pause().resume();
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-            // first the family, then its size
-            android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-            for (String name : new String[]{"Qwen3", "Llama 3.2", "Gemma 3", "Phi-4", "Sizes: 0.6B \u00B7 1.7B \u00B7 4B \u00B7 8B. In use: 1.7B."}) {
-                sheet.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), name,
-                        android.view.View.FIND_VIEWS_WITH_TEXT);
-                org.junit.Assert.assertFalse(name, found.isEmpty());
-            }
-            tapRow(sheet, "Qwen3");
-            android.app.Dialog sizes = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-            for (String name : new String[]{"Qwen3 0.6B", "Qwen3 1.7B  \u00B7 in use", "Qwen3 4B", "Qwen3 8B"}) {
-                sizes.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), name,
-                        android.view.View.FIND_VIEWS_WITH_TEXT);
-                org.junit.Assert.assertFalse(name, found.isEmpty());
-            }
-            sizes.dismiss();
-            tapRow(sheet, "Phi-4");
-            tapRow(org.robolectric.shadows.ShadowDialog.getLatestDialog(), "Phi-4 mini");
+            assertNotNull(described(c.get().getWindow().getDecorView(), "Test the speed of Phi-4 mini"));
+            described(c.get().getWindow().getDecorView(), "Use Phi-4 mini").performClick();
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
             org.junit.Assert.assertSame(ai.ibiko.llm.ModelSpec.PHI_4_MINI, hub.chosen()); // shown at once
             hub.worker.submit(() -> { }).get(5, java.util.concurrent.TimeUnit.SECONDS); // the switch itself, on the model's thread
             org.junit.Assert.assertSame(ai.ibiko.llm.ModelSpec.PHI_4_MINI, hub.model.spec);
             c.get().getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "On this device: Phi-4 mini",
                     android.view.View.FIND_VIEWS_WITH_TEXT);
-            org.junit.Assert.assertEquals(1, found.size()); // the card names the new model, with Download under it
+            org.junit.Assert.assertEquals(1, found.size()); // the card names the model now in use
+            assertNotNull(described(c.get().getWindow().getDecorView(), "Phi-4 mini is in use"));
             // a model on the phone is listed with Delete, to free the space
             java.io.File kept = new java.io.File(hub.model.file().getParentFile(), ai.ibiko.llm.ModelSpec.QWEN3_4B.file);
             kept.getParentFile().mkdirs();
             java.nio.file.Files.write(kept.toPath(), new byte[2048]);
             c.pause().resume(); // the card is filled again
             ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-            // every offline model is listed, folded until opened: downloaded ones with Delete, the rest with Download
-            described(c.get().getWindow().getDecorView(), "All offline models").performClick();
-            assertNotNull(described(c.get().getWindow().getDecorView(), "Download Qwen3 8B"));
+            // a part-download is listed with Delete, to free the space
             android.view.View delete = described(c.get().getWindow().getDecorView(), "Delete Qwen3 4B");
             assertNotNull(delete);
             delete.performClick();
@@ -364,6 +352,9 @@ public class LaunchTest {
             }
             org.junit.Assert.assertFalse(kept.exists());
         } finally {
+            if (phi != null) {
+                phi.delete();
+            }
             hub.choose(c.get(), ai.ibiko.llm.ModelSpec.QWEN3_1_7B, false);
             hub.worker.submit(() -> { }).get(5, java.util.concurrent.TimeUnit.SECONDS);
             c.pause().stop().destroy();

@@ -191,12 +191,12 @@ public class SettingsActivity extends AppCompatActivity {
         LinearLayout voice = voiceBox;
         voice.removeAllViews();
         voice.addView(Ui.text(this, "Voice", 16, Ui.TEXT, false), Ui.wide(this, 14));
-        voice.addView(choice(new String[]{"A man's voice", "A woman's voice"}, new String[]{"male", "female"},
+        voice.addView(choice(new String[]{"A man's voice", "A woman's voice", "A child's voice"}, new String[]{"male", "female", "child"},
                 prefs.getString("voice_gender", "male"), k -> {
                     prefs.edit().putString("voice_gender", k).apply();
                     fillVoice();
                 }), Ui.wide(this, 10));
-        final boolean woman = "female".equals(prefs.getString("voice_gender", "male"));
+        final boolean woman = !"male".equals(prefs.getString("voice_gender", "male")); // a child's voice is a light woman's voice, higher
         final java.io.File files = getFilesDir();
         // which voice speaks
         java.util.List<String> labels = new java.util.ArrayList<String>(), keys = new java.util.ArrayList<String>();
@@ -695,13 +695,15 @@ public class SettingsActivity extends AppCompatActivity {
 
     protected LinearLayout onPhone;
 
-    /** Every model on the phone (whole or part-downloaded) with its size and a Delete, to free the space. */
-    /** The full list of offline models is folded until opened, so Settings stays short. */
-    protected boolean modelsOpen;
+    /** What Test measured for each model this visit (by file), shown under its row. */
+    protected final java.util.Map<String, String> tested = new java.util.HashMap<String, String>();
+
+    /** The model a Test is running on (its file), or null. One at a time: they share the device. */
+    protected String testing;
 
     /**
-     * Every offline model Ibiko offers, downloaded or not: its size, the memory it needs (against this device's) and
-     * its state. A downloaded one has Use and Delete; one not yet here has Download. Folded behind one row.
+     * Every offline model Ibiko offers, always listed: its size, the memory it wants (against this device's) and its
+     * state. A downloaded one has Use and Test, and a Delete link; one not here has Download (or Resume).
      */
     protected void fillOnPhone() {
         if (onPhone == null) {
@@ -714,70 +716,63 @@ public class SettingsActivity extends AppCompatActivity {
                 here++;
             }
         }
-        final TextView head = Ui.text(this, "All offline models (" + here + " on this device)  " + (modelsOpen ? "⌃" : "⌄"),
-                15, Ui.ACCENT, false);
-        head.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 10));
-        head.setContentDescription("All offline models");
-        head.setOnClickListener(v -> {
-            modelsOpen = !modelsOpen;
-            fillOnPhone();
-        });
+        TextView head = Ui.text(this, "Offline models (" + here + " on this device)", 16, Ui.TEXT, true);
+        head.setPadding(0, Ui.dp(this, 18), 0, Ui.dp(this, 4));
         onPhone.addView(head);
-        if (!modelsOpen) {
-            return;
-        }
         long ram = phoneMemoryGb();
-        if (ram > 0) {
-            onPhone.addView(Ui.text(this, "This device has " + ram + " GB of memory. A model that wants more may not start, and a"
-                    + " big one makes the device slow and warm.", 12, Ui.SUB, false), Ui.wide(this, 2));
-        }
+        onPhone.addView(Ui.text(this, "Bigger answers better, smaller is faster. Test runs the same question on a model and"
+                + " measures it." + (ram > 0 ? " This device has " + ram + " GB of memory: a model that wants more may not"
+                + " start, and a big one makes the device slow and warm." : ""), 12, Ui.SUB, false), Ui.wide(this, 2));
         for (final ai.ibiko.llm.ModelSpec m : ai.ibiko.llm.ModelSpec.ALL) {
             final long bytes = hub.model.onPhone(m);
             final boolean has = hub.model.has(m);
             final boolean using = m.file.equals(hub.chosen().file);
             final boolean tooBig = ram > 0 && ram < m.ramGb;
-            LinearLayout row = new LinearLayout(this);
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setMinimumHeight(Ui.dp(this, 64));
-            row.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
-            LinearLayout words = new LinearLayout(this);
-            words.setOrientation(LinearLayout.VERTICAL);
-            words.addView(Ui.text(this, m.weights + (using ? "  ·  in use" : ""), 15, Ui.TEXT, using));
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 4));
+            item.addView(Ui.text(this, m.weights + (using ? "  \u00B7  in use" : ""), 15, Ui.TEXT, using));
             String state = has ? "Downloaded" : bytes > 0 ? "Part downloaded (" + bytes(bytes) + ")" : "Not downloaded";
-            words.addView(Ui.text(this, String.format(java.util.Locale.US, "%.1f GB", m.bytes / 1e9) + "  ·  needs "
-                    + m.ramGb + " GB memory  ·  " + state, 12, tooBig ? Ui.CORAL : Ui.SUB, false));
+            item.addView(Ui.text(this, String.format(java.util.Locale.US, "%.1f GB", m.bytes / 1e9) + "  \u00B7  needs "
+                    + m.ramGb + " GB memory  \u00B7  " + state, 12, tooBig ? Ui.CORAL : Ui.SUB, false));
             if (m.about != null && !m.about.isEmpty()) {
-                words.addView(Ui.text(this, m.about, 12, Ui.SUB, false));
+                item.addView(Ui.text(this, m.about, 12, Ui.SUB, false));
             }
-            row.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            LinearLayout buttons = new LinearLayout(this);
+            buttons.setGravity(android.view.Gravity.CENTER_VERTICAL);
             if (has) {
-                if (!using) {
-                    TextView use = Ui.text(this, "Use", 15, Ui.ACCENT, true);
-                    use.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12));
-                    use.setContentDescription("Use " + m.weights);
-                    use.setOnClickListener(v -> pick(m));
-                    row.addView(use);
-                }
-                TextView delete = Ui.text(this, "Delete", 15, Ui.CORAL, true);
-                delete.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
-                delete.setContentDescription("Delete " + m.weights);
-                delete.setOnClickListener(v -> deleteModel(m, bytes, using));
-                row.addView(delete);
+                TextView use = Ui.button(this, using ? "In use" : "Use", !using);
+                use.setEnabled(!using);
+                use.setContentDescription(using ? m.weights + " is in use" : "Use " + m.weights);
+                use.setOnClickListener(v -> pick(m));
+                buttons.addView(use, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                boolean busy = m.file.equals(testing);
+                TextView test = Ui.button(this, busy ? "Testing\u2026" : "Test", false);
+                test.setEnabled(testing == null);
+                test.setContentDescription("Test the speed of " + m.weights);
+                test.setOnClickListener(v -> speedTest(m));
+                LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                tp.leftMargin = Ui.dp(this, 10);
+                buttons.addView(test, tp);
             } else {
-                TextView get = Ui.text(this, bytes > 0 ? "Resume" : "Download", 15, Ui.ACCENT, true);
-                get.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
+                TextView get = Ui.button(this, bytes > 0 ? "Resume" : "Download", true);
                 get.setContentDescription("Download " + m.weights);
                 get.setOnClickListener(v -> downloadModel(m, tooBig, ram));
-                row.addView(get);
-                if (bytes > 0) {
-                    TextView delete = Ui.text(this, "Delete", 15, Ui.CORAL, true);
-                    delete.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
-                    delete.setContentDescription("Delete " + m.weights);
-                    delete.setOnClickListener(v -> deleteModel(m, bytes, using));
-                    row.addView(delete);
-                }
+                buttons.addView(get, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             }
-            onPhone.addView(row);
+            if (has || bytes > 0) {
+                TextView delete = Ui.text(this, "Delete", 15, Ui.CORAL, true);
+                delete.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12));
+                delete.setContentDescription("Delete " + m.weights);
+                delete.setOnClickListener(v -> deleteModel(m, bytes, using));
+                buttons.addView(delete);
+            }
+            item.addView(buttons, Ui.wide(this, 10));
+            String result = tested.get(m.file);
+            if (result != null) {
+                item.addView(Ui.text(this, result, 13, Ui.SUB, false), Ui.wide(this, 6));
+            }
+            onPhone.addView(item);
         }
     }
 
@@ -829,28 +824,47 @@ public class SettingsActivity extends AppCompatActivity {
      * and how many tokens a second it writes. The same question every time, so models and memory sizes compare.
      */
     protected void speedTest() {
-        if (!hub.model.installed()) {
-            toast("Download " + hub.chosen().weights + " first.");
+        speedTest(hub.chosen());
+    }
+
+    /** Test on one model's row: the same question, measured; the result is shown under that row. */
+    protected void speedTest(final ai.ibiko.llm.ModelSpec m) {
+        if (!hub.model.has(m)) {
+            toast("Download " + m.weights + " first.");
             return;
         }
-        speed.setVisibility(View.VISIBLE);
-        speed.setText("Testing " + hub.chosen().weights + "\u2026 (up to a minute)");
+        if (testing != null) {
+            return;
+        }
+        if (hub.downloading()) {
+            toast("A download is running: test when it is done, so the result is fair.");
+            return;
+        }
+        testing = m.file;
+        tested.put(m.file, "Testing " + m.weights + "\u2026 (up to a minute)");
+        fillOnPhone();
+        final SharedPreferences p = getSharedPreferences("ibiko", MODE_PRIVATE);
+        final int threads = ai.ibiko.chat.Tuning.modelThreads(p);
         new Thread(() -> {
-            hub.model.context(ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(getSharedPreferences("ibiko", MODE_PRIVATE)));
-            ai.ibiko.llm.ModelGuard guard = new ai.ibiko.llm.ModelGuard(getSharedPreferences("ibiko", MODE_PRIVATE));
-            guard.loading(hub.chosen().file);
+            boolean inUse = m.file.equals(hub.chosen().file);
+            if (inUse) {
+                hub.model.context(ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(p));
+            }
+            ai.ibiko.llm.ModelGuard guard = new ai.ibiko.llm.ModelGuard(p);
+            guard.loading(m.file);
             ai.ibiko.llm.ReplyService.hold(this);
             LocalModel.Speed s;
             try {
-                s = hub.model.speedTest(ai.ibiko.chat.Tuning.modelThreads(getSharedPreferences("ibiko", MODE_PRIVATE)), 96);
+                s = hub.model.speedTest(m, threads, 96);
             } finally {
                 ai.ibiko.llm.ReplyService.release(this);
             }
             guard.loaded();
+            final String words = s == null ? "The test couldn't run: " + hub.model.problem()
+                    : s.words() + " " + threads + " threads (Settings \u203A Advanced \u203A Offline model threads).";
             runOnUiThread(() -> {
-                speed.setText(s == null ? "The test couldn't run: " + hub.model.problem()
-                        : s.words() + " " + ai.ibiko.chat.Tuning.modelThreads(getSharedPreferences("ibiko", MODE_PRIVATE))
-                        + " threads (Settings \u203A Advanced \u203A Offline model threads).");
+                testing = null;
+                tested.put(m.file, words);
                 refreshModel();
             });
         }, "ibiko-speed-test").start();

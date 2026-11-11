@@ -1,3 +1,13 @@
+# A child's voice; reply audio made ahead; the Models list; a faster device model in chat (0.99.103)
+
+- [x] "A child's voice": Kokoro's Sky with the pitch raised at playback (Kokoro has no child speaker).
+- [x] voice/SpeechCache: each sentence's audio kept a day (60 MB cap), then cleared and made again on Listen.
+- [x] A reply's audio is made while it is read (Settings › Voice, on by default).
+- [x] Models: every model listed; Use and Test for downloaded ones; Download for the rest; Delete as a link.
+- [x] LocalModel.prepare: the model loads and reads its instructions when typing starts.
+- [x] Everyday messages on the device's model take the speed test's lane (no learned examples, 400 characters of context).
+- [ ] Measure chat's first word against Test on a device.
+
 # Deep diagnosis; data analysis; no pause at full stops; Ibiko speaks for itself (0.99.102)
 
 - [x] agent/Diagnosis: the map (D1–D10), the report format, and every claim checked against the files.

@@ -2022,6 +2022,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         boolean words = field != null && field.getText() != null && field.getText().toString().trim().length() > 0;
         boolean files = attachments != null && !attachments.isEmpty();
+        if (words) {
+            prepareModel(); // the model gets ready while the message is typed
+        }
         boolean here = thisChatBusy();
         send.setEnabled(here || words || files);
         // while this chat's work runs, an empty box shows Stop; another chat stays a normal Send
@@ -2268,6 +2271,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** What goes with a question to the device's own model: the most useful part only (it is read before the first word). */
     static final int DEVICE_CONTEXT_CHARS = 1500;
+
+    /** The same for an everyday message (a greeting, a short question): about a hundred tokens. */
+    static final int QUICK_CONTEXT_CHARS = 400;
 
     String suitCodes(String persona) {
         java.util.Set<ai.ibiko.suit.FunctionCode> allowed = chatTools(persona).allowedCodes();
@@ -2563,10 +2569,33 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (model == null || !model.localReady() || model.remoteOn() || stage == null || isFinishing()) {
             return;
         }
+        modelPrepared = 0; // just loaded: read the instructions now, whenever the last typing was
+        prepareModel();
+    }
+
+    /** When the device's model was last made ready for a message being typed. */
+    long modelPrepared;
+
+    /**
+     * The user started typing: the device's model is made ready now (loaded again if the app was away, its
+     * instructions read), as each reply's audio is made while it is read, so Send waits only for the new words.
+     * Once in a while, not on every key.
+     */
+    void prepareModel() {
+        if (model == null || model.remoteOn() || ibikoOwn() || !model.installed() || stage == null || isFinishing()
+                || !prefs.getBoolean("llm_on", true) || model.working()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - modelPrepared < 20_000) {
+            return;
+        }
+        modelPrepared = now;
         // the one prompt every message now uses (the persona with the orders it may give): read once, ahead of time.
         // The separate routing prompt is gone, so it is not read into memory any more
         final String persona = systemFor(stage.agent(), true);
-        hub.worker.execute(() -> model.warm(persona));
+        final int threads = ai.ibiko.chat.Tuning.modelThreads(prefs);
+        hub.worker.execute(() -> model.prepare(persona, threads));
     }
 
     void carryOut(String agent, String question, ai.ibiko.llm.BrainOrder order) {
@@ -4191,7 +4220,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     + "\n" + cortex().context(english) // Ibiko's reading of the message and any exact arithmetic
                     + pilotProfile().brief() // what the pilot said about themselves, for every brain
                     + (pageTools.brief().isEmpty() ? "" : "\n" + pageTools.brief());
-            if (!model.remoteOn() && gathered.length() > DEVICE_CONTEXT_CHARS) {
+            if (!model.remoteOn() && model.quick(english, 160) && gathered.length() > QUICK_CONTEXT_CHARS) {
+                // an everyday message goes the speed test's way: little to read before the first word
+                gathered = gathered.substring(0, QUICK_CONTEXT_CHARS);
+            } else if (!model.remoteOn() && gathered.length() > DEVICE_CONTEXT_CHARS) {
                 // the device's model reads all of it before its first word: what is said about this question first
                 // (taught facts, the reference, the situation), the rest cut
                 gathered = gathered.substring(0, DEVICE_CONTEXT_CHARS);
@@ -4398,6 +4430,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 } else {
                     // a reply that says it sent, saved or posted something when nothing was done says so plainly
                     body = ai.ibiko.gate.ClaimGuard.check(body, false);
+                    if (talk != null && !speakReply() && prefs.getBoolean("voice_prepare", true)) {
+                        // the reply's audio is made in the background while it is read on the screen (kept for a day)
+                        talk.prepareAll(body);
+                    }
                     TurnLine said = new TurnLine(agent, "SAY", body);
                     if (spokeLive) {
                         spokenLive.add(said);
