@@ -73,3 +73,13 @@ by itself" shows them and forgets them.
 - C4 A question becomes tags; the tags pull ids; each id scores the sum over shared tags of log(1 + all / filed under the tag), so a rare tag counts more.
 - C5 At least two shared tags (one when nothing has two), at most a few ids, best first.
 - C6 Only those sentences are read back, with their codes, in the order they were said.
+
+
+## Intake: a message during a running job (agent/Intake, 0.99.113)
+
+- I1 CHAT (thanks, okay, hello): answered in a word; nothing reaches the job.
+- I2 QUESTION (a question mark, or what/how/why/is/can…): answered beside the job; the plan is not touched.
+- I3 REQUEST (an errand not about the job: no shared subject word, no project word): handled on its own, beside the job.
+- I4 STEER (stop, skip, focus on, first do, faster, don't push…): a note to the job; no re-planning.
+- I5 PLAN_CHANGE (add/also/include/change/use/instead…, "it should…", "what if we…", "can you also…?" about the job): into PLAN.md as new steps.
+- I6 Unsure: shares the job's subject → a note (I4); otherwise its own errand (I3).

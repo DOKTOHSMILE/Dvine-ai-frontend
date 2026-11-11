@@ -586,6 +586,50 @@ public final class CodeAgent {
             + "Never claim you pushed or opened a pull request unless the tool's result says so; quote the commit or the link."
             + " A result that starts with Error means it did not happen.\n";
 
+    /**
+     * Notes the user sent while this job runs, each already sorted (Intake): only a change to the project goes into
+     * the plan (the blueprint goes back to CHECK for it); a note on how to work is read and the job goes on as planned,
+     * without re-planning. Questions and separate requests never reach the job: they are answered beside it.
+     */
+    private void takeNotes(String incoming) {
+        for (String note : incoming.split("(?=" + Intake.PLAN.trim() + "|" + Intake.STEER.trim() + ")")) {
+            String n = note.trim();
+            if (n.isEmpty()) {
+                continue;
+            }
+            boolean planned = n.startsWith(Intake.PLAN.trim());
+            boolean steered = n.startsWith(Intake.STEER.trim());
+            String said = n.replaceFirst("^\u27E6(plan|steer)\u27E7\s*", "").trim();
+            if (!planned && !steered) {
+                // not sorted on the way in (an older path): a change to the project still goes to the plan; anything
+                // else is read and the same task goes on, as before
+                if (Intake.sort(said, task) != Intake.Kind.PLAN_CHANGE || blueprint == null
+                        || blueprint.phase() == Blueprint.Phase.UNDERSTAND) {
+                    work.append("\n<user>\nThe user sent this while you were working. Read it and continue the same task."
+                            + " Do not stop the task and do not start over.\n").append(said).append("\n</user>\n");
+                    host.step("Reading what you just sent");
+                    continue;
+                }
+                planned = true;
+            }
+            if (planned && blueprint != null && blueprint.phase() != Blueprint.Phase.UNDERSTAND) {
+                // a change to the project: into the blueprint, checked again, then building goes on where it was
+                blueprint.reopen();
+                work.append("\n<user>\n").append(Blueprint.CHANGE).append("\n").append(said).append("\n</user>\n");
+                host.step("Adding your change to the plan");
+            } else if (planned) {
+                work.append("\n<user>\nThe user added this to the task while you were working. Include it in the work;"
+                        + " do not start over.\n").append(said).append("\n</user>\n");
+                host.step("Adding your change to the work");
+            } else {
+                work.append("\n<user>\nA note from the user on how to go about the work. Follow it from your next step."
+                        + " Do not re-plan, do not edit the plan file for it, and do not start over.\n")
+                        .append(said).append("\n</user>\n");
+                host.step("Reading your note");
+            }
+        }
+    }
+
     /** Works on the task; the final answer for the user (without a "Ibiko:" label a small model copies from the chat). */
     public String run(String task, String earlier) {
         diagnosing = Diagnosis.applies(task) && depth == 0;
@@ -670,17 +714,7 @@ public final class CodeAgent {
             }
             String incoming = host.steer();
             if (incoming != null && !incoming.trim().isEmpty()) {
-                if (blueprint != null && blueprint.phase() != Blueprint.Phase.UNDERSTAND) {
-                    // an addition mid-task: into the blueprint, checked again, then building goes on where it was
-                    blueprint.reopen();
-                    work.append("\n<user>\n").append(Blueprint.CHANGE).append("\n").append(incoming.trim()).append("\n</user>\n");
-                    host.step("Adding what you just sent to the blueprint");
-                } else {
-                    work.append("\n<user>\nThe user sent this while you were working. Read it and continue the same task."
-                            + " Do not stop the task and do not start over.\n")
-                            .append(incoming.trim()).append("\n</user>\n");
-                    host.step("Reading what you just sent");
-                }
+                takeNotes(incoming);
                 saved();
             }
             String reply = brain.ask(system(), trimmed(work.toString()));

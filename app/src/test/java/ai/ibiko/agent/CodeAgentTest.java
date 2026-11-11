@@ -630,4 +630,17 @@ public class CodeAgentTest {
         goOn.run("continue", "user: push the fixes to the repo in batches");
         assertTrue("carrying on keeps shipping", goOn.system().contains("SHIP IN BATCHES"));
     }
+
+    /** A note on how to work reaches the job without re-planning; only a sorted plan change reopens the plan. */
+    @Test
+    public void onlyAPlanChangeReopensThePlan() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Phone phone = new Phone();
+        phone.steerOnSecond = Intake.STEER + "focus on the api folder first";
+        CodeAgent agent = new CodeAgent(ws, new Script("<tool name=\"list_files\" path=\".\"/>", "Done."), phone, "", 20_000);
+        agent.run("audit the code", "");
+        String work = agent.work();
+        assertTrue(work, work.contains("A note from the user on how to go about the work") && work.contains("focus on the api"));
+        org.junit.Assert.assertFalse("not added to the plan", work.contains("Add it to PLAN.md"));
+    }
 }
