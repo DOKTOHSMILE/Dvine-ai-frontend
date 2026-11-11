@@ -137,6 +137,7 @@ public final class NeuralVoice {
     public void stop() {
         epoch++;
         queue.removeIf(i -> i.epoch >= 0);
+        ready2play.clear();
         AudioTrack t = track;
         if (t != null) {
             try {
@@ -169,7 +170,7 @@ public final class NeuralVoice {
                     it.events.onError(it.id);
                     continue;
                 }
-                say(it);
+                make(it);
             }
         } catch (InterruptedException ended) {
             // shut down
@@ -238,9 +239,132 @@ public final class NeuralVoice {
     private long totalWritten;
     private int playedEpoch = -1;
 
-    private void say(Item it) {
+    /** One sentence's sound, made in full, waiting to be played. */
+    private static final class Clip {
+        final Item item;
+        final float[] samples;
+
+        Clip(Item item, float[] samples) {
+            this.item = item;
+            this.samples = samples;
+        }
+    }
+
+    /**
+     * Made sentences waiting to play: the voice makes the next sentence while this one is heard, so playback never
+     * waits for the model mid-word (on a slow device the model can make sound slower than it is spoken, and playing
+     * it as it came out stuttered and broke words apart).
+     */
+    private final java.util.concurrent.LinkedBlockingQueue<Clip> ready2play = new java.util.concurrent.LinkedBlockingQueue<Clip>(3);
+    private Thread player;
+
+    /** Most letters the model is given at once: longer sentences are made in parts (long input made it unstable). */
+    static final int MOST_LETTERS = 220;
+
+    /** A long sentence in parts at its commas, semicolons or spaces, each at most {@link #MOST_LETTERS}. */
+    static java.util.List<String> parts(String text) {
+        java.util.List<String> out = new java.util.ArrayList<String>();
+        String t = text == null ? "" : text.trim();
+        while (t.length() > MOST_LETTERS) {
+            int cut = -1;
+            for (String mark : new String[] {"; ", ", ", ": ", " - ", " "}) {
+                int at = t.lastIndexOf(mark, MOST_LETTERS);
+                if (at > MOST_LETTERS / 3) {
+                    cut = at + mark.length() - 1;
+                    break;
+                }
+            }
+            if (cut < 0) {
+                cut = MOST_LETTERS;
+            }
+            out.add(t.substring(0, cut + 1).trim());
+            t = t.substring(cut + 1).trim();
+        }
+        if (!t.isEmpty()) {
+            out.add(t);
+        }
+        return out;
+    }
+
+    /** Makes a whole sentence's sound (in parts when long), then hands it to the player. */
+    private void make(Item it) throws InterruptedException {
+        java.util.List<float[]> pieces = new java.util.ArrayList<float[]>();
+        int n = 0;
+        try {
+            for (String part : parts(it.text)) {
+                if (it.epoch != epoch) {
+                    return; // stopped while it was being made
+                }
+                com.k2fsa.sherpa.onnx.GeneratedAudio a = tts.generate(part, it.speaker, Math.max(0.5f, Math.min(2f, it.speed)));
+                float[] got = a == null ? null : a.getSamples();
+                if (got != null && got.length > 0) {
+                    pieces.add(clean(got));
+                    n += got.length;
+                }
+            }
+        } catch (RuntimeException e) {
+            it.events.onError(it.id);
+            return;
+        }
+        float[] all = new float[n];
+        int at = 0;
+        for (float[] p : pieces) {
+            System.arraycopy(p, 0, all, at, p.length);
+            at += p.length;
+        }
+        if (it.epoch == epoch) {
+            ensurePlayer();
+            while (!ready2play.offer(new Clip(it, all), 200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                if (it.epoch != epoch || closed) {
+                    return;
+                }
+            }
+        }
+    }
+
+    /** Keeps the sound within range (no clicks or crackle from samples past full scale) and fades its edges. */
+    static float[] clean(float[] s) {
+        int fade = Math.min(120, s.length / 4);
+        for (int i = 0; i < s.length; i++) {
+            float v = s[i];
+            if (Float.isNaN(v)) {
+                v = 0f;
+            }
+            v = Math.max(-0.98f, Math.min(0.98f, v));
+            if (i < fade) {
+                v *= i / (float) fade;
+            } else if (i >= s.length - fade) {
+                v *= (s.length - 1 - i) / (float) fade;
+            }
+            s[i] = v;
+        }
+        return s;
+    }
+
+    private synchronized void ensurePlayer() {
+        if (player != null && player.isAlive()) {
+            return;
+        }
+        player = new Thread(() -> {
+            try {
+                while (!closed) {
+                    play(ready2play.take());
+                }
+            } catch (InterruptedException ended) {
+                // shut down
+            }
+        }, "ibiko-voice-player");
+        player.setDaemon(true);
+        player.start();
+    }
+
+    private void play(Clip c) {
+        Item it = c.item;
         final int mine = it.epoch;
         final AudioTrack t = track;
+        if (mine != epoch || t == null) {
+            return;
+        }
         try {
             if (mine != playedEpoch) {
                 // new speech after a stop: anything left in the track from the old speech is dropped here, on this thread
@@ -252,20 +376,18 @@ public final class NeuralVoice {
             it.events.onStart(it.id);
             t.setVolume(it.volume);
             t.play();
-            tts.generateWithCallback(it.text, it.speaker, Math.max(0.5f, Math.min(2f, it.speed)), samples -> {
-                if (mine != epoch) {
-                    return 0; // stopped: nothing more is made
-                }
-                t.write(samples, 0, samples.length, AudioTrack.WRITE_BLOCKING);
-                totalWritten += samples.length;
-                return mine == epoch ? 1 : 0;
-            });
+            int step = rate / 10; // a tenth of a second at a time, so a stop is heard at once
+            for (int i = 0; i < c.samples.length && mine == epoch; i += step) {
+                int len = Math.min(step, c.samples.length - i);
+                t.write(c.samples, i, len, AudioTrack.WRITE_BLOCKING);
+                totalWritten += len;
+            }
             if (mine == epoch) {
                 float[] gap = new float[(int) (rate * GAP)];
                 t.write(gap, 0, gap.length, AudioTrack.WRITE_BLOCKING);
                 totalWritten += gap.length;
             }
-            // done when the last of it has been heard, not when it was made
+            // done when the last of it has been heard, not when it was written
             while (mine == epoch && !closed && (t.getPlaybackHeadPosition() & 0xffffffffL) < totalWritten) {
                 Thread.sleep(15);
             }

@@ -63,10 +63,9 @@ public final class ImageMaker {
                 return "gpt-image-1";
             case GEMINI:
                 return "imagen-3.0-generate-002";
-            case CUSTOM:
-            case DVINE_SERVER:
-                return "gpt-image-1";
             default:
+                // a custom gateway's models are its own (one answered "gpt-image-1 is not a model here"): it is used for
+                // pictures only when the pilot names its image model, otherwise Ibiko's design board draws it
                 return null;
         }
     }
@@ -76,6 +75,10 @@ public final class ImageMaker {
         List<Source> out = new ArrayList<Source>();
         for (Providers p : store.order()) {
             String m = defaultModel(p);
+            boolean named = chosenModel != null && !chosenModel.trim().isEmpty();
+            if (m == null && named && (p == Providers.CUSTOM || p == Providers.DVINE_SERVER)) {
+                m = chosenModel.trim();
+            }
             String key = store.key(p);
             if (m == null || key == null || key.trim().isEmpty() || store.address(p).trim().isEmpty()) {
                 continue;

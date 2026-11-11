@@ -554,7 +554,7 @@ public final class ChatPane extends LinearLayout {
             liveBlock.setBackgroundResource(ripple());
             // the live mark: Ibiko's eyes glancing about while the work goes on (the pilot's own animation)
             View mark = thinkingEyes();
-            int side = mark instanceof ThinkingMark ? dp(18) : dp(30);
+            int side = mark instanceof ThinkingMark ? dp(18) : dp(26);
             LayoutParams mp = new LayoutParams(side, side);
             mp.setMarginEnd(dp(10));
             liveBlock.addView(mark, mp);
@@ -774,8 +774,8 @@ public final class ChatPane extends LinearLayout {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(4), dp(10), 0, dp(10));
-        row.setMinimumHeight(dp(48)); // a group of steps opens with one tap anywhere on its row
+        row.setPadding(dp(4), dp(6), 0, dp(6));
+        row.setMinimumHeight(dp(40)); // a group of steps opens with one tap anywhere on its row
         row.setBackgroundResource(ripple());
         android.widget.ImageView icon = new android.widget.ImageView(getContext());
         icon.setImageResource(group.kind == ai.ibiko.agent.StepGroups.Kind.COMMAND ? R.drawable.ic_terminal
@@ -823,8 +823,8 @@ public final class ChatPane extends LinearLayout {
         t.setTextSize(13f);
         t.setMaxLines(open ? 4 : 1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        t.setPadding(dp(32), dp(10), 0, dp(10));
-        t.setMinHeight(dp(44));
+        t.setPadding(dp(28), dp(4), 0, dp(4)); // close together, like a list of steps (it was too spread out)
+        t.setMinHeight(dp(30));
         t.setGravity(Gravity.CENTER_VERTICAL);
         if (d != null) {
             t.setContentDescription(it.verb + " " + it.target + (open ? ", hide" : ", show"));

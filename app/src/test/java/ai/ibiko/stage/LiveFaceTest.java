@@ -33,6 +33,8 @@ public class LiveFaceTest {
         assertEquals(LiveFace.Mood.WORKING, LiveFace.moodOf("Ran 3 commands"));
         assertEquals(LiveFace.Mood.WORKING, LiveFace.moodOf("Cloning DOKTOHSMILE/app"));
         assertEquals(LiveFace.Mood.THINKING, LiveFace.moodOf("Thinking…"));
+        assertEquals("the reply is checked before writing", LiveFace.Mood.REPLYING, LiveFace.moodOf("Writing the reply"));
+        assertEquals(LiveFace.Mood.WRITING, LiveFace.moodOf("Making the picture: a logo"));
     }
 
     /** Where the eyes are in a frame: the middle of the white-hot pixels. */

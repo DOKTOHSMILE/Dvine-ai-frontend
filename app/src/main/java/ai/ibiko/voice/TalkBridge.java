@@ -146,7 +146,38 @@ public final class TalkBridge extends UtteranceProgressListener {
         return true;
     }
 
+    /** True from asking the voice to speak until its first sound (the model is still loading or making it). */
+    private volatile boolean preparing, sounding;
+    private final java.util.List<java.util.function.Consumer<Boolean>> preparingListeners =
+            new java.util.concurrent.CopyOnWriteArrayList<java.util.function.Consumer<Boolean>>();
+
+    /** Told true while the voice gets ready to say something (the player's ring), false once it sounds or stops. */
+    public void addPreparingListener(java.util.function.Consumer<Boolean> l) {
+        preparingListeners.add(l);
+    }
+
+    public boolean preparing() {
+        return preparing;
+    }
+
+    private void preparing(final boolean now) {
+        if (preparing == now) {
+            return;
+        }
+        preparing = now;
+        for (final java.util.function.Consumer<Boolean> l : preparingListeners) {
+            main.post(() -> l.accept(now));
+        }
+    }
+
     private void tell(final boolean reading, final boolean isPaused, final String text, final boolean ivie) {
+        if (reading) {
+            sounding = true;
+            preparing(false);
+        } else {
+            sounding = false;
+            preparing(false);
+        }
         main.post(() -> {
             if (reading && !isPaused) {
                 holdFocus();
@@ -446,7 +477,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (!again) {
             dropPause(); // something new to read: what was paused is let go
         }
-        text = SentenceStream.clean(text); // the words only: no **, <, " or other symbols read out
+        text = SentenceStream.speakable(text); // the words only: no **, <, " or other symbols read out
         lines.clear();
         final int token = ++generation;
         pending = done;
@@ -467,6 +498,9 @@ public final class TalkBridge extends UtteranceProgressListener {
                 tts.stop();
             }
             takeOver();
+            if (!sounding) {
+                preparing(true);
+            }
             neural.speak(voiceEvents, (ivie ? "IVIE-" : "OBI-") + token, text, speakerFor(ivie),
                     (thought ? t.thoughtRate() : t.rate) * rateScale * playerSpeed, thought ? VoiceTuning.THOUGHT_VOLUME : 1f, true);
             return;
@@ -510,7 +544,7 @@ public final class TalkBridge extends UtteranceProgressListener {
             pausedLines.add(new Line(ivie, SentenceStream.clean(text), "")); // a reply still coming in: kept for Resume
             return;
         }
-        text = SentenceStream.clean(text);
+        text = SentenceStream.speakable(text);
         if (!(ready || humanChosen()) || text == null || text.trim().isEmpty()) {
             return;
         }
@@ -522,6 +556,9 @@ public final class TalkBridge extends UtteranceProgressListener {
             String id = (ivie ? "IVIE-Q" : "OBI-Q") + generation + "x" + queued + "n" + (++serial);
             lines.add(new Line(ivie, text, id));
             takeOver();
+            if (!sounding) {
+                preparing(true);
+            }
             neural.speak(voiceEvents, id, text, speakerFor(ivie), t.rate * rateScale * playerSpeed, 1f, false);
             return;
         }
@@ -594,6 +631,7 @@ public final class TalkBridge extends UtteranceProgressListener {
             tts.stop();
         }
         neural.stop();
+        preparing(false);
         if (was) {
             tell(false, false, "", lastIvie);
         }

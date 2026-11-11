@@ -39,6 +39,9 @@ public final class DownloadNotice implements ai.ibiko.net.Transfers.Sink {
 
     @Override
     public void progress(String key, String title, String line, int percent) {
+        if (ai.ibiko.main.KeepAlive.status(app, "dl:" + key, title, line, percent < 0 ? -1 : percent)) {
+            return; // shown in Ibiko's one notification
+        }
         Notification n = new Notification.Builder(app, CHANNEL)
                 .setSmallIcon(ai.ibiko.R.drawable.ic_stat_download)
                 .setContentTitle(percent >= 0 ? title + " · " + percent + "%" : title)
@@ -54,6 +57,13 @@ public final class DownloadNotice implements ai.ibiko.net.Transfers.Sink {
 
     @Override
     public void end(String key, String title, String line, boolean ok) {
+        if (ai.ibiko.main.KeepAlive.running()) {
+            ai.ibiko.main.KeepAlive.done(app, "dl:" + key);
+            app.getSystemService(NotificationManager.class).cancel(id(key)); // one begun before Ibiko ran in the background
+            if (ok) {
+                return; // a finished download says so in the chat; only a stopped one gets a notification of its own
+            }
+        }
         Notification n = new Notification.Builder(app, CHANNEL)
                 .setSmallIcon(ai.ibiko.R.drawable.ic_stat_download)
                 .setContentTitle((ok ? "Done: " : "Stopped: ") + title)

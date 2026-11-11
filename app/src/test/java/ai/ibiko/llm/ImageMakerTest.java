@@ -83,6 +83,7 @@ public class ImageMakerTest {
         assertTrue(r.error, r.error.contains("No image model is set up"));
         assertNull("Anthropic has no image endpoint", ImageMaker.defaultModel(Providers.ANTHROPIC));
         assertEquals("gpt-image-1", ImageMaker.defaultModel(Providers.OPENAI));
+        assertNull("a custom gateway is used for pictures only with a named image model", ImageMaker.defaultModel(Providers.CUSTOM));
     }
 
     @Test

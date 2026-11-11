@@ -80,10 +80,21 @@ public final class ReplyService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         channel(this);
-        startForeground(NOTE, note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+        boolean stopping = intent != null && ACTION_STOP.equals(intent.getAction());
+        // one notification only: while Ibiko runs in the background its own notification says "Ibiko is thinking"
+        boolean shared = ai.ibiko.main.KeepAlive.running();
+        if (shared && !stopping) {
+            ai.ibiko.main.KeepAlive.status(this, "reply", "Ibiko is thinking", "The reply will be in the chat when you come back.", -2);
+        }
+        if (shared) {
+            startForeground(ai.ibiko.main.KeepAlive.NOTE_ID, ai.ibiko.main.KeepAlive.note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTE, note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        }
+        if (stopping) {
             unlock();
-            stopForeground(STOP_FOREGROUND_REMOVE);
+            ai.ibiko.main.KeepAlive.done(this, "reply");
+            stopForeground(shared ? STOP_FOREGROUND_DETACH : STOP_FOREGROUND_REMOVE);
             stopSelf();
             return START_NOT_STICKY;
         }

@@ -1362,8 +1362,38 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         final java.io.File out = new java.io.File(getFilesDir(), "chat-images");
         final java.util.List<ai.ibiko.llm.ImageMaker.Source> sources = ai.ibiko.llm.ImageMaker.sources(
                 new ai.ibiko.llm.ProviderStore(this), prefs.getString("image_model", ""));
+        // icons, logos, diagrams and other designs are drawn in the app (design/SvgDraw) by the brain in use; a
+        // photo-like picture goes to an image model, and when none is set up or it fails, the brain draws it instead
+        final boolean design = ai.ibiko.design.SvgDraw.designish(what) || sources.isEmpty();
         hub.worker.execute(() -> {
-            final ai.ibiko.llm.ImageMaker.Result r = ai.ibiko.llm.ImageMaker.make(sources, what, out, ai.ibiko.llm.ImageMaker.WEB);
+            java.io.File file = null;
+            String made = null;
+            String error = null;
+            if (!design) {
+                ai.ibiko.llm.ImageMaker.Result r = ai.ibiko.llm.ImageMaker.make(sources, what, out, ai.ibiko.llm.ImageMaker.WEB);
+                file = r.file;
+                made = r.made;
+                error = r.error;
+            }
+            if (file == null) {
+                String sys = ai.ibiko.design.SvgDraw.SYSTEM;
+                String ask = ai.ibiko.design.SvgDraw.brief(what);
+                String reply = model.remoteTask(sys, ask, 3000);
+                boolean local = reply == null;
+                if (local) {
+                    reply = model.task(sys, ask, 1800, null);
+                }
+                file = ai.ibiko.design.SvgDraw.save(reply, out, 1024);
+                if (file != null) {
+                    made = "Ibiko's design board (drawn by " + (local ? "the on-device brain" : "the API brain") + ")";
+                } else if (error == null) {
+                    error = "I couldn't draw that design: the brain didn't return a drawing I can read. Try again or describe it"
+                            + " more simply.";
+                }
+            }
+            final java.io.File got = file;
+            final String by = made;
+            final String why = error;
             handler.post(() -> {
                 if (isFinishing()) {
                     return;
@@ -1371,16 +1401,36 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 if (chatPane != null) {
                     chatPane.activityEnd();
                 }
-                if (r.file != null) {
+                if (got != null) {
                     if (chatPane != null) {
-                        chatPane.image(r.file.getAbsolutePath());
+                        chatPane.image(got.getAbsolutePath());
                     }
-                    play(LocalTurn.speakAs(agent, "Here it is, made by " + r.made + "."), null);
+                    play(LocalTurn.speakAs(agent, "Here it is, made by " + by + "."), null);
                 } else {
-                    play(LocalTurn.speakAs(agent, r.error), null);
+                    play(LocalTurn.speakAs(agent, why), null);
                 }
             });
         });
+    }
+
+    /** Puts the floating player just above the quick actions (Tools, Code, Media...) over the message box. */
+    private void placePlayer() {
+        android.view.View content = findViewById(android.R.id.content);
+        android.view.View row = findViewById(R.id.quick_scroll);
+        if (row == null || row.getVisibility() != android.view.View.VISIBLE || row.getHeight() == 0) {
+            row = findViewById(R.id.composerBar);
+        }
+        android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) playerBar.getLayoutParams();
+        int above = 0;
+        if (row != null && content != null) {
+            int[] c = new int[2];
+            int[] r = new int[2];
+            content.getLocationInWindow(c);
+            row.getLocationInWindow(r);
+            above = Math.max(0, c[1] + content.getHeight() - r[1]);
+        }
+        lp.bottomMargin = above + (int) (6 * getResources().getDisplayMetrics().density); // close over the Tools row
+        playerBar.setLayoutParams(lp);
     }
 
     /** The floating player over the chat while a reply is read aloud. */
@@ -1615,12 +1665,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL);
         ((android.widget.FrameLayout) findViewById(android.R.id.content)).addView(playerBar, pp);
         talk.addStateListener((reading, paused, text, ivie) -> {
-            android.view.View composer = findViewById(R.id.composerBar);
-            android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) playerBar.getLayoutParams();
-            int above = composer == null ? 0 : Math.max(0, findViewById(android.R.id.content).getHeight() - composer.getTop());
-            lp.bottomMargin = above + (int) (12 * getResources().getDisplayMetrics().density); // just above the message box
-            playerBar.setLayoutParams(lp);
+            placePlayer();
             playerBar.state(reading, paused, readAloudHelper.reading());
+        });
+        // while the voice gets ready (loading or making the first sentence) a ring turns where play or pause is
+        talk.addPreparingListener(now -> {
+            placePlayer();
+            playerBar.loading(now);
         });
         // one voice only: when it can't start, nothing reads in another voice; the pilot is told once, and why
         talk.setProblemListener(why -> android.widget.Toast.makeText(this, "The voice couldn't start on this device ("
