@@ -61,6 +61,30 @@ public final class WaitLines {
             {FACT, "Honey found in ancient Egyptian tombs was still good to eat."},
     };
 
+    /** Facts about the app itself, for the reel that rolls under the download (numbers from what is built in). */
+    public static final String[] APP_FACTS = {
+            "Knows 198,273 meanings of 152,137 English words, with no internet",
+            "Holds 316,294 common-sense links: what things are, are for and are made of",
+            "Answers 4,887 built-in facts about countries, elements, Nigeria's states and the planets, offline",
+            "Reads what a message means before any model sees it: the intent, the actions, what “it” is",
+            "Speaks with 11 natural Kokoro voices, or the fast Piper voices",
+            "Runs Alpine Linux on your device for real commands",
+            "Works with an API model, a model on the device, or its own brain, Ibiko 1",
+            "Ibiko 1 runs code tasks and every app control with no model at all",
+            "Splits a big job between up to 16 workers at once with an API model",
+            "Plans every job: each step names its files and how it is checked",
+            "Asks before commands, pushes, pull requests and changes to your accounts",
+            "Keeps a record of every project, so work carries on after a break",
+            "Clones a repository into one folder and works only there",
+            "Downloads carry on where they stopped when the network breaks",
+            "Opens code files up to 16 MB without slowing down",
+            "Makes PDF, Word, Excel, CSV, HTML and Markdown files of any answer",
+            "Models things in 3D from the sizes you give",
+            "Learns from your Correct and Wrong taps",
+            "Keeps running in the background until you close it",
+            "Its face blinks and looks around while it works",
+    };
+
     private final List<Line> order = new ArrayList<Line>();
     private final Random random;
     private int at;
