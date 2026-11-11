@@ -34,11 +34,15 @@ public class ShorthandTest {
     public void wordsBecomeShortCodesAndBack() {
         WordBook.open(lexicon());
         String codes = Shorthand.codes("Abuja is the capital of Nigeria.");
-        assertEquals(7, codes.split(" ").length);
+        assertEquals("6 words, 5 spaces, the stop: every character has its code", 12, codes.split(" ").length);
+        assertEquals("the space has its own code", Shorthand.code(WordBook.id(" ")), codes.split(" ")[1]);
         assertTrue(codes, codes.startsWith("^")); // a capital is marked, the word filed in lower case
         assertEquals("Abuja is the capital of Nigeria.", Shorthand.words(codes));
         assertEquals("NASA launched it (in 1969), didn't it?", Shorthand.words(Shorthand.codes("NASA launched it (in 1969), didn't it?")));
         assertEquals("2x9m".length(), Shorthand.code(WordBook.id("telephone")).length());
+        String spaced = "Two  spaces,\na new line\tand a tab.";
+        assertEquals("spacing comes back exactly", spaced, Shorthand.words(Shorthand.codes(spaced)));
+        assertEquals("space", WordBook.pos(WordBook.id(" ")));
     }
 
     @Test

@@ -10,7 +10,8 @@ import java.util.regex.Pattern;
  * The interpreter between people's words and the brain's codes. Every word (and punctuation mark) becomes its id
  * ({@link Symbols}: an English word's fixed dictionary id, another word its own id) written short, in base 36:
  * "telephone" is word 136,258 → {@code 2x9m}; "the" is {@code 1}. A capital is marked {@code ^}, all capitals
- * {@code !}. "Abuja is the capital of Nigeria." becomes something like {@code ^pc 9g 1 3fy1 3n ^lez5 9z}: what the
+ * {@code !}. The space between words has its own code too (a new line and a tab theirs), so a text comes back exactly
+ * as it was written. "Abuja is the capital of Nigeria." is 12 codes (6 words, 5 spaces, the stop): what the
  * brain stores, files and compares; {@link #words} turns it back into the same sentence for people.
  * Pure Java.
  */
@@ -18,7 +19,8 @@ public final class Shorthand {
     private Shorthand() {
     }
 
-    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+(?:['’\\-][\\p{L}\\p{N}]+)*|[^\\s\\p{L}\\p{N}]");
+    /** Words, single marks, and each space, new line or tab: every character of the text is in some token. */
+    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+(?:['’\\-][\\p{L}\\p{N}]+)*|[ \\n\\t]|[^\\s\\p{L}\\p{N}]");
 
     /** One id written short: 136258 → "2x9m". */
     public static String code(int id) {
@@ -65,10 +67,9 @@ public final class Shorthand {
         return b.toString();
     }
 
-    /** Codes → the words again, spaced as people write them. A code it doesn't know reads as "?". */
+    /** Codes → the words again, exactly as written: the spaces have their own codes. A code it doesn't know reads as "?". */
     public static String words(String codes) {
         StringBuilder b = new StringBuilder();
-        String prev = null;
         for (String c : codes.trim().split(" ")) {
             if (c.isEmpty()) {
                 continue;
@@ -83,12 +84,7 @@ public final class Shorthand {
             } else if (mark == '!') {
                 w = w.toUpperCase(Locale.US);
             }
-            boolean glued = w.matches("[.,!?;:)\\]}%…’”]") || prev != null && prev.matches("[(\\[{$#@‘“₦]");
-            if (b.length() > 0 && !glued) {
-                b.append(' ');
-            }
             b.append(w);
-            prev = w;
         }
         return b.toString();
     }

@@ -31,7 +31,7 @@ public final class WordBook {
     public static final int FIRST = 1000;
 
     /** The small words and punctuation, each with its part of speech; their id is their place here, from 1. */
-    static final String[][] SMALL = parse("the:determiner a:determiner an:determiner this:determiner that:determiner"
+    static String[][] SMALL = parse("the:determiner a:determiner an:determiner this:determiner that:determiner"
             + " these:determiner those:determiner my:determiner your:determiner his:determiner her:determiner its:determiner"
             + " our:determiner their:determiner some:determiner any:determiner no:determiner every:determiner each:determiner"
             + " either:determiner neither:determiner such:determiner what:pronoun which:pronoun who:pronoun whom:pronoun"
@@ -56,6 +56,15 @@ public final class WordBook {
             + " &:punctuation %:punctuation $:punctuation #:punctuation @:punctuation *:punctuation +:punctuation =:punctuation"
             + " [:punctuation ]:punctuation {:punctuation }:punctuation ‘:punctuation ’:punctuation “:punctuation"
             + " ”:punctuation ₦:punctuation");
+
+    /** The spaces between words have codes too, after the list (so no earlier id moves): a space, a new line, a tab. */
+    static {
+        String[][] more = Arrays.copyOf(SMALL, SMALL.length + 3);
+        more[SMALL.length] = new String[]{" ", "space"};
+        more[SMALL.length + 1] = new String[]{"\n", "space"};
+        more[SMALL.length + 2] = new String[]{"\t", "space"};
+        SMALL = more;
+    }
 
     private static final Map<String, Integer> SMALL_ID = new HashMap<String, Integer>();
 

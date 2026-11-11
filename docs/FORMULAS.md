@@ -121,3 +121,4 @@ by itself" shows them and forgets them.
 
 - Small words and punctuation: ids 1–999 (fixed list). Dictionary words: 1000 + place in lexicon.tsv (152,137). Others: 1,000,000 up, kept on the device.
 - A code is the id in base 36 ("telephone" = 2x9m); ^ marks a capital, ! all capitals. The interpreter turns codes back into the same words.
+- Spaces have codes too: a space, a new line and a tab each have their own fixed id, so every character of a text is in a code and it comes back exactly as written ("Abuja is the capital of Nigeria." = 12 codes: 6 words, 5 spaces, the stop).
