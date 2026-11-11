@@ -21,10 +21,68 @@ import android.os.IBinder;
 public final class KeepAlive extends Service {
     static final String CHANNEL = "running";
     static final int NOTE = 7010;
+    /** The one notification's id (other services in front share it, so only one shows). */
+    public static final int NOTE_ID = NOTE;
     static final String ACTION_CLOSE = "ai.ibiko.action.CLOSE";
     /** Sent to the open screens when the pilot closes Ibiko from the notification. */
     public static final String CLOSED = "ai.ibiko.action.CLOSED";
     public static final String PREF = "keep_running";
+
+    /** True while this service runs: then Ibiko shows one notification only, this one, with what is going on now. */
+    static volatile boolean running;
+
+    /** What is going on now (a reply being written, a clone, a download), newest last: shown in the one notification. */
+    static final class Status {
+        final String title, line;
+        final int percent;
+
+        Status(String title, String line, int percent) {
+            this.title = title;
+            this.line = line;
+            this.percent = percent;
+        }
+    }
+
+    private static final java.util.LinkedHashMap<String, Status> now = new java.util.LinkedHashMap<String, Status>();
+
+    /**
+     * Shows work in the one running notification instead of a notification of its own. {@code percent} -1 is a moving
+     * bar, -2 no bar. False when Ibiko isn't running in the background: the caller shows its own notification then.
+     */
+    public static boolean status(Context c, String key, String title, String line, int percent) {
+        if (!running) {
+            return false;
+        }
+        synchronized (now) {
+            now.remove(key);
+            now.put(key, new Status(title, line, percent));
+        }
+        refresh(c);
+        return true;
+    }
+
+    /** The work under {@code key} ended: the notification goes back to the next thing, or to "Ibiko is running". */
+    public static void done(Context c, String key) {
+        boolean had;
+        synchronized (now) {
+            had = now.remove(key) != null;
+        }
+        if (had && running) {
+            refresh(c);
+        }
+    }
+
+    public static boolean running() {
+        return running;
+    }
+
+    private static void refresh(Context c) {
+        try {
+            c.getSystemService(NotificationManager.class).notify(NOTE, note(c));
+        } catch (RuntimeException ignored) {
+            // no notification permission: the work goes on without it
+        }
+    }
 
     /** Starts it (from a screen in front): only while the setting is on. */
     public static void start(Context c) {
@@ -59,6 +117,7 @@ public final class KeepAlive extends Service {
         channel(this);
         try {
             startForeground(NOTE, note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            running = true;
         } catch (RuntimeException e) {
             stopSelf(); // not allowed to run in front now: nothing held
             return START_NOT_STICKY;
@@ -69,6 +128,7 @@ public final class KeepAlive extends Service {
 
     /** The notification's Close: every screen closes, the service stops, and nothing starts it until Ibiko is opened. */
     private void close() {
+        running = false;
         getSharedPreferences("dvine", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
         sendBroadcast(new Intent(CLOSED).setPackage(getPackageName()));
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -78,10 +138,17 @@ public final class KeepAlive extends Service {
     /** Swiped away from the recent apps: the pilot closed it. */
     @Override
     public void onTaskRemoved(Intent rootIntent) {
+        running = false;
         getSharedPreferences("dvine", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
         super.onTaskRemoved(rootIntent);
+    }
+
+    @Override
+    public void onDestroy() {
+        running = false;
+        super.onDestroy();
     }
 
     @Override
@@ -96,7 +163,8 @@ public final class KeepAlive extends Service {
         c.getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
 
-    static Notification note(Context c) {
+    /** The one notification: what is going on now (with its bar), or "Ibiko is running". */
+    public static Notification note(Context c) {
         Intent open = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
         if (open == null) {
             open = new Intent();
@@ -105,10 +173,30 @@ public final class KeepAlive extends Service {
         PendingIntent tap = PendingIntent.getActivity(c, 10, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent close = PendingIntent.getService(c, 11, new Intent(c, KeepAlive.class).setAction(ACTION_CLOSE),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        return new Notification.Builder(c, CHANNEL)
+        Status top = null;
+        int more;
+        synchronized (now) {
+            for (Status st : now.values()) {
+                top = st;
+            }
+            more = Math.max(0, now.size() - 1);
+        }
+        Notification.Builder b = new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(ai.ibiko.R.drawable.ic_launcher_monochrome) // the eyes, in one colour
-                .setContentTitle("Ibiko is running")
-                .setContentText("Ready in the background. Tap to open.")
+                .setOnlyAlertOnce(true);
+        if (top == null) {
+            b.setContentTitle("Ibiko is running").setContentText("Ready in the background. Tap to open.");
+        } else {
+            b.setContentTitle(top.percent >= 0 ? top.title + " \u00B7 " + top.percent + "%" : top.title)
+                    .setContentText(top.line);
+            if (top.percent != -2) {
+                b.setProgress(100, Math.max(0, top.percent), top.percent < 0);
+            }
+            if (more > 0) {
+                b.setSubText(more + " more running");
+            }
+        }
+        return b
                 .setOngoing(true)
                 .setShowWhen(false)
                 .setContentIntent(tap)

@@ -1,3 +1,15 @@
+# A steady voice; Ibiko's own design board; the face and the player (0.99.94)
+
+- [x] Only sayable words reach the voice; each sentence made whole before it plays.
+- [x] The design board (design/SvgDraw): the brain writes SVG, Ibiko draws it on the device.
+- [x] A custom gateway is not sent an image model it never named.
+- [x] The face squeezed in height, calmer thinking eyes, smiling on the reply, eyes by the process.
+- [x] The player: a loading ring, spaced buttons, down by the Tools row; the steps sheet tighter.
+- [x] One notification while Ibiko runs: thinking and downloads show inside it.
+- [ ] Ibiko 1 learns from the designs it makes (keep the brief and the SVG as an example).
+- [ ] Settings: each section its own Activity with its own XML layout.
+- [ ] The Speak button: a hands-free voice conversation.
+
 # Pictures, not 3D; whole replies; the icon on purple (0.99.93)
 
 - [x] 3D removed as a feature; the image tool (§IM, ImageMaker) for every brain.

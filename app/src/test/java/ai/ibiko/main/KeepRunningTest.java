@@ -116,4 +116,30 @@ public class KeepRunningTest {
             }
         }
     }
+
+    /** One notification while Ibiko runs: work shows in it, not in notifications of its own. */
+    @Test
+    public void workShowsInTheOneNotification() {
+        android.app.Application app = RuntimeEnvironment.getApplication();
+        KeepAlive.running = false;
+        assertFalse("not running: the caller shows its own", KeepAlive.status(app, "dl:x", "Cloning a/b", "Downloading main", 40));
+        KeepAlive.running = true;
+        try {
+            assertTrue(KeepAlive.status(app, "reply", "Ibiko is thinking", "The reply will be in the chat.", -2));
+            assertTrue(KeepAlive.status(app, "dl:x", "Cloning a/b", "Downloading main", 40));
+            android.app.Notification n = KeepAlive.note(app);
+            assertEquals("Cloning a/b \u00B7 40%", n.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString());
+            assertEquals("1 more running", n.extras.getCharSequence(android.app.Notification.EXTRA_SUB_TEXT).toString());
+            new ai.ibiko.chat.ui.DownloadNotice(app).end("x", "Cloning a/b", "done", true);
+            n = KeepAlive.note(app);
+            assertEquals("Ibiko is thinking", n.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString());
+            KeepAlive.done(app, "reply");
+            assertEquals("Ibiko is running", KeepAlive.note(app).extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString());
+            android.app.NotificationManager nm = app.getSystemService(android.app.NotificationManager.class);
+            assertEquals("no download notification of its own", 0,
+                    Shadows.shadowOf(nm).getAllNotifications().stream().filter(x -> "downloads".equals(x.getChannelId())).count());
+        } finally {
+            KeepAlive.running = false;
+        }
+    }
 }

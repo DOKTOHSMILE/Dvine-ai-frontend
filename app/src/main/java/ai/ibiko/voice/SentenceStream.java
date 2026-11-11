@@ -155,4 +155,30 @@ public final class SentenceStream {
                 .trim();
         return t.matches("[\\p{Punct}\\s]*") ? "" : t;
     }
+
+    /**
+     * What a voice can say without stumbling: {@link #clean} and then no code (fenced blocks, function codes like
+     * \u00A7IM, lines that are mostly symbols), no file paths (the file's name instead), no emoji. A sentence with
+     * nothing sayable left is skipped (""), not read as noise.
+     */
+    public static String speakable(String s) {
+        if (s == null) {
+            return "";
+        }
+        String t = s.replaceAll("(?s)```.*?(```|$)", " ")
+                .replaceAll("[\u00A7\u27E6][A-Z]{2}\\b[^\\n]*", " ")
+                .replaceAll("\\[\\[[A-Z]{2}\\]\\][^\\n]*", " ")
+                .replaceAll("(?<![\\w@])(?:[\\w.-]+/)+([\\w-]+)(?:\\.\\w{1,6})?\\b", "$1")
+                .replaceAll("\\b([\\w-]+)\\.(java|kt|py|js|ts|md|json|xml|gradle|txt|sh|html|css|yml|yaml|png|jpg|apk|zip)\\b", "$1")
+                .replaceAll("[\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{FE0F}\\x{200D}]", " ")
+                .replaceAll("\\b[0-9a-f]{12,}\\b", " ");
+        t = clean(t);
+        int letters = 0;
+        for (int i = 0; i < t.length(); i++) {
+            if (Character.isLetter(t.charAt(i)) || t.charAt(i) == ' ') {
+                letters++;
+            }
+        }
+        return t.isEmpty() || letters < t.length() * 0.6 ? "" : t; // mostly symbols or numbers: nothing to say
+    }
 }

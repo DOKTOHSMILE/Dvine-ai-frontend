@@ -30,6 +30,9 @@ public final class PlayerBar extends LinearLayout {
 
     private final Control control;
     private final ImageView play;
+    /** The ring in place of play or pause while the voice is still getting ready. */
+    private final android.widget.ProgressBar ring;
+    private boolean loading;
     private final TextView time, speed, back, forward;
     private int speedAt;
     private boolean paused, reading;
@@ -63,14 +66,55 @@ public final class PlayerBar extends LinearLayout {
         time.setPadding((int) (10 * dp), 0, (int) (10 * dp), 0);
         time.setText("0:00");
         ImageView close = icon(c, ai.ibiko.R.drawable.ic_close, "Close", v -> control.close());
+        ring = new android.widget.ProgressBar(c);
+        ring.setIndeterminate(true);
+        ring.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
+        ring.setPadding((int) (9 * dp), (int) (9 * dp), (int) (9 * dp), (int) (9 * dp));
+        ring.setBackground(circle(c));
+        ring.setContentDescription("The voice is getting ready");
+        ring.setVisibility(GONE);
         int side = (int) (44 * dp);
-        addView(play, new LayoutParams(side, side));
-        addView(back, new LayoutParams(side, side));
-        addView(forward, new LayoutParams(side, side));
-        addView(speed, new LayoutParams(side, side));
-        addView(time);
-        addView(close, new LayoutParams(side, side));
+        android.widget.FrameLayout first = new android.widget.FrameLayout(c);
+        first.addView(play, new android.widget.FrameLayout.LayoutParams(side, side));
+        first.addView(ring, new android.widget.FrameLayout.LayoutParams(side, side));
+        addView(first, spaced(side, side, 0, dp));
+        addView(back, spaced(side, side, GAP_DP, dp));
+        addView(forward, spaced(side, side, GAP_DP, dp));
+        addView(speed, spaced(side, side, GAP_DP, dp));
+        addView(time, spaced(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, GAP_DP, dp));
+        addView(close, spaced(side, side, GAP_DP, dp));
         setVisibility(GONE);
+    }
+
+    /** The space between two buttons. */
+    static final int GAP_DP = 8;
+
+    private static LayoutParams spaced(int w, int h, int gapDp, float dp) {
+        LayoutParams lp = new LayoutParams(w, h);
+        lp.leftMargin = (int) (gapDp * dp);
+        return lp;
+    }
+
+    /** The voice is getting ready (true) or has started or stopped (false): a ring turns where play or pause is. */
+    public void loading(boolean now) {
+        loading = now;
+        removeCallbacks(giveUp);
+        if (now) {
+            postDelayed(giveUp, 45000); // never a ring that turns for ever (a voice that failed without a word)
+        }
+        ring.setVisibility(now ? VISIBLE : GONE);
+        play.setVisibility(now ? INVISIBLE : VISIBLE);
+        if (now) {
+            setVisibility(VISIBLE);
+        } else if (!reading) {
+            setVisibility(GONE);
+        }
+    }
+
+    private final Runnable giveUp = () -> loading(false);
+
+    public boolean isLoading() {
+        return loading;
     }
 
     private static ImageView icon(Context c, int res, String says, View.OnClickListener tap) {
@@ -144,7 +188,7 @@ public final class PlayerBar extends LinearLayout {
         forward.setAlpha(skippable ? 1f : 0.35f);
         back.setEnabled(skippable);
         forward.setEnabled(skippable);
-        setVisibility(reading ? VISIBLE : GONE);
+        setVisibility(reading || loading ? VISIBLE : GONE);
         removeCallbacks(clock);
         if (reading) {
             tick();

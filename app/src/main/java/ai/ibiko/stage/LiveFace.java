@@ -38,6 +38,8 @@ public final class LiveFace extends View {
     private int sizeCached = -1;
 
     static final int CYAN = 0xFF2BE4FF, CORE = 0xFFE9FDFF;
+    /** How tall the head is for its width: pressed a little, as the pilot asked, not cropped. */
+    static final float SQUASH = 0.82f;
 
     public LiveFace(Context c) {
         super(c);
@@ -60,6 +62,9 @@ public final class LiveFace extends View {
         if (m != null && m != mood) {
             mood = m;
             moodSince = now();
+            if (m == Mood.REPLYING) {
+                smiling = true; // the answer is here: it comes with smiling eyes
+            }
             nextLook = moodSince; // a new look at once
         }
     }
@@ -71,17 +76,20 @@ public final class LiveFace extends View {
     /** The mood for a step as the chat words it ("Read app/Main.java", "Edited 2 files", "Ran 3 commands"…). */
     public static Mood moodOf(String step) {
         String s = step == null ? "" : step.toLowerCase(java.util.Locale.US);
-        if (s.matches("(?s)^(read|reading|explored|exploring|searched|searching|looked|looking|survey|listed|opened).*")) {
+        if (s.matches("(?s)^(replying|answering|writing the reply|the reply|here it is|done).*")) {
+            return Mood.REPLYING;
+        }
+        if (s.matches("(?s)^(read|reading|explored|exploring|searched|searching|looked|looking|survey|listed|opened|checking|checked"
+                + "|found|finding|fetched|fetching|browsing|research).*")) {
             return Mood.READING;
         }
-        if (s.matches("(?s)^(edited|editing|wrote|writing|created|creating|changed|updated|made|making|saved).*")) {
+        if (s.matches("(?s)^(edited|editing|wrote|writing|created|creating|changed|changing|updated|updating|made|making|saved"
+                + "|drawing|designing|designed|drafting|composing).*")) {
             return Mood.WRITING;
         }
-        if (s.matches("(?s)^(ran|running|run|cloning|cloned|pull|push|install|build|test|download|unzip|fetch|git|used).*")) {
+        if (s.matches("(?s)^(ran|running|run|cloning|cloned|pull|push|install|build|test|download|unzip|fetch|git|used|compil"
+                + "|executing|deploy|uploading|merging|merged).*")) {
             return Mood.WORKING;
-        }
-        if (s.matches("(?s)^(replying|answering|writing the reply|the reply).*")) {
-            return Mood.REPLYING;
         }
         return Mood.THINKING;
     }
@@ -116,7 +124,9 @@ public final class LiveFace extends View {
         // the face sits inside its square with room around it (zoomed out), corners curved
         float s = side * 0.86f * breathe;
         float cx = w / 2f, cy = h / 2f;
-        r.set(cx - s / 2, cy - s / 2, cx + s / 2, cy + s / 2);
+        // the head a little squeezed: its full width, its height pressed to SQUASH (not cut: the corners stay round)
+        float hh = s * SQUASH;
+        r.set(cx - s / 2, cy - hh / 2, cx + s / 2, cy + hh / 2);
         float corner = s * 0.28f;
         c.drawRoundRect(r, corner, corner, face);
         c.drawRoundRect(r, corner, corner, rim);
@@ -144,7 +154,7 @@ public final class LiveFace extends View {
 
     private void drawEyes(Canvas c, RectF r, float s, long t, float sec) {
         float open = blinkOpen(t);
-        float ew = s * 0.13f, eh = s * 0.30f * squint * open;
+        float ew = s * 0.13f, eh = s * 0.30f * SQUASH * squint * open;
         float spread = s * 0.155f;
         float ox = gx * s * 0.075f, oy = gy * s * 0.07f;
         float ecy = r.centerY() + oy;
@@ -240,7 +250,7 @@ public final class LiveFace extends View {
                 if (t >= nextLook) {
                     nextLook = t + 900 + random.nextInt(1600);
                     tx = (random.nextFloat() - 0.5f) * 0.5f;
-                    smiling = !smiling && random.nextFloat() < 0.55f;
+                    smiling = random.nextFloat() < 0.75f; // mostly smiling while it answers, open now and then
                 }
                 ty = -0.1f + 0.12f * (float) Math.sin(sec * 4.3) * (float) Math.max(0, Math.sin(sec * 0.9));
                 squintTarget = 1f;
@@ -249,20 +259,21 @@ public final class LiveFace extends View {
             default:
                 // glancing up and about, resting a while in between, now and then narrowing in thought
                 if (t >= nextLook) {
-                    nextLook = t + 700 + random.nextInt(2300);
+                    // calm: small glances up and to the side, resting a while on each, often back to the middle
+                    nextLook = t + 1400 + random.nextInt(2600);
                     float a = random.nextFloat();
-                    if (a < 0.35f) {
-                        tx = -0.6f - random.nextFloat() * 0.3f;
-                        ty = -0.6f;
+                    if (a < 0.25f) {
+                        tx = -0.3f - random.nextFloat() * 0.15f;
+                        ty = -0.45f;
+                    } else if (a < 0.5f) {
+                        tx = 0.3f + random.nextFloat() * 0.15f;
+                        ty = -0.45f;
                     } else if (a < 0.7f) {
-                        tx = 0.6f + random.nextFloat() * 0.3f;
+                        tx = (random.nextFloat() - 0.5f) * 0.2f;
                         ty = -0.6f;
-                    } else if (a < 0.85f) {
-                        tx = (random.nextFloat() - 0.5f) * 0.4f;
-                        ty = -0.8f;
                     } else {
                         tx = 0;
-                        ty = 0;
+                        ty = -0.1f;
                     }
                     squintTarget = random.nextFloat() < 0.25f ? 0.72f : 1f;
                 }
