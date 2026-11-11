@@ -1,6 +1,6 @@
 # Ibiko (Android)
 
-<img src="docs/brand/ibiko_icon_512.png" width="128" alt="Ibiko icon: two glowing cyan eyes on black, with circuit traces at the sides">
+<img src="docs/brand/ibiko_icon_512.png" width="128" alt="Ibiko icon: a black rounded face with two glowing cyan eyes and circuit traces, on a teal background">
 
 Ibiko is one AI assistant on your Android device. There are no personas to pick and no other names: you talk to Ibiko, and Ibiko talks, researches, writes, designs in 3D, and writes and runs code on the device.
 
@@ -98,7 +98,7 @@ gradle testDebugUnitTest assembleDebug
 Regenerate assets:
 - `python3 tools/build_world_facts.py`: built-in facts from Wikidata;
 - `python3 tools/build_more_facts.py`: the further facts (countries' codes, the elements in full, Nigeria's states, the planets);
-- `python3 tools/make_icon.py app/src/main/res <thinking.gif>`: the icon and thinking animation from the pilot's art;
+- `python3 tools/make_icon.py app/src/main/res`: the app icon from the pilot's art (the face on a teal background, every density, round, store image); the face in the chat is drawn in code (`stage/LiveFace`);
 - `python3 tools/make_logo.py`: logo and launcher icons;
 - `python3 tools/pack_source.py`: knowledge pack;
 - `python3 tools/build_lexicon.py` and `python3 tools/build_concepts.py`: the comprehension files from Open English WordNet and ConceptNet (the second writes the first-start download and prints its checksum).
