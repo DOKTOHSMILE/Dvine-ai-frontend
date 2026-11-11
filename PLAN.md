@@ -1,3 +1,10 @@
+# Critical reasoning (0.99.98)
+
+- [x] formulas/Critical K1–K12: kind, premise, absolutes, options, cause, who says, criteria, forecasts, how sure, other side, second route, falsifier.
+- [x] Ibiko 1: sureness on every factual answer; decisions get the way to decide.
+- [x] Every brain gets the request's checks; Deep Thinking reviews critically.
+- [ ] K11 second route for Ibiko 1's own answers (reasoned vs looked up).
+
 # Ibiko 1 reasons; the voice keeps up; workers on any task (0.99.97)
 
 - [x] Reasoner: find, filter, relate, read, compare, rank, count, list, compute, on the built-in facts.

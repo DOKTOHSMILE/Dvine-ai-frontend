@@ -193,7 +193,8 @@ public final class Dvine1 {
 
     /** For any brain, with the request: think ahead, and the next step this pilot usually takes after one like it. */
     public String premeditate(String request) {
-        return foundation(request) + foresight().hint(Methods.kind(request)) + reflection().hint(Methods.kind(request));
+        return foundation(request) + foresight().hint(Methods.kind(request)) + reflection().hint(Methods.kind(request))
+                + ai.ibiko.dvine1.formulas.Critical.brief(ai.ibiko.dvine1.formulas.Critical.read(request));
     }
 
     /**
@@ -388,6 +389,7 @@ public final class Dvine1 {
         }
         worker = Plug.workers.start(cap(who) + " · " + NAME, t, NAME);
         how = How.OTHER;
+        critical = ai.ibiko.dvine1.formulas.Critical.read(t); // K1–K8: what it asks and what it takes for granted
         Grammar.Parse parse = Grammar.parse(t);
         final String sum = host.sum(t);
         if (sum != null) {
@@ -433,9 +435,9 @@ public final class Dvine1 {
             think(Arrays.asList("Reading your question", "Checking what I already know",
                     known.sure ? "Found it: you confirmed this before" : "Found it: I learned this in a learning session"), () -> {
                         if (known.sure) {
-                            says(who, known.answer); // confirmed before: no need to ask again
+                            saysSure(who, known.answer, ai.ibiko.dvine1.formulas.Critical.Ground.CONFIRMED); // confirmed before: no need to ask again
                         } else {
-                            says(who, known.answer + "\n(Learned in a learning session; not checked yet.)");
+                            saysSure(who, known.answer + "\n(Learned in a learning session; not checked yet.)", ai.ibiko.dvine1.formulas.Critical.Ground.UNCHECKED);
                             rateable(t, known.answer);
                         }
                     });
@@ -450,7 +452,7 @@ public final class Dvine1 {
             steps.add("Reading your question");
             steps.addAll(reasoned.steps);
             think(steps, () -> {
-                says(who, reasoned.text);
+                saysSure(who, reasoned.text, ai.ibiko.dvine1.formulas.Critical.Ground.REASONED);
                 rateable(t, reasoned.text);
             });
             return;
@@ -462,7 +464,7 @@ public final class Dvine1 {
             if (w != null) {
                 how = How.MEMORY;
                 think(Arrays.asList("Reading your question", "Looking up “" + word + "” in my dictionary"), () -> {
-                    says(who, w.said());
+                    saysSure(who, w.said(), ai.ibiko.dvine1.formulas.Critical.Ground.BUILT_IN);
                     rateable(t, w.said());
                 });
                 return;
@@ -473,7 +475,7 @@ public final class Dvine1 {
         if (looked != null) {
             how = How.MEMORY;
             think(Arrays.asList("Reading your question", "Looking it up in my built-in dictionary and common sense"), () -> {
-                says(who, looked);
+                saysSure(who, looked, ai.ibiko.dvine1.formulas.Critical.Ground.BUILT_IN);
                 rateable(t, looked);
             });
             return;
@@ -484,7 +486,7 @@ public final class Dvine1 {
             how = How.MEMORY;
             think(Arrays.asList("Reading your question", "Parsing what it asks", "Found it in what I've read",
                     "Putting it into a sentence"), () -> {
-                        says(who, formed);
+                        saysSure(who, formed, ai.ibiko.dvine1.formulas.Critical.Ground.ONE_SOURCE);
                         rateable(t, formed);
                     });
             return;
@@ -494,7 +496,7 @@ public final class Dvine1 {
         if (shipped != null && !knowledge().rejected(t, shipped)) {
             how = How.MEMORY;
             think(Arrays.asList("Reading your question", "Checking what I already know", "Found it in my built-in knowledge"), () -> {
-                says(who, shipped);
+                saysSure(who, shipped, ai.ibiko.dvine1.formulas.Critical.Ground.BUILT_IN);
                 rateable(t, shipped);
             });
             return;
@@ -503,9 +505,15 @@ public final class Dvine1 {
         if (learned != null && !knowledge().rejected(t, learned)) {
             how = How.MEMORY;
             think(Arrays.asList("Reading your question", "Checking what I already know", "Found an answer an earlier model gave"), () -> {
-                says(who, learned + "\n(Learned from an earlier model.)");
+                saysSure(who, learned + "\n(Learned from an earlier model.)", ai.ibiko.dvine1.formulas.Critical.Ground.UNCHECKED);
                 rateable(t, learned);
             });
+            return;
+        }
+        if (ai.ibiko.dvine1.formulas.Critical.decision(t)) {
+            // K7, K10: a judgement no fact settles gets the way to decide it, not a verdict found on some page
+            think(Arrays.asList("Reading your question", "That's a judgement, not a fact", "Naming what would decide it",
+                    "Weighing the other side"), () -> saysPlain(who, ai.ibiko.dvine1.formulas.Critical.deliberate(t)));
             return;
         }
         if (!host.online()) {
@@ -561,7 +569,7 @@ public final class Dvine1 {
                             more.add("Reading " + (found.sources.isEmpty() ? "what I found" : String.join(", ", found.sources)));
                             more.add("Writing the answer");
                             think(more, () -> {
-                                says(who, shown); // one block; the check and cancel ask underneath
+                                saysSure(who, shown, found.sources.size() >= 2 ? ai.ibiko.dvine1.formulas.Critical.Ground.TWO_SOURCES : ai.ibiko.dvine1.formulas.Critical.Ground.ONE_SOURCE); // one block
                                 rateable(t, shown);
                             }, false);
                         });
@@ -580,7 +588,11 @@ public final class Dvine1 {
         think(steps, then, true);
     }
 
-    private void think(final List<String> steps, final Runnable then, boolean fresh) {
+    private void think(List<String> given, final Runnable then, boolean fresh) {
+        final List<String> steps = new ArrayList<String>(given);
+        if (fresh && critical != null && !critical.findings.isEmpty() && !steps.isEmpty() && steps.get(0).startsWith("Reading")) {
+            steps.add(1, "Questioning what it takes for granted"); // critical reasoning, before any answer
+        }
         final int mine = fresh ? ++token : token;
         for (int i = 0; i < steps.size(); i++) {
             final String step = steps.get(i);
@@ -604,6 +616,18 @@ public final class Dvine1 {
     private void saysPlain(String who, String text) {
         host.noRating(text);
         says(who, text);
+    }
+
+    /** How the request was read by critical reasoning ({@code formulas/Critical}); set as each message comes in. */
+    private volatile ai.ibiko.dvine1.formulas.Critical.Reading critical;
+
+    /**
+     * A factual answer, said with critical reasoning: what the question took for granted or overstated (K3–K8), when it
+     * matters, and how sure the answer is from how it was reached (K9), never more.
+     */
+    private void saysSure(String who, String text, ai.ibiko.dvine1.formulas.Critical.Ground ground) {
+        String notes = ai.ibiko.dvine1.formulas.Critical.notes(critical);
+        says(who, text + (notes.isEmpty() ? "" : "\n\n" + notes) + "\n" + ai.ibiko.dvine1.formulas.Critical.sure(ground));
     }
 
     private void says(String who, String text) {

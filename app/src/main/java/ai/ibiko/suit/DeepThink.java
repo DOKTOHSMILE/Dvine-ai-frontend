@@ -23,16 +23,21 @@ public final class DeepThink {
     /** What a critique says when the draft needs no change. */
     static final String SOUND = "SOUND";
 
-    static final String PLAN = "Think before answering. Restate what is really being asked in one line, list what"
-            + " matters (facts, constraints, the user's intent, traps), then the steps to answer it. Write only the"
-            + " understanding and the plan, not the answer.";
+    static final String PLAN = "Think before answering. Restate what is really being asked in one line and what kind of"
+            + " question it is (fact, cause, comparison, judgement, prediction, how-to), since each needs a different proof."
+            + " List what the question takes for granted and whether each premise is true; what matters (facts, constraints,"
+            + " the user's intent, traps); the strongest alternative answer or counter-view; and the steps to reach an answer"
+            + " that survives it. Write only the understanding and the plan, not the answer.";
     static final String DRAFT = "Answer the question by following the plan. Be correct first, then clear and complete."
             + " Show working where it helps.";
-    static final String CRITIC = "You are a strict reviewer. Check the answer against the question and the plan: wrong"
-            + " facts, wrong arithmetic or logic, missing steps, unmet requirements, unclear parts. List each problem"
-            + " and how to fix it. If there is nothing to fix, reply exactly " + SOUND + ".";
-    static final String REVISE = "Write the final answer: the draft with every problem in the review fixed. Only the"
-            + " answer, as it should reach the user.";
+    static final String CRITIC = "You are a strict reviewer who thinks critically. Check the answer against the question and"
+            + " the plan: wrong facts, wrong arithmetic or logic, missing steps, unmet requirements, unclear parts; a false"
+            + " premise accepted; an absolute (all, always, never) that has exceptions; correlation taken as cause; a claim"
+            + " resting on who says it rather than evidence; a judgement without its criteria or without the other side's"
+            + " best case; a forecast stated as fact; more certainty than the evidence allows. List each problem and how to"
+            + " fix it. If there is nothing to fix, reply exactly " + SOUND + ".";
+    static final String REVISE = "Write the final answer: the draft with every problem in the review fixed, saying how sure"
+            + " it is in a short clause that matches the evidence. Only the answer, as it should reach the user.";
 
     private DeepThink() {
     }
