@@ -47,4 +47,15 @@ public class BuildFilesTest {
         org.junit.Assert.assertFalse("no source folder outside the module", read("module.toml").contains("../"));
         org.junit.Assert.assertTrue(read("src/main/AndroidManifest.xml").contains("ai.ibiko.ibiko1.LearningJob"));
     }
+
+    /** A merge left half done (conflict markers) breaks CodeAssist on the device: never in the build files. */
+    @org.junit.Test
+    public void noMergeLeftHalfDone() throws Exception {
+        String toml = read("module.toml");
+        File ws = new File("../.platform/workspace.json").isFile() ? new File("../.platform/workspace.json") : new File(".platform/workspace.json");
+        String workspace = ws.isFile() ? new String(Files.readAllBytes(ws.toPath()), StandardCharsets.UTF_8) : "";
+        for (String text : new String[] {toml, workspace, read("build.gradle"), read("src/main/AndroidManifest.xml")}) {
+            org.junit.Assert.assertFalse(text.contains("<<<<<<<") || text.contains(">>>>>>>") || text.matches("(?s).*\\n=======\\n.*"));
+        }
+    }
 }
