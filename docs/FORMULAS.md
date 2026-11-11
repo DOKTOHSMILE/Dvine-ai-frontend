@@ -105,3 +105,19 @@ by itself" shows them and forgets them.
 - D2 Every sentence gets an id: `<message id>#<n>`; a sentence is the list of its word ids, which reads back to the exact words.
 - D3 Every conversation is saved as ids in its chat's folder (memory/ids.tsv): role, sentence id, word ids.
 - D4 Stores are filed by id (facts by the first word of subject and object; examples and tags by word; names by first word). A question's words become ids once; the ids pull only what could answer; nothing else is read.
+
+
+## Corroborate: learning answers without keeping a wrong one (learn/Corroborate, 0.99.116)
+
+- V1 Never learned: a connection failure, a status line, a stand-in reply while the API was away, a refusal.
+- V2 A new answer starts unconfirmed.
+- V3 The same answer again (same words, or ≥ 60% of the content-word ids shared) confirms it.
+- V4 A different answer counts once against each kept answer it differs from, and is kept as the challenger.
+- V5 Marked false when the answers against are ≥ 2 and ≥ its confirmations.
+- V6 A false answer is never given; ties go to the answer kept first; a challenger takes over once confirmed more.
+- V7 The pilot's check or cancel overrules all of it.
+
+## Word ids and short codes (learn/WordBook, learn/Shorthand, 0.99.116)
+
+- Small words and punctuation: ids 1–999 (fixed list). Dictionary words: 1000 + place in lexicon.tsv (152,137). Others: 1,000,000 up, kept on the device.
+- A code is the id in base 36 ("telephone" = 2x9m); ^ marks a capital, ! all capitals. The interpreter turns codes back into the same words.

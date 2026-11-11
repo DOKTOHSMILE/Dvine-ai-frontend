@@ -4,7 +4,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Ibiko's word ids: every word it meets gets one small number, the same for the life of the app, so its mind can
+ * Ibiko's word ids: every word it meets gets one number, the same for good (an English word its fixed dictionary id
+ * from {@link WordBook}; any other word an id from {@link #CUSTOM} up, kept on the device), so its mind can
  * file, find and compare by numbers instead of by spelling. A word is turned into its id once, at the edge (when a
  * question comes in or a fact is learned); after that the indexes ({@link Codes}, the facts, the brain box) work on
  * ints: an int key is hashed and compared in one step, where a word is hashed and compared letter by letter. Pure
@@ -12,7 +13,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class Symbols {
     private static final ConcurrentHashMap<String, Integer> IDS = new ConcurrentHashMap<String, Integer>();
-    private static final AtomicInteger NEXT = new AtomicInteger(1);
+    /** Where the ids of words outside the dictionary start ({@link WordBook} has 1 to about 153,000). */
+    public static final int CUSTOM = 1_000_000;
+    private static final AtomicInteger NEXT = new AtomicInteger(CUSTOM);
 
     private Symbols() {
     }
@@ -26,6 +29,11 @@ public final class Symbols {
         if (have != null) {
             return have;
         }
+        int fixed = WordBook.id(word); // an English word: its fixed dictionary id, the same everywhere
+        if (fixed > 0) {
+            IDS.putIfAbsent(word, fixed);
+            return IDS.get(word);
+        }
         final boolean[] made = {false};
         int id = IDS.computeIfAbsent(word, w -> {
             made[0] = true;
@@ -33,7 +41,11 @@ public final class Symbols {
         });
         if (made[0]) {
             WORDS.put(id, word);
-            keep(word, id);
+            if (WordBook.ready()) {
+                keep(word, id); // kept for good only once the dictionary is open: a dictionary word never gets a custom id for good
+            }
+        } else if (id < CUSTOM) {
+            return id;
         }
         return id;
     }
@@ -43,10 +55,13 @@ public final class Symbols {
 
     /** The word an id stands for, or null. */
     public static String word(int id) {
-        return WORDS.get(id);
+        return id < CUSTOM ? WordBook.word(id) : WORDS.get(id);
     }
 
-    /** Where the ids are kept: {@code files/brain/words.tsv}, one "word<TAB>id" a line, only ever added to. */
+    /**
+     * Where the ids of words outside the dictionary are kept: {@code files/brain/words2.tsv}, one "word<TAB>id" a line,
+     * only ever added to (dictionary words need no file: their ids are fixed by {@link WordBook}).
+     */
     private static volatile java.io.File kept;
     private static final java.util.concurrent.ExecutorService WRITER = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "ibiko-word-ids");
@@ -62,8 +77,8 @@ public final class Symbols {
         if (kept != null || filesDir == null) {
             return;
         }
-        java.io.File f = new java.io.File(filesDir, "brain/words.tsv");
-        boolean fresh = IDS.isEmpty(); // opened first thing at start: no id has been made yet
+        java.io.File f = new java.io.File(filesDir, "brain/words2.tsv"); // only words outside the dictionary
+        boolean fresh = WORDS.isEmpty(); // opened first thing at start: no word outside the dictionary has an id yet
         if (fresh && f.isFile()) {
             try {
                 for (String line : java.nio.file.Files.readAllLines(f.toPath(), java.nio.charset.StandardCharsets.UTF_8)) {
@@ -90,7 +105,9 @@ public final class Symbols {
         kept = f;
         if (!fresh) {
             for (java.util.Map.Entry<String, Integer> e : IDS.entrySet()) {
-                keep(e.getKey(), e.getValue());
+                if (e.getValue() >= CUSTOM) {
+                    keep(e.getKey(), e.getValue());
+                }
             }
         }
     }
@@ -114,7 +131,11 @@ public final class Symbols {
     /** The id of a word only if it has one already: -1 when this word was never seen (nothing is filed under it). */
     public static int known(String word) {
         Integer have = word == null ? null : IDS.get(word);
-        return have == null ? -1 : have;
+        if (have != null) {
+            return have;
+        }
+        int fixed = WordBook.id(word); // a dictionary word's id is fixed: known without having been filed first
+        return fixed > 0 ? fixed : -1;
     }
 
     /** How many words have ids. */

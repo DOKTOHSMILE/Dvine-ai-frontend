@@ -49,6 +49,10 @@ public final class BrainBox {
         int hits;
         /** When it was last chosen, in milliseconds. 0 when it was never touched. */
         long touched;
+        /** How many answers came that said otherwise (Corroborate V4). */
+        int against;
+        /** Marked false: said otherwise often enough to be overturned (V5); never given again. */
+        boolean wrong;
 
         Example(List<String> words, String order) {
             this(words, order, 0L);
@@ -95,34 +99,58 @@ public final class BrainBox {
     public synchronized void learnTalk(String question, String answer) {
         List<String> words = words(question);
         String a = answer == null ? "" : answer.trim();
-        if (words.isEmpty() || a.length() < 2 || a.length() > ANSWER_CHARS
+        if (words.isEmpty() || a.length() < 2 || a.length() > ANSWER_CHARS || Corroborate.failure(a) // V1
                 || (question + " " + a).toLowerCase(Locale.US).matches("(?s).*\\b(today|tonight|now|current|latest|news|price|weather|yesterday|tomorrow)\\b.*")) {
             return;
         }
         long now = System.currentTimeMillis();
         String kept = a.replace('\n', '\u2028');
-        for (int i = talk.size() - 1; i >= 0; i--) {
-            Example e = talk.get(i);
-            if (e.words.equals(words)) {
-                if (e.order.equals(kept)) {
-                    e.hits++; // the pilot chose the same answer again: it keeps learning this
-                    e.touched = now;
-                    saveTalk();
-                    return;
-                }
-                talk.remove(i); // a corrected answer replaces the wrong one
-            } else if (cosineOf(words, e.words, talk) >= CLOSE_TALK && e.order.equals(kept)) {
-                e.hits++; // the same answer, in a slightly different wording
-                e.touched = now;
-                saveTalk();
-                return;
+        // the answers already kept for this question (the same words, or the same question in other words)
+        List<Example> same = new ArrayList<Example>();
+        for (Example e : talk) {
+            if (e.words.equals(words) || cosineOf(words, e.words, talk) >= CLOSE_TALK) {
+                same.add(e);
             }
         }
-        talk.add(new Example(words, kept, now));
-        while (talk.size() > MOST_TALK) {
-            talk.remove(0); // the oldest, least used learning drops out first
+        Example agreeing = null;
+        for (Example e : same) {
+            if (!e.wrong && Corroborate.agrees(e.order.replace('\u2028', '\n'), a)) {
+                agreeing = e;
+                break;
+            }
+        }
+        if (agreeing != null) {
+            agreeing.hits++; // V3: confirmed again
+            agreeing.touched = now;
+        }
+        for (Example e : same) {
+            if (e != agreeing && !e.wrong && !Corroborate.agrees(e.order.replace('\u2028', '\n'), a)) {
+                e.against++; // V4: an answer that says otherwise counts against it
+                if (Corroborate.overturned(e.hits, e.against)) {
+                    e.wrong = true; // V5: marked false, never given again (V6)
+                }
+            }
+        }
+        if (agreeing == null) {
+            talk.add(new Example(words, kept, now)); // V2/V4: kept, unconfirmed, as the challenger
+            while (talk.size() > MOST_TALK) {
+                talk.remove(0); // the oldest, least used learning drops out first
+            }
         }
         saveTalk();
+    }
+
+    /** The answers kept for a question, with how they stand: for "what do you know", tests and the formula's checks. */
+    public synchronized List<String[]> talkAbout(String question) {
+        List<String> words = words(question);
+        List<String[]> out = new ArrayList<String[]>();
+        for (Example e : talk) {
+            if (e.words.equals(words) || cosineOf(words, e.words, talk) >= CLOSE_TALK) {
+                out.add(new String[]{e.order.replace('\u2028', '\n'), String.valueOf(e.hits), String.valueOf(e.against),
+                        e.wrong ? "false" : "kept"});
+            }
+        }
+        return out;
     }
 
     /**
@@ -130,19 +158,37 @@ public final class BrainBox {
      * only when a clearly better one does not turn up, and one that was corrected never comes back.
      */
     public synchronized String recallTalk(String question) {
-        Example best = nearest(talk, words(question));
+        // V6: an answer marked false is never given; between answers to the same question, the most confirmed one
+        List<Example> live = new ArrayList<Example>();
+        for (Example e : talk) {
+            if (!e.wrong) {
+                live.add(e);
+            }
+        }
+        Example best = nearest(live, words(question));
         if (best == null || score < CLOSE_TALK) {
             return null;
         }
+        double top = score;
+        Example incumbent = null;
+        for (Example e : live) { // oldest first: on equal confirmations the answer that was there first stays (V4-V5)
+            if (cosineOf(words(question), e.words, live) >= top - 1e-9 && (incumbent == null || e.hits > incumbent.hits)) {
+                incumbent = e;
+            }
+        }
+        if (incumbent != null) {
+            best = incumbent; // a challenger takes over only once confirmed more, or when the kept one is marked false
+        }
+        score = top;
         // how the answer looks when its learning is counted
         int asGood = 0;
         double adjBest = score * trust(best);
-        for (int i = talk.size() - 1; i >= 0; i--) {
-            Example e = talk.get(i);
+        for (int i = live.size() - 1; i >= 0; i--) {
+            Example e = live.get(i);
             if (e == best || e.words.equals(best.words)) {
                 continue;
             }
-            double s = cosineOf(words(question), e.words, talk);
+            double s = cosineOf(words(question), e.words, live);
             if (s >= CLOSE_TALK && s > score + 1e-9) {
                 double adj = s * trust(e);
                 if (adj > adjBest + 1e-9) {
@@ -601,6 +647,14 @@ public final class BrainBox {
                             e.hits = 0;
                         }
                     }
+                    if (parts.length > 5) {
+                        try {
+                            e.against = Integer.parseInt(parts[4]);
+                            e.wrong = "1".equals(parts[5]);
+                        } catch (NumberFormatException ignored) {
+                            e.against = 0;
+                        }
+                    }
                     if (parts.length > 3) {
                         try {
                             e.touched = Long.parseLong(parts[3]);
@@ -625,7 +679,8 @@ public final class BrainBox {
         for (Example e : talk) {
             b.append(String.join(" ", e.words)).append('\t')
                     .append(e.order.replace('\n', '\u2028').replace('\t', ' '))
-                    .append('\t').append(e.hits).append('\t').append(e.touched).append('\n');
+                    .append('\t').append(e.hits).append('\t').append(e.touched).append('\t').append(e.against)
+                    .append('\t').append(e.wrong ? 1 : 0).append('\n');
         }
         try {
             if (f.getParentFile() != null) {

@@ -14,30 +14,26 @@ import java.util.List;
  * sentence is a short list of numbers: "Abuja is the capital of Nigeria." is {@code m1k2#0 → 812 9 3 1544 7 2201}.
  * <p>
  * Every conversation is saved this way as it goes, in its own chat's folder
- * ({@code files/ibiko/chats/<chat>/memory/ids.tsv}), one line a sentence: "role, sentence id, word ids". The ids read
+ * ({@code files/ibiko/chats/<chat>/memory/codes.tsv}), one line a sentence: "role, sentence id, word codes". The codes read
  * back to the exact words ({@link #read}). Deleting the chat deletes its file. Pure Java.
  */
 public final class Identifier {
     private Identifier() {
     }
 
-    /** One sentence, identified: its id, and the id of each word in order (punctuation stays on its word). */
+    /** One sentence, identified: its id, and its words as the brain's short codes ({@link Shorthand}). */
     public static final class Sentence {
         public final String id;
-        public final int[] words;
+        public final String codes;
 
-        Sentence(String id, int[] words) {
+        Sentence(String id, String codes) {
             this.id = id;
-            this.words = words;
+            this.codes = codes;
         }
 
-        /** "812 9 3 1544 7 2201". */
-        public String ids() {
-            StringBuilder b = new StringBuilder();
-            for (int w : words) {
-                b.append(b.length() == 0 ? "" : " ").append(w);
-            }
-            return b.toString();
+        /** How many words (and marks) it has. */
+        public int size() {
+            return codes.isEmpty() ? 0 : codes.split(" ").length;
         }
     }
 
@@ -45,32 +41,14 @@ public final class Identifier {
     public static List<Sentence> identify(String messageId, String text) {
         List<Sentence> out = new ArrayList<Sentence>();
         for (String[] s : Codes.sentences(messageId, text)) {
-            String[] tokens = s[1].split(" ");
-            int[] ids = new int[tokens.length];
-            for (int i = 0; i < tokens.length; i++) {
-                ids[i] = Symbols.id(tokens[i]);
-            }
-            out.add(new Sentence(s[0], ids));
+            out.add(new Sentence(s[0], Shorthand.codes(s[1])));
         }
         return out;
     }
 
-    /** The words ids stand for, read back: "812 9 3 1544 7 2201" → "Abuja is the capital of Nigeria.". */
-    public static String read(String ids) {
-        StringBuilder b = new StringBuilder();
-        for (String t : ids.trim().split(" ")) {
-            if (t.isEmpty()) {
-                continue;
-            }
-            String w;
-            try {
-                w = Symbols.word(Integer.parseInt(t));
-            } catch (NumberFormatException e) {
-                w = null;
-            }
-            b.append(b.length() == 0 ? "" : " ").append(w == null ? "?" : w);
-        }
-        return b.toString();
+    /** The words codes stand for, read back for people ({@link Shorthand#words}). */
+    public static String read(String codes) {
+        return Shorthand.words(codes);
     }
 
     private static final java.util.concurrent.ExecutorService WRITER = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
@@ -81,7 +59,7 @@ public final class Identifier {
 
     /** The file a chat's conversation is saved in as ids. */
     public static File file(File filesDir, String chat) {
-        return new File(ai.ibiko.main.ChatSpace.of(filesDir, chat), ai.ibiko.main.ChatSpace.MEMORY + "/ids.tsv");
+        return new File(ai.ibiko.main.ChatSpace.of(filesDir, chat), ai.ibiko.main.ChatSpace.MEMORY + "/codes.tsv");
     }
 
     /** Saves a message of a chat as ids (off the caller's thread): one line a sentence. */
@@ -93,7 +71,7 @@ public final class Identifier {
         WRITER.execute(() -> {
             StringBuilder b = new StringBuilder();
             for (Sentence s : said) {
-                b.append(role).append('\t').append(s.id).append('\t').append(s.ids()).append('\n');
+                b.append(role).append('\t').append(s.id).append('\t').append(s.codes).append('\n');
             }
             try {
                 File f = file(filesDir, chat);

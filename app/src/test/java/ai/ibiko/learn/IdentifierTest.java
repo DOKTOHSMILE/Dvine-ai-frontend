@@ -19,10 +19,10 @@ public class IdentifierTest {
         List<Identifier.Sentence> s = Identifier.identify("m1", "Abuja is the capital of Nigeria. It is in the middle.");
         assertEquals(2, s.size());
         assertEquals("m1#0", s.get(0).id);
-        assertEquals(6, s.get(0).words.length);
-        assertEquals("one word, one id: 'is' and 'the' are the same number in both", s.get(0).words[1], s.get(1).words[1]);
-        assertEquals("Abuja is the capital of Nigeria.", Identifier.read(s.get(0).ids()));
-        assertEquals("It is in the middle.", Identifier.read(s.get(1).ids()));
+        assertEquals("six words and the full stop", 7, s.get(0).size());
+        assertEquals("one word, one code: 'is' is the same in both", s.get(0).codes.split(" ")[1], s.get(1).codes.split(" ")[1]);
+        assertEquals("Abuja is the capital of Nigeria.", Identifier.read(s.get(0).codes));
+        assertEquals("It is in the middle.", Identifier.read(s.get(1).codes));
     }
 
     @Test
