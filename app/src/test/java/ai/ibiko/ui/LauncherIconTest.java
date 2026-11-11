@@ -15,8 +15,9 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.GraphicsMode;
 
 /**
- * Ibiko's launcher icon is the pilot's own art (tools/make_icon.py makes the layers and PNGs from it): the eyes sit
- * inside the safe circle every launcher mask keeps, and the one-colour layer for themed icons covers the same eyes.
+ * Ibiko's launcher icon is the pilot's own art (tools/make_icon.py makes the layers and PNGs from it), its face smaller
+ * on a teal background so every mask shows its curved corners: the eyes sit inside the safe circle every launcher mask
+ * keeps, and the one-colour layer for themed icons covers the same eyes.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35)
@@ -60,7 +61,7 @@ public class LauncherIconTest {
                 }
             }
         }
-        assertTrue("the eyes are drawn: " + eyes, eyes > 500);
+        assertTrue("the eyes are drawn (the face is 54 of 108 units, with room for the background): " + eyes, eyes > 250);
         assertTrue("no eye outside the safe circle: " + outside, outside == 0);
         assertTrue("the themed layer covers the eyes: " + covered + " of " + eyes, covered > eyes * 0.8);
         for (String d : new String[] {"mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"}) {

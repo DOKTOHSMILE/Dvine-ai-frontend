@@ -1,3 +1,8 @@
+# Ibiko's live face; the icon zoomed out (0.99.84)
+
+- [x] The working mark drawn live: blinks, glides, breathes; a look for thinking, reading, writing, working, replying.
+- [x] The app icon: the face smaller on a teal background, curved corners showing in every launcher.
+
 # Big code without crashing; approvals; careful plans (0.99.83)
 
 - [x] Code and HTML viewers take big text by file; big code shown as a list of lines.

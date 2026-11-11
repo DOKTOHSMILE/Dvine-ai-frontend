@@ -277,6 +277,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 244 | The code viewer crashes the app on a large code file | P12 | Fixed (by file path, read off the main thread, a list of lines) | 0.99.83 |
 | 245 | Structure the planning carefully not to make mistakes | P12 | Built (each step has a check and is ticked only after it passed; order and repository checked) | 0.99.83 |
 | 246 | Add a permission check for approval (none seemed to exist) | P12 | Built (changing connector calls ask too; "Allow for this task" instead of a silent always; asking switched back on once) | 0.99.83 |
+| 247 | The working face: zoomed out, curved edges, blinking, moving sideways smoothly, alive and not a short GIF; different looks for thinking, reading, writing, working, replying | P12 | Built (LiveFace drawn live, random blinks, a spring, five looks) | 0.99.84 |
+| 248 | Zoom out the app icon with space for a background colour | P12 | Built (face at 54 of 108 units on teal; PNGs, round, store and themed layers) | 0.99.84 |
 
 ## Still open, in the order that matters
 

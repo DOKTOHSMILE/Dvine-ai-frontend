@@ -52,6 +52,8 @@ A tool switched off for the chat is never used.
 
 **One folder per repository.** A repository is cloned into `memory/projects/<name>` (the folder the workspace screen shows), and the agent's PLAN.md names it under `## Repository` ("owner/name -> memory/projects/<name>"): the first step pulls it there, and every read, edit, command and push uses that folder. A cloned repository there is code any task may read; only another project's record files (RECORD.md, RECOVERY.md) stay private.
 
+**Ibiko's face.** While Ibiko works, the chat shows its face (the icon's face, `stage/LiveFace`) drawn live: it blinks at random, its eyes glide, it breathes, and its look follows the work: thinking, reading, writing, running commands, replying. Nothing loops, so it looks alive.
+
 **Asking first.** Ibiko asks before a shell command, a push, a pull request and any connector call that changes something (creating, deleting, posting, merging, sending); reading, searching and editing files in the workspace go ahead. "Allow for this task" lets the rest of one task go ahead; Settings › Coding › Run commands without asking turns asking off, and the steps then say so. Every plan step names its files and its check, and is ticked only after the check passed.
 
 **Plans grow.** A plan file (`PLAN.md`) is only added to. New work goes after the existing steps, or right after the last finished step when you call it a priority. A finished step is ticked, never deleted. A write that would drop a step is refused.
