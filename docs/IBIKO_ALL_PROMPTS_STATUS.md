@@ -362,6 +362,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 329 | Learn API answers, compare them with what is kept, mark the kept one false when other answers keep coming, learn the new | P12 | Built (learn/Corroborate V1–V7 in the brain box) | 0.99.116 |
 | 330 | Id the whole English dictionary; the brain thinks in short codes; an interpreter turns codes to words and back | P12 | Built (learn/WordBook, learn/Shorthand) | 0.99.116 |
 | 331 | The space between words gets a code too | P12 | Built (space, new line and tab have fixed codes; text comes back exactly) | 0.99.116 |
+| 332 | A double space is a code of its own | P12 | Built (one code for two spaces; three = double + single) | 0.99.117 |
 
 ## Still open, in the order that matters
 
