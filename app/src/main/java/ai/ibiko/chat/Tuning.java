@@ -101,9 +101,21 @@ public final class Tuning {
             "How many of the results are opened and read.", 3, 0, 10);
 
     public static final Knob WORKERS = new Knob("adv_workers", "Mini agent workers at once",
-            "How many mini agents work side by side on a heavy job (each takes one part and reports when it finishes)."
-                    + " The device's own model is taken by one request at a time, so extra workers wait for it between"
-                    + " their steps; an API model answers them all at once.", 4, 1, 8);
+            "How many workers run side by side: agents on the parts of a job, their hands, the readers that go through the"
+                    + " code, and the writers of a long piece. With an API model they all work at once. The device's own model"
+                    + " answers one call at a time, so there two run at once (one thinks while the other runs its commands).",
+            8, 1, 16);
+
+    /** Workers that really run at once: the setting with an API model, two with the device's own model. */
+    public static int workersAtOnce(android.content.SharedPreferences prefs, boolean api) {
+        return workersAtOnce(WORKERS.get(prefs), api);
+    }
+
+    /** As {@link #workersAtOnce(android.content.SharedPreferences, boolean)}, from the setting's value. */
+    public static int workersAtOnce(int set, boolean api) {
+        int n = Math.max(1, set);
+        return api ? n : Math.min(2, n);
+    }
 
     public static final Knob CLONE_FILES = new Knob("adv_clone_files", "Most files in a clone",
             "A repository with more files than this isn't cloned onto the device (a bigger number needs more storage and time).",

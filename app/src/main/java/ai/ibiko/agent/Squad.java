@@ -46,8 +46,8 @@ public final class Squad {
 
     /** The minutes a part gets when the lead names none, and the most it can be given. */
     public static final int MINUTES = 15, MOST_MINUTES = 120;
-    /** The most mini workers one specialist starts. */
-    public static final int MOST_HANDS = 4;
+    /** The most mini workers one specialist starts (how many run at once is the Workers setting). */
+    public static final int MOST_HANDS = 8;
 
     /** One part of a job: whose work it is, how long it may take, and what to do. */
     public static final class Part {
