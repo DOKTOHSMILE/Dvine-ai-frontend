@@ -29,6 +29,9 @@ public final class DvineApp extends Application {
             ai.ibiko.net.WebSearch.browser = (q, most) -> ai.ibiko.net.GoogleWeb.search(this, q, most);
         }
         plugDvine1();
+        if (!"robolectric".equals(android.os.Build.FINGERPRINT)) {
+            ai.ibiko.main.Warmup.start(this); // gets the chat and Ibiko 1 ready while the splash shows
+        }
         // the voice is loaded as Ibiko starts and kept on standby, so the first reply read aloud doesn't wait for it
         if (ai.ibiko.main.AppFiles.ready(getFilesDir()) && !"robolectric".equals(android.os.Build.FINGERPRINT)) {
             String pack = getSharedPreferences("dvine", MODE_PRIVATE).getString("voice_pack", "kokoro");

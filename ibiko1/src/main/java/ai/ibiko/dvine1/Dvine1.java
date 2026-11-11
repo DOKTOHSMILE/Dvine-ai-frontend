@@ -139,6 +139,17 @@ public final class Dvine1 {
 
     private static BuiltIn builtIn;
 
+    /**
+     * Loads what the first question would otherwise wait for: the built-in facts, and the dictionary and concept tables
+     * unpacked in place. Call it off the main thread at start (the app does it while its splash shows).
+     */
+    public static void warm(File filesDir) {
+        builtIn();
+        File k = new File(new File(filesDir, "brain"), "knowledge");
+        Store.unpacked(k, "lexicon.tsv");
+        Store.unpacked(k, "concepts.tsv");
+    }
+
     /** What shipped with the app: known from the moment it is installed, with no internet and nothing learned yet. */
     public static synchronized BuiltIn builtIn() {
         if (builtIn == null) {
@@ -428,6 +439,20 @@ public final class Dvine1 {
                             rateable(t, known.answer);
                         }
                     });
+            return;
+        }
+        // a question that needs facts put together (compare, rank, count, list, chain, add up): reasoned step by step on
+        // what it knows, each value said, so the answer can be checked
+        final Reasoner.Result reasoned = new Reasoner(builtIn()).answer(t);
+        if (reasoned != null && !knowledge().rejected(t, reasoned.text)) {
+            how = How.MEMORY;
+            List<String> steps = new ArrayList<String>();
+            steps.add("Reading your question");
+            steps.addAll(reasoned.steps);
+            think(steps, () -> {
+                says(who, reasoned.text);
+                rateable(t, reasoned.text);
+            });
             return;
         }
         // a word's meaning: from its own dictionary, or learned from Wiktionary now

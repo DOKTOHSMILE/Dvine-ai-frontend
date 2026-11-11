@@ -1390,6 +1390,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             return;
         }
         crash.install();
+        // the splash (Ibiko's face, glancing and blinking) stays while the start-up work finishes, at most a moment
+        final android.view.View splashHold = findViewById(android.R.id.content);
+        splashHold.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                if (!ai.ibiko.main.Warmup.done()) {
+                    return false;
+                }
+                splashHold.getViewTreeObserver().removeOnPreDrawListener(this);
+                return true;
+            }
+        });
         // kept running in the background until the pilot closes it (main/KeepAlive); opening Ibiko clears a Close
         ai.ibiko.main.KeepAlive.opened(this);
         registerReceiver(closedByPilot, new android.content.IntentFilter(ai.ibiko.main.KeepAlive.CLOSED), RECEIVER_NOT_EXPORTED);

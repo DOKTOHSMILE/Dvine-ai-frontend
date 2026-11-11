@@ -138,6 +138,7 @@ public final class NeuralVoice {
         epoch++;
         queue.removeIf(i -> i.epoch >= 0);
         ready2play.clear();
+        sounding = false;
         AudioTrack t = track;
         if (t != null) {
             try {
@@ -243,11 +244,50 @@ public final class NeuralVoice {
     private static final class Clip {
         final Item item;
         final float[] samples;
+        /** The first piece of its sentence (it starts the sentence) and the last (the pause after it, then done). */
+        final boolean first, last;
 
-        Clip(Item item, float[] samples) {
+        Clip(Item item, float[] samples, boolean first, boolean last) {
             this.item = item;
             this.samples = samples;
+            this.first = first;
+            this.last = last;
         }
+    }
+
+    /** Sound is being written to the speaker now. */
+    private volatile boolean sounding;
+
+    /** The first piece said after silence is at most this long, so the voice starts with the text, not after it. */
+    static final int LEAD_LETTERS = 48;
+
+    /**
+     * The parts of a sentence, with the first one cut short (at a comma, else a space, after a few words) when the
+     * voice is silent: a short piece is made in a fraction of the time, so speech starts at once and the rest is made
+     * while it is heard.
+     */
+    static java.util.List<String> partsFrom(String text, boolean quick) {
+        java.util.List<String> parts = parts(text);
+        if (!quick || parts.isEmpty() || parts.get(0).length() <= LEAD_LETTERS + 12) {
+            return parts;
+        }
+        String head = parts.get(0);
+        int cut = -1;
+        for (String mark : new String[] {", ", "; ", ": ", " - ", " "}) {
+            int at = head.lastIndexOf(mark, LEAD_LETTERS);
+            if (at >= 12) {
+                cut = at + mark.length() - 1;
+                break;
+            }
+        }
+        if (cut < 0) {
+            return parts;
+        }
+        java.util.List<String> out = new java.util.ArrayList<String>();
+        out.add(head.substring(0, cut + 1).trim());
+        out.add(head.substring(cut + 1).trim());
+        out.addAll(parts.subList(1, parts.size()));
+        return out;
     }
 
     /**
@@ -286,35 +326,39 @@ public final class NeuralVoice {
         return out;
     }
 
-    /** Makes a whole sentence's sound (in parts when long), then hands it to the player. */
+    /**
+     * Makes a sentence's sound piece by piece and hands each piece to the player as soon as it is made: the first is
+     * heard while the next is being made. After silence the first piece is short, so the voice keeps up with the text.
+     */
     private void make(Item it) throws InterruptedException {
-        java.util.List<float[]> pieces = new java.util.ArrayList<float[]>();
-        int n = 0;
-        try {
-            for (String part : parts(it.text)) {
-                if (it.epoch != epoch) {
-                    return; // stopped while it was being made
-                }
-                com.k2fsa.sherpa.onnx.GeneratedAudio a = tts.generate(part, it.speaker, Math.max(0.5f, Math.min(2f, it.speed)));
-                float[] got = a == null ? null : a.getSamples();
-                if (got != null && got.length > 0) {
-                    pieces.add(clean(got));
-                    n += got.length;
-                }
+        boolean quick = ready2play.isEmpty() && !sounding;
+        java.util.List<String> pieces = partsFrom(it.text, quick);
+        boolean first = true;
+        for (int i = 0; i < pieces.size(); i++) {
+            if (it.epoch != epoch) {
+                return; // stopped while it was being made
             }
-        } catch (RuntimeException e) {
-            it.events.onError(it.id);
-            return;
-        }
-        float[] all = new float[n];
-        int at = 0;
-        for (float[] p : pieces) {
-            System.arraycopy(p, 0, all, at, p.length);
-            at += p.length;
-        }
-        if (it.epoch == epoch) {
+            float[] got;
+            try {
+                com.k2fsa.sherpa.onnx.GeneratedAudio a = tts.generate(pieces.get(i), it.speaker,
+                        Math.max(0.5f, Math.min(2f, it.speed)));
+                got = a == null ? null : a.getSamples();
+            } catch (RuntimeException e) {
+                it.events.onError(it.id);
+                return;
+            }
+            boolean last = i == pieces.size() - 1;
+            if ((got == null || got.length == 0) && !last) {
+                continue;
+            }
+            float[] sound = got == null ? new float[0] : clean(got);
+            if (it.epoch != epoch) {
+                return;
+            }
             ensurePlayer();
-            while (!ready2play.offer(new Clip(it, all), 200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+            Clip c = new Clip(it, sound, first, last);
+            first = false;
+            while (!ready2play.offer(c, 200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
                 if (it.epoch != epoch || closed) {
                     return;
                 }
@@ -373,14 +417,20 @@ public final class NeuralVoice {
                 totalWritten = 0;
                 playedEpoch = mine;
             }
-            it.events.onStart(it.id);
+            if (c.first) {
+                it.events.onStart(it.id);
+            }
             t.setVolume(it.volume);
             t.play();
+            sounding = true;
             int step = rate / 10; // a tenth of a second at a time, so a stop is heard at once
             for (int i = 0; i < c.samples.length && mine == epoch; i += step) {
                 int len = Math.min(step, c.samples.length - i);
                 t.write(c.samples, i, len, AudioTrack.WRITE_BLOCKING);
                 totalWritten += len;
+            }
+            if (!c.last) {
+                return; // the next piece of the same sentence follows straight on, with no pause
             }
             if (mine == epoch) {
                 float[] gap = new float[(int) (rate * GAP)];
@@ -400,6 +450,7 @@ public final class NeuralVoice {
             }
             return;
         }
+        sounding = false;
         if (mine == epoch) {
             it.events.onDone(it.id);
         }

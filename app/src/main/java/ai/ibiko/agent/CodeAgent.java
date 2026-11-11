@@ -271,9 +271,10 @@ public final class CodeAgent {
             return depth >= 2 ? "Error: a hand carries out its own piece; it starts no workers."
                     : "Workers are switched off for this chat (Tools \u203A Workers). Do the parts yourself, one after another.";
         }
-        if (blueprint != null && blueprint.phase() != Blueprint.Phase.BUILD && blueprint.phase() != Blueprint.Phase.VERIFY) {
-            return "Blueprint: workers build. Finish UNDERSTAND, PLAN and CHECK in PLAN.md first, then start them from the plan's steps.";
-        }
+        // before the plan is checked (or when this run only reads) workers still help, at once, on parts that change
+        // nothing: surveying the code, researching on the web, running checks and tests, reading and reporting
+        final boolean lookOnly = readOnly || (blueprint != null && blueprint.phase() != Blueprint.Phase.BUILD
+                && blueprint.phase() != Blueprint.Phase.VERIFY);
         List<Squad.Part> given = Squad.assignments(c.body);
         if (depth == 1 && given.size() > Squad.MOST_HANDS) {
             given = new ArrayList<Squad.Part>(given.subList(0, Squad.MOST_HANDS));
@@ -312,7 +313,7 @@ public final class CodeAgent {
         final File folder = scope != null ? scope : projectOf(whole); // every worker stays in this project's folder
         final File kept = folder.equals(workspace) ? null : folder;
         host.step(hands ? name() + " started " + plan.size() + " hands at once"
-                : "Started " + plan.size() + " agents on " + plan.size() + " parts at once");
+                : "Started " + plan.size() + " agents on " + plan.size() + " parts at once" + (lookOnly ? " (looking, not changing)" : ""));
         workersUsed += plan.size();
         final long parentDeadline = deadline;
         return Squad.run(parts, (number, part) -> {
@@ -320,7 +321,7 @@ public final class CodeAgent {
             final String who = hands ? name() + " hand " + number : mine.role != null ? mine.role.name() : persona + " worker " + number;
             String row = AgentBoard.start(hands ? who : who + (mine.role != null ? " \u00B7 " + mine.role.title : ""), part);
             CodeAgent w = new CodeAgent(workspace, quiet, host, connectorTools, budgetChars).useGit(git)
-                    .steps(Math.max(8, maxSteps)).as(who, false).compact(compact);
+                    .steps(Math.max(8, maxSteps)).as(who, lookOnly).compact(compact);
             w.worker = true;
             w.depth = depth + 1;
             w.role = hands ? null : mine.role;
@@ -332,6 +333,8 @@ public final class CodeAgent {
             try {
                 AgentBoard.step(row, "Working on its part (" + mine.minutes + " min)");
                 String report = w.run(Squad.brief(number, plan.size(), part, whole)
+                        + (lookOnly ? "\n\nThis part changes nothing yet (the plan isn't checked, or this run only reads): look,"
+                                + " research, run checks and report what you found." : "")
                         + (kept == null ? "" : "\n\nYour folder: " + show(workspace.toPath().relativize(kept.toPath()).toString())
                                 + ". Read and write only inside it.")
                         + "\nYour time: " + mine.minutes + " minutes. Work on your part only; when the time is nearly up, stop and report.", "");
@@ -500,7 +503,7 @@ public final class CodeAgent {
                         + " Alpine Linux as run, inside Ibiko. The Termux app is not opened. path is the folder it runs in."
                         + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
-                + (readOnly || !squad || depth >= 2 ? "" : depth == 1 ? Squad.HANDS : Squad.TOOL)
+                + (!squad || depth >= 2 ? "" : depth == 1 ? Squad.HANDS : Squad.TOOL)
                 + (worker || !handoverOn ? "" : "<tool name=\"handover\" to=\"obi|ivie\"/> (only when the message is not yours at all:"
                         + " ordinary talk, a question about the world, research or a report; a story, a script, a drawing or a"
                         + " design. It is answered as a reply instead. Code, commands, files, repositories and Linux are yours.)\n")

@@ -1,3 +1,13 @@
+# Ibiko 1 reasons; the voice keeps up; workers on any task (0.99.97)
+
+- [x] Reasoner: find, filter, relate, read, compare, rank, count, list, compute, on the built-in facts.
+- [x] Every reasoned answer says its values; false premises are corrected; nothing invented.
+- [x] Speech: a short first piece after silence, pieces played as they are made.
+- [x] Start-up work during the splash (Warmup).
+- [x] Workers take any task, and look and report while the plan isn't checked yet.
+- [ ] Reasoning over what Ibiko 1 learned (Facts, Knowledge), not only the built-in table.
+- [ ] The Speak button; an image model choice in Settings.
+
 # Each chat its own files; Ibiko 1 on its own; imagine then generate (0.99.96)
 
 - [x] files/ibiko/chats/<chat>: repos/ (pulled), memory/ (this chat's memories), images/; deleted with the chat.

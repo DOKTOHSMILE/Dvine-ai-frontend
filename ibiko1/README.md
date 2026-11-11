@@ -5,7 +5,15 @@ Ibiko 1 is Ibiko's own language brain. It runs inside any Android app, with no n
 - answers from its built-in knowledge: world facts, the elements, local facts, and an English dictionary (Open English WordNet);
 - remembers what it is taught, and learns from "right" and "wrong";
 - researches the web only when the app gives it a way to (`Plug.web`);
-- writes a function line (`§XX …`) when a message asks the app to do something.
+- writes a function line (`§XX …`) when a message asks the app to do something;
+- reasons over what it knows (`Reasoner`). A question one fact can't answer is broken into steps, which run on its facts and are then combined:
+  - compare: "Which is bigger, Nigeria or Ghana?";
+  - rank: "the most populous country in Africa";
+  - count and list: "How many countries use the euro?";
+  - chain: "the currency of the country whose capital is Accra";
+  - compute: population density, "combined", a continent's total.
+
+  Every answer says the values it rests on, a false premise is corrected rather than explained, and nothing is invented. The rules are in `docs/FORMULAS.md`.
 
 Everything it needs is in this folder:
 

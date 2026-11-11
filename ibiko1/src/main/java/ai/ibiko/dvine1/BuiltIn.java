@@ -139,6 +139,90 @@ public final class BuiltIn {
         }
     }
 
+    // ---- for the reasoner (Reasoner): the facts as a table, to compare, rank, count, filter and chain them
+
+    /** Every thing it knows (lower case), in the order read. */
+    java.util.Set<String> keys() {
+        return facts.keySet();
+    }
+
+    /** What is known about a thing under one heading; empty when nothing. */
+    List<String> get(String key, About a) {
+        Map<About, List<String>> of = key == null ? null : facts.get(key);
+        List<String> v = of == null ? null : of.get(a);
+        return v == null ? java.util.Collections.<String>emptyList() : v;
+    }
+
+    /** The thing's own spelling ("Nigeria", "gold"). */
+    String name(String key) {
+        String n = shown.get(key);
+        return n == null ? key : n;
+    }
+
+    /** The country whose capital is this city (lower case), or null. */
+    String countryOfCapital(String city) {
+        return city == null ? null : capitalOf.get(city.toLowerCase(Locale.US));
+    }
+
+    /**
+     * The things named in a question, in the order they are named, each matched whole and longest first ("Equatorial
+     * Guinea" before "Guinea", "Nigeria" never as "Niger").
+     */
+    List<String> mentions(String question) {
+        String q = " " + plainQuestion(question) + " ";
+        List<String> keys = new ArrayList<String>(facts.keySet());
+        java.util.Collections.sort(keys, (a, b) -> b.length() - a.length());
+        boolean[] taken = new boolean[q.length()];
+        java.util.TreeMap<Integer, String> at = new java.util.TreeMap<Integer, String>();
+        for (String k : keys) {
+            if (k.length() < 3) {
+                continue;
+            }
+            String needle = " " + k + " ";
+            int from = 0;
+            while (true) {
+                int i = q.indexOf(needle, from);
+                if (i < 0) {
+                    break;
+                }
+                boolean free = true;
+                for (int j = i + 1; j < i + needle.length() - 1; j++) {
+                    free &= !taken[j];
+                }
+                if (free) {
+                    for (int j = i + 1; j < i + needle.length() - 1; j++) {
+                        taken[j] = true;
+                    }
+                    at.put(i, k);
+                }
+                from = i + 1;
+            }
+        }
+        return new ArrayList<String>(at.values());
+    }
+
+    /** The question in lower case, possessives and punctuation gone, single spaces. */
+    static String plainQuestion(String question) {
+        return (question == null ? "" : question).toLowerCase(Locale.US).replaceAll("[’']s\\b", " ")
+                .replaceAll("[^\\p{L}\\p{Nd} -]", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    /** The first number in a value ("1,064 °C (1337 K)" is 1064, "-38.8 °C" is -38.8); NaN when there is none. */
+    static double number(String v) {
+        if (v == null) {
+            return Double.NaN;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(-|\u2212)?\\d[\\d,]*(\\.\\d+)?").matcher(v);
+        if (!m.find()) {
+            return Double.NaN;
+        }
+        try {
+            return Double.parseDouble(m.group().replace(",", "").replace('\u2212', '-'));
+        } catch (NumberFormatException e) {
+            return Double.NaN;
+        }
+    }
+
     /** How many facts shipped with the app. */
     public int size() {
         return count;
