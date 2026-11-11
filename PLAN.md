@@ -1,3 +1,9 @@
+# Only the chosen GitHub repositories (0.99.108)
+
+- [x] agent/RepoScope: listing, cloning (git tool and shell) and GitHub calls limited to the ticked repositories.
+- [x] A repository named in the message is allowed; nothing ticked means no limit.
+- [x] The brief says "work only on them", not "unless told otherwise".
+
 # Every icon one of two sizes (0.99.107)
 
 - [x] IconSize: 24 dp on its own, 18 dp beside words, 48 dp targets.

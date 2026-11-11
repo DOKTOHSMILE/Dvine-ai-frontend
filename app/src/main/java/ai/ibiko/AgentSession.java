@@ -188,6 +188,7 @@ final class AgentSession {
                     .steps(rounds ? Math.min(pace.roundSteps, agentSteps) : agentSteps)
                     .as(who, readOnly).planning(planning).keepGoing(rounds).squad(a.chatTools(persona).workers())
                     .ownRecord(scribe.recordPath()) // only this project's record and notes; never another project's
+                    .repos(ai.ibiko.agent.RepoScope.of(a.chatTools(persona).chosenRepos(), task)) // the repositories ticked, no others
                     .handover(false).checkpoint(w -> {
                         a.saveAgentWork(workAt, w);
                         scribe.checkpoint(w);

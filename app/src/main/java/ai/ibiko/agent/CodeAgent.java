@@ -326,6 +326,7 @@ public final class CodeAgent {
             w.depth = depth + 1;
             w.role = hands ? null : mine.role;
             w.scope = kept;
+            w.repoScope = repoScope; // a worker keeps to the same repositories
             w.ownBlueprint = ownBlueprint; // the lead's project: its notes and record, no other project's
             w.ownRecord = ownRecord;
             long until = System.currentTimeMillis() + mine.minutes * 60_000L;
@@ -385,6 +386,15 @@ public final class CodeAgent {
     private String task = "";
 
     /** Git with GitHub (the GitHub connector's token); null leaves the git tool out. */
+    /** The repositories this chat may work on (Tools › GitHub); everything when nothing was chosen. */
+    RepoScope repoScope = RepoScope.all();
+
+    /** Limits the work to the repositories the pilot chose, and any the task names. */
+    public CodeAgent repos(RepoScope s) {
+        repoScope = s == null ? RepoScope.all() : s;
+        return this;
+    }
+
     public CodeAgent useGit(ai.ibiko.connect.GitHubGit git) {
         this.git = git;
         return this;
@@ -1675,6 +1685,11 @@ public final class CodeAgent {
                 if (cmd.isEmpty()) {
                     return "No command given.";
                 }
+                String outside = repoScope.checkCommand(cmd); // a clone of a repository the pilot didn't choose
+                if (outside != null) {
+                    host.step("Not run: it clones a repository that wasn't chosen");
+                    return outside;
+                }
                 String others = othersRecordIn(cmd);
                 if (others != null) {
                     host.step("Not run: it reads another project's backup");
@@ -1735,6 +1750,12 @@ public final class CodeAgent {
                     host.step("Not done: " + clip(call, 60));
                     return "The user didn't allow this. Find another way, or ask them in your final answer.";
                 }
+                String scoped = repoScope.check(call); // only the repositories the pilot chose
+                if (scoped != null) {
+                    host.step(scoped.startsWith("Not done") ? "Not used: " + clip(call, 60) + " (not a chosen repository)"
+                            : "Listed the chosen repositories");
+                    return scoped;
+                }
                 host.step("Used " + clip(call, 60));
                 return host.connector(call);
             }
@@ -1753,6 +1774,10 @@ public final class CodeAgent {
         switch (action) {
             case "clone": {
                 String repo = c.a("repo");
+                if (!repoScope.allows(repo)) {
+                    host.step("Not cloned: " + clip(repo, 60) + " wasn't chosen");
+                    return repoScope.refusal(repo);
+                }
                 String name = repo.replaceAll("(\\.git)?/*$", "").replaceAll(".*/", "");
                 String folder = c.a("path").startsWith(RepoFolder.RELATIVE + "/") ? c.a("path")
                         : RepoFolder.RELATIVE + "/" + name;
