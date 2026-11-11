@@ -1901,10 +1901,17 @@ public final class CodeAgent {
         return null;
     }
 
-    /** memory/projects/<name> is a repository cloned there (by git, or by the device's own GitHub tools). */
+    /**
+     * memory/projects/<name> is code, not another project's record: a repository cloned there (by git, or by the
+     * device's own GitHub tools), or a folder not made yet (where a clone is about to go). Only a folder holding the
+     * Scribe's record and no repository is a project's record.
+     */
     boolean isClone(String name) {
         File d = new File(new File(workspace, "memory/projects"), name);
-        return new File(d, ".git").exists() || new File(d, ai.ibiko.connect.GitHubGit.RECORD).isFile();
+        if (!d.exists() || new File(d, ".git").exists() || new File(d, ai.ibiko.connect.GitHubGit.RECORD).isFile()) {
+            return true;
+        }
+        return !new File(d, ai.ibiko.scribe.Scribe.RECORD).isFile() && !new File(d, "RECOVERY.md").isFile();
     }
 
     /** A shell command that names another project's backup folder (it would read around the file tools' guard). */

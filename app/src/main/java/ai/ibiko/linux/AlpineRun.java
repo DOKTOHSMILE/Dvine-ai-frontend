@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -17,7 +18,6 @@ import java.util.function.Consumer;
  */
 public final class AlpineRun {
     static final int MOST = 64 * 1024;
-    private static final long WAIT_MS = 180_000;
 
     /** A command that can be stopped. */
     public static final class Job {
@@ -109,15 +109,32 @@ public final class AlpineRun {
                 }
             }
             ByteArrayOutputStream captured = new ByteArrayOutputStream();
-            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit, live), "dvine-linux-out");
+            AtomicInteger received = new AtomicInteger();
+            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit, live, received), "dvine-linux-out");
             pump.setDaemon(true);
             pump.start();
-            long deadline = System.currentTimeMillis() + WAIT_MS;
+            long started = System.currentTimeMillis();
+            long budget = CommandWait.ms(command);
+            long deadline = started + budget;
+            int seen = 0;
             boolean finished = false;
             while (System.currentTimeMillis() < deadline) {
                 if (job != null && job.stopped) {
                     proc.destroy();
                     break;
+                }
+                int now = received.get();
+                if (now != seen) {
+                    seen = now;
+                    // still writing: another three quiet minutes, but never past two hours
+                    long next = System.currentTimeMillis() + CommandWait.SHORT_MS;
+                    long ceiling = started + CommandWait.LONG_MS; // not "cap": that is the text limit passed in
+                    if (next > ceiling) {
+                        next = ceiling;
+                    }
+                    if (next > deadline) {
+                        deadline = next;
+                    }
                 }
                 try {
                     proc.exitValue();
@@ -149,7 +166,7 @@ public final class AlpineRun {
                 text = text + "\n[stopped]";
                 code = 130;
             } else if (!finished) {
-                text = text + "\n[stopped: it ran longer than 3 minutes]";
+                text = text + "\n[stopped: it ran longer than " + CommandWait.lasted(System.currentTimeMillis() - started) + "]";
             } else if (code != 0) {
                 text = text + "\n[exit " + code + "]";
             }
@@ -171,11 +188,13 @@ public final class AlpineRun {
         cmd.add(at + 1, hostPath + ":" + guest);
     }
 
-    private static void drain(InputStream in, ByteArrayOutputStream out, int cap, Consumer<String> live) {
+    private static void drain(InputStream in, ByteArrayOutputStream out, int cap, Consumer<String> live,
+            AtomicInteger received) {
         byte[] buf = new byte[4096];
         try {
             int n;
             while ((n = in.read(buf)) > 0) {
+                received.addAndGet(n);
                 synchronized (out) {
                     if (out.size() < cap) {
                         out.write(buf, 0, (int) Math.min(n, cap - out.size()));

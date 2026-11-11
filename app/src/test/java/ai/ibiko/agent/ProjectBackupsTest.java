@@ -89,4 +89,24 @@ public class ProjectBackupsTest {
         assertTrue(Blueprint.RULES.contains("memory/projects/<name>"));
         assertTrue(Blueprint.RULES.contains("pull it there"));
     }
+
+    @Test
+    public void cloningIntoANewFolderIsNotRefused() throws Exception {
+        File ws = Files.createTempDirectory("ws").toFile();
+        CodeAgent a = new CodeAgent(ws, null, null, "", 20_000);
+        a.ownRecord("memory/projects/section-g2/RECORD.md");
+        assertNotNull("the clone's folder is allowed before it exists", a.inside("memory/projects/Dvine-ai-frontend"));
+        File rec = new File(ws, "memory/projects/bank-app");
+        rec.mkdirs();
+        Files.write(new File(rec, "RECORD.md").toPath(), "# record".getBytes("UTF-8"));
+        try {
+            a.inside("memory/projects/bank-app/RECORD.md");
+            org.junit.Assert.fail("another project's record stays private");
+        } catch (java.io.IOException expected) {
+            assertTrue(expected.getMessage().contains("record"));
+        }
+        File clone = new File(ws, "memory/projects/Dvine-ai-frontend");
+        new File(clone, ".git").mkdirs();
+        assertNotNull("a cd into the clone is not refused", a.othersRecordIn("cd memory/projects/Dvine-ai-frontend && ls") == null ? "ok" : null);
+    }
 }

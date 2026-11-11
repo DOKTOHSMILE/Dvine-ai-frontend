@@ -189,7 +189,7 @@ public final class LinuxHub {
         }
         TermSession term = running();
         if (term != null) {
-            return term.run(command, 180000); // null while a program is running there: the caller runs it alone
+            return term.run(command, CommandWait.ms(command)); // null while a program is running there: the caller runs it alone
         }
         Function<String, String> run = shell;
         if (run != null) {
@@ -234,9 +234,10 @@ public final class LinuxHub {
         status.delete();
         session.send(Guest.pipe(command));
         long began = System.currentTimeMillis();
+        long deadline = began + CommandWait.ms(command);
         long seen = 0;
         StringBuilder text = new StringBuilder();
-        while (System.currentTimeMillis() - began < 180000) {
+        while (System.currentTimeMillis() < deadline) {
             if (out.isFile()) {
                 java.io.RandomAccessFile raf = new java.io.RandomAccessFile(out, "r");
                 try {
@@ -246,6 +247,8 @@ public final class LinuxHub {
                         int n = raf.read(buf);
                         if (n > 0) {
                             seen += n;
+                            deadline = Math.min(began + CommandWait.LONG_MS,
+                                    Math.max(deadline, System.currentTimeMillis() + CommandWait.SHORT_MS));
                             text.append(new String(buf, 0, n, java.nio.charset.StandardCharsets.UTF_8));
                         }
                     }
