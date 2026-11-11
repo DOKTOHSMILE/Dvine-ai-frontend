@@ -501,6 +501,13 @@ public final class TalkBridge extends UtteranceProgressListener {
      * As {@link #prepareAll(String)}, then {@code ready} once every sentence is made and kept (at once when the device's
      * own voice reads, which needs nothing made ahead). Listen is lit by it: until then it is dimmed.
      */
+    /** The message being read or prepared ("<chat>/<message>"): its voice is kept under that id. */
+    public void setOwner(String messageOwner) {
+        if (neural != null) {
+            neural.setOwner(messageOwner);
+        }
+    }
+
     public void prepareAll(String text, Runnable ready) {
         if (neural == null || !humanChosen() || text == null) {
             if (ready != null) {

@@ -161,6 +161,8 @@ public final class LinuxHub {
                 if (own != null) {
                     return CloneFolder.quiet(own.text);
                 }
+                // never handed to the shared shell instead: it sees every chat's folder
+                return "(the command couldn't start in this chat's own Linux; nothing else ran it)";
             }
             String shared = ask(c, placed);
             if (shared != null) {

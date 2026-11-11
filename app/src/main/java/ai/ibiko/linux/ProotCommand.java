@@ -109,6 +109,17 @@ public final class ProotCommand {
                 c.add("-b");
                 c.add(coding.getAbsolutePath() + ":/workspace");
             }
+            File chat = ai.ibiko.main.ChatSpace.chatOf(work);
+            if (chat != null) {
+                // a chat's own home and scratch folder: what one chat leaves in ~ or /tmp no other chat can read
+                File home = new File(chat, ".home"), tmp = new File(chat, ".tmp");
+                home.mkdirs();
+                tmp.mkdirs();
+                c.add("-b");
+                c.add(home.getAbsolutePath() + ":/root");
+                c.add("-b");
+                c.add(tmp.getAbsolutePath() + ":/tmp");
+            }
             c.add("-w");
             c.add("/work");
         } else {

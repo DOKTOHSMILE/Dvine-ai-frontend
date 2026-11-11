@@ -23,18 +23,35 @@ public final class ChatBook {
         public final String body;
         public final String persona;
         public final String language;
+        /**
+         * The message's own id, kept with it for good: what belongs to this message (its voice, kept on the device) is
+         * filed under it, and goes when the message's chat is deleted.
+         */
+        public final String id;
 
         public Message(String role, String kind, String body, String persona) {
             this(role, kind, body, persona, "");
         }
 
         public Message(String role, String kind, String body, String persona, String language) {
+            this(role, kind, body, persona, language, null);
+        }
+
+        public Message(String role, String kind, String body, String persona, String language, String id) {
+            this.id = id == null || id.isEmpty() ? newId() : id;
             this.role = role == null ? "assistant" : role;
             this.kind = kind == null ? "text" : kind;
             this.body = body == null ? "" : body;
             this.persona = persona == null ? "" : persona;
             this.language = language == null ? "" : language;
         }
+    }
+
+    private static final java.util.concurrent.atomic.AtomicLong IDS = new java.util.concurrent.atomic.AtomicLong();
+
+    /** A new message id: the time it was made and a count, so ids never repeat on this device. */
+    static String newId() {
+        return "m" + Long.toString(System.currentTimeMillis(), 36) + Long.toString(IDS.incrementAndGet() & 0xFFFF, 36);
     }
 
     public static final class Section {
@@ -688,10 +705,12 @@ public final class ChatBook {
                 s.title = "Chat";
                 s.pinned = false;
             }
+            forgetVoice(found.group);
             save();
             return true;
         }
         String group = found.group;
+        forgetVoice(group); // the voice kept for its messages goes with the chat
         for (int i = sections.size() - 1; i >= 0; i--) {
             if (group.equals(sections.get(i).group)) {
                 sections.remove(i);
@@ -708,6 +727,14 @@ public final class ChatBook {
         }
         save();
         return true;
+    }
+
+    /** Deletes the voice kept for a chat's messages ({@code files/voices/said/<chat>}). */
+    private void forgetVoice(String group) {
+        if (file == null || group == null) {
+            return;
+        }
+        ai.ibiko.voice.SpeechCache.forgetChat(file.getParentFile(), group);
     }
 
     /** "From the chat “Trip plans”: book a flight to Lagos; …", or null when the user said nothing there. */
@@ -859,10 +886,23 @@ public final class ChatBook {
             found.title = "Chat";
             found.pinned = false;
             found.archived = false;
+            forgetVoice(found.group);
             save();
             return true;
         }
         sections.remove(found);
+        boolean groupLeft = false;
+        for (Section s : sections) {
+            groupLeft |= found.group != null && found.group.equals(s.group);
+        }
+        if (!groupLeft) {
+            forgetVoice(found.group); // the last page of this chat: its kept voice and its folder go
+            final File files = file == null ? null : file.getParentFile();
+            final String group = found.group;
+            if (files != null && group != null) {
+                new Thread(() -> ai.ibiko.main.ChatSpace.delete(files, group), "ibiko-forget-chat").start();
+            }
+        }
         if (found.id.equals(currentId)) {
             currentId = sections.get(sections.size() - 1).id;
         }
@@ -943,7 +983,7 @@ public final class ChatBook {
                             s.messages.add(new Message(MiniJson.str(mm.get("role"), "assistant"),
                                     MiniJson.str(mm.get("kind"), "text"), MiniJson.str(mm.get("body"), ""),
                                     MiniJson.str(mm.get("persona"), s.persona),
-                                    MiniJson.str(mm.get("language"), "")));
+                                    MiniJson.str(mm.get("language"), ""), MiniJson.str(mm.get("id"), "")));
                         }
                     }
                     sections.add(s);
@@ -1047,6 +1087,7 @@ public final class ChatBook {
             List<Object> msgs = new ArrayList<Object>();
             for (Message msg : s.messages) {
                 Map<String, Object> row = new LinkedHashMap<String, Object>();
+                row.put("id", msg.id);
                 row.put("role", msg.role);
                 row.put("kind", msg.kind);
                 row.put("body", msg.body);

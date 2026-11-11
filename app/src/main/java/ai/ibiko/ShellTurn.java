@@ -75,7 +75,7 @@ final class ShellTurn {
                 return;
             }
             a.handler.post(() -> a.activity("Ran " + cmd + " in Ibiko"));
-            String out = ai.ibiko.linux.LinuxHub.run(a, cmd, null); // the one Alpine, the same as the Shell screen
+            String out = ai.ibiko.linux.LinuxHub.run(a, cmd, a.chatSpace()); // this chat's own folder: no other chat's files
             final String result = out == null || out.trim().isEmpty() ? "(no output)" : out;
             String answer = a.model == null || !a.model.ready() ? null
                     : a.model.reply(system, question, "Output of `" + cmd + "`:\n" + a.cut(result, 6000), 700, piece -> a.modelPiece(id, piece));

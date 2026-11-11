@@ -38,8 +38,12 @@ public final class LiveFace extends View {
     private int sizeCached = -1;
 
     static final int CYAN = 0xFF2BE4FF, CORE = 0xFFE9FDFF;
-    /** How tall the head is for its width: pressed a little, as the pilot asked, not cropped. */
-    static final float SQUASH = 0.82f;
+    /**
+     * The app icon's head, measured from its art (184 by 180 of 432): the height a touch under the width, corners a
+     * little over a fifth of the width. The working face is the same head.
+     */
+    static final float SQUASH = 0.978f;
+    static final float CORNER = 0.225f;
 
     public LiveFace(Context c) {
         super(c);
@@ -124,10 +128,10 @@ public final class LiveFace extends View {
         // the face sits inside its square with room around it (zoomed out), corners curved
         float s = side * 0.86f * breathe;
         float cx = w / 2f, cy = h / 2f;
-        // the head a little squeezed: its full width, its height pressed to SQUASH (not cut: the corners stay round)
+        // the app icon's head: its full width, the height a touch less (SQUASH), the icon's corners
         float hh = s * SQUASH;
         r.set(cx - s / 2, cy - hh / 2, cx + s / 2, cy + hh / 2);
-        float corner = s * 0.28f;
+        float corner = s * CORNER;
         c.drawRoundRect(r, corner, corner, face);
         c.drawRoundRect(r, corner, corner, rim);
         drawTraces(c, r, s, sec);
