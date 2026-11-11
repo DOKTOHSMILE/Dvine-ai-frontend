@@ -1,3 +1,7 @@
+# A double space is one code (0.99.117)
+
+- [x] WordBook: a fixed id for the double space; Shorthand codes it as one.
+
 # Dictionary ids, short codes, answers confirmed or overturned (0.99.116)
 
 - [x] learn/WordBook: every dictionary word a fixed id (1000 + its place), small words 1–999.

@@ -57,12 +57,16 @@ public final class WordBook {
             + " [:punctuation ]:punctuation {:punctuation }:punctuation ‘:punctuation ’:punctuation “:punctuation"
             + " ”:punctuation ₦:punctuation");
 
-    /** The spaces between words have codes too, after the list (so no earlier id moves): a space, a new line, a tab. */
+    /**
+     * The spaces between words have codes too, after the list (so no earlier id moves): a space, a new line, a tab, and
+     * a double space as one code of its own.
+     */
     static {
-        String[][] more = Arrays.copyOf(SMALL, SMALL.length + 3);
+        String[][] more = Arrays.copyOf(SMALL, SMALL.length + 4);
         more[SMALL.length] = new String[]{" ", "space"};
         more[SMALL.length + 1] = new String[]{"\n", "space"};
         more[SMALL.length + 2] = new String[]{"\t", "space"};
+        more[SMALL.length + 3] = new String[]{"  ", "space"}; // a double space: one code of its own
         SMALL = more;
     }
 

@@ -43,6 +43,11 @@ public class ShorthandTest {
         String spaced = "Two  spaces,\na new line\tand a tab.";
         assertEquals("spacing comes back exactly", spaced, Shorthand.words(Shorthand.codes(spaced)));
         assertEquals("space", WordBook.pos(WordBook.id(" ")));
+        String two = Shorthand.codes("a  b");
+        assertEquals("a double space is one code", 3, two.split(" ").length);
+        assertEquals(Shorthand.code(WordBook.id("  ")), two.split(" ")[1]);
+        assertEquals("three spaces: the double, then a single", 4, Shorthand.codes("a   b").split(" ").length);
+        assertEquals("a   b", Shorthand.words(Shorthand.codes("a   b")));
     }
 
     @Test

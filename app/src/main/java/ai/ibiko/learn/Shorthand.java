@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
  * The interpreter between people's words and the brain's codes. Every word (and punctuation mark) becomes its id
  * ({@link Symbols}: an English word's fixed dictionary id, another word its own id) written short, in base 36:
  * "telephone" is word 136,258 → {@code 2x9m}; "the" is {@code 1}. A capital is marked {@code ^}, all capitals
- * {@code !}. The space between words has its own code too (a new line and a tab theirs), so a text comes back exactly
+ * {@code !}. The space between words has its own code too (a double space one code, a new line and a tab theirs), so a text comes back exactly
  * as it was written. "Abuja is the capital of Nigeria." is 12 codes (6 words, 5 spaces, the stop): what the
  * brain stores, files and compares; {@link #words} turns it back into the same sentence for people.
  * Pure Java.
@@ -19,8 +19,11 @@ public final class Shorthand {
     private Shorthand() {
     }
 
-    /** Words, single marks, and each space, new line or tab: every character of the text is in some token. */
-    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+(?:['’\\-][\\p{L}\\p{N}]+)*|[ \\n\\t]|[^\\s\\p{L}\\p{N}]");
+    /**
+     * Words, single marks, a double space (one code), and each other space, new line or tab: every character of the
+     * text is in some token.
+     */
+    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+(?:['’\\-][\\p{L}\\p{N}]+)*|  |[ \\n\\t]|[^\\s\\p{L}\\p{N}]");
 
     /** One id written short: 136258 → "2x9m". */
     public static String code(int id) {
