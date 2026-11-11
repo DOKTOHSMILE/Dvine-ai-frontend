@@ -1,3 +1,9 @@
+# Always running; Back to the background; reading while it downloads (0.99.86)
+
+- [x] KeepAlive: a foreground service until the pilot closes Ibiko (notification Close, or swiped away).
+- [x] Back moves Ibiko to the background instead of quitting.
+- [x] Abilities, quotes and facts run across the download screen.
+
 # The app icon a little smaller; downloads carry on (0.99.85)
 
 - [x] The face 46 of 108 units, a teal ring round it in every launcher shape.

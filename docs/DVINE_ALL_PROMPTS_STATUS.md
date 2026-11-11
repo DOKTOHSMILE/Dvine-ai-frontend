@@ -281,6 +281,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 248 | Zoom out the app icon with space for a background colour | P12 | Built (face at 54 of 108 units on teal; PNGs, round, store and themed layers) | 0.99.84 |
 | 249 | Make the app icon a little smaller (screenshot) | P12 | Done (the face 46 of 108 units, a ring of teal round it in a circle launcher) | 0.99.85 |
 | 250 | A download the network broke carries on instead of starting over | P12 | Built (Range requests, the part kept, retried by itself and on Try again) | 0.99.85 |
+| 251 | Quotes, abilities and facts running across the screen while the app files download | P12 | Built (WaitLines, a new line every 6 s) | 0.99.86 |
+| 252 | Enforce background running: Ibiko never dies unless the user closes it; Back doesn't quit | P12 | Built (KeepAlive service, Close in the notification, battery exemption asked once, Back to the background) | 0.99.86 |
 
 ## Still open, in the order that matters
 

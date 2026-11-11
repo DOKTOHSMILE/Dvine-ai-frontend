@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -47,6 +48,14 @@ public final class AppFilesActivity extends Activity {
         line = text(14, R.color.text_secondary);
         line.setText("Ibiko opens once they are in place.");
         root.addView(line, wide((int) (12 * dp)));
+        // something to read while it downloads: what Ibiko can do, a quote, a fact, running across the screen
+        tickerKind = text(12, R.color.accent_cyan);
+        tickerKind.setAllCaps(true);
+        tickerKind.setLetterSpacing(0.12f);
+        root.addView(tickerKind, wide((int) (40 * dp)));
+        ticker = text(16, R.color.text_primary);
+        ticker.setMinLines(3);
+        root.addView(ticker, wide((int) (6 * dp)));
         LinearLayout buttons = new LinearLayout(this);
         buttons.setGravity(Gravity.CENTER);
         close = new Button(this);
@@ -60,7 +69,45 @@ public final class AppFilesActivity extends Activity {
         root.addView(buttons, wide((int) (24 * dp)));
         setContentView(root);
         start();
+        clock.post(nextLine);
     }
+
+    private TextView tickerKind, ticker;
+    private final ai.ibiko.main.WaitLines lines = new ai.ibiko.main.WaitLines(new java.util.Random());
+    private final android.os.Handler clock = new android.os.Handler(android.os.Looper.getMainLooper());
+    /** How long each line stays, and how long it takes to run in and out. */
+    static final long SHOW_MS = 6000, MOVE_MS = 650;
+
+    /** The next line runs in from the right, stays, then runs out to the left. */
+    private final Runnable nextLine = new Runnable() {
+        @Override
+        public void run() {
+            if (gone) {
+                return;
+            }
+            final float w = Math.max(1, ticker.getRootView().getWidth());
+            ai.ibiko.main.WaitLines.Line l = lines.next();
+            tickerKind.setText(l.kind);
+            ticker.setText(l.text);
+            for (View v : new View[] {tickerKind, ticker}) {
+                v.animate().cancel();
+                v.setTranslationX(w);
+                v.setAlpha(0f);
+                v.animate().translationX(0).alpha(1f).setDuration(MOVE_MS)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+            }
+            clock.postDelayed(() -> {
+                if (gone) {
+                    return;
+                }
+                for (View v : new View[] {tickerKind, ticker}) {
+                    v.animate().translationX(-w).alpha(0f).setDuration(MOVE_MS)
+                            .setInterpolator(new android.view.animation.AccelerateInterpolator()).start();
+                }
+                clock.postDelayed(nextLine, MOVE_MS);
+            }, SHOW_MS);
+        }
+    };
 
     private TextView text(int sp, int color) {
         TextView t = new TextView(this);
@@ -84,7 +131,10 @@ public final class AppFilesActivity extends Activity {
         retry.setVisibility(android.view.View.GONE);
         close.setVisibility(android.view.View.GONE);
         final java.io.File files = getFilesDir();
-        new Thread(() -> {
+        if ("robolectric".equals(android.os.Build.FINGERPRINT)) {
+            return; // tests look at the screen; they never download the real files
+        }
+        Thread t = new Thread(() -> {
             final int[] shown = {-2};
             try {
                 AppFiles.fetch(files, AppFiles.WEB, (pct, line) -> {
@@ -106,7 +156,9 @@ public final class AppFilesActivity extends Activity {
                 ai.ibiko.net.Transfers.end("appfiles", AppFiles.TITLE, "Couldn't download the app files", false);
                 runOnUiThread(this::failed);
             }
-        }, "ibiko-app-files").start();
+        }, "ibiko-app-files");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void line(String text) {
@@ -143,6 +195,7 @@ public final class AppFilesActivity extends Activity {
     @Override
     protected void onDestroy() {
         gone = true;
+        clock.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 }
