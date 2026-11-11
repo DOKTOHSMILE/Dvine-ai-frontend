@@ -3034,6 +3034,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     .useGit(connectors.git().maxFiles(ai.ibiko.chat.Tuning.CLONE_FILES.get(prefs)).maxFileBytes(pace.fileBytes))
                     .steps(rounds ? Math.min(pace.roundSteps, agentSteps) : agentSteps)
                     .as(who, readOnly).planning(planning).keepGoing(rounds).squad(chatTools(persona).workers())
+                    .ownRecord(scribe.recordPath()) // only this project's record and notes; never another project's
                     .handover(false).checkpoint(w -> {
                         saveAgentWork(workAt, w);
                         scribe.checkpoint(w);

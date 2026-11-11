@@ -1,3 +1,8 @@
+# Each project's backups for its own agents only (0.99.75)
+
+- [x] Own notes and record only; other projects' and the task states refused in file tools, listings, search and named shell paths.
+- [ ] Confine shell commands to the project folder (a whole-workspace grep still reaches everything).
+
 # Ibiko's own mark (0.99.74)
 
 - [x] The robot icon replaced by an original abstract mark: three petals of light round a spark, in a broken orbit.

@@ -325,6 +325,8 @@ public final class CodeAgent {
             w.depth = depth + 1;
             w.role = hands ? null : mine.role;
             w.scope = kept;
+            w.ownBlueprint = ownBlueprint; // the lead's project: its notes and record, no other project's
+            w.ownRecord = ownRecord;
             long until = System.currentTimeMillis() + mine.minutes * 60_000L;
             w.deadline = parentDeadline > 0 ? Math.min(parentDeadline, until) : until; // a hand never outlasts its agent
             try {
@@ -1341,6 +1343,11 @@ public final class CodeAgent {
     /** A real task gets a blueprint; one carried on picks up its PLAN.md where it was. */
     private void startBlueprint(String task, StringBuilder work) {
         blueprintNudges = 0;
+        if (ownBlueprint == null) {
+            // only this project's reading notes may be read (a worker is given its lead's)
+            File project = projectOf(task);
+            ownBlueprint = ".blueprint/" + (project.equals(workspace) ? "workspace" : project.getName());
+        }
         if (planning || readOnly || worker) {
             blueprint = null; // plan mode has its own rules; reading answers no build; a worker follows the lead's plan
             return;
@@ -1603,6 +1610,11 @@ public final class CodeAgent {
                 if (cmd.isEmpty()) {
                     return "No command given.";
                 }
+                String others = othersRecordIn(cmd);
+                if (others != null) {
+                    host.step("Not run: it reads another project's backup");
+                    return "Not run: " + others + ".";
+                }
                 if (wipesPlan(cmd)) {
                     host.step("Not run: it would remove or overwrite a plan");
                     return "Not run: a plan is added to, never replaced, and this command would delete or overwrite a plan"
@@ -1829,6 +1841,60 @@ public final class CodeAgent {
         return f != null && f.getName().matches("(?i)(plan|blueprint|todo|to-do|roadmap|tasks)(\\.[a-z0-9_-]+)*\\.(md|txt)");
     }
 
+    /** This run's own project record folder ("memory/projects/<key>"), from the Scribe; null when there is none. */
+    private String ownRecord;
+    /** This run's own reading notes (".blueprint/<project>"); set when the blueprint starts. */
+    private String ownBlueprint;
+
+    /**
+     * The project record this run belongs to ({@code recordFile}: the Scribe's RECORD.md path, relative to the
+     * workspace). Only that project's records and notes can be read; other projects' are refused.
+     */
+    public CodeAgent ownRecord(String recordFile) {
+        String r = recordFile == null ? "" : recordFile.trim().replace('\\', '/');
+        int slash = r.lastIndexOf('/');
+        ownRecord = r.startsWith("memory/projects/") && slash > "memory/projects/".length() ? r.substring(0, slash) : null;
+        return this;
+    }
+
+    /**
+     * Why a path is another project's backup and may not be read: its reading notes (.blueprint/<other>), its record
+     * (memory/projects/<other>) or the saved task states of every project (memory/tasks). Null when it may be read.
+     * {@code rel} is relative to the workspace.
+     */
+    static String othersRecord(String rel, String ownBlueprint, String ownRecord) {
+        String r = rel == null ? "" : rel.replace('\\', '/').replaceAll("^\\./", "").replaceAll("/+$", "");
+        String[] seg = r.split("/");
+        if (seg.length >= 2 && ".blueprint".equals(seg[0])) {
+            String mine = ownBlueprint == null ? null : ownBlueprint.replaceAll("^\\.blueprint/", "").replaceAll("/+$", "");
+            return seg[1].equals(mine) ? null : "that is another project's backup (" + seg[0] + "/" + seg[1] + "): only this"
+                    + " project's own notes" + (mine == null ? "" : " (.blueprint/" + mine + ")") + " can be read";
+        }
+        if (seg.length >= 3 && "memory".equals(seg[0]) && "projects".equals(seg[1])) {
+            String mine = ownRecord == null ? null : ownRecord.replaceAll("^memory/projects/", "");
+            return seg[2].equals(mine) ? null : "that is another project's record (memory/projects/" + seg[2] + "): only this"
+                    + " project's own record" + (mine == null ? "" : " (memory/projects/" + mine + ")") + " can be read";
+        }
+        if (seg.length >= 2 && "memory".equals(seg[0]) && "tasks".equals(seg[1])) {
+            return "the saved task states belong to every project and are not read by an agent; this project's record says"
+                    + " where it stands";
+        }
+        return null;
+    }
+
+    /** A shell command that names another project's backup folder (it would read around the file tools' guard). */
+    String othersRecordIn(String cmd) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\.blueprint/[^\\s'\"/;|&)]+|memory/projects/[^\\s'\"/;|&)]+|memory/tasks\\b)")
+                .matcher(cmd == null ? "" : cmd);
+        while (m.find()) {
+            String why = othersRecord(m.group(1) + "/x", ownBlueprint, ownRecord);
+            if (why != null) {
+                return why;
+            }
+        }
+        return null;
+    }
+
     /** A path inside the workspace, or an error: nothing outside it is read or written. */
     File inside(String path) throws IOException {
         if (path == null || path.trim().isEmpty()) {
@@ -1838,6 +1904,12 @@ public final class CodeAgent {
         String root = workspace.getCanonicalPath();
         if (!f.getPath().equals(root) && !f.getPath().startsWith(root + File.separator)) {
             throw new IOException("that path is outside the workspace");
+        }
+        if (!f.getPath().equals(root)) {
+            String why = othersRecord(f.getPath().substring(root.length() + 1), ownBlueprint, ownRecord);
+            if (why != null) {
+                throw new IOException(why);
+            }
         }
         if (scope != null) {
             // a worker on one project sees only that project's folder: it never wanders into another one's files
@@ -1878,6 +1950,14 @@ public final class CodeAgent {
         java.util.Arrays.sort(kids);
         for (File k : kids) {
             if (k.getName().equals(".git") || k.getName().equals(ai.ibiko.connect.GitHubGit.RECORD) || k.getName().equals("node_modules") || k.getName().equals("build")) {
+                continue;
+            }
+            try {
+                String fromRoot = workspace.getCanonicalFile().toPath().relativize(k.getCanonicalFile().toPath()).toString();
+                if (othersRecord(fromRoot, ownBlueprint, ownRecord) != null) {
+                    continue; // another project's backups are not listed or searched
+                }
+            } catch (IOException | IllegalArgumentException e) {
                 continue;
             }
             String rel = base.toPath().relativize(k.toPath()).toString();
