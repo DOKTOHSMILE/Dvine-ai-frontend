@@ -352,6 +352,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 319 | Every message has an id; its speech is attached to it, played in order; deleted with the chat | P12 | Built (voices/said/<chat>/<message>/) | 0.99.110 |
 | 320 | Teach the AI to ship batch by batch to the git repository | P12 | Built (agent/Shipping S1–S9) | 0.99.111 |
 | 321 | Teach it to work like Claude Opus: how it thinks and moves through tasks | P12 | Built (agent/WorkingMethod W1–W12) | 0.99.111 |
+| 322 | The head more of a rectangle, not full size | P12 | Built (LiveFace: 74% of its square, height 80% of the width) | 0.99.112 |
+| 323 | IDs on messages and sentences, tags registered for them; think by the codes and read only the words they pull | P12 | Built (learn/Codes; chat recall and learned answers by code) | 0.99.112 |
 
 ## Still open, in the order that matters
 

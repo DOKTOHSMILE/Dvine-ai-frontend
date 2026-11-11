@@ -93,13 +93,20 @@ public final class LearningLog {
      * how it was answered"), at most {@code most} of them and {@code maxChars} long; empty when none is close.
      * Only conversation answers count (not one-line orders or Ibiko's tool steps).
      */
-    public synchronized String examplesFor(String request, int most, int maxChars) {
-        Set<String> want = words(request);
-        if (want.size() < 2) {
-            return "";
+    /** The learned questions filed by code (L<n>) and tags, read once and added to as the log grows. */
+    private Codes index;
+    private final List<String[]> learned = new ArrayList<String[]>();
+    private long indexedBytes = -1;
+
+    /** Files any answers added since the last look; files all again when the log was cut. */
+    private void fileNew() {
+        long len = file.isFile() ? file.length() : 0;
+        if (index != null && len == indexedBytes) {
+            return;
         }
-        List<double[]> scored = new ArrayList<double[]>();
-        List<String[]> pairs = new ArrayList<String[]>();
+        index = new Codes();
+        learned.clear();
+        indexedBytes = len;
         for (String line : lines()) {
             Map<String, Object> r;
             try {
@@ -120,6 +127,24 @@ public final class LearningLog {
             if (cut >= 0) {
                 asked = asked.substring(cut + 15);
             }
+            index.add("L" + learned.size(), asked);
+            learned.add(new String[]{asked.trim(), reply.trim()});
+        }
+    }
+
+    public synchronized String examplesFor(String request, int most, int maxChars) {
+        Set<String> want = words(request);
+        if (want.size() < 2) {
+            return "";
+        }
+        List<double[]> scored = new ArrayList<double[]>();
+        List<String[]> pairs = new ArrayList<String[]>();
+        // by code: the question's tags pull the ids of the learned questions about it; only those are compared, not
+        // every answer ever learned (the log is read once, then only what is new)
+        fileNew();
+        for (String code : index.recall(request, 60, 1)) {
+            String[] p = learned.get(Integer.parseInt(code.substring(1)));
+            String asked = p[0], reply = p[1];
             Set<String> have = words(asked);
             int same = 0;
             for (String w : want) {
@@ -130,7 +155,7 @@ public final class LearningLog {
             double score = same / (double) (want.size() + have.size() - same);
             if (score >= 0.3) {
                 scored.add(new double[]{score, pairs.size()});
-                pairs.add(new String[]{asked.trim(), reply.trim()});
+                pairs.add(new String[]{asked, reply});
             }
         }
         scored.sort((a, b) -> Double.compare(b[0], a[0]));
