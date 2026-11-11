@@ -2,8 +2,8 @@
   "version": 1,
   "projects": [
     {
-      "id": "Ibiko",
-      "name": "Ibiko",
+      "id": "Dvine",
+      "name": "Dvine",
       "root": "",
       "buildSystem": "gradle-compat",
       "settings": {},
@@ -12,6 +12,14 @@
           "id": "app",
           "name": "app",
           "dir": "app"
+<<<<<<< HEAD
+        },
+        {
+          "id": "ibiko1",
+          "name": "ibiko1",
+          "dir": "app/ibiko1"
+=======
+>>>>>>> branch 'main' of https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git
         }
       ],
       "libraries": []
