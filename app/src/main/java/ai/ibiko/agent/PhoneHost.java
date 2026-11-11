@@ -44,41 +44,62 @@ public final class PhoneHost implements CodeAgent.Host {
     @Override
     public boolean allowRun(String command) {
         if (prefs.getBoolean("auto_accept", false)) {
+            if (!toldAuto) {
+                toldAuto = true; // said once a task: nothing is asked because the pilot turned asking off
+                if (onStep != null) {
+                    onStep.accept("Going ahead without asking: Run commands without asking is on (Settings \u203a Coding)");
+                }
+            }
             return true;
         }
-        final CountDownLatch done = new CountDownLatch(1);
-        final boolean[] ok = {false};
-        main.post(() -> {
-            if (activity.isFinishing()) {
-                done.countDown();
-                return;
-            }
-            new androidx.appcompat.app.AlertDialog.Builder(activity)
-                    .setTitle("Ibiko wants to go ahead")
-                    .setMessage(command + "\n\nIt runs in Ibiko's project folder on this device.")
-                    .setPositiveButton("Run", (d, w) -> {
-                        ok[0] = true;
-                        done.countDown();
-                    })
-                    .setNeutralButton("Always run", (d, w) -> {
-                        prefs.edit().putBoolean("auto_accept", true).apply();
-                        if (onAutoAccept != null) {
-                            onAutoAccept.run();
-                        }
-                        ok[0] = true;
-                        done.countDown();
-                    })
-                    .setNegativeButton("Don't run", (d, w) -> done.countDown())
-                    .setOnCancelListener(d -> done.countDown())
-                    .show();
-        });
-        try {
-            done.await(3, TimeUnit.MINUTES);
-        } catch (InterruptedException e) {
-            return false;
+        if (allowThisTask) {
+            return true;
         }
-        return ok[0];
+        synchronized (ASKING) {
+            // one question at a time: helpers working at once never stack dialogs on each other
+            if (allowThisTask) {
+                return true;
+            }
+            final CountDownLatch done = new CountDownLatch(1);
+            final boolean[] ok = {false};
+            main.post(() -> {
+                if (activity.isFinishing()) {
+                    done.countDown();
+                    return;
+                }
+                new androidx.appcompat.app.AlertDialog.Builder(activity)
+                        .setTitle("Ibiko wants to go ahead")
+                        .setMessage(command + "\n\nIt runs in Ibiko's project folder on this device.")
+                        .setPositiveButton("Allow", (d, w) -> {
+                            ok[0] = true;
+                            done.countDown();
+                        })
+                        .setNeutralButton("Allow for this task", (d, w) -> {
+                            allowThisTask = true; // until this task ends; the next one asks again
+                            ok[0] = true;
+                            done.countDown();
+                        })
+                        .setNegativeButton("Don't allow", (d, w) -> done.countDown())
+                        .setOnCancelListener(d -> done.countDown())
+                        .show();
+            });
+            try {
+                if (!done.await(3, TimeUnit.MINUTES)) {
+                    return false; // no answer: not done
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            return ok[0];
+        }
     }
+
+    /** One approval dialog at a time across every task and helper. */
+    private static final Object ASKING = new Object();
+    /** "Allow for this task" was tapped: the rest of this task goes ahead without asking. */
+    private volatile boolean allowThisTask;
+    private volatile boolean toldAuto;
 
     /** The real file, PDF included (drawn with Android's PdfDocument). */
     @Override

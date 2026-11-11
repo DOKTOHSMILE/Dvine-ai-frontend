@@ -274,6 +274,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 241 | Clean up speech that starts when it shouldn't; one voice, a man's or a woman's | P12 | Built (spoken only for a reply just asked for, on screen; no personas or pitch lift) | 0.99.82 |
 | 242 | Every needed app file downloaded on startup (not the models), with a progress bar | P12 | Built (the table and the voice, one bar; a bar for voices in Settings) | 0.99.82 |
 | 243 | The agent's plan names the folder a repository is pulled into, and the agent works there | P12 | Built (PLAN.md '## Repository'; a clone in memory/projects is readable) | 0.99.82 |
+| 244 | The code viewer crashes the app on a large code file | P12 | Fixed (by file path, read off the main thread, a list of lines) | 0.99.83 |
+| 245 | Structure the planning carefully not to make mistakes | P12 | Built (each step has a check and is ticked only after it passed; order and repository checked) | 0.99.83 |
+| 246 | Add a permission check for approval (none seemed to exist) | P12 | Built (changing connector calls ask too; "Allow for this task" instead of a silent always; asking switched back on once) | 0.99.83 |
 
 ## Still open, in the order that matters
 

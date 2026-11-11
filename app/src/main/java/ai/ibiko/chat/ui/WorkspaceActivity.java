@@ -23,7 +23,7 @@ import java.util.Locale;
  */
 public final class WorkspaceActivity extends AppCompatActivity {
     /** Files above this size aren't opened in the viewer. */
-    static final long MOST_BYTES = 512 * 1024;
+    static final long MOST_BYTES = BigText.MOST_BYTES;
     private File root, here;
     private LinearLayout body;
     private TextView where;
@@ -117,24 +117,10 @@ public final class WorkspaceActivity extends AppCompatActivity {
             android.widget.Toast.makeText(this, "Too big to show here (" + size(f.length()) + ").", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        String text;
-        try {
-            byte[] bytes = Files.readAllBytes(f.toPath());
-            for (int i = 0; i < Math.min(bytes.length, 4096); i++) {
-                if (bytes[i] == 0) {
-                    android.widget.Toast.makeText(this, "Not a text file.", android.widget.Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
-            text = new String(bytes, StandardCharsets.UTF_8);
-        } catch (java.io.IOException e) {
-            android.widget.Toast.makeText(this, "Couldn't read it.", android.widget.Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // only the path travels: the viewer reads the file itself, off the main thread (a big file in the Intent crashed)
         String name = f.getName();
         int dot = name.lastIndexOf('.');
-        startActivity(new Intent(this, CodeViewActivity.class).putExtra(CodeViewActivity.EXTRA_CODE, text)
-                .putExtra(CodeViewActivity.EXTRA_LANG, dot > 0 ? name.substring(dot + 1).toLowerCase(Locale.US) : ""));
+        CodeViewActivity.openFile(this, f, dot > 0 ? name.substring(dot + 1).toLowerCase(Locale.US) : "");
     }
 
     private LinearLayout row(String name, String under, int icon, android.view.View.OnClickListener tap, final File deletable) {

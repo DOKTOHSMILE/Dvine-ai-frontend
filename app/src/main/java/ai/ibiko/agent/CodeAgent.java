@@ -1664,8 +1664,14 @@ public final class CodeAgent {
                 return page == null ? "The page couldn't be fetched." : clip(page, RESULT_CHARS);
             }
             case "connector": {
-                host.step("Used " + clip(c.a("call"), 60));
-                return host.connector(c.a("call"));
+                String call = c.a("call");
+                if (Approval.changes(call) && !host.allowRun(Approval.connectorQuestion(call))) {
+                    // it would change something on the pilot's accounts: only with their yes
+                    host.step("Not done: " + clip(call, 60));
+                    return "The user didn't allow this. Find another way, or ask them in your final answer.";
+                }
+                host.step("Used " + clip(call, 60));
+                return host.connector(call);
             }
             case "git":
                 return git(c);

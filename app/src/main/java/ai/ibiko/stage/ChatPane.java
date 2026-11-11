@@ -1885,11 +1885,7 @@ public final class ChatPane extends LinearLayout {
                     if ("html".equals(m.kind)) {
                         open(ai.ibiko.chat.ui.HtmlViewActivity.class, ai.ibiko.chat.ui.HtmlViewActivity.EXTRA_HTML, m.body);
                     } else {
-                        android.content.Intent intent = new android.content.Intent(getContext(),
-                                ai.ibiko.chat.ui.CodeViewActivity.class);
-                        intent.putExtra(ai.ibiko.chat.ui.CodeViewActivity.EXTRA_CODE, m.body);
-                        intent.putExtra(ai.ibiko.chat.ui.CodeViewActivity.EXTRA_LANG, m.language);
-                        getContext().startActivity(intent);
+                        ai.ibiko.chat.ui.CodeViewActivity.open(getContext(), m.body, m.language); // big code goes by file
                     }
                 });
             }
@@ -2378,7 +2374,17 @@ public final class ChatPane extends LinearLayout {
 
     private void open(Class<?> screen, String extra, String value) {
         android.content.Intent intent = new android.content.Intent(getContext(), screen);
-        intent.putExtra(extra, value);
+        if (value != null && value.length() > ai.ibiko.chat.ui.BigText.INLINE) {
+            // too big for an Intent (about 1 MB): the screen reads it from a file
+            try {
+                intent.putExtra(ai.ibiko.chat.ui.HtmlViewActivity.EXTRA_FILE, ai.ibiko.chat.ui.BigText.park(
+                        new java.io.File(getContext().getCacheDir(), "html-view"), value, "html").getPath());
+            } catch (java.io.IOException e) {
+                return;
+            }
+        } else {
+            intent.putExtra(extra, value);
+        }
         getContext().startActivity(intent);
     }
 

@@ -1,3 +1,9 @@
+# Big code without crashing; approvals; careful plans (0.99.83)
+
+- [x] Code and HTML viewers take big text by file; big code shown as a list of lines.
+- [x] Connector calls that change something ask first; "Allow for this task"; asking back on once.
+- [x] Each plan step has a check and is ticked only after it passed; steps in order; '## Repository' for GitHub work.
+
 # A human voice; speech only when asked; one folder per repository (0.99.82)
 
 - [x] Kokoro and Piper voices on the device (sherpa-onnx); no pitch shifting.
