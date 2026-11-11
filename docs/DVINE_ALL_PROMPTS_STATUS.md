@@ -252,6 +252,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 219 | The same long request again (rename to Ibiko, Scribe resume, audits sorted with time and date, UI/UX, background jobs) | P12 | Checked: built in 0.99.57; names searched again and none shows; a message during a job on the device's model is now answered between steps | 0.99.67 |
 | 220 | Fix the app package name | P12 | Built (ai.ibiko everywhere, the user's choice; native libraries rebuilt; JVM tests) | 0.99.68 |
 | 221 | Design a custom logo: a futuristic, cute AI bot icon | P12 | Built (adaptive, monochrome and PNG icons from one vector design; render test) | 0.99.69 |
+| 222 | Make sure the AI reads the .blueprint folder to see its progress on the current task after the device closes or the connection breaks | P12 | Built (`Survey.whereItStood`, `Survey.unfinished`, carry-on reads it first; JVM tests) | 0.99.71 |
+| 223 | The icon is too simple: make a complex, much cuter one | P12 | Built (redrawn with body, waving arm, heart core, star antenna, kawaii eyes, nebula and orbit; render test) | 0.99.71 |
 
 ## Still open, in the order that matters
 

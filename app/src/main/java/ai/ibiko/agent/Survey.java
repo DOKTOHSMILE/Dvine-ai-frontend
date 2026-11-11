@@ -171,6 +171,41 @@ public final class Survey {
         }
     }
 
+    /** Whether a reading kept in {@code keep} broke off with parts still to read. */
+    public static boolean unfinished(File keep) {
+        File f = new File(keep, "SURVEY.md");
+        try {
+            String s = f.isFile() ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8) : "";
+            return s.contains("## Still to read") && !s.contains("- nothing: every part is read");
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Where a task stood, from its blueprint folder: SURVEY.md (what was read, the last part and when, what is still to
+     * read) and the start of MAP.md (what was found). Empty when the folder holds neither.
+     */
+    public static String whereItStood(File keep) {
+        StringBuilder b = new StringBuilder();
+        for (String name : new String[] {"SURVEY.md", "MAP.md"}) {
+            File f = new File(keep, name);
+            if (!f.isFile()) {
+                continue;
+            }
+            try {
+                String s = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
+                if ("MAP.md".equals(name) && s.length() > 6000) {
+                    s = s.substring(0, 6000) + "\n… (the rest is in " + name + ")";
+                }
+                b.append(b.length() == 0 ? "" : "\n\n").append("[").append(name).append("]\n").append(s);
+            } catch (IOException ignored) {
+                // that one can't be read: the other still says where things stood
+            }
+        }
+        return b.toString();
+    }
+
     /**
      * SURVEY.md: where the reading stands, rewritten as each part finishes: how many are read, the last one and when,
      * and the parts still to read in order. A run that breaks off carries on from here.

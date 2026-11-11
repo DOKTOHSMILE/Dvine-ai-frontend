@@ -101,4 +101,22 @@ public class SurveyTest {
         }, 2, null);
         assertEquals("only the changed file", 1, again.get());
     }
+
+    @Test
+    public void afterABreakTheBlueprintFolderSaysWhereTheWorkStood() throws Exception {
+        File root = project();
+        File keep = Files.createTempDirectory("keep").toFile();
+        String task = "Fix the dictation so pauses keep the words";
+        assertTrue("nothing kept yet", Survey.whereItStood(keep).isEmpty() && !Survey.unfinished(keep));
+        // the connection breaks while one part is being read
+        Survey.run(root, keep, task, (system, text) -> text.contains("Voice.java") ? null : "Purpose: writes speech", 1, null);
+        assertTrue("the break is seen", Survey.unfinished(keep));
+        String stood = Survey.whereItStood(keep);
+        assertTrue(stood, stood.contains("[SURVEY.md]") && stood.contains("Still to read") && stood.contains("Voice.java")
+                && stood.contains("Last read:"));
+        // carried on: only what was left is read, and then nothing is unfinished
+        Survey.run(root, keep, task, (system, text) -> "Purpose: a helper", 1, null);
+        assertTrue("finished", !Survey.unfinished(keep));
+        assertTrue(Survey.whereItStood(keep).contains("[MAP.md]"));
+    }
 }
