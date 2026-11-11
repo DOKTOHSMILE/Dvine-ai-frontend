@@ -522,6 +522,49 @@ public final class ChatBook {
         return "";
     }
 
+    /** Each page's memory codes (its sentences filed under ids and tags), built as the chat grows. */
+    private final Map<String, ai.ibiko.learn.Codes> codes = new java.util.HashMap<String, ai.ibiko.learn.Codes>();
+    private final Map<String, Integer> coded = new java.util.HashMap<String, Integer>();
+
+    /**
+     * What this chat said earlier about {@code question}, by memory code: the question's tags pull the ids of the
+     * sentences about it (older than the last {@code turns} exchanges, which the brain already has), and only those
+     * sentences are read back, each with its code, in the order they were said. "" when nothing earlier is about it.
+     */
+    public synchronized String recall(String question, int turns, int room) {
+        Section s = current();
+        int until = s.messages.size(), seen = 0;
+        for (int i = s.messages.size() - 1; i >= 0; i--) {
+            Message m = s.messages.get(i);
+            if ("user".equals(m.role) && "text".equals(m.kind) && ++seen > turns) {
+                until = i + 1;
+                break;
+            }
+        }
+        if (seen <= turns) {
+            return ""; // the whole chat is still in the brain's own memory
+        }
+        ai.ibiko.learn.Codes c = codes.get(s.id);
+        Integer done = coded.get(s.id);
+        if (c == null || done == null || done > until) {
+            c = new ai.ibiko.learn.Codes(); // the chat was cut back: filed again
+            done = 0;
+            codes.put(s.id, c);
+        }
+        for (int i = done; i < until; i++) {
+            Message m = s.messages.get(i);
+            if ("text".equals(m.kind)) {
+                c.addMessage(m.id, ("user".equals(m.role) ? "The user: " : "") + m.body);
+            }
+        }
+        coded.put(s.id, until);
+        List<String> ids = c.recall(question, 8, 2);
+        if (ids.isEmpty()) {
+            ids = c.recall(question, 4, 1);
+        }
+        return ids.isEmpty() ? "" : c.readBack(ids, room);
+    }
+
     /** The most characters the notes record may take in front of the latest messages. */
     static final int NOTES_MAX = 1800;
     /** The chat's first notes are always kept: what it is about, and who the user is. */

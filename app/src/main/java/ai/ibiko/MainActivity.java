@@ -4239,8 +4239,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             armThink("Thinking\u2026", "Thinking\u2026");
             // the notes record: the exchanges older than the model's own memory (its last few turns), in short, so
             // the device's model with its short memory still knows what this chat said earlier
-            String older = chats == null ? "" : chats.olderNotes(ai.ibiko.llm.LocalModel.HISTORY_TURNS + 1,
-                    model.remoteOn() ? 2400 : 1200);
+            // memory codes first: the question's tags pull only the earlier sentences about it, read back by their ids;
+            // the short notes of every earlier exchange only when nothing earlier is about this
+            String recalled = chats == null ? "" : chats.recall(english, ai.ibiko.llm.LocalModel.HISTORY_TURNS + 1,
+                    model.remoteOn() ? 2400 : 900);
+            String older = !recalled.isEmpty() ? "Earlier in this chat, about this (by memory code):\n" + recalled
+                    : chats == null ? "" : chats.olderNotes(ai.ibiko.llm.LocalModel.HISTORY_TURNS + 1, model.remoteOn() ? 2400 : 1200);
             String gathered = ai.ibiko.llm.PersonaPrompt.context(taught, reference, around)
                     + (older.isEmpty() ? "" : "\n" + older)
                     + "\n" + cortex().context(english) // Ibiko's reading of the message and any exact arithmetic

@@ -63,3 +63,13 @@ where each came from, and forgets one or all.
 Files, all in the app's `brain/` folder: `truth.tsv`, `reflection.tsv`, `foresight.tsv`, `facts.tsv`, `learner-answers.jsonl`, `learner-open.json`,
 `learner-rules.json`, `learner-words.tsv`, `learner-state.json`, `learner-journal.txt`. Memory → "What Ibiko 1 learned
 by itself" shows them and forgets them.
+
+
+## Memory codes (learn/Codes, 0.99.112)
+
+- C1 Every sentence kept gets an id: `<message id>#<n>`.
+- C2 Its tags are its content words (lower case, small words dropped, plural and tense endings taken off).
+- C3 A tag points to the ids filed under it.
+- C4 A question becomes tags; the tags pull ids; each id scores the sum over shared tags of log(1 + all / filed under the tag), so a rare tag counts more.
+- C5 At least two shared tags (one when nothing has two), at most a few ids, best first.
+- C6 Only those sentences are read back, with their codes, in the order they were said.

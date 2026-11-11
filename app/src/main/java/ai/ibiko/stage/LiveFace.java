@@ -39,11 +39,12 @@ public final class LiveFace extends View {
 
     static final int CYAN = 0xFF2BE4FF, CORE = 0xFFE9FDFF;
     /**
-     * The app icon's head, measured from its art (184 by 180 of 432): the height a touch under the width, corners a
-     * little over a fifth of the width. The working face is the same head.
+     * The head: a rectangle, wider than it is tall (the height 4/5 of the width), with the app icon's softly rounded
+     * corners, and not filling its square: {@link #SIZE} of it, room all round.
      */
-    static final float SQUASH = 0.978f;
-    static final float CORNER = 0.225f;
+    static final float SQUASH = 0.80f;
+    static final float CORNER = 0.18f;
+    static final float SIZE = 0.74f;
 
     public LiveFace(Context c) {
         super(c);
@@ -126,9 +127,9 @@ public final class LiveFace extends View {
         // breathing: a slight swell, on two unrelated slow rhythms so it never lines up the same way twice
         float breathe = moving ? 1f + 0.018f * (float) Math.sin(sec * 1.37) + 0.008f * (float) Math.sin(sec * 0.61 + 1.3) : 1f;
         // the face sits inside its square with room around it (zoomed out), corners curved
-        float s = side * 0.86f * breathe;
+        float s = side * SIZE * breathe;
         float cx = w / 2f, cy = h / 2f;
-        // the app icon's head: its full width, the height a touch less (SQUASH), the icon's corners
+        // the head: a rectangle, the height SQUASH of the width, with the icon's rounded corners
         float hh = s * SQUASH;
         r.set(cx - s / 2, cy - hh / 2, cx + s / 2, cy + hh / 2);
         float corner = s * CORNER;

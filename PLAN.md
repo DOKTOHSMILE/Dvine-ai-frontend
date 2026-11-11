@@ -1,3 +1,10 @@
+# Memory codes; a smaller rectangular head (0.99.112)
+
+- [x] learn/Codes: sentence ids and tags; recall by tags; read back only those sentences.
+- [x] ChatBook.recall feeds the brain what this chat said earlier about the question.
+- [x] LearningLog.examplesFor looks up learned answers by code instead of re-reading the log.
+- [x] LiveFace: a smaller rectangle.
+
 # Ship in batches; work like a careful senior engineer (0.99.111)
 
 - [x] agent/WorkingMethod W1–W12 in every task that changes things.
