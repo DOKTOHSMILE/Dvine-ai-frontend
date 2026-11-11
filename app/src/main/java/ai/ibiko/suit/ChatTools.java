@@ -135,13 +135,18 @@ public final class ChatTools {
         return s;
     }
 
+    /** The repositories chosen for this page while GitHub is on (empty: no limit). */
+    public List<String> chosenRepos() {
+        return on.contains(Tool.GITHUB) ? repos() : new ArrayList<String>();
+    }
+
     /** A line for the brain about what this page works on, or "" (the repositories chosen for Ibiko). */
     public String brief() {
         if (!on.contains(Tool.GITHUB) || repos.isEmpty()) {
             return "";
         }
         return "The pilot chose these GitHub repositories for this chat: " + String.join(", ", repos)
-                + ". Work on them unless told otherwise.";
+                + ". Work only on them: do not list, clone, read or change any other repository unless the pilot names it.";
     }
 
     /** Kept as one line: "on:WEB,FILES;repos:me/app,me/lib". */
