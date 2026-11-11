@@ -318,6 +318,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 285 | Default settings at their best for standard performance | P12 | Built (workers 4; others reviewed) | 0.99.96 |
 | 286 | The animated Ibiko face on the splash screen | P12 | Built | 0.99.96 |
 | 287 | A Retry button | P12 | Built | 0.99.96 |
+| 288 | During the splash, set up in the background so the app runs smoothly; sync the speech, no delay | P12 | Built (Warmup while the splash shows; a short first piece of speech, played piece by piece) | 0.99.97 |
+| 289 | Make Ibiko 1 sound in reasoning: find what is missing, research and improve | P12 | Built (Reasoner: compare, rank, count, list, chain, compute; values shown; false premises corrected) | 0.99.97 |
+| 290 | Workers can be deployed to multitask, not just read files | P12 | Built (any task; they run during planning and in read-only runs too) | 0.99.97 |
 
 ## Still open, in the order that matters
 

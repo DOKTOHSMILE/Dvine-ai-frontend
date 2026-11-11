@@ -52,4 +52,14 @@ public class VoiceStabilityTest {
             assertTrue(Math.abs(v) <= 0.98f);
         }
     }
+
+    @Test
+    public void afterSilenceTheFirstPieceIsShortSoTheVoiceKeepsUpWithTheText() {
+        String s = "When you open the app for the first time, Ibiko downloads its files and gets the voice ready for you.";
+        List<String> quick = NeuralVoice.partsFrom(s, true);
+        assertTrue(quick.get(0), quick.get(0).length() <= NeuralVoice.LEAD_LETTERS);
+        assertEquals(s, String.join(" ", quick));
+        assertEquals("while speaking, a sentence stays whole", 1, NeuralVoice.partsFrom(s, false).size());
+        assertEquals("a short sentence isn't cut", 1, NeuralVoice.partsFrom("Hello there, friend.", true).size());
+    }
 }
