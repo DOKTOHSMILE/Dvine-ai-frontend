@@ -1296,4 +1296,34 @@ public class LaunchTest {
         org.junit.Assert.assertEquals(was, think.isSelected());
         c.pause().stop().destroy();
     }
+
+    @Test
+    public void theSendButtonComesBackFromStopWhenTheWorkEnds() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        MainActivity a = c.get();
+        android.view.View send = a.findViewById(ai.ibiko.R.id.btn_send);
+        java.lang.reflect.Method refresh = MainActivity.class.getDeclaredMethod("refreshSend");
+        refresh.setAccessible(true);
+        java.lang.reflect.Method open = MainActivity.class.getDeclaredMethod("setStreamOpen", boolean.class);
+        open.setAccessible(true);
+        java.lang.reflect.Field stream = MainActivity.class.getDeclaredField("streamOpen");
+        stream.setAccessible(true);
+        // a reply streams: Stop
+        open.invoke(a, true);
+        org.robolectric.shadows.ShadowLooper.idleMainLooper();
+        org.junit.Assert.assertEquals("Stop", String.valueOf(send.getContentDescription()));
+        // the reply ends the way it did when the button stuck: redrawn first, the stream closed after
+        refresh.invoke(a);
+        open.invoke(a, false);
+        org.robolectric.shadows.ShadowLooper.idleMainLooper();
+        org.junit.Assert.assertEquals("Send", String.valueOf(send.getContentDescription()));
+        // work that ends without telling the button at all: it looks again within a second
+        open.invoke(a, true);
+        org.robolectric.shadows.ShadowLooper.idleMainLooper();
+        org.junit.Assert.assertEquals("Stop", String.valueOf(send.getContentDescription()));
+        stream.setBoolean(a, false);
+        org.robolectric.shadows.ShadowLooper.idleMainLooper(1200, java.util.concurrent.TimeUnit.MILLISECONDS);
+        org.junit.Assert.assertEquals("Send", String.valueOf(send.getContentDescription()));
+        c.pause().stop().destroy();
+    }
 }

@@ -256,6 +256,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 223 | The icon is too simple: make a complex, much cuter one | P12 | Built (redrawn with body, waving arm, heart core, star antenna, kawaii eyes, nebula and orbit; render test) | 0.99.71 |
 | 224 | The plan file is added to, never replaced; a priority moves to the next to-do; only a completed step is edited (ticked) | P12 | Built (`Blueprint.kept` on write and edit, Scribe sections; now shell commands that wipe a plan are refused too; JVM tests) | 0.99.72 |
 | 225 | Why only 4 workers when Settings says 8: more workers for different tasks, not just readers | P12 | Fixed (the setting was never read; it now sets workers, readers and writers, up to 16; hands up to 8; JVM tests) | 0.99.72 |
+| 226 | How would the system mark a plan that has been completed? | P12 | Answered (steps ticked "- [x]", phases UNDERSTAND to VERIFY; DONE is never set and ticks carry no date: proposed) | 0.99.72 |
+| 227 | The send button sometimes gets stuck showing the stop sign | P12 | Fixed (redrawn on every stream change and at a job's end; rechecks each second while Stop shows; Robolectric test) | 0.99.73 |
 
 ## Still open, in the order that matters
 
