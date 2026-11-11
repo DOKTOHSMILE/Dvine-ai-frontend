@@ -10,8 +10,8 @@ public class CloneFolderTest {
     @Test
     public void aCloneLandsInTheProjectsFolder() {
         String placed = CloneFolder.place("git clone https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git /root/workspace/Dvine-ai-frontend");
-        assertTrue(placed.contains("mkdir -p /workspace/memory/projects"));
-        assertTrue(placed.contains("/workspace/memory/projects/Dvine-ai-frontend"));
+        assertTrue(placed.contains("mkdir -p /workspace/repos"));
+        assertTrue(placed.contains("/workspace/repos/Dvine-ai-frontend"));
         assertFalse(placed.contains("/root/workspace"));
         assertEquals("Dvine-ai-frontend", CloneFolder.nameOf("https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git"));
     }
@@ -20,7 +20,7 @@ public class CloneFolderTest {
     public void aCloneIsRetargetedEvenWhenTheCommandAlsoListsTheProjectsFolder() {
         String placed = CloneFolder.place("ls memory/projects\n"
                 + "git -c http.version=HTTP/1.1 clone --depth 1 https://github.com/a/b.git /root/workspace/b");
-        assertTrue(placed.contains("/workspace/memory/projects/b"));
+        assertTrue(placed.contains("/workspace/repos/b"));
         assertTrue(placed.contains("--depth"));
         assertTrue(placed.contains("checkout -f HEAD"));
         assertFalse(placed.contains("/root/workspace/b"));

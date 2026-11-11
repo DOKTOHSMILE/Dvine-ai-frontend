@@ -24,7 +24,9 @@ final class ModelMenu {
                 + " what to what, when and where, kept as facts it can answer from in its own sentences. Afterwards it tells you"
                 + " what it learned, and asks you to check each answer the first time it uses it.");
         about.setTextColor(a.getColor(R.color.text_secondary));
-        about.setTextSize(13f);
+        about.setTextSize(13.5f);
+        about.setLineSpacing(a.dp(3), 1f); // airy: small explanations read easily
+        about.setPadding(0, a.dp(3), 0, 0);
         box.addView(about);
         final android.widget.Switch on = new android.widget.Switch(a);
         on.setText("Learn on a schedule");
@@ -208,7 +210,9 @@ final class ModelMenu {
         words.addView(title);
         android.widget.TextView sub = new android.widget.TextView(a);
         sub.setText(about);
-        sub.setTextSize(12.5f);
+        sub.setTextSize(13.5f);
+        sub.setLineSpacing(a.dp(3), 1f); // airy: small explanations read easily
+        sub.setPadding(0, a.dp(3), 0, 0);
         sub.setTextColor(a.getColor(R.color.text_secondary));
         words.addView(sub);
         row.addView(words, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -247,7 +251,9 @@ final class ModelMenu {
         row.addView(t);
         android.widget.TextView sub = new android.widget.TextView(a);
         sub.setText(about);
-        sub.setTextSize(12.5f);
+        sub.setTextSize(13.5f);
+        sub.setLineSpacing(a.dp(3), 1f); // airy: small explanations read easily
+        sub.setPadding(0, a.dp(3), 0, 0);
         sub.setTextColor(a.getColor(R.color.text_secondary));
         row.addView(sub);
         row.setOnClickListener(v -> open.run());

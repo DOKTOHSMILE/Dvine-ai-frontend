@@ -101,6 +101,8 @@ final class Ui {
         if (bold) {
             t.setTypeface(Typeface.DEFAULT_BOLD);
         }
+        // room between lines: explanations wrapped tight read as one block (every screen built with this helper)
+        t.setLineSpacing(dp(c, sp <= 14 ? 3 : 2), 1f);
         return t;
     }
 

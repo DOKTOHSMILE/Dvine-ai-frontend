@@ -37,10 +37,10 @@ public final class Blueprint {
             + "1 UNDERSTAND: read before deciding. List and read the files the task touches, and search for code that"
             + " already does something similar (search the names, the words, the screens). Change nothing yet.\n"
             + "2 PLAN: write PLAN.md in the project folder with these sections: '# Blueprint: <the task>', 'Phase: PLAN',"
-            + " '## Repository' (when the task is on a GitHub repository: 'owner/name -> memory/projects/<name>', the one"
+            + " '## Repository' (when the task is on a GitHub repository: 'owner/name -> repos/<name>', the one"
             + " folder it is cloned into; the first step is to pull it there (clone it there the first time), and every read,"
-            + " edit, command and push for it uses that same folder, never a copy elsewhere and never projects/<name> without"
-            + " memory/ in front: that path does not exist. Correcting a step from projects/<name> to memory/projects/<name>"
+            + " edit, command and push for it uses that same folder, never a copy elsewhere and never projects/<name> or"
+            + " memory/projects/<name>: those paths do not exist. Correcting a step from projects/<name> to repos/<name>"
             + " keeps the step), '## Goal', '## Found' (what is there now, file:name), '## Reuse' (existing code you will use instead of"
             + " writing it again, file:name, or 'none: <why>'), '## Steps' (numbered in order '- [ ] 1. … (files: a, b;"
             + " check: how this step is proved done, such as the test to run or the lines to read back)', one change per"
@@ -63,7 +63,7 @@ public final class Blueprint {
             + " or rewrite the steps already in it, done or not, and never start a fresh plan over an old one. New steps go"
             + " after the existing ones; only when the user says the new work is a priority do they go right after the last"
             + " ticked step, to be done next. The only edit to an existing step is ticking it when it is finished and"
-            + " checked, or correcting projects/<name> to memory/projects/<name> (the same step, the folder that exists);"
+            + " checked, or correcting projects/<name> to repos/<name> (the same step, the folder that exists);"
             + " then move to the next one. A write that drops a step is refused.\n";
 
     /** Told to the agent with the user's addition, instead of the plain "read it and continue". */
@@ -267,7 +267,7 @@ public final class Blueprint {
         }
         // work on a GitHub repository: the one folder it lives in is written down
         if (p.matches("(?is).*\\b(git\\s+(clone|pull|push)|github|pull request)\\b.*") && section(p, "Repository").trim().isEmpty()) {
-            out.add("a '## Repository' section: 'owner/name -> memory/projects/<name>', the folder it is pulled into and worked in");
+            out.add("a '## Repository' section: 'owner/name -> repos/<name>', the folder it is pulled into and worked in");
         }
         String risks = section(p, "Risks");
         if (risks.trim().isEmpty()) {

@@ -301,7 +301,7 @@ public final class BottomSheet {
             LinearLayout row = new LinearLayout(a);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setMinimumHeight(Ui.dp(a, 56));
-            row.setPadding(Ui.dp(a, 24), Ui.dp(a, 8), Ui.dp(a, 24), Ui.dp(a, 8));
+            row.setPadding(Ui.dp(a, 24), Ui.dp(a, 12), Ui.dp(a, 24), Ui.dp(a, 12));
             android.util.TypedValue ripple = new android.util.TypedValue();
             a.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
             row.setBackgroundResource(ripple.resourceId);

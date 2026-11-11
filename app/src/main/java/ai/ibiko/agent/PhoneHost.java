@@ -114,7 +114,8 @@ public final class PhoneHost implements CodeAgent.Host {
     public String run(String command, File dir) {
         try {
             onCommand(command);
-            File where = dir != null ? dir : new File(activity.getFilesDir(), "ibiko");
+            File where = dir != null ? dir : activity instanceof ai.ibiko.MainActivity
+                    ? ((ai.ibiko.MainActivity) activity).chatSpace() : new File(activity.getFilesDir(), "ibiko");
             where.mkdirs();
             return ai.ibiko.linux.LinuxHub.run(activity, command, where); // the one Alpine, the same as the Shell screen
         } catch (Throwable e) {

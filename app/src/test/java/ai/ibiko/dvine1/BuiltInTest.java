@@ -45,7 +45,7 @@ public class BuiltInTest {
 
     @Test
     public void theFileThatShipsIsReadable() throws Exception {
-        File f = new File("src/main/assets/knowledge/world_facts.tsv");
+        File f = new File("../ibiko1/src/main/assets/knowledge/world_facts.tsv");
         if (!f.isFile()) {
             return; // not built yet in this checkout
         }
@@ -57,7 +57,7 @@ public class BuiltInTest {
 
     @Test
     public void theShippedFileKnowsNeighboursPeopleAndCoasts() throws Exception {
-        File f = new File("src/main/assets/knowledge/world_facts.tsv");
+        File f = new File("../ibiko1/src/main/assets/knowledge/world_facts.tsv");
         BuiltIn b = new BuiltIn(new FileInputStream(f));
         assertEquals("Someone from Ghana is Ghanaian.", b.answer("what are people from Ghana called"));
         assertEquals("Nigeria borders Benin, Cameroon, Chad and Niger.", b.answer("Which countries border Nigeria?"));

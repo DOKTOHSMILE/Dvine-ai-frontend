@@ -931,7 +931,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * files) and what was logged since {@code since} is kept with the chat, and the reply shows it as pills.
      */
     void attachWork(final java.util.List<String> changed, final long since) {
-        final java.io.File workspace = new java.io.File(getFilesDir(), "ibiko");
+        final java.io.File workspace = chatSpace();
         new Thread(() -> {
             final String work = ai.ibiko.chat.ui.WorkChips.capture(this, workspace, changed, since);
             if (work != null) {
@@ -1221,7 +1221,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (code != null) {
             code.setOnClickListener(v -> ai.ibiko.chat.ui.BottomSheet.show(this, "Code", new ai.ibiko.chat.ui.BottomSheet.Item[] {
-                    new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_folder, "Workspace files", "Cloned repositories and projects on this device"),
+                    new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_folder, "Workspace files", "This chat's repositories, memories and pictures"),
                     new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_terminal, "Shell", "The Linux built into Ibiko"),
                     new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_project, "Projects", "Chats kept together") }, which -> {
                         if (which == 0) {
@@ -1359,6 +1359,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * Makes a picture with the image tool (\u00A7IM, from any brain): an image model on one of the pilot's providers
      * draws it, it is saved and shown in the chat. While it is made, the working line says so.
      */
+    /**
+     * This chat's own folder (files/ibiko/chats/<chat>): its pulled repositories (repos/), its memories (memory/) and
+     * pictures (images/). Every file tool, agent and Linux command of this chat works in it and sees nothing else.
+     */
+    public java.io.File chatSpace() {
+        ai.ibiko.chat.ChatBook.Section s = chats == null ? null : chats.current();
+        return ai.ibiko.main.ChatSpace.of(getFilesDir(), s == null ? "chat" : s.group != null ? s.group : s.id);
+    }
+
     /** Makes a picture in the background and pastes it into the chat when ready (ImageTurn). */
     void makeImage(final String agent, final String what) {
         new ImageTurn(this).make(agent, what);
@@ -1471,6 +1480,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public void onRetry() {
+                retryLast(); // the Retry button under a reply that stopped
+            }
+
+            @Override
             public void onRate(String question, String answer, boolean right) {
                 dvine1().endpoint().feedback(question, answer, right);
             }
@@ -1539,6 +1553,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
 
         prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        if (!prefs.getBoolean("chat_spaces_adopted", false)) {
+            // once: files from before each chat had its own folder go to the chat open now (repositories into repos/)
+            final java.io.File here = chatSpace();
+            new Thread(() -> {
+                ai.ibiko.main.ChatSpace.adoptOld(getFilesDir(), here.getName());
+                prefs.edit().putBoolean("chat_spaces_adopted", true).apply();
+            }, "ibiko-chat-spaces").start();
+        }
         bindChatHeader();
         showPersonaBar();
         ai.ibiko.turn.Names.restore(prefs.getString("name_aliases", null));
@@ -2552,7 +2574,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * through the agent's tools. True when the message is about them and there are some.
      */
     boolean aboutPhoneFiles(String text) {
-        java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
+        java.io.File ws = chatSpace();
         String[] kids = ws.list();
         if (kids == null || kids.length == 0) {
             return false;
@@ -2619,7 +2641,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         markRunning(null, null);
         String who = "Ibiko";
         String shown = task.length() > 80 ? task.substring(0, 80) + "\u2026" : task;
-        String record = ai.ibiko.scribe.Scribe.pending(new java.io.File(getFilesDir(), "ibiko"));
+        String record = ai.ibiko.scribe.Scribe.pending(chatSpace());
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Carry on where it stopped?")
                 .setMessage(who + " was working on \u201c" + shown + "\u201d when Ibiko closed. Its work so far is saved,"
@@ -2756,8 +2778,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     static final int MAX_ROUNDS = 400;
     static final String CARRY_ON = "Carry on with the work from where you stopped. Read PLAN.md if there is one and go on with"
             + " the next unticked item; test what you build. Do not tell the user you are continuing: do the next step."
-            + " The repository folder is memory/projects/<name> (guest /workspace/memory/projects/<name>). Pull and clone"
-            + " only there, then read, edit and run in that same folder. projects/<name> is not a folder.";
+            + " The repository folder is repos/<name> in this chat's own folder (guest /workspace/repos/<name>). Pull and"
+            + " clone only there, then read, edit and run in that same folder. Memories about this chat are in memory/;"
+            + " other chats' files are not here. projects/<name> is not a folder.";
 
     /**
      * A round of long work ended: its progress note goes into the chat now, as a message of its own, so the user
@@ -3773,18 +3796,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** Clears Ibiko's workspace (clones, sandbox, files) and its kept work, after a yes: it can't be undone. */
     void clearWorkspace() {
-        final java.io.File ws = new java.io.File(getFilesDir(), "ibiko");
+        final java.io.File ws = chatSpace();
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Delete everything in Ibiko's workspace on this device: the cloned repositories, the sandbox and its"
-                        + " files? Changes that weren't pushed are lost.")
+                .setMessage("Delete this chat's files on this device: its cloned repositories, its memories and pictures?"
+                        + " Other chats' files stay. Changes that weren't pushed are lost.")
                 .setPositiveButton("Delete", (d, w) -> new Thread(() -> {
                     deleteTree(ws);
-                    java.io.File[] kept = getFilesDir().listFiles((dir, name) -> name.startsWith("agent-") && name.endsWith(".txt"));
-                    for (java.io.File f : kept == null ? new java.io.File[0] : kept) {
-                        f.delete(); // every chat's kept work
-                    }
                     handler.post(() -> play(LocalTurn.speakAs(stage.agent(),
-                            "Done. Ibiko's workspace on this device is empty."), null));
+                            "Done. This chat's files are deleted; other chats keep theirs."), null));
                 }, "dvine-clear-workspace").start())
                 .setNegativeButton("Keep it", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Okay, nothing was deleted."), null))
                 .show();
@@ -4316,8 +4335,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     stream.add(new TurnLine(agent, "SAY", said != null ? said
                             : why != null && !why.isEmpty() && !"stopped".equals(why)
-                                    ? "My reply stopped: " + why + ". Say \u201cretry\u201d to ask again."
-                                    : "I don't have a reply for that yet. Say \u201cretry\u201d to ask again."));
+                                    ? "My reply stopped: " + why + ". Tap Retry to ask again."
+                                    : "I don't have a reply for that yet. Tap Retry to ask again."));
                 } else {
                     // a reply that says it sent, saved or posted something when nothing was done says so plainly
                     body = ai.ibiko.gate.ClaimGuard.check(body, false);

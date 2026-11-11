@@ -22,6 +22,19 @@ import java.util.Locale;
  * folder Ibiko works in, so what it made is here to look at.
  */
 public final class WorkspaceActivity extends AppCompatActivity {
+    /** The chat (conversation id) whose folder this shows. */
+    public static final String EXTRA_CHAT = "chat";
+
+    /** The chat's own folder; without a chat named, the chat open now in the chat book. */
+    static File chatFolder(android.content.Context c, String chat) {
+        if (chat == null) {
+            ai.ibiko.chat.ChatBook book = ai.ibiko.chat.ChatBook.open(new File(c.getFilesDir(), "chats.json"));
+            ai.ibiko.chat.ChatBook.Section s = book.current();
+            chat = s == null ? "chat" : s.group != null ? s.group : s.id;
+        }
+        return ai.ibiko.main.ChatSpace.of(c.getFilesDir(), chat);
+    }
+
     /** Files above this size aren't opened in the viewer. */
     static final long MOST_BYTES = BigText.MOST_BYTES;
     private File root, here;
@@ -32,7 +45,8 @@ public final class WorkspaceActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Ui.init(this);
-        root = new File(getFilesDir(), "ibiko");
+        // only the chat open now: its own folder (repos, memory, images), never another chat's
+        root = chatFolder(this, getIntent().getStringExtra(EXTRA_CHAT));
         here = root;
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);

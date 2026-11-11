@@ -17,7 +17,7 @@ import org.junit.Test;
 public class TruthLedgerTest {
     @Test
     public void bothSidesAreKeptAndRecognisedAgainAfterARestart() throws Exception {
-        BuiltIn world = new BuiltIn(new FileInputStream("src/main/assets/knowledge/world_facts.tsv"));
+        BuiltIn world = new BuiltIn(new FileInputStream("../ibiko1/src/main/assets/knowledge/world_facts.tsv"));
         File f = new File(Files.createTempDirectory("ledger").toFile(), "truth.tsv");
         TruthLedger ledger = new TruthLedger(f);
         List<Truth.Checked> checked = Truth.question("Lagos is the capital of Nigeria. The capital of Ghana is Accra. Ghana is lovely.",

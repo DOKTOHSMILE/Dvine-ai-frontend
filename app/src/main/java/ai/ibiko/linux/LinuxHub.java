@@ -148,12 +148,20 @@ public final class LinuxHub {
         }
         if (AlpineRun.ready(c)) {
             try {
-                CloneFolder.installGuard(LinuxRoot.root(c)); // git clone cannot land outside memory/projects
+                CloneFolder.installGuard(LinuxRoot.root(c)); // git clone cannot land outside repos
             } catch (Exception ignored) {
                 // the command's own rewrite still sends the clone to the right folder
             }
             command = CloneFolder.settle() + "\n" + CloneFolder.place(command);
             String placed = where == null ? command : GuestPath.at(where, command);
+            if (where != null && ai.ibiko.main.ChatSpace.chatOf(where) != null) {
+                // a chat's command: its own Alpine run with only that chat's folder as /workspace, so it can't see,
+                // change or delete another chat's files (the shared terminal sees every chat)
+                LinuxEngine.Result own = AlpineRun.run(c, placed, where);
+                if (own != null) {
+                    return CloneFolder.quiet(own.text);
+                }
+            }
             String shared = ask(c, placed);
             if (shared != null) {
                 return CloneFolder.quiet(shared);

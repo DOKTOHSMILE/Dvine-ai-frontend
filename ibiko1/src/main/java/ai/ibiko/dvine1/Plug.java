@@ -31,7 +31,8 @@ public final class Plug {
     /** A file that ships inside the app (its assets), by path; null when the app gave none. */
     public static volatile java.util.function.Function<String, java.io.InputStream> asset = path -> null;
 
-    public static volatile Web web = new Web() {
+    /** No web: Ibiko 1 answers from what it knows. */
+    public static final Web NONE = new Web() {
         @Override
         public String get(String url) {
             return null;
@@ -42,6 +43,8 @@ public final class Plug {
             return null;
         }
     };
+
+    public static volatile Web web = NONE;
 
     public static volatile Workers workers = new Workers() {
         @Override

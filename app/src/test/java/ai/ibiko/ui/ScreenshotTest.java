@@ -217,7 +217,7 @@ public class ScreenshotTest {
         java.util.Map<String, String> files = new java.util.TreeMap<String, String>();
         files.put("app/Main.java", "class Main {\n}\n");
         hub.refs.put("main", hub.commit(files, null, "first"));
-        java.io.File repo = new java.io.File(c.get().getFilesDir(), "ibiko/app");
+        java.io.File repo = new java.io.File(c.get().chatSpace(), "app"); // in the open chat's own folder
         new ai.ibiko.connect.GitHubGit(hub, "tok").clone("me/app", "main", repo);
         java.nio.file.Files.write(new java.io.File(repo, "app/Main.java").toPath(),
                 "class Main {\n    void hello() {}\n}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));

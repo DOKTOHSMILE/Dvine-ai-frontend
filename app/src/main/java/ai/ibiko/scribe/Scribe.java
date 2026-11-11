@@ -54,7 +54,7 @@ public final class Scribe {
     public void begin(String persona, String instruction, String section) {
         String key = section == null || section.trim().isEmpty() ? slug(clip(instruction, 160)) : "section-" + slug(section);
         // a short follow-up ("now add a delete button") in a chat that already has a project belongs to that project
-        boolean known = section != null && new File(workspace, "memory/projects/" + key + "/" + RECORD).isFile();
+        boolean known = section != null && new File(workspace, "memory/records/" + key + "/" + RECORD).isFile();
         if (!worth(instruction) && !known) {
             active = false;
             return;
@@ -63,7 +63,7 @@ public final class Scribe {
         TaskRecord prior = tasks.byIdempotency(key);
         if (prior != null && prior.state != null && prior.state.open()) {
             current = prior;
-            projectDir = new File(workspace, "memory/projects/" + key);
+            projectDir = new File(workspace, "memory/records/" + key);
             projectDir.mkdirs();
             current.state = TaskState.RESUMING;
             current.updatedAt = System.currentTimeMillis();
@@ -95,7 +95,7 @@ public final class Scribe {
         ProjectSurvey survey = ProjectSurvey.of(workspace);
         current.remaining.addAll(survey.steps);
         tasks.save(current);
-        projectDir = new File(workspace, "memory/projects/" + key);
+        projectDir = new File(workspace, "memory/records/" + key);
         projectDir.mkdirs();
         write("PROJECT_MANIFEST.json", manifest(persona));
         String planned = section("PROJECT_PLAN.md");
@@ -180,7 +180,7 @@ public final class Scribe {
 
     /** The one file that holds this project's whole record, relative to the workspace; "" when no record is open. */
     public String recordPath() {
-        return !active || projectDir == null ? "" : "memory/projects/" + projectDir.getName() + "/" + RECORD;
+        return !active || projectDir == null ? "" : "memory/records/" + projectDir.getName() + "/" + RECORD;
     }
 
     /**

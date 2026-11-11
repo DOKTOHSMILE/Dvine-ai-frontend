@@ -22,7 +22,7 @@ public class ScribeTest {
         assertFalse(Scribe.worth("hi"));
         assertTrue(Scribe.worth("Build me an application that tracks tasks"));
         scribe.begin("ibiko", "Build me an application that tracks tasks");
-        File plan = new File(ws, "memory/projects");
+        File plan = new File(ws, "memory/records");
         File[] kids = plan.listFiles();
         assertTrue(kids != null && kids.length == 1);
         assertTrue(new File(kids[0], Scribe.RECORD).isFile());
@@ -49,7 +49,7 @@ public class ScribeTest {
         Scribe scribe = new Scribe(ws);
         String instruction = "Build the settings screen for this application";
         scribe.begin("ibiko", instruction);
-        File plan = new File(ws, "memory/projects");
+        File plan = new File(ws, "memory/records");
         File[] kids = plan.listFiles();
         assertTrue(kids != null && kids.length == 1);
         String written = new String(Files.readAllBytes(new File(kids[0], Scribe.RECORD).toPath()), StandardCharsets.UTF_8);
@@ -73,7 +73,7 @@ public class ScribeTest {
         scribe.finish("The notes screen is finished and the reply is long enough to look done.", false,
                 Collections.singletonList("app/Notes.java"));
         assertTrue(Scribe.jobs(ws).get(0).open);
-        File project = new File(ws, "memory/projects").listFiles()[0];
+        File project = new File(ws, "memory/records").listFiles()[0];
         String recovery = new String(Files.readAllBytes(new File(project, Scribe.RECORD).toPath()), StandardCharsets.UTF_8);
         assertTrue(recovery.contains("Missing: 1"));
         assertTrue(recovery.contains("app/Notes.java"));
@@ -107,7 +107,7 @@ public class ScribeTest {
         scribe.begin("ibiko", "Build the notes screen for the application", "chat 7");
         scribe.step("Read app/Notes.java");
         scribe.step("Edited app/Notes.java (12 lines)");
-        File project = new File(ws, "memory/projects/section-chat-7");
+        File project = new File(ws, "memory/records/section-chat-7");
         String[] files = project.list();
         assertEquals("one record file, nothing else", 1, files.length);
         assertEquals(Scribe.RECORD, files[0]);
@@ -120,7 +120,7 @@ public class ScribeTest {
         scribe.finish("Done.", false, Collections.<String>emptyList());
         Scribe again = new Scribe(ws);
         again.begin("ibiko", "Now add a delete button to the notes screen", "chat 7");
-        assertEquals(1, new File(ws, "memory/projects").list().length);
+        assertEquals(1, new File(ws, "memory/records").list().length);
         assertEquals(1, project.list().length);
         assertTrue(again.resume().contains("Edited app/Notes.java"));
     }
