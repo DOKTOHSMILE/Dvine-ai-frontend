@@ -203,19 +203,73 @@ final class ModelMenu {
         name.setHint("Model name, as " + p.title + " writes it");
         name.setSingleLine(true);
         box.addView(name);
-        java.util.List<String> have = providers.models(p);
-        for (final String m : p.suggestions()) {
-            if (have.contains(m)) {
-                continue;
+        final java.util.List<String> have = providers.models(p);
+        // the provider's own list, fetched on a tap; until then its usual models
+        final android.widget.TextView fetch = new android.widget.TextView(a);
+        fetch.setText("Fetch the model list from " + p.title);
+        fetch.setTextSize(15f);
+        fetch.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        fetch.setTextColor(a.getColor(R.color.accent));
+        fetch.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_refresh_list, 0, 0, 0);
+        fetch.setCompoundDrawablePadding(a.dp(8));
+        fetch.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(a.getColor(R.color.accent)));
+        fetch.setPadding(a.dp(4), a.dp(12), a.dp(4), a.dp(8));
+        box.addView(fetch);
+        final android.widget.TextView status = new android.widget.TextView(a);
+        status.setTextSize(13f);
+        status.setTextColor(a.getColor(R.color.text_secondary));
+        status.setVisibility(android.view.View.GONE);
+        box.addView(status);
+        final android.widget.LinearLayout picks = new android.widget.LinearLayout(a);
+        picks.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(a);
+        scroll.addView(picks);
+        box.addView(scroll, new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        final java.util.function.Consumer<java.util.List<String>> show = names -> {
+            picks.removeAllViews();
+            for (final String m : names) {
+                if (have.contains(m)) {
+                    continue;
+                }
+                android.widget.TextView chip = new android.widget.TextView(a);
+                chip.setText(m);
+                chip.setTextSize(14f);
+                chip.setTextColor(a.getColor(R.color.text_primary));
+                chip.setPadding(a.dp(4), a.dp(10), a.dp(4), a.dp(10));
+                chip.setOnClickListener(v -> name.setText(m));
+                picks.addView(chip);
             }
-            android.widget.TextView chip = new android.widget.TextView(a);
-            chip.setText(m);
-            chip.setTextSize(14f);
-            chip.setTextColor(a.getColor(R.color.accent));
-            chip.setPadding(a.dp(4), a.dp(10), a.dp(4), a.dp(10));
-            chip.setOnClickListener(v -> name.setText(m));
-            box.addView(chip);
-        }
+            // a long list stays inside the dialog: about seven rows show, the rest scroll
+            scroll.getLayoutParams().height = names.size() > 7 ? a.dp(300) : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+            scroll.requestLayout();
+        };
+        show.accept(java.util.Arrays.asList(p.suggestions()));
+        fetch.setOnClickListener(v -> {
+            fetch.setEnabled(false);
+            status.setVisibility(android.view.View.VISIBLE);
+            status.setText("Asking " + p.title + " for its models\u2026");
+            new Thread(() -> {
+                java.util.List<String> got = null;
+                String why = null;
+                try {
+                    got = providers.fetchModels(p);
+                } catch (java.io.IOException e) {
+                    why = e.getMessage();
+                }
+                final java.util.List<String> list = got;
+                final String problem = why;
+                a.runOnUiThread(() -> {
+                    fetch.setEnabled(true);
+                    if (list == null) {
+                        status.setText("I couldn't get the list: " + problem + ".");
+                        return;
+                    }
+                    status.setText(list.size() + " models from " + p.title + ". Tap one, then Add and use.");
+                    show.accept(list);
+                });
+            }, "ibiko-model-list").start();
+        });
         new androidx.appcompat.app.AlertDialog.Builder(a)
                 .setTitle("Add a " + p.title + " model")
                 .setView(box)
@@ -334,7 +388,10 @@ final class ModelMenu {
         row.setOrientation(android.widget.LinearLayout.VERTICAL);
         row.setPadding(a.dp(12), a.dp(10), a.dp(12), a.dp(10));
         android.widget.TextView t = new android.widget.TextView(a);
-        t.setText(name + "  \u203A");
+        t.setText(name);
+        t.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_chevron_right, 0);
+        t.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(a.getColor(R.color.accent)));
+        t.setCompoundDrawablePadding(a.dp(4));
         t.setTextSize(15f);
         t.setTextColor(a.getColor(R.color.accent));
         row.addView(t);

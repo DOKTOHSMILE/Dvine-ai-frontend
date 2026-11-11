@@ -135,6 +135,25 @@ public class SettingsActivity extends AppCompatActivity {
             {"About", "The version of Ibiko"},
     };
 
+    /** Each section's Material icon, beside its name in the list and on its page. */
+    static int sectionIcon(String title) {
+        switch (title) {
+            case "Profile": return ai.ibiko.R.drawable.ic_set_profile;
+            case "Chat": return ai.ibiko.R.drawable.ic_set_chat;
+            case "Voice": return ai.ibiko.R.drawable.ic_set_voice;
+            case "Ibiko 1 and learning": return ai.ibiko.R.drawable.ic_set_brain;
+            case "Work and actions": return ai.ibiko.R.drawable.ic_set_work;
+            case "Models": return ai.ibiko.R.drawable.ic_set_models;
+            case "Web and services": return ai.ibiko.R.drawable.ic_set_web;
+            case "Actions": return ai.ibiko.R.drawable.ic_set_actions;
+            case "Coding": return ai.ibiko.R.drawable.ic_set_coding;
+            case "Appearance": return ai.ibiko.R.drawable.ic_set_appearance;
+            case "Data and privacy": return ai.ibiko.R.drawable.ic_set_privacy;
+            case "Advanced": return ai.ibiko.R.drawable.ic_set_advanced;
+            default: return ai.ibiko.R.drawable.ic_set_about;
+        }
+    }
+
     /** Whether this page builds that section: only the section opened, never the rest. */
     protected boolean page(String title) {
         return title.equals(section);
@@ -151,9 +170,14 @@ public class SettingsActivity extends AppCompatActivity {
             words.setOrientation(LinearLayout.VERTICAL);
             words.addView(Ui.text(this, s[0], 16, Ui.TEXT, true));
             words.addView(Ui.text(this, s[1], 13, Ui.SUB, false), Ui.wide(this, 2));
+            android.widget.ImageView lead = Ui.glyph(this, sectionIcon(s[0]), Ui.ACCENT, 24);
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) lead.getLayoutParams();
+            lp.rightMargin = Ui.dp(this, 16);
+            row.addView(lead, lp);
             row.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            row.addView(Ui.text(this, "\u203A", 20, Ui.SUB, false));
+            row.addView(Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_right, Ui.SUB, 22));
             row.setContentDescription(s[0]);
+            Ui.press(row);
             row.setOnClickListener(v -> startActivity(intentFor(this, s[0])));
             body.addView(row, Ui.wide(this, 10));
         }
@@ -386,9 +410,11 @@ public class SettingsActivity extends AppCompatActivity {
         words.addView(Ui.text(this, title, 16, Ui.TEXT, true));
         words.addView(Ui.text(this, summary, 13, Ui.SUB, false), Ui.wide(this, 2));
         head.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        final TextView chevron = Ui.text(this, opened.contains(title) ? "⌃" : "⌄", 18, Ui.SUB, false);
+        final android.widget.ImageView chevron = Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_down, Ui.SUB, 22);
+        chevron.setRotation(opened.contains(title) ? 180f : 0f);
         head.addView(chevron);
         head.setContentDescription(title);
+        Ui.press(head);
         c.addView(head);
         final LinearLayout inside = new LinearLayout(this);
         inside.setOrientation(LinearLayout.VERTICAL);
@@ -398,7 +424,7 @@ public class SettingsActivity extends AppCompatActivity {
         head.setOnClickListener(v -> {
             boolean open = inside.getVisibility() != View.VISIBLE;
             inside.setVisibility(open ? View.VISIBLE : View.GONE);
-            chevron.setText(open ? "⌃" : "⌄");
+            chevron.animate().rotation(open ? 180f : 0f).setDuration(160).start();
             if (open) {
                 opened.add(title);
             } else {
@@ -577,6 +603,7 @@ public class SettingsActivity extends AppCompatActivity {
         r.addView(Ui.text(this, title, 16, Ui.ACCENT, false));
         r.addView(Ui.text(this, about, 13, Ui.SUB, false), Ui.wide(this, 4));
         r.setOnClickListener(v -> run.run());
+        Ui.press(r);
         return r;
     }
 
@@ -1035,11 +1062,17 @@ public class SettingsActivity extends AppCompatActivity {
 
     protected View link(String name, String about, final Class<?> screen) {
         LinearLayout r = new LinearLayout(this);
-        r.setOrientation(LinearLayout.VERTICAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
-        r.addView(Ui.text(this, name + "  ›", 16, Ui.TEXT, false));
-        r.addView(Ui.text(this, about, 13, Ui.SUB, false));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(Ui.text(this, name, 16, Ui.TEXT, false));
+        words.addView(Ui.text(this, about, 13, Ui.SUB, false));
+        r.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        r.addView(Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_right, Ui.SUB, 22));
+        r.setContentDescription(name);
         r.setOnClickListener(v -> startActivity(new Intent(this, screen)));
+        Ui.press(r);
         return r;
     }
 

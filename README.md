@@ -119,5 +119,7 @@ No provider key belongs in this project. Keys are entered in the app and stay on
 
 ## Licences of shipped data
 
+- The icons in `res/drawable/ic_*.xml` (not the app icon or the social network marks) are Google's Material Symbols Rounded, Apache 2.0.
+
 - `world_facts.tsv`: countries from mledoze/countries (ODbL) and population from datasets/population (PDDL); see `WORLD_FACTS_LICENSE.txt`.
 - `dictionary_en.json`: WordNet; see `WORDNET_LICENSE.txt`.

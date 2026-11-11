@@ -174,8 +174,8 @@ public final class ComposerAttachments {
                 face = card;
                 box.addView(face, new FrameLayout.LayoutParams(Ui.dp(context, 150), Ui.dp(context, 64)));
             }
-            TextView x = Ui.text(context, "✕", 11, Ui.TEXT, true);
-            x.setGravity(Gravity.CENTER);
+            android.widget.ImageView x = Ui.glyph(context, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 14);
+            x.setPadding(Ui.dp(context, 3), Ui.dp(context, 3), Ui.dp(context, 3), Ui.dp(context, 3));
             x.setBackground(Ui.round(context, Ui.SURFACE, Ui.LINE, 10));
             x.setContentDescription("Remove " + (it.name == null ? "attachment" : it.name));
             x.setOnClickListener(v -> {

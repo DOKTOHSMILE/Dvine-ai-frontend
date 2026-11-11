@@ -254,7 +254,8 @@ public final class WorkChips {
         LinearLayout head = new LinearLayout(activity);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(Ui.dp(activity, 16), Ui.dp(activity, 16), Ui.dp(activity, 16), Ui.dp(activity, 8));
-        TextView close = Ui.text(activity, "✕", 20, Ui.TEXT, false);
+        android.widget.ImageView close = Ui.icon(activity, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 20);
+        close.setContentDescription("Close");
         close.setPadding(0, 0, Ui.dp(activity, 16), 0);
         close.setOnClickListener(v -> d.dismiss());
         head.addView(close);

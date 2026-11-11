@@ -339,6 +339,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 306 | Models page: list every model; Use and Test for downloaded ones, Download for the rest | P12 | Built (always listed; Test on any downloaded model) | 0.99.103 |
 | 307 | Test is faster than chat: use the same simple channel for chat; prepare the model ahead as the voice is | P12 | Built (everyday messages skip the extras; the model loads and reads its instructions while you type) | 0.99.103 |
 | 308 | Several models in the model menu: add, switch when wanted; an Edit button beside the model in use | P12 | Built (every model kept for a provider listed; Add a model; Edit opens that provider) | 0.99.104 |
+| 309 | A button to fetch the model list from the API | P12 | Built (model menu and AI providers; OpenAI, Anthropic, Gemini and compatible gateways) | 0.99.105 |
+| 310 | Material, responsive icons in the app and Settings, the entire app | P12 | Built (every icon Material Symbols Rounded; Settings section icons; ripples and 44 dp targets) | 0.99.105 |
 
 ## Still open, in the order that matters
 
