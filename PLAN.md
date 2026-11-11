@@ -1,3 +1,7 @@
+# Facts about the app under the download (0.99.87)
+
+- [x] A slow, looping roll of facts about Ibiko under the running line; the download is never slowed.
+
 # Always running; Back to the background; reading while it downloads (0.99.86)
 
 - [x] KeepAlive: a foreground service until the pilot closes Ibiko (notification Close, or swiped away).

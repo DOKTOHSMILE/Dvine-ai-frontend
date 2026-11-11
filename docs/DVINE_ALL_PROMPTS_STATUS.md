@@ -283,6 +283,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 250 | A download the network broke carries on instead of starting over | P12 | Built (Range requests, the part kept, retried by itself and on Try again) | 0.99.85 |
 | 251 | Quotes, abilities and facts running across the screen while the app files download | P12 | Built (WaitLines, a new line every 6 s) | 0.99.86 |
 | 252 | Enforce background running: Ibiko never dies unless the user closes it; Back doesn't quit | P12 | Built (KeepAlive service, Close in the notification, battery exemption asked once, Back to the background) | 0.99.86 |
+| 253 | Keep the download screen busy with facts about the app, without disturbing the download | P12 | Built (a slow, looping roll of 20 app facts under the running line) | 0.99.87 |
 
 ## Still open, in the order that matters
 

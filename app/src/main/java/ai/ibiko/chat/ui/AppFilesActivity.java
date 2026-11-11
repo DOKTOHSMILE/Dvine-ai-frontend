@@ -56,6 +56,33 @@ public final class AppFilesActivity extends Activity {
         ticker = text(16, R.color.text_primary);
         ticker.setMinLines(3);
         root.addView(ticker, wide((int) (6 * dp)));
+        // under it, a slow roll of facts about Ibiko itself; it runs on the screen's own clock and never touches the
+        // download (that runs on its own thread)
+        reel = new android.widget.ScrollView(this);
+        reel.setVerticalScrollBarEnabled(false);
+        reel.setVerticalFadingEdgeEnabled(true);
+        reel.setFadingEdgeLength((int) (36 * dp));
+        reel.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout facts = new LinearLayout(this);
+        facts.setOrientation(LinearLayout.VERTICAL);
+        for (int copy = 0; copy < 2; copy++) {
+            // two copies one after the other: when the first has rolled past, it starts again with no jump
+            for (String f : ai.ibiko.main.WaitLines.APP_FACTS) {
+                TextView t = text(14, R.color.text_secondary);
+                t.setText("\u2022  " + f);
+                t.setPadding(0, (int) (7 * dp), 0, (int) (7 * dp));
+                facts.addView(t, wide(0));
+            }
+        }
+        reel.addView(facts);
+        reel.setOnTouchListener((v, e) -> {
+            touchedAt = android.os.SystemClock.uptimeMillis(); // the pilot is reading or dragging: it waits
+            return false;
+        });
+        LinearLayout.LayoutParams rp = wide((int) (20 * dp));
+        rp.height = (int) (190 * dp);
+        root.addView(reel, rp);
+        reel.postDelayed(roll, 16);
         LinearLayout buttons = new LinearLayout(this);
         buttons.setGravity(Gravity.CENTER);
         close = new Button(this);
@@ -71,6 +98,31 @@ public final class AppFilesActivity extends Activity {
         start();
         clock.post(nextLine);
     }
+
+    private android.widget.ScrollView reel;
+    private long touchedAt;
+    private float rolled;
+    /** About 22 pixels a second on a normal screen: slow enough to read as it goes. */
+    private final Runnable roll = new Runnable() {
+        @Override
+        public void run() {
+            if (gone || reel == null) {
+                return;
+            }
+            if (android.os.SystemClock.uptimeMillis() - touchedAt > 2500) {
+                rolled += 0.38f * getResources().getDisplayMetrics().density;
+                int step = (int) rolled;
+                if (step > 0) {
+                    rolled -= step;
+                    View inner = reel.getChildAt(0);
+                    int half = inner == null ? 0 : inner.getHeight() / 2;
+                    int y = reel.getScrollY() + step;
+                    reel.scrollTo(0, half > 0 && y >= half ? y - half : y);
+                }
+            }
+            reel.postDelayed(this, 16); // about 60 steps a second
+        }
+    };
 
     private TextView tickerKind, ticker;
     private final ai.ibiko.main.WaitLines lines = new ai.ibiko.main.WaitLines(new java.util.Random());

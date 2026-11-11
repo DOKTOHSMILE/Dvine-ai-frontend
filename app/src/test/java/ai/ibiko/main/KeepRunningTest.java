@@ -81,7 +81,29 @@ public class KeepRunningTest {
             line |= shown.contains(l[1]);
         }
         assertTrue("a line is on screen: " + shown, line);
+        assertTrue("facts about the app roll underneath", shown.contains("\u2022  " + WaitLines.APP_FACTS[0]));
+        android.widget.ScrollView reel = find(c.get().getWindow().getDecorView());
+        assertNotNull(reel);
+        for (int k = 0; k < 120; k++) {
+            Shadows.shadowOf(c.get().getMainLooper()).idleFor(java.time.Duration.ofMillis(17));
+        }
+        assertTrue("it rolls by itself: " + reel.getScrollY(), reel.getScrollY() > 0);
         c.destroy();
+    }
+
+    private static android.widget.ScrollView find(android.view.View v) {
+        if (v instanceof android.widget.ScrollView) {
+            return (android.widget.ScrollView) v;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            for (int k = 0; k < ((android.view.ViewGroup) v).getChildCount(); k++) {
+                android.widget.ScrollView f = find(((android.view.ViewGroup) v).getChildAt(k));
+                if (f != null) {
+                    return f;
+                }
+            }
+        }
+        return null;
     }
 
     private static void collect(android.view.View v, Set<String> out) {
