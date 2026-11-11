@@ -2933,7 +2933,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
                         @Override
                         public int readers() {
-                            return model.remoteOn() ? 4 : 1; // the device's own model answers one call at a time
+                            // the Workers setting (Settings \u203A Advanced); the device's own model answers one call at a time
+                            return ai.ibiko.chat.Tuning.workersAtOnce(prefs, model.remoteOn());
                         }
 
                         /**
@@ -4413,7 +4414,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         activity("Wrote " + n + " of " + secs.size() + ": " + clip(s.replaceAll(":.*$", "")));
                     }
                     return one;
-                }, 4, () -> !alive(id));
+                }, ai.ibiko.chat.Tuning.workersAtOnce(prefs, model.remoteOn()), () -> !alive(id));
                 for (String one : got) {
                     if (one != null && !one.trim().isEmpty() && !one.startsWith("Error:") && !one.startsWith("Stopped before")) {
                         parts.add(one.trim());

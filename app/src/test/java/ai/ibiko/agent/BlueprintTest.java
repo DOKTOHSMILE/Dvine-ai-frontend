@@ -123,4 +123,27 @@ public class BlueprintTest {
         String unticked = Blueprint.kept(old, old.replace("- [x] 1.", "- [ ] 1."));
         assertTrue(unticked, unticked != null && unticked.contains("unticks finished work"));
     }
+
+    @Test
+    public void aShellCommandCannotWipeAPlanButMayAddToIt() {
+        for (String bad : new String[] {"rm PLAN.md", "rm -f app/PLAN.md && git add .", "echo '# new' > PLAN.md",
+                "mv draft.md PLAN.md", "truncate -s 0 todo.md", "sed -i 's/old//' Roadmap.md", "cat x | tee tasks.md"}) {
+            assertTrue(bad, CodeAgent.wipesPlan(bad));
+        }
+        for (String fine : new String[] {"cat PLAN.md", "echo '- [ ] test' >> PLAN.md", "cat x | tee -a PLAN.md",
+                "grep -n '\\[ \\]' PLAN.md", "cp PLAN.md backup/plan-copy.txt.bak", "rm build.log", "ls > files.txt"}) {
+            assertFalse(fine, CodeAgent.wipesPlan(fine));
+        }
+    }
+
+    @Test
+    public void theWorkersSettingDecidesHowManyRunAtOnce() {
+        assertEquals(8, ai.ibiko.chat.Tuning.workersAtOnce(8, true));
+        assertEquals(16, ai.ibiko.chat.Tuning.workersAtOnce(16, true));
+        assertEquals("the device's own model: two at once", 2, ai.ibiko.chat.Tuning.workersAtOnce(8, false));
+        assertEquals(1, ai.ibiko.chat.Tuning.workersAtOnce(1, false));
+        assertEquals(8, ai.ibiko.chat.Tuning.WORKERS.def);
+        assertEquals(16, ai.ibiko.chat.Tuning.WORKERS.max);
+        assertEquals(8, Squad.MOST_HANDS);
+    }
 }

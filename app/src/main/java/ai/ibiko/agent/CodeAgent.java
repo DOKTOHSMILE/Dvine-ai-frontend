@@ -1603,6 +1603,11 @@ public final class CodeAgent {
                 if (cmd.isEmpty()) {
                     return "No command given.";
                 }
+                if (wipesPlan(cmd)) {
+                    host.step("Not run: it would remove or overwrite a plan");
+                    return "Not run: a plan is added to, never replaced, and this command would delete or overwrite a plan"
+                            + " file. Add new steps with edit_file under the old ones; tick a step only when it is done.";
+                }
                 if (!host.allowRun(cmd)) {
                     host.step("Not run: " + clip(cmd, 60));
                     return "The user didn't allow this command. Find another way, or ask them in your final answer.";
@@ -1789,6 +1794,34 @@ public final class CodeAgent {
         if (!changed.contains(p)) {
             changed.add(p);
         }
+    }
+
+    /** A plan file's name inside a command: PLAN.md, BLUEPRINT.md, TODO.txt, roadmap.md, tasks.md (any case). */
+    static final java.util.regex.Pattern PLAN_NAME = java.util.regex.Pattern.compile(
+            "(?i)(?:^|[\\s/'\"=])((?:plan|blueprint|todo|to-do|roadmap|tasks)(?:\\.[a-z0-9_-]+)*\\.(?:md|txt))(?=$|[\\s'\";|&)])");
+
+    /**
+     * Whether a shell command would delete or overwrite a plan file (rm, mv or cp onto it, truncate, an in-place
+     * sed, "&gt;" or a tee without -a), the way around {@link Blueprint#kept}. Appending with "&gt;&gt;" or tee -a is allowed.
+     */
+    static boolean wipesPlan(String cmd) {
+        if (cmd == null || !PLAN_NAME.matcher(cmd).find()) {
+            return false;
+        }
+        for (String piece : cmd.split("&&|\\|\\||;|\\n")) {
+            String p = piece.trim();
+            if (!PLAN_NAME.matcher(p).find()) {
+                continue;
+            }
+            if (p.matches("(?is)^(sudo\\s+)?(rm|unlink|truncate|shred)\\b.*")
+                    || p.matches("(?is)^(sudo\\s+)?(mv|cp)\\b.*") && PLAN_NAME.matcher(p.replaceAll("^.*\\s", " ")).find()
+                    || p.matches("(?is).*\\bsed\\s+(-[a-z]*i|--in-place).*")
+                    || p.matches("(?is).*(?<![>&0-9])>(?!>)\\s*\\S*(plan|blueprint|todo|to-do|roadmap|tasks)\\S*\\.(md|txt).*")
+                    || p.matches("(?is).*\\|\\s*tee\\s+(?!-a\\b|--append\\b).*")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A plan file: PLAN.md, a blueprint, a to-do or roadmap list. Its steps are kept when it is written again. */

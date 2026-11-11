@@ -254,6 +254,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 221 | Design a custom logo: a futuristic, cute AI bot icon | P12 | Built (adaptive, monochrome and PNG icons from one vector design; render test) | 0.99.69 |
 | 222 | Make sure the AI reads the .blueprint folder to see its progress on the current task after the device closes or the connection breaks | P12 | Built (`Survey.whereItStood`, `Survey.unfinished`, carry-on reads it first; JVM tests) | 0.99.71 |
 | 223 | The icon is too simple: make a complex, much cuter one | P12 | Built (redrawn with body, waving arm, heart core, star antenna, kawaii eyes, nebula and orbit; render test) | 0.99.71 |
+| 224 | The plan file is added to, never replaced; a priority moves to the next to-do; only a completed step is edited (ticked) | P12 | Built (`Blueprint.kept` on write and edit, Scribe sections; now shell commands that wipe a plan are refused too; JVM tests) | 0.99.72 |
+| 225 | Why only 4 workers when Settings says 8: more workers for different tasks, not just readers | P12 | Fixed (the setting was never read; it now sets workers, readers and writers, up to 16; hands up to 8; JVM tests) | 0.99.72 |
 
 ## Still open, in the order that matters
 

@@ -1,3 +1,8 @@
+# Workers from the setting; plans cannot be wiped (0.99.72)
+
+- [x] The Workers setting sets workers, readers and writers (default 8, up to 16; two at once on the device's model).
+- [x] A shell command that would delete or overwrite a plan file is refused; appending still works.
+
 # Carrying on from the .blueprint folder; a cuter icon (0.99.71)
 
 - [x] After a break, the agent reads .blueprint/<project>/SURVEY.md and MAP.md first; a cut-off reading carries on.
