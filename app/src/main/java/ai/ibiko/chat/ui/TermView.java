@@ -83,16 +83,18 @@ public final class TermView extends View {
 
             @Override
             public boolean onSingleTapUp(MotionEvent e) {
+                if (selecting) {
+                    endSelection(); // a tap elsewhere ends the selection, as Termux does
+                    return true;
+                }
                 showKeyboard();
                 return true;
             }
 
             @Override
             public void onLongPress(MotionEvent e) {
-                if (TermView.this.onLongPress != null) {
-                    performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
-                    TermView.this.onLongPress.run();
-                }
+                performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                selectWordAt(e.getX(), e.getY());
             }
 
             @Override
@@ -191,6 +193,9 @@ public final class TermView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (selecting && handleTouch(e)) {
+            return true;
+        }
         pinch.onTouchEvent(e);
         if (!pinch.isInProgress() && e.getPointerCount() == 1) {
             touch.onTouchEvent(e);
@@ -246,6 +251,20 @@ public final class TermView extends View {
                     canvas.drawText(one, 0, len, cellLeft, lineTop + baseline, paint);
                 }
             }
+            if (selecting) {
+                fill.setColor(SELECTION);
+                int[] a = selFirst(), b = selLast();
+                for (int line = a[0]; line <= b[0]; line++) {
+                    int y = line - (kept - back);
+                    if (y < 0 || y >= rows) {
+                        continue;
+                    }
+                    int from = line == a[0] ? a[1] : 0, to = line == b[0] ? b[1] : cols - 1;
+                    canvas.drawRect(left + from * cellW, topPx + y * cellH, left + (to + 1) * cellW, topPx + (y + 1) * cellH, fill);
+                }
+                drawHandle(canvas, a, kept - back, true);
+                drawHandle(canvas, b, kept - back, false);
+            }
             if (back == 0 && s.cursorVisible()) {
                 int cx = s.cursorX(), cy = s.cursorY();
                 float x = left + cx * cellW, y = topPx + cy * cellH;
@@ -269,6 +288,270 @@ public final class TermView extends View {
                 float barTop = h * (kept - back) / total, barH = Math.max(cellH, h * rows / total);
                 canvas.drawRect(getWidth() - 6, barTop, getWidth(), barTop + barH, fill);
             }
+        }
+    }
+
+    // ------------------------------------------------------------ selecting text (as Termux does)
+
+    static final int SELECTION = 0x665B8CFF;
+    static final int HANDLE = 0xFF5B8CFF;
+    /** The selection's two ends: {absolute line, column}; absolute lines count the scrollback first. */
+    private final int[] selA = new int[2], selB = new int[2];
+    private boolean selecting;
+    /** Which handle a finger is dragging: 0 none, 1 the start, 2 the end. */
+    private int dragging;
+    private android.widget.PopupWindow bar;
+
+    public boolean selecting() {
+        return selecting;
+    }
+
+    private int[] selFirst() {
+        return selA[0] < selB[0] || selA[0] == selB[0] && selA[1] <= selB[1] ? selA : selB;
+    }
+
+    private int[] selLast() {
+        return selFirst() == selA ? selB : selA;
+    }
+
+    /** The cell under a point: {absolute line, column}. */
+    private int[] cellAt(float x, float y) {
+        TermEmulator s = session.screen();
+        int kept = s.scrollback(), back = Math.min(scrolled, kept);
+        int col = Math.max(0, Math.min(s.cols() - 1, (int) ((x - getPaddingLeft()) / cellW)));
+        int row = Math.max(0, Math.min(s.rows() - 1, (int) ((y - getPaddingTop()) / cellH)));
+        return new int[] {kept - back + row, col};
+    }
+
+    /** A long press: the word under the finger is selected, with handles and the Copy / Paste / More bar. */
+    void selectWordAt(float x, float y) {
+        if (session == null || cellW <= 0) {
+            return;
+        }
+        int[] at = cellAt(x, y);
+        TermEmulator s = session.screen();
+        String text;
+        synchronized (s) {
+            text = s.line(at[0]).text();
+        }
+        int from = Math.min(at[1], Math.max(0, text.length() - 1)), to = from;
+        if (from < text.length() && !Character.isWhitespace(text.charAt(from))) {
+            while (from > 0 && !Character.isWhitespace(text.charAt(from - 1))) {
+                from--;
+            }
+            while (to + 1 < text.length() && !Character.isWhitespace(text.charAt(to + 1))) {
+                to++;
+            }
+        }
+        selA[0] = at[0];
+        selA[1] = from;
+        selB[0] = at[0];
+        selB[1] = to;
+        selecting = true;
+        invalidate();
+        showBar();
+    }
+
+    /** Everything on the screen and in the scrollback. */
+    void selectAll() {
+        if (session == null) {
+            return;
+        }
+        TermEmulator s = session.screen();
+        selA[0] = 0;
+        selA[1] = 0;
+        selB[0] = s.scrollback() + s.rows() - 1;
+        selB[1] = s.cols() - 1;
+        selecting = true;
+        invalidate();
+        showBar();
+    }
+
+    /** The selected text, its lines' trailing spaces dropped. */
+    public String selectedText() {
+        if (!selecting || session == null) {
+            return "";
+        }
+        TermEmulator s = session.screen();
+        int[] a = selFirst(), b = selLast();
+        StringBuilder out = new StringBuilder();
+        synchronized (s) {
+            for (int line = a[0]; line <= b[0]; line++) {
+                String t = s.line(line).text();
+                int from = line == a[0] ? Math.min(a[1], t.length()) : 0;
+                int to = line == b[0] ? Math.min(b[1] + 1, t.length()) : t.length();
+                out.append(from < to ? t.substring(from, to) : "");
+                if (line < b[0]) {
+                    out.append('\n');
+                }
+            }
+        }
+        return out.toString();
+    }
+
+    public void endSelection() {
+        selecting = false;
+        dragging = 0;
+        if (bar != null) {
+            bar.dismiss();
+            bar = null;
+        }
+        invalidate();
+    }
+
+    private void drawHandle(Canvas canvas, int[] end, int firstShown, boolean start) {
+        int y = end[0] - firstShown;
+        if (y < 0 || session == null || y >= session.screen().rows()) {
+            return;
+        }
+        float r = 9 * getResources().getDisplayMetrics().density;
+        float cx = getPaddingLeft() + (start ? end[1] : end[1] + 1) * cellW;
+        float cy = getPaddingTop() + (y + 1) * cellH + r;
+        fill.setColor(HANDLE);
+        canvas.drawCircle(cx, cy, r, fill);
+        canvas.drawRect(start ? cx : cx - r, cy - r, start ? cx + r : cx, cy, fill); // the teardrop's point at the text
+    }
+
+    /** A finger on a handle drags that end of the selection. True when the touch was the selection's. */
+    private boolean handleTouch(MotionEvent e) {
+        float r = 22 * getResources().getDisplayMetrics().density;
+        TermEmulator s = session.screen();
+        int first = s.scrollback() - Math.min(scrolled, s.scrollback());
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                dragging = 0;
+                for (int which = 1; which <= 2; which++) {
+                    int[] end = which == 1 ? selFirst() : selLast();
+                    float hx = getPaddingLeft() + (which == 1 ? end[1] : end[1] + 1) * cellW;
+                    float hy = getPaddingTop() + (end[0] - first + 1) * cellH + r / 2;
+                    if (Math.hypot(e.getX() - hx, e.getY() - hy) < r) {
+                        dragging = which;
+                        // the dragged end is always selA from here on
+                        int[] other = which == 1 ? selLast() : selFirst();
+                        int[] mine = which == 1 ? selFirst() : selLast();
+                        int[] o = other.clone(), m = mine.clone();
+                        selA[0] = m[0];
+                        selA[1] = m[1];
+                        selB[0] = o[0];
+                        selB[1] = o[1];
+                        if (bar != null) {
+                            bar.dismiss();
+                            bar = null;
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+            case MotionEvent.ACTION_MOVE:
+                if (dragging == 0) {
+                    return false;
+                }
+                int[] at = cellAt(e.getX(), e.getY() - cellH); // the finger sits under the line it drags
+                selA[0] = at[0];
+                selA[1] = at[1];
+                invalidate();
+                return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (dragging == 0) {
+                    return false;
+                }
+                dragging = 0;
+                showBar();
+                return true;
+            default:
+                return dragging != 0;
+        }
+    }
+
+    /** The small floating bar above the selection: Copy, Paste, More. */
+    private void showBar() {
+        if (bar != null) {
+            bar.dismiss();
+        }
+        android.content.Context c = getContext();
+        float d = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout row = new android.widget.LinearLayout(c);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(0xF2303036);
+        bg.setCornerRadius(24 * d);
+        row.setBackground(bg);
+        row.setElevation(6 * d);
+        row.setPadding(Math.round(6 * d), 0, Math.round(6 * d), 0);
+        String[] labels = {"Copy", "Paste", "More\u2026"};
+        for (int i = 0; i < labels.length; i++) {
+            final int which = i;
+            android.widget.TextView b = new android.widget.TextView(c);
+            b.setText(labels[i]);
+            b.setTextColor(0xFFF2F2F7);
+            b.setTextSize(15);
+            b.setGravity(android.view.Gravity.CENTER);
+            b.setPadding(Math.round(16 * d), Math.round(12 * d), Math.round(16 * d), Math.round(12 * d));
+            b.setMinHeight(Math.round(44 * d));
+            android.util.TypedValue tv = new android.util.TypedValue();
+            c.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true);
+            b.setBackgroundResource(tv.resourceId);
+            b.setOnClickListener(v -> barAction(which, v));
+            row.addView(b);
+        }
+        bar = new android.widget.PopupWindow(row, android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT, false);
+        bar.setOutsideTouchable(false);
+        row.measure(android.view.View.MeasureSpec.UNSPECIFIED, android.view.View.MeasureSpec.UNSPECIFIED);
+        TermEmulator s = session.screen();
+        int first = s.scrollback() - Math.min(scrolled, s.scrollback());
+        int[] a = selFirst();
+        int[] loc = new int[2];
+        getLocationInWindow(loc);
+        int x = loc[0] + Math.max(0, Math.min(getWidth() - row.getMeasuredWidth(),
+                Math.round(getPaddingLeft() + a[1] * cellW - row.getMeasuredWidth() / 2f)));
+        int y = loc[1] + Math.round(getPaddingTop() + (a[0] - first) * cellH) - row.getMeasuredHeight() - Math.round(8 * d);
+        if (y < loc[1]) {
+            y = loc[1] + Math.round(getPaddingTop() + (selLast()[0] - first + 1) * cellH + 28 * d); // no room above: below
+        }
+        if (getWindowToken() != null) {
+            bar.showAtLocation(this, android.view.Gravity.NO_GRAVITY, x, y);
+        }
+    }
+
+    private void barAction(int which, View anchor) {
+        android.content.Context c = getContext();
+        android.content.ClipboardManager clip = (android.content.ClipboardManager) c.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        if (which == 0) {
+            if (clip != null) {
+                clip.setPrimaryClip(android.content.ClipData.newPlainText("terminal", selectedText()));
+            }
+            endSelection();
+        } else if (which == 1) {
+            android.content.ClipData data = clip == null ? null : clip.getPrimaryClip();
+            CharSequence t = data == null || data.getItemCount() == 0 ? null : data.getItemAt(0).coerceToText(c);
+            endSelection();
+            paste(t == null ? "" : t.toString());
+        } else {
+            android.widget.PopupMenu more = new android.widget.PopupMenu(c, anchor);
+            more.getMenu().add(0, 1, 0, "Select all");
+            more.getMenu().add(0, 2, 1, "Copy all");
+            more.getMenu().add(0, 3, 2, "Share");
+            more.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == 1) {
+                    selectAll();
+                } else if (item.getItemId() == 2) {
+                    if (clip != null && session != null) {
+                        clip.setPrimaryClip(android.content.ClipData.newPlainText("terminal", session.screen().text()));
+                    }
+                    endSelection();
+                } else {
+                    String text = selectedText();
+                    endSelection();
+                    android.content.Intent send = new android.content.Intent(android.content.Intent.ACTION_SEND)
+                            .setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text);
+                    c.startActivity(android.content.Intent.createChooser(send, "Share"));
+                }
+                return true;
+            });
+            more.show();
         }
     }
 

@@ -25,16 +25,19 @@ public final class TermSession {
     /** The standard prompt: the folder in green, then " $ " ("~ $"). */
     static final String PS1 = "\\[\\e[32m\\]\\w\\[\\e[0m\\] $ ";
 
-    /** Shown once when the terminal starts, as a standard terminal greets you. */
+    /**
+     * Shown once when the terminal starts, as a standard terminal greets you. Every line is short (40 columns at
+     * most): it is written before the screen knows its width, and a longer line was cut off on a narrow device.
+     */
     static final String WELCOME = "Welcome to Ibiko Linux (Alpine " + LinuxRoot.RELEASE + ")!\r\n\r\n"
             + "Working with packages:\r\n\r\n"
             + " - Search:  pkg search <query>\r\n"
             + " - Install: pkg install <package>\r\n"
             + " - Upgrade: pkg upgrade\r\n\r\n"
             + "Folders:\r\n\r\n"
-            + " - /workspace  Ibiko's projects (the same files chat sees)\r\n"
+            + " - /workspace  Ibiko's projects\r\n"
             + " - /work       Ibiko's shell files\r\n"
-            + " - /sdcard     the device's storage, when allowed\r\n\r\n";
+            + " - /sdcard     the device's storage\r\n\r\n";
 
     private final Process proc;
     private final Pty pty;

@@ -264,6 +264,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 231 | Use the pilot's images: the app icon, and the GIF as the in-chat thinking animation | P12 | Built (adaptive icon from the art, themed eyes layer, PNGs; the GIF plays on the working line; tests) | 0.99.76 |
 | 232 | Downloading anything, even in the terminal, shows progress in the notification bar | P12 | Built (Transfers + DownloadNotice; Linux, GitHub clones, terminal downloads; JVM tests) | 0.99.77 |
 | 233 | A report the AI is writing suddenly disappears: find and fix it | P12 | Fixed (kept at each step's end and at the work's end; a tool call hides only itself; no duplicate; Robolectric test) | 0.99.77 |
+| 234 | Start building more in-app knowledge (ask for data if needed) | P12 | Built (2,122 more facts from open sources and the project; matching improved; JVM tests); no data needed from the pilot for this round | 0.99.78 |
+| 235 | The terminal compared with Termux (screenshots): text cut off, large text, dim keys, a copy dialog | P12 | Fixed (short greeting, 10 sp default, bright keys, Termux-style selection with a floating Copy/Paste/More bar) | 0.99.78 |
 
 ## Still open, in the order that matters
 
