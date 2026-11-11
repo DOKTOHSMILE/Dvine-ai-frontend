@@ -342,6 +342,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 309 | A button to fetch the model list from the API | P12 | Built (model menu and AI providers; OpenAI, Anthropic, Gemini and compatible gateways) | 0.99.105 |
 | 310 | Material, responsive icons in the app and Settings, the entire app | P12 | Built (every icon Material Symbols Rounded; Settings section icons; ripples and 44 dp targets) | 0.99.105 |
 | 311 | Restyle every icon as the app's own, in the app colour | P12 | Built (two-tone Ibiko set, accent colour, both themes; docs/ibiko-icons.png) | 0.99.106 |
+| 312 | Make all icon sizes match perfectly | P12 | Built (two sizes only: 24 dp on its own, 18 dp beside words; checked by IconSetTest) | 0.99.107 |
 
 ## Still open, in the order that matters
 

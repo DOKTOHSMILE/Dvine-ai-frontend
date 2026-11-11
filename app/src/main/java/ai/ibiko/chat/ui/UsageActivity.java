@@ -37,7 +37,7 @@ public final class UsageActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 8));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setOnClickListener(v -> finish());

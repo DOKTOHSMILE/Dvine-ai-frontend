@@ -39,7 +39,7 @@ public final class SocialActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 8));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setContentDescription("Close");
@@ -285,7 +285,7 @@ public final class SocialActivity extends AppCompatActivity {
         ImageView i = new ImageView(this);
         i.setImageResource(icon);
         i.setColorFilter(Ui.ACCENT);
-        c.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 16), Ui.dp(this, 16)));
+        c.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, ai.ibiko.IconSize.INLINE), Ui.dp(this, ai.ibiko.IconSize.INLINE)));
         TextView t = Ui.text(this, label, 13, Ui.TEXT, false);
         t.setPadding(Ui.dp(this, 6), 0, 0, 0);
         c.addView(t);
@@ -305,7 +305,7 @@ public final class SocialActivity extends AppCompatActivity {
         ImageView i = new ImageView(this);
         i.setImageResource(icon);
         i.setColorFilter(Ui.ACCENT);
-        r.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 20), Ui.dp(this, 20)));
+        r.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, ai.ibiko.IconSize.STANDARD), Ui.dp(this, ai.ibiko.IconSize.STANDARD)));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
         words.setPadding(Ui.dp(this, 12), 0, 0, 0);
@@ -324,7 +324,7 @@ public final class SocialActivity extends AppCompatActivity {
         ImageView i = new ImageView(this);
         i.setImageResource(icon);
         i.setColorFilter(Ui.ACCENT);
-        head.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 22), Ui.dp(this, 22)));
+        head.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, ai.ibiko.IconSize.STANDARD), Ui.dp(this, ai.ibiko.IconSize.STANDARD)));
         TextView t = Ui.text(this, name, 15, Ui.TEXT, true);
         t.setPadding(Ui.dp(this, 10), 0, 0, 0);
         head.addView(t);
@@ -352,7 +352,7 @@ public final class SocialActivity extends AppCompatActivity {
             check.setImageResource(ai.ibiko.R.drawable.ic_check);
             check.setColorFilter(Ui.ACCENT);
             check.setContentDescription("In use");
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, 16), Ui.dp(this, 16));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, ai.ibiko.IconSize.INLINE), Ui.dp(this, ai.ibiko.IconSize.INLINE));
             lp.leftMargin = Ui.dp(this, 8);
             name.addView(check, lp);
         }

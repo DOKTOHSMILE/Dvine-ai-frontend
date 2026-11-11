@@ -40,7 +40,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 4));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setOnClickListener(v -> finish());
@@ -123,7 +123,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
             android.widget.ImageView check = new android.widget.ImageView(this); // the standard check: connected
             check.setImageResource(ai.ibiko.R.drawable.ic_check);
             check.setColorFilter(Ui.CORAL);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, 14), Ui.dp(this, 14));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, ai.ibiko.IconSize.INLINE), Ui.dp(this, ai.ibiko.IconSize.INLINE));
             lp.rightMargin = Ui.dp(this, 4);
             state.addView(check, lp);
         }
@@ -134,7 +134,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
             android.widget.ImageView go = new android.widget.ImageView(this);
             go.setImageResource(ai.ibiko.R.drawable.ic_chevron_right);
             go.setColorFilter(Ui.ACCENT);
-            row.addView(go, new LinearLayout.LayoutParams(Ui.dp(this, 18), Ui.dp(this, 18)));
+            row.addView(go, new LinearLayout.LayoutParams(Ui.dp(this, ai.ibiko.IconSize.STANDARD), Ui.dp(this, ai.ibiko.IconSize.STANDARD)));
         } else {
             // the switch, like the other connectors: off keeps the account signed in but Ibiko doesn't use it
             android.widget.Switch toggle = new android.widget.Switch(this);

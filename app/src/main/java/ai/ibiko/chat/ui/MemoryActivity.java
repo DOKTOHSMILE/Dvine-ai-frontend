@@ -48,7 +48,7 @@ public final class MemoryActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 8));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setContentDescription("Close");
@@ -285,7 +285,7 @@ public final class MemoryActivity extends AppCompatActivity {
         ImageView x = new ImageView(this);
         x.setImageResource(ai.ibiko.R.drawable.ic_close);
         x.setColorFilter(Ui.ACCENT);
-        int p = Ui.dp(this, 12);
+        int p = Ui.dp(this, ai.ibiko.IconSize.pad(44, ai.ibiko.IconSize.STANDARD));
         x.setPadding(p, p, p, p);
         x.setContentDescription("Forget: " + what);
         x.setOnClickListener(v -> {

@@ -1,3 +1,8 @@
+# Every icon one of two sizes (0.99.107)
+
+- [x] IconSize: 24 dp on its own, 18 dp beside words, 48 dp targets.
+- [x] Drawables and every sizing site in code use it; IconSetTest guards both.
+
 # Ibiko's own icon set in the app colour (0.99.106)
 
 - [x] Every icon two-tone (soft fill under the outline) in @color/icon_brand, the accent.

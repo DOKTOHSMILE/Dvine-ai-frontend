@@ -174,15 +174,15 @@ public final class ComposerAttachments {
                 face = card;
                 box.addView(face, new FrameLayout.LayoutParams(Ui.dp(context, 150), Ui.dp(context, 64)));
             }
-            android.widget.ImageView x = Ui.glyph(context, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 14);
-            x.setPadding(Ui.dp(context, 3), Ui.dp(context, 3), Ui.dp(context, 3), Ui.dp(context, 3));
+            android.widget.ImageView x = Ui.glyph(context, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, ai.ibiko.IconSize.INLINE);
+            x.setPadding(Ui.dp(context, 3), Ui.dp(context, 3), Ui.dp(context, 3), Ui.dp(context, 3)); // an 18 dp mark in a 24 dp badge
             x.setBackground(Ui.round(context, Ui.SURFACE, Ui.LINE, 10));
             x.setContentDescription("Remove " + (it.name == null ? "attachment" : it.name));
             x.setOnClickListener(v -> {
                 items.remove(it);
                 render();
             });
-            FrameLayout.LayoutParams xp = new FrameLayout.LayoutParams(Ui.dp(context, 20), Ui.dp(context, 20), Gravity.END | Gravity.TOP);
+            FrameLayout.LayoutParams xp = new FrameLayout.LayoutParams(Ui.dp(context, ai.ibiko.IconSize.INLINE + 6), Ui.dp(context, ai.ibiko.IconSize.INLINE + 6), Gravity.END | Gravity.TOP);
             xp.setMargins(0, Ui.dp(context, 3), Ui.dp(context, 3), 0);
             box.addView(x, xp);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);

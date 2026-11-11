@@ -13,7 +13,8 @@ import org.junit.Test;
 
 /**
  * Ibiko's own icon set: every icon two-tone in the app's colour (no grey left), and every one drawn inside its own
- * canvas (an icon whose points fall outside its viewport shows as nothing).
+ * canvas (an icon whose points fall outside its viewport shows as nothing), and every one one of the two sizes
+ * ({@link IconSize}): 24 dp on its own, 18 dp beside words.
  */
 public class IconSetTest {
     @Test
@@ -27,6 +28,11 @@ public class IconSetTest {
                 continue; // the app icon and the social networks' own marks
             }
             ours++;
+            Matcher w = Pattern.compile("android:width=\"(\\d+)dp\" android:height=\"(\\d+)dp\"").matcher(x);
+            assertTrue(f.getName(), w.find());
+            int size0 = Integer.parseInt(w.group(1));
+            assertTrue(f.getName() + " is " + size0 + " dp, not one of the two sizes",
+                    w.group(1).equals(w.group(2)) && (size0 == IconSize.STANDARD || size0 == IconSize.INLINE));
             assertFalse(f.getName() + " is grey", x.contains("@color/icon\"") || x.contains("@color/text_secondary"));
             Matcher vp = Pattern.compile("viewportWidth=\"([\\d.]+)\"").matcher(x);
             assertTrue(vp.find());
@@ -43,5 +49,30 @@ public class IconSetTest {
             assertTrue(f.getName() + " is drawn too small to see", most > size / 2);
         }
         assertTrue(ours >= 70);
+    }
+
+    /** No icon in the code is sized by a loose number: every size comes from IconSize. */
+    @Test
+    public void codeSizesIconsFromTheScale() throws Exception {
+        File src = new File("src/main/java").isDirectory() ? new File("src/main/java") : new File("app/src/main/java");
+        java.util.List<File> files = new java.util.ArrayList<File>();
+        java.util.ArrayDeque<File> todo = new java.util.ArrayDeque<File>();
+        todo.add(src);
+        while (!todo.isEmpty()) {
+            File d = todo.pop();
+            for (File f : d.listFiles()) {
+                if (f.isDirectory()) {
+                    todo.add(f);
+                } else if (f.getName().endsWith(".java")) {
+                    files.add(f);
+                }
+            }
+        }
+        Pattern loose = Pattern.compile("Ui\\.(?:glyph|icon)\\([^;]*, \\d+\\)");
+        for (File f : files) {
+            String x = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            Matcher m = loose.matcher(x);
+            assertFalse(f.getName() + ": " + (m.find() ? m.group() : ""), loose.matcher(x).find());
+        }
     }
 }

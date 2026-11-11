@@ -121,7 +121,7 @@ public final class PlayerBar extends LinearLayout {
         ImageView i = new ImageView(c);
         i.setImageResource(res);
         i.setColorFilter(0xFFFFFFFF);
-        int p = (int) (11 * c.getResources().getDisplayMetrics().density);
+        int p = (int) (ai.ibiko.IconSize.pad(44, ai.ibiko.IconSize.STANDARD) * c.getResources().getDisplayMetrics().density);
         i.setPadding(p, p, p, p);
         i.setContentDescription(says);
         i.setOnClickListener(tap);
