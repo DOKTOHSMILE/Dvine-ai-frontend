@@ -133,6 +133,37 @@ public final class NeuralVoice {
         queue.offer(new Item(events, id, text, speaker, speed, volume, epoch));
     }
 
+    /** An item that only makes a sentence's sound ahead, to keep (not to play): marked by this epoch. */
+    static final int AHEAD = -2;
+
+    /**
+     * Sentences made ahead (text, speaker and speed to the sound): reading aloud asks for the next sentence while this
+     * one plays, so when it comes it starts at once instead of being made after the full stop (seconds on a device).
+     */
+    private final java.util.LinkedHashMap<String, float[]> made = new java.util.LinkedHashMap<String, float[]>(8, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<String, float[]> e) {
+            return size() > 4;
+        }
+    };
+
+    static String madeKey(String text, int speaker, float speed) {
+        return speaker + "|" + Math.round(Math.max(0.5f, Math.min(2f, speed)) * 100) + "|" + (text == null ? "" : text.trim());
+    }
+
+    /** Makes the sound of a sentence that is coming next, while the voice is busy saying this one. */
+    public void prepare(String text, int speaker, float speed) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        synchronized (made) {
+            if (made.containsKey(madeKey(text, speaker, speed))) {
+                return;
+            }
+        }
+        queue.offer(new Item(null, "ahead", text, speaker, speed, 1f, AHEAD));
+    }
+
     /** Stops at once: what is playing and everything waiting. */
     public void stop() {
         epoch++;
@@ -159,6 +190,12 @@ public final class NeuralVoice {
         try {
             while (!closed) {
                 Item it = queue.take();
+                if (it.epoch == AHEAD) {
+                    if (ready) {
+                        makeAhead(it);
+                    }
+                    continue;
+                }
                 if (it.epoch < 0) {
                     load(it.text);
                     continue;
@@ -330,7 +367,51 @@ public final class NeuralVoice {
      * Makes a sentence's sound piece by piece and hands each piece to the player as soon as it is made: the first is
      * heard while the next is being made. After silence the first piece is short, so the voice keeps up with the text.
      */
+    private void makeAhead(Item it) {
+        java.util.List<float[]> pieces = new java.util.ArrayList<float[]>();
+        int n = 0;
+        try {
+            for (String part : parts(it.text)) {
+                com.k2fsa.sherpa.onnx.GeneratedAudio a = tts.generate(part, it.speaker, Math.max(0.5f, Math.min(2f, it.speed)));
+                float[] got = a == null ? null : a.getSamples();
+                if (got != null && got.length > 0) {
+                    pieces.add(clean(got));
+                    n += got.length;
+                }
+                if (!queue.isEmpty() && queue.peek().epoch >= 0) {
+                    return; // something to say now comes first; this one is made when it is asked for
+                }
+            }
+        } catch (RuntimeException e) {
+            return;
+        }
+        float[] all = new float[n];
+        int at = 0;
+        for (float[] p : pieces) {
+            System.arraycopy(p, 0, all, at, p.length);
+            at += p.length;
+        }
+        synchronized (made) {
+            made.put(madeKey(it.text, it.speaker, it.speed), all);
+        }
+    }
+
     private void make(Item it) throws InterruptedException {
+        float[] ahead;
+        synchronized (made) {
+            ahead = made.remove(madeKey(it.text, it.speaker, it.speed));
+        }
+        if (ahead != null && ahead.length > 0) {
+            // made ahead while the last sentence played: it starts now, with no wait after the full stop
+            ensurePlayer();
+            Clip c = new Clip(it, ahead, true, true);
+            while (!ready2play.offer(c, 200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                if (it.epoch != epoch || closed) {
+                    return;
+                }
+            }
+            return;
+        }
         boolean quick = ready2play.isEmpty() && !sounding;
         java.util.List<String> pieces = partsFrom(it.text, quick);
         boolean first = true;

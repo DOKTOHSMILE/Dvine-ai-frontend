@@ -475,6 +475,7 @@ public final class CodeAgent {
                         + " folder (the workspace). Work in steps: plan briefly, look before you change things, make the change,"
                         + " then check it."))
                 + (blueprint != null ? "\n" + Blueprint.RULES : "")
+                + (diagnosing ? Diagnosis.MAP : "")
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
@@ -575,7 +576,43 @@ public final class CodeAgent {
 
     /** Works on the task; the final answer for the user (without a "Ibiko:" label a small model copies from the chat). */
     public String run(String task, String earlier) {
-        return unlabel(work(task, earlier));
+        diagnosing = Diagnosis.applies(task) && depth == 0;
+        String out = unlabel(work(task, earlier));
+        return diagnosing ? checked(out) : out;
+    }
+
+    /** An audit, review or diagnosis: the deep diagnosis map is in its instructions and its report is checked. */
+    private boolean diagnosing;
+    /** The files opened in this run (for the diagnosis check: a claim only about code that was read). */
+    private final java.util.Set<String> opened = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
+
+    /**
+     * The report checked against the files (Diagnosis): claims that don't hold send it back once to be corrected; what
+     * was checked is said at its end. A short reply or a stopped run is left as it is.
+     */
+    private String checked(String report) {
+        if (report == null || report.length() < 200 || host.stopped()) {
+            return report;
+        }
+        Diagnosis.Check c = Diagnosis.verify(report, workspace, opened);
+        if (!c.clean() && brain != null) {
+            host.step("Checking the report against the files: " + c.problems.size() + " claim" + (c.problems.size() == 1 ? "" : "s")
+                    + " to correct");
+            String fixed = brain.askLong(system(), trimmed(work() + "\n<final>\n" + report + "\n</final>\n<result>\n"
+                    + Diagnosis.correction(c) + "\n</result>\n"));
+            if (fixed != null) {
+                String t = fixed.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
+                String fin = finalOf(t);
+                t = unlabel(fin != null && !fin.isEmpty() ? fin : t);
+                if (t != null && t.length() >= report.length() / 3 && parse(t) == null) {
+                    report = t;
+                    c = Diagnosis.verify(report, workspace, opened);
+                }
+            }
+        } else if (c.cited > 0) {
+            host.step("Checked the report against the files: " + c.verified + " of " + c.cited + " references hold");
+        }
+        return report + Diagnosis.note(c);
     }
 
     /** "ibiko: The next step is…" → "The next step is…": the chat's name labels, copied by a small model. */
@@ -651,8 +688,7 @@ public final class CodeAgent {
                     return (pending == null ? "" : pending + "\n\n")
                             + "The account is out of credit, so I stopped here. Add credit or switch provider, then say \u201ccontinue\u201d.";
                 }
-                return (pending == null ? "" : pending + "\n\n") + "The model didn't answer" + (why == null || why.isEmpty() ? "" : " (" + why + ")")
-                        + ", so I stopped at step " + step
+                return (pending == null ? "" : pending + "\n\n") + "I lost the answer at step " + step
                         + ". Say \u201ccontinue\u201d to carry on from here." + summary();
             }
             retried = false;
@@ -1541,6 +1577,7 @@ public final class CodeAgent {
                     return "No such file: " + c.a("path");
                 }
                 String text = SourceRead.read(f, first(c.attrs, "start", "from", "line"), first(c.attrs, "end", "to"));
+                opened.add(c.a("path"));
                 host.step("Read " + show(c.a("path")), c.a("path"), lines(clip(text, FILE_CHARS)), -1, -1);
                 return text;
             }

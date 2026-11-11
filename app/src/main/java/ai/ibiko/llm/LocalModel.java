@@ -521,7 +521,6 @@ public final class LocalModel {
         asked = fit(asked, PromptFit.localPromptChars(localWindow(), room, system == null ? 0 : system.length()));
         ai.ibiko.learn.LearningLog l = learning;
         String learned = l == null ? "" : l.examplesFor(question, 1, 700);
-        step("Answering with the model on this device");
         if (!learned.isEmpty()) {
             step("Recalled similar answers I learned before");
             asked = learned + "\n\n" + (context == null ? "" : context + "\n\n") + "The user says: " + question;

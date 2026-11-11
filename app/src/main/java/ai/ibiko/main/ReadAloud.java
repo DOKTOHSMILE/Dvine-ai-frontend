@@ -111,6 +111,10 @@ public final class ReadAloud {
             readingAt++;
             readNext(persona);
         });
+        if (readingAt + 1 < readingSentences.size()) {
+            // the next sentence is made while this one is heard: no long silence at the full stop
+            talk.prepare("ivie".equals(persona), readingSentences.get(readingAt + 1));
+        }
     }
 
     /** The persona whose reply is being read (to carry on in the same voice after a skip). */
