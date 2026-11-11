@@ -25,6 +25,25 @@ public final class DownloadWatch {
     private int percent = -1;
     private long lastSeen;
 
+    /** A title when the command itself is a download, before it has printed anything. Null for an ordinary command. */
+    public static String began(String command) {
+        if (!CommandWait.longJob(command)) {
+            return null;
+        }
+        String s = command == null ? "" : command.toLowerCase(Locale.US);
+        java.util.regex.Matcher repo = java.util.regex.Pattern.compile("github\\.com[:/][^\\s]+?/([^\\s/]+?)(?:\\.git)?(?:\\s|$)").matcher(command);
+        if (s.contains("clone")) {
+            return repo.find() ? "Cloning " + repo.group(1) : "Cloning a repository";
+        }
+        if (s.contains("pull") || s.contains("fetch")) {
+            return "Fetching with git";
+        }
+        if (s.contains("apk")) {
+            return "Installing packages";
+        }
+        return "Downloading";
+    }
+
     /** What the terminal printed; {@code now} in milliseconds. */
     public synchronized void feed(String text, long now) {
         if (text == null) {

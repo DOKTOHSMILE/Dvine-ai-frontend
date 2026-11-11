@@ -167,9 +167,14 @@ public final class ChatPane extends LinearLayout {
         for (int i = from; i < cur.messages.size(); i++) {
             ChatBook.Message m = cur.messages.get(i);
             if (foldTo[i] >= 0) {
-                // a finished turn: its whole process (steps and the notes along the way) is one row at the top, and
-                // only the answer shows under it
-                thread.addView(processRow(cur.messages, i, foldTo[i]));
+                // a finished turn, and the one still working: its steps are one row. The answer after them still shows.
+                boolean live = working();
+                for (int k = foldTo[i] + 1; live && k < cur.messages.size(); k++) {
+                    if ("user".equals(cur.messages.get(k).role)) {
+                        live = false;
+                    }
+                }
+                thread.addView(processRow(cur.messages, i, foldTo[i], live));
                 i = foldTo[i];
                 continue;
             }
@@ -1138,7 +1143,7 @@ public final class ChatPane extends LinearLayout {
      * cleared as before.
      */
     public void stepEnded() {
-        if (liveText != null && liveText.trim().length() >= KEEP_LIVE) {
+        if (ai.ibiko.chat.LiveKeep.keep(liveText, KEEP_LIVE)) {
             freezeLive();
         } else {
             setLive(null);
@@ -2077,9 +2082,11 @@ public final class ChatPane extends LinearLayout {
     }
 
     /**
-     * Which stretches of the chat fold into one process row. For each finished assistant turn that did some work and
-     * then answered, the entry at the turn's first folded message is the index of its last one (its steps and the notes
-     * written along the way); every other entry is -1. The turn still being worked on is never folded.
+     * Which stretches of the chat fold into one process row. For a turn that did some work, the entry at the first
+     * folded message is the index of the last step (the steps and the notes written along the way); every other entry
+     * is -1. A turn still being worked on folds the same way, so the chat shows one "Working" row, not a stack of
+     * Replying / Explored / Thinking lines. The answer after the last step still shows. A picture or a file in between
+     * is never folded.
      */
     static int[] folds(List<ChatBook.Message> all, int from, boolean working) {
         int n = all.size();
@@ -2112,7 +2119,9 @@ public final class ChatPane extends LinearLayout {
                 String kind = all.get(k).kind;
                 plain &= "activity".equals(kind) || "text".equals(kind);
             }
-            if (first >= 0 && answered && plain && !(working && e == n - 1)) {
+            // while the turn is still going, the steps fold too: the chat shows one "Working" row and the live line,
+            // not a stack of Replying / Explored / Thinking between status notes
+            if (first >= 0 && plain && (answered || (working && e == n - 1))) {
                 out[first] = last;
             }
             s = e + 1;
@@ -2120,8 +2129,12 @@ public final class ChatPane extends LinearLayout {
         return out;
     }
 
-    /** "Worked for 3m 45s · 17 steps ›": a finished turn's whole process in one row; a tap opens every step and note. */
     private View processRow(List<ChatBook.Message> all, int from, int to) {
+        return processRow(all, from, to, false);
+    }
+
+    /** "Worked for 3m 45s · 17 steps ›": a finished turn's whole process in one row; a tap opens every step and note. */
+    private View processRow(List<ChatBook.Message> all, int from, int to, boolean live) {
         final List<String> every = new ArrayList<String>();
         long secs = 0;
         boolean tools = false;
@@ -2146,7 +2159,7 @@ public final class ChatPane extends LinearLayout {
                 every.add("Note: " + (note.length() > 400 ? note.substring(0, 400) + "\u2026" : note));
             }
         }
-        final String label = (tools ? "Worked for " : "Thought for ") + duration(Math.max(1, secs))
+        final String label = (live ? "Working for " : tools ? "Worked for " : "Thought for ") + duration(Math.max(1, secs))
                 + (every.size() > 2 ? "  \u00B7  " + every.size() + " steps" : "");
         TextView row = plain("");
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();

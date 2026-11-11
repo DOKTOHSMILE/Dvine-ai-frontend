@@ -706,6 +706,7 @@ public final class CodeAgent {
                 pending = null; // it carried on: whatever it wrote before was not the answer
                 String result;
                 lastStep = null;
+                placePaths(call); // projects/<name> is the clone at memory/projects/<name>
                 String refused = blueprint == null ? null : blueprint.gate(call.name, call.a("path"));
                 if (refused != null) {
                     result = refused; // plan first: nothing but PLAN.md changes before the blueprint passes its check
@@ -978,6 +979,9 @@ public final class CodeAgent {
             return false;
         }
         String last = t.substring(Math.max(0, t.lastIndexOf('\n') + 1)).trim();
+        if (t.matches("(?is).*(\\bcontinuing now\\b|\\bi am continuing\\b|\\bcarrying on now\\b).*") && t.length() < 400) {
+            return true; // "Alright, I am continuing now." is not a result
+        }
         if (t.matches("(?s)^(?:Nothing|Something|Everything|Anything|During|According|Including|Following|Thing)\\b.*")) {
             return false; // "-ing" words that start results, not plans
         }
@@ -1493,7 +1497,22 @@ public final class CodeAgent {
         return out.toString();
     }
 
+    /** {@code projects/<name>} in a tool path or a shell command is the clone at {@code memory/projects/<name>}. */
+    private static void placePaths(Call c) {
+        for (String key : new String[] {"path", "to", "command"}) {
+            String v = c.attrs.get(key);
+            if (v == null) {
+                continue;
+            }
+            String n = RepoFolder.place(v);
+            if (!n.equals(v)) {
+                c.attrs.put(key, n);
+            }
+        }
+    }
+
     private String carryOut(Call c) throws IOException {
+        placePaths(c);
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
                 || c.name.equals("make_file") || c.name.equals("zip") || c.name.equals("unzip"))) {
             return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."

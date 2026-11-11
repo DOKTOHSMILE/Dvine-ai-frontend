@@ -100,6 +100,44 @@
                 android:src="@drawable/ic_new_chat" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/downloadStrip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/downloadTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp" />
+
+            <ProgressBar
+                android:id="@+id/downloadBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="4dp"
+                android:max="100"
+                android:progressTint="@color/accent" />
+
+            <TextView
+                android:id="@+id/downloadDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
         <include layout="@layout/layout_system_banner" />
 
         <!-- Ivie only: the 3D canvas for what she draws and builds (hidden until there is something to show) -->

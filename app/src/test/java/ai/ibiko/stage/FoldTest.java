@@ -21,9 +21,12 @@ public class FoldTest {
     }
 
     @Test
-    public void theTurnStillWorkingAndOneWithNoAnswerAreLeftOpen() {
+    public void theTurnStillWorkingFoldsItsStepsAndANoteWithNoAnswerStays() {
         List<ChatBook.Message> live = Arrays.asList(m("user", "text"), m("assistant", "activity"), m("assistant", "text"));
-        assertArrayEquals(new int[] { -1, -1, -1 }, ChatPane.folds(live, 0, true));
+        assertArrayEquals("the steps fold; the note after them stays", new int[] { -1, 1, -1 }, ChatPane.folds(live, 0, true));
+        List<ChatBook.Message> between = Arrays.asList(m("user", "text"), m("assistant", "activity"), m("assistant", "text"),
+                m("assistant", "activity"));
+        assertArrayEquals("notes between steps fold into the one working row", new int[] { -1, 3, -1, -1 }, ChatPane.folds(between, 0, true));
         List<ChatBook.Message> stopped = Arrays.asList(m("user", "text"), m("assistant", "text"), m("assistant", "activity"));
         assertArrayEquals("nothing after the steps: the notes stay readable", new int[] { -1, -1, -1 }, ChatPane.folds(stopped, 0, false));
         List<ChatBook.Message> picture = Arrays.asList(m("user", "text"), m("assistant", "activity"), m("assistant", "image"),

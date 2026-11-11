@@ -39,7 +39,9 @@ public final class Blueprint {
             + "2 PLAN: write PLAN.md in the project folder with these sections: '# Blueprint: <the task>', 'Phase: PLAN',"
             + " '## Repository' (when the task is on a GitHub repository: 'owner/name -> memory/projects/<name>', the one"
             + " folder it is cloned into; the first step is to pull it there (clone it there the first time), and every read,"
-            + " edit, command and push for it uses that same folder, never a copy elsewhere), '## Goal', '## Found' (what is there now, file:name), '## Reuse' (existing code you will use instead of"
+            + " edit, command and push for it uses that same folder, never a copy elsewhere and never projects/<name> without"
+            + " memory/ in front: that path does not exist. Correcting a step from projects/<name> to memory/projects/<name>"
+            + " keeps the step), '## Goal', '## Found' (what is there now, file:name), '## Reuse' (existing code you will use instead of"
             + " writing it again, file:name, or 'none: <why>'), '## Steps' (numbered in order '- [ ] 1. … (files: a, b;"
             + " check: how this step is proved done, such as the test to run or the lines to read back)', one change per"
             + " step, small enough to check), '## Risks'"
@@ -61,7 +63,8 @@ public final class Blueprint {
             + " or rewrite the steps already in it, done or not, and never start a fresh plan over an old one. New steps go"
             + " after the existing ones; only when the user says the new work is a priority do they go right after the last"
             + " ticked step, to be done next. The only edit to an existing step is ticking it when it is finished and"
-            + " checked; then move to the next one. A write that drops a step is refused.\n";
+            + " checked, or correcting projects/<name> to memory/projects/<name> (the same step, the folder that exists);"
+            + " then move to the next one. A write that drops a step is refused.\n";
 
     /** Told to the agent with the user's addition, instead of the plain "read it and continue". */
     public static final String CHANGE = "The user added this while you were working. Do not start over and do not redo"
@@ -291,7 +294,8 @@ public final class Blueprint {
 
     /** A step's own words, without its tick, its number or its spacing: the same step however it is renumbered or moved. */
     static String stepKey(String step) {
-        return (step == null ? "" : step).replaceFirst("^\\s*\\d+[.)]\\s*", "").replaceAll("\\s+", " ").trim().toLowerCase(Locale.US);
+        String key = (step == null ? "" : step).replaceFirst("^\\s*\\d+[.)]\\s*", "").replaceAll("\\s+", " ").trim().toLowerCase(Locale.US);
+        return RepoFolder.place(key);
     }
 
     /**

@@ -78,6 +78,17 @@ public final class AlpineRun {
         List<String> cmd = ProotCommand.once(proot, rootfs, work, command);
         mount(cmd, "/storage", "/storage");
         mount(cmd, "/sdcard", "/sdcard");
+        final DownloadWatch watch = new DownloadWatch();
+        final String downloadTitle = DownloadWatch.began(command);
+        if (downloadTitle != null) {
+            ai.ibiko.net.Transfers.progress(DownloadWatch.KEY, downloadTitle, "In progress", -1);
+        }
+        Consumer<String> feed = piece -> {
+            watch.feed(piece, System.currentTimeMillis());
+            if (live != null) {
+                live.accept(piece);
+            }
+        };
         File tmp = new File(c.getCacheDir(), "proot-tmp");
         tmp.mkdirs();
         try {
@@ -110,7 +121,7 @@ public final class AlpineRun {
             }
             ByteArrayOutputStream captured = new ByteArrayOutputStream();
             AtomicInteger received = new AtomicInteger();
-            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit, live, received), "dvine-linux-out");
+            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit, feed, received), "dvine-linux-out");
             pump.setDaemon(true);
             pump.start();
             long started = System.currentTimeMillis();
@@ -170,8 +181,15 @@ public final class AlpineRun {
             } else if (code != 0) {
                 text = text + "\n[exit " + code + "]";
             }
+            String title = watch.current() != null ? watch.current() : downloadTitle;
+            if (title != null) {
+                ai.ibiko.net.Transfers.end(DownloadWatch.KEY, title, code == 0 ? "Finished" : "Stopped", code == 0 && finished);
+            }
             return new LinuxEngine.Result(code == 0, text + "\nThis ran in Ibiko's Linux. Termux was not opened.");
         } catch (IOException e) {
+            if (downloadTitle != null) {
+                ai.ibiko.net.Transfers.end(DownloadWatch.KEY, downloadTitle, "Stopped", false);
+            }
             String why = e.getMessage() == null ? "it could not be started" : e.getMessage();
             return new LinuxEngine.Result(false, "Linux didn't start: " + why
                     + "\nThis ran in Ibiko's Linux. Termux was not opened.");

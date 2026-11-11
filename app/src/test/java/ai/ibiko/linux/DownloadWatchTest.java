@@ -94,4 +94,11 @@ public class DownloadWatchTest {
         assertTrue(shown.toString(), shown.isEmpty());
         assertNull(w.current());
     }
+
+    @Test
+    public void aSilentCloneStillHasATitle() {
+        assertEquals("Cloning Dvine-ai-frontend", DownloadWatch.began(
+                "git clone https://github.com/DOKTOHSMILE/Dvine-ai-frontend.git"));
+        assertNull(DownloadWatch.began("ls /workspace"));
+    }
 }

@@ -1,3 +1,10 @@
+# The chat answer, the download bar, and a smaller main screen (0.99.90)
+
+- [x] A status line ("I'll fix those paths", "Alright, I am continuing now") stays with the steps. It is not another chat bubble, and the steps of a turn still running fold into one "Working" row.
+- [x] A download (the model, a clone, a package) has a progress bar on the chat screen. A silent git clone shows the bar at once.
+- [x] The plan and the file tools use memory/projects/<name>, the folder the clone is in. projects/<name> is that same folder. Correcting a step's path is not a dropped step.
+- [x] MainActivity no longer holds the coding job, the phone actions, photograph lookup, or the header and composer. Those are their own classes.
+
 # Listen in the human voice; Settings steady (0.99.89)
 
 - [x] Sentences wait for the human voice while it loads; the device voice only on failure, with the reason in Settings.
