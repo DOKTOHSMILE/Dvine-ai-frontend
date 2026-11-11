@@ -355,6 +355,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 322 | The head more of a rectangle, not full size | P12 | Built (LiveFace: 74% of its square, height 80% of the width) | 0.99.112 |
 | 323 | IDs on messages and sentences, tags registered for them; think by the codes and read only the words they pull | P12 | Built (learn/Codes; chat recall and learned answers by code) | 0.99.112 |
 | 324 | Separate what goes into the plan file from questions and requests sent while the agent works | P12 | Built (agent/Intake I1–I6; only project changes reach the plan) | 0.99.113 |
+| 325 | Multi-agents and workers on every task | P12 | Built (always on; one-part jobs get a checker) | 0.99.114 |
+| 326 | A probability formula for thinking and deciding | P12 | Built (formulas/Probability P1–P10) | 0.99.114 |
 
 ## Still open, in the order that matters
 

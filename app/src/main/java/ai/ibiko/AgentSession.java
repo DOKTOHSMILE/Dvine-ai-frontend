@@ -186,7 +186,7 @@ final class AgentSession {
                     a.model.window() * 3 > 24_000 ? 24_000 : a.model.window() * 3)
                     .useGit(connectors.git().maxFiles(ai.ibiko.chat.Tuning.CLONE_FILES.get(a.prefs)).maxFileBytes(pace.fileBytes))
                     .steps(rounds ? Math.min(pace.roundSteps, agentSteps) : agentSteps)
-                    .as(who, readOnly).planning(planning).keepGoing(rounds).squad(a.chatTools(persona).workers())
+                    .as(who, readOnly).planning(planning).keepGoing(rounds).squad(true) // workers on every task (the Workers setting decides how many run at once)
                     .ownRecord(scribe.recordPath()) // only this project's record and notes; never another project's
                     .repos(ai.ibiko.agent.RepoScope.of(a.chatTools(persona).chosenRepos(), task)) // the repositories ticked, no others
                     .handover(false).checkpoint(w -> {

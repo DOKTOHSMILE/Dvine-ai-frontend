@@ -26,7 +26,7 @@ public final class ChatTools {
         FILES("Make files", "PDF, Word, sheets, web pages", FunctionCode.MF),
         SHARE("Share and copy", "Through your apps, after your yes", FunctionCode.AC),
         SOCIAL("Social accounts", "Trends, posts, comments, schedules", FunctionCode.SO),
-        WORKERS("Workers", "Split big jobs to run at once", null),
+        WORKERS("Workers", "On for every task: the work is split into parts that run at once", null),
         DEEP("Deep thinking", "Plan, check and revise first (slower)", null);
 
         public final String title, about;
@@ -73,11 +73,14 @@ public final class ChatTools {
     }
 
     public boolean isOn(Tool t) {
-        return on.contains(t);
+        return t == Tool.WORKERS || on.contains(t);
     }
 
     /** Switches a tool the persona offers; one it doesn't offer stays off. */
     public void set(Tool t, boolean enabled) {
+        if (t == Tool.WORKERS && !enabled) {
+            return; // workers stay on for every task
+        }
         if (enabled && offered(persona).contains(t)) {
             on.add(t);
         } else {
@@ -100,9 +103,9 @@ public final class ChatTools {
         }
     }
 
-    /** Whether the lead may start several workers at once on a big job. */
+    /** Workers run on every task (the pilot's rule): always on; the Workers setting decides how many at once. */
     public boolean workers() {
-        return on.contains(Tool.WORKERS);
+        return true;
     }
 
     public boolean deep() {
