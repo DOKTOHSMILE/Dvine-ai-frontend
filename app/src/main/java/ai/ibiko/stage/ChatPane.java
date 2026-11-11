@@ -522,9 +522,10 @@ public final class ChatPane extends LinearLayout {
             liveBlock.setPadding(0, dp(10), 0, dp(10));
             liveBlock.setMinimumHeight(dp(52)); // a full-width target: one tap opens the steps
             liveBlock.setBackgroundResource(ripple());
-            // the live mark: a turning, breathing spark while the work goes on
-            ThinkingMark mark = new ThinkingMark(getContext(), color(R.color.accent));
-            LayoutParams mp = new LayoutParams(dp(18), dp(18));
+            // the live mark: Ibiko's eyes glancing about while the work goes on (the pilot's own animation)
+            View mark = thinkingEyes();
+            int side = mark instanceof ThinkingMark ? dp(18) : dp(26);
+            LayoutParams mp = new LayoutParams(side, side);
             mp.setMarginEnd(dp(10));
             liveBlock.addView(mark, mp);
             liveNow = plain("");
@@ -2411,6 +2412,43 @@ public final class ChatPane extends LinearLayout {
 
     private static String labelOf(String persona) {
         return "Ibiko"; // one assistant, one name
+    }
+
+    /**
+     * The thinking mark: res/raw/thinking_eyes.gif, the eyes glancing left, right and up, played as an animated
+     * picture; a still first frame when the device's animations are off; the drawn spark if the picture can't be read.
+     */
+    View thinkingEyes() {
+        try {
+            android.graphics.drawable.Drawable d = android.graphics.ImageDecoder.decodeDrawable(
+                    android.graphics.ImageDecoder.createSource(getResources(), R.raw.thinking_eyes));
+            android.widget.ImageView eyes = new android.widget.ImageView(getContext());
+            eyes.setImageDrawable(d);
+            eyes.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            eyes.setContentDescription("Working");
+            eyes.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+            boolean moving = android.provider.Settings.Global.getFloat(getContext().getContentResolver(),
+                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f;
+            if (d instanceof android.graphics.drawable.AnimatedImageDrawable && moving) {
+                final android.graphics.drawable.AnimatedImageDrawable anim = (android.graphics.drawable.AnimatedImageDrawable) d;
+                anim.setRepeatCount(android.graphics.drawable.AnimatedImageDrawable.REPEAT_INFINITE);
+                // plays only while it is on screen: a finished turn's mark does not keep animating out of sight
+                eyes.addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
+                    @Override
+                    public void onViewAttachedToWindow(View v) {
+                        anim.start();
+                    }
+
+                    @Override
+                    public void onViewDetachedFromWindow(View v) {
+                        anim.stop();
+                    }
+                });
+            }
+            return eyes;
+        } catch (java.io.IOException | RuntimeException e) {
+            return new ThinkingMark(getContext(), color(R.color.accent));
+        }
     }
 
     private TextView plain(String text) {

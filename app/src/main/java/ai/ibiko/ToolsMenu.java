@@ -211,6 +211,9 @@ final class ToolsMenu {
         };
         paint.run();
         final Runnable flip = () -> {
+            if (t == ai.ibiko.suit.ChatTools.Tool.GITHUB && reposLoading) {
+                return; // a quick second tap while GitHub is still loading changes nothing
+            }
             boolean on = !tools.isOn(t);
             tools.set(t, on);
             a.prefs.edit().putString(a.toolsKey(persona), tools.write()).apply();
@@ -286,8 +289,14 @@ final class ToolsMenu {
         }
     }
 
+    /** While GitHub is listing the repositories: a second tap does not start a second fetch. */
+    boolean reposLoading;
+
     /** The account's repositories, to choose the ones this chat works on (several at once). */
     void chooseRepos(final String persona, final ai.ibiko.suit.ChatTools tools, final android.widget.TextView about) {
+        if (reposLoading) {
+            return; // already loading: the waiting dialog is up
+        }
         final ai.ibiko.connect.ConnectorStore store = new ai.ibiko.connect.ConnectorStore(a);
         final String token = store.token(ai.ibiko.connect.ConnectorStore.Kind.GITHUB);
         if (token == null || token.isEmpty()) {
@@ -295,7 +304,13 @@ final class ToolsMenu {
             a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.ConnectorsActivity.class));
             return;
         }
-        a.note("Fetching your repositories\u2026");
+        reposLoading = true;
+        final boolean[] cancelled = {false};
+        final androidx.appcompat.app.AlertDialog waiting = ai.ibiko.chat.ui.Waiting.show(a, "Loading your repositories from GitHub\u2026",
+                () -> {
+                    cancelled[0] = true;
+                    reposLoading = false;
+                });
         a.hub.worker.execute(() -> {
             final java.util.List<String> names = new java.util.ArrayList<String>();
             String why = null;
@@ -317,6 +332,13 @@ final class ToolsMenu {
             }
             final String problem = why;
             a.handler.post(() -> {
+                if (cancelled[0]) {
+                    return; // the pilot stopped waiting: the late list is not shown
+                }
+                reposLoading = false;
+                if (waiting.isShowing()) {
+                    waiting.dismiss();
+                }
                 if (a.isFinishing()) {
                     return;
                 }

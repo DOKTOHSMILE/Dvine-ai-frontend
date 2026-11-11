@@ -1,95 +1,76 @@
-# Writes Ibiko's launcher icon layers (background, foreground, monochrome) as Android vectors.
-# Run: python3 tools/make_icon.py app/src/main/res   then LauncherIconTest renders the PNGs into app/build/icons.
+"""Ibiko's icon and thinking animation, from the pilot's own art.
+
+Inputs:  docs/brand/source/ibiko_icon_art.png  (the icon: black rounded square, two glowing eyes, circuit traces)
+         a GIF of the eyes glancing (pass its path), for the in-chat thinking animation.
+Outputs: the launcher icon's back layer (drawable-nodpi/ic_launcher_art.png, the art inside the 72-unit visible area of
+         the 108-unit adaptive canvas), the PNG icons in every density, the store image, and res/raw/thinking_eyes.gif.
+
+Run: python3 tools/make_icon.py <app/src/main/res> [path/to/thinking.gif]   (needs Pillow)
+"""
+import os
 import sys
+from PIL import Image, ImageDraw
+
 RES = sys.argv[1]
-NS = 'xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:aapt="http://schemas.android.com/aapt"'
+GIF = sys.argv[2] if len(sys.argv) > 2 else None
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ART = os.path.join(ROOT, "docs/brand/source/ibiko_icon_art.png")
 
-def circ(cx, cy, r):
-    return f"M{cx},{cy}m-{r},0a{r},{r} 0,1 1,{2*r},0a{r},{r} 0,1 1,-{2*r},0"
-def ell(cx, cy, rx, ry):
-    return f"M{cx-rx},{cy}a{rx},{ry} 0,1 1,{2*rx},0a{rx},{ry} 0,1 1,-{2*rx},0"
-def rrect(x, y, w, h, r):
-    return (f"M{x+r},{y}h{w-2*r}a{r},{r} 0,0 1,{r},{r}v{h-2*r}a{r},{r} 0,0 1,-{r},{r}"
-            f"h-{w-2*r}a{r},{r} 0,0 1,-{r},-{r}v-{h-2*r}a{r},{r} 0,0 1,{r},-{r}z")
-def star(cx, cy, r, waist=0.0):
-    return (f"M{cx},{cy-r}Q{cx},{cy} {cx+r},{cy}Q{cx},{cy} {cx},{cy+r}Q{cx},{cy} {cx-r},{cy}Q{cx},{cy} {cx},{cy-r}z")
-def fill(d, color, extra=""):
-    return f'    <path android:fillColor="{color}" android:pathData="{d}"{extra} />\n'
-def stroke(d, color, w, extra=""):
-    return (f'    <path android:fillColor="#00000000" android:strokeColor="{color}" android:strokeWidth="{w}"'
-            f' android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="{d}"{extra} />\n')
-def grad(d, kind, attrs, stops):
-    items = "".join(f'                <item android:offset="{o}" android:color="{c}" />\n' for o, c in stops)
-    return (f'    <path android:pathData="{d}">\n        <aapt:attr name="android:fillColor">\n'
-            f'            <gradient android:type="{kind}" {attrs}>\n{items}            </gradient>\n'
-            f'        </aapt:attr>\n    </path>\n')
-def vector(comment, body, ns=NS):
-    return (f'<?xml version="1.0" encoding="utf-8"?>\n<!-- {comment} -->\n<vector {ns}\n'
-            '    android:width="108dp" android:height="108dp"\n    android:viewportWidth="108" android:viewportHeight="108">\n'
-            + body + '</vector>\n')
 
-import math
+def square_art():
+    im = Image.open(ART).convert("RGBA")
+    box = im.split()[3].point(lambda v: 255 if v > 200 else 0).getbbox()
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    side = max(box[2] - box[0], box[3] - box[1])
+    return im.crop((round(cx - side / 2), round(cy - side / 2), round(cx + side / 2), round(cy + side / 2)))
 
-def arc(cx, cy, r, a0, a1):
-    x0, y0 = cx + r * math.cos(math.radians(a0)), cy + r * math.sin(math.radians(a0))
-    x1, y1 = cx + r * math.cos(math.radians(a1)), cy + r * math.sin(math.radians(a1))
-    large = 1 if (a1 - a0) % 360 > 180 else 0
-    return f"M{x0:.2f},{y0:.2f}A{r},{r} 0,{large} 1,{x1:.2f},{y1:.2f}"
 
-# one petal: a swirling lens from the centre out to its tip (rotated three times about the centre)
-PETAL = "M54,54C43.5,48.5 44,33.5 56.5,25.5C62.5,36.5 61,47.5 54,54z"
-PETALS = [  # rotation, gradient from the centre to the tip
-    (0, "#E67C5CFF", "#E639E6FF"),
-    (120, "#E6FF5FB0", "#E67C5CFF"),
-    (240, "#E639E6FF", "#E62FD8A8"),
-]
+art = square_art()
 
-# ---- background: deep ink with a faint dot grain and a soft bloom of light behind the mark
-b = grad("M0,0h108v108h-108z", "linear", 'android:startX="0" android:startY="0" android:endX="108" android:endY="108"',
-         [(0, "#FF1C1838"), (1, "#FF0A0A16")])
-grain = ""
-for gy in range(6, 108, 8):
-    for gx in range(6 + (4 if (gy // 8) % 2 else 0), 108, 8):
-        d = math.hypot(gx - 54, gy - 54)
-        if d > 20:
-            grain += circ(gx, gy, 0.45)
-b += fill(grain, "#14FFFFFF")
-b += grad(circ(54, 54, 36), "radial", 'android:centerX="54" android:centerY="54" android:gradientRadius="36"',
-          [(0, "#555B4BDB"), (0.7, "#145B4BDB"), (1, "#005B4BDB")])
+# the adaptive back layer: black, the art filling the middle 72 of 108 units (what a launcher shows)
+canvas = Image.new("RGBA", (432, 432), (0, 0, 0, 255))
+inner = art.resize((288, 288), Image.LANCZOS)
+canvas.alpha_composite(inner, (72, 72))
+canvas.convert("RGB").save(os.path.join(RES, "drawable-nodpi/ic_launcher_art.png"), optimize=True)
 
-# ---- foreground: three petals swirling round a spark, inside a broken orbit (all within the safe circle)
-f = ""
-for (a0, a1, c) in [(-80, 10, "#B37C5CFF"), (40, 130, "#B3FF5FB0"), (160, 250, "#B339E6FF")]:
-    f += stroke(arc(54, 54, 30.5, a0, a1), c, 1.3)
-for ang in (10, 130, 250):  # a bead at the end of each arc
-    x, y = 54 + 30.5 * math.cos(math.radians(ang)), 54 + 30.5 * math.sin(math.radians(ang))
-    f += fill(circ(round(x, 2), round(y, 2), 1.5), "#FFFFFFFF")
-for rot, c0, c1 in PETALS:
-    tip_x = 54 + 28.5 * math.sin(math.radians(rot + 5))
-    tip_y = 54 - 28.5 * math.cos(math.radians(rot + 5))
-    f += (f'    <group android:rotation="{rot}" android:pivotX="54" android:pivotY="54">\n'
-          + grad(PETAL, "linear", 'android:startX="54" android:startY="54" android:endX="56" android:endY="26"',
-                 [(0, c0), (1, c1)])
-          + stroke("M54,54C47.5,47 48.5,36 56.5,25.5", "#40FFFFFF", 0.7)
-          + '    </group>\n')
-f += fill(circ(54, 54, 7.5), "#33FFFFFF")
-f += fill(star(54, 54, 5.6), "#FFFFFFFF")
-f += fill(circ(54, 54, 1.6), "#FFFFF4FB")
+# the PNG icons: the art as it is (its own rounded square), and cut to a circle for round launchers
+for dens, size in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)):
+    a = art.resize((size, size), Image.LANCZOS)
+    a.save(os.path.join(RES, f"mipmap-{dens}/ic_launcher.png"), optimize=True)
+    big = art.resize((size * 4, size * 4), Image.LANCZOS)
+    mask = Image.new("L", big.size, 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, big.size[0] - 1, big.size[1] - 1), fill=255)
+    black = Image.new("RGBA", big.size, (0, 0, 0, 255))
+    black.alpha_composite(big)
+    black.putalpha(mask)
+    black.resize((size, size), Image.LANCZOS).save(os.path.join(RES, f"mipmap-{dens}/ic_launcher_round.png"), optimize=True)
+art.resize((512, 512), Image.LANCZOS).save(os.path.join(ROOT, "docs/brand/ibiko_icon_512.png"), optimize=True)
 
-# ---- one colour, for themed icons
-m = ""
-for (a0, a1) in [(-80, 10), (40, 130), (160, 250)]:
-    m += stroke(arc(54, 54, 30.5, a0, a1), "#FF000000", 1.3)
-for rot, _, _ in PETALS:
-    m += (f'    <group android:rotation="{rot}" android:pivotX="54" android:pivotY="54">\n'
-          + fill(PETAL, "#FF000000") + '    </group>\n')
-
-open(f"{RES}/drawable/ic_launcher_background.xml", "w").write(vector(
-    "Ibiko's icon, back layer: deep ink with a faint dot grain and a soft bloom of light behind the mark.", b))
-open(f"{RES}/drawable/ic_launcher_foreground.xml", "w").write(vector(
-    "Ibiko's icon, front layer: Ibiko's own mark, three translucent petals of light swirling round a spark (they blend"
-    " where they cross), inside a broken orbit with a bead at each end. All inside the 66-unit safe circle.", f))
-open(f"{RES}/drawable/ic_launcher_monochrome.xml", "w").write(vector(
-    "Ibiko's icon in one colour, for themed icons (Android 13+).", m,
-    ns='xmlns:android="http://schemas.android.com/apk/res/android"'))
+# the thinking animation: every frame, cropped to the art and made small for the chat, the same timing
+if GIF:
+    g = Image.open(GIF)
+    frames, times = [], []
+    g.seek(0)
+    box = g.convert("RGBA").split()[3].point(lambda v: 255 if v > 200 else 0).getbbox()
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    side = max(box[2] - box[0], box[3] - box[1])
+    crop = (round(cx - side / 2), round(cy - side / 2), round(cx + side / 2), round(cy + side / 2))
+    for i in range(g.n_frames):
+        g.seek(i)
+        f = g.convert("RGBA").crop(crop).resize((120, 120), Image.LANCZOS)
+        frames.append(f)
+        times.append(g.info.get("duration", 170))
+    # one shared palette of 255 colours, the last index kept for the clear corners outside the rounded square
+    sheet = Image.new("RGB", (120 * len(frames), 120))
+    for i, f in enumerate(frames):
+        sheet.paste(f.convert("RGB"), (120 * i, 0))
+    palette = sheet.quantize(colors=255, method=Image.Quantize.MEDIANCUT)
+    out = []
+    for f in frames:
+        q = f.convert("RGB").quantize(palette=palette, dither=Image.Dither.NONE)
+        clear = f.split()[3].point(lambda v: 255 if v < 128 else 0)
+        q.paste(255, mask=clear)
+        out.append(q)
+    out[0].save(os.path.join(RES, "raw/thinking_eyes.gif"), save_all=True, append_images=out[1:], duration=times, loop=0,
+                transparency=255, disposal=2)
 print("ok")

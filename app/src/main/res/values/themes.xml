@@ -17,6 +17,49 @@
         <item name="colorPrimaryDark">@color/black</item>
         <item name="colorAccent">@color/accent</item>
         <item name="android:editTextStyle">@style/Widget.Dvine.ChatInput</item>
+        <!-- every dialog in the app has the same look (Theme.Dvine.Dialog) -->
+        <item name="alertDialogTheme">@style/Theme.Dvine.Dialog</item>
+        <item name="android:alertDialogTheme">@style/Theme.Dvine.Dialog</item>
+    </style>
+
+    <!-- The standard dialog: the app's surface on a rounded card, its own text colours, bold accent buttons. -->
+    <style name="Theme.Dvine.Dialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_dialog</item>
+        <item name="android:windowMinWidthMajor">80%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+        <item name="android:backgroundDimAmount">0.55</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="colorPrimary">@color/accent</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorAlertDialogListItem">@color/text_primary</item>
+        <item name="android:windowTitleStyle">@style/Dvine.DialogTitle</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Dvine.DialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Dvine.DialogButton.Quiet</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Dvine.DialogButton.Quiet</item>
+    </style>
+
+    <style name="Dvine.DialogTitle" parent="RtlOverlay.DialogWindowTitle.AppCompat">
+        <item name="android:textAppearance">@style/Dvine.DialogTitle.Text</item>
+    </style>
+
+    <style name="Dvine.DialogTitle.Text" parent="TextAppearance.AppCompat.Title">
+        <item name="android:textSize">19sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <style name="Dvine.DialogButton" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/accent</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:minHeight">48dp</item>
+    </style>
+
+    <style name="Dvine.DialogButton.Quiet">
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textStyle">normal</item>
     </style>
 
     <!-- A sheet over the chat (AI providers): the chat stays visible, dimmed, behind it. -->

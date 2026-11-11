@@ -167,7 +167,7 @@ public final class UsageActivity extends AppCompatActivity {
         buttons.addView(export);
         TextView clear = Ui.text(this, "Delete", 15, Ui.ACCENT, false);
         clear.setPadding(0, Ui.dp(this, 14), 0, 0);
-        clear.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
+        clear.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setMessage("Delete everything Ibiko has learned from the API models?")
                 .setPositiveButton("Delete", (d, w) -> {
                     ll.clear();

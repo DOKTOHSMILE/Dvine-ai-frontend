@@ -1,6 +1,6 @@
 # Ibiko (Android)
 
-<img src="docs/brand/ibiko_icon_512.png" width="128" alt="Ibiko icon: three petals of light swirling round a spark, inside a broken orbit">
+<img src="docs/brand/ibiko_icon_512.png" width="128" alt="Ibiko icon: two glowing cyan eyes on black, with circuit traces at the sides">
 
 Ibiko is one AI assistant on your Android device. There are no personas to pick and no other names: you talk to Ibiko, and Ibiko talks, researches, writes, designs in 3D, and writes and runs code on the device.
 
