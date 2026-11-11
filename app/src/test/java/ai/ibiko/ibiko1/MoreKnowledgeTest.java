@@ -9,7 +9,7 @@ import org.junit.Test;
 /** The further built-in knowledge: countries' codes and regions, the elements in full, Nigeria's states, the planets. */
 public class MoreKnowledgeTest {
     private static BuiltIn all() throws Exception {
-        String k = "../ibiko1/src/main/assets/knowledge/";
+        String k = "src/main/assets/knowledge/";
         return new BuiltIn(new FileInputStream(k + "world_facts.tsv"), new FileInputStream(k + "country_more.tsv"),
                 new FileInputStream(k + "elements_more.tsv"), new FileInputStream(k + "local_facts.tsv"));
     }

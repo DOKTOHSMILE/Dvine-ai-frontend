@@ -23,7 +23,7 @@ public class Ibiko1ModelTest {
         File data = Files.createTempDirectory("ibiko1").toFile();
         Plug.asset = path -> {
             try {
-                return new java.io.FileInputStream(new File("../ibiko1/src/main/assets/" + path));
+                return new java.io.FileInputStream(new File("src/main/assets/" + path));
             } catch (java.io.IOException e) {
                 return null;
             }

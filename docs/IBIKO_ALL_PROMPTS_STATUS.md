@@ -327,6 +327,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 294 | Improve the Linux UI, UX and performance | P12 | Built (run-batched drawing, repeating arrow keys, key feedback, screen kept on) | 0.99.100 |
 | 295 | Same question twice: same answer or different? | P12 | Answered (Ibiko 1: the same answer unless it learned in between; API models: the same substance, different wording) | 0.99.100 |
 | 296 | Why is Ibiko responding like this (gateway errors; a robotic greeting next to GPT-5's) | P12 | Fixed (an unreachable API falls back to Ibiko 1; a warm greeting by name and time of day) | 0.99.100 |
+| 297 | CodeAssist: ai.ibiko.ibiko1 cannot be resolved (again) | P12 | Fixed (Ibiko 1 in the app's own sources; tools/export_ibiko1.sh for the standalone library) | 0.99.101 |
+| 298 | Ibiko learns the live chat, including the thought process, adaptable to it | P12 | Built (formulas/Thinking: the moves of the reasoning shown, followed in its own thinking) | 0.99.101 |
+| 299 | Speak professionally on what it doesn't know; no fixed reply repeated | P12 | Built (Phrasing: varied, specific replies; a repeated question recognised) | 0.99.101 |
 
 ## Still open, in the order that matters
 
