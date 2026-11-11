@@ -135,12 +135,37 @@ public final class ChatPane extends LinearLayout {
             } else if (action == android.view.MotionEvent.ACTION_UP
                     || action == android.view.MotionEvent.ACTION_CANCEL) {
                 userMoved = false;
-                stickToBottom = !canScrollDown();
+                stickToBottom = distanceToBottom() < dp(NEAR_BOTTOM_DP); // a fling carries on: the scroll listener follows it
             }
             return false;
         });
+        // where the pilot left the list decides: near the bottom (a drag or a fling that ends there) it follows what
+        // comes in; scrolled up to read, it stays put
+        scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
+            if (!followingNow) {
+                stickToBottom = distanceToBottom() < dp(NEAR_BOTTOM_DP);
+            }
+        });
+        // whatever grows the chat (a reply, the thinking line, the live text, a step) pushes it up when it is followed
+        thread.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            if (b - t != ob - ot && stickToBottom && !userMoved) {
+                followingNow = true;
+                scroll.scrollTo(0, Math.max(0, b - t - scroll.getHeight()));
+                followingNow = false;
+            }
+        });
         addView(scroll, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         show();
+    }
+
+    /** Within this of the bottom, the chat keeps to the bottom as new things come in. */
+    static final int NEAR_BOTTOM_DP = 120;
+    /** The chat is scrolling itself to the bottom (not the pilot). */
+    private boolean followingNow;
+
+    private int distanceToBottom() {
+        View child = scroll.getChildCount() == 0 ? null : scroll.getChildAt(0);
+        return child == null ? 0 : child.getBottom() - (scroll.getScrollY() + scroll.getHeight());
     }
 
     public void show() {
@@ -1365,7 +1390,9 @@ public final class ChatPane extends LinearLayout {
                 // from the message box after Send and on every "Thinking" update
                 View child = scroll.getChildAt(0);
                 if (child != null) {
+                    followingNow = true;
                     scroll.scrollTo(0, Math.max(0, child.getBottom() - scroll.getHeight()));
+                    followingNow = false;
                 }
             }
         });
@@ -2053,29 +2080,44 @@ public final class ChatPane extends LinearLayout {
 
     /** A tap on any part of a reply shows its bars, another tap hides them; opening one reply's closes another's. */
     private void tapGroup(final List<View> parts, final List<View> bars, boolean open) {
+        // the bar for the whole reply is the last; part k has its own bar k (one part: the whole-reply bar is its own)
+        final View whole = bars.isEmpty() ? null : bars.get(bars.size() - 1);
         for (View b : bars) {
-            b.setVisibility(open ? VISIBLE : GONE);
+            b.setVisibility(GONE);
         }
-        if (open) {
-            openGroup = bars;
+        if (open && whole != null) {
+            whole.setVisibility(VISIBLE); // DVINE asked whether its answer was right: its check and cross stay in view
+            openGroup = java.util.Collections.singletonList(whole);
         }
-        final Runnable toggle = () -> {
-            boolean show = bars.isEmpty() || bars.get(bars.size() - 1).getVisibility() != VISIBLE;
-            if (openGroup != null && openGroup != bars) {
-                for (View b : openGroup) {
-                    b.setVisibility(GONE);
+        for (int k = 0; k < parts.size(); k++) {
+            final List<View> mine = new ArrayList<View>();
+            if (k < bars.size() - 1) {
+                mine.add(bars.get(k)); // this part's own Listen and Copy
+            }
+            if (k == parts.size() - 1 && whole != null) {
+                mine.add(whole); // the last part: the whole reply's too
+            }
+            if (mine.isEmpty() && whole != null) {
+                mine.add(whole);
+            }
+            final Runnable toggle = () -> {
+                // only the part tapped shows its buttons; any other part's or message's close
+                boolean show = mine.get(0).getVisibility() != VISIBLE;
+                if (openGroup != null) {
+                    for (View b : openGroup) {
+                        b.setVisibility(GONE);
+                    }
                 }
-            }
-            if (openActions != null) {
-                openActions.setVisibility(GONE);
-                openActions = null;
-            }
-            for (View b : bars) {
-                b.setVisibility(show ? VISIBLE : GONE);
-            }
-            openGroup = show ? bars : null;
-        };
-        for (View part : parts) {
+                if (openActions != null) {
+                    openActions.setVisibility(GONE);
+                    openActions = null;
+                }
+                for (View b : mine) {
+                    b.setVisibility(show ? VISIBLE : GONE);
+                }
+                openGroup = show ? mine : null;
+            };
+            View part = parts.get(k);
             View text = part.findViewById(R.id.tv_message);
             (text != null ? text : part).setOnClickListener(v -> toggle.run()); // a long press still selects text
         }

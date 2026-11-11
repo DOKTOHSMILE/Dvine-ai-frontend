@@ -1,3 +1,12 @@
+# One voice on standby; no overlaps; the player; tidy taps; stay at the bottom (0.99.92)
+
+- [x] One shared voice engine, loaded at start and warmed up; no fallback to another voice.
+- [x] AudioGate and audio focus: one sound at a time.
+- [x] The floating player: play/pause, 15 s back and forward, speed, time, close.
+- [x] A tap shows one part's buttons; the chat follows new text when near the bottom.
+- [ ] Settings: each section its own Activity with its own XML layout (0.99.93).
+- [ ] The Speak button: a hands-free voice conversation (0.99.93).
+
 # A compiler error is one edit (0.99.91)
 
 - [x] `StageMode` and `LocalTurn` import in `AgentSession`; `StageView` imports in `ChatChrome`.

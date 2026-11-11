@@ -1354,6 +1354,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     long askedAt;
     static final long SPEAK_WINDOW_MS = 3 * 60_000L;
 
+    /** The floating player over the chat while a reply is read aloud. */
+    private ai.ibiko.stage.PlayerBar playerBar;
+
     /** This start only handed over to the first-start download (AppFilesActivity). */
     boolean waitingForFiles;
 
@@ -1551,6 +1554,48 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String who = "Ibiko";
             ai.ibiko.voice.ReadAloudNotice.show(this, reading && !isDestroyed(), paused, text, who, MainActivity.class);
         });
+        // the floating player over the chat while Ibiko reads: play or pause, back and forward 15 s, speed, time, close
+        playerBar = new ai.ibiko.stage.PlayerBar(this, new ai.ibiko.stage.PlayerBar.Control() {
+            @Override
+            public void playPause() {
+                if (talk.paused()) {
+                    talk.resume();
+                } else {
+                    talk.pause();
+                }
+            }
+
+            @Override
+            public boolean skip(int seconds) {
+                return readAloudHelper.skip(seconds, talk.playerSpeed());
+            }
+
+            @Override
+            public void speed(float s) {
+                talk.setPlayerSpeed(s);
+            }
+
+            @Override
+            public void close() {
+                readAloudHelper.stop();
+                talk.stop();
+            }
+        });
+        android.widget.FrameLayout.LayoutParams pp = new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL);
+        ((android.widget.FrameLayout) findViewById(android.R.id.content)).addView(playerBar, pp);
+        talk.addStateListener((reading, paused, text, ivie) -> {
+            android.view.View composer = findViewById(R.id.composerBar);
+            android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) playerBar.getLayoutParams();
+            int above = composer == null ? 0 : Math.max(0, findViewById(android.R.id.content).getHeight() - composer.getTop());
+            lp.bottomMargin = above + (int) (12 * getResources().getDisplayMetrics().density); // just above the message box
+            playerBar.setLayoutParams(lp);
+            playerBar.state(reading, paused, readAloudHelper.reading());
+        });
+        // one voice only: when it can't start, nothing reads in another voice; the pilot is told once, and why
+        talk.setProblemListener(why -> android.widget.Toast.makeText(this, "The voice couldn't start on this device ("
+                + why + "). Settings \u203a Voice has more.", android.widget.Toast.LENGTH_LONG).show());
         android.content.IntentFilter readControls = new android.content.IntentFilter();
         readControls.addAction(ai.ibiko.voice.ReadAloudNotice.PAUSE);
         readControls.addAction(ai.ibiko.voice.ReadAloudNotice.RESUME);

@@ -22,16 +22,16 @@ public final class NeuralVoice {
 
         void onError(String id);
 
-        /** The human voice couldn't start: this sentence is spoken by the device's voice instead, not lost. */
-        void fallback(String id, String text, float speed, float volume);
     }
 
     private static final class Item {
         final String id, text;
         final int speaker, epoch;
         final float speed, volume;
+        final Events events;
 
-        Item(String id, String text, int speaker, float speed, float volume, int epoch) {
+        Item(Events events, String id, String text, int speaker, float speed, float volume, int epoch) {
+            this.events = events;
             this.id = id;
             this.text = text;
             this.speaker = speaker;
@@ -48,7 +48,6 @@ public final class NeuralVoice {
     static final float GAP = 0.16f;
 
     private final File filesDir;
-    private final Events events;
     private final LinkedBlockingQueue<Item> queue = new LinkedBlockingQueue<Item>();
     private volatile int epoch;
     private volatile VoicePacks.Pack pack;
@@ -59,20 +58,51 @@ public final class NeuralVoice {
     private int rate;
     private final Thread worker;
 
-    public NeuralVoice(File filesDir, Events events) {
+    private static NeuralVoice shared;
+
+    /**
+     * The one voice engine of the app, loaded once and kept on standby while Ibiko runs: every screen speaks through
+     * it, so nothing waits for the model to load again and two voices can never play over each other.
+     */
+    public static synchronized NeuralVoice shared(File filesDir) {
+        if (shared == null || shared.closed || !shared.filesDir.equals(filesDir)) {
+            if (shared != null && !shared.closed) {
+                shared.shutdown(); // another files folder (only in tests): a fresh engine for it
+            }
+            shared = new NeuralVoice(filesDir);
+        }
+        return shared;
+    }
+
+    /** Loads the chosen voice as soon as Ibiko starts (off the main thread), before anything is said. */
+    public static void preload(File filesDir, String key) {
+        VoicePacks.Pack p = VoicePacks.byKey(key == null ? "" : key);
+        if (p != null && VoicePacks.installed(filesDir, p)) {
+            shared(filesDir).use(p);
+        }
+    }
+
+    private NeuralVoice(File filesDir) {
         this.filesDir = filesDir;
-        this.events = events;
         worker = new Thread(this::run, "ibiko-voice");
         worker.setDaemon(true);
         worker.start();
     }
 
     /** Loads a pack (on the voice's own thread); null or a pack not downloaded turns the neural voice off. */
-    public void use(VoicePacks.Pack p) {
+    public synchronized void use(VoicePacks.Pack p) {
+        String key = p == null ? null : p.key;
+        if (key != null ? key.equals(wanted) : wanted == null) {
+            return; // already loaded or on its way: kept on standby, not loaded again
+        }
+        wanted = key;
         stop();
         loading = p != null;
-        queue.offer(new Item(null, p == null ? null : p.key, 0, 0, 0, -1)); // a "load" order, in turn with the speech
+        queue.offer(new Item(null, null, key, 0, 0, 0, -1)); // a "load" order, in turn with the speech
     }
+
+    /** The pack last asked for (loaded, loading, or failed). */
+    private String wanted;
 
     /** A pack is being loaded: sentences wait for it rather than going to the device's voice. */
     public boolean loading() {
@@ -96,11 +126,11 @@ public final class NeuralVoice {
     }
 
     /** Speaks a sentence after those waiting; {@code flush} drops them (and what is playing) first. */
-    public void speak(String id, String text, int speaker, float speed, float volume, boolean flush) {
+    public void speak(Events events, String id, String text, int speaker, float speed, float volume, boolean flush) {
         if (flush) {
             stop();
         }
-        queue.offer(new Item(id, text, speaker, speed, volume, epoch));
+        queue.offer(new Item(events, id, text, speaker, speed, volume, epoch));
     }
 
     /** Stops at once: what is playing and everything waiting. */
@@ -135,8 +165,8 @@ public final class NeuralVoice {
                     continue;
                 }
                 if (!ready) {
-                    // the voice didn't load: the device's voice says it, so nothing goes unsaid
-                    events.fallback(it.id, it.text, it.speed, it.volume);
+                    // the voice didn't load: nothing is said in another voice (one voice only); the sentence ends
+                    it.events.onError(it.id);
                     continue;
                 }
                 say(it);
@@ -180,11 +210,17 @@ public final class NeuralVoice {
                     .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
                             .setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                     .setBufferSizeInBytes(Math.max(min, rate * 4 / 2)).setTransferMode(AudioTrack.MODE_STREAM).build();
+            // a warm-up sentence, not played: the model's first run sets itself up, so the first real one is quick
+            try {
+                tts.generate("Hello.", 0, 1f);
+            } catch (Throwable ignored) {
+                // only a warm-up
+            }
             failed = null;
             ready = true;
             new File(VoicePacks.root(filesDir), PROBLEM).delete();
         } catch (Throwable e) {
-            // an engine that won't start leaves the device's own voice speaking; why is kept for Settings › Voice
+            // an engine that won't start says nothing in another voice; why is kept for Settings › Voice and told once
             failed = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
             release();
             try {
@@ -213,7 +249,7 @@ public final class NeuralVoice {
                 totalWritten = 0;
                 playedEpoch = mine;
             }
-            events.onStart(it.id);
+            it.events.onStart(it.id);
             t.setVolume(it.volume);
             t.play();
             tts.generateWithCallback(it.text, it.speaker, Math.max(0.5f, Math.min(2f, it.speed)), samples -> {
@@ -238,12 +274,12 @@ public final class NeuralVoice {
             return;
         } catch (RuntimeException e) {
             if (mine == epoch) {
-                events.onError(it.id);
+                it.events.onError(it.id);
             }
             return;
         }
         if (mine == epoch) {
-            events.onDone(it.id);
+            it.events.onDone(it.id);
         }
     }
 
