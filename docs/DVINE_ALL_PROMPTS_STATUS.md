@@ -262,6 +262,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 229 | Agents working in a project may read only that project's backup files, not every project's | P12 | Built (own notes and record only; others refused in file tools, listings, search and named shell paths; JVM tests) | 0.99.75 |
 | 230 | Clicking GitHub takes time: a loading wait that prevents double clicks; every dialog to one standard | P12 | Built (waiting dialog with Cancel and a guard; Theme.Dvine.Dialog for all 36 dialogs; renders) | 0.99.76 |
 | 231 | Use the pilot's images: the app icon, and the GIF as the in-chat thinking animation | P12 | Built (adaptive icon from the art, themed eyes layer, PNGs; the GIF plays on the working line; tests) | 0.99.76 |
+| 232 | Downloading anything, even in the terminal, shows progress in the notification bar | P12 | Built (Transfers + DownloadNotice; Linux, GitHub clones, terminal downloads; JVM tests) | 0.99.77 |
+| 233 | A report the AI is writing suddenly disappears: find and fix it | P12 | Fixed (kept at each step's end and at the work's end; a tool call hides only itself; no duplicate; Robolectric test) | 0.99.77 |
 
 ## Still open, in the order that matters
 

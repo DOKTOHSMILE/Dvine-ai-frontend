@@ -1126,6 +1126,22 @@ public final class ChatPane extends LinearLayout {
      * A new message is about to join a reply that is still on screen. The words already written are saved first,
      * so that message sits under the running reply instead of above it.
      */
+    /** Live text this long is real writing (a report, an essay), not a passing note: it is kept, never wiped. */
+    public static final int KEEP_LIVE = 400;
+
+    /**
+     * A step of the work ended and the next one starts: real writing on the live line is kept in the chat as a message
+     * (it used to be wiped, so a report being written vanished when the next step began); a short passing note is
+     * cleared as before.
+     */
+    public void stepEnded() {
+        if (liveText != null && liveText.trim().length() >= KEEP_LIVE) {
+            freezeLive();
+        } else {
+            setLive(null);
+        }
+    }
+
     public void freezeLive() {
         if (liveText == null || liveText.trim().isEmpty() || book == null || book.current() == null) {
             return;
@@ -1634,6 +1650,8 @@ public final class ChatPane extends LinearLayout {
             String t = text.trim();
             if (t.startsWith(heldLive)) {
                 t = t.substring(heldLive.length()).trim();
+            } else if (heldLive.startsWith(t) || sameWriting(heldLive, t)) {
+                t = ""; // the final answer only repeats the writing already kept above
             }
             heldLive = null;
             if (t.isEmpty()) {
@@ -1649,6 +1667,16 @@ public final class ChatPane extends LinearLayout {
         if (book.current().messages.size() != before) {
             show();
         }
+    }
+
+    /** Whether two texts are the same writing, give or take spacing and a little at the ends (the report said again). */
+    static boolean sameWriting(String a, String b) {
+        String x = a.replaceAll("\\s+", " ").trim(), y = b.replaceAll("\\s+", " ").trim();
+        if (x.length() < KEEP_LIVE || y.length() < KEEP_LIVE) {
+            return false;
+        }
+        String shorter = x.length() <= y.length() ? x : y, longer = x.length() <= y.length() ? y : x;
+        return shorter.length() * 10 >= longer.length() * 9 && longer.contains(shorter.substring(0, Math.min(300, shorter.length())));
     }
 
     public void image(String path) {

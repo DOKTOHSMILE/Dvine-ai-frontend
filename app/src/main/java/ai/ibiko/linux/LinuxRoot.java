@@ -243,6 +243,8 @@ public final class LinuxRoot {
             throw new IOException("Download failed (" + code + ").");
         }
         long len = conn.getContentLengthLong();
+        final String what = "Downloading " + (to.getName().contains("proot") ? "the Linux starter" : "Linux");
+        ai.ibiko.net.Transfers.progress("linux", what, to.getName(), -1);
         File tmp = new File(to.getAbsolutePath() + ".part");
         tmp.getParentFile().mkdirs();
         try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(tmp)) {
@@ -253,6 +255,12 @@ public final class LinuxRoot {
             while ((n = in.read(buf)) > 0) {
                 out.write(buf, 0, n);
                 got += n;
+                if (len > 0) {
+                    int pct = (int) (got * 100 / len);
+                    if (pct != last && pct % 2 == 0) {
+                        ai.ibiko.net.Transfers.progress("linux", what, (got / 1024) + " of " + (len / 1024) + " KB", pct);
+                    }
+                }
                 if (len > 0 && progress != null) {
                     int pct = (int) (got * 100 / len);
                     if (pct >= last + 10) {
@@ -261,9 +269,13 @@ public final class LinuxRoot {
                     }
                 }
             }
+        } catch (IOException e) {
+            ai.ibiko.net.Transfers.end("linux", what, e.getMessage() == null ? "The download broke off" : e.getMessage(), false);
+            throw e;
         } finally {
             conn.disconnect();
         }
+        ai.ibiko.net.Transfers.end("linux", what, to.getName(), true);
         String got = sha256(tmp);
         if (!got.equals(sha256)) {
             tmp.delete();

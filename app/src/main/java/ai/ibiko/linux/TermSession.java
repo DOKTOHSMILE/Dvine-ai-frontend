@@ -147,7 +147,27 @@ public final class TermSession {
         t.start();
     }
 
+    /** Downloads in this terminal, whoever typed the command, shown in the notification bar. */
+    private final DownloadWatch downloads = new DownloadWatch();
+    private Thread downloadClock;
+
     private void feed(String text) {
+        downloads.feed(text, System.currentTimeMillis());
+        if (downloadClock == null) {
+            // once a second: a download the terminal stopped talking about is finished
+            downloadClock = new Thread(() -> {
+                while (!closed) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                    downloads.tick(System.currentTimeMillis());
+                }
+            }, "ibiko-download-watch");
+            downloadClock.setDaemon(true);
+            downloadClock.start();
+        }
         String show = text;
         synchronized (chatLock) {
             if (chat != null) {
