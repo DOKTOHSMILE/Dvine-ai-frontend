@@ -95,8 +95,8 @@ final class PhoneActs {
             case SOCIAL:
                 a.social(question, order.arg);
                 return;
-            case BUILD:
-                a.build(order.arg);
+            case IMAGE:
+                a.makeImage(agent, order.arg);
                 return;
             case CALC: {
                 // exact arithmetic by the suit: the model asked, DVINE computes, nothing is guessed
@@ -151,12 +151,6 @@ final class PhoneActs {
                     a.runAgent(order.kind == ai.ibiko.llm.BrainOrder.Kind.CARRYON ? "continue" : question, agent, !"ibiko".equals(agent));
                 } else {
                     a.play(LocalTurn.speakAs(agent, "That needs a model, and none is ready."), null);
-                }
-                return;
-            case CANVAS:
-                a.showIvieCanvas(true);
-                if (!a.ivieStudio(order.arg) && !a.create(order.arg)) {
-                    a.play(LocalTurn.speakAs(agent, "Nothing on the canvas takes that change."), null);
                 }
                 return;
             case CONFIRM: {

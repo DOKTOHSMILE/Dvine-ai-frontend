@@ -1,3 +1,11 @@
+# Pictures, not 3D; whole replies; the icon on purple (0.99.93)
+
+- [x] 3D removed as a feature; the image tool (§IM, ImageMaker) for every brain.
+- [x] A reply cut by its length limit is carried on.
+- [x] The icon's background is the app's accent purple.
+- [ ] Delete the unused 3D drawing classes (create/, render/, the stage's 3D parts).
+- [ ] An image model choice in Settings › Models.
+
 # One voice on standby; no overlaps; the player; tidy taps; stay at the bottom (0.99.92)
 
 - [x] One shared voice engine, loaded at start and warmed up; no fallback to another voice.

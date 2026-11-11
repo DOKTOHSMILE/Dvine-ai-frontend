@@ -236,7 +236,7 @@ final class ToolsMenu {
             case WEB: return R.drawable.ic_search;
             case CONNECTORS: return R.drawable.ic_plug;
             case PHOTOS: return R.drawable.ic_image;
-            case DESIGN3D: return R.drawable.ic_cube;
+            case IMAGES: return R.drawable.ic_image;
             case FILES: return R.drawable.ic_file;
             case SHARE: return R.drawable.ic_share;
             case SOCIAL: return R.drawable.ic_people;

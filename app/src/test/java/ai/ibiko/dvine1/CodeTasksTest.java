@@ -55,7 +55,7 @@ public class CodeTasksTest {
         assertEquals("§WK", code("fix the login bug in my app"));
         assertEquals("§WK", code("write a python script that renames my photos"));
         assertEquals("§WK", code("build a website for my shop"));
-        assertEquals("a 3D model is not code", "§BD house 10 m wide", code("build a 3d model of a house 10 m wide"));
+        assertEquals("a picture to make goes to the image tool", "§IM Generate a call icon", code("Generate a call icon"));
         assertEquals("§WP", code("write a story about a lion"));
     }
 

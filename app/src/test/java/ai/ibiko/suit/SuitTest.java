@@ -108,7 +108,8 @@ public class SuitTest {
         org.junit.Assert.assertEquals(ai.ibiko.llm.BrainOrder.Kind.THINKTOGETHER, ai.ibiko.llm.BrainOrder.leading("\u00A7TT").kind);
         org.junit.Assert.assertEquals(ai.ibiko.llm.BrainOrder.Kind.CONFIRM, ai.ibiko.llm.BrainOrder.leading("\u00A7YS\nPosting it.").kind);
         org.junit.Assert.assertEquals(ai.ibiko.llm.BrainOrder.Kind.CANCEL, ai.ibiko.llm.BrainOrder.leading("\u00A7CX").kind);
-        org.junit.Assert.assertEquals("make the wheels bigger", ai.ibiko.llm.BrainOrder.leading("\u00A7DR make the wheels bigger").arg);
+        org.junit.Assert.assertNull("there is no 3D canvas any more", ai.ibiko.llm.BrainOrder.leading("\u00A7DR make the wheels bigger"));
+        org.junit.Assert.assertEquals(ai.ibiko.llm.BrainOrder.Kind.IMAGE, ai.ibiko.llm.BrainOrder.leading("\u00A7IM a call icon").kind);
         // the pilot's own words are never a code
         org.junit.Assert.assertNull(ai.ibiko.llm.BrainOrder.leading("pull it now"));
         org.junit.Assert.assertNull(ai.ibiko.llm.BrainOrder.leading("yes, post it"));

@@ -377,7 +377,7 @@ public final class RemoteBrain {
         }
         // only when the server's own stop reason says the allowance ran out (cutOff is cleared on every request)
         // a one-line order (256 tokens or fewer) that fills its cap is done, not carried on
-        for (int more = 0; out != null && cutOff && !cancelled && more < MAX_CONTINUATIONS && maxTokens > 256; more++) {
+        for (int more = 0; out != null && cutOff && !cancelled && more < MAX_CONTINUATIONS && !doneAtSmallCap(out, maxTokens); more++) {
             List<String[]> next = new ArrayList<String[]>(turns);
             next.add(new String[]{"assistant", out});
             next.add(new String[]{"user", CONTINUE});
@@ -388,6 +388,25 @@ public final class RemoteBrain {
             out = joinContinuation(out, rest);
         }
         return out;
+    }
+
+    /**
+     * A reply that is only a function line ("\u00A7SR weather in Lagos") and fills a short cap is done, not carried
+     * on. Any other reply cut off by its allowance is: a short everyday cap (160 tokens) used to leave an answer cut
+     * mid-word ("Here is your call icon above the po").
+     */
+    /** A short-cap reply (256 tokens or fewer) that is an order, or ends at a full stop, is finished; one cut mid-sentence isn't. */
+    static boolean doneAtSmallCap(String out, int maxTokens) {
+        if (justAnOrder(out)) {
+            return true;
+        }
+        String t = out == null ? "" : out.trim();
+        return maxTokens <= 256 && (t.isEmpty() || ".!?)\"\u201d".indexOf(t.charAt(t.length() - 1)) >= 0);
+    }
+
+    static boolean justAnOrder(String out) {
+        String t = out == null ? "" : out.trim();
+        return t.length() < 300 && ai.ibiko.suit.FunctionCode.parse(t) != null && t.split("\n").length <= 2;
     }
 
     /** How many times a reply cut off by its allowance is carried on. */

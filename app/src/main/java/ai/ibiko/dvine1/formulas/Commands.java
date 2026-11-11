@@ -38,7 +38,7 @@ public final class Commands {
             {"FZ", Pattern.compile("^(?:please )?find (?:my |the |all )?zip(?: files?)?(?: on (?:my |this )?device)?$"), 0},
             {"RF", Pattern.compile("^(?:please )?read (?:the |my )?(?:workspace|project)(?: files)?$|^read the files in (?:the |my )?(?:workspace|project)$"), 0},
             {"TT", Pattern.compile("^(?:please )?think (?:it through |this through )?together(?: (?:about|on) .{2,400})?$"), 0},
-            {"BD", Pattern.compile("^(?:please )?(?:build|model|make|draw) (?:me )?(?:a |an )?3d (?:model of (?:a |an |the )?)?(.{2,160})$"), 1},
+            {"IM", Pattern.compile("^(?:please )?((?:generate|create|make|draw|design|paint|sketch)(?: me)? (?:a |an |some )?(?:[a-z]+ ){0,3}(?:image|picture|icon|logo|illustration|drawing|artwork|poster|wallpaper|sticker|avatar|cartoon|painting)s?\\b.*)$"), 1},
             {"WP", Pattern.compile("^(?:please )?write (?:me )?(?:a |an )(?:long |short |full )?(?:story|essay|report|article|speech|chapter|book|poem|letter)\\b.*$"), 0},
     };
 

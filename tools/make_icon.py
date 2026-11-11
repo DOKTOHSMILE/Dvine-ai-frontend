@@ -3,7 +3,7 @@
 Inputs:  docs/brand/source/ibiko_icon_art.png  (the icon: black rounded square, two glowing eyes, circuit traces)
          a GIF of the eyes glancing (pass its path), for the in-chat thinking animation.
 Outputs: the launcher icon's back layer (drawable-nodpi/ic_launcher_art.png: the face, 46 of the 108 adaptive units, on
-         a teal background with room around it), the PNG icons in every density, the store image, and (with a GIF)
+         the app's purple with room around it), the PNG icons in every density, the store image, and (with a GIF)
          res/raw/thinking_eyes.gif. The chat's live face is drawn in code (stage/LiveFace), not from the GIF.
 
 Run: python3 tools/make_icon.py <app/src/main/res> [path/to/thinking.gif]   (needs Pillow)
@@ -33,7 +33,7 @@ art = square_art()
 # adaptive canvas (the launcher shows the middle 72; a circle mask is 72 across: a 46-unit face, corners and all,
 # sits well inside it with a ring of the background round it).
 FACE = 46
-BG_TOP, BG_BOTTOM = (16, 86, 100), (5, 34, 44)  # a deep teal that sets off the cyan eyes
+BG_TOP, BG_BOTTOM = (0x8B, 0x7C, 0xFF), (0x5B, 0x4B, 0xDB)  # the app's own accent (values/colors.xml accent, dark and light)
 
 
 def background(size):

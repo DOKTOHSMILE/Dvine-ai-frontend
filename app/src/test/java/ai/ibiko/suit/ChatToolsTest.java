@@ -32,8 +32,9 @@ public class ChatToolsTest {
         assertTrue("the codes only a brain gives: start the agents, plan the writing, think together, carry on, yes and no",
                 t.allowedCodes().containsAll(Arrays.asList(FunctionCode.WK, FunctionCode.WP, FunctionCode.TT, FunctionCode.CO,
                         FunctionCode.YS, FunctionCode.CX)));
-        t.set(ChatTools.Tool.DESIGN3D, false);
-        assertFalse("canvas changes go with 3D design", t.allowedCodes().contains(FunctionCode.DR));
+        assertTrue("pictures are on by default", t.allowedCodes().contains(FunctionCode.IM));
+        t.set(ChatTools.Tool.IMAGES, false);
+        assertFalse("a tool switched off is never used", t.allowedCodes().contains(FunctionCode.IM));
         String brief = FunctionCode.instructions("", t.allowedCodes());
         assertFalse(brief.contains("§SH"));
     }

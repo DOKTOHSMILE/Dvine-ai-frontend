@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- the icon's background colour (the teal around the face; the icon itself draws a soft gradient of it) -->
-    <color name="ic_launcher_background">#0A3A46</color>
+    <!-- the icon's background colour (the app's accent purple around the face; the icon itself draws a soft gradient of it) -->
+    <color name="ic_launcher_background">#5B4BDB</color>
 </resources>
