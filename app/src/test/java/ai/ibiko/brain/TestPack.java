@@ -30,6 +30,6 @@ public final class TestPack {
     }
 
     static File tempDir() throws Exception {
-        return Files.createTempDirectory("dvine").toFile();
+        return Files.createTempDirectory("ibiko").toFile();
     }
 }

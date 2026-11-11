@@ -159,7 +159,7 @@ public final class ProotSession {
             if (who != null) {
                 who.accept(null);
             }
-        }, "dvine-linux");
+        }, "ibiko-linux");
         t.setDaemon(true);
         t.start();
     }

@@ -37,7 +37,7 @@ public class KeepRunningTest {
     @Test
     public void nothingRunsIdleAndCloseIsRemembered() {
         android.app.Application app = RuntimeEnvironment.getApplication();
-        app.getSharedPreferences("dvine", 0).edit().clear().apply();
+        app.getSharedPreferences("ibiko", 0).edit().clear().apply();
         ActivityController<ai.ibiko.MainActivity> c = Robolectric.buildActivity(ai.ibiko.MainActivity.class).create();
         Intent i;
         while ((i = Shadows.shadowOf(app).getNextStartedService()) != null) {
@@ -47,10 +47,10 @@ public class KeepRunningTest {
         // Close from the notification: remembered, so no work starts it again until Ibiko is opened
         KeepAlive s = Robolectric.buildService(KeepAlive.class, new Intent(app, KeepAlive.class).setAction(KeepAlive.ACTION_CLOSE)).create().get();
         s.onStartCommand(new Intent(app, KeepAlive.class).setAction(KeepAlive.ACTION_CLOSE), 0, 1);
-        assertTrue(app.getSharedPreferences("dvine", 0).getBoolean("closed_by_pilot", false));
+        assertTrue(app.getSharedPreferences("ibiko", 0).getBoolean("closed_by_pilot", false));
         assertFalse("closed: work shows its own notification", KeepAlive.status(app, "dl:y", "Cloning", "", 10));
         KeepAlive.opened(app);
-        assertFalse("opening Ibiko again clears the Close", app.getSharedPreferences("dvine", 0).getBoolean("closed_by_pilot", false));
+        assertFalse("opening Ibiko again clears the Close", app.getSharedPreferences("ibiko", 0).getBoolean("closed_by_pilot", false));
         c.destroy();
     }
 
@@ -119,7 +119,7 @@ public class KeepRunningTest {
     @Test
     public void workShowsInTheOneNotification() {
         android.app.Application app = RuntimeEnvironment.getApplication();
-        app.getSharedPreferences("dvine", 0).edit().clear().apply();
+        app.getSharedPreferences("ibiko", 0).edit().clear().apply();
         KeepAlive.running = false;
         assertTrue("work starts the service", KeepAlive.status(app, "dl:x", "Cloning a/b", "Downloading main", 40));
         Intent started = Shadows.shadowOf(app).getNextStartedService();

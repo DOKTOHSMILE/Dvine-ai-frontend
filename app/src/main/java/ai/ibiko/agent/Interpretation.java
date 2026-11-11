@@ -6,14 +6,14 @@ import java.util.Locale;
  * The brain's reading of what the user said, before anything is done about it: the kind of message (a question,
  * a request to do something, a prompt to create something, or chat), what it means in one sentence, the task it
  * calls for, its target (the thing to draw, the app to open, the topic…) and whether answering needs the internet.
- * DVINE then checks it has the ability ({@link Capabilities}) and either does it, researches and answers, or says
+ * Ibiko then checks it has the ability ({@link Capabilities}) and either does it, researches and answers, or says
  * honestly that it can't. The brain writes it as five short lines ({@link #PROMPT}); {@link #parse} reads them,
  * forgiving the small model's slips. Pure Java.
  */
 public final class Interpretation {
     public enum Intent { QUESTION, REQUEST, PROMPT, CHAT }
 
-    /** The tasks DVINE knows; anything else is OTHER. */
+    /** The tasks Ibiko knows; anything else is OTHER. */
     public enum Task { ANSWER, SEARCH, DRAW, BUILD, DESIGN, OPEN_APP, COPY, SHARE, SETTING, DEBATE, MOVE, DOWNLOAD_BRAIN, SWITCH, OTHER }
 
     public Intent intent = Intent.CHAT;

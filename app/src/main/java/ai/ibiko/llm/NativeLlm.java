@@ -20,7 +20,7 @@ public final class NativeLlm {
     public static synchronized boolean available() {
         if (loaded == null) {
             try {
-                System.loadLibrary("dvine_llm");
+                System.loadLibrary("ibiko_llm");
                 loaded = true;
             } catch (UnsatisfiedLinkError | SecurityException e) {
                 loaded = false;

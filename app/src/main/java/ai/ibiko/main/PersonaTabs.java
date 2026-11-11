@@ -7,7 +7,7 @@ package ai.ibiko.main;
  * Selecting a persona puts it on stage (its face, its instructions), writes the choice into the drawer prefs, re-points the drawer of earlier chats at that persona's conversations, opens the pane, and repaints the header: a hint under the title, the mark on the empty chat, the tab that is chosen showing its name as well as its icon. Ivie's 3D canvas is only shown when she has something on it, and Ibiko's mode only when Ibiko is chosen.
  *
  * <p>
- * Tapping Ibiko also says once where his commands run (DVINE's one Linux), and any change of persona warms the model so the new instructions are read ahead instead of at the first question.
+ * Tapping Ibiko also says once where his commands run (Ibiko's one Linux), and any change of persona warms the model so the new instructions are read ahead instead of at the first question.
  *
  * <p>
  * The screen side lives in {@link ai.ibiko.MainActivity}: it implements {@link Host} and hands over the views, the stage, the chats, the prefs, and the few screen actions this class needs.
@@ -118,7 +118,7 @@ public final class PersonaTabs {
         if (prefs == null) {
             return;
         }
-        boolean installed = ai.ibiko.linux.AlpineRun.ready(host.context()); // DVINE's own Linux, not another app
+        boolean installed = ai.ibiko.linux.AlpineRun.ready(host.context()); // Ibiko's own Linux, not another app
         String key = installed ? "ibiko_ready_said" : "ibiko_install_offered";
         if (prefs.getBoolean(key, false)) {
             return;

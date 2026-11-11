@@ -10,7 +10,7 @@ import ai.ibiko.render.GlApi;
 /**
  * Draws the stage on the GL thread, back to front: dark space (faint nebulae, distant galaxies), the star field
  * and now and then a shooting star, the floating pod, and the light its emitter casts upward, where drawings
- * appear. The pod is how DVINE shows it is listening (its rim pulses), thinking (light runs round its rings and
+ * appear. The pod is how Ibiko shows it is listening (its rim pulses), thinking (light runs round its rings and
  * rises faster) and speaking (the emitter beats with the words). No face. Everything shown is decided elsewhere
  * ({@link PodMotion}, {@link PodLayout}); this only draws what {@link #submit} handed over. Counts and effects drop
  * on a slow phone ({@link #quality}).

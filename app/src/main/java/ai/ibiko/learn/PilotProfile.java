@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 /**
  * What the pilot says about themselves, kept so every brain knows it: where they live, where and as what they work,
  * what they are building, the people they name ("my sister Ada"), what they like. Read from the pilot's own
- * statements only ("I live in Lagos", "I work at Andela as a designer", "my project is DVINE"), never guessed, and
+ * statements only ("I live in Lagos", "I work at Andela as a designer", "my project is Ibiko"), never guessed, and
  * a newer statement replaces an older one. Given to the brain as a short line with each message. Pure Java; kept in a
  * file on the device, and forgotten with {@link #clear} or one at a time with {@link #forget}.
  */

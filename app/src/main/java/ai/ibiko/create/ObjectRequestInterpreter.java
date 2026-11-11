@@ -92,7 +92,7 @@ public final class ObjectRequestInterpreter {
         if (reconstructionAsk(t)) {
             return new Request(Kind.RECON, null, null);
         }
-        // a clear request to build something: the model designs it with its measurements and DVINE builds that
+        // a clear request to build something: the model designs it with its measurements and Ibiko builds that
         boolean buildVerb = verb.matches("design|build|model|construct|turn into|transform into|become");
         boolean physical = rest.matches(".*\\b(3d|3-d|three[- ]d|mesh|model|" + THINGS + ")s?\\b.*");
         if (rest.matches("^(your|yourself|it|me|us|my|a drawing|a picture|a sketch)\\b.*|.*\\b(drawing|picture|sketch|explanation|plan for|list|table of|"
@@ -179,7 +179,7 @@ public final class ObjectRequestInterpreter {
 
     /**
      * A change to the object on show ("make the roof 25 feet", "add two more windows at the back", "paint the walls
-     * blue"): the model changes the design's measurements and DVINE builds it again. Null when the words aren't one.
+     * blue"): the model changes the design's measurements and Ibiko builds it again. Null when the words aren't one.
      */
     static ObjectSpec modify(String t, ObjectSpec s) {
         if (!s.has("design")) {

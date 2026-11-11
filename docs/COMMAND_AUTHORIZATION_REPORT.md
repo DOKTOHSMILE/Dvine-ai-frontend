@@ -11,7 +11,7 @@
 
 ## Correction
 
-`ai.ibiko.ops.task.DvineCommandGateway` is the only component that changes a task. It accepts a typed action and a task id from two sources: a button event, or one voice-command session opened by the interface (`beginVoiceCommandMode`). Model JSON, code, documents and chat text are not sources. `STOP` still fails closed, because the task lifecycle has no separate stop state; it is not turned into cancel.
+`ai.ibiko.ops.task.IbikoCommandGateway` is the only component that changes a task. It accepts a typed action and a task id from two sources: a button event, or one voice-command session opened by the interface (`beginVoiceCommandMode`). Model JSON, code, documents and chat text are not sources. `STOP` still fails closed, because the task lifecycle has no separate stop state; it is not turned into cancel.
 
 `AssistantCore.hear()` only talks. `AssistantCore.command(session, text, confirmed)` is the command-mode path. It reads the utterance with `CommandPhrasing` after the session is already open. Questions, quotes, "someone told me", "if I", JSON and code comments spend the session and change nothing. A named task is the only target. A vague resume asks which task. Cancel asks for a second command-mode "yes" before it runs.
 
@@ -19,20 +19,20 @@ On the phone, a long-press of the microphone opens that session for the next mes
 
 ## Files
 
-- `app/src/main/java/ai/ibiko/ops/task/DvineCommandGateway.java`
+- `app/src/main/java/ai/ibiko/ops/task/IbikoCommandGateway.java`
 - `app/src/main/java/ai/ibiko/ops/task/CommandPhrasing.java` (new)
 - `app/src/main/java/ai/ibiko/ops/AssistantCore.java`
 - `app/src/main/java/ai/ibiko/MainActivity.java`
 - `app/src/main/java/ai/ibiko/main/DirectCommands.java`
 - `app/src/main/java/ai/ibiko/brain/OfflineBrain.java`
-- `app/src/main/java/ai/ibiko/ops/task/DvineTaskManager.java`
-- `app/src/test/java/ai/ibiko/ops/DvineCommandGatewayTest.java`
+- `app/src/main/java/ai/ibiko/ops/task/IbikoTaskManager.java`
+- `app/src/test/java/ai/ibiko/ops/IbikoCommandGatewayTest.java`
 - `app/src/test/java/ai/ibiko/ops/OpsPipelineTest.java`
 - `app/src/test/java/ai/ibiko/brain/ActionsAndOnboardingTest.java`
 
 ## Tests
 
-`DvineCommandGatewayTest` covers discussion, code comments, quoted speech, hypotheticals, model JSON, streamed chunks, command-mode pause of one named task, cancel that waits for confirmation, and a question inside command mode. `OpsPipelineTest` now expects chat "pause" / "resume" / "cancel" to leave the task alone, and the command-mode path to change only the named task.
+`IbikoCommandGatewayTest` covers discussion, code comments, quoted speech, hypotheticals, model JSON, streamed chunks, command-mode pause of one named task, cancel that waits for confirmation, and a question inside command mode. `OpsPipelineTest` now expects chat "pause" / "resume" / "cancel" to leave the task alone, and the command-mode path to change only the named task.
 
 ## Remaining
 

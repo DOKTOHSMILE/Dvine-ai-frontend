@@ -12,7 +12,7 @@ import org.robolectric.annotation.GraphicsMode;
 
 /**
  * The pictures the particles form, drawn with Android's real canvas: the download bar, text and a drawing. With
- * DVINE_FIELD_OUT set, writes each as the particles' points (x y r g b per line) for a look, and draws the shape files
+ * IBIKO_FIELD_OUT set, writes each as the particles' points (x y r g b per line) for a look, and draws the shape files
  * (*.txt) found there too.
  */
 @RunWith(RobolectricTestRunner.class)
@@ -42,7 +42,7 @@ public class RasterTest {
             }
         }
         assertTrue(left + " vs " + right, left > right * 2);
-        String out = System.getenv("DVINE_FIELD_OUT");
+        String out = System.getenv("IBIKO_FIELD_OUT");
         if (out == null) {
             return;
         }

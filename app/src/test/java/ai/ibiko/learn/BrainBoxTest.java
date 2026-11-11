@@ -8,7 +8,7 @@ import java.nio.file.Files;
 
 import org.junit.Test;
 
-/** DVINE's own brain learns how words became actions, and acts again without a model only when that is safe. */
+/** Ibiko's own brain learns how words became actions, and acts again without a model only when that is safe. */
 public class BrainBoxTest {
     private static File file() throws Exception {
         return new File(Files.createTempDirectory("brainbox").toFile(), "brainbox.tsv");

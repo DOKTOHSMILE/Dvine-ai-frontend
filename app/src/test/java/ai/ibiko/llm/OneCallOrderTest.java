@@ -6,7 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-/** One call answers and may act: a code on the reply's first line is DVINE's, the rest is the user's answer. */
+/** One call answers and may act: a code on the reply's first line is Ibiko's, the rest is the user's answer. */
 public class OneCallOrderTest {
     @Test
     public void theBrainsCodeIsTheOrder() {

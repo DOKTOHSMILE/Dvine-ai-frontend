@@ -8,7 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 
 /**
- * A reply that finished while DVINE was off screen: it is already saved in its chat, and this notification says so
+ * A reply that finished while Ibiko was off screen: it is already saved in its chat, and this notification says so
  * with its first words. Tapping it opens the chat where it waits.
  */
 public final class ReplyNotice {

@@ -58,7 +58,7 @@ public final class SocialAsk {
             return null;
         }
         Matcher m = Pattern.compile("(?i)^(?:please |can you |could you |help me )?(?:connect|link|add|sign in to|sign into|log in to|log into|login to|set up)"
-                + "\\s+(?:my |the |a )?" + NET + "(?:\\s+account)?(?:\\s+(?:to|with|on) (?:dvine|you|the app|here))?[.!?]*$").matcher(message.trim());
+                + "\\s+(?:my |the |a )?" + NET + "(?:\\s+account)?(?:\\s+(?:to|with|on) (?:ibiko|you|the app|here))?[.!?]*$").matcher(message.trim());
         return m.matches() && !m.group(1).toLowerCase(java.util.Locale.ROOT).startsWith("social") ? Platform.named(m.group(1)) : null;
     }
 

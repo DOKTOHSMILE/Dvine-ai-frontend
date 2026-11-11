@@ -192,7 +192,7 @@ public final class CreationDirector {
 
     /**
      * A new thing, designed from its measurements: research (when online) and the model's design brief with every
-     * measurement, its part lines, then DVINE builds and checks the geometry, and one fix when it doesn't hold together.
+     * measurement, its part lines, then Ibiko builds and checks the geometry, and one fix when it doesn't hold together.
      */
     private Outcome create(ObjectSpec spec) {
         MeasuredDesign.Brain brain = designer;

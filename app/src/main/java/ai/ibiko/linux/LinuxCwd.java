@@ -14,7 +14,7 @@ public final class LinuxCwd {
             return "/root";
         }
         try {
-            File file = new File(rootfs, "root/.dvine_cwd");
+            File file = new File(rootfs, "root/.ibiko_cwd");
             if (!file.isFile()) {
                 return "/root";
             }

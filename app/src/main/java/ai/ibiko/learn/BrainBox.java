@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * DVINE's own light brain: it learns how the user's words become actions from every model it works with, so the
+ * Ibiko's own light brain: it learns how the user's words become actions from every model it works with, so the
  * next time the same kind of message comes it acts at once, without asking a model (a device model can take minutes
  * to route one sentence).
  *
@@ -39,7 +39,7 @@ public final class BrainBox {
     private static final Set<String> STOP = new HashSet<String>(java.util.Arrays.asList(
             "a", "an", "the", "please", "pls", "can", "could", "would", "you", "u", "me", "my", "i", "to", "for", "of",
             "is", "are", "it", "this", "that", "and", "or", "on", "in", "at", "be", "do", "just", "now", "kindly", "hey",
-            "dvine", "ivie", "obi", "ibiko", "what", "whats"));
+            "ibiko", "ivie", "obi", "ibiko", "what", "whats"));
 
     /** One learned example: the words, the order or answer, and how often it was chosen again. */
     static final class Example {
@@ -87,7 +87,7 @@ public final class BrainBox {
     }
 
     /**
-     * Learns an answer a model gave (any model, API or on the device), so DVINE grows with every conversation. Very
+     * Learns an answer a model gave (any model, API or on the device), so Ibiko grows with every conversation. Very
      * short or very long answers, and answers about the moment (time, today, news, prices), are not kept: they are
      * facts about that day, not wisdom. When the same words are corrected, the newer answer wins; when they recur, the
      * older answer is strengthened (it stays, and is trusted more the next time).

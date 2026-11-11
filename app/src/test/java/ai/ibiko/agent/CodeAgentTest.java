@@ -272,7 +272,7 @@ public class CodeAgentTest {
         assertEquals("explanations at the turning points; no one-liners, nothing too soon or repeated",
                 Arrays.asList(first, found + " Fixing it now."), phone.notes);
         for (String s : phone.steps) {
-            assertTrue(s, !s.contains("Checking that the answer is complete")); // DVINE's own check isn't a step
+            assertTrue(s, !s.contains("Checking that the answer is complete")); // Ibiko's own check isn't a step
         }
         // the device's small model works the same way: it explains its work, and a plan goes back to be done
         Script small = new Script("Next: I'll list the files and check each tool.", "<tool name=\"list_files\" path=\".\"/>",
@@ -399,7 +399,7 @@ public class CodeAgentTest {
         assertEquals("The next step is to review activity_chat.xml, then add the tabs.", out);
         assertEquals(1, brain.seen.size()); // not asked a second time whether it is done (minutes on a phone)
         assertTrue(phone.steps.isEmpty()); // and the answer is not shown as a step
-        // a full-size model is still asked once; DVINE's own check is not shown as a step, the answer goes to the chat
+        // a full-size model is still asked once; Ibiko's own check is not shown as a step, the answer goes to the chat
         Script big = new Script("I'll read the files next.", "<final>Done: nothing to change.</final>");
         Phone p2 = new Phone();
         assertEquals("Done: nothing to change.", new CodeAgent(ws, big, p2, "", 20_000).run("check it", ""));
@@ -588,7 +588,7 @@ public class CodeAgentTest {
         Phone phone = new Phone();
         assertEquals("Done: 3 files, all fine.", new CodeAgent(ws, asking, phone, "", 20_000).run("check the files", ""));
         assertTrue(asking.seen.get(1), asking.seen.get(1).contains("don't describe it and don't ask"));
-        assertTrue(phone.steps.toString(), phone.steps.isEmpty()); // neither the held text nor DVINE's own check is a step
+        assertTrue(phone.steps.toString(), phone.steps.isEmpty()); // neither the held text nor Ibiko's own check is a step
         // no word lists: whatever the wording, text without a tool call is asked about once; what the model does
         // next decides. A tool call: the work goes on. Plain text again: that is the answer.
         Script narrating = new Script("Fixing your build errors \u2014 digging into the failing sources.",

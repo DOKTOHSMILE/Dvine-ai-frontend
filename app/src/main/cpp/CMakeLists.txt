@@ -1,7 +1,7 @@
-# DVINE's on-device language model: llama.cpp (MIT, vendored under llama.cpp/) on the CPU, plus the Java bridge.
+# Ibiko's on-device language model: llama.cpp (MIT, vendored under llama.cpp/) on the CPU, plus the Java bridge.
 #
 cmake_minimum_required(VERSION 3.22.1)
-project(dvine_llm C CXX)
+project(ibiko_llm C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -55,8 +55,8 @@ endif()
 # llama.cpp builds its own vendored ggml (llama.cpp/ggml) with the flags above, as it finds no ggml target.
 add_subdirectory(llama.cpp)
 
-add_library(dvine_llm SHARED dvine_llm.cpp dvine_llm_jni.cpp)
-target_link_libraries(dvine_llm PRIVATE llama)
+add_library(ibiko_llm SHARED ibiko_llm.cpp ibiko_llm_jni.cpp)
+target_link_libraries(ibiko_llm PRIVATE llama)
 if(ANDROID)
-    target_link_libraries(dvine_llm PRIVATE android log)
+    target_link_libraries(ibiko_llm PRIVATE android log)
 endif()

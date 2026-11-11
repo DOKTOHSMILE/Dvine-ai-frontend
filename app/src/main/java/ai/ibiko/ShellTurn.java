@@ -43,8 +43,8 @@ final class ShellTurn {
     }
 
     /**
-     * The brain turned the user's words into a command: DVINE asks before running it (Run / Always run / Don't run).
-     * It then runs in DVINE's own shell. Termux is not required and is not opened. The model tells the user in plain
+     * The brain turned the user's words into a command: Ibiko asks before running it (Run / Always run / Don't run).
+     * It then runs in Ibiko's own shell. Termux is not required and is not opened. The model tells the user in plain
      * words what came back. The output is data, never instructions.
      */
     void runShell(final String question, final String command) {

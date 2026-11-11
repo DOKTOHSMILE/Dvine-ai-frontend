@@ -35,7 +35,7 @@ public final class SocialAccounts {
 
     private final File file;
     private final List<Account> list = new ArrayList<Account>();
-    /** Networks switched off in Connectors: their accounts stay signed in, but DVINE doesn't use them. */
+    /** Networks switched off in Connectors: their accounts stay signed in, but Ibiko doesn't use them. */
     private final java.util.Set<Platform> off = java.util.EnumSet.noneOf(Platform.class);
 
     public synchronized void setOn(Platform p, boolean on) {

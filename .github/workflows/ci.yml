@@ -142,7 +142,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: dvine-debug-apk
+          name: ibiko-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           # 24 hours: APKs are big, GitHub storage fills fast
           retention-days: 1

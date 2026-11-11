@@ -5,7 +5,7 @@ package ai.ibiko.linux;
  * when the command finishes instead of sitting in a pipe.
  */
 public final class Guest {
-    public static final String MARK = "DVINE_STATUS:";
+    public static final String MARK = "IBIKO_STATUS:";
 
     private Guest() {
     }
@@ -25,8 +25,8 @@ public final class Guest {
         return "cd " + quote(dir) + " || cd /root\n"
                 + (line == null ? "" : line) + "\n"
                 + "status=$?\n"
-                + "pwd > /root/.dvine_cwd\n"
-                + "echo $status > /root/.dvine_status\n"
+                + "pwd > /root/.ibiko_cwd\n"
+                + "echo $status > /root/.ibiko_status\n"
                 + "exit $status\n";
     }
 
@@ -35,13 +35,13 @@ public final class Guest {
      * can read while it runs. The status file is written last, so its appearance means the command ended.
      */
     public static String pipe(String line) {
-        return "eval " + quote(line) + " > /root/.dvine_out 2>&1\n"
-                + "pwd > /root/.dvine_cwd\n"
-                + "echo $? > /root/.dvine_status\n";
+        return "eval " + quote(line) + " > /root/.ibiko_out 2>&1\n"
+                + "pwd > /root/.ibiko_cwd\n"
+                + "echo $? > /root/.ibiko_status\n";
     }
 
     /**
-     * Take finished lines out of text that is still arriving. A line {@code DVINE_STATUS:code__folder}
+     * Take finished lines out of text that is still arriving. A line {@code IBIKO_STATUS:code__folder}
      * is the shell saying the command ended. A tail that might be the start of that line is kept in
      * {@link Stream#rest} and not shown yet.
      */
@@ -78,7 +78,7 @@ public final class Guest {
         }
     }
 
-    /** {@code DVINE_STATUS:0__/usr} */
+    /** {@code IBIKO_STATUS:0__/usr} */
     static Answer marker(String line, String previous) {
         String body = line.substring(MARK.length());
         int sep = body.indexOf("__");

@@ -7,11 +7,11 @@ import org.junit.Test;
 import ai.ibiko.llm.LocalModel;
 import ai.ibiko.llm.ModelSpec;
 
-/** The phone's model designs a thing with its measurements and DVINE builds it (desktop engine). Runs with DVINE_NATIVE_LIB and DVINE_MODEL. */
+/** The phone's model designs a thing with its measurements and Ibiko builds it (desktop engine). Runs with IBIKO_NATIVE_LIB and IBIKO_MODEL. */
 public class OfflineDesignTest {
     @Test
     public void aTwoStoreyBuildingWithA20FootRoof() throws Exception {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }

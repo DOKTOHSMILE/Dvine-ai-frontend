@@ -5,14 +5,14 @@ import java.util.List;
 
 /**
  * The one way a message is handled: every message the user sends (typed, spoken, read from a picture) goes through
- * here, and the routes are asked in a fixed order, each a named part of DVINE (a command for the model, a post, a
+ * here, and the routes are asked in a fixed order, each a named part of Ibiko (a command for the model, a post, a
  * file to make, a social search, Ivie's 3D canvas, Ibiko's coding agent, the three personas together, the model's
  * answer…). The first route that takes the message handles it; which one, and why, is written down, so the user (and
  * the tests) can see how each message was understood instead of several parts each deciding on their own. A route
  * that takes a message must finish it. Pure Java; not thread-safe (the screen thread uses it).
  */
 public final class BrainGateway {
-    /** One part of DVINE: whether it takes the message, and if so it handles it. */
+    /** One part of Ibiko: whether it takes the message, and if so it handles it. */
     public interface Route {
         boolean take(String text);
     }

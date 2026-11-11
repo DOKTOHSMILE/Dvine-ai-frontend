@@ -3,7 +3,7 @@ package ai.ibiko.engine;
 import ai.ibiko.stage.Sketch;
 
 /**
- * What the engine can make the stage do: show drawings and built-in 3D forms, and move a body the user had DVINE
+ * What the engine can make the stage do: show drawings and built-in 3D forms, and move a body the user had Ibiko
  * design (the movement engine: poses, moves, scenes, a turn). The stage implements it. There is no face.
  */
 public interface BodyPort {

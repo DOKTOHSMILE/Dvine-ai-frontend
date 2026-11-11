@@ -60,7 +60,7 @@ public final class ChatPane extends LinearLayout {
         default void onHandoff(String persona, String task) {
         }
 
-        /** Correct ({@code right}) or Wrong on an answer DVINE asked about: it learns from it. */
+        /** Correct ({@code right}) or Wrong on an answer Ibiko asked about: it learns from it. */
         default void onRate(String question, String answer, boolean right) {
         }
 
@@ -72,7 +72,7 @@ public final class ChatPane extends LinearLayout {
 
     private final ChatBook book;
     private final Host host;
-    /** The answer DVINE asked "is this accurate?" about, and its question; null when none is waiting. */
+    /** The answer Ibiko asked "is this accurate?" about, and its question; null when none is waiting. */
     private String rateQuestion, rateAnswer;
 
     /** Shows Correct and Wrong under the reply holding {@code answer} until the pilot taps one or the chat moves on. */
@@ -306,12 +306,12 @@ public final class ChatPane extends LinearLayout {
                 // at the end: Copy for the whole reply at once, and Listen to all of it, as icons
                 boolean lastReply = i == cur.messages.size() - 1;
                 if (rateAnswer != null && lastReply && reply.toString().contains(rateAnswer)) {
-                    // DVINE asks whether its answer was right: check and cancel beside Copy and Listen
+                    // Ibiko asks whether its answer was right: check and cancel beside Copy and Listen
                     bar = actions(reply.toString(), stripCode(reply.toString()), rateQuestion, rateAnswer);
-                    bar.setTag("asked"); // DVINE asked: its check and cross stay in view
+                    bar.setTag("asked"); // Ibiko asked: its check and cross stay in view
                 } else if (lastReply && lastAsked != null && !reply.toString().equals(ratedReply)
                         && (ratedAnswer == null || !reply.toString().contains(ratedAnswer))) {
-                    // every answer can be marked right or wrong, whichever model wrote it: DVINE keeps learning
+                    // every answer can be marked right or wrong, whichever model wrote it: Ibiko keeps learning
                     bar = actions(reply.toString(), stripCode(reply.toString()), lastAsked, stripCode(reply.toString()).trim());
                 } else {
                     bar = actions(reply.toString(), stripCode(reply.toString()));
@@ -403,7 +403,7 @@ public final class ChatPane extends LinearLayout {
         return more;
     }
 
-    // ------------------------------------------------------------ what DVINE is doing, step by step
+    // ------------------------------------------------------------ what Ibiko is doing, step by step
 
     /** The steps of the current turn ("Searching the web for …", "Asking OpenAI (gpt-5-mini)"), oldest first. */
     private final List<String> steps = new ArrayList<String>();
@@ -1281,7 +1281,7 @@ public final class ChatPane extends LinearLayout {
             java.util.regex.Pattern.compile("(?s)(^|\\n)[*_`>\\s]*[\u00A7\u27E6][^\\n]*$");
 
     public void setLive(String text) {
-        // a command code is for DVINE, not the conversation: never typed out, not even while the reply streams
+        // a command code is for Ibiko, not the conversation: never typed out, not even while the reply streams
         String clean = text == null ? null : TRAILING_CODE.matcher(ai.ibiko.suit.FunctionCode.hidden(text)).replaceFirst("$1");
         String t = clean == null || clean.trim().isEmpty() ? null : clean.trim();
         if (t != null && ai.ibiko.linux.CloneFolder.progressLines(t) >= 1) {
@@ -2184,7 +2184,7 @@ public final class ChatPane extends LinearLayout {
         return bar;
     }
 
-    /** Copy and Listen, then a check (right) and a cancel (wrong) that teach DVINE from this answer. */
+    /** Copy and Listen, then a check (right) and a cancel (wrong) that teach Ibiko from this answer. */
     private View actions(final String all, final String spoken, final String question, final String answer) {
         LinearLayout bar = (LinearLayout) actions(all, spoken);
         bar.addView(icon(R.drawable.ic_rate_right, "Correct", v -> {
@@ -2244,7 +2244,7 @@ public final class ChatPane extends LinearLayout {
             b.setVisibility(GONE);
         }
         if (open && whole != null) {
-            whole.setVisibility(VISIBLE); // DVINE asked whether its answer was right: its check and cross stay in view
+            whole.setVisibility(VISIBLE); // Ibiko asked whether its answer was right: its check and cross stay in view
             openGroup = java.util.Collections.singletonList(whole);
         }
         for (int k = 0; k < parts.size(); k++) {
@@ -2511,7 +2511,7 @@ public final class ChatPane extends LinearLayout {
                 .show();
     }
 
-    /** Asks first, then deletes the chat; what DVINE learned from it stays ({@link ChatBook#delete}). */
+    /** Asks first, then deletes the chat; what Ibiko learned from it stays ({@link ChatBook#delete}). */
     public void delete(final String id) {
         if (find(id) == null) {
             return;
@@ -2627,11 +2627,11 @@ public final class ChatPane extends LinearLayout {
         field.requestFocus();
     }
 
-    /** "Good evening, Valentine" by the phone's clock, with the name DVINE was told. */
+    /** "Good evening, Valentine" by the phone's clock, with the name Ibiko was told. */
     private String greeting() {
         int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
         String part = hour < 5 ? "Hello" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-        String name = getContext().getSharedPreferences("dvine", Context.MODE_PRIVATE).getString("user_name", null);
+        String name = getContext().getSharedPreferences("ibiko", Context.MODE_PRIVATE).getString("user_name", null);
         return name == null || name.trim().isEmpty() ? part : part + ", " + name.trim();
     }
 
@@ -2666,7 +2666,7 @@ public final class ChatPane extends LinearLayout {
         android.content.ClipboardManager clips = (android.content.ClipboardManager) getContext()
                 .getSystemService(android.content.Context.CLIPBOARD_SERVICE);
         if (clips != null) {
-            clips.setPrimaryClip(android.content.ClipData.newPlainText("dvine", text == null ? "" : text));
+            clips.setPrimaryClip(android.content.ClipData.newPlainText("ibiko", text == null ? "" : text));
         }
     }
 

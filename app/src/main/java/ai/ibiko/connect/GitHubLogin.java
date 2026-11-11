@@ -8,9 +8,9 @@ import java.util.Map;
 import ai.ibiko.brain.MiniJson;
 
 /**
- * Signing in to GitHub without typing a token: GitHub's device sign-in. DVINE asks GitHub for a short code, the user
+ * Signing in to GitHub without typing a token: GitHub's device sign-in. Ibiko asks GitHub for a short code, the user
  * opens github.com/login/device (signed in there with their email or username and password, two-factor and all),
- * types the code and approves; DVINE then receives a token for the repositories. GitHub doesn't let apps take a
+ * types the code and approves; Ibiko then receives a token for the repositories. GitHub doesn't let apps take a
  * password directly (it stopped in 2021), so this, or a pasted token, is how an app signs in. It needs the client ID
  * of a GitHub OAuth app with device sign-in turned on (public, not a secret). Pure Java.
  */
@@ -43,7 +43,7 @@ public final class GitHubLogin {
     }
 
     /**
-     * What DVINE asks for: every repository the account can see (public, private, organisation and collaborator),
+     * What Ibiko asks for: every repository the account can see (public, private, organisation and collaborator),
      * including push and pull, plus the user's name and which organisations they belong to.
      */
     public static final String SCOPES = "repo read:user read:org";
@@ -134,7 +134,7 @@ public final class GitHubLogin {
                 + " Sign in again, or make a token with the repo scope (Connectors \u203A GitHub).";
     }
 
-    /** GitHub's page for making a token, filled in with DVINE's name and the scopes it needs. */
+    /** GitHub's page for making a token, filled in with Ibiko's name and the scopes it needs. */
     public static String newTokenUrl() {
         return "https://github.com/settings/tokens/new?description=Ibiko&scopes=repo,read:user,read:org";
     }

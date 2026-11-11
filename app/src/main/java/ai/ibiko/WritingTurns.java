@@ -44,7 +44,7 @@ final class WritingTurns {
 
     /**
      * Makes a real file (PDF, Word, Excel, HTML, CSV, Markdown, JSON, text) from the last reply, the whole chat, or a
-     * document the model writes on the spot; saved in Downloads/DVINE and shown under the reply. Works offline.
+     * document the model writes on the spot; saved in Downloads/Ibiko and shown under the reply. Works offline.
      */
     boolean makeDocument(final String text) {
         if (!a.asksForFile(text)) {
@@ -163,7 +163,7 @@ final class WritingTurns {
                 }
                 a.pickVersion(platform, versions, tags);
             });
-        }, "dvine-post-versions").start();
+        }, "ibiko-post-versions").start();
     }
 
     /**
@@ -252,6 +252,6 @@ final class WritingTurns {
                 }
                 a.note("Say \u201cmake it a PDF\u201d or \u201ca Word document\u201d to save it as a file.");
             });
-        }, "dvine-writing-plan").start();
+        }, "ibiko-writing-plan").start();
     }
 }

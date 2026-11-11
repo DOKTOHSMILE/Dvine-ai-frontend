@@ -248,10 +248,10 @@ public class LaunchTest {
         org.junit.Assert.assertTrue(ai.ibiko.llm.BrainOrder.prompt("").contains("write the real command yourself"));
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).edit().putBoolean("auto_accept", true).commit();
+        c.get().getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE).edit().putBoolean("auto_accept", true).commit();
         java.lang.reflect.Method run = MainActivity.class.getDeclaredMethod("runShell", String.class, String.class);
         run.setAccessible(true);
-        run.invoke(c.get(), "say hello in the shell", "echo hello-dvine");
+        run.invoke(c.get(), "say hello in the shell", "echo hello-ibiko");
         java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
         cf.setAccessible(true);
         ai.ibiko.chat.ChatBook chats = (ai.ibiko.chat.ChatBook) cf.get(c.get());
@@ -260,7 +260,7 @@ public class LaunchTest {
             Thread.sleep(100);
             ShadowLooper.idleMainLooper();
             for (ai.ibiko.chat.ChatBook.Message m : chats.current().messages) {
-                told |= m.body != null && m.body.contains("hello-dvine");
+                told |= m.body != null && m.body.contains("hello-ibiko");
             }
         }
         org.junit.Assert.assertTrue("with no model, the output itself is shown", told);
@@ -375,7 +375,7 @@ public class LaunchTest {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         // a meaning remembered from before no longer acts on the words: only the brain's code does
-        android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        android.content.SharedPreferences prefs = c.get().getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE);
         ai.ibiko.turn.Meaning.Memory m = new ai.ibiko.turn.Meaning.Memory();
         m.put("Where are we with that?", ai.ibiko.turn.Meaning.Command.RESULT);
         m.put("start over", ai.ibiko.turn.Meaning.Command.NEW_CHAT);
@@ -460,7 +460,7 @@ public class LaunchTest {
         // an ordinary question: the brain reads what it means (as before the gateway), recorded like any other
         org.junit.Assert.assertEquals("message \u2192 brain", g.last().toString());
         org.junit.Assert.assertEquals("Explain how compound interest works in a few sentences", g.last().text);
-        // pause and stop are not chat routes: only an authorized command (DvineCommandGateway) controls a task
+        // pause and stop are not chat routes: only an authorized command (IbikoCommandGateway) controls a task
         org.junit.Assert.assertFalse(g.order().contains("pause"));
         org.junit.Assert.assertFalse(g.order().contains("retry"));
         org.junit.Assert.assertFalse(g.order().contains("read the meaning"));
@@ -473,7 +473,7 @@ public class LaunchTest {
     public void theBrainsCodesRunTheSuitsControls() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        android.content.SharedPreferences prefs = c.get().getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE);
         prefs.edit().putBoolean("auto_accept", false).commit();
         android.widget.EditText field = c.get().findViewById(ai.ibiko.R.id.et_message);
         field.setText("let ibiko just do things");
@@ -665,7 +665,7 @@ public class LaunchTest {
     public void ibikosModeIsChosenFromASheetLikeClaudeCode() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        android.content.SharedPreferences prefs = c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        android.content.SharedPreferences prefs = c.get().getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE);
         android.widget.TextView pill = c.get().findViewById(ai.ibiko.R.id.ibikoMode);
         pill.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
@@ -763,7 +763,7 @@ public class LaunchTest {
 
     @Test
     public void workCutOffByACrashIsOfferedToCarryOnAndAPartialReplyIsKept() throws Exception {
-        android.content.SharedPreferences prefs = RuntimeEnvironment.getApplication().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE);
+        android.content.SharedPreferences prefs = RuntimeEnvironment.getApplication().getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE);
         prefs.edit().putString("running_persona", "ibiko").putString("running_task", "Audit the Harvana repo")
                 .putString("partial_reply", "The audit found three problems so far: the wallet").commit();
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
@@ -805,7 +805,7 @@ public class LaunchTest {
         java.util.List<String> log = ai.ibiko.act.ActionLog.read(c.get().getFilesDir());
         org.junit.Assert.assertTrue(log.toString(), log.get(0).contains("share\tX\tapproved") && log.get(0).endsWith("Big news today"));
         // auto-approve: no card, straight to the app, logged as such
-        c.get().getSharedPreferences("dvine", android.content.Context.MODE_PRIVATE).edit().putBoolean("actions_auto", true).commit();
+        c.get().getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE).edit().putBoolean("actions_auto", true).commit();
         brainSays(c, "\u00A7AC copy: the meeting is at 5");
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         log = ai.ibiko.act.ActionLog.read(c.get().getFilesDir());
@@ -879,28 +879,28 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
-    /** The model picker lists DVINE 1.0 (DVINE's own brain); picking it marks it in use and the header says so. */
+    /** The model picker lists Ibiko 1.0 (Ibiko's own brain); picking it marks it in use and the header says so. */
     @Test(timeout = 120000)
-    public void dvinesOwnBrainCanBePicked() {
+    public void ibikosOwnBrainCanBePicked() {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         c.get().findViewById(R.id.tv_header_sub).performClick();
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        android.view.View row = described(sheet.getWindow().getDecorView(), MainActivity.DVINE_OWN);
+        android.view.View row = described(sheet.getWindow().getDecorView(), MainActivity.IBIKO_OWN);
         assertNotNull("Ibiko's own brain is in the list", row);
         row.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        org.junit.Assert.assertEquals("dvine", c.get().getSharedPreferences("dvine", 0).getString("brain_pick", ""));
+        org.junit.Assert.assertEquals("ibiko", c.get().getSharedPreferences("ibiko", 0).getString("brain_pick", ""));
         android.widget.TextView sub = c.get().findViewById(R.id.tv_header_sub);
-        org.junit.Assert.assertTrue(sub.getText().toString(), sub.getText().toString().endsWith(MainActivity.DVINE_OWN));
+        org.junit.Assert.assertTrue(sub.getText().toString(), sub.getText().toString().endsWith(MainActivity.IBIKO_OWN));
         c.get().findViewById(R.id.tv_header_sub).performClick();
         sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-        assertNotNull("the one in use is marked", described(sheet.getWindow().getDecorView(), MainActivity.DVINE_OWN + ", in use"));
+        assertNotNull("the one in use is marked", described(sheet.getWindow().getDecorView(), MainActivity.IBIKO_OWN + ", in use"));
         sheet.dismiss();
         c.pause().stop().destroy();
     }
 
-    /** Every reply can be marked right or wrong (check, cancel), whichever model wrote it; DVINE learns either way. */
+    /** Every reply can be marked right or wrong (check, cancel), whichever model wrote it; Ibiko learns either way. */
     @Test(timeout = 120000)
     public void everyReplyCanBeMarkedRightOrWrong() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
@@ -917,29 +917,29 @@ public class LaunchTest {
         assertNotNull(described(root, "Wrong"));
         described(root, "Correct").performClick();
         org.junit.Assert.assertNull("marked once", described(root, "Correct"));
-        ai.ibiko.dvine1.Knowledge k = new ai.ibiko.dvine1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        ai.ibiko.ibiko1.Knowledge k = new ai.ibiko.ibiko1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
         org.junit.Assert.assertEquals("The capital of Kenya is Nairobi.", k.recall("Kenya's capital city?").answer);
         c.pause().stop().destroy();
     }
 
-    /** DVINE 1: a statement teaches (it isn't searched), and "what have you learned" is answered from its memory. */
+    /** Ibiko 1: a statement teaches (it isn't searched), and "what have you learned" is answered from its memory. */
     @Test(timeout = 120000)
-    public void dvineLearnsFromStatementsAndSaysWhatItLearned() throws Exception {
+    public void ibikoLearnsFromStatementsAndSaysWhatItLearned() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        ai.ibiko.dvine1.Dvine1 dvine = dvine1(c.get());
-        org.junit.Assert.assertTrue(dvine.learnStatement("A pig is an animal").startsWith("Noted."));
-        ai.ibiko.dvine1.Knowledge k = new ai.ibiko.dvine1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        ai.ibiko.ibiko1.Ibiko1 ibiko = ibiko1(c.get());
+        org.junit.Assert.assertTrue(ibiko.learnStatement("A pig is an animal").startsWith("Noted."));
+        ai.ibiko.ibiko1.Knowledge k = new ai.ibiko.ibiko1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
         org.junit.Assert.assertEquals("A pig is an animal", k.recall("what's a pig?").answer);
-        String said = dvine.aboutMe("What have you learned so far?");
+        String said = ibiko.aboutMe("What have you learned so far?");
         org.junit.Assert.assertTrue(said, said.contains("A pig is an animal"));
-        org.junit.Assert.assertNull(dvine.aboutMe("What is a pig?"));
-        org.junit.Assert.assertNull("a question about shoes", dvine.aboutMe("What do you know about a shoe?"));
-        org.junit.Assert.assertNotNull(dvine.aboutMe("What do you know?"));
+        org.junit.Assert.assertNull(ibiko.aboutMe("What is a pig?"));
+        org.junit.Assert.assertNull("a question about shoes", ibiko.aboutMe("What do you know about a shoe?"));
+        org.junit.Assert.assertNotNull(ibiko.aboutMe("What do you know?"));
         c.pause().stop().destroy();
     }
 
-    /** Obi, Ivie and Ibiko are three named pages of one chat; DVINE 1 thinks in steps; night learning is set from the picker. */
+    /** Obi, Ivie and Ibiko are three named pages of one chat; Ibiko 1 thinks in steps; night learning is set from the picker. */
     @Test(timeout = 120000)
     public void pagesThinkingAndNightLearning() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
@@ -956,10 +956,10 @@ public class LaunchTest {
         c.get().dispatchTouchEvent(android.view.MotionEvent.obtain(t0, t0 + 80, android.view.MotionEvent.ACTION_UP, 700, 1010, 0));
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         org.junit.Assert.assertEquals(android.view.View.VISIBLE, c.get().findViewById(R.id.historyDrawer).getVisibility());
-        org.junit.Assert.assertEquals("the page stays: there is one, Ibiko's", "ibiko", c.get().getSharedPreferences("dvine", 0).getString("face", "ibiko"));
+        org.junit.Assert.assertEquals("the page stays: there is one, Ibiko's", "ibiko", c.get().getSharedPreferences("ibiko", 0).getString("face", "ibiko"));
 
-        c.get().getSharedPreferences("dvine", 0).edit().putString("brain_pick", "dvine").apply();
-        dvine1(c.get()).answer("what is 12 times 7");
+        c.get().getSharedPreferences("ibiko", 0).edit().putString("brain_pick", "ibiko").apply();
+        ibiko1(c.get()).answer("what is 12 times 7");
         java.lang.reflect.Field bf = MainActivity.class.getDeclaredField("chats");
         bf.setAccessible(true);
         ai.ibiko.chat.ChatBook book = (ai.ibiko.chat.ChatBook) bf.get(c.get());
@@ -976,28 +976,28 @@ public class LaunchTest {
         c.get().findViewById(R.id.tv_header_sub).performClick();
         android.app.Dialog sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog();
         assertNotNull(find(sheet.getWindow().getDecorView(), "Learning schedule  \u203A"));
-        ai.ibiko.dvine1.LearningJob.setPlan(c.get(), new ai.ibiko.dvine1.LearningSchedule.Plan(true, 23 * 60, 6 * 60, true, true, 40));
+        ai.ibiko.ibiko1.LearningJob.setPlan(c.get(), new ai.ibiko.ibiko1.LearningSchedule.Plan(true, 23 * 60, 6 * 60, true, true, 40));
         android.app.job.JobScheduler js = c.get().getSystemService(android.app.job.JobScheduler.class);
         org.junit.Assert.assertEquals(1, js.getAllPendingJobs().size());
         org.junit.Assert.assertTrue(js.getAllPendingJobs().get(0).isRequireCharging());
-        ai.ibiko.dvine1.LearningJob.setPlan(c.get(), ai.ibiko.dvine1.LearningSchedule.Plan.defaults());
+        ai.ibiko.ibiko1.LearningJob.setPlan(c.get(), ai.ibiko.ibiko1.LearningSchedule.Plan.defaults());
         org.junit.Assert.assertEquals("off: nothing waits", 0, js.getAllPendingJobs().size());
         sheet.dismiss();
         c.pause().stop().destroy();
     }
 
-    /** The Workload sheet: the brain answering, DVINE 1's memory, each worker's details, and today's DVINE 1 answers. */
+    /** The Workload sheet: the brain answering, Ibiko 1's memory, each worker's details, and today's Ibiko 1 answers. */
     @Test(timeout = 120000)
     public void theWorkloadSheetShowsWorkersInFull() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        c.get().getSharedPreferences("dvine", 0).edit().putString("brain_pick", "dvine").apply();
+        c.get().getSharedPreferences("ibiko", 0).edit().putString("brain_pick", "ibiko").apply();
         String w = ai.ibiko.agent.AgentBoard.start("Obi \u00B7 reply", "What is a quasar?", "Claude Opus 5.5");
         ai.ibiko.agent.AgentBoard.step(w, "Reading en.wikipedia.org");
         c.get().findViewById(R.id.workload).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.view.View sheet = org.robolectric.shadows.ShadowDialog.getLatestDialog().getWindow().getDecorView();
-        for (String text : new String[] { MainActivity.DVINE_OWN, "never fills", w, "Claude Opus 5.5", "Reading en.wikipedia.org",
+        for (String text : new String[] { MainActivity.IBIKO_OWN, "never fills", w, "Claude Opus 5.5", "Reading en.wikipedia.org",
                 "What is a quasar?", "working", "Ibiko 1 answers" }) {
             java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
             sheet.findViewsWithText(found, text, android.view.View.FIND_VIEWS_WITH_TEXT);
@@ -1008,7 +1008,7 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
-    /** No internet with an API picked: the message waits and DVINE says the connection is missing, not the API. */
+    /** No internet with an API picked: the message waits and Ibiko says the connection is missing, not the API. */
     @Test(timeout = 120000)
     public void noInternetIsSaidAndTheMessageWaits() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
@@ -1031,9 +1031,9 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
-    /** DVINE 1 asks whether its answer was right; 👍🏽 saves it to its memory, found again for the same question reworded. */
+    /** Ibiko 1 asks whether its answer was right; 👍🏽 saves it to its memory, found again for the same question reworded. */
     @Test(timeout = 120000)
-    public void aThumbsUpTeachesDvine() throws Exception {
+    public void aThumbsUpTeachesIbiko() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
@@ -1047,7 +1047,7 @@ public class LaunchTest {
         described(root, "Correct").performClick();
         org.junit.Assert.assertNull("the buttons go once it is rated", described(root, "Correct"));
         org.junit.Assert.assertFalse(pane.ratingWaiting());
-        ai.ibiko.dvine1.Knowledge k = new ai.ibiko.dvine1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
+        ai.ibiko.ibiko1.Knowledge k = new ai.ibiko.ibiko1.Knowledge(new java.io.File(c.get().getFilesDir(), "brain/knowledge.tsv"));
         assertNotNull(k.recall("who created microsoft"));
         org.junit.Assert.assertEquals(answer, k.recall("Who's the founder of Microsoft?").answer);
         c.pause().stop().destroy();
@@ -1086,11 +1086,11 @@ public class LaunchTest {
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
     }
 
-    /** DVINE 1 as plugged into the screen. */
-    private static ai.ibiko.dvine1.Dvine1 dvine1(MainActivity a) throws Exception {
-        java.lang.reflect.Method m = MainActivity.class.getDeclaredMethod("dvine1");
+    /** Ibiko 1 as plugged into the screen. */
+    private static ai.ibiko.ibiko1.Ibiko1 ibiko1(MainActivity a) throws Exception {
+        java.lang.reflect.Method m = MainActivity.class.getDeclaredMethod("ibiko1");
         m.setAccessible(true);
-        return (ai.ibiko.dvine1.Dvine1) m.invoke(a);
+        return (ai.ibiko.ibiko1.Ibiko1) m.invoke(a);
     }
 
     private static void collect(android.view.View v, Class<?> kind, java.util.List<android.view.View> into) {
@@ -1192,7 +1192,7 @@ public class LaunchTest {
         assertNotNull("the Deep thinking card, off", deep);
         deep.performClick();
         org.junit.Assert.assertEquals("On", String.valueOf(deep.getStateDescription()));
-        org.junit.Assert.assertTrue(c.get().getSharedPreferences("dvine", 0).getAll().toString().contains("DEEP"));
+        org.junit.Assert.assertTrue(c.get().getSharedPreferences("ibiko", 0).getAll().toString().contains("DEEP"));
         found.clear();
         sheet.getWindow().getDecorView().findViewsWithText(found, "Images", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertFalse("every tool is offered", found.isEmpty());

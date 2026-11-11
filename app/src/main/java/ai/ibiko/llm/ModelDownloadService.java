@@ -84,7 +84,7 @@ public final class ModelDownloadService extends Service {
             manager().notify(RESULT_ID, result(this, hub.status));
             hub.changed();
             stopSelf();
-        }, "dvine-model-download");
+        }, "ibiko-model-download");
         t.setPriority(Thread.NORM_PRIORITY - 1);
         t.start();
         return START_NOT_STICKY;
@@ -136,7 +136,7 @@ public final class ModelDownloadService extends Service {
                 .build();
     }
 
-    /** The notification left when it ends: ready, paused or stopped; tapping it opens DVINE. */
+    /** The notification left when it ends: ready, paused or stopped; tapping it opens Ibiko. */
     static Notification result(Context c, DownloadStatus s) {
         boolean ok = s.phase() == DownloadStatus.Phase.DONE;
         return new Notification.Builder(c, CHANNEL)
@@ -152,11 +152,11 @@ public final class ModelDownloadService extends Service {
     private void lock() {
         try {
             PowerManager pm = getSystemService(PowerManager.class);
-            wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dvine:model-download");
+            wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:model-download");
             wake.acquire(4 * 60 * 60 * 1000L);
             WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             if (wm != null) {
-                wifi = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "dvine:model-download");
+                wifi = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "ibiko:model-download");
                 wifi.acquire();
             }
         } catch (RuntimeException e) {

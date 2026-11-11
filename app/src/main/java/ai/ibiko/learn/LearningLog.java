@@ -16,11 +16,11 @@ import java.util.Set;
 import ai.ibiko.brain.MiniJson;
 
 /**
- * DVINE learning from the API models it talks to: every answer an API model gives (the instructions, the
+ * Ibiko learning from the API models it talks to: every answer an API model gives (the instructions, the
  * conversation, the request, the reply, which model, and Ibiko's steps, which arrive as their own calls) is kept on
  * this phone, one JSON line each. It is used two ways. Now: when the phone's own model answers, the closest past
  * answers are given to it as examples ({@link #examplesFor}). Later: {@link #exportForTraining} writes the lot in
- * the chat format fine-tuning tools read, to train DVINE's own model on a GPU. Keys are never part of a record;
+ * the chat format fine-tuning tools read, to train Ibiko's own model on a GPU. Keys are never part of a record;
  * nothing leaves the phone unless the user exports it. Pure Java.
  */
 public final class LearningLog {

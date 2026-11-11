@@ -65,7 +65,7 @@ public final class LanguageInferenceOptimizer {
         public InferenceScheduler(int maxQueued) {
             this.maxQueued = Math.max(1, maxQueued);
             pool = java.util.concurrent.Executors.newFixedThreadPool(1, runnable -> {
-                Thread t = new Thread(runnable, "dvine-work");
+                Thread t = new Thread(runnable, "ibiko-work");
                 t.setDaemon(true);
                 return t;
             });

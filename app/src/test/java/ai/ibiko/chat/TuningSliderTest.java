@@ -41,7 +41,7 @@ public class TuningSliderTest {
         ActivityController<ai.ibiko.chat.ui.SettingsActivity> c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.class)
                 .create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        SharedPreferences prefs = c.get().getSharedPreferences("dvine", 0);
+        SharedPreferences prefs = c.get().getSharedPreferences("ibiko", 0);
         android.view.View root = c.get().getWindow().getDecorView();
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
         root.findViewsWithText(found, "Advanced", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);

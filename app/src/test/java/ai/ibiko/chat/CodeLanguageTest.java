@@ -16,7 +16,7 @@ public class CodeLanguageTest {
         assertEquals("kotlin", CodeLanguage.detect("data class User(val name: String)\nfun greet(u: User) {\n    val text = \"Hi ${u.name}\"\n}"));
         assertEquals("python", CodeLanguage.detect("import os\n\ndef main():\n    print(os.getcwd())\n\nif __name__ == \"__main__\":\n    main()"));
         assertEquals("javascript", CodeLanguage.detect("const x = 5;\nfunction add(a, b) {\n  return a + b;\n}\nconsole.log(add(x, 2));"));
-        assertEquals("json", CodeLanguage.detect("{\n  \"name\": \"dvine\",\n  \"version\": 3\n}"));
+        assertEquals("json", CodeLanguage.detect("{\n  \"name\": \"ibiko\",\n  \"version\": 3\n}"));
         assertEquals("sql", CodeLanguage.detect("SELECT name FROM users WHERE id = 1;\nCREATE TABLE t (id INT);"));
         assertEquals("bash", CodeLanguage.detect("#!/bin/bash\ncd app\ngit pull\necho $HOME"));
         assertEquals("html", CodeLanguage.detect("<!DOCTYPE html>\n<html><body><div class=\"a\">Hi</div></body></html>"));

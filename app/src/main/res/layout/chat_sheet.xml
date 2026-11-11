@@ -60,7 +60,7 @@
 
         <EditText
             android:id="@+id/message"
-            style="@style/Widget.Dvine.ChatInput"
+            style="@style/Widget.Ibiko.ChatInput"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

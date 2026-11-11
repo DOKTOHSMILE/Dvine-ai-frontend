@@ -17,7 +17,7 @@ import ai.ibiko.voice.SentenceStream;
  * line (a spoken one goes to the pane, the stage and the voice, sentence by sentence), then posts
  * itself for the next. When the lines run out the stage is told the reply is done and the pending
  * {@code afterPlay} action runs once the voice has gone quiet, so the microphone never hears
- * DVINE's own words. A new message bumps the token, which leaves every queued step of the old walk
+ * Ibiko's own words. A new message bumps the token, which leaves every queued step of the old walk
  * doing nothing.
  *
  * <p>{@link #stopPlay} is what every new piece of work calls first: it bumps the token, drops the
@@ -230,7 +230,7 @@ public final class PlayStep {
                 if (talk == null) {
                     done.run();
                 } else {
-                    // the microphone waits until the voice has finished, so it doesn't hear DVINE's own words
+                    // the microphone waits until the voice has finished, so it doesn't hear Ibiko's own words
                     talk.whenQuiet(() -> host.handler().postDelayed(() -> {
                         if (host.samePlay(token)) {
                             done.run();

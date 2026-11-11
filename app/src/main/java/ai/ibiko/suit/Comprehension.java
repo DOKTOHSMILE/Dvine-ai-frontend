@@ -9,7 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The Cortex's reading of a message, made by DVINE itself in microseconds before any model sees it: what kind of
+ * The Cortex's reading of a message, made by Ibiko itself in microseconds before any model sees it: what kind of
  * act it is (a question, a request, a greeting, thanks, a correction, a feeling), whether it is negated, the
  * numbers, names, repositories, files and links in it, the words that carry its topic, and any arithmetic inside.
  * The reading goes to the model as one line ({@link #brief}), so a small model on the device knows what the user

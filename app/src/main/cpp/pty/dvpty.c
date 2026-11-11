@@ -1,5 +1,5 @@
 /*
- * DVINE's terminal device. Three calls Java cannot make on Android 14+: open a pseudo-terminal, learn its number
+ * Ibiko's terminal device. Three calls Java cannot make on Android 14+: open a pseudo-terminal, learn its number
  * (with the slave unlocked), and set its size in rows and columns. No C library is used (only Linux system calls),
  * so this builds with any clang and loads on any arm64 Android. Built by build.sh into
  * src/main/jniLibs/arm64-v8a/libdvpty.so.

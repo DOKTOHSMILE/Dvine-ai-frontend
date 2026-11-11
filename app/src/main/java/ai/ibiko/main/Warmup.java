@@ -4,7 +4,7 @@ import android.content.Context;
 
 /**
  * What Ibiko gets ready while its splash shows, so nothing waits for it once the chat is in use: the voice (loaded
- * and warmed by DvineApp), Ibiko 1's built-in facts and its dictionary and concept tables, the chats file, and this
+ * and warmed by IbikoApp), Ibiko 1's built-in facts and its dictionary and concept tables, the chats file, and this
  * chat's folder. It runs once per start, on a low-priority thread; the splash stays at most {@link #SPLASH_MS}.
  */
 public final class Warmup {
@@ -34,7 +34,7 @@ public final class Warmup {
             }
             ready = true; // the essentials: the rest goes on behind the chat
             try {
-                ai.ibiko.dvine1.Dvine1.warm(app.getFilesDir());
+                ai.ibiko.ibiko1.Ibiko1.warm(app.getFilesDir());
             } catch (Throwable ignored) {
                 // Ibiko 1 loads them on its first question instead
             }

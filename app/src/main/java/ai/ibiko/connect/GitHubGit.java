@@ -21,14 +21,14 @@ import ai.ibiko.brain.MiniJson;
 /**
  * Git with GitHub, without git: the phone has no git program, so the repository is worked through GitHub's Git Data
  * API with the GitHub connector's token. Clone writes a branch's files into a folder and keeps a small record of what
- * it got (".dvine-git.json": the repository, branch, commit, tree and each file's blob id). Status compares the
+ * it got (".ibiko-git.json": the repository, branch, commit, tree and each file's blob id). Status compares the
  * folder with that record the way git does (the blob id of the bytes). Pull brings in the branch's newer commit,
  * leaving files the user changed alone and reporting them. Commit and push are one step here: the changed files go
  * up as blobs, a tree and a commit, and the branch moves to it (or a new branch is made). A pull request can then
  * be opened. Pure Java; the network is behind {@link Connectors.Http}.
  */
 public final class GitHubGit {
-    public static final String RECORD = ".dvine-git.json";
+    public static final String RECORD = ".ibiko-git.json";
     /** The most files a clone or pull takes (Settings › Advanced › Most files in a clone). */
     static final int MAX_FILES = 5000;
     private int maxFiles = MAX_FILES;
@@ -116,7 +116,7 @@ public final class GitHubGit {
 
         static File file(File dir, String branch) {
             String safe = branch.replace("/", "__");
-            return new File(new File(new File(dir, ".git"), "dvine-fetched"), safe + ".json");
+            return new File(new File(new File(dir, ".git"), "ibiko-fetched"), safe + ".json");
         }
 
         static Fetched read(File dir, String branch) throws IOException {
@@ -948,7 +948,7 @@ public final class GitHubGit {
 
     /** Where the version last cloned, pulled or pushed is kept, so the changes can be shown line by line. */
     static File baseDir(File dir) {
-        return new File(dir, ".git/dvine-base");
+        return new File(dir, ".git/ibiko-base");
     }
 
     private static void base(File dir, String path, byte[] bytes) throws IOException {

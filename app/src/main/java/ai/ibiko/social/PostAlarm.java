@@ -21,7 +21,7 @@ import java.util.TimeZone;
  * set again after the device restarts.
  */
 public final class PostAlarm extends BroadcastReceiver {
-    static final String PREFS = "dvine_posts";
+    static final String PREFS = "ibiko_posts";
     static final String KEY = "plans";
     static final String CHANNEL = "scheduled_posts";
     static final String DUE = "ai.ibiko.POST_DUE";
@@ -85,7 +85,7 @@ public final class PostAlarm extends BroadcastReceiver {
             } finally {
                 later.finish();
             }
-        }, "dvine-post-due").start();
+        }, "ibiko-post-due").start();
     }
 
     /** Brings back every plan that is due, plans the repeating ones again, and sets the next alarm. */
@@ -107,7 +107,7 @@ public final class PostAlarm extends BroadcastReceiver {
     }
 
     /**
-     * A post that is due: approved when it was scheduled, so DVINE posts it from the signed-in account and says how it
+     * A post that is due: approved when it was scheduled, so Ibiko posts it from the signed-in account and says how it
      * went; when it can't post there itself, the reminder that opens the app with it ready, as before.
      */
     static void postOrNotify(Context c, PostPlan p) {
@@ -174,7 +174,7 @@ public final class PostAlarm extends BroadcastReceiver {
         try {
             nm.notify(p.id.hashCode(), n);
         } catch (SecurityException noPermission) {
-            // notifications are off for DVINE: the post waits in the list
+            // notifications are off for Ibiko: the post waits in the list
         }
     }
 }

@@ -16,7 +16,7 @@ import ai.ibiko.render.field.SolidSpec;
 
 /**
  * The user's saved 3D drawings, on the phone only: each kept under the name the user gave it, with what the user
- * said about it and DVINE's own note of what it shows (the thing, its parts, its colours), so it can be found again
+ * said about it and Ibiko's own note of what it shows (the thing, its parts, its colours), so it can be found again
  * by its name or by describing it ("my red car with no wheels"). Names are unique, ignoring case. Pure Java.
  */
 public final class DrawingLibrary {
@@ -125,7 +125,7 @@ public final class DrawingLibrary {
 
     /**
      * The saved drawings these words point to: the name exactly (100), the name's words all there (80), or most of
-     * the words found in the name, the thing drawn, what the user said about it and DVINE's note (up to 70).
+     * the words found in the name, the thing drawn, what the user said about it and Ibiko's note (up to 70).
      */
     public Found find(String words) {
         List<Entry> best = new ArrayList<Entry>();
@@ -163,7 +163,7 @@ public final class DrawingLibrary {
         return new Found(best, top);
     }
 
-    /** DVINE's own note of a drawing: "cat: body, head, ears, legs, tail; orange, green, pink". */
+    /** Ibiko's own note of a drawing: "cat: body, head, ears, legs, tail; orange, green, pink". */
     static String summarise(String subject, SolidSpec spec) {
         java.util.LinkedHashSet<String> parts = new java.util.LinkedHashSet<String>(), colours = new java.util.LinkedHashSet<String>();
         for (SolidSpec.Part p : spec.parts) {

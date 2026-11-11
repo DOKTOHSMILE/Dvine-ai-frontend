@@ -118,17 +118,17 @@ public final class UsageActivity extends AppCompatActivity {
         // ---- model
         section("Model");
         LinearLayout brain = card();
-        // the brain the pilot picked in the model menu: DVINE 1, the offline model, or the API models
-        String pick = getSharedPreferences("dvine", MODE_PRIVATE).getString("brain_pick", "api");
+        // the brain the pilot picked in the model menu: Ibiko 1, the offline model, or the API models
+        String pick = getSharedPreferences("ibiko", MODE_PRIVATE).getString("brain_pick", "api");
         java.util.List<Providers> apis = store.usable();
         boolean api = "api".equals(pick) && !apis.isEmpty();
-        String answers = "dvine".equals(pick) ? "Ibiko 1 \u00B7 0.1 (Ibiko's own)"
+        String answers = "ibiko".equals(pick) ? "Ibiko 1 \u00B7 0.1 (Ibiko's own)"
                 : api ? apis.get(0).title + ": " + store.model(apis.get(0)) + (store.connected(apis.get(0)) ? "" : " (not tested yet)")
                         + (apis.size() > 1 ? " +" + (apis.size() - 1) + " backup" : "")
                 : "On this device: " + hub.model.spec.weights;
         brain.addView(row("Chosen", answers));
         brain.addView(row("Offline model", phoneState(m)), Ui.wide(this, 8));
-        brain.addView(row("Context window", "dvine".equals(pick) ? "none (answers from memory and research)"
+        brain.addView(row("Context window", "ibiko".equals(pick) ? "none (answers from memory and research)"
                 : tokens(api ? store.window(apis.get(0)) : hub.model.localWindow()) + " tokens"), Ui.wide(this, 8));
         TextView change = Ui.text(this, "Change the model", 15, Ui.ACCENT, false);
         change.setPadding(0, Ui.dp(this, 14), 0, 0);
@@ -139,7 +139,7 @@ public final class UsageActivity extends AppCompatActivity {
         // ---- learning
         section("Learning");
         LinearLayout learn = card();
-        final android.content.SharedPreferences prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        final android.content.SharedPreferences prefs = getSharedPreferences("ibiko", MODE_PRIVATE);
         final ai.ibiko.learn.LearningLog ll = new ai.ibiko.learn.LearningLog(new File(getFilesDir(), "learning"));
         LinearLayout sw = new LinearLayout(this);
         sw.setGravity(Gravity.CENTER_VERTICAL);
@@ -190,18 +190,18 @@ public final class UsageActivity extends AppCompatActivity {
         body.addView(disk, Ui.wide(this, 8));
     }
 
-    /** Whether DVINE learns from the API models (on unless the user turned it off). */
+    /** Whether Ibiko learns from the API models (on unless the user turned it off). */
     public static boolean learningOn(android.content.SharedPreferences prefs) {
         return prefs.getBoolean("learn_on", true);
     }
 
-    /** Saves the training file to Downloads/DVINE. */
+    /** Saves the training file to Downloads/Ibiko. */
     private void exportLearning(ai.ibiko.learn.LearningLog ll) {
         if (ll.count() == 0) {
             android.widget.Toast.makeText(this, "Nothing learned yet.", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        String name = "dvine-training-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new java.util.Date()) + ".jsonl";
+        String name = "ibiko-training-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new java.util.Date()) + ".jsonl";
         android.content.ContentValues v = new android.content.ContentValues();
         v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
         v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/jsonl");

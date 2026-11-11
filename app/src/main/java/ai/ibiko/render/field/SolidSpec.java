@@ -118,7 +118,7 @@ public final class SolidSpec {
      * reads it back. Not the brain's format: nothing is re-placed.
      */
     public String save() {
-        StringBuilder b = new StringBuilder("dvine-solid 1\n");
+        StringBuilder b = new StringBuilder("ibiko-solid 1\n");
         if (frame != null) {
             b.append("frame\t").append(frame[0]).append('\t').append(frame[1]).append('\t').append(frame[2]).append('\t').append(frame[3]).append('\n');
         }
@@ -139,7 +139,7 @@ public final class SolidSpec {
     /** A drawing kept by {@link #save}; empty when the text isn't one. */
     public static SolidSpec load(String text) {
         SolidSpec out = new SolidSpec();
-        if (text == null || !text.startsWith("dvine-solid 1")) {
+        if (text == null || !text.startsWith("ibiko-solid 1")) {
             return out;
         }
         List<int[]> ups = new ArrayList<int[]>();

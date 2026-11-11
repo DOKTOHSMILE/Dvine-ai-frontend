@@ -169,7 +169,7 @@ public final class SourceRead {
         for (File k : kids) {
             String name = k.getName();
             if (name.equals(".git") || name.equals("node_modules") || name.equals("build") || name.equals(".gradle")
-                    || name.equals(".dvine-git.json")) {
+                    || name.equals(".ibiko-git.json")) {
                 continue;
             }
             if (k.isDirectory()) {

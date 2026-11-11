@@ -2,7 +2,7 @@ package ai.ibiko.linux;
 
 import java.io.File;
 
-/** DVINE's private workspace. It is created on the device and works with no network. */
+/** Ibiko's private workspace. It is created on the device and works with no network. */
 public final class WorkspaceManager {
     private static final String[] DIRS = {
             "system/bin", "system/lib", "system/config", "system/runtime",

@@ -9,8 +9,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * What DVINE learned from its brain: each thing the user said that the brain turned into a command DVINE knows
- * ("could you sketch me a lion" → "draw a lion in 3d"). The next time the same words come, DVINE does it at once,
+ * What Ibiko learned from its brain: each thing the user said that the brain turned into a command Ibiko knows
+ * ("could you sketch me a lion" → "draw a lion in 3d"). The next time the same words come, Ibiko does it at once,
  * without asking the brain, even offline. Kept on the phone (a small text file), newest 400 only. Pure Java.
  */
 public final class LearnedIntents {

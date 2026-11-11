@@ -210,8 +210,8 @@ final class AgentSession {
                 final String asked = ai.ibiko.scribe.Scribe.worth(task) || !stands.isEmpty() ? task
                         + (stands.isEmpty() ? "" : "\n\n" + stands + "\nCarry on from that point. Read only the files the next"
                                 + " pending step needs; do not start a second project or re-read what is listed as done.")
-                        : task + a.dvine1().methods().hint(task).replaceFirst("^ ", "\n\n");
-                final String ahead = a.dvine1().premeditate(task).trim();
+                        : task + a.ibiko1().methods().hint(task).replaceFirst("^ ", "\n\n");
+                final String ahead = a.ibiko1().premeditate(task).trim();
                 result = agent.run(asked + "\n\n" + ahead, earlier); // the agent thinks ahead too
                 long began = System.currentTimeMillis();
                 int round = 1;
@@ -278,6 +278,6 @@ final class AgentSession {
                     a.approvePlan(task, answer);
                 }
             });
-        }, "dvine-agent").start();
+        }, "ibiko-agent").start();
         }
 }

@@ -1,3 +1,9 @@
+# The name is Ibiko everywhere (0.99.99)
+
+- [x] Code, packages, classes, theme, native engine, docs, file names: Ibiko.
+- [x] Older installs carried over (settings, work log, clone state, Linux stamp).
+- [ ] The owner renames the GitHub repositories (Dvine-ai-frontend, Dvine-ai-backend); then update the download addresses.
+
 # Critical reasoning (0.99.98)
 
 - [x] formulas/Critical K1–K12: kind, premise, absolutes, options, cause, who says, criteria, forecasts, how sure, other side, second route, falsifier.
@@ -186,7 +192,7 @@
 
 # CodeAssist can see R again (0.99.70)
 
-- [x] The phone compiles `ai.ibiko`. The copy of the project CodeAssist had indexed still said `ai.dvine`, so the generated `R` was not `ai.ibiko.R` and every screen failed with "R cannot be resolved".
+- [x] The phone compiles `ai.ibiko`. The copy of the project CodeAssist had indexed still said `ai.ibiko`, so the generated `R` was not `ai.ibiko.R` and every screen failed with "R cannot be resolved".
 - [x] That stale index and the old Gradle snapshot are no longer what a pull restores. Close the project, pull, open it again, then build.
 
 # Ibiko's icon (0.99.69)
@@ -290,7 +296,7 @@
 - [x] Ibiko answers everything when a model is in use; real work starts the agents by code.
 - [x] The organisation: ARCH, CPGC, ROLX, SCRB and ten specialists; time on every part; hands under each agent.
 - [x] One record file a project with an exact resume point; workers kept to the project's folder.
-- [x] DVINE 1 answers from facts shipped in the app (starter set).
+- [x] Ibiko 1 answers from facts shipped in the app (starter set).
 - [ ] Remove Obi and Ivie from the code itself (classes, voices, canvas wiring, tests).
 - [ ] The full built-in dataset (run tools/build_world_facts.py when Wikidata allows; then more subjects).
 - [ ] The organisation for features outside the coding agent.
@@ -303,8 +309,8 @@
 
 - [x] A finished turn: the process in one row at the top, one summary under it.
 - [x] Copy, Listen and the rest show on a tap of the reply.
-- [x] DVINE 1 learns how an answer was reached from every reply, with no tap.
-- [ ] DVINE 1 composing new methods from parts of old ones.
+- [x] Ibiko 1 learns how an answer was reached from every reply, with no tap.
+- [ ] Ibiko 1 composing new methods from parts of old ones.
 
 # Only the brain commands; workers; tools grid (0.99.50)
 
@@ -319,7 +325,7 @@
 - [x] Each reply: the persona's icon and name; Listen reads only their words, in their voice.
 - [x] African voices first (Nigerian, then other African English).
 - [x] Device fixes: the right name on each line, gateway tags never shown, commands to Ibiko and the built-in Linux, no web search for commands, a quieter survey.
-- [x] Share › DVINE from other apps.
+- [x] Share › Ibiko from other apps.
 - [ ] Two or three personas working at the same time in the group.
 - [ ] Offline neural voices.
 
@@ -391,7 +397,7 @@
 
 # The shell, as one piece (0.99.36)
 
-DVINE has one Alpine Linux. It is not a picture of a terminal.
+Ibiko has one Alpine Linux. It is not a picture of a terminal.
 
 - Open **Shell** and type. The prompt is `localhost:~#`. The folder stays (`~` is `/root`). Tab completes a name. CTRL-R recalls an older command. FIND scrolls to a match. COPY copies the session. CTRL-C stops the program. Colors and rewritten progress lines are shown.
 - `pkg install` uses Alpine 3.22, the phone's DNS, and http repositories. `/work` is the app's files. `/storage` and `/sdcard` are there when the phone allows them.
@@ -499,7 +505,7 @@ A command with a single `&` (a background job, or a link like `a=1&b=2`) made th
 - [x] A lone `&` is refused. The splitter stops if it cannot move forward, and a command is refused past 64 KB or 4,096 parts.
 - [x] A failure in the shell is returned as text. It does not kill the agent thread.
 
-# DVINE's own shell (0.99.17)
+# Ibiko's own shell (0.99.17)
 
 The shell runs inside the app. Termux is not required and is not opened.
 
@@ -512,13 +518,13 @@ The shell runs inside the app. Termux is not required and is not opened.
 
 # MainActivity split (0.99.15)
 
-The order is in `docs/DVINE_MASTER_BUILD_HANDBOOK.md` §10. The canvas is the next piece after the drawer, the tools sheet, the model menu and DVINE 1.
+The order is in `docs/IBIKO_MASTER_BUILD_HANDBOOK.md` §10. The canvas is the next piece after the drawer, the tools sheet, the model menu and Ibiko 1.
 
 - [x] Ivie's 3D canvas and its full-screen mode live in `main/IvieCanvas.java`. `MainActivity` still decides when to show it, and Back still leaves full screen first.
 - [x] The social order (connect, help, post, search, trending) lives in `main/SocialFlow.java`. The screen still speaks, opens the sign-in pages, and runs the search.
 - [ ] The gateway routes and `carryOut` are still in `MainActivity`.
 
-# PLAN — DVINE independent learner (per memory/projects/independent-learner/DESIGN.md)
+# PLAN — Ibiko independent learner (per memory/projects/independent-learner/DESIGN.md)
 
 Design is settled. This checklist is the build order; tick each item when its test passes.
 
@@ -564,7 +570,7 @@ Design and status: `docs/SOCIAL_INTELLIGENCE.md`.
       contextWindow, reasoning, needsApiKey), agents (id, name, brain, provider, maxSteps,
       maxTokens, side, description), providers (id, api key env, docs).
 - [ ] (checked 0.96.4: `ModelRegistry` is a fixed table of three agents, Obi 20 steps, Ivie 20, Ibiko 40; no file, no `Toml` reader) `app/src/main/java/ai/ibiko/config/ModelRegistry.java`: reads that file from the app's own
-      files (or `~/Dvine/config/`), copies the bundled one on first launch, parses TOML with a
+      files (or `~/Ibiko/config/`), copies the bundled one on first launch, parses TOML with a
       small `Toml` reader (`T[]` arrays of tables, `#` comments, quotes, escapes).
 - [ ] (no `ModelBrain` class, checked 0.96.4) `ModelBrain`: one object per agent row, so the crew runs several brains at once.
 - [x] `Tuning.TASK_TIER` and `Tuning.BRAIN_TIER`: both default to 0 = `auto` (the old behaviour).
@@ -683,7 +689,7 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 
 # Command authorization (0.94.8)
 
-- [x] Pause, resume, cancel and stop of a task go through DvineCommandGateway. Chat, model text, code, documents and a spoken reply do not.
+- [x] Pause, resume, cancel and stop of a task go through IbikoCommandGateway. Chat, model text, code, documents and a spoken reply do not.
 - [x] The send button still stops the current reply. A long-press on the microphone opens command mode for one message, which is the only spoken path that can pause, resume or cancel a task.
 - [x] Saying "stop" or "pause" in ordinary conversation no longer stops the work, the download, or the body.
 
@@ -712,6 +718,6 @@ The full directive's phases that need a device (Termux sessions, GitHub push of 
 - [ ] Native llama.cpp KV-cache and thread affinity were not retuned on a device. The thread knob already exists.
 - [ ] The unit tests were run in this pass as a compile of the new record test; the full suite runs at the next build.
 
-Additions from the 0.95.6 audit (checked 0.96.4: `ToolTimeouts` and `ProviderCredentials` are not in the code, so none of this landed): `ToolTimeouts` runs the command on a daemon thread so a download, a kill, or a cancel reaches the phone inside the timeout; `ProviderCredentials` now covers the GitHub token, the Dvine key, the OpenAI key and the session token, and `Scribe` strips them from every line it records; the on-disk record uses the local model path in the app's own files. `T20c.kt` and `T20main.kt` at the workspace root are stray test files from an earlier run and are not part of the app; they should be deleted with the user's consent.
+Additions from the 0.95.6 audit (checked 0.96.4: `ToolTimeouts` and `ProviderCredentials` are not in the code, so none of this landed): `ToolTimeouts` runs the command on a daemon thread so a download, a kill, or a cancel reaches the phone inside the timeout; `ProviderCredentials` now covers the GitHub token, the Ibiko key, the OpenAI key and the session token, and `Scribe` strips them from every line it records; the on-disk record uses the local model path in the app's own files. `T20c.kt` and `T20main.kt` at the workspace root are stray test files from an earlier run and are not part of the app; they should be deleted with the user's consent.
 
 The full directive's phases that need a device (Termux sessions, GitHub push of a real repo, JNI benchmarks) are not claimed as tested here. The unit test covers the record, redaction, and the deep-mode budgets.

@@ -43,7 +43,7 @@ public class SceneEditTest {
 
     @Test
     public void aFrontTyreDetachesAndReturnsToTheSamePlace() throws Exception {
-        File dir = new File(System.getProperty("java.io.tmpdir"), "dvine-edit-" + System.nanoTime());
+        File dir = new File(System.getProperty("java.io.tmpdir"), "ibiko-edit-" + System.nanoTime());
         assertTrue(dir.mkdirs());
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, dir);
@@ -163,7 +163,7 @@ public class SceneEditTest {
 
     @Test
     public void aDetachedTyreIsStillDetachedAfterSaveAndReopen() throws Exception {
-        File dir = new File(System.getProperty("java.io.tmpdir"), "dvine-moto-" + System.nanoTime());
+        File dir = new File(System.getProperty("java.io.tmpdir"), "ibiko-moto-" + System.nanoTime());
         assertTrue(dir.mkdirs());
         ObjectSession session = new ObjectSession();
         CreationDirector director = new CreationDirector(session, dir);

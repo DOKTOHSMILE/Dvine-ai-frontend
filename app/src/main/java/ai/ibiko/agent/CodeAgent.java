@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 /**
  * Ibiko as a coding agent, after Claude Code: given a task, it works in its own project folder on the phone step by
  * step. Each step the brain answers with one tool call (list, read, write or edit a file, search, run a shell
- * command, fetch a page, use a connector) or with its final answer; DVINE carries the call out and hands back the
+ * command, fetch a page, use a connector) or with its final answer; Ibiko carries the call out and hands back the
  * result, up to {@link #MAX_STEPS}. Files never leave the workspace (a path that climbs out is refused), and a
  * command runs only when the host allows it (the user, unless Auto-accept is on). Pure Java; the brain and the
  * phone are behind {@link Brain} and {@link Host}.
@@ -81,7 +81,7 @@ public final class CodeAgent {
         }
 
         /**
-         * DVINE's own line after a step: what it was looking for and what it found ({@link Narration}), so the work is
+         * Ibiko's own line after a step: what it was looking for and what it found ({@link Narration}), so the work is
          * never silent even when the model writes nothing between its steps.
          */
         default void found(String line) {
@@ -764,7 +764,7 @@ public final class CodeAgent {
                 return done(text);
             }
             if (pending == null && text.length() < REPORT_CHARS) {
-                pending = text; // asked once whether it is done (DVINE's own check: not a step the user sees)
+                pending = text; // asked once whether it is done (Ibiko's own check: not a step the user sees)
                 work.append("\n").append(text).append("\n<result>\n").append(DONE_OR_GO_ON).append("\n</result>\n");
                 continue;
             }
@@ -1095,7 +1095,7 @@ public final class CodeAgent {
     private static final Pattern ATTR = Pattern.compile("(\\w+)\\s*=\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
 
     /**
-     * The first tool call in a reply, or null when the reply is a final answer. DVINE's own form is
+     * The first tool call in a reply, or null when the reply is a final answer. Ibiko's own form is
      * {@code <tool name="…" …/>}, but models trained on other tool formats write those, so these are read too:
      * {@code <function=git action="clone"/>}, {@code <function=fetch><parameter=url>…</parameter></function>}
      * (inside {@code <tool_call>} or not), {@code <invoke name="…"><parameter name="…">…</parameter></invoke>}, and
@@ -1186,7 +1186,7 @@ public final class CodeAgent {
         return s.isEmpty() ? "I couldn't read that tool call, so I didn't run it. Say \u201ccontinue\u201d to try again." : s;
     }
 
-    /** DeepSeek's tool block, {@code <|DSML|invoke name="read_file" path="…">}, turned into DVINE's call. */
+    /** DeepSeek's tool block, {@code <|DSML|invoke name="read_file" path="…">}, turned into Ibiko's call. */
     static Call dsml(String raw) {
         if (raw == null || !raw.toUpperCase(Locale.US).contains("DSML")) {
             return null;
@@ -1230,7 +1230,7 @@ public final class CodeAgent {
         return made(name, attrs, r.substring(m.start(), Math.min(end, r.length())));
     }
 
-    /** A tool call in one of the other common forms, turned into DVINE's; null when there is none. */
+    /** A tool call in one of the other common forms, turned into Ibiko's; null when there is none. */
     static Call foreign(String r) {
         Matcher f = FUNCTION.matcher(r);
         Matcher v = INVOKE.matcher(r);
@@ -1293,7 +1293,7 @@ public final class CodeAgent {
         return made(name, attrs, r.substring(start, end));
     }
 
-    /** DVINE's call from a name and arguments: the file's text, an edit's old and new, a PR's text go in the body. */
+    /** Ibiko's call from a name and arguments: the file's text, an edit's old and new, a PR's text go in the body. */
     private static Call made(String name, Map<String, String> attrs, String raw) {
         String n = name.toLowerCase(Locale.US).replace('-', '_');
         String body = "";

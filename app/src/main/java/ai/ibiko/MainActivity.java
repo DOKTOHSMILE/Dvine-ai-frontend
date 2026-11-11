@@ -235,7 +235,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             case BAD_FILE:
             case FAILED:
                 if (wasRunning) {
-                    // a note, not a chat reply: a reply here would cut off whatever DVINE is doing
+                    // a note, not a chat reply: a reply here would cut off whatever Ibiko is doing
                     note("The model download stopped at " + st.percent() + "%. Resume it in Settings.");
                 }
                 break;
@@ -420,7 +420,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return true;
     }
 
-    /** Saves what is on Ivie's canvas as a GLB, OBJ (+MTL), STL or PLY file in Downloads/DVINE, and offers to share it. */
+    /** Saves what is on Ivie's canvas as a GLB, OBJ (+MTL), STL or PLY file in Downloads/Ibiko, and offers to share it. */
     void exportStudio(String said) {
         ai.ibiko.create.IvieStudio.Export e = studio.export(said);
         if (e == null) {
@@ -536,7 +536,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /**
      * The crash banner ({@link ai.ibiko.main.CrashReport}): every crash is saved to files/crash.txt and to
-     * Download/DVINE, and on the next start the banner offers that report once. This is the screen it serves.
+     * Download/Ibiko, and on the next start the banner offers that report once. This is the screen it serves.
      */
     final ai.ibiko.main.CrashReport.Host crashHost = new ai.ibiko.main.CrashReport.Host() {
         @Override
@@ -941,7 +941,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                 });
             }
-        }, "dvine-work").start();
+        }, "ibiko-work").start();
     }
 
     /** Images, files and long pastes waiting above the words; sent with the message. */
@@ -985,7 +985,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** Adds a picked file to the message being written (read off the main thread). */
     /**
-     * Share › DVINE from another app ({@link ai.ibiko.chat.ui.ShareActivity}): the files and pictures are attached to
+     * Share › Ibiko from another app ({@link ai.ibiko.chat.ui.ShareActivity}): the files and pictures are attached to
      * the composer and shared text is put in the field. Nothing is sent until the user sends it.
      */
     void takeShared() {
@@ -1031,7 +1031,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     field.requestFocus();
                 }
             });
-        }, "dvine-attach").start();
+        }, "ibiko-attach").start();
     }
 
     /** The mic writing into the message box. */
@@ -1260,7 +1260,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         } else if (which == 2) {
                             startActivity(new android.content.Intent(this, ai.ibiko.chat.ui.MemoryActivity.class));
                         } else if (model != null) {
-                            ai.ibiko.chat.ui.WorkloadSheet.show(this, model, brainLabel(), dvineOwn());
+                            ai.ibiko.chat.ui.WorkloadSheet.show(this, model, brainLabel(), ibikoOwn());
                         }
                     }));
         }
@@ -1379,7 +1379,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        applyTheme(getSharedPreferences("dvine", MODE_PRIVATE).getString("theme", "system"));
+        applyTheme(getSharedPreferences("ibiko", MODE_PRIVATE).getString("theme", "system"));
         super.onCreate(savedInstanceState);
         if (!"robolectric".equals(android.os.Build.FINGERPRINT) && !ai.ibiko.main.AppFiles.ready(getFilesDir())) {
             // the first start: the app files are downloaded before anything opens, and without them it doesn't open
@@ -1418,7 +1418,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // The chat is laid out inside the status and navigation bars. It does not draw under them.
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
 
-        ai.ibiko.social.SocialWeb.onRead = text -> new Thread(() -> dvine1().readSocial(text), "dvine-read").start();
+        ai.ibiko.social.SocialWeb.onRead = text -> new Thread(() -> ibiko1().readSocial(text), "ibiko-read").start();
         stage = new StageView(this);
         stage.setListener(this);
         podView = new ai.ibiko.render.PodView(this);
@@ -1477,8 +1477,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 // learned as we go, from every brain's work: how the answer was reached, not only what it was
-                new Thread(() -> dvine1().learnWay(ai.ibiko.chat.Attachments.withoutImages(asked)
-                        .replaceAll("(?s)<attachment.*?</attachment>", "").trim(), steps), "dvine-method").start();
+                new Thread(() -> ibiko1().learnWay(ai.ibiko.chat.Attachments.withoutImages(asked)
+                        .replaceAll("(?s)<attachment.*?</attachment>", "").trim(), steps), "ibiko-method").start();
             }
 
             @Override
@@ -1498,7 +1498,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
             @Override
             public void onRate(String question, String answer, boolean right) {
-                dvine1().endpoint().feedback(question, answer, right);
+                ibiko1().endpoint().feedback(question, answer, right);
             }
 
             @Override
@@ -1564,7 +1564,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             bars.setAppearanceLightNavigationBars(light);
         }
 
-        prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        prefs = getSharedPreferences("ibiko", MODE_PRIVATE);
         if (!prefs.getBoolean("chat_spaces_adopted", false)) {
             // once: files from before each chat had its own folder go to the chat open now (repositories into repos/)
             final java.io.File here = chatSpace();
@@ -1595,7 +1595,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         library = new ai.ibiko.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
         assistant = new ai.ibiko.ops.AssistantCore(new File(getFilesDir(), "ops"),
                 new ai.ibiko.ops.termux.TermuxCapabilityDetector.Probe() {
-                    // the task system's device commands run in DVINE's one Alpine Linux, not in another app
+                    // the task system's device commands run in Ibiko's one Alpine Linux, not in another app
                     @Override
                     public boolean installed() {
                         return ai.ibiko.linux.AlpineRun.ready(MainActivity.this);
@@ -1638,7 +1638,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 handler.post(() -> brain.replacePack(full));
             } catch (RuntimeException broken) {
             }
-        }, "dvine-knowledge");
+        }, "ibiko-knowledge");
         loader.setPriority(Thread.MIN_PRIORITY);
         loader.start();
         String storedName = prefs.getString("user_name", null);
@@ -1664,7 +1664,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final ai.ibiko.net.SessionClient session = new ai.ibiko.net.SessionClient(this::serverUrl,
                 prefs, new ai.ibiko.net.DeviceVault(prefs));
-        ai.ibiko.llm.ProviderStore.serverSession = session::token; // the DVINE server's own model signs in with it
+        ai.ibiko.llm.ProviderStore.serverSession = session::token; // the Ibiko server's own model signs in with it
         sync = new SyncWorker(this::serverUrl, session::deviceId, journal, store, session::token,
                 pack -> {
                     final ai.ibiko.brain.KnowledgePack full = store.load();
@@ -1708,7 +1708,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             : null);
         });
         applyProvider();
-        ai.ibiko.dvine1.LearningJob.schedule(this); // night learning, if the pilot turned it on
+        ai.ibiko.ibiko1.LearningJob.schedule(this); // night learning, if the pilot turned it on
 
         stage.wake();
         handler.postDelayed(this::greetOnOpen, 700);
@@ -1739,7 +1739,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     boolean fromBrain;
     ai.ibiko.ops.AssistantCore assistant;
     /** One utterance, opened only by a long-press on the microphone. Chat text never opens this. */
-    ai.ibiko.ops.task.DvineCommandGateway.VoiceSession commandSession;
+    ai.ibiko.ops.task.IbikoCommandGateway.VoiceSession commandSession;
     static final int PICK_CONTENT = 47;
     static final int HISTORY = 48;
     /** The Social accounts screen; it may come back with words for the message box ("Write a Facebook post about "). */
@@ -1811,7 +1811,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-    /** One step of what DVINE is doing, shown live in the chat ("Searching the web for …"); any thread. */
+    /** One step of what Ibiko is doing, shown live in the chat ("Searching the web for …"); any thread. */
     /** The reply being written on each job, as a worker on the board. */
     final java.util.Map<Integer, String> replyWorkers = new java.util.concurrent.ConcurrentHashMap<Integer, String>();
 
@@ -2045,7 +2045,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     ai.ibiko.gate.BrainGateway messageGate, brainGate;
 
     /**
-     * Every message's way through DVINE (the one gateway): first the "message" stage (controls, the model's own
+     * Every message's way through Ibiko (the one gateway): first the "message" stage (controls, the model's own
      * commands, posts, files, social searches, reading the meaning), then the "brain" stage (Ivie's canvas, the
      * agents, the council, the model). Each route is asked in this order and the first that takes it handles it;
      * which one is recorded ({@link ai.ibiko.gate.BrainGateway#recent}).
@@ -2150,7 +2150,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("learned", t -> {
-                    // DVINE's own brain: an action it learned from the models, carried out without asking one.
+                    // Ibiko's own brain: an action it learned from the models, carried out without asking one.
                     // Only when no brain is in the suit: with one, the brain reads every message (the box keeps learning from it)
                     if (brainReads()) {
                         return false;
@@ -2172,11 +2172,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     if (modelOn()) {
                         return false;
                     }
-                    if (dvineOwn()) {
-                        dvine1().endpoint().chat(t); // DVINE 1, through its endpoint: what it knows, or it researches and asks whether it got it right
+                    if (ibikoOwn()) {
+                        ibiko1().endpoint().chat(t); // Ibiko 1, through its endpoint: what it knows, or it researches and asks whether it got it right
                         return true;
                     }
-                    // no model in the suit: DVINE's own Cortex answers what it can (exact sums, greetings, what it learned)
+                    // no model in the suit: Ibiko's own Cortex answers what it can (exact sums, greetings, what it learned)
                     String alone = cortex().answerAlone(t);
                     if (alone != null) {
                         play(LocalTurn.speakAs(stage.agent(), alone), null);
@@ -2205,7 +2205,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return true;
                 })
                 .route("the model decides", t -> {
-                    // one call: the model answers, and gives an order on its first line when it decides DVINE should
+                    // one call: the model answers, and gives an order on its first line when it decides Ibiko should
                     // act. Real work gets the long allowance, talk the everyday one
                     boolean big = ai.ibiko.llm.TaskSize.of(t, false) == ai.ibiko.llm.TaskSize.Tier.STRONG;
                     askLocal(t, null, false, big ? ai.ibiko.chat.Tuning.BIG_TOKENS.get(prefs)
@@ -2347,7 +2347,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /**
-     * The brain called a social capability (§SI): DVINE runs it off the main thread (privacy guard first), then the
+     * The brain called a social capability (§SI): Ibiko runs it off the main thread (privacy guard first), then the
      * same brain reads what came back, with its sources, and answers. The results are data, not instructions.
      */
     void useSocialIntel(final String question, final String call) {
@@ -2385,7 +2385,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     ai.ibiko.learn.BrainBox brainBox;
     ai.ibiko.suit.Cortex cortex;
 
-    /** DVINE's own light brain in the suit: reads every message and works out arithmetic exactly, for any model. */
+    /** Ibiko's own light brain in the suit: reads every message and works out arithmetic exactly, for any model. */
     ai.ibiko.learn.PilotProfile pilotProfile;
 
     /** What the pilot has said about themselves, kept on the device and told to every brain. */
@@ -2396,27 +2396,27 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return pilotProfile;
     }
 
-    /** After a learning session: what DVINE 1 learned, said once in the chat. */
+    /** After a learning session: what Ibiko 1 learned, said once in the chat. */
     void morningReport() {
-        String said = stage == null ? null : dvine1().report();
+        String said = stage == null ? null : ibiko1().report();
         if (said != null) {
             play(LocalTurn.speakAs(stage.agent(), said), null);
         }
     }
 
 
-    ai.ibiko.dvine1.Dvine1 dvine1;
+    ai.ibiko.ibiko1.Ibiko1 ibiko1;
 
-    /** DVINE 1 · 0.1, DVINE's own model (its whole code is in the dvine1 folder), plugged into this screen. */
-    synchronized ai.ibiko.dvine1.Dvine1 dvine1() {
-        if (dvine1 == null) {
-            dvine1 = new ai.ibiko.dvine1.Dvine1(new ai.ibiko.main.Dvine1Screen(this, dvineScreen), getFilesDir());
+    /** Ibiko 1 · 0.1, Ibiko's own model (its whole code is in the ibiko1 folder), plugged into this screen. */
+    synchronized ai.ibiko.ibiko1.Ibiko1 ibiko1() {
+        if (ibiko1 == null) {
+            ibiko1 = new ai.ibiko.ibiko1.Ibiko1(new ai.ibiko.main.Ibiko1Screen(this, ibikoScreen), getFilesDir());
         }
-        return dvine1;
+        return ibiko1;
     }
 
-    /** What DVINE 1 is given of this screen (see main/Dvine1Screen). */
-    final ai.ibiko.main.Dvine1Screen.Parts dvineScreen = new ai.ibiko.main.Dvine1Screen.Parts() {
+    /** What Ibiko 1 is given of this screen (see main/Ibiko1Screen). */
+    final ai.ibiko.main.Ibiko1Screen.Parts ibikoScreen = new ai.ibiko.main.Ibiko1Screen.Parts() {
         @Override
         public String persona() {
             return stage.agent();
@@ -2449,10 +2449,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
 
         @Override
-        public void answered(ai.ibiko.dvine1.Dvine1.How how) {
+        public void answered(ai.ibiko.ibiko1.Ibiko1.How how) {
             if (model != null) {
-                model.usage.recordOwn(how == ai.ibiko.dvine1.Dvine1.How.MEMORY ? ai.ibiko.llm.UsageLog.Own.MEMORY
-                        : how == ai.ibiko.dvine1.Dvine1.How.RESEARCH ? ai.ibiko.llm.UsageLog.Own.RESEARCH : ai.ibiko.llm.UsageLog.Own.OTHER,
+                model.usage.recordOwn(how == ai.ibiko.ibiko1.Ibiko1.How.MEMORY ? ai.ibiko.llm.UsageLog.Own.MEMORY
+                        : how == ai.ibiko.ibiko1.Ibiko1.How.RESEARCH ? ai.ibiko.llm.UsageLog.Own.RESEARCH : ai.ibiko.llm.UsageLog.Own.OTHER,
                         System.currentTimeMillis());
             }
             checkWorkload();
@@ -2505,7 +2505,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return model != null && model.apiChosen();
     }
 
-    /** DVINE's own light brain: how the user's words became actions, learned from every model it works with. */
+    /** Ibiko's own light brain: how the user's words became actions, learned from every model it works with. */
     synchronized ai.ibiko.learn.BrainBox brainBox() {
         if (brainBox == null) {
             brainBox = new ai.ibiko.learn.BrainBox(new java.io.File(getFilesDir(), "learning/brainbox.tsv"));
@@ -2514,7 +2514,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /**
-     * A brain is in the suit (the device's model, or an API): it alone reads what the pilot's words mean and gives DVINE
+     * A brain is in the suit (the device's model, or an API): it alone reads what the pilot's words mean and gives Ibiko
      * the code of what to do. No wording runs a function then; the buttons stay the pilot's direct controls.
      */
     boolean brainReads() {
@@ -2522,7 +2522,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     boolean modelOn() {
-        return !dvineOwn() && model != null && model.ready() && prefs.getBoolean("llm_on", true);
+        return !ibikoOwn() && model != null && model.ready() && prefs.getBoolean("llm_on", true);
     }
 
     /**
@@ -2742,13 +2742,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (model == null) {
             return;
         }
-        // DVINE 1 has no context window to fill; the models' is the last call's
-        final float load = dvineOwn() ? 0f : model.workload();
+        // Ibiko 1 has no context window to fill; the models' is the last call's
+        final float load = ibikoOwn() ? 0f : model.workload();
         if (g != null) {
             g.set(load);
         }
         prefs.edit().putString("usage_today", model.usage.save()).apply(); // today's numbers survive a closed app
-        if (dvineOwn() || load < ai.ibiko.stage.WorkloadGauge.HOT || compacting || model.coding || !prefs.getBoolean("auto_clear", true)) {
+        if (ibikoOwn() || load < ai.ibiko.stage.WorkloadGauge.HOT || compacting || model.coding || !prefs.getBoolean("auto_clear", true)) {
             return;
         }
         compacting = true;
@@ -2920,7 +2920,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /**
-     * The brain asked for a connector's tool ("github.issues owner/repo"): DVINE runs it, then the brain answers
+     * The brain asked for a connector's tool ("github.issues owner/repo"): Ibiko runs it, then the brain answers
      * the question from what came back. The result is given as data, never as instructions.
      */
     void useConnector(final String question, String call) {
@@ -3042,7 +3042,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             handedOver = false;
             // one assistant: Ibiko answers everything (talk, research, writing, design, code). Only with no brain at
             // all do the old wording routes still pick among the three
-            String owner = "ibiko"; // the one assistant's own key inside the app; it is shown as DVINE
+            String owner = "ibiko"; // the one assistant's own key inside the app; it is shown as Ibiko
             if (owner != null && !owner.equals(stage.agent())) {
                 selectPersona(owner);
                 if (!groupChat()) {
@@ -3090,17 +3090,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             final String said = text;
             new Thread(() -> {
                 pilotProfile().notice(said); // what the pilot says about themselves
-                // what the pilot asks about, with any model: learned at night if DVINE 1 doesn't know it yet
-                dvine1().noticeQuestion(said);
-                dvine1().hear(said); // DVINE 1 learns from every message: grammar, shapes, the pilot's word on its answers
-            }, "dvine-profile").start();
+                // what the pilot asks about, with any model: learned at night if Ibiko 1 doesn't know it yet
+                ibiko1().noticeQuestion(said);
+                ibiko1().hear(said); // Ibiko 1 learns from every message: grammar, shapes, the pilot's word on its answers
+            }, "ibiko-profile").start();
         }
         if (!interpreted && needsInternet() && (connectivity == null || !connectivity.isOnline())) {
             waitForInternet(text);
             return;
         }
         if (!interpreted && commandSession != null && assistant != null) {
-            ai.ibiko.ops.task.DvineCommandGateway.VoiceSession session = commandSession;
+            ai.ibiko.ops.task.IbikoCommandGateway.VoiceSession session = commandSession;
             commandSession = null;
             ai.ibiko.ops.Outcome controlled = assistant.command(session, text, false);
             if (controlled.handled) {
@@ -3110,7 +3110,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 return;
             }
         }
-        messageGate().handle(text, System.currentTimeMillis()); // every message takes one way through DVINE
+        messageGate().handle(text, System.currentTimeMillis()); // every message takes one way through Ibiko
     }
 
     /** Messages written while the API was out of reach (no internet): chat id and words, sent when it's back. */
@@ -3123,7 +3123,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return "api".equals(brainPick()) && !new ai.ibiko.llm.ProviderStore(this).usable().isEmpty();
     }
 
-    /** The name of the API that would answer, for what DVINE says. */
+    /** The name of the API that would answer, for what Ibiko says. */
     String apiName() {
         ai.ibiko.llm.ProviderStore providers = new ai.ibiko.llm.ProviderStore(this);
         java.util.List<ai.ibiko.llm.Providers> use = providers.usable();
@@ -3132,14 +3132,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /**
      * No internet: the message is kept (it is already in the chat) and goes to the API as soon as the connection is
-     * back, and DVINE says so plainly, so a missing connection never looks like a broken API.
+     * back, and Ibiko says so plainly, so a missing connection never looks like a broken API.
      */
     void waitForInternet(String text) {
         String chat = chats == null || chats.current() == null ? "" : chats.current().id;
         waitingOnline.add(new String[] { chat, text });
         play(LocalTurn.speakAs(stage.agent(), "No internet connection. Nothing is wrong with " + apiName() + ": your message is"
                 + " saved and I'll send it the moment you're back online. For an answer now, pick an offline model or "
-                + DVINE_OWN + " from the model menu."), null);
+                + IBIKO_OWN + " from the model menu."), null);
     }
 
     /** Back online: the messages that waited are sent, each in the chat it was written in. */
@@ -3184,7 +3184,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /**
      * Staged actions: something that leaves the app (a post, a share, a copy) is shown with its exact text and where
      * it goes, and happens only on a yes ("send it", "yes", Send it), or at once when the user turned auto-approve on.
-     * A post is handed to the app, where the user presses send: DVINE says so, never that it was posted.
+     * A post is handed to the app, where the user presses send: Ibiko says so, never that it was posted.
      */
     boolean stagedAction(String text) {
         long now = System.currentTimeMillis();
@@ -3315,7 +3315,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     String pendingBuild;
 
     /**
-     * The brain's BUILD order: Ivie designs it from its measurements and DVINE builds it. Without any numbers in the
+     * The brain's BUILD order: Ivie designs it from its measurements and Ibiko builds it. Without any numbers in the
      * request, the user is asked once for the measurements they have; "you choose" (or not knowing) builds it with
      * standard real-world sizes.
      */
@@ -3496,7 +3496,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /**
      * "Comment under this post: <link>": the post is read with the pilot's account, the model writes a comment in
-     * their voice, and it waits for their yes before DVINE posts it there.
+     * their voice, and it waits for their yes before Ibiko posts it there.
      */
     void commentDraft(final String app, final String link, final String what) {
         final String agent = stage.agent();
@@ -3519,7 +3519,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         + (autoPost() ? "\n\nPosting it now (auto-post is on)." : "\n\nSay yes to post it.")), null);
                 offerOrPost(p);
             });
-        }, "dvine-comment").start();
+        }, "ibiko-comment").start();
     }
 
     void showStaged(final PendingAction p) {
@@ -3579,10 +3579,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         new Thread(() -> {
             ai.ibiko.social.SocialPoster.Result r = ai.ibiko.social.SocialPoster.post(this, net, p.content, null, p.target);
             if (r.posted) {
-                dvine1().readReply(p.content); // DVINE 1 learns the language of what the pilot approved
+                ibiko1().readReply(p.content); // Ibiko 1 learns the language of what the pilot approved
             }
             handler.post(() -> play(LocalTurn.speakAs(agent, r.said), null));
-        }, "dvine-comment-post").start();
+        }, "ibiko-comment-post").start();
     }
 
     /** Carries out an approved (or auto-approved) action and logs it; says what really happened. */
@@ -3597,13 +3597,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         final ai.ibiko.social.Platform net = p.kind == PendingAction.Kind.SHARE ? ai.ibiko.social.SocialPoster.direct(p.app) : null;
         if (net != null && ai.ibiko.social.SocialPoster.ready(this, net)) {
-            // the pilot said yes: DVINE posts it from their signed-in account, and says only what the network showed
+            // the pilot said yes: Ibiko posts it from their signed-in account, and says only what the network showed
             final String agent = stage.agent();
             note("Posting on " + net.shown + "\u2026");
             new Thread(() -> {
                 ai.ibiko.social.SocialPoster.Result r = ai.ibiko.social.SocialPoster.post(this, net, p.content, p.tags, null);
                 if (r.posted) {
-                    dvine1().readReply(p.content); // DVINE 1 learns the language of what the pilot approved
+                    ibiko1().readReply(p.content); // Ibiko 1 learns the language of what the pilot approved
                 }
                 handler.post(() -> {
                     if (r.posted) {
@@ -3616,7 +3616,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     play(LocalTurn.speakAs(agent, r.said + (handed ? " I've opened " + p.appName() + " with it ready; press Post there."
                             : " Nothing was sent.")), null);
                 });
-            }, "dvine-post").start();
+            }, "ibiko-post").start();
             return;
         }
         boolean ok = p.kind == PendingAction.Kind.COPY ? ai.ibiko.act.Actions.copy(this, p.content) : ai.ibiko.act.Actions.share(this, p);
@@ -3728,7 +3728,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         commands.read(text);
     }
 
-    /** The commands DVINE carries out with its own actions, the same ones its buttons use. */
+    /** The commands Ibiko carries out with its own actions, the same ones its buttons use. */
     void command(ai.ibiko.turn.Meaning.Command c) {
         switch (c) {
             case NEW_CHAT:
@@ -3816,7 +3816,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     deleteTree(ws);
                     handler.post(() -> play(LocalTurn.speakAs(stage.agent(),
                             "Done. This chat's files are deleted; other chats keep theirs."), null));
-                }, "dvine-clear-workspace").start())
+                }, "ibiko-clear-workspace").start())
                 .setNegativeButton("Keep it", (d, w) -> play(LocalTurn.speakAs(stage.agent(), "Okay, nothing was deleted."), null))
                 .show();
     }
@@ -4115,7 +4115,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 && connectivity.isOnline();
         armThink("Thinking\u2026", "Thinking\u2026");
         // and the way that worked before, and what this is likely to lead to (premeditation)
-        final String around = situation(ivie) + dvine1().methods().hint(question) + dvine1().premeditate(question);
+        final String around = situation(ivie) + ibiko1().methods().hint(question) + ibiko1().premeditate(question);
         hub.worker.execute(() -> {
             String asked = question;
             if (lang != null && alive(id)) {
@@ -4158,7 +4158,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     model.remoteOn() ? 2400 : 1200);
             String gathered = ai.ibiko.llm.PersonaPrompt.context(taught, reference, around)
                     + (older.isEmpty() ? "" : "\n" + older)
-                    + "\n" + cortex().context(english) // DVINE's reading of the message and any exact arithmetic
+                    + "\n" + cortex().context(english) // Ibiko's reading of the message and any exact arithmetic
                     + pilotProfile().brief() // what the pilot said about themselves, for every brain
                     + (pageTools.brief().isEmpty() ? "" : "\n" + pageTools.brief());
             if (!model.remoteOn() && gathered.length() > DEVICE_CONTEXT_CHARS) {
@@ -4190,7 +4190,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             backupPartial(ai.ibiko.llm.ActionTags.strip(soFar)); // a crash doesn't lose what was written
                         }
                     });
-            // an order line at the start ("DO SEARCH …") is held back: it is for DVINE, not shown or spoken
+            // an order line at the start ("DO SEARCH …") is held back: it is for Ibiko, not shown or spoken
             final StringBuilder head = new StringBuilder();
             final int[] gate = {acts ? 0 : 1}; // 0 deciding, 1 showing, 2 inside the order line
             final ai.ibiko.llm.NativeLlm.Sink sink = text -> {
@@ -4253,7 +4253,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 final String q = question;
                 if (ai.ibiko.chat.ui.UsageActivity.learningOn(prefs)) {
                     hub.worker.execute(() -> brainBox().learn(q, line));
-                } // DVINE's own brain learns how this became an action
+                } // Ibiko's own brain learns how this became an action
                 raw = ai.ibiko.llm.BrainOrder.withoutOrder(raw);
             }
             String back = null;
@@ -4297,7 +4297,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 if (!inFront && order == null && !body.isEmpty()) {
-                    // finished while DVINE is in the background: kept in its chat at once (nothing typed out to an
+                    // finished while Ibiko is in the background: kept in its chat at once (nothing typed out to an
                     // empty screen, nothing lost if Android closes the screen), and a notification says it's there
                     endThink();
                     setStreamOpen(false);
@@ -4314,13 +4314,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         if (ai.ibiko.chat.ui.UsageActivity.learningOn(prefs)) { // Settings › Data and privacy › learning
                             brainBox().learnTalk(learnQ, learnA);
                         }
-                        dvine1().readReply(learnA);
+                        ibiko1().readReply(learnA);
                     });
                     return;
                 }
                 endThink();
                 if (order != null) {
-                    // the model asked DVINE to act: its short sentence (if any) is shown, then the order is carried out
+                    // the model asked Ibiko to act: its short sentence (if any) is shown, then the order is carried out
                     if (!body.isEmpty()) {
                         stream.add(new TurnLine(agent, "SAY", body));
                     }
@@ -4363,8 +4363,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     hub.worker.execute(() -> {
                         if (ai.ibiko.chat.ui.UsageActivity.learningOn(prefs)) { // Settings › Data and privacy › learning
                             brainBox().learnTalk(learnQ, learnA);
-                        } // DVINE grows with every answer
-                        dvine1().readReply(learnA); // and DVINE 1 learns the language of it
+                        } // Ibiko grows with every answer
+                        ibiko1().readReply(learnA); // and Ibiko 1 learns the language of it
                     });
                 }
                 if (switchTo != null && !switchTo.equals(agent)) {
@@ -4494,14 +4494,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
         }
         if (!"api".equals(brainPick())) {
-            // DVINE's own brain, or the offline model, was picked: no API is asked
+            // Ibiko's own brain, or the offline model, was picked: no API is asked
             brains.clear();
             fasts.clear();
             names.clear();
             windows.clear();
         }
         model.useRemotes(brains, fasts, names, windows, () -> connectivity != null && connectivity.isOnline());
-        if ((model.remoteOn() || dvineOwn()) && hub != null) {
+        if ((model.remoteOn() || ibikoOwn()) && hub != null) {
             // switched to an API: the offline model leaves memory now, not at the next question
             final ai.ibiko.llm.LocalModel leaving = model;
             hub.worker.execute(leaving::releaseIfIdle);
@@ -4514,8 +4514,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** What the chat header says answers: the API's model, or the phone's brain. */
     String brainLabel() {
-        if (dvineOwn()) {
-            return DVINE_OWN;
+        if (ibikoOwn()) {
+            return IBIKO_OWN;
         }
         ai.ibiko.llm.ProviderStore providers = new ai.ibiko.llm.ProviderStore(this);
         java.util.List<ai.ibiko.llm.Providers> use = providers.usable();
@@ -4536,17 +4536,17 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      * The model under the title, tapped: switch between the offline models already on the phone (any time, no
      * download), or go to every model, or to the AI providers (API models).
      */
-    /** Which brain the user picked: "dvine" (DVINE's own), "device" (the offline model) or "api" (the default). */
+    /** Which brain the user picked: "ibiko" (Ibiko's own), "device" (the offline model) or "api" (the default). */
     String brainPick() {
         return prefs == null ? "api" : prefs.getString("brain_pick", "api");
     }
 
-    /** DVINE 1.0: DVINE's own intelligence (the Cortex and what it learned), with no model loaded at all. */
-    boolean dvineOwn() {
-        return "dvine".equals(brainPick());
+    /** Ibiko 1.0: Ibiko's own intelligence (the Cortex and what it learned), with no model loaded at all. */
+    boolean ibikoOwn() {
+        return "ibiko".equals(brainPick());
     }
 
-    static final String DVINE_OWN = "Ibiko 1 \u00B7 0.1";
+    static final String IBIKO_OWN = "Ibiko 1 \u00B7 0.1";
 
 
     int dp(int v) {
@@ -4592,8 +4592,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     int modelGeneration;
 
     void loadModel(final boolean tell) {
-        if (!tell && dvineOwn()) {
-            return; // DVINE 1.0 answers on its own: no model is loaded
+        if (!tell && ibikoOwn()) {
+            return; // Ibiko 1.0 answers on its own: no model is loaded
         }
         if (!tell && model != null && model.remoteOn()) {
             // an API answers (and the user didn't ask to start it): the offline model is not loaded ahead of time. It loads when an answer needs it
@@ -5040,13 +5040,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     String selfSheet() {
-        ai.ibiko.llm.DvineSelf.Facts f = new ai.ibiko.llm.DvineSelf.Facts();
+        ai.ibiko.llm.IbikoSelf.Facts f = new ai.ibiko.llm.IbikoSelf.Facts();
         f.version = BuildConfigInfo.version(this);
         f.device = (android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL).trim();
         f.userName = brain.userName();
         f.taughtFacts = journal == null ? 0 : journal.taughtCount();
         f.speaking = stage.agent();
-        return ai.ibiko.llm.DvineSelf.sheet(f);
+        return ai.ibiko.llm.IbikoSelf.sheet(f);
     }
 
     static String lastSaid(List<TurnLine> said) {
@@ -5161,7 +5161,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             armThink("Reading the photographs", "Triangulating views");
             final int token = nextAsk();
             final java.util.List<android.net.Uri> chosen = uris;
-            new Thread(() -> deliverReconstruction(chosen, token), "dvine-recon").start();
+            new Thread(() -> deliverReconstruction(chosen, token), "ibiko-recon").start();
             return;
         }
         if (resultCode == RESULT_OK && data != null && !pickerLearn && attachments != null) {
@@ -5199,7 +5199,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.innerVoice("Reading the file");
         stage.activity("FILE", "Reading the file");
         final int token = nextAsk();
-        new Thread(() -> deliverFile(uri, learn, token), "dvine-file").start();
+        new Thread(() -> deliverFile(uri, learn, token), "ibiko-file").start();
     }
 
     /** Every file the picker returned: several (ClipData) or one (getData). */
@@ -5360,7 +5360,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     @Override
     protected void onResume() {
         super.onResume();
-        handler.postDelayed(this::takeShared, 400); // something shared to DVINE from another app
+        handler.postDelayed(this::takeShared, 400); // something shared to Ibiko from another app
         inFront = true;
         showPersonaBar(); // Settings may have turned the group chat on or off
         connectivity.start();
@@ -5369,7 +5369,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         handler.postDelayed(this::morningReport, 1500);
         handler.post(this::checkWorkload); // the ring shows the brain in use as soon as the chat is back
         if (chatPane != null) {
-            chatPane.show(); // replies that came in while DVINE was in the background are in the chat
+            chatPane.show(); // replies that came in while Ibiko was in the background are in the chat
         }
         applyProvider(); // back from the AI providers sheet: the brain the user chose answers
         applySettings(); // back from Settings: name, voice speed, Enter key, deleted chats

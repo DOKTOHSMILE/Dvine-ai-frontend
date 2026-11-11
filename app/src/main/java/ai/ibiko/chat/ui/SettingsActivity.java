@@ -32,7 +32,7 @@ public class SettingsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         Ui.init(this);
         hub = ModelHub.get(this);
-        prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        prefs = getSharedPreferences("ibiko", MODE_PRIVATE);
         setContentView(layoutRes()); // each section's screen has its own layout file
         android.view.View root = findViewById(ai.ibiko.R.id.settings_root);
         root.setBackgroundColor(Ui.BG);
@@ -515,10 +515,10 @@ public class SettingsActivity extends AppCompatActivity {
 
     /** Keeps a number, brought into its range (the field shows what was kept). */
     /** A switch row kept in the preferences; {@code changed} also runs when it flips. */
-    /** DVINE 1's learning as a training file in Downloads/DVINE. */
+    /** Ibiko 1's learning as a training file in Downloads/Ibiko. */
     protected void exportTraining() {
         java.io.File dir = new java.io.File(getFilesDir(), "brain");
-        String name = "dvine1-training-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(new java.util.Date()) + ".jsonl";
+        String name = "ibiko1-training-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(new java.util.Date()) + ".jsonl";
         android.content.ContentValues v = new android.content.ContentValues();
         v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
         v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/jsonl");
@@ -531,8 +531,8 @@ public class SettingsActivity extends AppCompatActivity {
             }
             int n;
             try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
-                n = ai.ibiko.dvine1.Training.write(o, ai.ibiko.dvine1.Store.knowledge(dir),
-                        ai.ibiko.dvine1.Store.facts(dir), ai.ibiko.dvine1.Store.lexicon(dir));
+                n = ai.ibiko.ibiko1.Training.write(o, ai.ibiko.ibiko1.Store.knowledge(dir),
+                        ai.ibiko.ibiko1.Store.facts(dir), ai.ibiko.ibiko1.Store.lexicon(dir));
             }
             said = n == 0 ? "Nothing learned yet." : "Saved " + n + " examples to Downloads/Ibiko/" + name;
         } catch (java.io.IOException | RuntimeException e) {
@@ -596,7 +596,7 @@ public class SettingsActivity extends AppCompatActivity {
             toast("No chats yet.");
             return;
         }
-        String name = "dvine-chats-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(new java.util.Date()) + ".json";
+        String name = "ibiko-chats-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(new java.util.Date()) + ".json";
         android.content.ContentValues v = new android.content.ContentValues();
         v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
         v.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json");
@@ -700,7 +700,7 @@ public class SettingsActivity extends AppCompatActivity {
     protected boolean modelsOpen;
 
     /**
-     * Every offline model DVINE offers, downloaded or not: its size, the memory it needs (against this device's) and
+     * Every offline model Ibiko offers, downloaded or not: its size, the memory it needs (against this device's) and
      * its state. A downloaded one has Use and Delete; one not yet here has Download. Folded behind one row.
      */
     protected void fillOnPhone() {
@@ -795,7 +795,7 @@ public class SettingsActivity extends AppCompatActivity {
                             refreshModel();
                             toast(m.weights + " deleted.");
                         });
-                    }, "dvine-delete-model").start();
+                    }, "ibiko-delete-model").start();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -808,7 +808,7 @@ public class SettingsActivity extends AppCompatActivity {
             return;
         }
         Runnable go = () -> {
-            new ai.ibiko.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE)).clear(m.file);
+            new ai.ibiko.llm.ModelGuard(getSharedPreferences("ibiko", MODE_PRIVATE)).clear(m.file);
             hub.choose(this, m, false);
             hub.startDownload(this);
             refreshModel();
@@ -836,24 +836,24 @@ public class SettingsActivity extends AppCompatActivity {
         speed.setVisibility(View.VISIBLE);
         speed.setText("Testing " + hub.chosen().weights + "\u2026 (up to a minute)");
         new Thread(() -> {
-            hub.model.context(ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(getSharedPreferences("dvine", MODE_PRIVATE)));
-            ai.ibiko.llm.ModelGuard guard = new ai.ibiko.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE));
+            hub.model.context(ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(getSharedPreferences("ibiko", MODE_PRIVATE)));
+            ai.ibiko.llm.ModelGuard guard = new ai.ibiko.llm.ModelGuard(getSharedPreferences("ibiko", MODE_PRIVATE));
             guard.loading(hub.chosen().file);
             ai.ibiko.llm.ReplyService.hold(this);
             LocalModel.Speed s;
             try {
-                s = hub.model.speedTest(ai.ibiko.chat.Tuning.modelThreads(getSharedPreferences("dvine", MODE_PRIVATE)), 96);
+                s = hub.model.speedTest(ai.ibiko.chat.Tuning.modelThreads(getSharedPreferences("ibiko", MODE_PRIVATE)), 96);
             } finally {
                 ai.ibiko.llm.ReplyService.release(this);
             }
             guard.loaded();
             runOnUiThread(() -> {
                 speed.setText(s == null ? "The test couldn't run: " + hub.model.problem()
-                        : s.words() + " " + ai.ibiko.chat.Tuning.modelThreads(getSharedPreferences("dvine", MODE_PRIVATE))
+                        : s.words() + " " + ai.ibiko.chat.Tuning.modelThreads(getSharedPreferences("ibiko", MODE_PRIVATE))
                         + " threads (Settings \u203A Advanced \u203A Offline model threads).");
                 refreshModel();
             });
-        }, "dvine-speed-test").start();
+        }, "ibiko-speed-test").start();
     }
 
     /**
@@ -916,7 +916,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     protected void switchModel(ai.ibiko.llm.ModelSpec next, boolean deleteOld) {
-        new ai.ibiko.llm.ModelGuard(getSharedPreferences("dvine", MODE_PRIVATE)).clear(next.file); // chosen on purpose: tried again
+        new ai.ibiko.llm.ModelGuard(getSharedPreferences("ibiko", MODE_PRIVATE)).clear(next.file); // chosen on purpose: tried again
         hub.choose(this, next, deleteOld);
         refreshModel();
         toast(hub.model.has(next) ? next.weights + " is on the device: it starts when you go back to the chat."

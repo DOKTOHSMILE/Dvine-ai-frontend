@@ -12,7 +12,7 @@ import org.junit.Test;
 
 import ai.ibiko.stage.StageMode;
 
-/** The stage: the pod's place on screen, the sky, how the pod shows what DVINE does, GL clean-up, and no face anywhere. */
+/** The stage: the pod's place on screen, the sky, how the pod shows what Ibiko does, GL clean-up, and no face anywhere. */
 public class PodTest {
     @Test
     public void composition() {
@@ -51,7 +51,7 @@ public class PodTest {
     }
 
     @Test
-    public void thePodShowsWhatDvineDoes() {
+    public void thePodShowsWhatIbikoDoes() {
         PodMotion m = new PodMotion();
         for (int i = 0; i < 60; i++) {
             m.step(1f / 30f, StageMode.CONTENT);

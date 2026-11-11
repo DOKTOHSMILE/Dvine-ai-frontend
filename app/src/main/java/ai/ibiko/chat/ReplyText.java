@@ -50,7 +50,7 @@ public final class ReplyText {
         s = s.replaceAll("(?s)</?final>", "");
         // a gateway's own moderation or scoring tags are not the reply ("<severity>0</severity>")
         s = s.replaceAll("(?is)<(severity|score|moderation|safety|category|flag(?:ged)?|risk|confidence)>[^<]{0,80}</\\1>", "");
-        s = ai.ibiko.suit.FunctionCode.hidden(s); // the brain's command codes are for DVINE, never for the conversation
+        s = ai.ibiko.suit.FunctionCode.hidden(s); // the brain's command codes are for Ibiko, never for the conversation
         s = MessageParts.normalizeFences(s);
         String[] lines = s.split("\n", -1);
         StringBuilder out = new StringBuilder();

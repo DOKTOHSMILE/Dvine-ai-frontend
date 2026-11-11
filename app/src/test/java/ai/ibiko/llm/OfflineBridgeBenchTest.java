@@ -9,12 +9,12 @@ import org.junit.Test;
 /**
  * The bridge to the phone's model, measured on the desktop build: how long a long prompt (a persona's instructions and
  * a chat) takes to read, how fast the reply is written, and how much quicker the next reply starts when the
- * instructions were already read (warmed). Runs with DVINE_NATIVE_LIB and DVINE_MODEL.
+ * instructions were already read (warmed). Runs with IBIKO_NATIVE_LIB and IBIKO_MODEL.
  */
 public class OfflineBridgeBenchTest {
     @Test
     public void readingAndWriting() {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }

@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Every action DVINE carried out on the user's behalf (a post handed to an app, a copy, later a social action), with
+ * Every action Ibiko carried out on the user's behalf (a post handed to an app, a copy, later a social action), with
  * when, where, whether the user approved it or auto-approve did, and what happened. A plain text file on the phone,
  * newest last, so the user can always see what was done in their name.
  */

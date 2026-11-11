@@ -22,7 +22,7 @@ import ai.ibiko.geom.TriMesh;
  * Sizes are width (x, left to right) × height (y, up) × depth (z, back to front); "at" is the centre of the part's
  * footprint and the height of its bottom above the ground; units are ft, in, m, cm or mm (per line or from UNITS).
  * Shapes: box, cylinder (upright; width is the diameter), cylinder-x / cylinder-z (lying along that axis), sphere,
- * cone, torus-x / torus-z / torus (rings: tyres, hoops), gable roof (ridge along x), hip roof, pyramid. DVINE converts the numbers to geometry in metres and checks
+ * cone, torus-x / torus-z / torus (rings: tyres, hoops), gable roof (ridge along x), hip roof, pyramid. Ibiko converts the numbers to geometry in metres and checks
  * them: every size real, nothing floating in the air, everything on its land. Pure Java.
  */
 public final class MeasuredDesign {
@@ -431,7 +431,7 @@ public final class MeasuredDesign {
     /**
      * The part's place: "at x, y, z" (or just "x, y, z"), or in words against parts already listed: on the ground, on
      * (top of) a part, under it, in its front / back / left / right face (a window in a wall), or beside it on a side;
-     * with "N ft up" / "N m left" to move it, and "repeat N" spread evenly across the face. DVINE does the arithmetic.
+     * with "N ft up" / "N m left" to move it, and "repeat N" spread evenly across the face. Ibiko does the arithmetic.
      */
     static Place place(String where, String name, float w, float h, float d, float unit, List<Part> parts) {
         Place p = new Place();

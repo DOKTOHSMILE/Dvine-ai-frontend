@@ -5,16 +5,16 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * What a message means, whatever its words. DVINE carries out a few things itself (carry on with the work, hand in
+ * What a message means, whatever its words. Ibiko carries out a few things itself (carry on with the work, hand in
  * the result, get or remove the phone's model…), and each has one fixed wording its code knows ("continue", "give me
  * the result"). People say them in endless ways: "are you done?", "where are we on that", "keep at it", "free up the
  * model's space". So the brain reads each short message and names the command it means ({@link #prompt}), or none;
- * DVINE then acts on that command's own wording ({@link Command#canonical}), and remembers the phrasing
+ * Ibiko then acts on that command's own wording ({@link Command#canonical}), and remembers the phrasing
  * ({@link Memory}) so the next time it is understood at once, offline too. Anything that isn't one of these commands
  * goes on as the user wrote it. Pure Java.
  */
 public final class Meaning {
-    /** The commands DVINE carries out itself, each with the wording its code acts on. */
+    /** The commands Ibiko carries out itself, each with the wording its code acts on. */
     public enum Command {
         CONTINUE("continue", true, "carry on with the work already under way"),
         RESULT("give me the result", true, "hand in the result or report of the work so far; asks whether it is done or how far it got"),
@@ -36,12 +36,12 @@ public final class Meaning {
         RETRY("ask again", false, "send the user's previous message again (the last reply failed or they want another try)"),
         NONE("", false, "anything else: a question, a request, chat, a new task");
 
-        /** Carried out by DVINE's own action ({@code act}), not by running {@link #canonical} as a message. */
+        /** Carried out by Ibiko's own action ({@code act}), not by running {@link #canonical} as a message. */
         public boolean direct() {
             return ordinal() >= NEW_CHAT.ordinal() && this != NONE;
         }
 
-        /** The wording DVINE's code acts on. */
+        /** The wording Ibiko's code acts on. */
         public final String canonical;
         /** Only meaningful while there is work (or a reply) to carry on with. */
         public final boolean needsWork;

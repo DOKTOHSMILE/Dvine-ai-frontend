@@ -37,7 +37,7 @@ public class TermuxPlanTest {
 
     @Test
     public void aDeadSessionStaysUnverified() throws Exception {
-        File dir = Files.createTempDirectory("dvine-termux").toFile();
+        File dir = Files.createTempDirectory("ibiko-termux").toFile();
         TermuxSessionLog log = new TermuxSessionLog(dir);
         String id = log.open("python install", "pkg install python ghp_abcdefghijklmnopqrstuvwxyz");
         assertTrue(TermuxSessionLog.pending(dir).contains("unverified"));

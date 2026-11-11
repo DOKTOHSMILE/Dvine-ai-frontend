@@ -2,7 +2,7 @@ package ai.ibiko.ops;
 
 import java.io.File;
 
-import ai.ibiko.ops.mind.DvinePerformanceMonitor;
+import ai.ibiko.ops.mind.IbikoPerformanceMonitor;
 import ai.ibiko.ops.mind.InternetResearchEngine;
 import ai.ibiko.ops.mind.LanguageInferenceOptimizer;
 import ai.ibiko.ops.mind.ModelRuntimeManager;
@@ -13,8 +13,8 @@ import ai.ibiko.ops.ssh.SshCredentialStore;
 import ai.ibiko.ops.ssh.SshHostKeyVerifier;
 import ai.ibiko.ops.ssh.SshTransport;
 import ai.ibiko.ops.task.CommandPhrasing;
-import ai.ibiko.ops.task.DvineCommandGateway;
-import ai.ibiko.ops.task.DvineTaskManager;
+import ai.ibiko.ops.task.IbikoCommandGateway;
+import ai.ibiko.ops.task.IbikoTaskManager;
 import ai.ibiko.ops.task.MicState;
 import ai.ibiko.ops.task.TaskEventDispatcher;
 import ai.ibiko.ops.task.TaskRecord;
@@ -28,11 +28,11 @@ import ai.ibiko.ops.vision.VisualPerceptionEngine;
 
 /** The phone-facing front door. Conversation and task-control events are separate entry paths. */
 public final class AssistantCore {
-    private final DvineTaskManager tasks;
-    private final DvineTaskOrchestrator orchestrator;
+    private final IbikoTaskManager tasks;
+    private final IbikoTaskOrchestrator orchestrator;
     private final ModelRuntimeManager models = new ModelRuntimeManager();
-    private final DvineCommandGateway commandGateway;
-    private DvineCommandGateway.Action pendingAction;
+    private final IbikoCommandGateway commandGateway;
+    private IbikoCommandGateway.Action pendingAction;
     private String pendingId;
     private long now = 1_000;
 
@@ -40,24 +40,24 @@ public final class AssistantCore {
                          SshTransport transport, InternetResearchEngine.Fetcher web) {
         TaskStateRepository repo = new TaskStateRepository(dir);
         TaskEventDispatcher events = new TaskEventDispatcher();
-        this.tasks = new DvineTaskManager(repo, events);
+        this.tasks = new IbikoTaskManager(repo, events);
         TermuxCommandEngine termux = new TermuxCommandEngine(new TermuxCapabilityDetector(termuxProbe), new TermuxExecutionService(runner));
         termux.sessions(dir == null ? null : new File(dir, "termux-sessions"));
         SshConnectionManager ssh = new SshConnectionManager(transport, new SshHostKeyVerifier());
         VisualPerceptionEngine vision = new VisualPerceptionEngine(new PhoneFileAccessManager());
         InternetResearchEngine research = new InternetResearchEngine(web);
         LanguageInferenceOptimizer optimizer = new LanguageInferenceOptimizer(models);
-        DvinePerformanceMonitor monitor = new DvinePerformanceMonitor();
-        this.orchestrator = new DvineTaskOrchestrator(tasks, termux, ssh, vision, research, optimizer, monitor);
+        IbikoPerformanceMonitor monitor = new IbikoPerformanceMonitor();
+        this.orchestrator = new IbikoTaskOrchestrator(tasks, termux, ssh, vision, research, optimizer, monitor);
         this.orchestrator.setTransport(transport);
         this.performance = monitor;
         this.termux = termux;
         this.ssh = ssh;
         this.vision = vision;
-        this.commandGateway = new DvineCommandGateway(tasks, this::executeAuthorizedCommand);
+        this.commandGateway = new IbikoCommandGateway(tasks, this::executeAuthorizedCommand);
     }
 
-    private final DvinePerformanceMonitor performance;
+    private final IbikoPerformanceMonitor performance;
     private final TermuxCommandEngine termux;
     private final SshConnectionManager ssh;
     private final VisualPerceptionEngine vision;
@@ -78,14 +78,14 @@ public final class AssistantCore {
     public boolean hasActiveWork() { return tasks.hasActiveWork(); }
     public String activityLine() { return tasks.activityLine(); }
     public String restoredSummary() { return tasks.restoredSummary(); }
-    public DvineTaskManager tasks() { return tasks; }
-    public DvineTaskOrchestrator orchestrator() { return orchestrator; }
-    public DvinePerformanceMonitor performance() { return performance; }
+    public IbikoTaskManager tasks() { return tasks; }
+    public IbikoTaskOrchestrator orchestrator() { return orchestrator; }
+    public IbikoPerformanceMonitor performance() { return performance; }
     public TermuxCommandEngine termux() { return termux; }
     public SshConnectionManager ssh() { return ssh; }
     public VisualPerceptionEngine vision() { return vision; }
     public ModelRuntimeManager models() { return models; }
-    public DvineCommandGateway commandGateway() { return commandGateway; }
+    public IbikoCommandGateway commandGateway() { return commandGateway; }
     public SemanticKnowledgeRepository memory() { return orchestrator.memory(); }
 
     private ai.ibiko.ops.pipe.StructuredActionPlan lastPlan;
@@ -110,10 +110,10 @@ public final class AssistantCore {
      * Ordinary {@link #hear(String, double)} never calls this. A question, a quote or a model-shaped JSON object
      * spends the session and changes no task.
      */
-    public Outcome command(DvineCommandGateway.VoiceSession session, String text, boolean confirmed) {
+    public Outcome command(IbikoCommandGateway.VoiceSession session, String text, boolean confirmed) {
         String said = text == null ? "" : text.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "").trim();
         if (pendingAction != null && (said.equals("yes") || said.equals("yes confirm") || said.equals("confirm"))) {
-            DvineCommandGateway.Action action = pendingAction;
+            IbikoCommandGateway.Action action = pendingAction;
             String id = pendingId;
             pendingAction = null;
             pendingId = null;
@@ -135,12 +135,12 @@ public final class AssistantCore {
         String id = resolve(read.action, read.name);
         if (id == null) {
             commandGateway.closeVoiceCommand(session);
-            String which = read.action == DvineCommandGateway.Action.RESUME
+            String which = read.action == IbikoCommandGateway.Action.RESUME
                     ? "Which paused task should I resume?"
                     : "Which task do you mean?";
             return Outcome.say(which, false);
         }
-        DvineCommandGateway.Result result = commandGateway.submitVoiceCommand(session, read.action, id, confirmed);
+        IbikoCommandGateway.Result result = commandGateway.submitVoiceCommand(session, read.action, id, confirmed);
         if (!result.accepted && result.intent != null && result.intent.requiresConfirmation && !confirmed) {
             pendingAction = result.intent.action;
             pendingId = result.intent.targetTaskId;
@@ -151,7 +151,7 @@ public final class AssistantCore {
         return finishCommand(result, id);
     }
 
-    private Outcome finishCommand(DvineCommandGateway.Result result, String id) {
+    private Outcome finishCommand(IbikoCommandGateway.Result result, String id) {
         if (result == null || !result.accepted) {
             return Outcome.say(result == null || result.reason == null ? "I did not do that." : result.reason, false);
         }
@@ -178,9 +178,9 @@ public final class AssistantCore {
     }
 
     /** Current task, or the one task whose name is in the utterance. Never "every running task". */
-    private String resolve(DvineCommandGateway.Action action, String name) {
+    private String resolve(IbikoCommandGateway.Action action, String name) {
         if (name == null) {
-            if (action == DvineCommandGateway.Action.RESUME) {
+            if (action == IbikoCommandGateway.Action.RESUME) {
                 java.util.List<TaskRecord> paused = tasks.paused();
                 return paused.size() == 1 ? paused.get(0).id : null;
             }
@@ -253,7 +253,7 @@ public final class AssistantCore {
 
     public boolean hasModel() { return orchestrator.hasModel(); }
 
-    private void executeAuthorizedCommand(DvineCommandGateway.CommandIntent intent, TaskRecord target) {
+    private void executeAuthorizedCommand(IbikoCommandGateway.CommandIntent intent, TaskRecord target) {
         long at = now++;
         switch (intent.action) {
             case PAUSE:

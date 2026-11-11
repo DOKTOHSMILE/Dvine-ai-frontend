@@ -7,7 +7,7 @@ import java.nio.Buffer;
 
 /** {@link GlApi} on Android's GLES30. Call only on the GL thread. */
 public final class AndroidGl implements GlApi {
-    private static final String TAG = "DvineGL";
+    private static final String TAG = "IbikoGL";
     private final int[] one = new int[1];
 
     @Override

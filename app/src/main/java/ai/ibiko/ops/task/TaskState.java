@@ -1,6 +1,6 @@
 package ai.ibiko.ops.task;
 
-/** Lifecycle of one DVINE task. The microphone never writes this. */
+/** Lifecycle of one Ibiko task. The microphone never writes this. */
 public enum TaskState {
     QUEUED,
     RUNNING,

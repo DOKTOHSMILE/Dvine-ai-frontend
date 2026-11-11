@@ -45,7 +45,7 @@ public class MeasuredDesignTest {
     }
 
     @Test
-    public void placesInWordsAreWorkedOutByDvine() {
+    public void placesInWordsAreWorkedOutByIbiko() {
         MeasuredDesign.Read r = MeasuredDesign.read("UNITS: ft\n"
                 + "| name | shape | material | size | where |\n|---|---|---|---|---|\n"
                 + "land | box | grass | 80 x 0.5 x 100 | on the ground\n"

@@ -10,12 +10,12 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** The look shared by DVINE's screens: dark rounded cards, a coral accent, pill badges, 48 dp buttons. */
+/** The look shared by Ibiko's screens: dark rounded cards, a coral accent, pill badges, 48 dp buttons. */
 final class Ui {
     /**
-     * One palette for every screen, DVINE's own: day (cool off-white) or night (deep blue-black), with a violet
+     * One palette for every screen, Ibiko's own: day (cool off-white) or night (deep blue-black), with a violet
      * accent. Read from the theme's colours by {@link #init}, so it follows the phone's day / night setting or the
-     * one chosen in DVINE.
+     * one chosen in Ibiko.
      */
     static int BG, SURFACE, LINE, CORAL, ON_CORAL, SHEET, CARD, CARD_ON, BORDER, BORDER_ON, FIELD, TEXT, SUB, ACCENT, PILL,
             PILL_TEXT, ORANGE, GREY, TRACK;

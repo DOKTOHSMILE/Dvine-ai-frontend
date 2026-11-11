@@ -128,7 +128,7 @@ public final class InternetResearchEngine {
 
     public static final class ResearchPlanner {
         public String urlFor(String topic) {
-            String q = topic == null ? "dvine" : topic.replaceAll("[^A-Za-z0-9 ]", "").trim();
+            String q = topic == null ? "ibiko" : topic.replaceAll("[^A-Za-z0-9 ]", "").trim();
             return "https://en.wikipedia.org/w/api.php?action=query&format=json&gsrsearch=" + q.replace(' ', '+');
         }
     }

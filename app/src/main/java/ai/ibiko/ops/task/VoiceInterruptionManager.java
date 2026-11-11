@@ -2,7 +2,7 @@ package ai.ibiko.ops.task;
 
 /**
  * Legacy adapter retained for source compatibility. Conversational utterances are not control events.
- * Task control must be submitted as a typed, authorized event through {@link DvineCommandGateway}.
+ * Task control must be submitted as a typed, authorized event through {@link IbikoCommandGateway}.
  */
 @Deprecated
 public final class VoiceInterruptionManager {

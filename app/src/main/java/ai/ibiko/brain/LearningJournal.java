@@ -19,8 +19,8 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * What DVINE learned while talking, kept on the phone. Entries are uploaded
- * to the user's DVINE account when online, unless they said "stop sharing";
+ * What Ibiko learned while talking, kept on the phone. Entries are uploaded
+ * to the user's Ibiko account when online, unless they said "stop sharing";
  * secrets are dropped before anything is written.
  */
 public final class LearningJournal {

@@ -12,13 +12,13 @@ import ai.ibiko.turn.Followup;
 /** The brain knows the app it lives in; its switch tags are acted on and never spoken; a question opens the mic. */
 public class SelfAndTagsTest {
     @Test
-    public void knowsDvine() {
-        DvineSelf.Facts f = new DvineSelf.Facts();
+    public void knowsIbiko() {
+        IbikoSelf.Facts f = new IbikoSelf.Facts();
         f.version = "0.26.0";
         f.device = "Tecno Spark";
         f.userName = "Val";
         f.taughtFacts = 3;
-        String s = DvineSelf.sheet(f);
+        String s = IbikoSelf.sheet(f);
         for (String must : new String[]{"Ibiko (version 0.26.0)", "Tecno Spark", "Ibiko is one assistant", "offline", "The user is Val", "taught you 3 facts"}) {
             assertTrue(must, s.contains(must));
         }

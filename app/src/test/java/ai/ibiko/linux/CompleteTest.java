@@ -11,7 +11,7 @@ import org.junit.Test;
 public class CompleteTest {
     @Test
     public void tabFillsTheOnlyMatchAndListsSeveral() throws Exception {
-        File root = Files.createTempDirectory("dvine-complete").toFile();
+        File root = Files.createTempDirectory("ibiko-complete").toFile();
         File bin = new File(root, "bin");
         bin.mkdirs();
         new File(bin, "echo").createNewFile();

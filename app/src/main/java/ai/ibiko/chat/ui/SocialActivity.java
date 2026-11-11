@@ -20,7 +20,7 @@ import ai.ibiko.social.SocialWeb;
 
 /**
  * The user's social accounts: several on each network, one in use at a time (tap another to switch), each signed in on
- * the site itself; what DVINE has done with each today against its limits, and a Resume when the site showed a
+ * the site itself; what Ibiko has done with each today against its limits, and a Resume when the site showed a
  * warning and the account was paused; the pace (careful or normal) and whether fact checks look at what people post.
  */
 public final class SocialActivity extends AppCompatActivity {
@@ -31,7 +31,7 @@ public final class SocialActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Ui.init(this);
-        prefs = getSharedPreferences("dvine", MODE_PRIVATE);
+        prefs = getSharedPreferences("ibiko", MODE_PRIVATE);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
@@ -124,7 +124,7 @@ public final class SocialActivity extends AppCompatActivity {
             card.addView(add);
         }
 
-        // ---- posting: how DVINE posts, the scheduled posts, and what it did
+        // ---- posting: how Ibiko posts, the scheduled posts, and what it did
         LinearLayout posting = section("Posting", ai.ibiko.R.drawable.ic_send);
         posting.addView(toggle("Post directly from your account", "After your yes, Ibiko types the post into Facebook or X in the"
                 + " account in use and presses Post, then tells you whether the site confirmed it. Off: it opens the app with the"
@@ -231,7 +231,7 @@ public final class SocialActivity extends AppCompatActivity {
                 .show();
     }
 
-    /** The network's icon (DVINE's own line icons, not the networks' logos). */
+    /** The network's icon (Ibiko's own line icons, not the networks' logos). */
     static int icon(Platform p) {
         switch (p) {
             case FACEBOOK:

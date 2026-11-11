@@ -19,7 +19,7 @@ import ai.ibiko.geom.TriMesh;
 
 /**
  * 3D creation from measurements: there are no built-in objects. The request goes to the model for a design brief and
- * part lines with real sizes, DVINE builds and checks that geometry; edits change the measurements; history, storage,
+ * part lines with real sizes, Ibiko builds and checks that geometry; edits change the measurements; history, storage,
  * views, picking and particle targets work on what was built.
  */
 public class CreationTest {
@@ -48,7 +48,7 @@ public class CreationTest {
     }
 
     @Test
-    public void theModelDesignsItAndDvineBuildsTheMeasurements() throws Exception {
+    public void theModelDesignsItAndIbikoBuildsTheMeasurements() throws Exception {
         CreationDirector d = new CreationDirector(new ObjectSession(), Files.createTempDirectory("d").toFile());
         List<String> asked = new ArrayList<String>();
         d.setDesigner(Designs.brain(Designs.BRIEF, Designs.HOUSE, asked), 1500);

@@ -9,7 +9,7 @@ import android.view.View;
 import android.view.animation.LinearInterpolator;
 
 /**
- * The live "working" mark beside what DVINE is doing now: a four-point star in the accent colour that looks left and
+ * The live "working" mark beside what Ibiko is doing now: a four-point star in the accent colour that looks left and
  * right like an eye thinking. It rolls to one side (turning as it goes, like a ball), rests, rolls across to the
  * other side, rests, and comes back, inside a faint still glow like an eye's socket, while the work goes on.
  * Drawn, not an image, so it stays sharp at any size. It stops animating when it leaves the screen, and stands still

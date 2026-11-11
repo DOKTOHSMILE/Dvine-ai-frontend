@@ -13,7 +13,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Posts on the pilot's own account, from inside DVINE, after their yes: the network's page is opened with the account
+ * Posts on the pilot's own account, from inside Ibiko, after their yes: the network's page is opened with the account
  * they signed in to (Social accounts), the words are typed into its composer and its own Post button is pressed, as
  * they would. It says "posted" only when the network shows it went (the composer closed, or its "sent" notice); if
  * anything is not where it should be, nothing is guessed: the post is handed to the app instead, for the pilot to
@@ -39,7 +39,7 @@ public final class SocialPoster {
         }
     }
 
-    /** The network for an app name ("facebook", "x"), when DVINE can post there itself; null otherwise. */
+    /** The network for an app name ("facebook", "x"), when Ibiko can post there itself; null otherwise. */
     public static Platform direct(String app) {
         if ("facebook".equals(app)) {
             return Platform.FACEBOOK;
@@ -50,12 +50,12 @@ public final class SocialPoster {
         return null;
     }
 
-    /** True when DVINE can post on this network now: a signed-in account in use and the network switched on. */
+    /** True when Ibiko can post on this network now: a signed-in account in use and the network switched on. */
     public static boolean ready(Context c, Platform p) {
         if (p == null) {
             return false;
         }
-        if (!c.getSharedPreferences("dvine", Context.MODE_PRIVATE).getBoolean("social_direct", true)) {
+        if (!c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).getBoolean("social_direct", true)) {
             return false; // the pilot chose to press Post themselves
         }
         SocialAccounts all = SocialWeb.accounts(c);

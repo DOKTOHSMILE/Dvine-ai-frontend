@@ -36,7 +36,7 @@ public class VoiceChoiceTest {
         Files.write(new File(d, VoicePacks.KOKORO.model).toPath(), new byte[] {1});
         Files.write(new File(VoicePacks.root(files), "kokoro.ready").toPath(), VoicePacks.KOKORO.sha256.getBytes(StandardCharsets.UTF_8));
         assertTrue(VoicePacks.installed(files, VoicePacks.KOKORO));
-        app.getSharedPreferences("dvine", 0).edit().putString("voice_pack", "kokoro").apply();
+        app.getSharedPreferences("ibiko", 0).edit().putString("voice_pack", "kokoro").apply();
         TalkBridge t = new TalkBridge(app);
         File problem = new File(VoicePacks.root(files), NeuralVoice.PROBLEM);
         long until = System.currentTimeMillis() + 10000;
@@ -52,7 +52,7 @@ public class VoiceChoiceTest {
     @Test
     public void choosingAVoiceRedrawsOnlyTheVoiceOptions() {
         android.app.Application app = RuntimeEnvironment.getApplication();
-        app.getSharedPreferences("dvine", 0).edit().putString("voice_gender", "male").apply();
+        app.getSharedPreferences("ibiko", 0).edit().putString("voice_gender", "male").apply();
         ActivityController<? extends ai.ibiko.chat.ui.SettingsActivity> c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsVoiceActivity.class,
                 new android.content.Intent(app, ai.ibiko.chat.ui.SettingsVoiceActivity.class)
                         .putExtra(ai.ibiko.chat.ui.SettingsActivity.EXTRA_SECTION, "Voice")).create().start().resume().visible();
@@ -70,7 +70,7 @@ public class VoiceChoiceTest {
         }
         chip.performClick();
         ShadowLooper.idleMainLooper();
-        assertEquals("female", app.getSharedPreferences("dvine", 0).getString("voice_gender", ""));
+        assertEquals("female", app.getSharedPreferences("ibiko", 0).getString("voice_gender", ""));
         assertFalse("the screen isn't rebuilt", c.get().isFinishing());
         found.clear();
         c.get().getWindow().getDecorView().findViewsWithText(found, "Speaking speed", View.FIND_VIEWS_WITH_TEXT);

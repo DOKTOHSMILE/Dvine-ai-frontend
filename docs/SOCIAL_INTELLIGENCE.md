@@ -1,6 +1,6 @@
-# DVINE Social Intelligence System
+# Ibiko Social Intelligence System
 
-The selected brain (an API model or the device's model) decides what social information it needs; DVINE supplies
+The selected brain (an API model or the device's model) decides what social information it needs; Ibiko supplies
 the tools. The social system is not a second AI: it searches, reads, ranks and counts, and hands the evidence back to
 the brain, which reasons over it and answers.
 
@@ -55,7 +55,7 @@ JSON for a future dashboard.
 |---|---|---|---|
 | Reddit | Public JSON API (no key) | Search, public profiles, recent posts, with author, date, score, comments | Reddit refuses some networks (data-centre addresses get 403; checked from the build server). A refusal is reported, never hidden. |
 | X, Instagram, Facebook | The user's own signed-in account, pages read on the device | Search pages, public profile pages, the user's own profile page | Posts read from a page have words but rarely a reliable author, date or count; those fields stay empty. Instagram search is by hashtag. |
-| TikTok | – | Reported as unavailable | Its API needs an approved developer app, which DVINE doesn't have. |
+| TikTok | – | Reported as unavailable | Its API needs an approved developer app, which Ibiko doesn't have. |
 | Official business APIs (Instagram Graph, Meta Graph, X API) | Not connected | – | Each needs a registered app, keys and platform review. An adapter can be added behind `SocialProvider` without changing the engine. |
 
 ## Security and privacy
@@ -71,7 +71,7 @@ JSON for a future dashboard.
 ## Routing
 
 The brain's code `§SI` is carried out by the suit's code path (`MainActivity.carryOut` → `useSocialIntel`), the same
-gate every function uses: the pilot's words never trigger it. `DvineCommandGateway` stays the gate for task control
+gate every function uses: the pilot's words never trigger it. `IbikoCommandGateway` stays the gate for task control
 (pause, resume, cancel); posting to social accounts still goes through the staged action (`§AC`), which waits for the
 pilot's yes.
 

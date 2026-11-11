@@ -182,7 +182,7 @@ public class TermEmulatorTest {
         ChatCapture c = new ChatCapture();
         StringBuilder shown = new StringBuilder();
         // the typed line is echoed, the script redraws it, then the two marker lines surround the output
-        String[] chunks = {" . ~/.dv\r\n", E + "[1A\r" + E + "[2Klocalhost:~# ls\r\n", "DVINE_BE", "GIN:\r\n" + E + "[1;34mbin" + E + "[0m\r\nf.txt\r\nDVINE_",
+        String[] chunks = {" . ~/.dv\r\n", E + "[1A\r" + E + "[2Klocalhost:~# ls\r\n", "IBIKO_BE", "GIN:\r\n" + E + "[1;34mbin" + E + "[0m\r\nf.txt\r\nIBIKO_",
                 "STATUS:2__/work\r\nlocalhost:/work# "};
         for (String chunk : chunks) {
             shown.append(c.feed(chunk));
@@ -191,23 +191,23 @@ public class TermEmulatorTest {
         assertEquals(2, c.exit());
         assertEquals("/work", c.cwd());
         assertEquals("bin\nf.txt\n", c.text());
-        assertFalse("the markers are not shown", shown.toString().contains("DVINE_"));
+        assertFalse("the markers are not shown", shown.toString().contains("IBIKO_"));
         assertTrue(shown.toString().endsWith("localhost:/work# "));
         assertTrue(shown.toString().contains("localhost:~# ls"));
         assertEquals("after it is done, everything is shown", "x", c.feed("x"));
         String script = ChatCapture.script("echo 'it''s'", "localhost:~# echo");
-        assertTrue(script, script.contains("eval 'echo '\\''it'\\'''\\''s'\\''' </dev/null") && script.contains("echo DVINE_BEGIN:")
-                && script.contains("DVINE_STATUS:${__dvs}__$(pwd)"));
+        assertTrue(script, script.contains("eval 'echo '\\''it'\\'''\\''s'\\''' </dev/null") && script.contains("echo IBIKO_BEGIN:")
+                && script.contains("IBIKO_STATUS:${__dvs}__$(pwd)"));
     }
 
     @Test
     public void aMarkerInsideALineIsNotTheEnd() {
         ChatCapture c = new ChatCapture();
-        c.feed("DVINE_BEGIN:\r\n");
-        c.feed("grep found DVINE_STATUS:9__/x in a file\r\n");
+        c.feed("IBIKO_BEGIN:\r\n");
+        c.feed("grep found IBIKO_STATUS:9__/x in a file\r\n");
         assertFalse(c.done());
-        c.feed("DVINE_STATUS:0__/root\r\n");
+        c.feed("IBIKO_STATUS:0__/root\r\n");
         assertTrue(c.done());
-        assertEquals("grep found DVINE_STATUS:9__/x in a file\n", c.text());
+        assertEquals("grep found IBIKO_STATUS:9__/x in a file\n", c.text());
     }
 }

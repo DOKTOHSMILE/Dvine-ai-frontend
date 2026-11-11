@@ -1,6 +1,6 @@
-# DVINE as a suit
+# Ibiko as a suit
 
-DVINE is a suit, like Iron Man's. The **pilot** is the user. The **brain** is whatever model is plugged in: an API
+Ibiko is a suit, like Iron Man's. The **pilot** is the user. The **brain** is whatever model is plugged in: an API
 model (Claude, GPT, Gemini, DeepSeek, a custom gateway) or a model on the device. The **suit** is the app: the
 functions, the senses, the memory, the controls. The suit never decides what the pilot meant: the brain does. The
 suit carries out what the brain orders, shows the pilot everything, and keeps the pilot's own controls (buttons)
@@ -11,7 +11,7 @@ in the pilot's hands.
    words ──────────┐          ┌──── buttons: Stop, Send, persona toggle, tools, approve / reject
                    ▼          ▼
  ┌────────────────────────────────────────────────────────────────────────────┐
- │ SUIT (DVINE)                                                               │
+ │ SUIT (Ibiko)                                                               │
  │                                                                            │
  │  Cortex (always on, in microseconds, never acts)                           │
  │    Comprehension: act, negation, numbers, names, repos, files, links, topic│
@@ -52,7 +52,7 @@ in the pilot's hands.
 6. **The suit learns from every brain.** The brain box keeps how messages became functions and what was answered;
    offline it acts on what it learned and answers when no brain is plugged in; with an API it only learns.
 
-## The Cortex (DVINE's own light brain)
+## The Cortex (Ibiko's own light brain)
 
 | Part | Does | Never |
 |---|---|---|
@@ -62,14 +62,14 @@ in the pilot's hands.
 | `Cortex` | gives the brain the reading; with no brain answers sums, greetings, thanks and what it learned | makes anything up |
 | `DeepThink` | makes any brain think in passes: plan, draft, critique, revise | runs unless the chat asked for it (each pass is a call) |
 
-## DVINE 1 · 0.1 in the brain picker
+## Ibiko 1 · 0.1 in the brain picker
 
-The model picker (tap the model under the title) lists **DVINE 1 · 0.1** first: DVINE's own intelligence, the Cortex and
+The model picker (tap the model under the title) lists **Ibiko 1 · 0.1** first: Ibiko's own intelligence, the Cortex and
 the brain box with no model loaded. It answers sums exactly, greetings and thanks, and what it learned from earlier
 brains; it is not a language model and says so when it doesn't know. Picking it asks no API and frees the offline
-model's memory. The pick is kept as `brain_pick` (`dvine`, `api`, `device`).
+model's memory. The pick is kept as `brain_pick` (`ibiko`, `api`, `device`).
 
-### How DVINE 1 learns
+### How Ibiko 1 learns
 
 1. Exact sums, greetings and thanks: the Cortex.
 2. Confirmed answers (`learn/Knowledge`): found by intent (what kind of answer, the meaning words with synonyms, endings
@@ -109,4 +109,4 @@ the selected model's, and what that model answers is learned too.
 * **Parallel brains**: one model answers one call at a time (`LocalModel.reply` holds a lock), so a second page's
   message waits for the first. A lock per provider would let an API serve two pages at once.
 * ~~Templates in the brain box~~: built in 0.99.6 (shapes: a learned `§SR weather in {x}` works for new words; never shell, posting or scheduling).
-* ~~A pilot profile~~: built in 0.99.6 (`learn/PilotProfile`, told to every brain, shown in What DVINE remembers).
+* ~~A pilot profile~~: built in 0.99.6 (`learn/PilotProfile`, told to every brain, shown in What Ibiko remembers).

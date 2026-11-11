@@ -121,7 +121,7 @@ public final class AlpineRun {
             }
             ByteArrayOutputStream captured = new ByteArrayOutputStream();
             AtomicInteger received = new AtomicInteger();
-            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit, feed, received), "dvine-linux-out");
+            Thread pump = new Thread(() -> drain(proc.getInputStream(), captured, limit, feed, received), "ibiko-linux-out");
             pump.setDaemon(true);
             pump.start();
             long started = System.currentTimeMillis();

@@ -44,7 +44,7 @@ public final class SocialWeb {
     static final long PAGE_MS = 25_000L, SETTLE_MS = 3_500L;
 
     public static synchronized SocialAccounts accounts(Context c) {
-        telegramIn = telegramIn || c.getSharedPreferences("dvine", Context.MODE_PRIVATE).getBoolean("telegram_in", false);
+        telegramIn = telegramIn || c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).getBoolean("telegram_in", false);
         if (accounts == null) {
             accounts = new SocialAccounts(new File(new File(c.getFilesDir(), "social"), "accounts.txt"));
         }
@@ -82,7 +82,7 @@ public final class SocialWeb {
     }
 
     private static SharedPreferences prefs(Context c) {
-        return c.getSharedPreferences("dvine", Context.MODE_PRIVATE);
+        return c.getSharedPreferences("ibiko", Context.MODE_PRIVATE);
     }
 
     // ---- sign-ins
@@ -236,7 +236,7 @@ public final class SocialWeb {
     /** Telegram's sign-in as seen now (its page storage), kept for the next start. */
     public static void telegramSignedIn(Context c, boolean in) {
         telegramIn = in;
-        c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putBoolean("telegram_in", in).apply();
+        c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).edit().putBoolean("telegram_in", in).apply();
     }
 
     /**
@@ -266,7 +266,7 @@ public final class SocialWeb {
      * Looks something up on one network (or each signed-in one, when {@code only} is null) with the user's accounts:
      * the posts as labelled text for the model, and what couldn't be read, and why.
      */
-    /** Told each page read (set by the app): DVINE 1 learns language from it. */
+    /** Told each page read (set by the app): Ibiko 1 learns language from it. */
     public static volatile java.util.function.Consumer<String> onRead;
 
     public static String search(Context c, Platform only, String query, int most) {
@@ -374,7 +374,7 @@ public final class SocialWeb {
             String text = SocialPage.text(page[1], most);
             java.util.function.Consumer<String> learn = onRead;
             if (learn != null && text != null) {
-                learn.accept(text); // people's words: DVINE 1 reads them for language only, never as facts
+                learn.accept(text); // people's words: Ibiko 1 reads them for language only, never as facts
             }
             return SocialPage.forModel(p, what, text);
         }
@@ -467,7 +467,7 @@ public final class SocialWeb {
 
     // ---- the Keystore
 
-    private static final String KEY = "dvine_social_key";
+    private static final String KEY = "ibiko_social_key";
 
     static byte[] seal(byte[] plain) {
         try {

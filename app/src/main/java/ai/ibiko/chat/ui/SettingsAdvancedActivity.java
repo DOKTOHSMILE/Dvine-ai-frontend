@@ -27,7 +27,7 @@ public class SettingsAdvancedActivity extends SettingsActivity {
 
     @Override
     protected void buildSection() {
-            // ---- advanced: the limits DVINE works within. Closed until opened on purpose; each number is a row, changed only
+            // ---- advanced: the limits Ibiko works within. Closed until opened on purpose; each number is a row, changed only
             // in its own editor (a slider in a scrolling list moved whenever a finger scrolled past it)
             LinearLayout adv = group("Advanced", "Reply lengths, agent steps, offline memory and other limits");
             adv.addView(Ui.text(this, "The numbers Ibiko works with. The defaults suit most people: change one only for a reason."

@@ -2,7 +2,7 @@ package ai.ibiko.main;
 
 /**
  * The notice line at the top of the chat after the app went down: it shows that the last run crashed, says where
- * the report was saved (Download/DVINE), copies it to the clipboard on tap, and forgets it once it has been shown.
+ * the report was saved (Download/Ibiko), copies it to the clipboard on tap, and forgets it once it has been shown.
  * The catching itself runs from {@link ai.ibiko.CrashLog}, installed when the app starts.
  *
  * <p>The screen it serves is the {@link Host}: it finds the notice line's views, hands over the saved report's
@@ -46,7 +46,7 @@ public final class CrashReport {
             return;
         }
         String report = freshCrash();
-        // shown once after a crash: the report is in Download/DVINE, and Copy puts it on the clipboard
+        // shown once after a crash: the report is in Download/Ibiko, and Copy puts it on the clipboard
         banner.setVisibility(report != null ? android.view.View.VISIBLE : android.view.View.GONE);
         android.widget.TextView detail = host.find(ai.ibiko.R.id.tv_crash_detail);
         if (detail != null && report != null) {
@@ -59,7 +59,7 @@ public final class CrashReport {
                 android.content.ClipboardManager clips = (android.content.ClipboardManager) host.context()
                         .getSystemService(android.content.Context.CLIPBOARD_SERVICE);
                 if (clips != null && report != null) {
-                    clips.setPrimaryClip(android.content.ClipData.newPlainText("dvine-crash", report));
+                    clips.setPrimaryClip(android.content.ClipData.newPlainText("ibiko-crash", report));
                 }
                 clearCrash();
                 banner.setVisibility(android.view.View.GONE);

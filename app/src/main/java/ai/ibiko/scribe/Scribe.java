@@ -14,7 +14,7 @@ import ai.ibiko.ops.task.TaskState;
 import ai.ibiko.ops.task.TaskStateRepository;
 
 /**
- * DVINE Scribe: the project-memory agent. It writes the plan, the map and the checkpoint itself. It does not ask the
+ * Ibiko Scribe: the project-memory agent. It writes the plan, the map and the checkpoint itself. It does not ask the
  * conversation model what happened, and it does not mark a job finished because a reply said it was.
  */
 public final class Scribe {

@@ -9,7 +9,7 @@ import java.io.File;
 
 import org.junit.Test;
 
-/** The brain reads, DVINE checks it can, does it and learns it; debates on any topic. */
+/** The brain reads, Ibiko checks it can, does it and learns it; debates on any topic. */
 public class AgentTest {
     @Test
     public void readsTheBrainsInterpretation() {

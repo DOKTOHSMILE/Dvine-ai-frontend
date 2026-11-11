@@ -31,7 +31,7 @@ public final class ModelHub {
 
     /** The offline model the user chose in Settings (the default until they choose). */
     static ModelSpec chosen(Context c) {
-        return ModelSpec.byFile(c.getSharedPreferences("dvine", Context.MODE_PRIVATE).getString(PREF, ModelSpec.QWEN3_1_7B.file));
+        return ModelSpec.byFile(c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).getString(PREF, ModelSpec.QWEN3_1_7B.file));
     }
 
     /** Bumped on every change of model, so a screen that loads it knows to load again. */
@@ -47,7 +47,7 @@ public final class ModelHub {
         }
         stopDownload();
         chosen = next; // screens show the new model at once; the switch itself happens on the model's own thread
-        c.getSharedPreferences("dvine", Context.MODE_PRIVATE).edit().putString(PREF, next.file).apply();
+        c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).edit().putString(PREF, next.file).apply();
         status.reset();
         generation++;
         model.cancel(); // a reply in progress stops, so the switch isn't kept waiting
@@ -62,7 +62,7 @@ public final class ModelHub {
      * a load (seconds, or minutes for a big model), so this never runs on the screen's thread, and in order.
      */
     public final java.util.concurrent.ExecutorService worker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "dvine-model");
+        Thread t = new Thread(r, "ibiko-model");
         t.setDaemon(true);
         return t;
     });

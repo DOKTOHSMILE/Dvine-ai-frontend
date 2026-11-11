@@ -6,11 +6,11 @@ import java.io.File;
 
 import org.junit.Test;
 
-/** The fact check on the phone's own model (desktop build), with fixed evidence. Runs with DVINE_NATIVE_LIB and DVINE_MODEL. */
+/** The fact check on the phone's own model (desktop build), with fixed evidence. Runs with IBIKO_NATIVE_LIB and IBIKO_MODEL. */
 public class OfflineFactCheckTest {
     @Test
     public void judgesAClaimAgainstEvidence() {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }

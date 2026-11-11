@@ -1,4 +1,4 @@
-"""Generate the DVINE logo: halftone sphere on a dot field, DVINE across the equator.
+"""Generate the Ibiko logo: halftone sphere on a dot field, Ibiko across the equator.
 
 Run: python3 tools/make_logo.py   (needs Pillow + numpy). Output is reproducible.
 """
@@ -56,7 +56,7 @@ def font(px):
 def letters(base, size):
     img = base.convert("RGB")
     f = font(int(size * 0.17))
-    word = "DVINE"
+    word = "Ibiko"
     gap = size * 0.155
     cx, cy = size / 2, size * 0.515
     xs = [cx + (i - 2) * gap for i in range(5)]
@@ -82,7 +82,7 @@ def main():
     logo = letters(halftone(S), S)
     brand = os.path.join(ROOT, "docs", "brand")
     os.makedirs(brand, exist_ok=True)
-    logo.save(os.path.join(brand, "dvine_logo_2048.png"))
+    logo.save(os.path.join(brand, "ibiko_logo_2048.png"))
     dens = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
     mask_full = Image.new("L", (S, S), 0)
     ImageDraw.Draw(mask_full).ellipse((0, 0, S - 1, S - 1), fill=255)

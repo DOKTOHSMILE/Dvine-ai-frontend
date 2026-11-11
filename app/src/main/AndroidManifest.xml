@@ -36,14 +36,14 @@
     </queries>
 
     <application
-        android:name=".DvineApp"
+        android:name=".IbikoApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:theme="@style/Theme.Dvine"
+        android:theme="@style/Theme.Ibiko"
         android:usesCleartextTraffic="false"
         android:extractNativeLibs="true">
         <activity
@@ -52,7 +52,7 @@
             android:exported="true"
             android:resizeableActivity="true"
             android:screenOrientation="fullUser"
-            android:theme="@style/Theme.Dvine">
+            android:theme="@style/Theme.Ibiko">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -62,14 +62,14 @@
             android:name=".chat.ui.AppFilesActivity"
             android:exported="false"
             android:screenOrientation="fullUser"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.ShareActivity"
             android:exported="true"
             android:excludeFromRecents="true"
             android:label="@string/app_name"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
-            <!-- Share › DVINE from any app: the file, picture or text lands in the composer, ready to send -->
+            <!-- Share › Ibiko from any app: the file, picture or text lands in the composer, ready to send -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
@@ -80,118 +80,118 @@
         <activity
             android:name=".chat.ui.CodeViewActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.HtmlViewActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.ImageViewActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.MediaPlayActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.HistoryActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.ProvidersActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine.Sheet"
+            android:theme="@style/Theme.Ibiko.Sheet"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".chat.ui.SetupActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.ConnectorsActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine"
+            android:theme="@style/Theme.Ibiko"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".chat.ui.SettingsActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsProfileActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsChatActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsVoiceActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsLearningActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsWorkActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsModelsActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsWebActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsActionsActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsCodingActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsAppearanceActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsDataActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsAdvancedActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SettingsAboutActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.UsageActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.MemoryActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.WorkspaceActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.SocialActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine" />
+            android:theme="@style/Theme.Ibiko" />
         <activity
             android:name=".chat.ui.TerminalActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine"
+            android:theme="@style/Theme.Ibiko"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".chat.ui.SocialLoginActivity"
             android:exported="false"
-            android:theme="@style/Theme.Dvine"
+            android:theme="@style/Theme.Ibiko"
             android:windowSoftInputMode="adjustResize" />
         <provider
             android:name="androidx.core.content.FileProvider"

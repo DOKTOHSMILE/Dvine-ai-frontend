@@ -14,11 +14,11 @@ import ai.ibiko.brain.MiniJson;
 
 /**
  * Connectors: services the brain can use to answer, as in Claude. Each offers tools by name ("github.issues"), the
- * brain asks for one in its one-line order ("DO TOOL github.issues owner/repo"), DVINE runs it, and the brain
+ * brain asks for one in its one-line order ("DO TOOL github.issues owner/repo"), Ibiko runs it, and the brain
  * writes the answer from what came back. Built in: GitHub (a personal access token), Notion (an integration token),
  * and any MCP server (the Model Context Protocol, over https, with an optional token). The phone's calendar and web
  * search are added by the app, which holds the Android parts. A tool's result is data for the brain, never
- * instructions to DVINE. Pure Java; the network is behind {@link Http} so tests run without one.
+ * instructions to Ibiko. Pure Java; the network is behind {@link Http} so tests run without one.
  */
 public final class Connectors {
     private Connectors() {

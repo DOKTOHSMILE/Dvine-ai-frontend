@@ -133,7 +133,7 @@ public final class Squad {
         }
         int n = Math.max(1, Math.min(atOnce, parts.size()));
         ExecutorService pool = Executors.newFixedThreadPool(n, r -> {
-            Thread t = new Thread(r, "dvine-worker");
+            Thread t = new Thread(r, "ibiko-worker");
             t.setDaemon(true);
             return t;
         });

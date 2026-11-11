@@ -1,12 +1,12 @@
 # native / llama.cpp
 
-The app's JNI library is `dvine_llm`, built from this directory by
+The app's JNI library is `ibiko_llm`, built from this directory by
 `app/build.gradle` → `externalNativeBuild { cmake { path … } }`.
 
 ```
-CMakeLists.txt            top level: options, add_subdirectory(llama.cpp), dvine_llm
-dvine_llm.cpp             the model runner (ggml + llama, KV cache, sampling)
-dvine_llm_jni.cpp         Java entry points: open / stop / decode
+CMakeLists.txt            top level: options, add_subdirectory(llama.cpp), ibiko_llm
+ibiko_llm.cpp             the model runner (ggml + llama, KV cache, sampling)
+ibiko_llm_jni.cpp         Java entry points: open / stop / decode
 llama.cpp/                llama.cpp b4748 (ggml/ tree: ggml.h, ggml-common.h, ggml-alloc, ggml-backend, …)
 ```
 
@@ -34,7 +34,7 @@ arm64-v8a   armeabi-v7a   x86   x86_64
 arm64 builds with `-march=armv8.2-a+dotprod+fp16` (KleidiAI kernels off: they pinned every core);
 the other ABIs build the plain ARMv7/NEON or x86 paths. The Kotlin side
 checks `android.cpu.features` (ARMv8.2 dotprod / AES) before loading
-`libdvine_llm.so`.
+`libibiko_llm.so`.
 
 ## Where ggml comes from
 

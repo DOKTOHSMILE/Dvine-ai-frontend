@@ -9,7 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * How DVINE works on a real task, step by step, and holds itself to it:
+ * How Ibiko works on a real task, step by step, and holds itself to it:
  *
  * <pre>
  * 1 UNDERSTAND  read the code that is already there (the parts the task touches, and code that does something

@@ -284,7 +284,7 @@ public final class ChatBook {
         return current();
     }
 
-    /** A line from DVINE on the page on screen, whatever work is bound elsewhere ("your message is waiting"). */
+    /** A line from Ibiko on the page on screen, whatever work is bound elsewhere ("your message is waiting"). */
     public synchronized void noteHere(String persona, String text) {
         if (text == null || text.trim().isEmpty()) {
             return;
@@ -951,7 +951,7 @@ public final class ChatBook {
 
     /** While long work adds a line every few seconds, the whole book is written at most about once a second. */
     private static final java.util.concurrent.ScheduledExecutorService WRITER = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "dvine-chats-save");
+        Thread t = new Thread(r, "ibiko-chats-save");
         t.setDaemon(true);
         t.setPriority(Thread.MIN_PRIORITY);
         return t;

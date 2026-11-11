@@ -3,7 +3,7 @@ package ai.ibiko.social.intel;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A platform DVINE can't reach yet, reported plainly instead of returning nothing (TikTok, for one). Pure Java. */
+/** A platform Ibiko can't reach yet, reported plainly instead of returning nothing (TikTok, for one). Pure Java. */
 public final class UnsupportedProvider implements SocialProvider {
     private final String platform, why;
 

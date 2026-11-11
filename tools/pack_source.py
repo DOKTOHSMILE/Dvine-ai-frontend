@@ -11,9 +11,9 @@ intents = [
     ("how_are_you", ["how are you", "how are you doing", "how is it going", "how far"],
      ["Steady and ready. Thank you for asking. How are you?", "Clear-headed. And you?"],
      ["I'm well, thank you. More importantly, how are you?", "Peaceful, and happy to talk. How are you feeling?"]),
-    ("who", ["who are you", "what are you", "what is dvine", "introduce yourself", "what is your name", "what's your name"],
-     ["I'm Obi, one half of DVINE. I look at structure, risk and what we can verify. Ivie looks at people and meaning. We answer together."],
-     ["I'm Ivie, one half of DVINE. I think about how things land on people. Obi checks the structure. We answer as one."]),
+    ("who", ["who are you", "what are you", "what is ibiko", "introduce yourself", "what is your name", "what's your name"],
+     ["I'm Obi, one half of Ibiko. I look at structure, risk and what we can verify. Ivie looks at people and meaning. We answer together."],
+     ["I'm Ivie, one half of Ibiko. I think about how things land on people. Obi checks the structure. We answer as one."]),
     ("who_obi", ["who is obi", "tell me about obi"],
      ["That's me. Calm, careful, and I check things twice."],
      ["Obi is our steady one. He finds the weak joint before it breaks, and he'd tell you that himself, at length."]),
@@ -44,7 +44,7 @@ intents = [
     ("riddle", ["riddle", "give me a riddle", "tell me a riddle"],
      ["What has keys but can't open locks? A piano."],
      ["The more you take, the more you leave behind. What are they? Footsteps."]),
-    ("purpose_dvine", ["what is your purpose", "why were you made", "what is your mission"],
+    ("purpose_ibiko", ["what is your purpose", "why were you made", "what is your mission"],
      ["To help you think clearly, act safely and finish what matters."],
      ["To serve people well: truth with grace, and the long-term good over the quick win."]),
     ("pronounce", ["how do you pronounce your name", "how do i say your name", "pronounce your name"],
@@ -210,9 +210,9 @@ facts = [
     (["beatitudes"], "The Beatitudes begin: Blessed are the poor in spirit, for theirs is the kingdom of heaven. Matthew 5:3."),
     (["good", "samaritan"], "The Good Samaritan, in Luke 10, teaches that your neighbour is anyone who needs your mercy."),
     (["prodigal", "son"], "The Prodigal Son, in Luke 15, shows a father's grace welcoming home a son who wasted everything."),
-    (["obi", "persona"], "Obi is DVINE's calm strategist: he checks structure, risk and what can be verified."),
-    (["ivie", "persona"], "Ivie is DVINE's visionary and diplomat: she looks at people, meaning and how things land."),
-    (["dvine"], "DVINE is a voice-first assistant with two personas, Obi and Ivie, who think together and answer as one."),
+    (["obi", "persona"], "Obi is Ibiko's calm strategist: he checks structure, risk and what can be verified."),
+    (["ivie", "persona"], "Ivie is Ibiko's visionary and diplomat: she looks at people, meaning and how things land."),
+    (["ibiko"], "Ibiko is a voice-first assistant with two personas, Obi and Ivie, who think together and answer as one."),
 ]
 
 words = [
@@ -289,7 +289,7 @@ words = [
     ("nnoo", "Igbo for welcome."),
     ("sannu", "Hausa for hello."),
     ("ubuntu", "a Nguni word for the idea that a person is a person through other people."),
-    ("grace and necessity", "DVINE's guiding balance: truth and accountability, held with mercy and patience."),
+    ("grace and necessity", "Ibiko's guiding balance: truth and accountability, held with mercy and patience."),
 ]
 
 wisdom = [

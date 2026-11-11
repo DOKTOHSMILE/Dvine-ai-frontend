@@ -3,7 +3,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <service
-            android:name="ai.ibiko.dvine1.LearningJob"
+            android:name="ai.ibiko.ibiko1.LearningJob"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>

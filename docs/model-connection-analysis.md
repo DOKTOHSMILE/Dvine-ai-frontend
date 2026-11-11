@@ -1,4 +1,4 @@
-# Model connection in the DVINE LLM frontend — a full-path analysis
+# Model connection in the Ibiko LLM frontend — a full-path analysis
 
 Every path a prompt takes from the app to a model and back, with the failure handling, the
 security, and the tests. Analysis only — no code was changed for this report.
@@ -10,7 +10,7 @@ MainActivity.applyProvider()            (app/src/main/java/ai/ibiko/MainActivity
   └─ builds brains/fast models/windows from ProviderStore
   └─ model.useRemotes(brains, fasts, names, windows, online)   (MainActivity.java:3685)
        └─ LocalModel (llm/LocalModel.java)
-            ├─ on-phone path: NativeLlm → llama.cpp (app/src/main/cpp/dvine_llm.cpp)
+            ├─ on-phone path: NativeLlm → llama.cpp (app/src/main/cpp/ibiko_llm.cpp)
             └─ remote path:  askRemote() → RemoteBrain.ask() → HttpURLConnection
                                  ▲
                                  │ per-provider settings: address, model, key, CA, session
@@ -20,7 +20,7 @@ MainActivity.applyProvider()            (app/src/main/java/ai/ibiko/MainActivity
 Layers, bottom up:
 
 - **Providers** (`llm/Providers.java:7`) — an enum of eight brains: `ON_PHONE`, `ANTHROPIC`,
-  `OPENAI`, `GEMINI`, `DEEPSEEK`, `OPENROUTER`, `CUSTOM`, `DVINE_SERVER`. Each carries a
+  `OPENAI`, `GEMINI`, `DEEPSEEK`, `OPENROUTER`, `CUSTOM`, `IBIKO_SERVER`. Each carries a
   `RemoteBrain.Protocol`, a default address, a strong model, a fast model, a context window
   and a human "about" string. Everything except the enum name is user-overridable in
   `ProviderStore`.
@@ -48,11 +48,11 @@ Layers, bottom up:
    (`switchNote`, one-shot).
 4. **URL** — `RemoteBrain` requires `https://` (except `http://localhost…` for a local
    gateway), `RemoteBrain.java:223-231`; `ProviderStore.address()`
-   (`ProviderStore.java:140-146`) resolves `DVINE_SERVER` to
-   `serverRoot() + "/api/v1/llm"` where `serverRoot()` reads the app's existing `dvine.server`
+   (`ProviderStore.java:140-146`) resolves `IBIKO_SERVER` to
+   `serverRoot() + "/api/v1/llm"` where `serverRoot()` reads the app's existing `ibiko.server`
    pref or falls back to `R.string.api_base` (`ProviderStore.java:148-153`).
 5. **Auth** — `RemoteBrain.java:425-433`: Anthropic sends `x-api-key`, everything else
-   `Authorization: Bearer <key>`. `DVINE_SERVER` sends no key: `ProviderStore.keySource()`
+   `Authorization: Bearer <key>`. `IBIKO_SERVER` sends no key: `ProviderStore.keySource()`
    (`ProviderStore.java:292-296`) swaps in `SessionClient.token()` from `serverSession`.
 6. **Body** — JSON by default; `RemoteBrain.java:370-404` is the fallback ladder that falls
    back to form-encoding (and to a reduced payload) when a gateway rejects the JSON shape.
@@ -78,14 +78,14 @@ Order actually attempted (first success wins):
 5. **Payload retries**: JSON → form-encoded → reduced payload (`RemoteBrain.java:370-404`).
 6. **On-phone model** as the last resort, with the true reason preserved as `problem`.
 
-Session (DVINE_SERVER only): `net/SessionClient.java:37-44` keeps the token until less than
+Session (IBIKO_SERVER only): `net/SessionClient.java:37-44` keeps the token until less than
 5 minutes remain, `:67` parses `expiresAt` from the sign-in body, `:74-77` `invalidate()`
 zeroes it so the next `token()` signs in again — the token is fetched at each request
 (`ProviderStore.java:228`), never cached across expiry.
 
 ## 4. Offline path
 
-`NativeLlm` (`llm/NativeLlm.java`) loads `libdvine_llm` on first use and, if that fails (no
+`NativeLlm` (`llm/NativeLlm.java`) loads `libibiko_llm` on first use and, if that fails (no
 64-bit ARM, or a build without the native part), records *why* (`available()`/`why()`) and the
 personas carry on with the offline brain. `Connectivity.isOnline() == false` short-circuits
 the remote ladder at the call sites (`MainActivity.java:1400, 2873, 4035`) and the on-phone
@@ -101,7 +101,7 @@ model answers. `LocalModel`'s watchdog bounds the whole thing: 60 s idle / 180 s
 | Custom CA | `ProviderStore.java:309-351` | `sockets(pem)` adds a pasted CA to the phone's own trust store; both managers are still consulted and the full chain check runs (`:336`). Not a trust-all. |
 | Session | `net/SessionClient.java` | Token renewed 5 min before expiry, `invalidate()` on a server refusal; fetched per request, so a rotated server token is picked up immediately. |
 | Key in flight | `RemoteBrain.java:425-433` | `Bearer` / `x-api-key` headers only — keys never appear in the URL. |
-| Storage | `ProviderStore.java:28` | `SharedPreferences("dvine_providers", MODE_PRIVATE)` — app-private; values are the ciphertext from §1, not plaintext keys. |
+| Storage | `ProviderStore.java:28` | `SharedPreferences("ibiko_providers", MODE_PRIVATE)` — app-private; values are the ciphertext from §1, not plaintext keys. |
 
 ## 6. Weaknesses (with file:line)
 
@@ -109,7 +109,7 @@ model answers. `LocalModel`'s watchdog bounds the whole thing: 60 s idle / 180 s
    `connectivity == null || connectivity.isOnline()`; a null `Connectivity` (constructed
    before `start()`, or a failed system service) reads as *online*, so the ladder attempts
    remote calls that will all fail before falling back. Safer inverted: unknown ≠ online.
-2. **`ProviderStore.java:142-145`** — `address()` for `DVINE_SERVER` falls back to
+2. **`ProviderStore.java:142-145`** — `address()` for `IBIKO_SERVER` falls back to
    `serverRoot()`, which reads a pref or a *build-time* string (`R.string.api_base`). If the
    pref is cleared the app silently targets whatever host the build shipped with; there is no
    validation that `serverRoot()` is a real host at all (empty ⇒ `"/api/v1/llm"`, which then

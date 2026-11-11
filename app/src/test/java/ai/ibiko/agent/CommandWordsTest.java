@@ -34,8 +34,8 @@ public class CommandWordsTest {
         // a ; inside quotes is part of the script, not a second command
         assertEquals("Ran a short Python script",
                 CommandWords.describe("cd /workspace/app && python3 -c \"import json; local=json.load(open('a.json')); print(len(local))\""));
-        assertEquals("Git: config, then read the start of .dvine-git.json",
-                CommandWords.describe("echo '=== git config'; git config -l; echo '=== state'; head .dvine-git.json"));
+        assertEquals("Git: config, then read the start of .ibiko-git.json",
+                CommandWords.describe("echo '=== git config'; git config -l; echo '=== state'; head .ibiko-git.json"));
         String loop = CommandWords.describe("cd /w && for f in $(find . -name '*.theirs'); do b=${f%.theirs}; if cmp -s $f $b; then echo SAME $b; else echo DIFF $b; fi; done");
         assertTrue(loop, loop.startsWith("Went through each file found"));
         assertTrue(loop, !loop.contains("ran do") && !loop.contains("ran then") && !loop.contains("ran fi"));

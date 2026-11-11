@@ -17,7 +17,7 @@ import ai.ibiko.ops.task.TaskState;
 public class ScribeTest {
     @Test
     public void aProjectIsRecordedAndAStopDoesNotFinishIt() throws Exception {
-        File ws = Files.createTempDirectory("dvine-scribe").toFile();
+        File ws = Files.createTempDirectory("ibiko-scribe").toFile();
         Scribe scribe = new Scribe(ws);
         assertFalse(Scribe.worth("hi"));
         assertTrue(Scribe.worth("Build me an application that tracks tasks"));
@@ -37,7 +37,7 @@ public class ScribeTest {
 
     @Test
     public void aSecondBeginResumesTheOpenJobAndAnAndroidTreeIsRecognised() throws Exception {
-        File ws = Files.createTempDirectory("dvine-survey").toFile();
+        File ws = Files.createTempDirectory("ibiko-survey").toFile();
         File app = new File(ws, "app");
         assertTrue(app.mkdirs());
         Files.write(new File(app, "build.gradle").toPath(), "apply plugin: 'com.android.application'\n".getBytes(StandardCharsets.UTF_8));
@@ -66,7 +66,7 @@ public class ScribeTest {
 
     @Test
     public void aJobIsFinishedOnlyWhenTheClaimedFileIsOnDisk() throws Exception {
-        File ws = Files.createTempDirectory("dvine-reconcile").toFile();
+        File ws = Files.createTempDirectory("ibiko-reconcile").toFile();
         Scribe scribe = new Scribe(ws);
         String instruction = "Build the notes screen for the application";
         scribe.begin("ibiko", instruction);
@@ -102,7 +102,7 @@ public class ScribeTest {
 
     @Test
     public void oneFileForAProjectAndItSaysExactlyWhereTheWorkStands() throws Exception {
-        File ws = Files.createTempDirectory("dvine-record").toFile();
+        File ws = Files.createTempDirectory("ibiko-record").toFile();
         Scribe scribe = new Scribe(ws);
         scribe.begin("ibiko", "Build the notes screen for the application", "chat 7");
         scribe.step("Read app/Notes.java");

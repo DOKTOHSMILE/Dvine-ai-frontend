@@ -6,7 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-/** One route: every job is an order the brain gives (or that the words give at once), and DVINE carries it out. */
+/** One route: every job is an order the brain gives (or that the words give at once), and Ibiko carries it out. */
 public class BrainOrderTest {
     @Test
     public void theModelCanOrderABuildOrASocialJob() {

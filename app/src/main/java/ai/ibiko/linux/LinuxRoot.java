@@ -66,7 +66,7 @@ public final class LinuxRoot {
 
     public static void install(Context c, Progress progress) throws IOException {
         File rootfs = root(c);
-        File stamp = new File(rootfs, "etc/dvine-release");
+        File stamp = new File(rootfs, "etc/ibiko-release");
         if (ready(rootfs) && new File(rootfs, "usr/local/bin/pkg").isFile() && same(stamp, RELEASE)) {
             refreshDns(c);
             return;

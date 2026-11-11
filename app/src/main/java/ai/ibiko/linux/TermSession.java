@@ -15,7 +15,7 @@ import java.nio.file.Files;
 import java.util.List;
 
 /**
- * DVINE's Linux terminal: one Alpine shell on a real terminal device, and the screen it draws on. It belongs to the
+ * Ibiko's Linux terminal: one Alpine shell on a real terminal device, and the screen it draws on. It belongs to the
  * app, not to the shell screen, so leaving the screen leaves everything running ({@code vi} is still open when you
  * come back) and chat runs its commands in this same shell.
  */
@@ -128,7 +128,7 @@ public final class TermSession {
                 chatLock.notifyAll();
             }
             changed();
-        }, "dvine-terminal");
+        }, "ibiko-terminal");
         t.setDaemon(true);
         t.start();
     }
@@ -145,7 +145,7 @@ public final class TermSession {
             } catch (IOException ignored) {
                 // closed
             }
-        }, "dvine-terminal-err");
+        }, "ibiko-terminal-err");
         t.setDaemon(true);
         t.start();
     }

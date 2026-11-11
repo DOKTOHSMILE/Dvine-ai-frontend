@@ -7,13 +7,13 @@ import java.io.File;
 import org.junit.Test;
 
 /**
- * How long Obi takes on the phone's own model, as the app asks it (the persona's whole instructions with DVINE's
+ * How long Obi takes on the phone's own model, as the app asks it (the persona's whole instructions with Ibiko's
  * self sheet), and what the reading step in front of it costs. Env-gated like NativeBridgeTest.
  */
 public class OfflineObiTimingTest {
     @Test
     public void obiTimings() {
-        String lib = System.getenv("DVINE_NATIVE_LIB"), gguf = System.getenv("DVINE_MODEL");
+        String lib = System.getenv("IBIKO_NATIVE_LIB"), gguf = System.getenv("IBIKO_MODEL");
         if (lib == null || gguf == null) {
             return;
         }
@@ -21,12 +21,12 @@ public class OfflineObiTimingTest {
         File f = new File(gguf);
         LocalModel m = new LocalModel(f.getParentFile(), new ModelSpec("test", f.getName(), "", f.length(), "", "-"), true);
         assertTrue(m.load(4));
-        DvineSelf.Facts facts = new DvineSelf.Facts();
+        IbikoSelf.Facts facts = new IbikoSelf.Facts();
         facts.version = "0.67.0";
         facts.device = "TECNO Spark";
         facts.userName = "DOKTOHSMILE";
         facts.speaking = "obi";
-        String system = PersonaPrompt.system("obi", "DOKTOHSMILE", "Tuesday 3 November 2026", DvineSelf.sheet(facts));
+        String system = PersonaPrompt.system("obi", "DOKTOHSMILE", "Tuesday 3 November 2026", IbikoSelf.sheet(facts));
         System.out.println("TIMING obi system: " + system.length() + " chars");
         long t = System.currentTimeMillis();
         m.reply(system, "Hello", 160, null);

@@ -76,7 +76,7 @@ public class ActionsAndOnboardingTest {
         assertTrue(d.spoken().contains("7"));
         assertNotNull(brain.respond("draw a triangle", "obi").sketch);
         assertEquals("MUSIC_OFF", brain.respond("music off", "obi").command);
-        // the movement engine: moves for a body DVINE designs, in everyday words
+        // the movement engine: moves for a body Ibiko designs, in everyday words
         BrainAnswer pose = brain.respond("do a t-pose", "obi");
         assertEquals("POSE", pose.command);
         assertEquals("tpose", pose.commandValue);
