@@ -1368,6 +1368,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return ai.ibiko.main.ChatSpace.of(getFilesDir(), s == null ? "chat" : s.group != null ? s.group : s.id);
     }
 
+    /**
+     * The reason a reply failed, only when it tells the person something they can act on (credit, a key, a limit), in a
+     * few words; never a raw host name, status code or stack of provider text.
+     */
+    static String detail(String why) {
+        String w = why == null ? "" : why.toLowerCase(java.util.Locale.US);
+        if (w.matches(".*(credit|quota|billing|insufficient|402).*")) {
+            return " (The connected account is out of credit.)";
+        }
+        if (w.matches(".*(401|403|api key|unauthori[sz]ed|invalid key|forbidden).*")) {
+            return " (The connected account's key was refused: check it in Settings \u203A Models.)";
+        }
+        if (w.matches(".*(rate limit|429|too many requests).*")) {
+            return " (Too many requests at once: give it a minute.)";
+        }
+        return "";
+    }
+
     /** The API couldn't be reached at all (its address, the network path), not a refusal or an empty answer. */
     public static boolean unreachable(String why) {
         return why != null && why.matches("(?is).*(couldn't reach|could not reach|unable to resolve host|no address associated"
@@ -3149,9 +3167,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     void waitForInternet(String text) {
         String chat = chats == null || chats.current() == null ? "" : chats.current().id;
         waitingOnline.add(new String[] { chat, text });
-        play(LocalTurn.speakAs(stage.agent(), "No internet connection. Nothing is wrong with " + apiName() + ": your message is"
-                + " saved and I'll send it the moment you're back online. For an answer now, pick an offline model or "
-                + IBIKO_OWN + " from the model menu."), null);
+        // Ibiko answers for itself: one plain line, no model or provider talk
+        play(LocalTurn.speakAs(stage.agent(), "I'm offline right now. I've kept your message and I'll answer it the moment"
+                + " the connection is back."), null);
     }
 
     /** Back online: the messages that waited are sent, each in the chat it was written in. */
@@ -3166,7 +3184,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 continue; // it goes when its chat is open
             }
             waitingOnline.remove(i);
-            note("Back online: sending your message to " + apiName() + ".");
+            note("Back online: answering your message.");
             resending = true;
             try {
                 answer(w[1], false);
@@ -4359,14 +4377,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         if (chats != null && chats.current() != null) {
                             waitingOnline.add(new String[] { chats.current().id, question });
                         }
-                        said = "The internet connection dropped while " + apiName() + " was answering. Nothing is wrong with the"
-                                + " API: I'll ask again the moment you're back online.";
+                        said = "The connection dropped while I was answering. I'll finish this the moment you're back online.";
                     }
                     if (said == null && unreachable(why) && !aboutPhoneFiles(question)) {
                         // the API's address can't be reached (a gateway down, a DNS failure): Ibiko 1, on this device,
                         // answers instead of leaving only an error; Retry still asks the API again
-                        said = (why.startsWith("I couldn't reach") ? why : "I couldn't reach " + apiName() + " (" + why + ")")
-                                + ". Ibiko 1 is answering on this device instead; tap Retry to ask " + apiName() + " again.";
+                        said = "My connection is down for a moment, so I'm answering from this device. Tap Retry for the"
+                                + " full answer once it's back.";
                         final String again = question;
                         handler.postDelayed(() -> {
                             if (!isFinishing()) {
@@ -4376,8 +4393,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     }
                     stream.add(new TurnLine(agent, "SAY", said != null ? said
                             : why != null && !why.isEmpty() && !"stopped".equals(why)
-                                    ? "My reply stopped: " + why + ". Tap Retry to ask again."
-                                    : "I don't have a reply for that yet. Tap Retry to ask again."));
+                                    ? "I couldn't finish that reply. Tap Retry and I'll try again." + detail(why)
+                                    : "I couldn't finish that reply. Tap Retry and I'll try again."));
                 } else {
                     // a reply that says it sent, saved or posted something when nothing was done says so plainly
                     body = ai.ibiko.gate.ClaimGuard.check(body, false);

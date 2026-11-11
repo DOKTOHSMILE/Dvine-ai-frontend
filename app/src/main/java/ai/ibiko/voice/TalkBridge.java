@@ -463,6 +463,20 @@ public final class TalkBridge extends UtteranceProgressListener {
         say(ivie, text, done, false);
     }
 
+    /**
+     * The sentence that will be said next (reading aloud): its sound is made now, while this one plays, so there is no
+     * wait at the full stop. Only for the human voice; the same speed and voice {@link #speak} will use.
+     */
+    public void prepare(boolean ivie, String text) {
+        ivie = woman();
+        String said = SentenceStream.speakable(text);
+        if (neural == null || !humanChosen() || said == null || said.trim().isEmpty()) {
+            return;
+        }
+        VoiceTuning t = tuning[ivie ? 1 : 0];
+        neural.prepare(said, speakerFor(ivie), t.rate * rateScale * playerSpeed);
+    }
+
     /** The inner-thought voice: same voice, softer, a touch lower and slower. */
     public void whisper(boolean ivie, String text, TalkDone done) {
         say(ivie, text, done, true);

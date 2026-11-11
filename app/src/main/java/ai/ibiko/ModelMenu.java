@@ -96,7 +96,6 @@ final class ModelMenu {
                         final ai.ibiko.llm.LocalModel leaving = a.model;
                         a.hub.worker.execute(leaving::releaseIfIdle); // no model in memory: Ibiko thinks on its own
                     }
-                    a.note(a.IBIKO_OWN + " is answering.");
                     sheet[0].dismiss();
                 }));
         java.util.List<ai.ibiko.llm.Providers> apis = providers.usable();
@@ -109,7 +108,6 @@ final class ModelMenu {
                     providers.setActive(p);
                     a.prefs.edit().putString("brain_pick", "api").apply();
                     a.applyProvider();
-                    a.note(providers.model(p) + " is answering.");
                     sheet[0].dismiss();
                 }));
             }
@@ -132,7 +130,6 @@ final class ModelMenu {
                     if (!a.model.localReady()) {
                         a.loadModel(true);
                     }
-                    a.note(m.weights + " is answering.");
                 } else {
                     switchOfflineModel(m);
                 }

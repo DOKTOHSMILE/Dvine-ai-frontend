@@ -1,3 +1,10 @@
+# Deep diagnosis; data analysis; no pause at full stops; Ibiko speaks for itself (0.99.102)
+
+- [x] agent/Diagnosis: the map (D1–D10), the report format, and every claim checked against the files.
+- [x] formulas/Analyst: exact, checked analysis of data in a message; the same method for every brain.
+- [x] Reading aloud makes the next sentence while this one plays.
+- [x] No model names in status lines; failures said in Ibiko's own words.
+
 # CodeAssist builds again; Ibiko 1 learns how the brains think; professional phrasing (0.99.101)
 
 - [x] Ibiko 1 back in app/src/main/java/ai/ibiko/ibiko1; tools/export_ibiko1.sh makes the library.

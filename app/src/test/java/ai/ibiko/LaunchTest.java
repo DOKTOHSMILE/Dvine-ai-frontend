@@ -1027,7 +1027,7 @@ public class LaunchTest {
         for (ai.ibiko.chat.ChatBook.Message msg : book.current().messages) {
             all.append(msg.body).append('\n');
         }
-        org.junit.Assert.assertTrue(all.toString(), all.toString().contains("No internet connection. Nothing is wrong with"));
+        org.junit.Assert.assertTrue(all.toString(), all.toString().contains("I'm offline right now. I've kept your message"));
         c.pause().stop().destroy();
     }
 

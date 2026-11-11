@@ -200,7 +200,8 @@ public final class Ibiko1 {
     /** For any brain, with the request: think ahead, and the next step this pilot usually takes after one like it. */
     public String premeditate(String request) {
         return foundation(request) + foresight().hint(Methods.kind(request)) + reflection().hint(Methods.kind(request))
-                + ai.ibiko.ibiko1.formulas.Critical.brief(ai.ibiko.ibiko1.formulas.Critical.read(request));
+                + ai.ibiko.ibiko1.formulas.Critical.brief(ai.ibiko.ibiko1.formulas.Critical.read(request))
+                + (ai.ibiko.ibiko1.formulas.Analyst.hasData(request) ? ai.ibiko.ibiko1.formulas.Analyst.BRIEF : "");
     }
 
     /**
@@ -454,6 +455,17 @@ public final class Ibiko1 {
                         }
                     });
             return;
+        }
+        // data in the message (a list of numbers, a table): analysed with the data formula (formulas/Analyst), exactly
+        if (ai.ibiko.ibiko1.formulas.Analyst.hasData(t)) {
+            final java.util.List<ai.ibiko.ibiko1.formulas.Analyst.Profile> data = ai.ibiko.ibiko1.formulas.Analyst.read(t);
+            if (!data.isEmpty()) {
+                how = How.MEMORY;
+                think(Arrays.asList("Reading your question", "Taking stock of the data", "Cleaning it (and saying what changed)",
+                        "Working the figures out exactly", "Checking every total a second way", "Reading what the figures say"),
+                        () -> saysPlain(who, ai.ibiko.ibiko1.formulas.Analyst.report(data)));
+                return;
+            }
         }
         // a question that needs facts put together (compare, rank, count, list, chain, add up): reasoned step by step on
         // what it knows, each value said, so the answer can be checked

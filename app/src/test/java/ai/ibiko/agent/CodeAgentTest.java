@@ -491,7 +491,9 @@ public class CodeAgentTest {
                 + "3. Keys are logged in debug builds (RemoteBrain.java:120): remove the log.\n" + "x".repeat(400);
         Script brain = new Script("Auditing your codebase now \u2014 mapping structure and checking key files.", report);
         String answer = new CodeAgent(ws, brain, new Phone(), "", 20_000).run("Give me the result of the audit", "");
-        assertEquals(report, answer);
+        assertTrue(answer, answer.startsWith(report));
+        // an audit's report is checked against the files: RemoteBrain.java:120 isn't in this workspace, so it is flagged
+        assertTrue(answer, answer.contains("## Checked against the files") && answer.contains("RemoteBrain.java:120 - no such file"));
         assertTrue(brain.seen.get(1), brain.seen.get(1).contains("You wrote text without a tool call")); // asked: done, or go on?
         assertTrue(CodeAgent.bigTask("RE clone the repo and Audit my codebase then share findings"));
         assertFalse(CodeAgent.bigTask("hello"));
@@ -521,8 +523,10 @@ public class CodeAgentTest {
             }
         };
         CodeAgent agent = new CodeAgent(ws, brain, new Phone(), "", 20_000);
-        assertEquals(report, agent.run("RE clone the repo and Audit my codebase then share findings and solutions", ""));
-        assertEquals(1, longAsks.size());
+        String got = agent.run("RE clone the repo and Audit my codebase then share findings and solutions", "");
+        assertTrue(got, got.startsWith(report));
+        assertTrue("Main.java:1 was read and is there", got.contains("1 of 1 file and line reference checked"));
+        assertEquals("a report that holds isn't sent back", 1, longAsks.size());
         assertTrue(longAsks.get(0).contains("Now write the complete final report"));
         assertTrue(longAsks.get(0).contains("1\tclass Main {}")); // with what was read
         assertTrue(agent.work().contains("<tool name=\"read_file\" path=\"Main.java\"/>"));
@@ -537,7 +541,7 @@ public class CodeAgentTest {
             }
         };
         String out = new CodeAgent(ws, again, new Phone(), "", 50_000).resume(agent.work()).run("give me the result of the audit", "");
-        assertEquals(report, out);
+        assertTrue(out, out.startsWith(report) && out.contains("## Checked against the files"));
         assertTrue(seen.get(0), seen.get(0).contains("1\tclass Main {}") && seen.get(0).contains("The user now says: give me the result of the audit"));
 
         // out of steps: the report from what was found, not "I used all the steps"
@@ -602,7 +606,7 @@ public class CodeAgentTest {
             }
         };
         String stopped = new CodeAgent(ws, dropped, new Phone(), "", 20_000).run("clear my sandbox", "");
-        assertTrue(stopped, stopped.contains("The model didn't answer (the connection to the gateway broke)")
+        assertTrue(stopped, stopped.contains("I lost the answer at step")
                 && stopped.startsWith("Clearing your phone sandbox"));
         Script plain = new Script("Fixed it \u2014 missing import added in Main.java.", "Fixed it \u2014 missing import added in Main.java.");
         assertEquals("Fixed it \u2014 missing import added in Main.java.", new CodeAgent(ws, plain, new Phone(), "", 20_000).run("fix the build", ""));

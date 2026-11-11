@@ -2559,7 +2559,7 @@ public final class ChatPane extends LinearLayout {
 
     /** A reply that ended in an error and offers to ask again. */
     static boolean stoppedReply(String text) {
-        return text != null && (text.contains("to ask again") || text.startsWith("My reply stopped"));
+        return text != null && (text.contains("to ask again") || text.startsWith("My reply stopped") || text.contains("Tap Retry"));
     }
 
     private View retryButton() {

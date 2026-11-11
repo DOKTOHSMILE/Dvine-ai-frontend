@@ -330,6 +330,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 297 | CodeAssist: ai.ibiko.ibiko1 cannot be resolved (again) | P12 | Fixed (Ibiko 1 in the app's own sources; tools/export_ibiko1.sh for the standalone library) | 0.99.101 |
 | 298 | Ibiko learns the live chat, including the thought process, adaptable to it | P12 | Built (formulas/Thinking: the moves of the reasoning shown, followed in its own thinking) | 0.99.101 |
 | 299 | Speak professionally on what it doesn't know; no fixed reply repeated | P12 | Built (Phrasing: varied, specific replies; a repeated question recognised) | 0.99.101 |
+| 300 | A deep diagnosis plan format so audits make no untrue claims; a guiding map for excellent results | P12 | Built (agent/Diagnosis D1–D10, report format, claims checked against the files) | 0.99.102 |
+| 301 | Give Ibiko's brain a surgical-precision formula for processing and analysing data | P12 | Built (formulas/Analyst A1–A10) | 0.99.102 |
+| 302 | The voice pauses about 10 s at a full stop | P12 | Fixed (the next sentence is made while this one plays) | 0.99.102 |
+| 303 | Replace the model-naming status lines; Ibiko is the first channel and takes accountability | P12 | Built (no model names in status lines; Ibiko's own short lines) | 0.99.102 |
 
 ## Still open, in the order that matters
 

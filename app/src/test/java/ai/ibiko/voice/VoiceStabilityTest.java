@@ -62,4 +62,11 @@ public class VoiceStabilityTest {
         assertEquals("while speaking, a sentence stays whole", 1, NeuralVoice.partsFrom(s, false).size());
         assertEquals("a short sentence isn't cut", 1, NeuralVoice.partsFrom("Hello there, friend.", true).size());
     }
+
+    @Test
+    public void theNextSentenceMadeAheadIsFoundByTheSameVoiceAndSpeed() {
+        assertEquals(NeuralVoice.madeKey("Next one.", 5, 1.0f), NeuralVoice.madeKey(" Next one. ", 5, 1.001f));
+        assertTrue(!NeuralVoice.madeKey("Next one.", 5, 1.0f).equals(NeuralVoice.madeKey("Next one.", 6, 1.0f)));
+        assertTrue(!NeuralVoice.madeKey("Next one.", 5, 1.0f).equals(NeuralVoice.madeKey("Next one.", 5, 1.5f)));
+    }
 }
