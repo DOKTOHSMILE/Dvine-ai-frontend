@@ -1,3 +1,10 @@
+# First-start download; Ibiko 1 runs code and the app (0.99.80)
+
+- [x] ConceptNet out of the app, downloaded on the first start as "Downloading app files"; no opening without it.
+- [x] Ibiko 1 code tasks as approved shell commands (typed commands, pasted code, files, clone, install).
+- [x] Ibiko 1 works every app control a plain sentence can ask for.
+- [ ] Ibiko 1 working through multi-step code tasks on its own (plan, run, read the result, next step).
+
 # Comprehension: what a message means (0.99.79)
 
 - [x] Open English WordNet and ConceptNet downloaded and built into sorted tables, read by binary search.

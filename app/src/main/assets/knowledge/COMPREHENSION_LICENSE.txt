@@ -7,7 +7,7 @@ lexicon.tsv
   by Princeton University). Changes: up to three senses kept per word, definitions shortened
   to 220 characters, reorganised into one sorted table.
 
-concepts.tsv
+concepts.tsv (downloaded on the first start, not inside the app)
   Made by tools/build_concepts.py from ConceptNet 5.7 (https://conceptnet.io/), English
   links only. ConceptNet is released under the Creative Commons Attribution-ShareAlike 4.0
   International licence (CC BY-SA 4.0); it includes data from the Open Mind Common Sense
