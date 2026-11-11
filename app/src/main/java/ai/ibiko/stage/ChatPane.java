@@ -35,14 +35,21 @@ public final class ChatPane extends LinearLayout {
          * Listen tapped: reads the reply aloud, or pauses it when it is being read (a second tap carries on from the
          * sentence it stopped at). True when it is now reading.
          */
-        /** Whether this reply's voice is made and kept, so Listen plays it at once (true: no need to wait). */
-        default boolean audioReady(String text) {
+        /**
+         * Whether the voice of this reply ({@code owner}: "<chat>/<message>") is made and kept, so Listen plays it at
+         * once (true: no need to wait).
+         */
+        default boolean audioReady(String owner, String text) {
             return true;
         }
 
-        /** Makes this reply's voice now and keeps it; {@code ready} runs (on any thread) when it is done. */
-        default void prepareAudio(String text, Runnable ready) {
+        /** Makes this reply's voice now and keeps it under its message; {@code ready} runs (any thread) when done. */
+        default void prepareAudio(String owner, String text, Runnable ready) {
             ready.run();
+        }
+
+        /** Listen was tapped on this reply: what is read now is that message's own kept voice. */
+        default void speakingFor(String owner) {
         }
 
         default boolean onReadAloudToggle(String text) {
@@ -211,9 +218,15 @@ public final class ChatPane extends LinearLayout {
                 lastAsk = k;
             }
         }
+        turnOwner = null;
         for (int i = from; i < cur.messages.size(); i++) {
             latestTurn = i > lastAsk;
             ChatBook.Message m = cur.messages.get(i);
+            if ("user".equals(m.role)) {
+                turnOwner = null;
+            } else if (turnOwner == null) {
+                turnOwner = (cur.group != null ? cur.group : cur.id) + "/" + m.id; // filed under the chat, deleted with it
+            }
             if (foldTo[i] >= 0) {
                 // a finished turn, and the one still working: its steps are one row. The answer after them still shows.
                 boolean live = working();
@@ -2240,7 +2253,9 @@ public final class ChatPane extends LinearLayout {
     private View listenButton(final String spoken, final String label) {
         final android.widget.ImageButton listen = (android.widget.ImageButton) icon(R.drawable.ic_speaker, label, null);
         final String as = listenAs; // the one who wrote it: their voice reads it, and only their words (never the name)
+        final String owner = turnOwner; // the reply's own message: its voice is kept under that id
         listen.setOnClickListener(v -> {
+            host.speakingFor(owner);
             if (readingButton != null && readingButton != listen) {
                 readingStopped(); // another button goes back to Listen
             }
@@ -2250,12 +2265,12 @@ public final class ChatPane extends LinearLayout {
             readingButton = on ? listen : null;
         });
         listen.setTag(label);
-        if (latestTurn && !host.audioReady(spoken)) {
+        if (latestTurn && !host.audioReady(owner, spoken)) {
             // the reply's voice is being made: Listen is dimmed until it is ready, then plays the kept sound at once
             listen.setEnabled(false);
             listen.setAlpha(0.35f);
             listen.setContentDescription("Preparing the voice");
-            host.prepareAudio(spoken, () -> listen.post(() -> {
+            host.prepareAudio(owner, spoken, () -> listen.post(() -> {
                 listen.setEnabled(true);
                 listen.animate().alpha(1f).setDuration(200).start();
                 listen.setContentDescription(label);
@@ -2266,6 +2281,8 @@ public final class ChatPane extends LinearLayout {
 
     /** True while drawing the latest turn (after the user's last message): only its voice is made at once. */
     private boolean latestTurn = true;
+    /** The reply being drawn: "<chat>/<its first message's id>", the same on every redraw. */
+    private String turnOwner;
 
     /** The Listen button of the reply being read aloud (showing pause); null when nothing is being read. */
     private android.widget.ImageButton readingButton;

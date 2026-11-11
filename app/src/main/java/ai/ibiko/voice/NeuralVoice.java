@@ -31,6 +31,8 @@ public final class NeuralVoice {
         final Events events;
         /** For a {@link #MARK}: run when everything queued before it has been made. */
         Runnable after;
+        /** The message ("<chat>/<message>") whose voice this is: its sound is kept under that id. Null: none. */
+        String owner;
 
         Item(Events events, String id, String text, int speaker, float speed, float volume, int epoch) {
             this.events = events;
@@ -132,7 +134,16 @@ public final class NeuralVoice {
         if (flush) {
             stop();
         }
-        queue.offer(new Item(events, id, text, speaker, speed, volume, epoch));
+        Item it = new Item(events, id, text, speaker, speed, volume, epoch);
+        it.owner = owner;
+        queue.offer(it);
+    }
+
+    /** The message being read or prepared now ("<chat>/<message>"): what is made is kept under it. Null: none. */
+    private volatile String owner;
+
+    public void setOwner(String messageOwner) {
+        owner = messageOwner;
     }
 
     /** An item that only makes a sentence's sound ahead, to keep (not to play): marked by this epoch. */
@@ -150,12 +161,15 @@ public final class NeuralVoice {
     /** Whether this sentence's sound is made and kept (in memory, or on the device for a week). */
     public boolean has(String text, int speaker, float speed) {
         String key = madeKey(text, speaker, speed);
+        SpeechCache c = said();
+        if (owner != null) {
+            return c != null && c.has(owner, key); // this message's own kept voice
+        }
         synchronized (made) {
             if (made.containsKey(key)) {
                 return true;
             }
         }
-        SpeechCache c = said();
         return c != null && c.has(key);
     }
 
@@ -198,16 +212,13 @@ public final class NeuralVoice {
             return;
         }
         String key = madeKey(text, speaker, speed);
-        synchronized (made) {
-            if (made.containsKey(key)) {
-                return;
-            }
-        }
         SpeechCache c = said();
-        if (c != null && c.has(key)) {
-            return; // already made and kept
+        if (c != null && c.has(owner, key)) {
+            return; // already made and kept for this message
         }
-        queue.offer(new Item(null, "ahead", text, speaker, speed, 1f, AHEAD));
+        Item it = new Item(null, "ahead", text, speaker, speed, 1f, AHEAD);
+        it.owner = owner;
+        queue.offer(it);
     }
 
     /** Stops at once: what is playing and everything waiting. */
@@ -424,6 +435,22 @@ public final class NeuralVoice {
      * heard while the next is being made. After silence the first piece is short, so the voice keeps up with the text.
      */
     private void makeAhead(Item it) {
+        String known = madeKey(it.text, it.speaker, it.speed);
+        SpeechCache kept = said();
+        if (kept != null && kept.has(it.owner, known)) {
+            return;
+        }
+        float[] already;
+        synchronized (made) {
+            already = made.get(known);
+        }
+        if (already == null && kept != null && it.owner != null) {
+            already = kept.get(known); // said live a moment ago: the same sound is filed under its message
+        }
+        if (already != null && already.length > 0 && kept != null) {
+            kept.put(it.owner, known, already);
+            return;
+        }
         java.util.List<float[]> pieces = new java.util.ArrayList<float[]>();
         int n = 0;
         try {
@@ -453,7 +480,7 @@ public final class NeuralVoice {
         }
         SpeechCache c = said();
         if (c != null) {
-            c.put(key, all);
+            c.put(it.owner, key, all);
         }
     }
 
@@ -464,7 +491,10 @@ public final class NeuralVoice {
             ahead = made.remove(key);
         }
         if (ahead == null && said() != null) {
-            ahead = said().get(key); // made earlier, while the reply was on the screen
+            ahead = said().get(it.owner, key); // this message's kept voice, made when it arrived
+            if (ahead == null && it.owner != null) {
+                ahead = said().get(key);
+            }
         }
         if (ahead != null && ahead.length > 0) {
             // made ahead while the last sentence played: it starts now, with no wait after the full stop
@@ -513,7 +543,7 @@ public final class NeuralVoice {
                     System.arraycopy(w, 0, all, at, w.length);
                     at += w.length;
                 }
-                said().put(key, all);
+                said().put(it.owner, key, all);
             }
             Clip c = new Clip(it, sound, first, last);
             first = false;

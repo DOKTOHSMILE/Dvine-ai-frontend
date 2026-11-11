@@ -347,6 +347,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 314 | Exiting a picker and other cancels send a reply | P12 | Fixed (cancels are silent) | 0.99.109 |
 | 315 | Left the page and came back: the chat was empty, then came back | P12 | Fixed (a long job's steps no longer fill the drawing window) | 0.99.109 |
 | 316 | Make the speech when the message lands, Listen dimmed until ready, keep 7 days | P12 | Built (latest reply; 7 days, 300 MB) | 0.99.109 |
+| 317 | A hard limit on files and folders so one chat's files never reach another | P12 | Built (chat commands in the chat's own Linux with its own /root and /tmp) | 0.99.110 |
+| 318 | The process icon in the same head shape as the app icon | P12 | Built (LiveFace measured from the icon art) | 0.99.110 |
+| 319 | Every message has an id; its speech is attached to it, played in order; deleted with the chat | P12 | Built (voices/said/<chat>/<message>/) | 0.99.110 |
 
 ## Still open, in the order that matters
 

@@ -1490,18 +1490,30 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
-            public boolean audioReady(String text) {
+            public boolean audioReady(String owner, String text) {
                 // made ahead only for the human voice, and only while Settings › Voice keeps it on
-                return talk == null || !prefs.getBoolean("voice_prepare", true) || talk.prepared(text);
+                if (talk == null || !prefs.getBoolean("voice_prepare", true)) {
+                    return true;
+                }
+                talk.setOwner(owner);
+                return talk.prepared(text);
             }
 
             @Override
-            public void prepareAudio(String text, Runnable ready) {
+            public void prepareAudio(String owner, String text, Runnable ready) {
                 if (talk == null) {
                     ready.run();
                     return;
                 }
-                talk.prepareAll(text, ready); // made now, kept for a week: Listen lights up when it is done
+                talk.setOwner(owner);
+                talk.prepareAll(text, ready); // made now, kept under this message for a week: Listen lights up when done
+            }
+
+            @Override
+            public void speakingFor(String owner) {
+                if (talk != null) {
+                    talk.setOwner(owner); // Listen plays this message's own kept voice, in order
+                }
             }
 
             @Override
@@ -1658,7 +1670,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     for (String a : argv) {
                         line.append(line.length() == 0 ? "" : " ").append(ai.ibiko.linux.Guest.quote(a));
                     }
-                    String text = ai.ibiko.linux.LinuxHub.run(MainActivity.this, line.toString(), null);
+                    String text = ai.ibiko.linux.LinuxHub.run(MainActivity.this, line.toString(), chatSpace()); // this chat's files only
                     java.util.regex.Matcher exit = java.util.regex.Pattern.compile("\\[exit (\\d+)\\]\\s*$").matcher(text.trim());
                     int code = exit.find() ? Integer.parseInt(exit.group(1)) : 0;
                     return new ai.ibiko.ops.termux.TermuxExecutionService.Result(code, text, "", false, false);
@@ -1793,6 +1805,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     void armThink(String phase, String writing) {
+        if (talk != null) {
+            talk.setOwner(null); // a new reply: what is read as it is written belongs to no earlier message
+        }
         thinkToken = readToken;
         thinkWrite = writing == null ? "Thinking\u2026" : writing;
         thinkPace = new ai.ibiko.llm.ThinkPace(phase, System.currentTimeMillis());

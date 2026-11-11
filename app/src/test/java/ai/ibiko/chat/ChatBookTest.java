@@ -192,4 +192,33 @@ public class ChatBookTest {
         book.noteHere("obi", "Waiting");
         assertEquals("Waiting", obiB.messages.get(2).body);
     }
+
+    /** Every message keeps its own id for good; deleting a chat deletes the voice kept for its messages. */
+    @Test
+    public void messagesKeepTheirIdsAndAChatsVoiceGoesWithIt() throws Exception {
+        File dir = java.nio.file.Files.createTempDirectory("chats").toFile();
+        ChatBook book = new ChatBook(new File(dir, "chats.json"));
+        book.open("Trip", "ibiko");
+        book.add("user", "text", "Plan a trip", "ibiko");
+        book.add("assistant", "text", "Here is a plan.", "ibiko");
+        Message reply = book.current().messages.get(1);
+        assertTrue(reply.id.startsWith("m"));
+        org.junit.Assert.assertNotEquals(book.current().messages.get(0).id, reply.id);
+        book.flush();
+        ChatBook again = new ChatBook(new File(dir, "chats.json"));
+        assertEquals("the id is kept with the message", reply.id, again.current().messages.get(1).id);
+        String group = book.current().group;
+        ai.ibiko.voice.SpeechCache voice = new ai.ibiko.voice.SpeechCache(dir);
+        voice.put(group + "/" + reply.id, "4|100|Here is a plan.", new float[]{0.5f});
+        book.open("Other", "ibiko");
+        book.add("user", "text", "hi", "ibiko");
+        String trip = null;
+        for (ChatBook.Section s : book.sections()) {
+            if ("Trip".equals(s.title) || s.title.startsWith("Plan")) {
+                trip = s.id;
+            }
+        }
+        assertTrue(book.delete(trip));
+        assertFalse("the chat's kept voice is deleted with it", new File(dir, "voices/said/" + group).exists());
+    }
 }

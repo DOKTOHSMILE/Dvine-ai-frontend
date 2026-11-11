@@ -1,3 +1,9 @@
+# Chats walled off; the icon's head; a message's voice under its id (0.99.110)
+
+- [x] Chat commands run only in the chat's own Linux (own /workspace, /root, /tmp); no fallback to the shared shell.
+- [x] LiveFace: the app icon's head (height 97.8% of the width, corners 22.5%).
+- [x] ChatBook.Message.id; the voice kept per message in order; deleted with its chat.
+
 # Quiet cancels; no blank chat; no doubled replies; Listen ready from the cache (0.99.109)
 
 - [x] Closing a picker or a dialog posts nothing in the chat.
