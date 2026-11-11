@@ -80,8 +80,7 @@ final class FileTurns {
         try {
             a.startActivityForResult(intent, a.PICK_CONTENT);
         } catch (android.content.ActivityNotFoundException e) {
-            a.play(LocalTurn.speakAs(a.stage.agent(), "This device has no file picker I can open."),
-                    null);
+            a.note("This device has no file picker.");
         }
     }
 

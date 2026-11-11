@@ -59,4 +59,26 @@ public class ReplyPartsTest {
         assertEquals("it starts at a question, never mid-turn", "user", m.get(from).role);
         assertEquals("Show earlier adds more", 0, ChatPane.firstShown(m, ChatPane.WINDOW * 4));
     }
+
+    /** A long job's steps fold into one row: they never push the question and the replies out of the window. */
+    @Test
+    public void aLongJobNeverEmptiesTheChat() {
+        List<ai.ibiko.chat.ChatBook.Message> m = new ArrayList<ai.ibiko.chat.ChatBook.Message>();
+        for (int i = 0; i < 10; i++) {
+            m.add(new ai.ibiko.chat.ChatBook.Message("user", "text", "q" + i, "ibiko", null));
+            m.add(new ai.ibiko.chat.ChatBook.Message("assistant", "text", "a" + i, "ibiko", null));
+        }
+        m.add(new ai.ibiko.chat.ChatBook.Message("user", "text", "Run a deep audit", "ibiko", null));
+        for (int i = 0; i < 80; i++) {
+            m.add(new ai.ibiko.chat.ChatBook.Message("assistant", "activity", "step " + i, "ibiko", null));
+        }
+        int from = ChatPane.firstShown(m, ChatPane.WINDOW);
+        assertEquals("the whole chat shows: the 80 steps are one row", 0, from);
+        for (int i = 0; i < 40; i++) {
+            m.add(i, new ai.ibiko.chat.ChatBook.Message(i % 2 == 0 ? "user" : "assistant", "text", "old" + i, "ibiko", null));
+        }
+        from = ChatPane.firstShown(m, ChatPane.WINDOW);
+        assertTrue("the question before the job is drawn", from <= m.size() - 81);
+        assertEquals("user", m.get(from).role);
+    }
 }

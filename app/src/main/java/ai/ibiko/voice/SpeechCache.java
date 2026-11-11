@@ -14,9 +14,9 @@ import java.security.MessageDigest;
  */
 public final class SpeechCache {
     /** A day: long enough to listen later, short enough not to pile up. */
-    public static final long KEEP_MS = 24L * 60 * 60 * 1000;
+    public static final long KEEP_MS = 7L * 24 * 60 * 60 * 1000; // a week, then cleared and made again when wanted
     /** About 40 minutes of speech at 24 kHz. */
-    public static final long MOST_BYTES = 60L * 1024 * 1024;
+    public static final long MOST_BYTES = 300L * 1024 * 1024;
 
     private final File dir;
 
@@ -37,7 +37,7 @@ public final class SpeechCache {
         }
     }
 
-    /** The kept sound for this sentence, or null when there is none or it is older than a day. */
+    /** The kept sound for this sentence, or null when there is none or it is older than a week. */
     public float[] get(String key) {
         File f = new File(dir, name(key));
         if (!f.isFile()) {
@@ -91,7 +91,7 @@ public final class SpeechCache {
         prune();
     }
 
-    /** Clears sounds older than a day, then the oldest until the folder fits {@link #MOST_BYTES}. */
+    /** Clears sounds older than a week, then the oldest until the folder fits {@link #MOST_BYTES}. */
     public void prune() {
         File[] all = dir.listFiles((d, n) -> n.endsWith(".f32"));
         if (all == null) {

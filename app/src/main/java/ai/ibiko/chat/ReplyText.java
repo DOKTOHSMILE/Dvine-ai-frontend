@@ -88,7 +88,56 @@ public final class ReplyText {
         if (!ready.contains("```")) {
             ready = ready.replaceAll("([a-z][.!?])([A-Z])", "$1\n\n$2");
         }
-        return ready;
+        return dropRepeat(ready);
+    }
+
+    /**
+     * A reply that says itself twice ("A B C D A B C D…", the second copy often cut off): only the first copy is
+     * kept. The paragraphs from the repeat on must match the opening ones in order (the last may be cut short).
+     */
+    public static String dropRepeat(String text) {
+        if (text == null || text.length() < 80) {
+            return text == null ? "" : text;
+        }
+        String[] p = text.split("\n{2,}");
+        for (int k = 1; k < p.length; k++) {
+            if (!same(p[k], p[0])) {
+                continue;
+            }
+            boolean repeat = true;
+            for (int j = 0; k + j < p.length; j++) {
+                String a = p[k + j].trim(), b = j < k ? p[j].trim() : "";
+                boolean last = k + j == p.length - 1;
+                if (!(same(a, b) || last && a.length() >= 20 && b.startsWith(a))) {
+                    repeat = false;
+                    break;
+                }
+            }
+            if (repeat) {
+                StringBuilder out = new StringBuilder();
+                for (int i = 0; i < k; i++) {
+                    out.append(i == 0 ? "" : "\n\n").append(p[i]);
+                }
+                return out.toString();
+            }
+        }
+        return text;
+    }
+
+    private static boolean same(String a, String b) {
+        return a.trim().replaceAll("\\s+", " ").equals(b.trim().replaceAll("\\s+", " "));
+    }
+
+    /**
+     * Whether {@code next} only repeats {@code earlier} (the same words, or a cut-off copy of them): a second copy of a
+     * reply in the same turn is not shown.
+     */
+    public static boolean repeats(String earlier, String next) {
+        if (earlier == null || next == null) {
+            return false;
+        }
+        String a = earlier.trim().replaceAll("\\s+", " "), b = next.trim().replaceAll("\\s+", " ");
+        return !b.isEmpty() && (a.equals(b) || b.length() >= 40 && a.startsWith(b));
     }
 
     /**
