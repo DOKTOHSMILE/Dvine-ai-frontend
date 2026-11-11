@@ -1,0 +1,106 @@
+Abia State	capital	Umuahia
+Adamawa State	capital	Yola
+Akwa Ibom State	capital	Uyo
+Anambra State	capital	Awka
+Bauchi State	capital	Bauchi
+Bayelsa State	capital	Yenagoa
+Benue State	capital	Makurdi
+Borno State	capital	Maiduguri
+Cross River State	capital	Calabar
+Delta State	capital	Asaba
+Ebonyi State	capital	Abakaliki
+Edo State	capital	Benin City
+Ekiti State	capital	Ado-Ekiti
+Enugu State	capital	Enugu
+Gombe State	capital	Gombe
+Imo State	capital	Owerri
+Jigawa State	capital	Dutse
+Kaduna State	capital	Kaduna
+Kano State	capital	Kano
+Katsina State	capital	Katsina
+Kebbi State	capital	Birnin Kebbi
+Kogi State	capital	Lokoja
+Kwara State	capital	Ilorin
+Lagos State	capital	Ikeja
+Nasarawa State	capital	Lafia
+Niger State	capital	Minna
+Ogun State	capital	Abeokuta
+Ondo State	capital	Akure
+Osun State	capital	Osogbo
+Oyo State	capital	Ibadan
+Plateau State	capital	Jos
+Rivers State	capital	Port Harcourt
+Sokoto State	capital	Sokoto
+Taraba State	capital	Jalingo
+Yobe State	capital	Damaturu
+Zamfara State	capital	Gusau
+Federal Capital Territory	capital	Abuja
+FCT	capital	Abuja
+Abia State	continent	Africa
+Adamawa State	continent	Africa
+Akwa Ibom State	continent	Africa
+Anambra State	continent	Africa
+Bauchi State	continent	Africa
+Bayelsa State	continent	Africa
+Benue State	continent	Africa
+Borno State	continent	Africa
+Cross River State	continent	Africa
+Delta State	continent	Africa
+Ebonyi State	continent	Africa
+Edo State	continent	Africa
+Ekiti State	continent	Africa
+Enugu State	continent	Africa
+Gombe State	continent	Africa
+Imo State	continent	Africa
+Jigawa State	continent	Africa
+Kaduna State	continent	Africa
+Kano State	continent	Africa
+Katsina State	continent	Africa
+Kebbi State	continent	Africa
+Kogi State	continent	Africa
+Kwara State	continent	Africa
+Lagos State	continent	Africa
+Nasarawa State	continent	Africa
+Niger State	continent	Africa
+Ogun State	continent	Africa
+Ondo State	continent	Africa
+Osun State	continent	Africa
+Oyo State	continent	Africa
+Plateau State	continent	Africa
+Rivers State	continent	Africa
+Sokoto State	continent	Africa
+Taraba State	continent	Africa
+Yobe State	continent	Africa
+Zamfara State	continent	Africa
+Mercury	order from the sun	first
+Mercury	diameter	4,879
+Mercury	orbital period	88 Earth days
+Mercury	planet type	a rocky planet
+Venus	order from the sun	second
+Venus	diameter	12,104
+Venus	orbital period	225 Earth days
+Venus	planet type	a rocky planet
+Earth	order from the sun	third
+Earth	diameter	12,742
+Earth	orbital period	365.25 days
+Earth	planet type	a rocky planet
+Mars	order from the sun	fourth
+Mars	diameter	6,779
+Mars	orbital period	687 Earth days
+Mars	planet type	a rocky planet
+Jupiter	order from the sun	fifth
+Jupiter	diameter	139,820
+Jupiter	orbital period	11.9 Earth years
+Jupiter	planet type	a gas giant
+Saturn	order from the sun	sixth
+Saturn	diameter	116,460
+Saturn	orbital period	29.5 Earth years
+Saturn	planet type	a gas giant
+Uranus	order from the sun	seventh
+Uranus	diameter	50,724
+Uranus	orbital period	84 Earth years
+Uranus	planet type	an ice giant
+Neptune	order from the sun	eighth
+Neptune	diameter	49,244
+Neptune	orbital period	165 Earth years
+Neptune	planet type	an ice giant

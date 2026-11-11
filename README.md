@@ -37,6 +37,9 @@ The app's package is `ai.ibiko` (since 0.99.68; before that `ai.dvine`, so it in
 
 **Built-in knowledge.** `app/src/main/assets/knowledge/` ships what Ibiko knows on install, with no internet:
 - `world_facts.tsv` (2,765 facts): the 194 countries (capital, region, currency, official languages, area, population with its year, people, neighbours, coastline) and the 118 elements;
+- `country_more.tsv` (989): each country's calling code, internet domain, region, ISO codes and UN membership;
+- `elements_more.tsv` (1,027): each element's atomic mass, category, state at room temperature, discovery, melting and boiling points, density, electron configuration, group and period;
+- `local_facts.tsv` (106): Nigeria's 36 states and the FCT with their capitals; the eight planets (order from the Sun, diameter, year, kind);
 - `base_knowledge.json`: everyday talk, maths, units, wisdom;
 - `shards/dictionary_en.json`: the English dictionary (WordNet).
 
@@ -66,6 +69,8 @@ gradle testDebugUnitTest assembleDebug
 
 Regenerate assets:
 - `python3 tools/build_world_facts.py`: built-in facts from Wikidata;
+- `python3 tools/build_more_facts.py`: the further facts (countries' codes, the elements in full, Nigeria's states, the planets);
+- `python3 tools/make_icon.py app/src/main/res <thinking.gif>`: the icon and thinking animation from the pilot's art;
 - `python3 tools/make_logo.py`: logo and launcher icons;
 - `python3 tools/pack_source.py`: knowledge pack.
 

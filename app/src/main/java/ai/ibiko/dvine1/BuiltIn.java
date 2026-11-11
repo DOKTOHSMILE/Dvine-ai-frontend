@@ -35,7 +35,36 @@ public final class BuiltIn {
         /** The year a population figure is from: said with the figure, never asked for on its own. */
         POPULATION_YEAR("population year", "(?!)", "%s %s"),
         SYMBOL("symbol", "\\b(chemical symbol|symbol)\\b", "The chemical symbol of %s is %s."),
-        NUMBER("atomic number", "\\b(atomic number|proton number|how many protons)\\b", "The atomic number of %s is %s.");
+        NUMBER("atomic number", "\\b(atomic number|proton number|how many protons)\\b", "The atomic number of %s is %s."),
+        // country_more.tsv
+        CALLING_CODE("calling code", "\\b(calling code|dialling code|dialing code|country code|phone code|international code)\\b",
+                "The calling code of %s is %s."),
+        DOMAIN("internet domain", "\\b(internet domain|domain name|top level domain|tld|web domain|domain extension)\\b",
+                "The internet domain of %s is %s."),
+        REGION("region", "\\b(region|subregion|sub region)\\b", "%s is in %s."),
+        ISO("iso code", "\\b(iso code|iso codes|iso 3166|two letter code|three letter code|country abbreviation)\\b",
+                "The ISO codes of %s are %s."),
+        UN("un member", "\\b(un member|member of the un|member of the united nations|united nations member|in the un)\\b", "%s"),
+        // elements_more.tsv
+        MASS("atomic mass", "\\b(atomic mass|atomic weight|relative atomic mass|molar mass)\\b", "The atomic mass of %s is %s."),
+        CATEGORY("element category", "\\b(category|what kind of element|what type of element|metal or|a metal|metalloid|noble gas|halogen)\\b",
+                "%s is a %s."),
+        PHASE("phase", "\\b(phase|state of matter|solid liquid or gas|at room temperature)\\b", "%s is a %s at room temperature."),
+        DISCOVERED("discovered by", "\\b(discovered|discoverer|discovery|who found)\\b", "%s was discovered by %s."),
+        MELT("melting point", "\\b(melting point|melts at|melt at|melting temperature)\\b", "%s melts at %s."),
+        BOIL("boiling point", "\\b(boiling point|boils at|boil at|boiling temperature)\\b", "%s boils at %s."),
+        DENSITY("density", "\\b(density|how dense)\\b", "The density of %s is %s."),
+        CONFIG("electron configuration", "\\b(electron configuration|electronic configuration|electron arrangement)\\b",
+                "The electron configuration of %s is %s."),
+        GROUP_PERIOD("group and period", "\\b(which group|what group|which period|what period|group number|period number|in the periodic table)\\b",
+                "%s is in %s of the periodic table."),
+        // local_facts.tsv: the planets
+        ORDER("order from the sun", "\\b(from the sun|planet number|order of the planets|position in the solar system)\\b",
+                "%s is the %s planet from the Sun."),
+        DIAMETER("diameter", "\\b(diameter|how wide|how big across|how big)\\b", "%s is about %s kilometres across."),
+        ORBIT("orbital period", "\\b(orbital period|year on|long is a year|orbit the sun|round the sun|around the sun|revolve)\\b",
+                "A year on %s lasts about %s."),
+        PLANET("planet type", "\\b(what (kind|type|sort) of planet|gas giant|ice giant|rocky planet|terrestrial planet)\\b", "%s is %s.");
 
         final String name;
         final java.util.regex.Pattern asks;
@@ -63,7 +92,17 @@ public final class BuiltIn {
     private final Map<String, String> capitalOf = new LinkedHashMap<String, String>();
     private int count;
 
-    public BuiltIn(InputStream tsv) {
+    /** One or several knowledge files, read in order (a capital already known to a country stays that country's). */
+    public BuiltIn(InputStream... tsvs) {
+        if (tsvs == null) {
+            return; // no file: nothing known
+        }
+        for (InputStream t : tsvs) {
+            read(t);
+        }
+    }
+
+    private void read(InputStream tsv) {
         if (tsv == null) {
             return;
         }
@@ -92,7 +131,7 @@ public final class BuiltIn {
                     count++;
                 }
                 if (a == About.CAPITAL) {
-                    capitalOf.put(p[2].trim().toLowerCase(Locale.US), key);
+                    capitalOf.putIfAbsent(p[2].trim().toLowerCase(Locale.US), key); // Abuja stays Nigeria's, not the FCT's
                 }
             }
         } catch (IOException e) {
@@ -111,17 +150,25 @@ public final class BuiltIn {
             return null;
         }
         String q = " " + question.toLowerCase(Locale.US).replaceAll("[’']s\\b", " ").replaceAll("[^\\p{L}\\p{Nd} -]", " ").replaceAll("\\s+", " ") + " ";
+        String thing = longest(q, facts);
         About about = null;
+        // the first kind of question the words ask that this thing has an answer for ("how big" is a country's area
+        // and a planet's diameter; "mercury" is an element and a planet)
         for (About a : About.values()) {
             if (a.asks.matcher(q).find()) {
-                about = a;
-                break;
+                if (about == null) {
+                    about = a;
+                }
+                List<String> v = thing == null ? null : facts.get(thing).get(a);
+                if (v != null && !v.isEmpty()) {
+                    about = a;
+                    break;
+                }
             }
         }
         if (about == null) {
             return null;
         }
-        String thing = longest(q, facts);
         if (thing == null && about == About.CAPITAL) {
             String city = longest(q, capitalOf); // "Abuja is the capital of which country?"
             if (city != null) {
@@ -134,6 +181,20 @@ public final class BuiltIn {
             return null;
         }
         String name = shown.get(thing);
+        if (about == About.UN) {
+            return "yes".equals(values.get(0)) ? name + " is a member of the United Nations." : name + " is not a member of the United Nations.";
+        }
+        if (about == About.CATEGORY || about == About.PHASE || about == About.DISCOVERED || about == About.DIAMETER
+                || about == About.MELT || about == About.BOIL) {
+            name = Character.toUpperCase(name.charAt(0)) + name.substring(1); // the sentence starts with it
+        }
+        if (about == About.DISCOVERED && values.get(0).matches("(?i).*(\\bbc\\b|ancient|prehistoric|antiquity|middle east|^\\d).*")) {
+            return name + " has been known since " + values.get(0) + "."; // iron, gold, copper: known since ancient times
+        }
+        if (about == About.CATEGORY) {
+            String kind = values.get(0);
+            return name + " is " + (kind.matches("(?i)^[aeiou].*") ? "an " : "a ") + kind + ".";
+        }
         if (about == About.LANDLOCKED) {
             return "yes".equals(values.get(0)) ? name + " is landlocked: it has no coastline." : name + " is not landlocked: it has a coastline.";
         }

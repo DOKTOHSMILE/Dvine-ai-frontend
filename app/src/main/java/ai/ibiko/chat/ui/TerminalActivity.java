@@ -99,7 +99,9 @@ public final class TerminalActivity extends AppCompatActivity {
     private boolean ctrl;
     private boolean alt;
     private boolean editing;
-    private float textSp = 14f;
+    private float textSp = DEFAULT_SP;
+    /** The text size a terminal opens with: small enough for about 65 columns on a phone, as Termux shows. */
+    public static final float DEFAULT_SP = 10f;
     private TextView ctrlKey;
     private TextView altKey;
     /** The full terminal, when the phone opens a terminal device. */
@@ -140,7 +142,7 @@ public final class TerminalActivity extends AppCompatActivity {
         getWindow().setNavigationBarColor(0xFF000000);
         new androidx.core.view.WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView()).setAppearanceLightStatusBars(false);
         new androidx.core.view.WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView()).setAppearanceLightNavigationBars(false);
-        textSp = getPreferences(MODE_PRIVATE).getFloat("text_sp", 14f);
+        textSp = getPreferences(MODE_PRIVATE).getFloat("text_sp", DEFAULT_SP);
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setBackgroundColor(0xFF000000);
@@ -271,7 +273,7 @@ public final class TerminalActivity extends AppCompatActivity {
                 new GestureDetector.SimpleOnGestureListener() {
                     @Override
                     public boolean onDoubleTap(android.view.MotionEvent e) {
-                        textSp = 14f;
+                        textSp = DEFAULT_SP;
                         transcript.setTextSize(textSp);
                         if (input != null) {
                             input.setTextSize(textSp);
@@ -360,7 +362,7 @@ public final class TerminalActivity extends AppCompatActivity {
         LinearLayout row = new LinearLayout(this);
         row.setBackgroundColor(0xFF111111);
         for (String label : labels) {
-            TextView key = Ui.text(this, label, 12, 0xFFB0B0B0, false);
+            TextView key = Ui.text(this, label, 13, 0xFFF2F2F7, false); // bright, as Termux shows them
             key.setGravity(Gravity.CENTER);
             key.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
             key.setOnClickListener(v -> onKey(label, key));

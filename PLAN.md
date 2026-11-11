@@ -1,3 +1,9 @@
+# More built-in knowledge; the terminal as Termux shows it (0.99.78)
+
+- [x] Countries' codes and regions, the elements in full, Nigeria's states, the planets (2,122 facts).
+- [x] Terminal: short greeting, smaller text, bright keys, selection with a floating Copy / Paste / More bar.
+- [ ] A dictionary (Open English WordNet, CC BY 4.0): definitions offline.
+
 # Reports never vanish; downloads in the notification bar (0.99.77)
 
 - [x] Writing on the live line kept at each step's end; a tool call hides only itself.

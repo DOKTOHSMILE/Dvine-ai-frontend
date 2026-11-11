@@ -1,0 +1,20 @@
+Ibiko's further built-in knowledge (tools/build_more_facts.py writes these files)
+
+country_more.tsv
+  Calling codes, internet domains, regions, ISO codes and UN membership of the countries, from
+  mledoze/countries (https://github.com/mledoze/countries), made available under the Open Database
+  License (ODbL) 1.0: https://opendatacommons.org/licenses/odbl/1-0/ . The same source and licence as
+  world_facts.tsv (see WORLD_FACTS_LICENSE.txt).
+
+elements_more.tsv
+  Atomic mass, category, state at room temperature, discovery, melting and boiling points, density,
+  electron configuration, group and period of the 118 elements, from Bowserinator/Periodic-Table-JSON
+  (https://github.com/Bowserinator/Periodic-Table-JSON), whose data comes from Wikipedia. Licensed under
+  Creative Commons Attribution-ShareAlike 3.0 Unported (https://creativecommons.org/licenses/by-sa/3.0/).
+  This file is an adaptation (selected fields, temperatures also given in degrees Celsius) and is shared
+  under the same licence.
+
+local_facts.tsv
+  Nigeria's 36 states and the Federal Capital Territory with their capitals, and the eight planets
+  (order from the Sun, diameter, length of a year, kind; figures from NASA's planetary fact sheets, which
+  are in the public domain). Facts written down by the project.
