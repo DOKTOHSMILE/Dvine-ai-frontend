@@ -22,12 +22,12 @@ import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
-/** The human voice: a failure to start is told and the device's voice takes over; a voice choice redraws in place. */
+/** The human voice: a failure to start is told (no other voice reads in its place); a voice choice redraws in place. */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35)
 public class VoiceChoiceTest {
     @Test
-    public void aVoiceThatCantStartIsToldAndTheDeviceVoiceTakesOver() throws Exception {
+    public void aVoiceThatCantStartIsToldAndNoOtherVoiceReads() throws Exception {
         android.app.Application app = RuntimeEnvironment.getApplication();
         File files = app.getFilesDir();
         // Kokoro on the device (its files in place), but no engine to run it here: as on a device whose library fails

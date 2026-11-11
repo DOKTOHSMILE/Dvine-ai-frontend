@@ -87,6 +87,7 @@ public final class ReadAloud {
             readingAt = 0; // finished last time: from the start
         }
         readingOn = true;
+        readingAs = agent;
         readNext(agent);
         return true;
     }
@@ -110,6 +111,46 @@ public final class ReadAloud {
             readingAt++;
             readNext(persona);
         });
+    }
+
+    /** The persona whose reply is being read (to carry on in the same voice after a skip). */
+    private String readingAs;
+
+    /** A reply is being read by its Listen button (back and forward work on it). */
+    public boolean reading() {
+        return readingOn;
+    }
+
+    /**
+     * Back (negative) or forward by about {@code seconds}: whole sentences, counting about 15 letters a second at
+     * the speed it reads, then it carries on from there. False when nothing is being read by Listen.
+     */
+    public boolean skip(int seconds, float speed) {
+        if (!readingOn || readingSentences.isEmpty()) {
+            return false;
+        }
+        readingAt = skipTo(readingSentences, readingAt, seconds, speed);
+        readNext(readingAs);
+        return true;
+    }
+
+    /** Where a skip lands: the sentence about {@code seconds} away (at 15 letters a second, times the speed). */
+    static int skipTo(java.util.List<String> sentences, int at, int seconds, float speed) {
+        double letters = Math.abs(seconds) * 15.0 * Math.max(0.5f, speed);
+        int i = Math.max(0, Math.min(at, sentences.size() - 1));
+        double n = 0;
+        if (seconds < 0) {
+            while (i > 0 && n < letters) {
+                i--;
+                n += sentences.get(i).length();
+            }
+            return i;
+        }
+        while (i < sentences.size() - 1 && n < letters) {
+            n += sentences.get(i).length();
+            i++;
+        }
+        return i;
     }
 
     /**

@@ -18,6 +18,17 @@ public final class MediaPlayActivity extends AppCompatActivity {
     public static final String EXTRA_PATH = "path";
     public static final String EXTRA_VIDEO = "video";
 
+    /** One sound at a time: when Ibiko starts to speak, the recording pauses. */
+    private final ai.ibiko.voice.AudioGate.Owner gate = () -> runOnUiThread(() -> {
+        MediaPlayer a = MediaPlayActivity.this.audio;
+        VideoView v = MediaPlayActivity.this.video;
+        if (a != null && a.isPlaying()) {
+            a.pause();
+        }
+        if (v != null && v.isPlaying()) {
+            v.pause();
+        }
+    });
     private VideoView video;
     private MediaPlayer audio;
 
@@ -50,6 +61,7 @@ public final class MediaPlayActivity extends AppCompatActivity {
                 video.setVideoURI(uri);
                 video.setOnPreparedListener(mp -> {
                     mp.setLooping(false);
+                    ai.ibiko.voice.AudioGate.take(gate);
                     video.start();
                 });
             }
@@ -74,6 +86,7 @@ public final class MediaPlayActivity extends AppCompatActivity {
                 audio.setDataSource(this, uri);
                 audio.prepare();
             }
+            ai.ibiko.voice.AudioGate.take(gate); // a reply being read stops first
             audio.start();
             play.setText("Pause");
         } catch (Exception failed) {
@@ -83,6 +96,7 @@ public final class MediaPlayActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        ai.ibiko.voice.AudioGate.leave(gate);
         if (video != null) {
             video.stopPlayback();
         }

@@ -65,8 +65,9 @@ public class LiveFaceTest {
             f.setMood(m);
             Bitmap strip = Bitmap.createBitmap(size * 8, size, Bitmap.Config.ARGB_8888);
             Canvas sc = new Canvas(strip);
-            for (int i = 0; i < 40; i++) {
-                ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(120));
+            // every 30 ms: a blink keeps the eyes shut for about a tenth of a second, so coarser steps can miss them all
+            for (int i = 0; i < 160; i++) {
+                ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(30));
                 Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
                 f.draw(new Canvas(b));
                 int[] e = eyes(b);
@@ -75,8 +76,8 @@ public class LiveFaceTest {
                 } else {
                     where.add(m + ":" + e[0] / 6 + "," + e[1] / 6);
                 }
-                if (i % 5 == 0) {
-                    sc.drawBitmap(b, (i / 5) * size, 0, null);
+                if (i % 20 == 0) {
+                    sc.drawBitmap(b, (i / 20) * size, 0, null);
                 }
             }
             try (FileOutputStream o = new FileOutputStream(new File(out, "face_" + m.name().toLowerCase() + ".png"))) {

@@ -58,6 +58,8 @@ A tool switched off for the chat is never used.
 
 **Settings.** Settings opens as a list of sections (Profile, Chat, Voice, Models, Coding, Advanced and the rest); each opens on its own page and only that page's controls are built, so Settings opens at once and keeps little in memory.
 
+**Listening.** While a reply is read aloud, a floating player sits over the chat: play or pause, back and forward 15 seconds, speed (1x to 2x), the time and close. One sound plays at a time anywhere in Ibiko (`voice/AudioGate`); other apps pause while Ibiko speaks, and a call pauses Ibiko. The voice is loaded once as Ibiko starts and kept ready.
+
 **Asking first.** Ibiko asks before a shell command, a push, a pull request and any connector call that changes something (creating, deleting, posting, merging, sending); reading, searching and editing files in the workspace go ahead. "Allow for this task" lets the rest of one task go ahead; Settings › Coding › Run commands without asking turns asking off, and the steps then say so. Every plan step names its files and its check, and is ticked only after the check passed.
 
 **Plans grow.** A plan file (`PLAN.md`) is only added to. New work goes after the existing steps, or right after the last finished step when you call it a priority. A finished step is ticked, never deleted. A write that would drop a step is refused.

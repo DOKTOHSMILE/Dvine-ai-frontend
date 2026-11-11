@@ -287,6 +287,12 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 254 | Break the Settings list into separate screens (whichever costs the device less) | P12 | Built (a list of sections; each section its own page, built only when opened) | 0.99.88 |
 | 255 | Listen in the chat still plays the old voice | P12 | Fixed (sentences wait for the human voice while it loads; the device voice only when it fails, and why is shown) | 0.99.89 |
 | 256 | Changing the voice refreshes Settings and folds what was open | P12 | Fixed (only the voice options redraw; a crash in the choice chips found and fixed) | 0.99.89 |
+| 257 | No voice speech overlaps anywhere in the app | P12 | Built (AudioGate: one sound at a time; audio focus) | 0.99.92 |
+| 258 | Faster voice start; keep it on standby | P12 | Built (one shared engine loaded at start, warmed up, kept loaded) | 0.99.92 |
+| 259 | All voices the same, no fallback; a floating play control | P12 | Built (no device-voice fallback; PlayerBar with play/pause, 15 s back and forward, speed, time, close) | 0.99.92 |
+| 260 | A tap on a part shows only its Listen and Copy | P12 | Built | 0.99.92 |
+| 261 | Near the bottom, keep the chat at the bottom as new text comes | P12 | Built (within 120 dp it follows; scrolled up it stays) | 0.99.92 |
+| 262 | Settings as their own fragments or activity files with XML; the Speak button (screenshot) | P12 | Next (0.99.93) | |
 
 ## Still open, in the order that matters
 

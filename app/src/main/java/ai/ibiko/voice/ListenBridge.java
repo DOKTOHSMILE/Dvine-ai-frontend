@@ -83,6 +83,7 @@ public final class ListenBridge implements RecognitionListener {
      * the turn.
      */
     public void start(final ListenCallback callback, boolean hold, boolean continuous) {
+        AudioGate.silenceAll(); // the mic opens: nothing Ibiko plays goes on over what is said
         this.hold = hold;
         stop();
         this.callback = callback;

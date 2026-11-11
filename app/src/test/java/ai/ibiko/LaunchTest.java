@@ -220,13 +220,23 @@ public class LaunchTest {
         org.junit.Assert.assertFalse(said.isEmpty());
         said.get(0).performClick();
         root.findViewsWithText(found, "Listen to this part", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
-        org.junit.Assert.assertEquals("a tap shows them: each paragraph of the answer has its own Listen", 2, found.size());
+        org.junit.Assert.assertEquals("a tap shows only that paragraph's Listen and Copy, not every part's", 1, found.size());
         java.util.ArrayList<android.view.View> process = new java.util.ArrayList<android.view.View>();
         root.findViewsWithText(process, "open the process", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         org.junit.Assert.assertEquals("one process row for the whole turn", 1, process.size());
         java.util.ArrayList<android.view.View> copies = new java.util.ArrayList<android.view.View>();
         root.findViewsWithText(copies, "Copy", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         org.junit.Assert.assertEquals("one Copy, at the end, for the whole reply", 1, copies.size());
+        // tapping the other paragraph moves the buttons to it: still only one part's at a time
+        said.clear();
+        root.findViewsWithText(said, "The loop never ends.", android.view.View.FIND_VIEWS_WITH_TEXT);
+        said.get(0).performClick();
+        found.clear();
+        root.findViewsWithText(found, "Listen to this part", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        org.junit.Assert.assertEquals(1, found.size());
+        copies.clear();
+        root.findViewsWithText(copies, "Copy", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+        org.junit.Assert.assertEquals("the whole reply's bar closes with the last part's", 0, copies.size());
         c.pause().stop().destroy();
     }
 

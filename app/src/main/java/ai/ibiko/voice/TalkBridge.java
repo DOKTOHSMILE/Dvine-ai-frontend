@@ -147,9 +147,20 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     private void tell(final boolean reading, final boolean isPaused, final String text, final boolean ivie) {
+        main.post(() -> {
+            if (reading && !isPaused) {
+                holdFocus();
+            } else if (!reading) {
+                dropFocus();
+                AudioGate.leave(gate);
+            }
+        });
         final StateListener l = state;
         if (l != null) {
             main.post(() -> l.onState(reading, isPaused, text, ivie));
+        }
+        for (final StateListener o : stateListeners) {
+            main.post(() -> o.onState(reading, isPaused, text, ivie));
         }
     }
 
@@ -197,36 +208,8 @@ public final class TalkBridge extends UtteranceProgressListener {
         tts = engine == null || engine.isEmpty() ? new TextToSpeech(context.getApplicationContext(), init)
                 : new TextToSpeech(context.getApplicationContext(), init, engine);
         tts.setOnUtteranceProgressListener(this);
-        neural = new NeuralVoice(context.getFilesDir(), new NeuralVoice.Events() {
-            @Override
-            public void onStart(String id) {
-                TalkBridge.this.onStart(id);
-            }
-
-            @Override
-            public void onDone(String id) {
-                TalkBridge.this.onDone(id);
-            }
-
-            @Override
-            public void onError(String id) {
-                TalkBridge.this.onError(id);
-            }
-
-            @Override
-            public void fallback(String id, String text, float speed, float volume) {
-                main.post(() -> {
-                    if (tts == null || !ready) {
-                        TalkBridge.this.onError(id);
-                        return;
-                    }
-                    tts.setSpeechRate(speed);
-                    Bundle params = new Bundle();
-                    params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume);
-                    tts.speak(text, TextToSpeech.QUEUE_ADD, params, id); // its start and end come back with the same id
-                });
-            }
-        });
+        neural = NeuralVoice.shared(context.getFilesDir()); // the one engine, kept on standby: loaded once for the app
+        audio = context.getSystemService(android.media.AudioManager.class);
         refreshVoice();
     }
 
@@ -235,6 +218,109 @@ public final class TalkBridge extends UtteranceProgressListener {
      * reply is spoken with it, on the device, at its own natural pitch; until it is in place, the device's voice speaks.
      */
     private final NeuralVoice neural;
+
+    /** Every sentence this bridge gives the shared voice comes back here as it starts and ends. */
+    private final NeuralVoice.Events voiceEvents = new NeuralVoice.Events() {
+        @Override
+        public void onStart(String id) {
+            TalkBridge.this.onStart(id);
+        }
+
+        @Override
+        public void onDone(String id) {
+            TalkBridge.this.onDone(id);
+        }
+
+        @Override
+        public void onError(String id) {
+            String why = neural.failed();
+            if (why != null && !toldProblem && problems != null) {
+                toldProblem = true; // said once: one voice only, so nothing else reads in its place
+                main.post(() -> problems.accept(why));
+            }
+            TalkBridge.this.onError(id);
+        }
+    };
+
+    /** Told once when the chosen voice couldn't start (the screen shows it). */
+    private java.util.function.Consumer<String> problems;
+    private boolean toldProblem;
+
+    public void setProblemListener(java.util.function.Consumer<String> l) {
+        problems = l;
+    }
+
+    /** The app-wide gate: only one thing speaks or plays at a time. */
+    private final AudioGate.Owner gate = this::stop;
+
+    private void takeOver() {
+        if (AudioGate.holder() != gate) {
+            AudioGate.take(gate);
+        }
+    }
+
+    /** The device's audio focus: other apps' sound pauses while Ibiko speaks; a call pauses Ibiko. */
+    private final android.media.AudioManager audio;
+    private android.media.AudioFocusRequest focus;
+    private boolean pausedByFocus;
+
+    private void holdFocus() {
+        if (audio == null || focus != null) {
+            return;
+        }
+        focus = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(new android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                .setOnAudioFocusChangeListener(change -> main.post(() -> {
+                    if (change == android.media.AudioManager.AUDIOFOCUS_LOSS) {
+                        stop(); // another app took the sound for good
+                    } else if (change == android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        pausedByFocus = pause(); // a call or a short sound: Ibiko waits
+                    } else if (change == android.media.AudioManager.AUDIOFOCUS_GAIN && pausedByFocus) {
+                        pausedByFocus = false;
+                        resume();
+                    }
+                }), main).build();
+        try {
+            audio.requestAudioFocus(focus);
+        } catch (RuntimeException ignored) {
+            // no focus to be had: it still speaks
+        }
+    }
+
+    private void dropFocus() {
+        if (audio != null && focus != null && !paused) {
+            try {
+                audio.abandonAudioFocusRequest(focus);
+            } catch (RuntimeException ignored) {
+                // already gone
+            }
+            focus = null;
+        }
+    }
+
+    /** The player's speed (1x, 1.25x, 1.5x, 2x, 0.75x), on top of the setting: from the next sentence. */
+    private volatile float playerSpeed = 1f;
+
+    public void setPlayerSpeed(float s) {
+        playerSpeed = Math.max(0.5f, Math.min(2.5f, s));
+    }
+
+    public float playerSpeed() {
+        return playerSpeed;
+    }
+
+    /** More listeners for reading starting, pausing and ending (the floating player, the notification). */
+    private final java.util.List<StateListener> stateListeners = new java.util.concurrent.CopyOnWriteArrayList<StateListener>();
+
+    public void addStateListener(StateListener l) {
+        stateListeners.add(l);
+    }
+
+    public void removeStateListener(StateListener l) {
+        stateListeners.remove(l);
+    }
     private String neuralKey = "";
 
     /** Picks up the voice chosen in Settings (call when the chat comes back from Settings). */
@@ -260,12 +346,11 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     /**
-     * The human voice is chosen and either ready or still loading: every sentence goes to it (one that comes while it
-     * loads waits for it), so the device's old voice never speaks in its place. Only when it fails to start does the
-     * device's voice take each sentence.
+     * The human voice is chosen: every sentence goes to it (one that comes while it loads waits for it). The
+     * device's voice never speaks in its place, not even when it fails to start: one voice only.
      */
     private boolean humanChosen() {
-        return neural != null && !neuralKey.isEmpty() && (neural.ready() || neural.loading());
+        return neural != null && !neuralKey.isEmpty(); // one voice: chosen means it speaks, or nothing does
     }
 
     /** The speaker in the downloaded pack: a woman's or a man's voice, as chosen in Settings. */
@@ -381,8 +466,9 @@ public final class TalkBridge extends UtteranceProgressListener {
             if (tts != null) {
                 tts.stop();
             }
-            neural.speak((ivie ? "IVIE-" : "OBI-") + token, text, speakerFor(ivie),
-                    (thought ? t.thoughtRate() : t.rate) * rateScale, thought ? VoiceTuning.THOUGHT_VOLUME : 1f, true);
+            takeOver();
+            neural.speak(voiceEvents, (ivie ? "IVIE-" : "OBI-") + token, text, speakerFor(ivie),
+                    (thought ? t.thoughtRate() : t.rate) * rateScale * playerSpeed, thought ? VoiceTuning.THOUGHT_VOLUME : 1f, true);
             return;
         }
         Voice v = t.voice == null ? null : byName.get(t.voice);
@@ -393,7 +479,8 @@ public final class TalkBridge extends UtteranceProgressListener {
         float pitch = t.pitchFor(ivie, g);
         float bright = bright(ivie), quick = quick(ivie);
         tts.setPitch(VoiceTuning.warm((thought ? pitch * t.thoughtPitch() / Math.max(0.01f, t.pitch) : pitch) * bright));
-        tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick * rateScale);
+        tts.setSpeechRate((thought ? t.thoughtRate() : t.rate) * quick * rateScale * playerSpeed);
+        takeOver();
         speaking = text;
         sayText = text;
         sayIvie = ivie;
@@ -434,7 +521,8 @@ public final class TalkBridge extends UtteranceProgressListener {
             lastIvie = ivie;
             String id = (ivie ? "IVIE-Q" : "OBI-Q") + generation + "x" + queued + "n" + (++serial);
             lines.add(new Line(ivie, text, id));
-            neural.speak(id, text, speakerFor(ivie), t.rate * rateScale, 1f, false);
+            takeOver();
+            neural.speak(voiceEvents, id, text, speakerFor(ivie), t.rate * rateScale * playerSpeed, 1f, false);
             return;
         }
         Voice v = t.voice == null ? null : byName.get(t.voice);
@@ -444,7 +532,8 @@ public final class TalkBridge extends UtteranceProgressListener {
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");
         float bright = bright(ivie), quick = quick(ivie);
         tts.setPitch(VoiceTuning.warm(t.pitchFor(ivie, g) * bright));
-        tts.setSpeechRate(t.rate * quick * rateScale);
+        tts.setSpeechRate(t.rate * quick * rateScale * playerSpeed);
+        takeOver();
         speaking = text;
         queued++;
         lastIvie = ivie;
@@ -521,7 +610,7 @@ public final class TalkBridge extends UtteranceProgressListener {
 
     public void shutdown() {
         stop();
-        neural.shutdown();
+        AudioGate.leave(gate); // the shared voice stays loaded for the rest of the app
         if (tts != null) {
             tts.shutdown();
         }
