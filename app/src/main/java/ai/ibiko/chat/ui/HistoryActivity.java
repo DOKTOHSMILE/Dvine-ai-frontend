@@ -73,7 +73,7 @@ public final class HistoryActivity extends AppCompatActivity {
     private void choose(ChatBook.Section s) {
         String[] items = new String[] { "Open", "Rename", s.pinned ? "Unpin" : "Pin",
                 s.archived ? "Unarchive" : "Archive", "Delete" };
-        new android.app.AlertDialog.Builder(this)
+        new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(s.title)
                 .setItems(items, (d, which) -> {
                     if (which == 0) {
@@ -100,7 +100,7 @@ public final class HistoryActivity extends AppCompatActivity {
     private void askName(ChatBook.Section s) {
         EditText field = new EditText(this);
         field.setText(s.title);
-        new android.app.AlertDialog.Builder(this)
+        new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Rename")
                 .setView(field)
                 .setPositiveButton("Save", (d, w) -> {

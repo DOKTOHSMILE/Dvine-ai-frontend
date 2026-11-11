@@ -260,6 +260,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 227 | The send button sometimes gets stuck showing the stop sign | P12 | Fixed (redrawn on every stream change and at a job's end; rechecks each second while Stop shows; Robolectric test) | 0.99.73 |
 | 228 | The bot icon is too common: a private, generic and unique icon | P12 | Built (an abstract mark of three petals of light round a spark, in a broken orbit; render test) | 0.99.74 |
 | 229 | Agents working in a project may read only that project's backup files, not every project's | P12 | Built (own notes and record only; others refused in file tools, listings, search and named shell paths; JVM tests) | 0.99.75 |
+| 230 | Clicking GitHub takes time: a loading wait that prevents double clicks; every dialog to one standard | P12 | Built (waiting dialog with Cancel and a guard; Theme.Dvine.Dialog for all 36 dialogs; renders) | 0.99.76 |
+| 231 | Use the pilot's images: the app icon, and the GIF as the in-chat thinking animation | P12 | Built (adaptive icon from the art, themed eyes layer, PNGs; the GIF plays on the working line; tests) | 0.99.76 |
 
 ## Still open, in the order that matters
 

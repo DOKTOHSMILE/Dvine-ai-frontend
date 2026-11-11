@@ -1,3 +1,9 @@
+# The pilot's icon and thinking eyes; one dialog style (0.99.76)
+
+- [x] The app icon from the pilot's art; the eyes GIF on the working line.
+- [x] A waiting dialog for the GitHub list, safe from double taps.
+- [x] One standard style for every dialog.
+
 # Each project's backups for its own agents only (0.99.75)
 
 - [x] Own notes and record only; other projects' and the task states refused in file tools, listings, search and named shell paths.
