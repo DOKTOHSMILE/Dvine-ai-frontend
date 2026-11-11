@@ -21,6 +21,9 @@ public final class NeuralVoice {
         void onDone(String id);
 
         void onError(String id);
+
+        /** The human voice couldn't start: this sentence is spoken by the device's voice instead, not lost. */
+        void fallback(String id, String text, float speed, float volume);
     }
 
     private static final class Item {
@@ -37,6 +40,9 @@ public final class NeuralVoice {
             this.epoch = epoch;
         }
     }
+
+    /** Why the human voice last failed to start (Settings › Voice shows it), in files/voices/. */
+    public static final String PROBLEM = "voice_problem.txt";
 
     /** The pause after each sentence, in seconds. */
     static final float GAP = 0.16f;
@@ -64,8 +70,16 @@ public final class NeuralVoice {
     /** Loads a pack (on the voice's own thread); null or a pack not downloaded turns the neural voice off. */
     public void use(VoicePacks.Pack p) {
         stop();
+        loading = p != null;
         queue.offer(new Item(null, p == null ? null : p.key, 0, 0, 0, -1)); // a "load" order, in turn with the speech
     }
+
+    /** A pack is being loaded: sentences wait for it rather than going to the device's voice. */
+    public boolean loading() {
+        return loading && !closed;
+    }
+
+    private volatile boolean loading;
 
     /** Ready to speak: a pack is loaded. */
     public boolean ready() {
@@ -117,10 +131,12 @@ public final class NeuralVoice {
                     load(it.text);
                     continue;
                 }
-                if (it.epoch != epoch || !ready) {
-                    if (it.epoch == epoch) {
-                        events.onError(it.id);
-                    }
+                if (it.epoch != epoch) {
+                    continue;
+                }
+                if (!ready) {
+                    // the voice didn't load: the device's voice says it, so nothing goes unsaid
+                    events.fallback(it.id, it.text, it.speed, it.volume);
                     continue;
                 }
                 say(it);
@@ -137,6 +153,7 @@ public final class NeuralVoice {
         VoicePacks.Pack p = key == null ? null : VoicePacks.byKey(key);
         pack = p;
         if (p == null || !VoicePacks.installed(filesDir, p)) {
+            loading = false;
             return;
         }
         File d = VoicePacks.folder(filesDir, p);
@@ -165,10 +182,19 @@ public final class NeuralVoice {
                     .setBufferSizeInBytes(Math.max(min, rate * 4 / 2)).setTransferMode(AudioTrack.MODE_STREAM).build();
             failed = null;
             ready = true;
+            new File(VoicePacks.root(filesDir), PROBLEM).delete();
         } catch (Throwable e) {
-            // an engine that won't start leaves the device's own voice speaking
+            // an engine that won't start leaves the device's own voice speaking; why is kept for Settings › Voice
             failed = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
             release();
+            try {
+                java.nio.file.Files.write(new File(VoicePacks.root(filesDir), PROBLEM).toPath(),
+                        (p.title + "\n" + failed).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (java.io.IOException | RuntimeException ignored) {
+                // nowhere to write it
+            }
+        } finally {
+            loading = false;
         }
     }
 

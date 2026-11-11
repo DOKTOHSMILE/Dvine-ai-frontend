@@ -285,6 +285,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 252 | Enforce background running: Ibiko never dies unless the user closes it; Back doesn't quit | P12 | Built (KeepAlive service, Close in the notification, battery exemption asked once, Back to the background) | 0.99.86 |
 | 253 | Keep the download screen busy with facts about the app, without disturbing the download | P12 | Built (a slow, looping roll of 20 app facts under the running line) | 0.99.87 |
 | 254 | Break the Settings list into separate screens (whichever costs the device less) | P12 | Built (a list of sections; each section its own page, built only when opened) | 0.99.88 |
+| 255 | Listen in the chat still plays the old voice | P12 | Fixed (sentences wait for the human voice while it loads; the device voice only when it fails, and why is shown) | 0.99.89 |
+| 256 | Changing the voice refreshes Settings and folds what was open | P12 | Fixed (only the voice options redraw; a crash in the choice chips found and fixed) | 0.99.89 |
 
 ## Still open, in the order that matters
 
