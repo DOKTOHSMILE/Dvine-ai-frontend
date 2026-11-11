@@ -40,7 +40,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 4));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.TEXT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setOnClickListener(v -> finish());
@@ -133,7 +133,7 @@ public final class ConnectorsActivity extends AppCompatActivity {
         if (on.isEmpty()) {
             android.widget.ImageView go = new android.widget.ImageView(this);
             go.setImageResource(ai.ibiko.R.drawable.ic_chevron_right);
-            go.setColorFilter(Ui.SUB);
+            go.setColorFilter(Ui.ACCENT);
             row.addView(go, new LinearLayout.LayoutParams(Ui.dp(this, 18), Ui.dp(this, 18)));
         } else {
             // the switch, like the other connectors: off keeps the account signed in but Ibiko doesn't use it

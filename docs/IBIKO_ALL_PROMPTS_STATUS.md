@@ -341,6 +341,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 308 | Several models in the model menu: add, switch when wanted; an Edit button beside the model in use | P12 | Built (every model kept for a provider listed; Add a model; Edit opens that provider) | 0.99.104 |
 | 309 | A button to fetch the model list from the API | P12 | Built (model menu and AI providers; OpenAI, Anthropic, Gemini and compatible gateways) | 0.99.105 |
 | 310 | Material, responsive icons in the app and Settings, the entire app | P12 | Built (every icon Material Symbols Rounded; Settings section icons; ripples and 44 dp targets) | 0.99.105 |
+| 311 | Restyle every icon as the app's own, in the app colour | P12 | Built (two-tone Ibiko set, accent colour, both themes; docs/ibiko-icons.png) | 0.99.106 |
 
 ## Still open, in the order that matters
 
