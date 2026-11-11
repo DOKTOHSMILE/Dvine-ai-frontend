@@ -1,3 +1,7 @@
+# Ibiko's own mark (0.99.74)
+
+- [x] The robot icon replaced by an original abstract mark: three petals of light round a spark, in a broken orbit.
+
 # The send button never sticks on Stop (0.99.73)
 
 - [x] Redrawn on every stream change and when a job ends; while Stop shows it checks again each second.
