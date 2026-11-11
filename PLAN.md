@@ -1,3 +1,8 @@
+# Ship in batches; work like a careful senior engineer (0.99.111)
+
+- [x] agent/WorkingMethod W1–W12 in every task that changes things.
+- [x] agent/Shipping S1–S9 for work that ends in a repository (kept on "continue").
+
 # Chats walled off; the icon's head; a message's voice under its id (0.99.110)
 
 - [x] Chat commands run only in the chat's own Linux (own /workspace, /root, /tmp); no fallback to the shared shell.

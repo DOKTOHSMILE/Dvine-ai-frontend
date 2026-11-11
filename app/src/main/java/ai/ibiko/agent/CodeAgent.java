@@ -486,6 +486,8 @@ public final class CodeAgent {
                         + " then check it."))
                 + (blueprint != null ? "\n" + Blueprint.RULES : "")
                 + (diagnosing ? Diagnosis.MAP : "")
+                + (readOnly || planning ? "" : compact ? WorkingMethod.SHORT : WorkingMethod.RULES) // how a careful engineer works
+                + (shipping && !readOnly ? Shipping.RULES : "") // batch by batch to the repository
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
@@ -587,12 +589,16 @@ public final class CodeAgent {
     /** Works on the task; the final answer for the user (without a "Ibiko:" label a small model copies from the chat). */
     public String run(String task, String earlier) {
         diagnosing = Diagnosis.applies(task) && depth == 0;
+        // "continue" on shipping work keeps shipping: the job was asked earlier, or batches were already pushed
+        shipping = depth == 0 && (Shipping.applies(task) || Shipping.applies(earlier) || work().contains("action=\"push\""));
         String out = unlabel(work(task, earlier));
         return diagnosing ? checked(out) : out;
     }
 
     /** An audit, review or diagnosis: the deep diagnosis map is in its instructions and its report is checked. */
     private boolean diagnosing;
+    /** The work ends in a repository: it is shipped batch by batch (Shipping). */
+    private boolean shipping;
     /** The files opened in this run (for the diagnosis check: a claim only about code that was read). */
     private final java.util.Set<String> opened = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
 
