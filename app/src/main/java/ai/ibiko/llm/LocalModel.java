@@ -520,7 +520,9 @@ public final class LocalModel {
         final int room = PromptFit.localReplyTokens(localWindow(), maxTokens, false);
         asked = fit(asked, PromptFit.localPromptChars(localWindow(), room, system == null ? 0 : system.length()));
         ai.ibiko.learn.LearningLog l = learning;
-        String learned = l == null ? "" : l.examplesFor(question, 1, 700);
+        // an everyday message goes the speed test's way: the persona (already read), the chat, the question; the
+        // learned examples are read only for real work, where they help more than the seconds they cost
+        String learned = l == null || quick(question, maxTokens) ? "" : l.examplesFor(question, 1, 700);
         if (!learned.isEmpty()) {
             step("Recalled similar answers I learned before");
             asked = learned + "\n\n" + (context == null ? "" : context + "\n\n") + "The user says: " + question;
@@ -610,6 +612,11 @@ public final class LocalModel {
     public volatile boolean localThinking = false;
 
     /** The instructions as the device's model gets them: no hidden reasoning block unless {@link #localThinking}. */
+    /** An everyday message for the device's model: short, not code, a short reply. */
+    public boolean quick(String question, int maxTokens) {
+        return TaskSize.ofCall(question, maxTokens, coding) == TaskSize.Tier.FAST;
+    }
+
     String deviceSystem(String system) {
         String s = system == null ? "" : system;
         return spec.thinks && !localThinking && !s.contains("/no_think") ? s + " /no_think" : s;
@@ -977,6 +984,24 @@ public final class LocalModel {
         }
     }
 
+    /**
+     * Gets the device's model ready before the question comes, as the voice makes a reply's audio while it is read:
+     * loaded if it was let go (the app was away), then its instructions read into memory. Started when the user
+     * begins to type, so by Send only the new words are left to read. Nothing when an API answers.
+     */
+    public boolean prepare(String system, int threads) {
+        final int asked = epoch.get();
+        synchronized (this) {
+            if (cancelledWhileWaiting(asked) || remoteOn() || system == null) {
+                return false;
+            }
+            if (state != State.READY && !(installed() && load(threads))) {
+                return false;
+            }
+            return warmNow(system);
+        }
+    }
+
     private synchronized boolean warmNow(String system) {
         if (state != State.READY || handle == 0 || system == null) {
             return false;
@@ -1143,10 +1168,65 @@ public final class LocalModel {
             return null;
         }
         long loadMs = wasLoaded ? 0 : System.currentTimeMillis() - t0;
+        Speed s = measure(handle, spec, localWindow(), loadMs, tokens);
+        if (s == null) {
+            problem = NativeLlm.nError(handle);
+            return null;
+        }
+        noteSpeed(s.pieces, s.totalMs);
+        return s;
+    }
+
+    /**
+     * The same test for any model on the device, in use or not. Another model is loaded on its own for the test and
+     * let go after; the one in use leaves memory meanwhile (two at once would not fit) and loads again for the next
+     * question. Null when it can't run.
+     */
+    public synchronized Speed speedTest(ModelSpec m, int threads, int tokens) {
+        if (m == null || m.file.equals(spec.file)) {
+            return speedTest(threads, tokens);
+        }
+        if (!has(m)) {
+            problem = m.weights + " isn't downloaded";
+            return null;
+        }
+        if (!NativeLlm.available()) {
+            problem = "its engine isn't in this build";
+            return null;
+        }
+        if (handle != 0) {
+            NativeLlm.nFree(handle);
+            handle = 0;
+            loadedContext = 0;
+            if (state == State.READY) {
+                state = State.INSTALLED;
+            }
+        }
+        threads = Math.max(1, Math.min(2, threads));
+        long t0 = System.currentTimeMillis();
+        long other = NativeLlm.nLoad(new File(dir, m.file).getPath(), LOCAL_WINDOW, threads);
+        if (other == 0) {
+            problem = m.weights + " couldn't be loaded (not enough memory, or a damaged file)";
+            return null;
+        }
+        long loadMs = System.currentTimeMillis() - t0;
+        try {
+            Speed s = measure(other, m, LOCAL_WINDOW, loadMs, tokens);
+            if (s == null) {
+                problem = NativeLlm.nError(other);
+            }
+            return s;
+        } finally {
+            NativeLlm.nFree(other);
+        }
+    }
+
+    /** The speed test's question on a loaded model: when the first word came, and how many followed. */
+    private static Speed measure(long h, ModelSpec m, int window, long loadMs, int tokens) {
         final long[] first = {-1};
         final int[] pieces = {0};
         final long start = System.currentTimeMillis();
-        String out = NativeLlm.nReply(handle, spec.prompt("You are a helpful assistant. /no_think"), new String[]{"user"},
+        String out = NativeLlm.nReply(h, m.prompt("You are a helpful assistant. /no_think"), new String[]{"user"},
                 new String[]{SPEED_PROMPT}, tokens, 0.7f, text -> {
                     if (first[0] < 0) {
                         first[0] = System.currentTimeMillis() - start;
@@ -1156,11 +1236,9 @@ public final class LocalModel {
                 });
         long total = System.currentTimeMillis() - start;
         if (out == null || pieces[0] == 0) {
-            problem = NativeLlm.nError(handle);
             return null;
         }
-        noteSpeed(pieces[0], total);
-        return new Speed(spec.weights, localWindow(), loadMs, Math.max(0, first[0]), total, pieces[0]);
+        return new Speed(m.weights, window, loadMs, Math.max(0, first[0]), total, pieces[0]);
     }
 
     /** Whether {@code m}'s file is on the phone, whole. */

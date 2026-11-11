@@ -147,6 +147,24 @@ public final class NeuralVoice {
         }
     };
 
+    /** Sentences' sound kept on the device for a day ({@link SpeechCache}): Listen plays a prepared reply at once. */
+    private volatile SpeechCache said;
+
+    private SpeechCache said() {
+        if (said == null && filesDir != null) {
+            said = new SpeechCache(filesDir);
+        }
+        return said;
+    }
+
+    /** How high the voice is played (1 normal; above 1 the child's voice): applied as it plays, the speed unchanged. */
+    private volatile float pitch = 1f;
+    private float pitchSet = 1f;
+
+    public void setPitch(float p) {
+        pitch = Math.max(0.5f, Math.min(2f, p));
+    }
+
     static String madeKey(String text, int speaker, float speed) {
         return speaker + "|" + Math.round(Math.max(0.5f, Math.min(2f, speed)) * 100) + "|" + (text == null ? "" : text.trim());
     }
@@ -156,10 +174,15 @@ public final class NeuralVoice {
         if (text == null || text.trim().isEmpty()) {
             return;
         }
+        String key = madeKey(text, speaker, speed);
         synchronized (made) {
-            if (made.containsKey(madeKey(text, speaker, speed))) {
+            if (made.containsKey(key)) {
                 return;
             }
+        }
+        SpeechCache c = said();
+        if (c != null && c.has(key)) {
+            return; // already made and kept
         }
         queue.offer(new Item(null, "ahead", text, speaker, speed, 1f, AHEAD));
     }
@@ -391,15 +414,24 @@ public final class NeuralVoice {
             System.arraycopy(p, 0, all, at, p.length);
             at += p.length;
         }
+        String key = madeKey(it.text, it.speaker, it.speed);
         synchronized (made) {
-            made.put(madeKey(it.text, it.speaker, it.speed), all);
+            made.put(key, all);
+        }
+        SpeechCache c = said();
+        if (c != null) {
+            c.put(key, all);
         }
     }
 
     private void make(Item it) throws InterruptedException {
         float[] ahead;
+        String key = madeKey(it.text, it.speaker, it.speed);
         synchronized (made) {
-            ahead = made.remove(madeKey(it.text, it.speaker, it.speed));
+            ahead = made.remove(key);
+        }
+        if (ahead == null && said() != null) {
+            ahead = said().get(key); // made earlier, while the reply was on the screen
         }
         if (ahead != null && ahead.length > 0) {
             // made ahead while the last sentence played: it starts now, with no wait after the full stop
@@ -415,6 +447,8 @@ public final class NeuralVoice {
         boolean quick = ready2play.isEmpty() && !sounding;
         java.util.List<String> pieces = partsFrom(it.text, quick);
         boolean first = true;
+        java.util.List<float[]> whole = new java.util.ArrayList<float[]>(); // kept, so the next Listen plays at once
+        int total = 0;
         for (int i = 0; i < pieces.size(); i++) {
             if (it.epoch != epoch) {
                 return; // stopped while it was being made
@@ -437,6 +471,17 @@ public final class NeuralVoice {
                 return;
             }
             ensurePlayer();
+            whole.add(sound);
+            total += sound.length;
+            if (last && said() != null && total > 0) {
+                float[] all = new float[total];
+                int at = 0;
+                for (float[] w : whole) {
+                    System.arraycopy(w, 0, all, at, w.length);
+                    at += w.length;
+                }
+                said().put(key, all);
+            }
             Clip c = new Clip(it, sound, first, last);
             first = false;
             while (!ready2play.offer(c, 200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
@@ -502,6 +547,16 @@ public final class NeuralVoice {
                 it.events.onStart(it.id);
             }
             t.setVolume(it.volume);
+            float want = pitch;
+            if (want != pitchSet) {
+                try {
+                    // the child's voice: the same voice played higher, at the same speed
+                    t.setPlaybackParams(new android.media.PlaybackParams().setPitch(want).setSpeed(1f));
+                    pitchSet = want;
+                } catch (RuntimeException ignored) {
+                    pitchSet = want; // this device can't change the pitch: played as it is
+                }
+            }
             t.play();
             sounding = true;
             int step = rate / 10; // a tenth of a second at a time, so a stop is heard at once

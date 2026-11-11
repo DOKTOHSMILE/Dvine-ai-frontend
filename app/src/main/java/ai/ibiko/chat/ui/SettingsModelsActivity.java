@@ -67,13 +67,8 @@ public class SettingsModelsActivity extends SettingsActivity {
             rp.leftMargin = Ui.dp(this, 10);
             buttons.addView(modelRemove, rp);
             model.addView(buttons, Ui.wide(this, 14));
-            model.addView(action("Change the offline model", "Qwen3, Llama, Gemma or Phi, each in sizes: bigger answers better,"
-                    + " smaller is faster", this::chooseModel), Ui.wide(this, 10));
             speed = Ui.text(this, "", 13, Ui.SUB, false);
             speed.setVisibility(View.GONE);
-            model.addView(action("Test the speed", "Runs the same question on the device's own model and measures it",
-                    this::speedTest), Ui.wide(this, 10));
-            model.addView(speed, Ui.wide(this, 4));
             onPhone = new LinearLayout(this);
             onPhone.setOrientation(LinearLayout.VERTICAL);
             model.addView(onPhone, Ui.wide(this, 6));

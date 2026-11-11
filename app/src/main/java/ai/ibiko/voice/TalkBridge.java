@@ -390,7 +390,8 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (p == null) {
             return 0;
         }
-        String named = prefs.getString(ivie ? "voice_human_woman" : "voice_human_man", "");
+        String named = "child".equals(prefs.getString("voice_gender", "male")) ? CHILD_SPEAKER
+                : prefs.getString(ivie ? "voice_human_woman" : "voice_human_man", "");
         return p.speaker(!ivie, named).id;
     }
 
@@ -443,8 +444,19 @@ public final class TalkBridge extends UtteranceProgressListener {
      * (voice_gender). The flag callers pass for who is speaking is not used.
      */
     private boolean woman() {
-        return "female".equals(prefs.getString("voice_gender", "male"));
+        String g = prefs.getString("voice_gender", "male");
+        boolean child = "child".equals(g);
+        if (neural != null) {
+            neural.setPitch(child ? CHILD_PITCH : 1f);
+        }
+        return "female".equals(g) || child; // a child's voice is a light woman's voice played higher
     }
+
+    /** How much higher the child's voice is played: young and bright, still clear. */
+    static final float CHILD_PITCH = 1.32f;
+
+    /** The voice a child's voice is made from: Sky, the lightest of the woman's voices. */
+    static final String CHILD_SPEAKER = "af_sky";
 
     private volatile boolean robot;
     private volatile float rateScale = 1f;
@@ -475,6 +487,20 @@ public final class TalkBridge extends UtteranceProgressListener {
         }
         VoiceTuning t = tuning[ivie ? 1 : 0];
         neural.prepare(said, speakerFor(ivie), t.rate * rateScale * playerSpeed);
+    }
+
+    /**
+     * A reply on the screen: each of its sentences is made in the background now and kept for a day, so Listen plays
+     * it at once. Only for the human voice; something said now always comes first.
+     */
+    public void prepareAll(String text) {
+        if (neural == null || !humanChosen() || text == null) {
+            return;
+        }
+        boolean ivie = woman();
+        for (String sentence : SentenceStream.split(text)) {
+            prepare(ivie, sentence);
+        }
     }
 
     /** The inner-thought voice: same voice, softer, a touch lower and slower. */

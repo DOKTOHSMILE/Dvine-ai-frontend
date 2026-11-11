@@ -334,6 +334,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 301 | Give Ibiko's brain a surgical-precision formula for processing and analysing data | P12 | Built (formulas/Analyst A1–A10) | 0.99.102 |
 | 302 | The voice pauses about 10 s at a full stop | P12 | Fixed (the next sentence is made while this one plays) | 0.99.102 |
 | 303 | Replace the model-naming status lines; Ibiko is the first channel and takes accountability | P12 | Built (no model names in status lines; Ibiko's own short lines) | 0.99.102 |
+| 304 | A voice for a child, to suit the cute bot | P12 | Built (Sky, played higher: "A child's voice" in Settings › Voice) | 0.99.103 |
+| 305 | Make the speech while the message shows, keep it, clear it after a while, make it again when wanted | P12 | Built (voice/SpeechCache: one day, 60 MB; made again on Listen after that) | 0.99.103 |
+| 306 | Models page: list every model; Use and Test for downloaded ones, Download for the rest | P12 | Built (always listed; Test on any downloaded model) | 0.99.103 |
+| 307 | Test is faster than chat: use the same simple channel for chat; prepare the model ahead as the voice is | P12 | Built (everyday messages skip the extras; the model loads and reads its instructions while you type) | 0.99.103 |
 
 ## Still open, in the order that matters
 
