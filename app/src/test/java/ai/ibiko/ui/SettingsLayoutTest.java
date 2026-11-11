@@ -43,11 +43,22 @@ public class SettingsLayoutTest {
         assertTrue("Advanced is closed until opened", found.isEmpty());
         root.findViewsWithText(found, "Advanced", View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         assertFalse(found.isEmpty());
+        assertEquals("the list builds no section's controls", 0, seekBars(root));
         found.get(0).performClick();
+        // the section opens on its own page, built only then
+        android.content.Intent page = org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity();
+        assertEquals("Advanced", page.getStringExtra(SettingsActivity.EXTRA_SECTION));
+        ActivityController<SettingsActivity> p = Robolectric.buildActivity(SettingsActivity.class, page).create().start().resume().visible();
+        ShadowLooper.idleMainLooper();
+        View proot = p.get().getWindow().getDecorView();
         found.clear();
-        root.findViewsWithText(found, "Back to the defaults", View.FIND_VIEWS_WITH_TEXT);
-        assertFalse("open after a tap", found.isEmpty());
-        assertEquals("the numbers are rows; a slider only inside a number's own editor", 0, seekBars(root));
+        proot.findViewsWithText(found, "Back to the defaults", View.FIND_VIEWS_WITH_TEXT);
+        assertFalse("its settings are on its page", found.isEmpty());
+        found.clear();
+        proot.findViewsWithText(found, "Change the offline model", View.FIND_VIEWS_WITH_TEXT);
+        assertTrue("only this section is built, not the others", found.isEmpty());
+        assertEquals("the numbers are rows; a slider only inside a number's own editor", 0, seekBars(proot));
+        p.pause().stop().destroy();
         c.pause().stop().destroy();
     }
 

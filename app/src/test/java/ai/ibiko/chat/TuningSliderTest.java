@@ -45,7 +45,12 @@ public class TuningSliderTest {
         android.view.View root = c.get().getWindow().getDecorView();
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
         root.findViewsWithText(found, "Advanced", android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
-        found.get(0).performClick(); // Advanced is closed until opened
+        found.get(0).performClick(); // Advanced opens on its own page
+        android.content.Intent page = org.robolectric.Shadows.shadowOf(c.get()).getNextStartedActivity();
+        c.pause().stop().destroy();
+        c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsActivity.class, page).create().start().resume().visible();
+        ShadowLooper.idleMainLooper();
+        root = c.get().getWindow().getDecorView();
         found.clear();
         root.findViewsWithText(found, Tuning.AGENT_TOKENS.name, android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
         assertEquals(1, found.size());

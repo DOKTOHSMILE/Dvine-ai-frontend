@@ -254,7 +254,8 @@ final class ToolsMenu {
             case CONNECTORS:
                 return () -> a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.ConnectorsActivity.class));
             case WEB:
-                return () -> a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.SettingsActivity.class));
+                return () -> a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.SettingsActivity.class)
+                        .putExtra(ai.ibiko.chat.ui.SettingsActivity.EXTRA_SECTION, "Web and services"));
             case SHELL:
                 return () -> a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.TerminalActivity.class));
             case SOCIAL:

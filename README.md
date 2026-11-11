@@ -56,6 +56,8 @@ A tool switched off for the chat is never used.
 
 **Always running.** Ibiko keeps running in the background with a quiet "Ibiko is running" notification, until you close it: the notification's Close Ibiko, or swiping it away from the recent apps (`main/KeepAlive`; Settings › Coding › Keep Ibiko running in the background). Back never quits: it sends Ibiko to the background like Home. Ibiko asks once to be left out of battery saving so the system doesn't freeze it.
 
+**Settings.** Settings opens as a list of sections (Profile, Chat, Voice, Models, Coding, Advanced and the rest); each opens on its own page and only that page's controls are built, so Settings opens at once and keeps little in memory.
+
 **Asking first.** Ibiko asks before a shell command, a push, a pull request and any connector call that changes something (creating, deleting, posting, merging, sending); reading, searching and editing files in the workspace go ahead. "Allow for this task" lets the rest of one task go ahead; Settings › Coding › Run commands without asking turns asking off, and the steps then say so. Every plan step names its files and its check, and is ticked only after the check passed.
 
 **Plans grow.** A plan file (`PLAN.md`) is only added to. New work goes after the existing steps, or right after the last finished step when you call it a priority. A finished step is ticked, never deleted. A write that would drop a step is refused.

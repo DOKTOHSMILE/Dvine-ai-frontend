@@ -145,7 +145,8 @@ final class ModelMenu {
                     showNightLearning();
                 }));
         list.addView(brainLink("All offline models", "Download another family or size, or delete one",
-                () -> a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.SettingsActivity.class))));
+                () -> a.startActivity(new android.content.Intent(a, ai.ibiko.chat.ui.SettingsActivity.class)
+                        .putExtra(ai.ibiko.chat.ui.SettingsActivity.EXTRA_SECTION, "Models"))));
         list.addView(brainLink("AI providers", "API models and keys", a::openProviders));
         sheet[0] = ai.ibiko.chat.ui.BottomSheet.showView(a, "Choose the brain", list);
     }
