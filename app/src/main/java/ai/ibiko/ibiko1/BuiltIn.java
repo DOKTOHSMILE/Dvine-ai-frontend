@@ -425,13 +425,45 @@ public final class BuiltIn {
 
     /** The longest known name that stands as whole words in the question, so "South Sudan" is not read as "Sudan". */
     private static String longest(String q, Map<String, ?> names) {
+        // by word id: the names are filed under the id of their first word, so only names that start with a word of
+        // the question are tried, not all of them (a name in " q " starts with one of q's words)
+        Map<Integer, List<String>> byFirst = firstWords(names);
         String best = null;
-        for (String n : names.keySet()) {
-            if (n.length() >= 3 && (best == null || n.length() > best.length()) && q.contains(" " + n + " ")) {
-                best = n;
+        for (String w : q.trim().split(" ")) {
+            List<String> start = byFirst.get(ai.ibiko.learn.Symbols.known(w));
+            if (start == null) {
+                continue;
+            }
+            for (String n : start) {
+                if (n.length() >= 3 && (best == null || n.length() > best.length()) && q.contains(" " + n + " ")) {
+                    best = n;
+                }
             }
         }
         return best;
+    }
+
+    /** Each map of names filed by the id of each name's first word, made once. */
+    private static final Map<Map<String, ?>, Map<Integer, List<String>>> FIRST =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<Map<String, ?>, Map<Integer, List<String>>>());
+    /** How many names each map had when it was filed: more names since, and it is filed again. */
+    private static final Map<Map<String, ?>, Integer> FILED =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<Map<String, ?>, Integer>());
+
+    private static Map<Integer, List<String>> firstWords(Map<String, ?> names) {
+        Map<Integer, List<String>> have = FIRST.get(names);
+        Integer filed = FILED.get(names);
+        if (have != null && filed != null && filed == names.size()) {
+            return have;
+        }
+        Map<Integer, List<String>> made = new java.util.HashMap<Integer, List<String>>();
+        for (String n : names.keySet()) {
+            int sp = n.indexOf(' ');
+            made.computeIfAbsent(ai.ibiko.learn.Symbols.id(sp < 0 ? n : n.substring(0, sp)), k -> new java.util.ArrayList<String>()).add(n);
+        }
+        FIRST.put(names, made);
+        FILED.put(names, names.size());
+        return made;
     }
 
     /** 223804632 → "223,804,632"; 923768.0 → "923,768". */

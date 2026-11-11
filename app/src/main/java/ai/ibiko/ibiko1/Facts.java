@@ -41,6 +41,8 @@ public final class Facts {
         public final Grammar.Triple fact;
         public int n;
         public long confirmed;
+        /** Where it is in the list (for newest-first order among the facts an id pulls). */
+        int pos;
 
         Row(Grammar.Triple fact, int n, long confirmed) {
             this.fact = fact;
@@ -52,6 +54,69 @@ public final class Facts {
     public Facts(File file) {
         this.file = file;
         load();
+    }
+
+    /**
+     * The facts filed by word id ({@link ai.ibiko.learn.Symbols}): the id of the first word of each fact's subject and
+     * of its object (as {@link #norm} reads them) points to the facts. A fact can only answer a question that names
+     * its subject or object, and {@link #names} needs the same first word, so a question's word ids pull every fact
+     * that could answer it and no others: the rest are never read. Rebuilt when the facts change.
+     */
+    private final java.util.Map<Integer, List<Row>> byFirst = new java.util.HashMap<Integer, List<Row>>();
+    private int indexedSize = -1, indexedChanges = -1, changes;
+
+    private void index() {
+        if (indexedSize == all.size() && indexedChanges == changes) {
+            return;
+        }
+        byFirst.clear();
+        for (int i = 0; i < all.size(); i++) {
+            Row r = all.get(i);
+            r.pos = i;
+            file(first(r.fact.subject), r);
+            file(first(r.fact.object), r);
+        }
+        indexedSize = all.size();
+        indexedChanges = changes;
+    }
+
+    private void file(int id, Row r) {
+        if (id > 0) {
+            List<Row> l = byFirst.computeIfAbsent(id, k -> new ArrayList<Row>());
+            if (l.isEmpty() || l.get(l.size() - 1) != r) {
+                l.add(r);
+            }
+        }
+    }
+
+    /** The id of the first word of a name as {@link #norm} reads it ("the Eiffel Tower" → the id of "eiffel"). */
+    static int first(String name) {
+        String n = norm(name);
+        int sp = n.indexOf(' ');
+        return n.isEmpty() ? 0 : ai.ibiko.learn.Symbols.id(sp < 0 ? n : n.substring(0, sp));
+    }
+
+    /** The facts that share a word id with {@code text}, newest first: the only ones worth reading for it. */
+    private List<Row> pulled(String text) {
+        index();
+        java.util.Set<Row> got = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Row, Boolean>());
+        for (String w : norm(text).split(" ")) {
+            int id = ai.ibiko.learn.Symbols.known(w);
+            List<Row> l = id <= 0 ? null : byFirst.get(id);
+            if (l != null) {
+                got.addAll(l);
+            }
+        }
+        List<Row> out = new ArrayList<Row>(got);
+        out.sort((a, b) -> Integer.compare(b.pos, a.pos));
+        return out;
+    }
+
+    /** How many facts the last answer read (the rest were never looked at). */
+    private int lastRead;
+
+    public synchronized int lastRead() {
+        return lastRead;
     }
 
     /** Facts strong enough to answer from (strength 2 or more). */
@@ -90,6 +155,7 @@ public final class Facts {
             added += all.size() > was ? 1 : 0;
         }
         while (all.size() > MOST) {
+            changes++;
             all.remove(weakest());
         }
         if (changed) {
@@ -108,6 +174,7 @@ public final class Facts {
             } else if (opposes(k.fact, t)) {
                 k.n = Confidence.down(k.n);
                 if (k.n == 0) {
+                    changes++;
                     all.remove(i);
                 }
             }
@@ -116,6 +183,7 @@ public final class Facts {
             same.n = Confidence.up(same.n);
             same.confirmed = now;
         } else {
+            changes++;
             all.add(new Row(t, Confidence.first(sightings), now));
         }
         return true;
@@ -172,8 +240,10 @@ public final class Facts {
         }
         Row best = null, second = null;
         String bestSaid = null, secondSaid = null;
-        for (int i = all.size() - 1; i >= 0; i--) {
-            Row r = all.get(i);
+        // by word id: only the facts whose subject or object the question names are read (newest first, as before)
+        List<Row> read = pulled(question);
+        lastRead = read.size();
+        for (Row r : read) {
             String said = match(p, r.fact);
             if (said == null) {
                 continue;
@@ -227,6 +297,7 @@ public final class Facts {
         if (last != null) {
             last.n = Confidence.down(last.n);
             if (last.n == 0) {
+                changes++;
                 all.remove(last);
             }
             last = null;
@@ -248,6 +319,7 @@ public final class Facts {
                 r.n = n;
                 r.confirmed = now;
                 if (n == 0) {
+                    changes++;
                     all.remove(i);
                 }
             }
@@ -259,6 +331,7 @@ public final class Facts {
                 if (same(k.fact.subject, r.fact.subject) && k.fact.relation.equals(r.fact.relation) && same(k.fact.object, r.fact.object)) {
                     k.n = Math.min(Confidence.CAP, k.n + r.n);
                     k.confirmed = Math.max(k.confirmed, r.confirmed);
+                    changes++;
                     all.remove(i);
                     changed++;
                     break;
@@ -363,7 +436,9 @@ public final class Facts {
             return ai.ibiko.ibiko1.formulas.Truth.Checked.unknown(sentence);
         }
         for (Grammar.Triple t : Grammar.facts(sentence, null)) {
-            for (Row r : all) {
+            List<Row> pulled = pulled(t.subject); // the facts about this subject, by its word id
+            pulled.sort((a, b) -> Integer.compare(a.pos, b.pos)); // oldest first, as before
+            for (Row r : pulled) {
                 if (r.n < 3) {
                     continue;
                 }
@@ -416,6 +491,7 @@ public final class Facts {
         for (int i = all.size() - 1; i >= 0; i--) {
             Grammar.Triple k = all.get(i).fact;
             if (same(k.subject, t.subject) && k.relation.equals(t.relation) && same(k.object, t.object)) {
+                changes++;
                 all.remove(i);
             }
         }
@@ -424,6 +500,7 @@ public final class Facts {
     }
 
     public synchronized void clear() {
+        changes++;
         all.clear();
         last = null;
         save();
@@ -451,9 +528,11 @@ public final class Facts {
                         n = 1;
                     }
                 }
+                changes++;
                 all.add(new Row(new Grammar.Triple(p[0], p[1], p[2], p.length >= 4 ? p[3] : p[1]), n, at));
             }
         } catch (IOException e) {
+            changes++;
             all.clear();
         }
     }

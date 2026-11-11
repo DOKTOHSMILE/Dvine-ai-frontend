@@ -489,23 +489,55 @@ public final class BrainBox {
      * The order learned for a message like {@code text}, or null when nothing learned is close enough (the model then
      * decides). An order with the user's own words in it is returned only for the same words.
      */
+    /**
+     * The examples filed by word id ({@link Symbols}), and how many examples hold each word, kept until the box
+     * changes: a question's word ids pull only the examples that share a word with it (any other scores 0 and could
+     * never be chosen), so the rest are never read, and the counts are not made again on every question.
+     */
+    private final Map<Integer, List<Example>> byWord = new HashMap<Integer, List<Example>>();
+    private Map<String, Integer> dfKept;
+    private int indexedSize = -1;
+    private Example indexedLast;
+
+    private void index() {
+        Example lastNow = examples.isEmpty() ? null : examples.get(examples.size() - 1);
+        if (dfKept != null && indexedSize == examples.size() && indexedLast == lastNow) {
+            return;
+        }
+        byWord.clear();
+        dfKept = new HashMap<String, Integer>();
+        for (Example e : examples) {
+            for (String w : new HashSet<String>(e.words)) {
+                dfKept.merge(w, 1, Integer::sum);
+                byWord.computeIfAbsent(Symbols.id(w), k -> new ArrayList<Example>()).add(e);
+            }
+        }
+        indexedSize = examples.size();
+        indexedLast = lastNow;
+    }
+
     public synchronized String recall(String text) {
         List<String> words = words(text);
         if (words.isEmpty() || examples.isEmpty()) {
             return null;
         }
-        Map<String, Integer> df = new HashMap<String, Integer>();
-        for (Example e : examples) {
-            for (String w : new HashSet<String>(e.words)) {
-                Integer n = df.get(w);
-                df.put(w, n == null ? 1 : n + 1);
+        index();
+        Map<String, Integer> df = dfKept;
+        int docs = examples.size();
+        java.util.Set<Example> pulled = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Example, Boolean>());
+        for (String w : words) {
+            List<Example> l = byWord.get(Symbols.known(w));
+            if (l != null) {
+                pulled.addAll(l);
             }
         }
-        int docs = examples.size();
         Example best = null;
         double bestScore = 0;
         for (int i = examples.size() - 1; i >= 0; i--) { // newest first: a tie goes to what was learned last
             Example e = examples.get(i);
+            if (!pulled.contains(e)) {
+                continue; // shares no word id with the question: it scores 0, so it is not read
+            }
             double s = cosine(words, e.words, df, docs);
             if (s > bestScore + 1e-9) {
                 bestScore = s;

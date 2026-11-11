@@ -357,6 +357,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 324 | Separate what goes into the plan file from questions and requests sent while the agent works | P12 | Built (agent/Intake I1–I6; only project changes reach the plan) | 0.99.113 |
 | 325 | Multi-agents and workers on every task | P12 | Built (always on; one-part jobs get a checker) | 0.99.114 |
 | 326 | A probability formula for thinking and deciding | P12 | Built (formulas/Probability P1–P10) | 0.99.114 |
+| 327 | The whole Ibiko mind thinks in ids of texts and sentences instead of full words | P12 | Built (learn/Symbols; Facts, BrainBox, BuiltIn, Codes look up by id) | 0.99.115 |
+| 328 | A word and sentence identifier: identify, attach, save the ids as the conversation | P12 | Built (learn/Identifier; memory/ids.tsv per chat) | 0.99.115 |
 
 ## Still open, in the order that matters
 

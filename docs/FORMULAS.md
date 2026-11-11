@@ -97,3 +97,11 @@ by itself" shows them and forgets them.
 - P8 Calibration: "almost certainly" ≥ 95%, "very likely" ≥ 85%, "likely" ≥ 65%, "a toss-up" 45–55%, "unlikely" ≤ 35%.
 - P9 Chains: a plan is as likely as the product of its steps (0.9 × 0.9 × 0.9 = 0.73).
 - P10 Update with new evidence; don't swing on one weak clue.
+
+
+## Ids: the mind works by numbers (learn/Symbols, learn/Identifier, 0.99.115)
+
+- D1 Every word gets one id, the same for good (files/brain/words.tsv, only added to).
+- D2 Every sentence gets an id: `<message id>#<n>`; a sentence is the list of its word ids, which reads back to the exact words.
+- D3 Every conversation is saved as ids in its chat's folder (memory/ids.tsv): role, sentence id, word ids.
+- D4 Stores are filed by id (facts by the first word of subject and object; examples and tags by word; names by first word). A question's words become ids once; the ids pull only what could answer; nothing else is read.
