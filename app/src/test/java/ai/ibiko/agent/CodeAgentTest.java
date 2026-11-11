@@ -611,4 +611,23 @@ public class CodeAgentTest {
         Script plain = new Script("Fixed it \u2014 missing import added in Main.java.", "Fixed it \u2014 missing import added in Main.java.");
         assertEquals("Fixed it \u2014 missing import added in Main.java.", new CodeAgent(ws, plain, new Phone(), "", 20_000).run("fix the build", ""));
     }
+
+    /** Every task that changes things gets the working method; work that ends in a repository ships in batches. */
+    @Test
+    public void worksLikeASeniorEngineerAndShipsInBatches() throws Exception {
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        CodeAgent agent = new CodeAgent(ws, new Script("Done."), new Phone(), "", 20_000);
+        agent.run("fix the crash when the list is empty", "");
+        assertTrue(agent.system().contains("HOW YOU WORK"));
+        org.junit.Assert.assertFalse("not a shipping task", agent.system().contains("SHIP IN BATCHES"));
+        CodeAgent ship = new CodeAgent(ws, new Script("Done."), new Phone(), "", 20_000);
+        ship.run("build the login screen and push it to my repo batch by batch", "");
+        assertTrue(ship.system().contains("SHIP IN BATCHES") && ship.system().contains("Never push red"));
+        assertTrue(Shipping.applies("open a pull request for this"));
+        assertTrue(Shipping.applies("ship it to GitHub"));
+        org.junit.Assert.assertFalse(Shipping.applies("what does this function do"));
+        CodeAgent goOn = new CodeAgent(ws, new Script("Done."), new Phone(), "", 20_000);
+        goOn.run("continue", "user: push the fixes to the repo in batches");
+        assertTrue("carrying on keeps shipping", goOn.system().contains("SHIP IN BATCHES"));
+    }
 }

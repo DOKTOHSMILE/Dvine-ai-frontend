@@ -350,6 +350,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 317 | A hard limit on files and folders so one chat's files never reach another | P12 | Built (chat commands in the chat's own Linux with its own /root and /tmp) | 0.99.110 |
 | 318 | The process icon in the same head shape as the app icon | P12 | Built (LiveFace measured from the icon art) | 0.99.110 |
 | 319 | Every message has an id; its speech is attached to it, played in order; deleted with the chat | P12 | Built (voices/said/<chat>/<message>/) | 0.99.110 |
+| 320 | Teach the AI to ship batch by batch to the git repository | P12 | Built (agent/Shipping S1–S9) | 0.99.111 |
+| 321 | Teach it to work like Claude Opus: how it thinks and moves through tasks | P12 | Built (agent/WorkingMethod W1–W12) | 0.99.111 |
 
 ## Still open, in the order that matters
 
