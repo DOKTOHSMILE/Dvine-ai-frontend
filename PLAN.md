@@ -1,3 +1,8 @@
+# Carrying on from the .blueprint folder; a cuter icon (0.99.71)
+
+- [x] After a break, the agent reads .blueprint/<project>/SURVEY.md and MAP.md first; a cut-off reading carries on.
+- [x] The icon redrawn: body, waving arm, heart core, star antenna, kawaii eyes, nebula and orbit.
+
 # CodeAssist can see R again (0.99.70)
 
 - [x] The phone compiles `ai.ibiko`. The copy of the project CodeAssist had indexed still said `ai.dvine`, so the generated `R` was not `ai.ibiko.R` and every screen failed with "R cannot be resolved".

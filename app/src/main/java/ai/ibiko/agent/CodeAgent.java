@@ -434,7 +434,11 @@ public final class CodeAgent {
             + " in PLAN.md in the project folder: write the plan first (the steps, each small), then build one item at a"
             + " time, then test it (run the build or the tests, or read the result back) and fix what fails, ticking items"
             + " off in PLAN.md as they pass. Read PLAN.md when you carry on the same task, so you pick up where you stopped; a"
-            + " new task starts its own PLAN.md (an old one about other work is not your task: replace it). You work in"
+            + " new task is added to PLAN.md as a new section under the old ones (old steps are never deleted; only a"
+            + " finished step is ticked). Your reading of the code is kept in .blueprint/<project>/: SURVEY.md says what was"
+            + " read, the last part and what is still to read, MAP.md what was found, notes/ each file's notes. When you carry"
+            + " on after the device closed or the connection broke, read those first and do not read again what they cover."
+            + " You work in"
             + " rounds; between rounds the user gets a short progress note, and the work goes on by itself.\n";
 
     static final String PROGRESS_NOW = "Your steps for this round are used. Write a short progress note for the user, in a"
@@ -1360,18 +1364,31 @@ public final class CodeAgent {
         if (line != null) {
             host.step(line);
         }
-        if (kept == null && !host.stopped()) {
-            // understand first: several readers go through the code at once, line by line, and write down what is there
-            File root = projectOf(task);
+        File root = projectOf(task);
+        String rel = ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()) + "/";
+        File keep = new File(workspace, rel);
+        boolean unfinished = Survey.unfinished(keep);
+        if (carryOn) {
+            // carried on after the device closed or the connection broke: where the work stood is read first, from
+            // the blueprint folder, before anything is read again
+            String stood = Survey.whereItStood(keep);
+            if (!stood.isEmpty()) {
+                host.step("Read where the work stood (" + rel + "SURVEY.md)");
+                work.append("\nWhere this task stood before the break, from ").append(rel)
+                        .append(" (your own progress record: what was read, what is still to read, what was found):\n")
+                        .append(clip(stood, Math.max(3000, budgetChars / 4))).append('\n');
+            }
+        }
+        if ((kept == null || unfinished) && !host.stopped()) {
+            // understand first: several readers go through the code at once, line by line, and write down what is there;
+            // a reading the break cut off carries on with only the parts still to read
             String map = null;
             try {
-                File keep = new File(workspace, ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()));
                 map = Survey.run(root, keep, task, brain::askQuiet, brain.readers(), host::step);
             } catch (RuntimeException e) {
                 map = null;
             }
             if (map != null) {
-                String rel = ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()) + "/";
                 work.append("\nCodebase map, written by the survey readers (each file read line by line; the notes are in ")
                         .append(rel).append("). This is what the code is now: use it for '## Found' and '## Reuse',"
                                 + " and read a file yourself only where a note is not enough.\n")
