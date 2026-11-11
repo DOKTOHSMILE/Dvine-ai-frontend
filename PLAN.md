@@ -1,3 +1,9 @@
+# Reports never vanish; downloads in the notification bar (0.99.77)
+
+- [x] Writing on the live line kept at each step's end; a tool call hides only itself.
+- [x] Linux, GitHub clones and terminal downloads show progress in the notification bar.
+- [ ] More built-in knowledge (next).
+
 # The pilot's icon and thinking eyes; one dialog style (0.99.76)
 
 - [x] The app icon from the pilot's art; the eyes GIF on the working line.

@@ -12,6 +12,11 @@ public final class DvineApp extends Application {
     public void onCreate() {
         super.onCreate();
         CrashLog.install(this);
+        try {
+            ai.ibiko.net.Transfers.use(new ai.ibiko.chat.ui.DownloadNotice(this)); // every download shows its progress
+        } catch (RuntimeException ignored) {
+            // no notifications: downloads still run
+        }
         ai.ibiko.chat.Tuning.resetOnce(getSharedPreferences("dvine", MODE_PRIVATE));
         if (!"robolectric".equals(android.os.Build.FINGERPRINT)) {
             // Google search with no key: google.com read in a browser on the device that isn't shown

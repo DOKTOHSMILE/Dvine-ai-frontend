@@ -169,12 +169,15 @@ public final class GitHubGit {
         r.tree = treeOf(repo, head);
         dir.mkdirs();
         GitOp.open(dir, "clone of " + repo);
+        ai.ibiko.net.Transfers.progress("clone:" + repo, "Cloning " + repo, "Downloading " + branch + "\u2026", -1);
         try {
             String done = cloneInto(repo, branch, dir, r);
             GitOp.close(dir, "FINISHED", done);
+            ai.ibiko.net.Transfers.end("clone:" + repo, "Cloning " + repo, done.replaceAll("\\. It is on the device.*$", "."), true);
             return done;
         } catch (IOException | RuntimeException e) {
             GitOp.close(dir, "FAILED", e.getMessage());
+            ai.ibiko.net.Transfers.end("clone:" + repo, "Cloning " + repo, e.getMessage() == null ? "Stopped" : e.getMessage(), false);
             throw e;
         }
     }
@@ -194,8 +197,13 @@ public final class GitHubGit {
             }
         }
         Map<String, String> remote = files(repo, r.tree);
-        int skipped = 0;
+        int skipped = 0, at = 0;
         for (Map.Entry<String, String> e : remote.entrySet()) {
+            at++;
+            if (at % 10 == 0 || at == remote.size()) {
+                ai.ibiko.net.Transfers.progress("clone:" + repo, "Cloning " + repo, at + " of " + remote.size() + " files",
+                        Math.round(100f * at / Math.max(1, remote.size())));
+            }
             byte[] bytes = blob(repo, e.getValue());
             if (bytes == null) {
                 skipped++;

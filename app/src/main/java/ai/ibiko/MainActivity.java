@@ -1930,7 +1930,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         thinkPace = null;
         if (chatPane != null && streamOpen == false) {
-            chatPane.setLive(null);
+            chatPane.stepEnded(); // a report being written when the work ended is kept, not wiped
         }
         handler.removeCallbacks(thinkBeat);
         updateThoughtStatus("", false);
@@ -2963,7 +2963,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                             }
                             handler.post(() -> {
                                 if (alive(id) && chatPane != null) {
-                                    chatPane.setLive(null);
+                                    chatPane.stepEnded(); // writing from the step before is kept, not wiped
                                 }
                             });
                             return model.task(system, transcript, tokens, piece -> {
@@ -2978,9 +2978,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                     live.append(piece);
                                     sofar = live.toString();
                                 }
-                                String t = ai.ibiko.agent.CodeAgent.unlabel(sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim()); // the answer shows as it is written
-                                boolean tool = t.startsWith("<") || t.contains("<tool") || t.contains("<function") || t.contains("<invoke")
-                                        || t.toUpperCase(java.util.Locale.US).contains("DSML") || t.contains("<|") || t.contains("\uFF5C");
+                                String all = ai.ibiko.agent.CodeAgent.unlabel(sofar.replaceAll("(?s)<think>.*?(</think>|$)", "").replaceAll("</?final>", "").trim()); // the answer shows as it is written
+                                // a tool call hides only itself: the writing before it stays (a report followed by a
+                                // call that saves it used to vanish as soon as the call began)
+                                int cut = ai.ibiko.chat.ReplyText.toolStart(all);
+                                String t = cut < 0 ? all : all.substring(0, cut).trim();
+                                boolean tool = cut >= 0 && t.isEmpty();
                                 long now = System.currentTimeMillis();
                                 if (!tool && t.length() > 0 && now - shown[0] > 120) {
                                     shown[0] = now;

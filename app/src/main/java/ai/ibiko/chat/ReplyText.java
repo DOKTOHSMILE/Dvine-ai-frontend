@@ -8,6 +8,32 @@ public final class ReplyText {
     private ReplyText() {
     }
 
+    /**
+     * Where a tool call starts in a model's streamed text (its own tag, a function or invoke tag, a DSML block, a
+     * special-token marker), or -1 when there is none. The writing before it is for the user; the call is not.
+     */
+    public static int toolStart(String text) {
+        if (text == null) {
+            return -1;
+        }
+        int at = -1;
+        for (String mark : new String[] {"<tool", "<function", "<invoke", "<|", "\uFF5C", "<\uFF5C"}) {
+            int i = text.indexOf(mark);
+            if (i >= 0 && (at < 0 || i < at)) {
+                at = i;
+            }
+        }
+        java.util.regex.Matcher dsml = java.util.regex.Pattern.compile("(?i)<[^>]{0,20}dsml").matcher(text);
+        if (dsml.find() && (at < 0 || dsml.start() < at)) {
+            at = dsml.start();
+        }
+        java.util.regex.Matcher open = java.util.regex.Pattern.compile("^\\s*<[a-z_]+[\\s>]").matcher(text);
+        if (open.find() && !text.trim().startsWith("<br") && !text.trim().matches("(?s)^<(p|b|i|h\\d|ul|ol|li|table|div|span)\\b.*")) {
+            at = 0; // a reply that opens with a tag is a tool written as its own tag
+        }
+        return at;
+    }
+
     public static String prepare(String raw) {
         if (raw == null) {
             return "";
