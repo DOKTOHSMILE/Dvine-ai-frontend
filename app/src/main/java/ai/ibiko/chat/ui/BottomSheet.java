@@ -307,7 +307,7 @@ public final class BottomSheet {
             row.setBackgroundResource(ripple.resourceId);
             ImageView icon = new ImageView(a);
             icon.setImageResource(it.icon);
-            row.addView(icon, new LinearLayout.LayoutParams(Ui.dp(a, 24), Ui.dp(a, 24)));
+            row.addView(icon, new LinearLayout.LayoutParams(Ui.dp(a, ai.ibiko.IconSize.STANDARD), Ui.dp(a, ai.ibiko.IconSize.STANDARD)));
             LinearLayout words = new LinearLayout(a);
             words.setOrientation(LinearLayout.VERTICAL);
             words.setPadding(Ui.dp(a, 20), 0, 0, 0);
@@ -321,7 +321,7 @@ public final class BottomSheet {
                 ImageView check = new ImageView(a);
                 check.setImageResource(ai.ibiko.R.drawable.ic_check);
                 check.setColorFilter(Ui.ACCENT);
-                row.addView(check, new LinearLayout.LayoutParams(Ui.dp(a, 22), Ui.dp(a, 22)));
+                row.addView(check, new LinearLayout.LayoutParams(Ui.dp(a, ai.ibiko.IconSize.STANDARD), Ui.dp(a, ai.ibiko.IconSize.STANDARD)));
                 row.setSelected(true);
             }
             row.setContentDescription(it.name + (on ? ", chosen" : "") + (it.about == null ? "" : ". " + it.about));

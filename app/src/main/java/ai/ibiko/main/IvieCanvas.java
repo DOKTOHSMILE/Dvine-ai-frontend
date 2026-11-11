@@ -68,7 +68,7 @@ public final class IvieCanvas {
             android.widget.ImageView expand = new android.widget.ImageView(canvas.getContext());
             expand.setImageResource(ai.ibiko.R.drawable.ic_fullscreen);
             expand.setColorFilter(host.color(ai.ibiko.R.color.icon_brand));
-            int pad = Math.round(8 * host.getResources().getDisplayMetrics().density);
+            int pad = Math.round(ai.ibiko.IconSize.pad(36, ai.ibiko.IconSize.STANDARD) * host.getResources().getDisplayMetrics().density);
             expand.setPadding(pad, pad, pad, pad);
             expand.setContentDescription("Full screen");
             expand.setOnClickListener(v -> fullScreen(!full));

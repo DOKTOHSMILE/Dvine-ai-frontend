@@ -78,12 +78,12 @@ public final class ProvidersActivity extends AppCompatActivity {
 
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        android.widget.ImageView icon = Ui.glyph(this, ai.ibiko.R.drawable.ic_key, Ui.ACCENT, 26);
+        android.widget.ImageView icon = Ui.glyph(this, ai.ibiko.R.drawable.ic_key, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         head.addView(icon);
         TextView title = Ui.text(this, "AI providers", 26, Ui.TEXT, true);
         title.setPadding(Ui.dp(this, 10), 0, 0, 0);
         head.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
         close.setOnClickListener(v -> finish());
@@ -305,7 +305,7 @@ public final class ProvidersActivity extends AppCompatActivity {
         // the provider's own list of models, asked with the key and address above
         LinearLayout fetchRow = new LinearLayout(this);
         fetchRow.setGravity(Gravity.CENTER_VERTICAL);
-        android.widget.ImageView fetchIcon = Ui.glyph(this, ai.ibiko.R.drawable.ic_refresh_list, Ui.ACCENT, 20);
+        android.widget.ImageView fetchIcon = Ui.glyph(this, ai.ibiko.R.drawable.ic_refresh_list, Ui.ACCENT, ai.ibiko.IconSize.INLINE);
         fetchRow.addView(fetchIcon);
         TextView fetch = Ui.text(this, "Fetch models from " + p.title, 15, Ui.ACCENT, true);
         fetch.setPadding(Ui.dp(this, 8), 0, 0, 0);

@@ -1,5 +1,6 @@
 package ai.ibiko.stage;
 
+import ai.ibiko.IconSize;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Typeface;
@@ -867,7 +868,7 @@ public final class ChatPane extends LinearLayout {
         icon.setImageResource(group.kind == ai.ibiko.agent.StepGroups.Kind.COMMAND ? R.drawable.ic_terminal
                 : group.kind == ai.ibiko.agent.StepGroups.Kind.EDIT ? R.drawable.ic_edit : R.drawable.ic_search);
         icon.setColorFilter(color(R.color.icon_brand));
-        row.addView(icon, new LayoutParams(dp(18), dp(18)));
+        row.addView(icon, new LayoutParams(dp(IconSize.INLINE), dp(IconSize.INLINE)));
         TextView label = plain(group.label);
         label.setTextSize(15.5f); // a little larger: easy to read and to tap
         label.setTextColor(color(running ? R.color.text_primary : R.color.text_secondary));
@@ -886,7 +887,7 @@ public final class ChatPane extends LinearLayout {
         android.widget.ImageView chev = new android.widget.ImageView(getContext());
         chev.setImageResource(open ? R.drawable.ic_chevron_down : R.drawable.ic_chevron_right);
         chev.setColorFilter(color(R.color.icon_brand));
-        row.addView(chev, new LayoutParams(dp(16), dp(16)));
+        row.addView(chev, new LayoutParams(dp(IconSize.INLINE), dp(IconSize.INLINE)));
         row.setContentDescription(group.label + (open ? ", close" : ", open"));
         row.setOnClickListener(v -> toggle.run());
         return row;
@@ -952,7 +953,7 @@ public final class ChatPane extends LinearLayout {
             android.widget.ImageView term = new android.widget.ImageView(getContext());
             term.setImageResource(R.drawable.ic_terminal);
             term.setColorFilter(color(R.color.icon_brand));
-            head.addView(term, new LayoutParams(dp(16), dp(16)));
+            head.addView(term, new LayoutParams(dp(IconSize.INLINE), dp(IconSize.INLINE)));
             TextView name = plain("Bash");
             name.setTextSize(13f);
             name.setTextColor(color(R.color.text_secondary));
@@ -968,7 +969,7 @@ public final class ChatPane extends LinearLayout {
                     cm.setPrimaryClip(android.content.ClipData.newPlainText("command", command));
                 }
             });
-            head.addView(copy, new LayoutParams(dp(36), dp(28)));
+            head.addView(copy, new LayoutParams(dp(IconSize.INLINE + 16), dp(IconSize.INLINE + 8)));
             box.addView(head);
             TextView cmd = codeLine(command, color(R.color.code_text), 0);
             cmd.setPadding(dp(12), dp(8), dp(12), dp(4));
@@ -1084,7 +1085,7 @@ public final class ChatPane extends LinearLayout {
         android.graphics.drawable.Drawable mark = done || current
                 ? androidx.core.content.ContextCompat.getDrawable(getContext(), done ? R.drawable.ic_check : R.drawable.ic_chevron_right).mutate()
                 : new android.graphics.drawable.ColorDrawable(0);
-        mark.setBounds(0, 0, dp(16), dp(16));
+        mark.setBounds(0, 0, dp(IconSize.INLINE), dp(IconSize.INLINE));
         mark.setTint(color(done ? R.color.text_secondary : R.color.accent));
         t.setCompoundDrawablesRelative(mark, null, null, null);
         t.setCompoundDrawablePadding(dp(10));
@@ -1560,7 +1561,7 @@ public final class ChatPane extends LinearLayout {
             if (d != null) {
                 d = d.mutate();
                 d.setTint(color(R.color.icon_brand));
-                d.setBounds(0, 0, dp(18), dp(18));
+                d.setBounds(0, 0, dp(IconSize.INLINE), dp(IconSize.INLINE));
                 row.setCompoundDrawablesRelative(d, null, null, null);
                 row.setCompoundDrawablePadding(dp(12));
             }
@@ -1925,7 +1926,7 @@ public final class ChatPane extends LinearLayout {
         if (d != null) {
             d = d.mutate();
             d.setTint(personaColor(m.persona));
-            d.setBounds(0, 0, dp(16), dp(16));
+            d.setBounds(0, 0, dp(IconSize.INLINE), dp(IconSize.INLINE));
             b.setSpan(new android.text.style.ImageSpan(d, android.text.style.ImageSpan.ALIGN_BASELINE), 0, 1, 0);
         }
         b.setSpan(new android.text.style.ForegroundColorSpan(personaColor(m.persona)), 0, b.length(), 0);
@@ -2008,7 +2009,7 @@ public final class ChatPane extends LinearLayout {
             android.graphics.drawable.Drawable icon = getContext().getDrawable(R.drawable.ic_mode_edits);
             if (icon != null) {
                 icon = icon.mutate();
-                icon.setBounds(0, 0, dp(16), dp(16));
+                icon.setBounds(0, 0, dp(IconSize.INLINE), dp(IconSize.INLINE));
                 b.setCompoundDrawablesRelative(icon, null, null, null);
                 b.setCompoundDrawablePadding(dp(8));
             }
@@ -2375,7 +2376,7 @@ public final class ChatPane extends LinearLayout {
         if (icon != null) {
             icon = icon.mutate();
             icon.setTint(color(R.color.icon_brand));
-            icon.setBounds(0, 0, dp(18), dp(18));
+            icon.setBounds(0, 0, dp(IconSize.INLINE), dp(IconSize.INLINE));
             row.setCompoundDrawablesRelative(icon, null, null, null);
             row.setCompoundDrawablePadding(dp(10));
         }
@@ -2461,7 +2462,8 @@ public final class ChatPane extends LinearLayout {
         b.setOnClickListener(click);
         // a small 18 dp icon in Android's standard 48 by 48 dp touch target, so one tap is enough
         b.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        b.setPadding(dp(15), dp(15), dp(15), dp(15));
+        b.setPadding(dp(IconSize.pad(IconSize.TARGET, IconSize.INLINE)), dp(IconSize.pad(IconSize.TARGET, IconSize.INLINE)),
+                dp(IconSize.pad(IconSize.TARGET, IconSize.INLINE)), dp(IconSize.pad(IconSize.TARGET, IconSize.INLINE)));
         LayoutParams lp = new LayoutParams(dp(48), dp(48));
         b.setLayoutParams(lp);
         return b;

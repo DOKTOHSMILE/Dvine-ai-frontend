@@ -55,7 +55,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 4));
-        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, 22);
+        android.widget.ImageView close = Ui.icon(this, ai.ibiko.R.drawable.ic_close, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         close.setContentDescription("Close");
         close.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         close.setContentDescription("Close");
@@ -148,7 +148,7 @@ public final class WorkspaceActivity extends AppCompatActivity {
         r.setBackgroundResource(ripple.resourceId);
         ImageView i = new ImageView(this);
         i.setImageResource(icon);
-        r.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 22), Ui.dp(this, 22)));
+        r.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, ai.ibiko.IconSize.STANDARD), Ui.dp(this, ai.ibiko.IconSize.STANDARD)));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
         words.setPadding(Ui.dp(this, 14), 0, 0, 0);

@@ -51,7 +51,7 @@ final class ToolsMenu {
         mi.setImageResource(m == ai.ibiko.agent.IbikoMode.AUTO ? R.drawable.ic_mode_auto : m == ai.ibiko.agent.IbikoMode.PLAN
                 ? R.drawable.ic_mode_plan : R.drawable.ic_mode_edits);
         mi.setColorFilter(a.getColor(R.color.accent));
-        android.widget.LinearLayout.LayoutParams mip = new android.widget.LinearLayout.LayoutParams(a.dp(20), a.dp(20));
+        android.widget.LinearLayout.LayoutParams mip = new android.widget.LinearLayout.LayoutParams(a.dp(IconSize.INLINE), a.dp(IconSize.INLINE));
         mip.rightMargin = a.dp(12);
         mode.addView(mi, mip);
         android.widget.LinearLayout mw = new android.widget.LinearLayout(a);
@@ -151,7 +151,7 @@ final class ToolsMenu {
         final android.widget.ImageView icon = new android.widget.ImageView(a);
         icon.setImageResource(toolIcon(t));
         icon.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        android.widget.FrameLayout.LayoutParams ip = new android.widget.FrameLayout.LayoutParams(a.dp(18), a.dp(18));
+        android.widget.FrameLayout.LayoutParams ip = new android.widget.FrameLayout.LayoutParams(a.dp(IconSize.INLINE), a.dp(IconSize.INLINE));
         ip.gravity = android.view.Gravity.CENTER;
         badge.addView(icon, ip);
         top.addView(badge, new android.widget.LinearLayout.LayoutParams(a.dp(34), a.dp(34)));

@@ -98,14 +98,15 @@ final class Ui {
      * touch ripple and a 48 dp target when it is tapped: the same icon set and the same feedback everywhere.
      */
     public static android.widget.ImageView icon(Context c, int res, int color, int size) {
+        size = ai.ibiko.IconSize.STANDARD; // a tappable icon is always the standard size
         android.widget.ImageView v = new android.widget.ImageView(c);
         v.setImageResource(res);
         v.setImageTintList(android.content.res.ColorStateList.valueOf(color));
         v.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        int pad = Math.max(0, (dp(c, 44) - dp(c, size)) / 2);
+        int pad = dp(c, ai.ibiko.IconSize.pad(ai.ibiko.IconSize.TARGET, size));
         v.setPadding(pad, pad, pad, pad);
-        v.setMinimumWidth(dp(c, 44));
-        v.setMinimumHeight(dp(c, 44));
+        v.setMinimumWidth(dp(c, ai.ibiko.IconSize.TARGET));
+        v.setMinimumHeight(dp(c, ai.ibiko.IconSize.TARGET));
         v.setLayoutParams(new LinearLayout.LayoutParams(dp(c, size) + 2 * pad, dp(c, size) + 2 * pad));
         v.setBackground(new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf((color & 0x00FFFFFF) | 0x33000000), null, null));

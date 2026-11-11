@@ -170,12 +170,12 @@ public class SettingsActivity extends AppCompatActivity {
             words.setOrientation(LinearLayout.VERTICAL);
             words.addView(Ui.text(this, s[0], 16, Ui.TEXT, true));
             words.addView(Ui.text(this, s[1], 13, Ui.SUB, false), Ui.wide(this, 2));
-            android.widget.ImageView lead = Ui.glyph(this, sectionIcon(s[0]), Ui.ACCENT, 24);
+            android.widget.ImageView lead = Ui.glyph(this, sectionIcon(s[0]), Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
             LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) lead.getLayoutParams();
             lp.rightMargin = Ui.dp(this, 16);
             row.addView(lead, lp);
             row.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            row.addView(Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_right, Ui.ACCENT, 22));
+            row.addView(Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_right, Ui.ACCENT, ai.ibiko.IconSize.STANDARD));
             row.setContentDescription(s[0]);
             Ui.press(row);
             row.setOnClickListener(v -> startActivity(intentFor(this, s[0])));
@@ -410,7 +410,7 @@ public class SettingsActivity extends AppCompatActivity {
         words.addView(Ui.text(this, title, 16, Ui.TEXT, true));
         words.addView(Ui.text(this, summary, 13, Ui.SUB, false), Ui.wide(this, 2));
         head.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        final android.widget.ImageView chevron = Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_down, Ui.ACCENT, 22);
+        final android.widget.ImageView chevron = Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_down, Ui.ACCENT, ai.ibiko.IconSize.STANDARD);
         chevron.setRotation(opened.contains(title) ? 180f : 0f);
         head.addView(chevron);
         head.setContentDescription(title);
@@ -1069,7 +1069,7 @@ public class SettingsActivity extends AppCompatActivity {
         words.addView(Ui.text(this, name, 16, Ui.TEXT, false));
         words.addView(Ui.text(this, about, 13, Ui.SUB, false));
         r.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_right, Ui.ACCENT, 22));
+        r.addView(Ui.glyph(this, ai.ibiko.R.drawable.ic_chevron_right, Ui.ACCENT, ai.ibiko.IconSize.STANDARD));
         r.setContentDescription(name);
         r.setOnClickListener(v -> startActivity(new Intent(this, screen)));
         Ui.press(r);
