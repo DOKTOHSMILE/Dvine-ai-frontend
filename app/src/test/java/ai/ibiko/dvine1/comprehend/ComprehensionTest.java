@@ -17,8 +17,24 @@ public class ComprehensionTest {
         return new Dictionary(new SortedTable(new File(K, "lexicon.tsv")));
     }
 
+    /** The common-sense table is downloaded on the first start; here it is unpacked from the same file. */
+    static synchronized File conceptsFile() {
+        File out = new File("build/knowledge/concepts.tsv");
+        if (!out.isFile()) {
+            out.getParentFile().mkdirs();
+            try (java.io.InputStream in = new java.util.zip.GZIPInputStream(new java.io.FileInputStream(
+                    new File("../downloads/knowledge/concepts-" + ai.ibiko.main.AppFilesTest.VERSION + ".tsv.gz")));
+                 java.io.OutputStream o = new java.io.FileOutputStream(out)) {
+                in.transferTo(o);
+            } catch (java.io.IOException e) {
+                throw new AssertionError(e);
+            }
+        }
+        return out;
+    }
+
     static Concepts concepts() {
-        return new Concepts(new SortedTable(new File(K, "concepts.tsv")));
+        return new Concepts(new SortedTable(conceptsFile()));
     }
 
     static Comprehension ucl() {

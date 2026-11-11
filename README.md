@@ -21,6 +21,16 @@ The app's package is `ai.ibiko` (since 0.99.68; before that `ai.dvine`, so it in
 - a model downloaded to the device (Qwen3, Llama, Gemma, Phi GGUF files), working offline;
 - Ibiko 1, the app's own learning brain, which needs no model.
 
+**Ibiko 1 runs code and the app.** With no model at all, Ibiko 1 (`dvine1/formulas/Commands` and `CodeTasks`) turns a clear request into one of the app's function codes and carries it out through the same gate every model uses:
+- code tasks become one shell command in the built-in Linux, shown for your yes before it runs:
+  - a command typed as it is (`git status`, `ls -la`, `python3 app.py`, or anything in backticks or after `$ `);
+  - code pasted in a code block with "run this" (Python, JavaScript, C, C++, shell), written to `/work` and run, with the language installed first when missing;
+  - "list my files", "read the file notes.txt", "clone owner/repo", "install nodejs", "make a folder called demo", "is python installed", "how much space is left";
+- bigger code work ("fix the login bug in my app", "build a website") goes to the agents (`§WK`), which need a model;
+- every app control: a new chat, settings, retry, search, photos, files, sharing, scheduled posts, a 3D model, a long piece of writing, thinking together, reading the workspace, carrying on a task, yes and cancel, plan mode, auto mode on and off, calculating, unzipping and finding zip files.
+
+A tool switched off for the chat is never used.
+
 **Agents for real work.** Code, files, repositories and commands go to the agent organisation (`agent/Org`):
 - ARCH plans and CPGC coordinates (the lead), ROLX keeps time, the Scribe records every step;
 - specialists take parts: UCIX (interface), UCUX (what each control does), CORX (engine), DATX (data), QATX (tests), SECX (security), REVX (review), RSRX (research), DOCX (docs), RELX (release);
@@ -42,7 +52,9 @@ The app's package is `ai.ibiko` (since 0.99.68; before that `ai.dvine`, so it in
 - `local_facts.tsv` (106): Nigeria's 36 states and the FCT with their capitals; the eight planets (order from the Sun, diameter, year, kind);
 - `base_knowledge.json`: everyday talk, maths, units, wisdom;
 - `shards/dictionary_en.json`: the English dictionary (WordNet);
-- `lexicon.tsv` (198,273 senses of 152,137 words, Open English WordNet 2024, CC BY 4.0) and `concepts.tsv` (316,294 common-sense links between 133,754 things, ConceptNet 5.7, CC BY-SA 4.0): the comprehension layer's files, unpacked once and read by binary search, never loaded whole into memory (`dvine1/comprehend`, licences in `COMPREHENSION_LICENSE.txt`).
+- `lexicon.tsv` (198,273 senses of 152,137 words, Open English WordNet 2024, CC BY 4.0) and `concepts.tsv` (316,294 common-sense links between 133,754 things, ConceptNet 5.7, CC BY-SA 4.0): the comprehension layer's files, unpacked once and read by binary search, never loaded whole into memory (`dvine1/comprehend`, licences in `COMPREHENSION_LICENSE.txt`). `concepts.tsv` is not inside the app: see "First start" below.
+
+**First start.** On the first start Ibiko downloads the app files it needs before it opens (today the common-sense table, `downloads/knowledge/concepts-<version>.tsv.gz` in this repository, 2.6 MB). The screen and the notification only say "Downloading app files", with the progress. The file is checked against its checksum (`main/AppFiles`) and unpacked to `brain/knowledge/concepts.tsv`. If the download fails or the file is wrong, the app does not open: it says so and offers Try again or Close. After that the app opens with no internet. A rebuilt table (`tools/build_concepts.py`) gets a new version name and checksum in `AppFiles`.
 
 **Comprehension.** Before any brain reads a message, `dvine1/comprehend/Comprehension` works out what it means: the intent (ten kinds), each action with its target, attributes and position ("take the red tyre off the car": remove, tyre, red, from car, and whether a car has tyres), the word sense in context (a river bank or a money bank), and what "it" and "its" refer to in the conversation. The reading goes into the foundation as "Understood: …", and dictionary and common-sense questions ("what does X mean", "what is a knife used for", "parts of a car") are answered offline.
 
@@ -76,7 +88,7 @@ Regenerate assets:
 - `python3 tools/make_icon.py app/src/main/res <thinking.gif>`: the icon and thinking animation from the pilot's art;
 - `python3 tools/make_logo.py`: logo and launcher icons;
 - `python3 tools/pack_source.py`: knowledge pack;
-- `python3 tools/build_lexicon.py` and `python3 tools/build_concepts.py`: the comprehension files from Open English WordNet and ConceptNet.
+- `python3 tools/build_lexicon.py` and `python3 tools/build_concepts.py`: the comprehension files from Open English WordNet and ConceptNet (the second writes the first-start download and prints its checksum).
 
 No provider key belongs in this project. Keys are entered in the app and stay on the device.
 

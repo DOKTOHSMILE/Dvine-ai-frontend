@@ -26,7 +26,24 @@ public final class Commands {
             {"MF", Pattern.compile("^(?:please )?(?:make|save|export)(?: that| this| it)?(?: as| into| to)? (?:a |an )?(pdf|docx|xlsx|csv|md|html|txt)(?: (?:file )?of (?:that|this|it))?$"), 1},
             {"SP", Pattern.compile("^(?:please )?show(?: me)? (?:my |the )?scheduled posts$"), -1},
             {"AC", Pattern.compile("^(?:please )?(post on \\w+: .{1,2000}|share: .{1,2000}|copy: .{1,2000})$"), 1},
+            // the rest of the app's controls (docs/APP_FUNCTIONS.md)
+            {"YS", Pattern.compile("^(?:yes,? )?(?:go ahead|do it|confirm(?: it)?|send it|post it)$"), 0},
+            {"CX", Pattern.compile("^(?:cancel(?: it| that)?|don'?t (?:send|post|do) (?:it|that)|drop it)$"), 0},
+            {"PM", Pattern.compile("^(?:(?:turn on |switch to |use )?plan mode(?: on)?|plan (?:it )?first(?:,? then ask)?)$"), 0},
+            {"AO", Pattern.compile("^(?:auto(?: mode)? on|(?:turn|switch) on auto(?: mode)?|(?:run|work) without asking(?: me)?)$"), 0},
+            {"AF", Pattern.compile("^(?:auto(?: mode)? off|(?:turn|switch) off auto(?: mode)?|ask (?:me )?(?:first|before (?:running|commands|you run|pushing).*))$"), 0},
+            {"CO", Pattern.compile("^(?:carry on|keep going|continue|go on|resume)(?: (?:with )?(?:the |my |your )?(?:task|work|job|where you (?:stopped|left off)))?$"), 0},
+            {"CA", Pattern.compile("^(?:please )?(?:calculate|compute|work out) (.{1,200})$"), 1},
+            {"UZ", Pattern.compile("^(?:please )?(?:unzip|extract) (?:the |that |this )?(?:zip )?(?:file)?$"), 0},
+            {"FZ", Pattern.compile("^(?:please )?find (?:my |the |all )?zip(?: files?)?(?: on (?:my |this )?device)?$"), 0},
+            {"RF", Pattern.compile("^(?:please )?read (?:the |my )?(?:workspace|project)(?: files)?$|^read the files in (?:the |my )?(?:workspace|project)$"), 0},
+            {"TT", Pattern.compile("^(?:please )?think (?:it through |this through )?together(?: (?:about|on) .{2,400})?$"), 0},
+            {"BD", Pattern.compile("^(?:please )?(?:build|model|make|draw) (?:me )?(?:a |an )?3d (?:model of (?:a |an |the )?)?(.{2,160})$"), 1},
+            {"WP", Pattern.compile("^(?:please )?write (?:me )?(?:a |an )(?:long |short |full )?(?:story|essay|report|article|speech|chapter|book|poem|letter)\\b.*$"), 0},
     };
+
+    /** Real work on code for the agents: written, fixed, built, tested ("fix the login bug in my app"). */
+    private static final Pattern WORK = Pattern.compile("^(?:please |can you |could you )?(?:write|create|build|make|fix|debug|refactor|test|code|implement|add|update|review|audit|deploy|push|commit)\\b.*\\b(?:code|app|apps|function|script|program|bug|bugs|feature|website|site|api|class|module|repo|repository|project|tests?|endpoint|page|screen|component|error|crash|build|pr|pull request|branch)\\b.*$");
 
     /**
      * The function code line for a message that is a clear command ("§SR weather in Lagos"), or null when it is a
@@ -54,6 +71,14 @@ public final class Commands {
             // the argument as the user wrote it (names keep their capitals)
             String arg = raw.substring(Math.min(raw.length(), m.start(g)), Math.min(raw.length(), m.end(g))).replaceAll("\\?+$", "");
             return "§" + code + " " + ("SW".equals(code) || "MF".equals(code) ? arg.toLowerCase(Locale.US) : arg);
+        }
+        // a code task DVINE 1 can carry out itself: one shell command, approved by the pilot before it runs
+        String shell = CodeTasks.command(message);
+        if (shell != null && (allowed == null || allowed.test("SH"))) {
+            return "§SH " + shell;
+        }
+        if (WORK.matcher(low).matches() && (allowed == null || allowed.test("WK"))) {
+            return "§WK";
         }
         return null;
     }

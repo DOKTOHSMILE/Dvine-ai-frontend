@@ -268,6 +268,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 235 | The terminal compared with Termux (screenshots): text cut off, large text, dim keys, a copy dialog | P12 | Fixed (short greeting, 10 sp default, bright keys, Termux-style selection with a floating Copy/Paste/More bar) | 0.99.78 |
 | 236 | Download interaction and comprehension data (ConceptNet, WordNet, …) | P12 | Built (Open English WordNet 2024 and ConceptNet 5.7 English as sorted tables; training sets such as SQuAD and GLUE not shipped, as they teach a model rather than answer) | 0.99.79 |
 | 237 | The master comprehension and knowledge engine blueprint (8 engines, UCL) | P12 | Built in part (v1: intent, grammar of actions, word senses, context and pronouns, object parts, offline lookups; next: ATOMIC intents, reasoning, action planning) | 0.99.79 |
+| 238 | ConceptNet downloaded on the first start, shown only as "Downloading app files"; the app does not open if it fails | P12 | Built (AppFiles, AppFilesActivity with Try again or Close) | 0.99.80 |
+| 239 | The Ibiko brain runs code tasks and controls the app's commands; README updated | P12 | Built (CodeTasks as approved shell commands; every plain-sentence app control in Commands) | 0.99.80 |
 
 ## Still open, in the order that matters
 

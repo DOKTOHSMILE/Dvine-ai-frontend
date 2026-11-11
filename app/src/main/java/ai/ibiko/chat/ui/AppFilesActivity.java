@@ -1,0 +1,146 @@
+package ai.ibiko.chat.ui;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+
+import ai.ibiko.R;
+import ai.ibiko.main.AppFiles;
+
+/**
+ * The first start: the files the app needs are downloaded before it opens ("Downloading app files", with no file
+ * named). When the download fails the app does not open: it says so and offers Try again or Close.
+ */
+public final class AppFilesActivity extends Activity {
+    private TextView title, line;
+    private ProgressBar bar;
+    private Button retry, close;
+    private volatile boolean gone;
+
+    @Override
+    protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
+        getWindow().setStatusBarColor(getColor(R.color.bg_main));
+        getWindow().setNavigationBarColor(getColor(R.color.bg_main));
+        float dp = getResources().getDisplayMetrics().density;
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundColor(getColor(R.color.bg_main));
+        int pad = (int) (32 * dp);
+        root.setPadding(pad, pad, pad, pad);
+        android.widget.ImageView icon = new android.widget.ImageView(this);
+        icon.setImageResource(R.mipmap.ic_launcher);
+        root.addView(icon, new LinearLayout.LayoutParams((int) (88 * dp), (int) (88 * dp)));
+        title = text(20, R.color.text_primary);
+        title.setText(AppFiles.TITLE);
+        root.addView(title, wide((int) (24 * dp)));
+        bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setIndeterminate(true);
+        root.addView(bar, wide((int) (16 * dp)));
+        line = text(14, R.color.text_secondary);
+        line.setText("Ibiko opens once they are in place.");
+        root.addView(line, wide((int) (12 * dp)));
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        close = new Button(this);
+        close.setText("Close");
+        close.setOnClickListener(v -> finishAndRemoveTask());
+        retry = new Button(this);
+        retry.setText("Try again");
+        retry.setOnClickListener(v -> start());
+        buttons.addView(close);
+        buttons.addView(retry);
+        root.addView(buttons, wide((int) (24 * dp)));
+        setContentView(root);
+        start();
+    }
+
+    private TextView text(int sp, int color) {
+        TextView t = new TextView(this);
+        t.setTextSize(sp);
+        t.setTextColor(getColor(color));
+        t.setGravity(Gravity.CENTER);
+        return t;
+    }
+
+    private static LinearLayout.LayoutParams wide(int top) {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        p.topMargin = top;
+        return p;
+    }
+
+    private void start() {
+        title.setText(AppFiles.TITLE);
+        line.setText("Ibiko opens once they are in place.");
+        bar.setIndeterminate(true);
+        retry.setVisibility(android.view.View.GONE);
+        close.setVisibility(android.view.View.GONE);
+        final java.io.File files = getFilesDir();
+        new Thread(() -> {
+            final int[] shown = {-2};
+            try {
+                AppFiles.fetch(files, AppFiles.WEB, (got, total) -> {
+                    int pct = total > 0 ? (int) (got * 100 / total) : -1;
+                    if (pct == shown[0]) {
+                        return;
+                    }
+                    shown[0] = pct;
+                    String mb = String.format(java.util.Locale.US, "%.1f", got / 1048576.0)
+                            + (total > 0 ? String.format(java.util.Locale.US, " of %.1f MB", total / 1048576.0) : " MB");
+                    ai.ibiko.net.Transfers.progress("appfiles", AppFiles.TITLE, mb, pct);
+                    runOnUiThread(() -> {
+                        bar.setIndeterminate(pct < 0);
+                        if (pct >= 0) {
+                            bar.setProgress(pct);
+                        }
+                        line.setText(pct >= 0 ? pct + "% · " + mb : mb);
+                    });
+                });
+                ai.ibiko.net.Transfers.end("appfiles", AppFiles.TITLE, "Done", true);
+                runOnUiThread(this::open);
+            } catch (Exception e) {
+                ai.ibiko.net.Transfers.end("appfiles", AppFiles.TITLE, "Couldn't download the app files", false);
+                runOnUiThread(this::failed);
+            }
+        }, "ibiko-app-files").start();
+    }
+
+    private void failed() {
+        if (gone) {
+            return;
+        }
+        title.setText("Couldn't download the app files");
+        line.setText("Ibiko can't open without them. Check the internet connection and try again.");
+        bar.setIndeterminate(false);
+        bar.setProgress(0);
+        retry.setVisibility(android.view.View.VISIBLE);
+        close.setVisibility(android.view.View.VISIBLE);
+    }
+
+    private void open() {
+        if (gone) {
+            return;
+        }
+        Intent i = new Intent(this, ai.ibiko.MainActivity.class);
+        Intent from = getIntent() == null ? null : getIntent().getParcelableExtra("then", Intent.class);
+        if (from != null) {
+            i = from;
+        }
+        startActivity(i);
+        finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        gone = true;
+        super.onDestroy();
+    }
+}

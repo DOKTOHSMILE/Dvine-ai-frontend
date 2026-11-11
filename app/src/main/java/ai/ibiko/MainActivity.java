@@ -1481,10 +1481,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return readAloudHelper.speakReply();
     }
 
+    /** This start only handed over to the first-start download (AppFilesActivity). */
+    private boolean waitingForFiles;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         applyTheme(getSharedPreferences("dvine", MODE_PRIVATE).getString("theme", "system"));
         super.onCreate(savedInstanceState);
+        if (!"robolectric".equals(android.os.Build.FINGERPRINT) && !ai.ibiko.main.AppFiles.ready(getFilesDir())) {
+            // the first start: the app files are downloaded before anything opens, and without them it doesn't open
+            android.content.Intent then = new android.content.Intent(getIntent()).setClass(this, MainActivity.class);
+            startActivity(new android.content.Intent(this, ai.ibiko.chat.ui.AppFilesActivity.class).putExtra("then", then));
+            waitingForFiles = true;
+            finish();
+            return;
+        }
         crash.install();
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -6776,6 +6787,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     @Override
     protected void onDestroy() {
+        if (waitingForFiles) {
+            super.onDestroy(); // closed at once for the first-start download: nothing was set up
+            return;
+        }
         handler.removeCallbacks(thinkBeat);
         try {
             unregisterReceiver(readControl);

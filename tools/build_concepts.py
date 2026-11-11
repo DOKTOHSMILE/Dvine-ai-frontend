@@ -1,4 +1,4 @@
-"""Builds Ibiko's common-sense links, app/src/main/assets/knowledge/concepts.tsv, from ConceptNet 5.7
+"""Builds Ibiko's common-sense links, downloads/knowledge/concepts-<version>.tsv.gz, from ConceptNet 5.7
 (https://conceptnet.io, CC BY-SA 4.0; this file is shared under the same licence).
 
 Run from the repository root:  python3 tools/build_concepts.py [filtered.tsv]
@@ -7,6 +7,9 @@ that carry common sense (what a thing is, is for, can do, has, is part of, where
 people do things), weight 1 or more. Then: the strongest 12 links of each relation for each concept (8 for IsA; 40
 parts and possessions), the
 reverse of PartOf added as HasPart, sorted by concept for dvine1/comprehend's binary search.
+The file is not in the app: the app downloads it on first start ("Downloading app files", ai.ibiko.main.AppFiles)
+and unpacks it to brain/knowledge/concepts.tsv. After a rebuild, set AppFiles.CONCEPTS_VERSION and CONCEPTS_SHA256
+(printed below) to the new file.
 One line a link:  concept <TAB> relation <TAB> other end
 """
 import gzip
@@ -17,7 +20,8 @@ import urllib.request
 from collections import defaultdict
 
 URL = "https://s3.amazonaws.com/conceptnet/downloads/2019/edges/conceptnet-assertions-5.7.0.csv.gz"
-OUT = "app/src/main/assets/knowledge/concepts.tsv"
+VERSION = "2026-11-11"
+OUT = "downloads/knowledge/concepts-" + VERSION + ".tsv.gz"
 REL = {"IsA", "PartOf", "HasA", "UsedFor", "CapableOf", "AtLocation", "Causes", "HasPrerequisite", "HasProperty",
        "MotivatedByGoal", "Desires", "CreatedBy", "MadeOf", "ReceivesAction", "HasSubevent", "CausesDesire", "LocatedNear",
        "HasFirstSubevent", "HasLastSubevent"}
@@ -60,7 +64,9 @@ for (a, rel), ends in best.items():
         if len(seen) >= keep:
             break
 rows.sort(key=lambda r: (r[0].encode("utf-8"), r[1]))
-with open(OUT, "w", encoding="utf-8") as f:
+import hashlib
+with open(OUT, "wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=9, mtime=0, filename="") as f:
     for r in rows:
-        f.write("\t".join(x.replace("\t", " ") for x in r) + "\n")
+        f.write(("\t".join(x.replace("\t", " ") for x in r) + "\n").encode("utf-8"))
 print(OUT, len(rows), "links,", len({r[0] for r in rows}), "concepts")
+print("sha256", hashlib.sha256(open(OUT, "rb").read()).hexdigest())
