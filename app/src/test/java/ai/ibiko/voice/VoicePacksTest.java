@@ -3,6 +3,7 @@ package ai.ibiko.voice;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -108,7 +109,8 @@ public class VoicePacksTest {
         assertEquals("am_michael", k.speaker(true, "").name);
         assertEquals("af_bella", k.speaker(false, "").name);
         assertEquals("bf_emma", k.speaker(false, "bf_emma").name);
-        assertNotNull(VoicePacks.byKey("piper-ryan"));
+        assertEquals("the child's voice is made from Sky", "af_sky", k.speaker(false, "af_sky").name);
+        assertNull("Piper is no longer offered", VoicePacks.byKey("piper-ryan"));
         assertTrue(VoicePacks.PIPER_RYAN.speakers.get(0).male);
         assertFalse(VoicePacks.PIPER_AMY.speakers.get(0).male);
     }

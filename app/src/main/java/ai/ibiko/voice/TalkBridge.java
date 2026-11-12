@@ -356,7 +356,7 @@ public final class TalkBridge extends UtteranceProgressListener {
 
     /** Picks up the voice chosen in Settings (call when the chat comes back from Settings). */
     public void refreshVoice() {
-        String key = prefs.getString("voice_pack", "kokoro");
+        String key = VoicePacks.KOKORO.key; // one voice, not a setting: Kokoro's child voice
         VoicePacks.Pack p = VoicePacks.byKey(key == null ? "" : key);
         String want = p != null && VoicePacks.installed(filesDir(), p) ? p.key : "";
         if (!want.equals(neuralKey)) {
@@ -390,9 +390,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         if (p == null) {
             return 0;
         }
-        String named = "child".equals(prefs.getString("voice_gender", "male")) ? CHILD_SPEAKER
-                : prefs.getString(ivie ? "voice_human_woman" : "voice_human_man", "");
-        return p.speaker(!ivie, named).id;
+        return p.speaker(false, CHILD_SPEAKER).id; // one voice: the child's, made from Sky
     }
 
     /** Opens the device's page for downloading voices (Google's voice data: the higher-quality voices). */
@@ -440,16 +438,14 @@ public final class TalkBridge extends UtteranceProgressListener {
     }
 
     /**
-     * There are no personas: every line is spoken in one voice, a woman's or a man's as chosen in Settings › Voice
-     * (voice_gender). The flag callers pass for who is speaking is not used.
+     * There are no personas and no choice: every line is spoken in the one voice, a child's (Kokoro's Sky played
+     * higher). The flag callers pass for who is speaking is not used.
      */
     private boolean woman() {
-        String g = prefs.getString("voice_gender", "male");
-        boolean child = "child".equals(g);
         if (neural != null) {
-            neural.setPitch(child ? CHILD_PITCH : 1f);
+            neural.setPitch(CHILD_PITCH); // the child's voice is the only voice: not a setting
         }
-        return "female".equals(g) || child; // a child's voice is a light woman's voice played higher
+        return true; // a child's voice is a light woman's voice played higher
     }
 
     /** How much higher the child's voice is played: young and bright, still clear. */
@@ -461,9 +457,9 @@ public final class TalkBridge extends UtteranceProgressListener {
     private volatile boolean robot;
     private volatile float rateScale = 1f;
 
-    /** Settings › Voice › Speaking speed (0.85, 1 or 1.2), on top of each persona's own pace. */
+    /** The speaking speed: normal, always (it was Settings › Voice › Speaking speed). */
     public void setRateScale(float scale) {
-        rateScale = Math.max(0.5f, Math.min(2f, scale));
+        rateScale = 1f; // normal speed, not a setting: the kept recordings are made and played at one speed
     }
 
     /** Ibiko's voice: Obi's voice made a touch brighter and a touch slower ({@link VoiceTuning#ROBOT_BRIGHT}). */
@@ -788,8 +784,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         ivie = woman();
         if (human()) {
             VoicePacks.Pack p = neural.pack();
-            VoicePacks.Speaker sp = p.speaker(!ivie, prefs.getString(ivie ? "voice_human_woman" : "voice_human_man", ""));
-            return sp.title + ", a human voice on the device";
+            return "a child's voice made from " + p.speaker(false, CHILD_SPEAKER).title + ", on the device";
         }
         VoiceTuning t = tuning[ivie ? 1 : 0];
         String g = t.voice == null ? "" : genders.getOrDefault(t.voice, "");

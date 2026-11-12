@@ -122,7 +122,36 @@ public final class VoicePacks {
             67223746L, "vits-piper-en_US-amy-medium", "en_US-amy-medium.onnx", "vits",
             new Speaker(0, "amy", "Amy (American woman)", false));
 
-    public static final List<Pack> ALL = Collections.unmodifiableList(Arrays.asList(KOKORO, PIPER_RYAN, PIPER_AMY));
+    /** The one voice pack: Kokoro (its child's voice). The Piper packs are no longer offered or kept. */
+    public static final List<Pack> ALL = Collections.unmodifiableList(Arrays.asList(KOKORO));
+
+    /**
+     * Removes the voice packs that are no longer offered (Piper Ryan and Amy, downloaded by older versions) and their
+     * marks, freeing their space. How many were removed.
+     */
+    public static int dropOthers(File filesDir) {
+        int n = 0;
+        for (Pack p : Arrays.asList(PIPER_RYAN, PIPER_AMY)) {
+            File d = folder(filesDir, p);
+            if (d.exists()) {
+                deleteTree(d);
+                n++;
+            }
+            File[] marks = root(filesDir).listFiles((dir, name) -> name.startsWith(p.key + "."));
+            for (File m : marks == null ? new File[0] : marks) {
+                m.delete();
+            }
+        }
+        return n;
+    }
+
+    private static void deleteTree(File f) {
+        File[] in = f.listFiles();
+        for (File c : in == null ? new File[0] : in) {
+            deleteTree(c);
+        }
+        f.delete();
+    }
 
     public static Pack byKey(String key) {
         for (Pack p : ALL) {

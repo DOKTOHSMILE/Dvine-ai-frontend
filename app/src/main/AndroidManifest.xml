@@ -124,10 +124,6 @@
             android:exported="false"
             android:theme="@style/Theme.Ibiko" />
         <activity
-            android:name=".chat.ui.SettingsVoiceActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Ibiko" />
-        <activity
             android:name=".chat.ui.SettingsLearningActivity"
             android:exported="false"
             android:theme="@style/Theme.Ibiko" />
