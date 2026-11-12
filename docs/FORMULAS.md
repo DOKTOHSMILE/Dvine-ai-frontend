@@ -122,3 +122,22 @@ by itself" shows them and forgets them.
 - Small words and punctuation: ids 1–999 (fixed list). Dictionary words: 1000 + place in lexicon.tsv (152,137). Others: 1,000,000 up, kept on the device.
 - A code is the id in base 36 ("telephone" = 2x9m); ^ marks a capital, ! all capitals. The interpreter turns codes back into the same words.
 - Spaces have codes too: a space, a double space (one code of its own, 0.99.117), a new line and a tab each have their own fixed id, so every character of a text is in a code and it comes back exactly as written ("Abuja is the capital of Nigeria." = 12 codes: 6 words, 5 spaces, the stop).
+
+
+## Ibiko's script and numbers (learn/Glyphs, 0.99.118)
+
+- One character a word: Unicode private-use characters (U+E000–U+F76F, U+F0000–U+FFFFD, U+100000–U+10FFFD), 137,068 letters. Small words, spaces and marks keep their ids; a single dictionary word is 1000 + its place among the 84,706 single words; own words from letter 90,000. A capital U+F8FD, all capitals U+F8FC before the letter.
+- A number's id is 1,500,000,000 + its value; its code # and the value in base 36 (1969 = #1ip); in the script its digits. Nothing stored.
+
+## Concepts: meaning from what recurs (learn/Concepts, 0.99.118)
+
+- N1 A topic is a content word of the question.
+- N2 Each answer about it counts each of its codes once.
+- N3 A code in ≥ 2 answers and ≥ 50% of them is part of the meaning; the rest are weaker links.
+- N4 Every new answer re-weighs the links; one that stops recurring drops out.
+- N5 A link's strength is its share of the answers.
+- N6 A sentence of its own: the strongest link that can be a noun says what the topic is; adjectives how it is described. At least 3 answers.
+
+## Mind: the thought process (learn/Mind, 0.99.118)
+
+- M1 Reader: words to codes, the topics. M2 Memory: what recurred about the topic. M3 Weigher: (count + 1) / (answers + 2), said in matching words. M4 Critic: too few answers or nothing recurring: no view. M5 Speaker: the sentence. Each section's line is shown as a thinking step.

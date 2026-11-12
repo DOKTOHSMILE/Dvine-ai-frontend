@@ -126,12 +126,45 @@ public final class WordBook {
                 }
                 lineStart = nl + 1;
             }
+            // the single words (no space inside), numbered in order: only these can be a token of a text, so only
+            // these need a letter of Ibiko's script (84,706 of the 152,137 entries)
+            int[] rank = new int[n], single = new int[n];
+            int singles = 0;
+            for (int i = 0; i < n; i++) {
+                int e = at[i];
+                boolean spaced = false;
+                while (e < size && m.get(e) != '\t' && m.get(e) != '\n') {
+                    spaced |= m.get(e) == ' ';
+                    e++;
+                }
+                rank[i] = spaced ? -1 : singles;
+                if (!spaced) {
+                    single[singles++] = i;
+                }
+            }
+            rankOf = rank;
+            singleAt = Arrays.copyOf(single, singles);
             map = m;
             starts = Arrays.copyOf(at, n);
             return true;
         } catch (IOException | RuntimeException e) {
             return false;
         }
+    }
+
+    private static volatile int[] rankOf, singleAt;
+
+    /** The place of a dictionary word among the single words (0…), or -1 for a phrase or an id outside it. */
+    public static int rank(int id) {
+        int[] r = rankOf;
+        int n = id - FIRST;
+        return r == null || n < 0 || n >= r.length ? -1 : r[n];
+    }
+
+    /** The id of the single word at this place, or 0. */
+    public static int idAtRank(int rank) {
+        int[] s = singleAt;
+        return s == null || rank < 0 || rank >= s.length ? 0 : FIRST + s[rank];
     }
 
     public static boolean ready() {
@@ -230,6 +263,39 @@ public final class WordBook {
             }
             return new String(b, StandardCharsets.UTF_8);
         }
+    }
+
+    /** Whether any sense of the word with this id is this part of speech ("game" is a noun, a verb and an adjective). */
+    public static boolean is(int id, String pos) {
+        if (id >= 1 && id <= SMALL.length) {
+            return SMALL[id - 1][1].equals(pos);
+        }
+        int[] s = starts;
+        MappedByteBuffer m = map;
+        int n = id - FIRST;
+        if (s == null || m == null || n < 0 || n >= s.length || pos == null) {
+            return false;
+        }
+        byte[] want = pos.getBytes(StandardCharsets.UTF_8);
+        synchronized (WordBook.class) {
+            int end = n + 1 < s.length ? s[n + 1] : m.limit();
+            int line = s[n];
+            while (line < end) {
+                int a = keyEnd(m, line) + 1;
+                boolean same = a + want.length < m.limit() && m.get(a + want.length) == '\t';
+                for (int i = 0; same && i < want.length; i++) {
+                    same = m.get(a + i) == want[i];
+                }
+                if (same) {
+                    return true;
+                }
+                while (line < end && m.get(line) != '\n') {
+                    line++;
+                }
+                line++;
+            }
+        }
+        return false;
     }
 
     /** The part of speech of a word with a fixed id (its first sense in the dictionary), or null. */
