@@ -16,8 +16,8 @@ android {
         applicationId "ai.ibiko"
         minSdk 34
         targetSdk 35
-        versionCode 325
-        versionName "0.99.132"
+        versionCode 326
+        versionName "0.99.133"
         // the on-device language model (llama.cpp) is built for 64-bit ARM phones only
         ndk {
             abiFilters "arm64-v8a"

@@ -159,6 +159,18 @@ public final class ChatPane extends LinearLayout {
         scroll.setFocusableInTouchMode(false);
         scroll.setDescendantFocusability(android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         scroll.addView(thread, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        // room under the last message: the conversation rests in the middle of the screen when it follows a new
+        // message, not pressed against the message box. A share of the visible height, so it fits any screen and
+        // shrinks with it when the keyboard opens.
+        scroll.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            final int room = roomBelow(b - t);
+            if (thread.getPaddingBottom() != room) {
+                scroll.post(() -> {
+                    thread.setPadding(thread.getPaddingLeft(), thread.getPaddingTop(), thread.getPaddingRight(), room);
+                    followBottom();
+                });
+            }
+        });
         scroll.setOnTouchListener((v, event) -> {
             int action = event.getActionMasked();
             if (action == android.view.MotionEvent.ACTION_DOWN || action == android.view.MotionEvent.ACTION_MOVE) {
@@ -192,6 +204,14 @@ public final class ChatPane extends LinearLayout {
 
     /** Within this of the bottom, the chat keeps to the bottom as new things come in. */
     static final int NEAR_BOTTOM_DP = 120;
+
+    /** How much of the visible chat stays empty under the last message (the rest shows the conversation). */
+    static final float ROOM_BELOW = 0.35f;
+
+    /** The room under the last message for a chat this many pixels tall. */
+    static int roomBelow(int visibleHeight) {
+        return Math.max(0, Math.round(visibleHeight * ROOM_BELOW));
+    }
     /** The chat is scrolling itself to the bottom (not the pilot). */
     private boolean followingNow;
 

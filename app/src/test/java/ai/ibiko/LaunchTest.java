@@ -195,6 +195,25 @@ public class LaunchTest {
         c.pause().stop().destroy();
     }
 
+    /** The conversation rests in the middle: room under the last message, about a third of the chat's height. */
+    @Test
+    public void theChatHasRoomUnderTheLastMessage() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
+        pf.setAccessible(true);
+        ai.ibiko.stage.ChatPane pane = (ai.ibiko.stage.ChatPane) pf.get(c.get());
+        java.lang.reflect.Field tf = ai.ibiko.stage.ChatPane.class.getDeclaredField("thread");
+        tf.setAccessible(true);
+        android.view.View thread = (android.view.View) tf.get(pane);
+        android.view.View scroll = (android.view.View) thread.getParent();
+        pane.activityStep("Cloned me/app"); // something in the chat: it shows
+        ShadowLooper.idleMainLooper(2, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertTrue("laid out", scroll.getHeight() > 0);
+        org.junit.Assert.assertEquals(Math.round(scroll.getHeight() * 0.35f), thread.getPaddingBottom());
+        c.pause().stop().destroy();
+    }
+
     @Test
     public void aNoteDuringTheWorkSitsBetweenItsSteps() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();

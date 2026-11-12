@@ -382,6 +382,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 349 | Increase the size of the in-chat Ibiko blinking icon | P12 | Built (38 dp, was 26) | 0.99.129 |
 | 350 | Screenshot: wrong 'no brain', plan mode for Hello, share for a question, 1,024 tokens; give the model enough space | P12 | Built (4,096 tokens on the same device; codes the words don't ask for dropped; the message waits for the model to start) | 0.99.130 |
 | 351 | Stop leaves hanging process rows; rows too far apart; send/stop broken; duplicate process lines; merge similar under one banner; rows hard to click | P12 | Built (Stop clears and returns to Send at once; one row a turn; repeats merged; 'Fetched N pages'; every row tappable) | 0.99.132 |
+| 352 | Add space under the chat so it stays in the middle, not pegged to the bottom | P12 | Built (35% of the chat's height under the last message) | 0.99.133 |
 
 ## Still open, in the order that matters
 
