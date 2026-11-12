@@ -380,6 +380,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 347 | Keep the child voice, remove the others and the voice settings; Listen plays the saved recording | P12 | Built (one fixed child voice at normal speed; Settings › Voice gone; Piper removed; every reply's voice made and kept, Listen plays it) | 0.99.128 |
 | 348 | Which coding language is faster and smaller to build | P12 | Answered (keep Java for the app, C/C++ for the engine; size is the models and native libraries) | 0.99.128 |
 | 349 | Increase the size of the in-chat Ibiko blinking icon | P12 | Built (38 dp, was 26) | 0.99.129 |
+| 350 | Screenshot: wrong 'no brain', plan mode for Hello, share for a question, 1,024 tokens; give the model enough space | P12 | Built (4,096 tokens on the same device; codes the words don't ask for dropped; the message waits for the model to start) | 0.99.130 |
 
 ## Still open, in the order that matters
 

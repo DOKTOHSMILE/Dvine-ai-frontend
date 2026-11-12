@@ -100,7 +100,8 @@ public class GgufProbeTest {
         EngineConfig tight = EngineContext.decide(p, null, weights, 2000L * 1024 * 1024, 2, false);
         assertTrue(tight.nCtx >= EngineContext.MIN_CTX && tight.nCtx < roomy.nCtx);
         assertTrue(tight.reason.contains("free memory"));
-        EngineConfig none = EngineContext.decide(p, null, weights, 1200L * 1024 * 1024, 2, false);
+        // the mapped weights alone don't fit (600 MB of weights, about 500 MB usable): nothing does
+        EngineConfig none = EngineContext.decide(p, null, weights, 700L * 1024 * 1024, 2, false);
         assertEquals("nothing fits: the load keeps its own fallback", 0, none.nCtx);
     }
 }

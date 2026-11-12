@@ -1,3 +1,10 @@
+# The device's model: room to work, no unasked actions (0.99.130)
+
+- [x] Memory estimate: weights mapped (counted once), the cache 8-bit, the guard on what is allocated: 4,096 tokens where it was 1,024.
+- [x] llm/CodeFit: a device model's code runs only when the words ask for it.
+- [x] A message waits for the chosen device model to start instead of 'No brain is connected'.
+- [ ] Try on the device: the same four messages from the screenshot.
+
 # A bigger face (0.99.129)
 
 - [x] Ibiko's blinking face in the chat's working line: 38 dp (was 26).

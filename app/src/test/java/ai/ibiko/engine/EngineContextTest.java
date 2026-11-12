@@ -23,4 +23,18 @@ public class EngineContextTest {
         assertTrue(c.nCtx >= EngineContext.MIN_CTX);
         assertTrue(c.nCtx <= 4096);
     }
+
+    /**
+     * From the pilot's screenshot: Qwen3 1.7B Fast (Q4_0, 1.06 GB) on a device with about 2.2 GB free was cut to 1,024
+     * tokens, too little to work in. Its weights are mapped from the file and its memory is 8-bit: it gets 4,096.
+     */
+    @Test
+    public void theFastModelGetsRoomToWork() {
+        Probe qwen = new Probe(40960, 28, 2048, 16, 8, 1024, 1024, 2);
+        EngineConfig c = EngineContext.decide(qwen, null, 1056782912L, 2250L * 1024 * 1024, 2, false);
+        assertTrue("got " + c.nCtx, c.nCtx >= 4096);
+        // and a device with too little still steps down rather than failing to load
+        EngineConfig tight = EngineContext.decide(qwen, null, 1056782912L, 1800L * 1024 * 1024, 2, false);
+        assertTrue("got " + tight.nCtx, tight.nCtx >= EngineContext.MIN_CTX && tight.nCtx < 4096);
+    }
 }
