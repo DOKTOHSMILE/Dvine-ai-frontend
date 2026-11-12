@@ -3,7 +3,8 @@
 - [x] Ibiko 1 asks the device's model for what its memory doesn't hold, with what it knows passed in; the pilot's check keeps the answer.
 - [x] LoRA adapters laid over the frozen 4-bit weights (engine, JNI, llm/Adapters), install and take back in Settings › Usage.
 - [x] The training set: confirmed answers, then kept model answers (Export).
-- [ ] Train the first adapter on a GPU from an export (docs/TRAINING.md) and compare replies on the device.
+- [x] The Colab notebook (tools/train_adapter.ipynb), checked statically (0.99.127).
+- [ ] Train the first adapter on Colab from an export and compare replies on the device.
 
 # The model lighter and faster (0.99.125)
 

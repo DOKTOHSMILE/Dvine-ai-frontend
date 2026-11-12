@@ -376,6 +376,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 343 | Decompile a llama engine and rebuild it with the shrinking formula (less RAM, smaller, faster) | P12 | Not built (llama.cpp is already in the app as source; IBK shrinks text, not a model's weights; the levers for RAM and speed are quantisation, the cache's type and the context length) | 0.99.124 |
 | 344 | Turn on KV cache compression and add the 4-bit model; the speed percentages | P12 | Built (8-bit cache at every size; Qwen3 1.7B Fast, Q4_0; measured: Q4_0 writes 64% faster, the cache saves 4-14% memory and delays the first word about 17%) | 0.99.125 |
 | 345 | Merge the Q4_0 model into Ibiko's own brain; is it trainable; make it evolvable | P12 | Built (Ibiko 1 asks the device's model for what it doesn't know; the frozen 4-bit weights evolve by trained LoRA adapters, exported data, install and take back; training itself is off the device, docs/TRAINING.md) | 0.99.126 |
+| 346 | Make the Colab notebook for training | P12 | Built (tools/train_adapter.ipynb; checked statically, not run here: no GPU) | 0.99.127 |
 
 ## Still open, in the order that matters
 

@@ -17,6 +17,15 @@ The loop:
 
 ## Step 3: train
 
+**The easy way: the Colab notebook** `tools/train_adapter.ipynb`. Open it in Colab
+(https://colab.research.google.com/github/DOKTOHSMILE/Ibiko-ai/blob/main/tools/train_adapter.ipynb; Colab asks you to
+sign in to GitHub for a private repository, or upload the file with File › Upload notebook), choose a T4 GPU, Run all.
+It asks for the exported file, cleans it (broken lines, failures and repeats dropped), shows a few held-back answers
+before training, trains the adapter on Ibiko's answers only, shows the same answers after, converts it with llama.cpp's
+converter (pinned) and downloads `ibiko.adapter.gguf`.
+
+The same steps by hand:
+
 The adapter must be trained on the same weights as the model on the device: `Qwen/Qwen3-1.7B` for both the default and
 the Fast model (they are two 4-bit layouts of the same weights).
 
@@ -56,4 +65,6 @@ Copy `ibiko.adapter.gguf` to the device and install it (step 4).
 - Keep the previous adapter (the app does, once). If replies get worse, hold Install adapter to go back.
 
 Status: the device side (export, install, load, take back, refusing a wrong file) is built and tested in the JVM and
-in a desktop build of the engine. Training itself was not run here (no GPU in this environment).
+in a desktop build of the engine. The notebook is checked here (valid notebook, every code cell compiles, the cleaning
+step on lines shaped as Ibiko exports them) but was not run: there is no GPU here, and its downloads (the base model,
+llama.cpp's converter) were not fetched. The first run on Colab is its real test.
