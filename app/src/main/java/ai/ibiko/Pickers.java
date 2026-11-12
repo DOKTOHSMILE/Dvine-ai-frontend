@@ -115,4 +115,34 @@ final class Pickers {
     boolean showSelected(android.net.Uri uri, String kind, String name) {
         return a.fileTurns.showSelected(uri, kind, name);
     }
+
+    ai.ibiko.ops.recon.RasterImage readRaster(android.net.Uri uri)
+            throws java.io.IOException {
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (java.io.InputStream in = a.getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                throw new java.io.IOException("no stream");
+            }
+            android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+        }
+        android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+        opts.inSampleSize = 1;
+        int max = Math.max(bounds.outWidth, bounds.outHeight);
+        while (max / opts.inSampleSize > 960) {
+            opts.inSampleSize *= 2;
+        }
+        android.graphics.Bitmap bitmap;
+        try (java.io.InputStream in = a.getContentResolver().openInputStream(uri)) {
+            bitmap = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+        }
+        if (bitmap == null) {
+            throw new java.io.IOException("undecoded");
+        }
+        int w = bitmap.getWidth(), h = bitmap.getHeight();
+        int[] px = new int[w * h];
+        bitmap.getPixels(px, 0, w, 0, 0, w, h);
+        bitmap.recycle();
+        return new ai.ibiko.ops.recon.RasterImage(w, h, px);
+    }
 }

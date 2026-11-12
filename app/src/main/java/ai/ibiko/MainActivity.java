@@ -54,6 +54,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     final ShellTurn shellTurn = new ShellTurn(this);
     final ThinkTurns thinkTurns = new ThinkTurns(this);
     final WritingTurns writingTurns = new WritingTurns(this);
+    final Commands commands_ = new Commands(this);
+    final VoiceInput voiceInput = new VoiceInput(this);
+    final LocalAsk localAsk = new LocalAsk(this);
     final Handovers handovers = new Handovers(this);
     final InternetWait internetWait = new InternetWait(this);
     final Steering steering = new Steering(this);
@@ -1434,38 +1437,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thinkBar.armThink(phase, writing);
     }
 
-    /** What the user chose in Settings, applied when the chat comes back to the front. */
+    /** In {@link Commands}. */
     void applySettings() {
-        if (prefs == null) {
-            return;
-        }
-        String name = prefs.getString("user_name", "");
-        if (brain != null) {
-            brain.setUserName(name == null || name.trim().isEmpty() ? null : name.trim());
-        }
-        if (talk != null) {
-            talk.refreshVoice(); // a human voice chosen or downloaded in Settings
-            try {
-                talk.setRateScale(1f); // normal speed: not a setting
-            } catch (NumberFormatException ignored) {
-                talk.setRateScale(1f);
-            }
-        }
-        android.widget.EditText field = findViewById(R.id.et_message);
-        if (field != null) {
-            boolean enterSends = prefs.getBoolean("send_enter", false);
-            field.setRawInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-                    | (enterSends ? 0 : android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE));
-            field.setImeOptions(enterSends ? android.view.inputmethod.EditorInfo.IME_ACTION_SEND
-                    : android.view.inputmethod.EditorInfo.IME_ACTION_NONE);
-        }
-        if (prefs.getBoolean("chats_reset", false) && chats != null) {
-            prefs.edit().remove("chats_reset").apply();
-            chats.reload();
-            if (chatPane != null) {
-                chatPane.show();
-            }
-        }
+        commands_.applySettings();
     }
 
     /** One step of what Ibiko is doing, shown live in the chat ("Searching the web for …"); any thread. */
@@ -2306,50 +2280,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     };
     final ai.ibiko.main.DirectCommands commands = new ai.ibiko.main.DirectCommands(commandHost);
 
-    /** The commands Ibiko carries out with its own actions, the same ones its buttons use. */
+    /** In {@link Commands}. */
     void command(ai.ibiko.turn.Meaning.Command c) {
-        switch (c) {
-            case NEW_CHAT:
-                startNewChatSafely();
-                break;
-            case SWITCH_IVIE:
-                selectPersona("ivie");
-                break;
-            case SWITCH_OBI:
-                selectPersona("obi");
-                break;
-            case SWITCH_IBIKO:
-                selectPersona("ibiko", true);
-                break;
-            case STOP:
-                stopGeneration();
-                break;
-            case MODE_PLAN:
-                ai.ibiko.agent.IbikoMode.set(prefs, ai.ibiko.agent.IbikoMode.PLAN);
-                showIbikoMode("ibiko".equals(stage.agent()));
-                play(LocalTurn.speakAs(stage.agent(), "Plan mode is on: Ibiko reads and makes a plan, and asks before changing anything."), null);
-                break;
-            case AUTO_ON:
-            case AUTO_OFF:
-                ai.ibiko.agent.IbikoMode.set(prefs, c == ai.ibiko.turn.Meaning.Command.AUTO_ON ? ai.ibiko.agent.IbikoMode.AUTO
-                        : ai.ibiko.agent.IbikoMode.EDITS);
-                showIbikoMode("ibiko".equals(stage.agent()));
-                play(LocalTurn.speakAs(stage.agent(), c == ai.ibiko.turn.Meaning.Command.AUTO_ON
-                        ? "Auto-accept is on: Ibiko runs commands, pushes and pull requests without asking."
-                        : "Auto-accept is off: Ibiko asks before running commands, pushes and pull requests."), null);
-                break;
-            case CLEAR_WORKSPACE:
-                clearWorkspace();
-                break;
-            case RETRY:
-                retryLast();
-                break;
-            case OPEN_SETTINGS:
-                startActivity(new android.content.Intent(this, ai.ibiko.chat.ui.SettingsActivity.class));
-                break;
-            default:
-                break;
-        }
+        commands_.command(c);
     }
 
     /** In {@link Retries}. */
@@ -2445,30 +2378,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return Steering.tail(s, most);
     }
 
-    /**
-     * The current model call has returned. Anything the user sent during it is read now, and the model continues
-     * the same answer. The call that just finished is not cancelled, and neither is this one, unless the user stops.
-     */
-    String foldSteer(int id, String system, String question, String context, int length, String soFar,
-            ai.ibiko.llm.NativeLlm.Sink sink) {
-        String raw = soFar;
-        for (int extra = 0; extra < 4 && alive(id) && steer.pending(); extra++) {
-            String more = steer.drain();
-            if (more == null || more.isEmpty()) {
-                break;
-            }
-            activity("Reading what you just sent");
-            String continued = model == null ? null : model.reply(system, more,
-                    (context == null ? "" : context + "\n")
-                            + "You were already working on: " + tail(question, 400)
-                            + "\nThe user sent this while you worked. Read it and continue the same"
-                            + " answer. Do not start over and do not stop.\n\nYour answer so far:\n" + tail(raw, 4000),
-                    length, sink);
-            if (continued != null && !continued.trim().isEmpty()) {
-                raw = (raw == null || raw.trim().isEmpty() ? "" : raw.trim() + "\n\n") + continued.trim();
-            }
-        }
-        return raw;
+    /** In {@link LocalAsk}. */
+    String foldSteer(int id, String system, String question, String context, int length, String soFar, ai.ibiko.llm.NativeLlm.Sink sink) {
+        return localAsk.foldSteer(id, system, question, context, length, soFar, sink);
     }
 
     /** In {@link Steering}. */
@@ -2492,368 +2404,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return t.length() > 60 ? t.substring(0, 57) + "\u2026" : t;
     }
 
+    /** In {@link LocalAsk}. */
     boolean askLocal(final String question, final BrainAnswer offline) {
-        return askLocal(question, offline, false);
+        return localAsk.askLocal(question, offline);
     }
 
-    boolean askLocal(final String question, final BrainAnswer offline,
-            final boolean research) {
-        return askLocal(question, offline, research, ai.ibiko.chat.Tuning.CHAT_TOKENS.get(prefs));
+    /** In {@link LocalAsk}. */
+    boolean askLocal(final String question, final BrainAnswer offline, final boolean research) {
+        return localAsk.askLocal(question, offline, research);
     }
 
-    /** {@code length}: the most the reply may run to (tokens); a big task gets room for a full answer. */
-    boolean askLocal(final String question, final BrainAnswer offline,
-            final boolean research, final int length) {
-        return askLocal(question, offline, research, length, false);
+    /** In {@link LocalAsk}. */
+    boolean askLocal(final String question, final BrainAnswer offline, final boolean research, final int length) {
+        return localAsk.askLocal(question, offline, research, length);
     }
 
-    /**
-     * {@code acts}: one call that answers and may act. The model reads the message once, with the persona and the
-     * orders it may give; an order on its reply's first line is hidden and carried out. This replaces a routing
-     * call followed by a second call for the answer (the message read twice, the instructions twice).
-     */
-    boolean askLocal(final String question, final BrainAnswer offline,
-            final boolean research, final int length, final boolean acts) {
-        final int id = nextAsk();
-        writing.add(id);
-        final boolean ivie = stage.isIvie();
-        final String agent = stage.agent();
-        final String worker = ai.ibiko.agent.AgentBoard.start("Ibiko \u00B7 reply", question, brainLabel());
-        replyWorkers.put(id, worker);
-        stopPlay();
-        stage.setMode(StageMode.THINKING);
-        stage.activity("MODEL", "thinking offline");
-        final List<TurnLine> stream = new ArrayList<TurnLine>();
-        setStreamOpen(true);
-        walker.follow(stream);
-        final String system = systemFor(agent, acts);
-        final ai.ibiko.suit.ChatTools pageTools = chatTools(agent);
-        final java.util.List<String> taught;
-        synchronized (brain) {
-            taught = brain.taughtFor(question, 6);
-        }
-        // the interpreter: Pidgin, Yoruba or French is read in English, and the English reply put back
-        final ai.ibiko.llm.Interpreter.Language lang = prefs.getBoolean("interpreter", true)
-                ? ai.ibiko.llm.Interpreter.language(question) : null;
-        final boolean online = prefs.getBoolean("fresh_facts", true) && connectivity != null
-                && connectivity.isOnline();
-        armThink("Thinking\u2026", "Thinking\u2026");
-        // and the way that worked before, and what this is likely to lead to (premeditation)
-        // the thought process (learn/Mind): the brain's sections read, recall, weigh and judge what was gathered about
-        // this; each says what it did, shown as the thinking, and the thought it reaches goes to the brain as Ibiko's view
-        final ai.ibiko.learn.Mind.Thought thought = brainBox().mind().think(question);
-        if (thought.steps.size() >= 3) {
-            for (ai.ibiko.learn.Mind.Step st : thought.steps) {
-                activity(st.line());
-            }
-        }
-        final String around = situation(ivie) + ibiko1().methods().hint(question) + ibiko1().premeditate(question)
-                + (thought.said == null ? "" : "\nIbiko's own view from the answers it has gathered ("
-                        + ai.ibiko.ibiko1.formulas.Probability.words(thought.sure) + "): " + thought.said
-                        + " Use it if it helps; correct it if it is wrong.");
-        hub.worker.execute(() -> {
-            String asked = question;
-            if (lang != null && alive(id)) {
-                activity("Reading your " + lang.shown + " in English");
-                String en = ai.ibiko.llm.Interpreter.toEnglish((s, t, n) -> model.task(s, t, n, null), lang, question);
-                if (en != null) {
-                    asked = en;
-                    activity("Understood as: \u201c" + clip(en) + "\u201d");
-                }
-            }
-            final String english = asked;
-            // when the brain may act it asks for a search itself (\u00A7SR); the wording decides only for a plain answer
-            final boolean look = online && (research || !acts && ai.ibiko.llm.FreshFacts.worthLooking(english));
-            if (look) {
-                activity("Searching the web for \u201c" + clip(english) + "\u201d");
-            }
-            // the web: search results and the best pages (a small model gets a shorter extract)
-            String found = look && alive(id) ? new ai.ibiko.connect.ConnectorStore(this).research(english,
-                    model.remoteOn() ? 3 : 1, model.remoteOn() ? 6000 : 1500) : null;
-            if (found == null && look && alive(id)) {
-                found = ai.ibiko.ops.mind.CitedReference.collect(english, url -> {
-                    ai.ibiko.net.WebGet.Page p = ai.ibiko.net.WebGet.page(url, 6000, 400_000);
-                    return p.body;
-                }, System.currentTimeMillis());
-            }
-            final String reference = found;
-            if (look) {
-                final String hosts = reference == null ? "" : ai.ibiko.net.WebSearch.hosts(reference);
-                handler.post(() -> {
-                    if (alive(id)) {
-                        activity(reference == null ? "Nothing current found; answering from what I know"
-                                : hosts.isEmpty() ? "Found results" : "Read " + hosts);
-                    }
-                });
-            }
-            armThink("Thinking\u2026", "Thinking\u2026");
-            // the notes record: the exchanges older than the model's own memory (its last few turns), in short, so
-            // the device's model with its short memory still knows what this chat said earlier
-            // memory codes first: the question's tags pull only the earlier sentences about it, read back by their ids;
-            // the short notes of every earlier exchange only when nothing earlier is about this
-            String recalled = chats == null ? "" : chats.recall(english, ai.ibiko.llm.LocalModel.HISTORY_TURNS + 1,
-                    model.remoteOn() ? 2400 : 900);
-            String older = !recalled.isEmpty() ? "Earlier in this chat, about this (by memory code):\n" + recalled
-                    : chats == null ? "" : chats.olderNotes(ai.ibiko.llm.LocalModel.HISTORY_TURNS + 1, model.remoteOn() ? 2400 : 1200);
-            String gathered = ai.ibiko.llm.PersonaPrompt.context(taught, reference, around)
-                    + (older.isEmpty() ? "" : "\n" + older)
-                    + "\n" + cortex().context(english) // Ibiko's reading of the message and any exact arithmetic
-                    + pilotProfile().brief() // what the pilot said about themselves, for every brain
-                    + (pageTools.brief().isEmpty() ? "" : "\n" + pageTools.brief());
-            if (!model.remoteOn() && model.quick(english, 160) && gathered.length() > QUICK_CONTEXT_CHARS) {
-                // an everyday message goes the speed test's way: little to read before the first word
-                gathered = gathered.substring(0, QUICK_CONTEXT_CHARS);
-            } else if (!model.remoteOn() && gathered.length() > DEVICE_CONTEXT_CHARS) {
-                // the device's model reads all of it before its first word: what is said about this question first
-                // (taught facts, the reference, the situation), the rest cut
-                gathered = gathered.substring(0, DEVICE_CONTEXT_CHARS);
-            }
-            final String context = gathered;
-            final ai.ibiko.llm.ActionTags tags = new ai.ibiko.llm.ActionTags();
-            final boolean ivieVoice = "ivie".equals(agent);
-            // interpreted: the English isn't shown or spoken as it comes; the translation is, when it is done
-            final ai.ibiko.chat.LiveReply live = new ai.ibiko.chat.LiveReply(handler, lang == null && speakReply() && talk != null,
-                    new ai.ibiko.chat.LiveReply.Out() {
-                        @Override
-                        public boolean current() {
-                            return alive(id) && visible(id);
-                        }
-
-                        @Override
-                        public void speak(String sentence) {
-                            if (chatPane != null) {
-                                String owner = chatPane.beginVoice();
-                                if (owner != null) {
-                                    talk.setOwner(owner); // said as it is written, and kept under the message it will be
-                                }
-                            }
-                            talk.queue(ivieVoice, sentence);
-                        }
-
-                        @Override
-                        public void show(String soFar) {
-                            if (chatPane != null) {
-                                chatPane.setLive(ai.ibiko.llm.ActionTags.strip(soFar));
-                            }
-                            backupPartial(ai.ibiko.llm.ActionTags.strip(soFar)); // a crash doesn't lose what was written
-                        }
-                    });
-            // an order line at the start ("DO SEARCH …") is held back: it is for Ibiko, not shown or spoken
-            final StringBuilder head = new StringBuilder();
-            final int[] gate = {acts ? 0 : 1}; // 0 deciding, 1 showing, 2 inside the order line
-            final ai.ibiko.llm.NativeLlm.Sink sink = text -> {
-                if (!modelPiece(id, text)) {
-                    return false;
-                }
-                if (text != null && !"\u0001".equals(text)) {
-                    String piece = text;
-                    if (gate[0] != 1) {
-                        head.append(text);
-                        String h = head.toString().replaceFirst("^\\s+", "");
-                        if (gate[0] == 0) {
-                            if (h.length() < 3 && !h.contains("\n")) {
-                                return alive(id); // too short to tell yet
-                            }
-                            gate[0] = ai.ibiko.suit.FunctionCode.startsLikeCode(h) ? 2 : 1;
-                        }
-                        if (gate[0] == 2) {
-                            int nl = h.indexOf('\n');
-                            if (nl < 0) {
-                                return alive(id); // still the order line
-                            }
-                            gate[0] = 1;
-                            piece = h.substring(nl + 1);
-                        } else {
-                            piece = h;
-                        }
-                        if (piece.isEmpty()) {
-                            return alive(id);
-                        }
-                    }
-                    tags.add(piece);
-                    if (lang == null) {
-                        live.piece(piece);
-                    }
-                }
-                return alive(id);
-            };
-            String raw;
-            if (pageTools.deep()) {
-                // deep thinking, switched on for this chat: the same brain plans, drafts, checks and revises
-                raw = ai.ibiko.suit.DeepThink.think((sys, prompt) -> model.task(sys, prompt, length, null), system,
-                        context + "\n\nThe user says: " + english, 3,
-                        (pass, result) -> {
-                            if (result != null && !result.isEmpty() && (pass.startsWith("Understood") || pass.startsWith("Reviewed"))) {
-                                ibiko1().learnThinking(english, result); // Ibiko 1 learns how the brain thought it through
-                            }
-                            handler.post(() -> {
-                                if (alive(id)) {
-                                    activity(pass);
-                                }
-                            });
-                        }, () -> !alive(id));
-                if (raw != null) {
-                    sink.onText(raw);
-                }
-            } else {
-                raw = model.reply(system, english, context, length, sink);
-            }
-            raw = foldSteer(id, system, english, context, length, raw, sink);
-            tags.flush();
-            ai.ibiko.llm.BrainOrder wrote = acts ? ai.ibiko.llm.BrainOrder.leading(raw) : null;
-            if (wrote != null && !model.remoteOn() && !ai.ibiko.llm.CodeFit.fits(wrote, question + " " + english)) {
-                // a small model on the device picked an action the words don't ask for (plan mode for "Hello", a share
-                // for "Can you write Java?"): nothing is carried out, and the question is answered plainly instead
-                activity("That wasn't asked for: answering instead");
-                String rest = ai.ibiko.llm.BrainOrder.withoutOrder(raw);
-                if (rest == null || rest.trim().length() < 80) {
-                    String plain = model.reply(systemFor(agent, false), english, context, length, null);
-                    rest = plain == null ? rest : plain;
-                }
-                raw = rest;
-                wrote = null;
-            }
-            final ai.ibiko.llm.BrainOrder order = wrote;
-            if (order != null) {
-                final String line = String.valueOf(ai.ibiko.suit.FunctionCode.parse(raw)); // the code itself, wherever it stood
-                final String q = question;
-                if (ai.ibiko.chat.ui.UsageActivity.learningOn(prefs)) {
-                    hub.worker.execute(() -> brainBox().learn(q, line));
-                } // Ibiko's own brain learns how this became an action
-                raw = ai.ibiko.llm.BrainOrder.withoutOrder(raw);
-            }
-            String back = null;
-            if (lang != null && raw != null && alive(id)) {
-                activity("Putting the answer in " + lang.shown);
-                back = ai.ibiko.llm.Interpreter.fromEnglish((s, t, n) -> model.task(s, t, n, null), lang,
-                        ai.ibiko.llm.ActionTags.strip(raw));
-                if (back == null) {
-                    activity("Couldn't put it in " + lang.shown + "; here it is in English");
-                }
-            }
-            final String all = back != null ? back : raw;
-            final String englishBody = raw == null ? "" : ai.ibiko.llm.ReplyLayout.join(ai.ibiko.llm.ActionTags.strip(raw));
-            handler.post(this::clearPartial); // the reply is complete: no backup needed
-            final boolean spokeLive = live.end(all);
-            final String switchTo = tags.switchTo();
-            handler.post(() -> {
-                writing.remove(id);
-                String w = replyWorkers.remove(id);
-                if (w != null) {
-                    ai.ibiko.agent.AgentBoard.end(w, !alive(id) ? ai.ibiko.agent.AgentBoard.Outcome.STOPPED
-                            : all == null || all.trim().isEmpty() ? ai.ibiko.agent.AgentBoard.Outcome.FAILED : ai.ibiko.agent.AgentBoard.Outcome.DONE);
-                }
-                if (!alive(id)) {
-                    return;
-                }
-                String body = all == null ? ""
-                        : ai.ibiko.llm.ReplyLayout.join(ai.ibiko.llm.ActionTags.strip(all));
-                if (!visible(id)) {
-                    // finished while another page is on screen: the reply goes to its own page, quietly
-                    String kept = body;
-                    if (order != null) {
-                        kept = (kept.isEmpty() ? "" : kept + "\n\n") + "(Ready to " + order.kind.name().toLowerCase(java.util.Locale.US)
-                                + (order.arg.isEmpty() ? "" : " \u201c" + order.arg + "\u201d") + ". Ask again here to carry it out.)";
-                    }
-                    if (chats != null && !kept.isEmpty()) {
-                        keepVoice(kept);
-                        chats.replyToPage(agent, kept, stampVoice());
-                        unreadPages.add(agent); // a dot on that page's tab
-                        personaTabs.update(stage.agent());
-                    }
-                    return;
-                }
-                if (!inFront && order == null && !body.isEmpty()) {
-                    // finished while Ibiko is in the background: kept in its chat at once (nothing typed out to an
-                    // empty screen, nothing lost if Android closes the screen), and a notification says it's there
-                    endThink();
-                    setStreamOpen(false);
-                    if (chatPane != null) {
-                        chatPane.setLive(null);
-                    }
-                    String kept = ai.ibiko.gate.ClaimGuard.check(body, false);
-                    keepVoice(kept);
-                    if (chats != null) {
-                        chats.replyToPage(agent, kept, stampVoice());
-                    }
-                    ai.ibiko.llm.ReplyNotice.show(MainActivity.this, agent, kept);
-                    final String learnQ = question, learnA = kept;
-                    hub.worker.execute(() -> {
-                        if (ai.ibiko.chat.ui.UsageActivity.learningOn(prefs)) { // Settings › Data and privacy › learning
-                            brainBox().learnTalk(learnQ, learnA);
-                        }
-                        ibiko1().readReply(learnA);
-                    });
-                    return;
-                }
-                endThink();
-                if (order != null) {
-                    // the model asked Ibiko to act: its short sentence (if any) is shown, then the order is carried out
-                    if (!body.isEmpty()) {
-                        stream.add(new TurnLine(agent, "SAY", body));
-                    }
-                    setStreamOpen(false);
-                    carryOut(agent, question, order);
-                    return;
-                }
-                if (body.isEmpty()) {
-                    String said = null;
-                    for (TurnLine line : offline == null ? new ArrayList<TurnLine>() : offline.lines) {
-                        if ("SAY".equals(line.cue) && line.text != null
-                                && !line.text.trim().isEmpty()) {
-                            said = spokenLine(line.text);
-                        }
-                    }
-                    String why = model == null ? null : model.problem();
-                    if (said == null && needsInternet() && (connectivity == null || !connectivity.isOnline())) {
-                        // the connection dropped while the API was answering: said plainly, and asked again when back
-                        if (chats != null && chats.current() != null) {
-                            waitingOnline.add(new String[] { chats.current().id, question });
-                        }
-                        said = "The connection dropped while I was answering. I'll finish this the moment you're back online.";
-                    }
-                    if (said == null && unreachable(why) && !aboutPhoneFiles(question)) {
-                        // the API's address can't be reached (a gateway down, a DNS failure): Ibiko 1, on this device,
-                        // answers instead of leaving only an error; Retry still asks the API again
-                        said = "My connection is down for a moment, so I'm answering from this device. Tap Retry for the"
-                                + " full answer once it's back.";
-                        final String again = question;
-                        handler.postDelayed(() -> {
-                            if (!isFinishing()) {
-                                ibiko1().endpoint().chat(again);
-                            }
-                        }, 1200);
-                    }
-                    stream.add(new TurnLine(agent, "SAY", said != null ? said
-                            : why != null && !why.isEmpty() && !"stopped".equals(why)
-                                    ? "I couldn't finish that reply. Tap Retry and I'll try again." + detail(why)
-                                    : "I couldn't finish that reply. Tap Retry and I'll try again."));
-                } else {
-                    // a reply that says it sent, saved or posted something when nothing was done says so plainly
-                    body = ai.ibiko.gate.ClaimGuard.check(body, false);
-                    keepVoice(body); // the rest of the voice, under this reply, while the words go on screen
-                    TurnLine said = new TurnLine(agent, "SAY", body);
-                    if (spokeLive) {
-                        spokenLive.add(said);
-                    }
-                    stream.add(said);
-                    // after it is shown: a correction follows only if one is needed (checked in English)
-                    factCheck(id, agent, english, lang == null ? body : englishBody);
-                    final String learnQ = question, learnA = body;
-                    hub.worker.execute(() -> {
-                        if (ai.ibiko.chat.ui.UsageActivity.learningOn(prefs)) { // Settings › Data and privacy › learning
-                            brainBox().learnTalk(learnQ, learnA);
-                        } // Ibiko grows with every answer
-                        ibiko1().readReply(learnA); // and Ibiko 1 learns the language of it
-                    });
-                }
-                if (switchTo != null && !switchTo.equals(agent)) {
-                    walker.setAfter(() -> switchFace(switchTo, true));
-                } // the microphone never opens by itself: only a tap on the mic
-                setStreamOpen(false);
-            });
-        });
-        return true;
+    /** In {@link LocalAsk}. */
+    boolean askLocal(final String question, final BrainAnswer offline, final boolean research, final int length, final boolean acts) {
+        return localAsk.askLocal(question, offline, research, length, acts);
     }
 
     final java.util.LinkedHashSet<String> shownPhotos = new java.util.LinkedHashSet<String>();
@@ -2959,34 +2527,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         handovers.discuss(r);
     }
 
-    ai.ibiko.turn.DualAgentCoordinator.Agent agentFor(final String persona,
-            final boolean online) {
-        return (question, heard) -> {
-            BrainAnswer a;
-            synchronized (brain) {
-                a = brain.respond(question, persona);
-            }
-            List<String> say = new ArrayList<String>();
-            if (a.needsOnline && online) {
-                List<TurnLine> d = desk.ask(question, persona);
-                if (d != null) {
-                    for (TurnLine l : d) {
-                        if ("SAY".equals(l.cue) && l.agent.equals(persona)) {
-                            say.add(l.text);
-                        }
-                    }
-                    if (!say.isEmpty()) {
-                        return new ai.ibiko.turn.DualAgentCoordinator.Reply(say, true);
-                    }
-                }
-            }
-            for (TurnLine l : a.lines) {
-                if ("SAY".equals(l.cue)) {
-                    say.add(l.text);
-                }
-            }
-            return new ai.ibiko.turn.DualAgentCoordinator.Reply(say, a.answered && !a.needsOnline);
-        };
+    /** In {@link LocalAsk}. */
+    ai.ibiko.turn.DualAgentCoordinator.Agent agentFor(final String persona, final boolean online) {
+        return localAsk.agentFor(persona, online);
     }
 
 
@@ -3011,14 +2554,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         play(LocalTurn.call(stage.agent()), null);
     }
 
+    /** In {@link VoiceInput}. */
     void switchFace(String agent, boolean greet) {
-        prefs.edit().putString("face", agent).apply();
-        stopPlay();
-        if (greet) {
-            play(LocalTurn.call(agent), null);
-        } else {
-            stage.ensureFace(agent, null);
-        }
+        voiceInput.switchFace(agent, greet);
     }
 
     boolean holdingMic, releasedMic;
@@ -3054,44 +2592,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }, 1500);
     }
 
+    /** In {@link VoiceInput}. */
     void sendHeld(String last) {
-        releasedMic = false;
-        holdToken++;
-        listen.stop();
-        stage.setListening(false);
-        String all = (heldWords + " " + (last == null ? "" : last)).trim().replaceAll("\\s+", " ");
-        heldWords.setLength(0);
-        lastPartial = "";
-        if (all.isEmpty()) {
-            stage.setMode(StageMode.CONTENT);
-            stage.setSubtitle("");
-            return;
-        }
-        stage.setSubtitle(all);
-        voiceTurn = true;
-        answer(all);
+        voiceInput.sendHeld(last);
     }
 
+    /** In {@link VoiceInput}. */
     void startListening(boolean hold) {
-        if (checkSelfPermission(
-                android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] { android.Manifest.permission.RECORD_AUDIO }, MIC);
-            return;
-        }
-        if (talk != null) {
-            talk.stop();
-        }
-        if (assistant != null) {
-            assistant.onMicrophone(ai.ibiko.ops.task.MicState.MICROPHONE_LISTENING);
-            String line = assistant.activityLine();
-            if (line != null) {
-                stage.activity("TASK", line);
-            }
-        }
-        stage.setListening(true);
-        stage.setSubtitle("");
-        stage.setMode(StageMode.LISTENING);
-        listen.start(this, hold);
+        voiceInput.startListening(hold);
     }
 
     @Override
@@ -3177,14 +2685,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         stage.setMode(StageMode.ERROR);
     }
 
+    /** In {@link VoiceInput}. */
     String selfSheet() {
-        ai.ibiko.llm.IbikoSelf.Facts f = new ai.ibiko.llm.IbikoSelf.Facts();
-        f.version = BuildConfigInfo.version(this);
-        f.device = (android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL).trim();
-        f.userName = brain.userName();
-        f.taughtFacts = journal == null ? 0 : journal.taughtCount();
-        f.speaking = stage.agent();
-        return ai.ibiko.llm.IbikoSelf.sheet(f);
+        return voiceInput.selfSheet();
     }
 
     /** The words the voice says for a line: a model's own connect failure is said plainly when the phone is online. */
@@ -3322,34 +2825,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         pickers.deliverReconstruction(uris, token);
     }
 
-    ai.ibiko.ops.recon.RasterImage readRaster(android.net.Uri uri)
-            throws java.io.IOException {
-        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
-        bounds.inJustDecodeBounds = true;
-        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
-            if (in == null) {
-                throw new java.io.IOException("no stream");
-            }
-            android.graphics.BitmapFactory.decodeStream(in, null, bounds);
-        }
-        android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
-        opts.inSampleSize = 1;
-        int max = Math.max(bounds.outWidth, bounds.outHeight);
-        while (max / opts.inSampleSize > 960) {
-            opts.inSampleSize *= 2;
-        }
-        android.graphics.Bitmap bitmap;
-        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
-            bitmap = android.graphics.BitmapFactory.decodeStream(in, null, opts);
-        }
-        if (bitmap == null) {
-            throw new java.io.IOException("undecoded");
-        }
-        int w = bitmap.getWidth(), h = bitmap.getHeight();
-        int[] px = new int[w * h];
-        bitmap.getPixels(px, 0, w, 0, 0, w, h);
-        bitmap.recycle();
-        return new ai.ibiko.ops.recon.RasterImage(w, h, px);
+    /** In {@link Pickers}. */
+    ai.ibiko.ops.recon.RasterImage readRaster(android.net.Uri uri) throws java.io.IOException {
+        return pickers.readRaster(uri);
     }
 
     /** In {@link Pickers}. */
