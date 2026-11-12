@@ -51,15 +51,13 @@ bool Engine::load(const std::string & path, int n_ctx, int n_threads) {
     cp.kv_unified = true; // sharing one memory of n_ctx cells: no more memory than one
     cp.offload_kqv = false; // no GPU: don't reserve a device copy of the cache
     cp.op_offload = false;
-    // From 4,096 tokens up the cache is 8-bit with flash attention: about half the size of 16-bit
-    // (a 1.7B model at 8,192 tokens saves roughly 470 MB). 4,096 itself used to stay 16-bit, which
-    // is the size Settings offers as "less memory". A smaller window stays 16-bit: it writes faster
-    // (measured: 15 against 13 tokens a second). If the 8-bit memory can't be made, 16-bit is used.
-    if (n_ctx >= 4096) {
-        cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
-        cp.type_k = GGML_TYPE_Q8_0;
-        cp.type_v = GGML_TYPE_Q8_0;
-    }
+    // The cache (the model's memory of the conversation) is 8-bit with flash attention at every size: about half
+    // the memory of 16-bit (a 1.7B model at 8,192 tokens saves roughly 470 MB, at 2,048 about 110 MB). It used to
+    // stay 16-bit below 4,096 tokens because it wrote a little faster there; memory is what a phone runs out of
+    // first, so the smaller cache wins. If the 8-bit memory can't be made, 16-bit is used.
+    cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
+    cp.type_k = GGML_TYPE_Q8_0;
+    cp.type_v = GGML_TYPE_Q8_0;
     ctx_ = llama_init_from_model(model_, cp);
     if (!ctx_) {
         cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;

@@ -1,3 +1,9 @@
+# The model lighter and faster (0.99.125)
+
+- [x] The KV cache 8-bit (Q8_0) at every context size; libibiko_llm.so rebuilt (NDK r27c) and shipped.
+- [x] Qwen3 1.7B Fast (Q4_0) in the Models list: 64% faster writing measured, 115 MB less.
+- [ ] Measure both on the device (ARM): the first word was 17% later with the 8-bit cache on a computer; if the device shows the same, keep 16-bit for short contexts and say so in Settings.
+
 # IBK, the brain's one language (0.99.124)
 
 - [x] Every store and log of the brain kept in IBK (CodeFile for whole stores, CodeLog for logs).

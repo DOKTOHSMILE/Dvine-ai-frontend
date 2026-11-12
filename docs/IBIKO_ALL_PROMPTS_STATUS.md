@@ -374,6 +374,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 341 | Build pack format 2, and convert old stored replies and knowledge to the codes | P12 | Built (codes by use, fingerprint, checksum; stores and chat conversations converted at start, exact or kept aside) | 0.99.123 |
 | 342 | The whole brain built around the new language, and its name | P12 | Built (IBK, Ibiko Code: every store and log in it; the few plain files named with the reason) | 0.99.124 |
 | 343 | Decompile a llama engine and rebuild it with the shrinking formula (less RAM, smaller, faster) | P12 | Not built (llama.cpp is already in the app as source; IBK shrinks text, not a model's weights; the levers for RAM and speed are quantisation, the cache's type and the context length) | 0.99.124 |
+| 344 | Turn on KV cache compression and add the 4-bit model; the speed percentages | P12 | Built (8-bit cache at every size; Qwen3 1.7B Fast, Q4_0; measured: Q4_0 writes 64% faster, the cache saves 4-14% memory and delays the first word about 17%) | 0.99.125 |
 
 ## Still open, in the order that matters
 
