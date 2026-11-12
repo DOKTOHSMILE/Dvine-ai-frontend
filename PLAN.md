@@ -1,3 +1,7 @@
+# Room under the chat (0.99.133)
+
+- [x] 35% of the chat's height empty under the last message: new messages rest mid-screen.
+
 # Stop is now; a tidy Process sheet (0.99.132)
 
 - [x] Stop drops the live steps and the stopped turn's records, and the button is Send at once; a stopped job adds nothing after.
