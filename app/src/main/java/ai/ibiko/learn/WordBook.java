@@ -111,6 +111,9 @@ public final class WordBook {
     /** Reads the dictionary in place (once, off the main thread: about a tenth of a second). */
     public static synchronized boolean open(File lexicon) {
         if (starts != null) {
+            if (!WordRank.ready() && lexicon != null) {
+                WordRank.load(lexicon); // unpacked after the dictionary was first opened (the first start of a new version)
+            }
             return true;
         }
         if (lexicon == null || !lexicon.isFile() || lexicon.length() > Integer.MAX_VALUE) {
@@ -163,6 +166,7 @@ public final class WordBook {
             singleAt = Arrays.copyOf(single, singles);
             map = m;
             starts = Arrays.copyOf(at, n);
+            WordRank.load(lexicon); // the words by use, beside it: packs in format 2 when it is there
             return true;
         } catch (IOException | RuntimeException e) {
             return false;

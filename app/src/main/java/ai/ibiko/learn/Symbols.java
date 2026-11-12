@@ -72,8 +72,13 @@ public final class Symbols {
             while (WORDS.containsKey(id) && !word.equals(WORDS.get(id))) {
                 id = id + 1 >= NUMBER ? CUSTOM : id + 1;
             }
-            IDS.put(word, id);
             WORDS.put(id, word);
+            if (!WordBook.ready()) {
+                // the dictionary isn't open yet: this may be a dictionary word, so the id isn't kept for it; once the
+                // dictionary is open the word gets its fixed id (the id made now still reads back)
+                return id;
+            }
+            IDS.put(word, id);
             made = true;
         }
         if (made && WordBook.ready()) {
@@ -171,7 +176,22 @@ public final class Symbols {
             return have;
         }
         int fixed = WordBook.id(word); // a dictionary word's id is fixed: known without having been filed first
-        return fixed > 0 ? fixed : -1;
+        if (fixed > 0) {
+            return fixed;
+        }
+        if (word != null && !word.isEmpty()) {
+            // made while the dictionary wasn't open (not kept for good): found where it was put
+            for (int id = hashed(word), tries = 0; tries < 64; tries++, id = id + 1 >= NUMBER ? CUSTOM : id + 1) {
+                String w = WORDS.get(id);
+                if (w == null) {
+                    break;
+                }
+                if (w.equals(word)) {
+                    return id;
+                }
+            }
+        }
+        return -1;
     }
 
     /** How many words have ids. */

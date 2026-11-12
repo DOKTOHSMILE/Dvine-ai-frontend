@@ -48,9 +48,18 @@ public final class CodeFile {
 
     /** The text these bytes stand for (coded, or plain words). */
     public static String decode(byte[] b) throws IOException {
-        if (b.length < 4 || b[0] != 'I' || b[1] != 'B' || b[2] != 'K' || b[3] != 'Z') {
+        if (!coded(b)) {
             return new String(b, StandardCharsets.UTF_8);
         }
+        return Pack.unpack(inflate(b));
+    }
+
+    private static boolean coded(byte[] b) {
+        return b.length >= 4 && b[0] == 'I' && b[1] == 'B' && b[2] == 'K' && b[3] == 'Z';
+    }
+
+    /** The pack inside a coded file. */
+    private static byte[] inflate(byte[] b) throws IOException {
         WordBook.ensure();
         Inflater in = new Inflater();
         in.setInput(b, 4, b.length - 4);
@@ -69,7 +78,70 @@ public final class CodeFile {
         } finally {
             in.end();
         }
-        return Pack.unpack(o.toByteArray());
+        return o.toByteArray();
+    }
+
+    /** Whether these bytes are already in the newest form this device can write (format 2 codes). */
+    static boolean current(byte[] b) {
+        if (!coded(b)) {
+            return false;
+        }
+        try {
+            return Pack.format(inflate(b)) == 2;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Brings a file to the newest form: plain words or format 1 codes are read and written again as format 2, the
+     * same text. Nothing is done when it is current, can't be read (it stays as it is), or the words' order isn't
+     * loaded. True when it was rewritten.
+     */
+    public static boolean upgrade(File f) {
+        try {
+            WordBook.ensure();
+            if (!WordRank.ready() || f == null || !f.isFile()) {
+                return false;
+            }
+            byte[] b = Files.readAllBytes(f.toPath());
+            if (current(b)) {
+                return false;
+            }
+            write(f, decode(b));
+            return true;
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Brings every coded file under {@code dir} (and its folders) to format 2. Only files that are already codes are
+     * touched: a plain file may be anything (a log, the dictionary) and is brought up to date by its own store when it
+     * is next read. How many were rewritten.
+     */
+    public static int upgradeAll(File dir) {
+        File[] in = dir == null ? null : dir.listFiles();
+        int n = 0;
+        for (File f : in == null ? new File[0] : in) {
+            if (f.isDirectory()) {
+                if (!f.getName().equals("repos")) { // a chat's cloned repositories are the user's own files
+                    n += upgradeAll(f);
+                }
+            } else if (f.length() >= 4 && f.length() < 64L << 20 && startsCoded(f) && upgrade(f)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private static boolean startsCoded(File f) {
+        byte[] h = new byte[4];
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) {
+            return in.read(h) == 4 && coded(h);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** Writes a text as codes, beside the file first and then moved over it, so a crash never leaves half a file. */
@@ -91,7 +163,16 @@ public final class CodeFile {
     public static String read(File f) throws IOException {
         byte[] b = Files.readAllBytes(f.toPath());
         try {
-            return decode(b);
+            String text = decode(b);
+            WordBook.ensure();
+            if (WordRank.ready() && !current(b)) {
+                try {
+                    write(f, text); // kept from now on in the newest codes (format 2), the same text
+                } catch (IOException | RuntimeException kept) {
+                    // still read as it was; brought up to date on the next write
+                }
+            }
+            return text;
         } catch (IOException e) {
             try {
                 Files.copy(f.toPath(), new File(f.getPath() + ".unreadable").toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);

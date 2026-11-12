@@ -151,9 +151,16 @@ public final class Ibiko1 {
     public static void warm(File filesDir) {
         File k = new File(new File(filesDir, "brain"), "knowledge");
         File lexicon = Store.unpacked(k, "lexicon.tsv");
+        Store.unpacked(k, ai.ibiko.learn.WordRank.FILE); // the words by use, read with the dictionary (pack format 2)
         ai.ibiko.learn.WordBook.open(lexicon); // first: every English word its fixed id before anything files words
         builtIn();
         Store.unpacked(k, "concepts.tsv");
+        // what was kept in older forms is brought to format 2, the same text: each chat's conversation (its script file)
+        // and every coded store (answers learned, facts, words, meanings, the brain box)
+        ai.ibiko.learn.Identifier.convertAll(filesDir);
+        ai.ibiko.learn.CodeFile.upgradeAll(new File(filesDir, "brain"));
+        ai.ibiko.learn.CodeFile.upgradeAll(new File(filesDir, "learning"));
+        ai.ibiko.learn.CodeFile.upgradeAll(ai.ibiko.main.ChatSpace.root(filesDir));
     }
 
     /** What shipped with the app: known from the moment it is installed, with no internet and nothing learned yet. */

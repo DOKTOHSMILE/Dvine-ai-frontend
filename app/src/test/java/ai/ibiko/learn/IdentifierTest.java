@@ -34,13 +34,14 @@ public class IdentifierTest {
         book.add("assistant", "text", "Flights first. Then a hotel in Ikoyi.", "ibiko");
         Identifier.flush();
         String chat = book.current().group;
-        List<String> lines = Files.readAllLines(Identifier.file(dir, chat).toPath(), StandardCharsets.UTF_8);
+        List<String[]> lines = Identifier.lines(dir, chat); // packed codes (format 2), or the script before the dictionary
         assertEquals(3, lines.size());
-        String[] first = lines.get(0).split("\t");
+        String[] first = lines.get(0);
         assertEquals("user", first[0]);
         assertEquals(book.current().messages.get(0).id + "#0", first[1]);
-        assertEquals("Plan my trip to Lagos.", Identifier.read(first[2]));
-        assertTrue(lines.get(2).startsWith("assistant\t" + book.current().messages.get(1).id + "#1\t"));
-        assertEquals("Then a hotel in Ikoyi.", Identifier.read(lines.get(2).split("\t")[2]));
+        assertEquals("Plan my trip to Lagos.", first[2]);
+        assertEquals("assistant", lines.get(2)[0]);
+        assertEquals(book.current().messages.get(1).id + "#1", lines.get(2)[1]);
+        assertEquals("Then a hotel in Ikoyi.", lines.get(2)[2]);
     }
 }
