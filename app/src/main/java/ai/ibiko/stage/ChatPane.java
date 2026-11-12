@@ -977,7 +977,8 @@ public final class ChatPane extends LinearLayout {
         row.setBackgroundResource(ripple());
         android.widget.ImageView icon = new android.widget.ImageView(getContext());
         icon.setImageResource(group.kind == ai.ibiko.agent.StepGroups.Kind.COMMAND ? R.drawable.ic_terminal
-                : group.kind == ai.ibiko.agent.StepGroups.Kind.EDIT ? R.drawable.ic_edit : R.drawable.ic_search);
+                : group.kind == ai.ibiko.agent.StepGroups.Kind.EDIT ? R.drawable.ic_edit
+                : group.kind == ai.ibiko.agent.StepGroups.Kind.WEB ? R.drawable.ic_globe : R.drawable.ic_search);
         icon.setColorFilter(color(R.color.icon_brand));
         row.addView(icon, new LayoutParams(dp(IconSize.INLINE), dp(IconSize.INLINE)));
         TextView label = plain(group.label);
@@ -1030,6 +1031,11 @@ public final class ChatPane extends LinearLayout {
         if (d != null) {
             t.setContentDescription(it.verb + " " + it.target + (open ? ", hide" : ", show"));
             t.setOnClickListener(v -> toggle.run());
+        } else {
+            // nothing more to open: a tap shows the whole line (a long address, the reason a page failed)
+            t.setContentDescription(it.verb + " " + it.target + ", show all");
+            t.setBackgroundResource(ripple());
+            t.setOnClickListener(v -> t.setMaxLines(t.getMaxLines() == 1 ? 12 : 1));
         }
         return t;
     }
@@ -1207,6 +1213,15 @@ public final class ChatPane extends LinearLayout {
             t.setContentDescription(words + ", open");
             t.setOnClickListener(v -> ai.ibiko.chat.ui.DetailSheet.show((Activity) getContext(), words, d));
             t.setPadding(dp(4), dp(4), 0, dp(4)); // a bigger target
+        } else {
+            // every step can be tapped: one with nothing to open shows its whole line (it is cut at two)
+            t.setMaxLines(2);
+            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            t.setMinHeight(dp(40));
+            t.setPadding(dp(4), dp(4), 0, dp(4));
+            t.setBackgroundResource(ripple());
+            t.setContentDescription(words + ", show all");
+            t.setOnClickListener(v -> t.setMaxLines(t.getMaxLines() == 2 ? 20 : 2));
         }
         return t;
     }
@@ -1232,7 +1247,7 @@ public final class ChatPane extends LinearLayout {
         }
         LinearLayout box = new LinearLayout(getContext());
         box.setOrientation(VERTICAL);
-        box.setPadding(0, dp(4), 0, dp(4));
+        box.setPadding(0, dp(2), 0, dp(2));
         if (kept.isEmpty()) {
             return box;
         }
@@ -1271,8 +1286,8 @@ public final class ChatPane extends LinearLayout {
             row.setTextSize(14f);
             row.setMaxLines(1);
             row.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            row.setPadding(0, dp(12), 0, dp(12));
-            row.setMinHeight(dp(48)); // the whole width and 48dp tall: easy to hit
+            row.setPadding(0, dp(6), 0, dp(6));
+            row.setMinHeight(dp(44)); // the whole width and 44dp tall: easy to hit, close to the next
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setBackgroundResource(ripple());
             row.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
@@ -2546,11 +2561,6 @@ public final class ChatPane extends LinearLayout {
                     last = k;
                 }
             }
-            boolean answered = false;
-            for (int k = last + 1; last >= 0 && k <= e; k++) {
-                ChatBook.Message m = all.get(k);
-                answered |= ("text".equals(m.kind) || "code".equals(m.kind)) && m.body != null && !m.body.trim().isEmpty();
-            }
             boolean plain = true; // only steps and notes fold; a picture, a file or a button in between stays where it is
             for (int k = first; first >= 0 && k <= last; k++) {
                 String kind = all.get(k).kind;
@@ -2558,7 +2568,9 @@ public final class ChatPane extends LinearLayout {
             }
             // while the turn is still going, the steps fold too: the chat shows one "Working" row and the live line,
             // not a stack of Replying / Explored / Thinking between status notes
-            if (first >= 0 && plain && (answered || (working && e == n - 1))) {
+            // every turn folds: answered, still working, or stopped (a stopped turn's steps used to hang as a stack of
+            // "Thinking ›", "Checking the blueprint ›" far apart at the bottom)
+            if (first >= 0 && plain) {
                 out[first] = last;
             }
             s = e + 1;

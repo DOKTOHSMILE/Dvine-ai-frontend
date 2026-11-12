@@ -13,7 +13,7 @@ import java.util.Set;
  */
 public final class StepGroups {
     public enum Kind {
-        COMMAND, EXPLORE, EDIT, OTHER
+        COMMAND, EXPLORE, EDIT, WEB, OTHER
     }
 
     /** One step: the verb shown dim, what it acted on shown bright, where it is in the list, and its seconds. */
@@ -86,6 +86,9 @@ public final class StepGroups {
                 || fileRead(w)) {
             return Kind.EXPLORE;
         }
+        if (w.matches("(?s)^(Fetched|Opened|Read) https?://.*") || w.startsWith("Searched the web") || w.startsWith("Looked up ")) {
+            return Kind.WEB; // pages from the web: one banner, not a line each ("Fetched https://...")
+        }
         return Kind.OTHER;
     }
 
@@ -121,8 +124,12 @@ public final class StepGroups {
     public static List<Group> fold(List<String> words, List<String> titles, List<Long> secs) {
         List<Group> out = new ArrayList<Group>();
         List<Item> run = new ArrayList<Item>();
+        java.util.Set<String> seen = new java.util.HashSet<String>();
         for (int i = 0; i < words.size(); i++) {
             String w = words.get(i);
+            if (repeated(words, titles, i, seen)) {
+                continue; // said again, or said once more with its result: one line, the fuller one
+            }
             String t = i < titles.size() ? titles.get(i) : null;
             long s = i < secs.size() ? secs.get(i) : -1;
             Kind k = kind(w, t);
@@ -138,8 +145,32 @@ public final class StepGroups {
         return out;
     }
 
+    /**
+     * A step that adds nothing: the same words as an earlier step with no detail of its own ("Replying" twice), or a
+     * line the next step repeats with its result ("Fetched X", then "Fetched X: the site said 403"; "Listed the chosen
+     * repositories", then "Listed the chosen repositories: ...").
+     */
+    static boolean repeated(List<String> words, List<String> titles, int i, java.util.Set<String> seen) {
+        String w = words.get(i) == null ? "" : words.get(i).trim();
+        boolean detailed = i < titles.size() && titles.get(i) != null;
+        if (i + 1 < words.size() && words.get(i + 1) != null && words.get(i + 1).startsWith(w + ":") && !w.isEmpty()) {
+            return true;
+        }
+        if (!detailed && !seen.add(w)) {
+            return true;
+        }
+        return false;
+    }
+
     static Item item(Kind k, String w, String title, int index, long secs) {
         switch (k) {
+            case WEB: {
+                int sp = w.indexOf(' ');
+                if (w.startsWith("Searched the web")) {
+                    return new Item(k, "Searched the web", w.replaceFirst("^Searched the web( for)?\\s*", ""), index, secs);
+                }
+                return new Item(k, sp > 0 ? w.substring(0, sp) + " page" : "Page", sp > 0 ? w.substring(sp + 1) : w, index, secs);
+            }
             case COMMAND:
                 if (w.startsWith("Not run: ")) {
                     return new Item(k, "Not run", w.substring(9), index, secs);
@@ -184,6 +215,26 @@ public final class StepGroups {
                     files.add(i.target);
                 }
                 label = "Edited " + files.size() + (files.size() == 1 ? " file" : " files");
+                break;
+            }
+            case WEB: {
+                Set<String> pages = new LinkedHashSet<String>();
+                int searches = 0;
+                for (Item i : run) {
+                    if (i.verb.startsWith("Searched")) {
+                        searches++;
+                    } else {
+                        pages.add(i.target.replaceFirst(": .*$", "")); // "https://x: the site said 403" is the page https://x
+                    }
+                }
+                StringBuilder b = new StringBuilder("Fetched");
+                if (!pages.isEmpty()) {
+                    b.append(' ').append(pages.size()).append(pages.size() == 1 ? " page" : " pages");
+                }
+                if (searches > 0) {
+                    b.append(pages.isEmpty() ? " " : ", ").append(searches).append(searches == 1 ? " search" : " searches");
+                }
+                label = pages.isEmpty() ? "Searched the web" + (searches > 1 ? " " + searches + " times" : "") : b.toString();
                 break;
             }
             case EXPLORE: {
