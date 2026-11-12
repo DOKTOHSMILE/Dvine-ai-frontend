@@ -240,4 +240,23 @@ public class ChatBookTest {
         assertFalse(book.reply("ibiko", "That is the whole of it.", "m-other"));
         assertEquals("a repeat does not take the reserved id", id, book.current().messages.get(1).id);
     }
+
+    /** Stop: the steps of work with no answer are removed; an answered turn keeps its record. */
+    @Test
+    public void stoppedWorkLeavesNoHangingSteps() throws Exception {
+        java.io.File dir = java.nio.file.Files.createTempDirectory("chats").toFile();
+        ChatBook book = new ChatBook(new java.io.File(dir, "chats.json"));
+        book.open("Clone", "ibiko");
+        book.add("user", "text", "Clone the GitHub repo", "ibiko");
+        book.add("assistant", "activity", "5\nThinking\t5", "ibiko");
+        book.add("assistant", "text", "Cloned it.", "ibiko");
+        book.add("user", "text", "continue", "ibiko");
+        book.add("assistant", "activity", "3\nThinking\t3", "ibiko");
+        book.add("assistant", "activity", "2\nChecking the blueprint for gaps\t2", "ibiko");
+        org.junit.Assert.assertEquals(2, book.dropUnfinishedWork("ibiko"));
+        java.util.List<ChatBook.Message> m = book.current().messages;
+        org.junit.Assert.assertEquals("continue", m.get(m.size() - 1).body);
+        org.junit.Assert.assertEquals("the answered turn keeps its steps", "activity", m.get(1).kind);
+        org.junit.Assert.assertEquals("nothing more to drop", 0, book.dropUnfinishedWork("ibiko"));
+    }
 }

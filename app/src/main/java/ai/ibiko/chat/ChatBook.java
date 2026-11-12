@@ -305,6 +305,40 @@ public final class ChatBook {
         return current();
     }
 
+    /**
+     * The user stopped the work: the steps it kept on {@code persona}'s page since the last question, with no answer
+     * after them, are removed (they hung at the bottom of the chat as "Thinking ›", "Checking the blueprint ›").
+     * A finished answer and anything that isn't a step stay. How many were removed.
+     */
+    public synchronized int dropUnfinishedWork(String persona) {
+        Section s = pageFor(persona);
+        int ask = -1;
+        for (int i = s.messages.size() - 1; i >= 0; i--) {
+            if ("user".equals(s.messages.get(i).role)) {
+                ask = i;
+                break;
+            }
+        }
+        for (int i = ask + 1; i < s.messages.size(); i++) {
+            Message m = s.messages.get(i);
+            if (("text".equals(m.kind) || "code".equals(m.kind) || "html".equals(m.kind)) && m.body != null
+                    && !m.body.trim().isEmpty() && !"user".equals(m.role)) {
+                return 0; // it was answered: its steps are the record of that answer
+            }
+        }
+        int n = 0;
+        for (int i = s.messages.size() - 1; i > ask; i--) {
+            if ("activity".equals(s.messages.get(i).kind)) {
+                s.messages.remove(i);
+                n++;
+            }
+        }
+        if (n > 0) {
+            save();
+        }
+        return n;
+    }
+
     /** A line from Ibiko on the page on screen, whatever work is bound elsewhere ("your message is waiting"). */
     public synchronized void noteHere(String persona, String text) {
         if (text == null || text.trim().isEmpty()) {

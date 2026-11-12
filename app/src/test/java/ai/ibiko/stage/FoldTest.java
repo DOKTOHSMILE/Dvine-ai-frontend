@@ -28,7 +28,11 @@ public class FoldTest {
                 m("assistant", "activity"));
         assertArrayEquals("notes between steps fold into the one working row", new int[] { -1, 3, -1, -1 }, ChatPane.folds(between, 0, true));
         List<ChatBook.Message> stopped = Arrays.asList(m("user", "text"), m("assistant", "text"), m("assistant", "activity"));
-        assertArrayEquals("nothing after the steps: the notes stay readable", new int[] { -1, -1, -1 }, ChatPane.folds(stopped, 0, false));
+        assertArrayEquals("a stopped turn's steps are one row too; the note before them stays", new int[] { -1, -1, 2 },
+                ChatPane.folds(stopped, 0, false));
+        // the pilot's screenshot: "Thinking ›" and "Checking the blueprint ›" hung apart after Stop; now one row
+        List<ChatBook.Message> hung = Arrays.asList(m("user", "text"), m("assistant", "activity"), m("assistant", "activity"));
+        assertArrayEquals(new int[] { -1, 2, -1 }, ChatPane.folds(hung, 0, false));
         List<ChatBook.Message> picture = Arrays.asList(m("user", "text"), m("assistant", "activity"), m("assistant", "image"),
                 m("assistant", "activity"), m("assistant", "text"));
         assertArrayEquals("a picture in between is never hidden", new int[] { -1, -1, -1, -1, -1 }, ChatPane.folds(picture, 0, false));

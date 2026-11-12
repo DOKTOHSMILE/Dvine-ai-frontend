@@ -71,4 +71,31 @@ public class StepGroupsTest {
         assertEquals(48, StepGroups.window(900, 24));
         assertEquals(30, StepGroups.window(30, 24));
     }
+
+    /** From the pilot's screenshot of the Process sheet: repeats and "X" then "X: result" were two lines each. */
+    @Test
+    public void repeatsAndFollowUpsAreOneLineAndPagesOneBanner() {
+        List<String> words = Arrays.asList("Thinking", "Replying", "Planning", "Replying",
+                "Listed the chosen repositories", "Listed the chosen repositories: The repositories the pilot chose (2 lines)",
+                "Fetched https://api.github.com/repos/doktohsmile/ibiko-ai",
+                "Fetched https://api.github.com/repos/doktohsmile/ibiko-ai: The page couldn't be fetched: the site said 403.",
+                "Fetched https://github.com/doktohsmile/ibiko-ai",
+                "Fetched https://github.com/doktohsmile/ibiko-ai: GitHub - DOKTOHSMILE/Ibiko-ai (247 lines)",
+                "Custom gateway didn't answer");
+        String[] none = new String[words.size()];
+        Long[] secs = new Long[words.size()];
+        java.util.Arrays.fill(secs, 1L);
+        List<StepGroups.Group> g = StepGroups.fold(words, Arrays.asList(none), Arrays.asList(secs));
+        java.util.List<String> labels = new java.util.ArrayList<String>();
+        for (StepGroups.Group x : g) {
+            labels.add(x.label);
+        }
+        assertEquals(Arrays.asList("Thinking", "Replying", "Planning",
+                "Listed the chosen repositories: The repositories the pilot chose (2 lines)", "Fetched 2 pages",
+                "Custom gateway didn't answer"), labels);
+        StepGroups.Group pages = g.get(4);
+        assertEquals(StepGroups.Kind.WEB, pages.kind);
+        assertEquals("each page once, with what happened to it", 2, pages.items.size());
+        assertTrue(pages.items.get(0).target.endsWith("the site said 403."));
+    }
 }

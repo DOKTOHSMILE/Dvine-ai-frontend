@@ -181,8 +181,11 @@ public class LaunchTest {
         sheet.dismiss();
         pane.activityEnd();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        // the kept work: a row per step (or group), between the notes and the reply, like Claude Code's
-        android.view.View worked = described(root, "Cloned me/app, open the steps");
+        // the kept work, answered or not: one "Worked for …" row for the turn, its steps a tap away
+        android.view.View worked = describedStart(root, "Worked for ");
+        if (worked == null) {
+            worked = describedStart(root, "Thought for ");
+        }
         assertNotNull(worked);
         worked.performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
@@ -1333,6 +1336,24 @@ public class LaunchTest {
             android.view.ViewGroup g = (android.view.ViewGroup) v;
             for (int i = 0; i < g.getChildCount(); i++) {
                 ai.ibiko.stage.LiveFace f = findFace(g.getChildAt(i));
+                if (f != null) {
+                    return f;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The first view whose description starts with {@code start}. */
+    private static android.view.View describedStart(android.view.View v, String start) {
+        CharSequence d = v.getContentDescription();
+        if (d != null && d.toString().startsWith(start)) {
+            return v;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                android.view.View f = describedStart(g.getChildAt(i), start);
                 if (f != null) {
                     return f;
                 }

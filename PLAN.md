@@ -1,3 +1,9 @@
+# Stop is now; a tidy Process sheet (0.99.132)
+
+- [x] Stop drops the live steps and the stopped turn's records, and the button is Send at once; a stopped job adds nothing after.
+- [x] Every turn's steps one row in the chat; rows closer together.
+- [x] Process sheet: repeats and "X" / "X: result" are one line; web pages one banner; every row tappable.
+
 # The voice is ready when the reply is (0.99.131)
 
 - [x] While a reply is still being written, each finished sentence is made and kept under that reply's id.

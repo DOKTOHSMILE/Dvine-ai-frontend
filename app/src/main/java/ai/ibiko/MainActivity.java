@@ -2040,9 +2040,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     void stopGeneration() {
         readToken++;
         stopVisibleJob();
+        // Stop is now: the steps of the stopped work are not kept in the chat (they hung at the bottom), and the
+        // button is Send again at once, not when the job next looks up (a call can take minutes to give up)
+        String page = stage == null ? null : stage.agent();
+        if (chatPane != null) {
+            chatPane.activityDrop();
+        }
         endThink();
         keepAwake(false);
         stopPlay();
+        if (model != null && model.coding) {
+            model.coding = false; // the job sees it was stopped at its next step and ends without a word
+        }
+        generating = false;
+        streamOpen = false;
+        if (chats != null && page != null && chats.dropUnfinishedWork(page) > 0 && chatPane != null) {
+            chatPane.show();
+        }
+        refreshSend();
     }
 
     void setGenerating(boolean on) {

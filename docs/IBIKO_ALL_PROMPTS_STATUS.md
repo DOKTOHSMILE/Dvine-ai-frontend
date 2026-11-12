@@ -381,6 +381,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 348 | Which coding language is faster and smaller to build | P12 | Answered (keep Java for the app, C/C++ for the engine; size is the models and native libraries) | 0.99.128 |
 | 349 | Increase the size of the in-chat Ibiko blinking icon | P12 | Built (38 dp, was 26) | 0.99.129 |
 | 350 | Screenshot: wrong 'no brain', plan mode for Hello, share for a question, 1,024 tokens; give the model enough space | P12 | Built (4,096 tokens on the same device; codes the words don't ask for dropped; the message waits for the model to start) | 0.99.130 |
+| 351 | Stop leaves hanging process rows; rows too far apart; send/stop broken; duplicate process lines; merge similar under one banner; rows hard to click | P12 | Built (Stop clears and returns to Send at once; one row a turn; repeats merged; 'Fetched N pages'; every row tappable) | 0.99.132 |
 
 ## Still open, in the order that matters
 

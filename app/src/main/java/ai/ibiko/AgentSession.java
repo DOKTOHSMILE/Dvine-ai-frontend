@@ -47,12 +47,12 @@ final class AgentSession {
                     if (sc != null) {
                         sc.step(ai.ibiko.agent.StepDetail.words(line));
                     }
-                    if (a.chatPane != null) {
-                        a.chatPane.activityStep(line); // with its detail, opened by a tap
+                    if (a.chatPane != null && a.alive(id)) {
+                        a.chatPane.activityStep(line); // with its detail, opened by a tap (not after the user stopped it)
                     }
                     a.updateThoughtStatus(ai.ibiko.agent.StepDetail.words(line), true);
                 }, () -> a.showIbikoMode(true)).onNote(note -> {
-                    if (a.chatPane == null || note == null) {
+                    if (a.chatPane == null || note == null || !a.alive(id)) {
                         return;
                     }
                     String n = note.trim();
