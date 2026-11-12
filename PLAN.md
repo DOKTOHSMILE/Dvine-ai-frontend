@@ -1,3 +1,10 @@
+# One brain, and a model that evolves (0.99.126)
+
+- [x] Ibiko 1 asks the device's model for what its memory doesn't hold, with what it knows passed in; the pilot's check keeps the answer.
+- [x] LoRA adapters laid over the frozen 4-bit weights (engine, JNI, llm/Adapters), install and take back in Settings › Usage.
+- [x] The training set: confirmed answers, then kept model answers (Export).
+- [ ] Train the first adapter on a GPU from an export (docs/TRAINING.md) and compare replies on the device.
+
 # The model lighter and faster (0.99.125)
 
 - [x] The KV cache 8-bit (Q8_0) at every context size; libibiko_llm.so rebuilt (NDK r27c) and shipped.

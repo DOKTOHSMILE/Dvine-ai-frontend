@@ -144,6 +144,34 @@ bool Engine::decode(const std::vector<int> & tokens, int pos0, int seq) {
     return true;
 }
 
+bool Engine::adapter(const std::string & path, float scale) {
+    if (!model_ || !ctx_) {
+        error_ = "no model is loaded";
+        return false;
+    }
+    if (path.empty()) {
+        llama_set_adapters_lora(ctx_, nullptr, 0, nullptr);
+        if (lora_) llama_adapter_lora_free(lora_);
+        lora_ = nullptr;
+    } else {
+        llama_adapter_lora * a = llama_adapter_lora_init(model_, path.c_str());
+        if (!a) {
+            error_ = "the adapter isn't one made for this model";
+            return false;
+        }
+        float s = scale;
+        if (llama_set_adapters_lora(ctx_, &a, 1, &s) != 0) {
+            llama_adapter_lora_free(a);
+            error_ = "the adapter couldn't be laid over the model";
+            return false;
+        }
+        if (lora_) llama_adapter_lora_free(lora_);
+        lora_ = a;
+    }
+    for (int i = 0; i < SLOTS; ++i) drop_slot(i); // what was read before was read without this adapter
+    return true;
+}
+
 void Engine::drop_slot(int slot) {
     llama_memory_seq_rm(llama_get_memory(ctx_), slot, -1, -1);
     cached_[slot].clear();

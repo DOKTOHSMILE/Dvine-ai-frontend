@@ -166,6 +166,27 @@ public final class UsageActivity extends AppCompatActivity {
         export.setPadding(0, Ui.dp(this, 14), Ui.dp(this, 28), 0);
         export.setOnClickListener(v -> exportLearning(ll));
         buttons.addView(export);
+        // a trained adapter (docs/TRAINING.md) laid over the device's model from its next start; a long press takes it back
+        TextView adapter = Ui.text(this, "Install adapter", 15, Ui.ACCENT, false);
+        adapter.setPadding(0, Ui.dp(this, 14), Ui.dp(this, 28), 0);
+        adapter.setOnClickListener(v -> {
+            android.content.Intent choose = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+            choose.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+            choose.setType("*/*");
+            startActivityForResult(choose, PICK_ADAPTER);
+        });
+        adapter.setOnLongClickListener(v -> {
+            String said;
+            try {
+                said = ai.ibiko.llm.Adapters.rollBack(m.file()) ? "The adapter before is back (or none): used from the model's next start."
+                        : "No adapter to take back.";
+            } catch (java.io.IOException e) {
+                said = "Couldn't take it back: " + e.getMessage();
+            }
+            android.widget.Toast.makeText(this, said, android.widget.Toast.LENGTH_LONG).show();
+            return true;
+        });
+        buttons.addView(adapter);
         TextView clear = Ui.text(this, "Delete", 15, Ui.ACCENT, false);
         clear.setPadding(0, Ui.dp(this, 14), 0, 0);
         clear.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
@@ -196,9 +217,36 @@ public final class UsageActivity extends AppCompatActivity {
         return prefs.getBoolean("learn_on", true);
     }
 
+    private static final int PICK_ADAPTER = 41;
+
+    @Override
+    protected void onActivityResult(int request, int result, android.content.Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != PICK_ADAPTER || result != RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+        String said;
+        java.io.File tmp = new java.io.File(getCacheDir(), "adapter-in.gguf");
+        try (java.io.InputStream in = getContentResolver().openInputStream(data.getData())) {
+            if (in == null) {
+                throw new java.io.IOException("the file couldn't be opened");
+            }
+            java.nio.file.Files.copy(in, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            java.io.File model = ModelHub.get(this).model.file();
+            said = ai.ibiko.llm.Adapters.install(model, tmp)
+                    ? "Adapter installed for " + model.getName() + ": used from the model's next start. Hold the button to take it back."
+                    : "That isn't a GGUF adapter.";
+        } catch (java.io.IOException | RuntimeException e) {
+            said = "Couldn't install it: " + e.getMessage();
+        } finally {
+            tmp.delete();
+        }
+        android.widget.Toast.makeText(this, said, android.widget.Toast.LENGTH_LONG).show();
+    }
+
     /** Saves the training file to Downloads/Ibiko. */
     private void exportLearning(ai.ibiko.learn.LearningLog ll) {
-        if (ll.count() == 0) {
+        if (ll.count() == 0 && ai.ibiko.ibiko1.Store.knowledge(new java.io.File(getFilesDir(), "brain")).confirmed().isEmpty()) {
             android.widget.Toast.makeText(this, "Nothing learned yet.", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
@@ -215,7 +263,7 @@ public final class UsageActivity extends AppCompatActivity {
             }
             int n;
             try (java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
-                n = ll.exportForTraining(o);
+                n = ai.ibiko.llm.Adapters.trainingSet(getFilesDir(), ll, o); // confirmed answers, then the models' kept answers
             }
             said = "Saved " + n + " examples to Downloads/Ibiko/" + name;
         } catch (java.io.IOException | RuntimeException e) {

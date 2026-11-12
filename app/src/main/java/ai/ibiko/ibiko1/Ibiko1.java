@@ -91,6 +91,19 @@ public final class Ibiko1 {
             return false;
         }
 
+        /** Whether a model is downloaded on the device that Ibiko 1 can ask for what its own memory doesn't hold. */
+        default boolean modelReady() {
+            return false;
+        }
+
+        /**
+         * Asks the device's model (blocking: called off the main thread). Null when there is none or it failed. Its
+         * answer is shown as unchecked, and the pilot's check or cancel teaches Ibiko 1, as with any model.
+         */
+        default String askModel(String system, String question) {
+            return null;
+        }
+
         /** Carries out a function code line ("§SR weather in Lagos") through the app's gate for every model. */
         default void act(String message, String codeLine) {
         }
@@ -549,6 +562,13 @@ public final class Ibiko1 {
                     "Weighing the other side"), () -> saysPlain(who, ai.ibiko.ibiko1.formulas.Critical.deliberate(t)));
             return;
         }
+        if (!host.online() && host.modelReady()) {
+            // offline, not in memory: the device's model answers, with what Ibiko 1 already knows about it
+            final String subject0 = ResearchAnswer.subject(t);
+            think(Arrays.asList("Reading your question", "Checking what I already know", "Not in my memory: asking the device's model"),
+                    () -> fromModel(who, t, subject0, false));
+            return;
+        }
         if (!host.online()) {
             LearningJob.remember(host.context(), t);
             learner().unanswered(t, System.currentTimeMillis());
@@ -585,6 +605,11 @@ public final class Ibiko1 {
                             if (mine != token) {
                                 return; // a newer message took over
                             }
+                            if (found == null && host.modelReady()) {
+                                think(Arrays.asList("Nothing I found answers it: asking the device's model"),
+                                        () -> fromModel(who, t, subject, true), false);
+                                return;
+                            }
                             if (found == null) {
                                 LearningJob.remember(host.context(), t);
                                 learner().unanswered(t, System.currentTimeMillis());
@@ -603,6 +628,35 @@ public final class Ibiko1 {
                         });
                     }, "ibiko-research").start();
                 });
+    }
+
+    /** Ibiko 1 and the device's model as one brain: what Ibiko 1 knows goes in, the model's answer comes out unchecked. */
+    static final String MODEL_SYSTEM = "You are Ibiko, answering for Ibiko's own brain. Answer in a few plain sentences."
+            + " Use what Ibiko already knows when it is given. If you don't know, say so. /no_think";
+
+    private void fromModel(final String who, final String t, final String subject, final boolean online) {
+        final int mine = token;
+        final String known = foundation(t);
+        new Thread(() -> {
+            String asked = (known == null || known.trim().isEmpty() ? "" : "What Ibiko already knows:\n" + known.trim() + "\n\n")
+                    + "Question: " + t;
+            String a = host.askModel(MODEL_SYSTEM, asked);
+            final String said = a == null ? null : a.trim();
+            host.onScreen(() -> {
+                if (mine != token) {
+                    return; // a newer message took over
+                }
+                if (said == null || said.isEmpty() || ai.ibiko.learn.Corroborate.failure(said)) {
+                    LearningJob.remember(host.context(), t);
+                    learner().unanswered(t, System.currentTimeMillis());
+                    saysPlain(who, Phrasing.unknown(subject, online, LearningJob.plan(host.context()).on, times));
+                    return;
+                }
+                how = How.OTHER;
+                saysSure(who, said + "\n(From the device's model; not checked yet.)", ai.ibiko.ibiko1.formulas.Critical.Ground.UNCHECKED);
+                rateable(t, said); // the pilot's check keeps it in Ibiko 1's memory (and in the next adapter's training)
+            });
+        }, "ibiko1-model").start();
     }
 
     private void rateable(String question, String answer) {

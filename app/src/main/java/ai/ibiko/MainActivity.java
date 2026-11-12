@@ -2510,6 +2510,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
 
         @Override
+        public boolean modelReady() {
+            // a model downloaded on the device: Ibiko 1 asks it for what its own memory doesn't hold
+            return model != null && model.installed() && prefs.getBoolean("ibiko1_uses_model", true);
+        }
+
+        @Override
+        public String askModel(String system, String question) {
+            try {
+                return model == null ? null : model.task(system, question, ai.ibiko.chat.Tuning.CHAT_TOKENS.get(prefs), null);
+            } catch (RuntimeException e) {
+                return null;
+            }
+        }
+
+        @Override
         public java.util.List<String> aboutPilot() {
             return pilotProfile().lines();
         }

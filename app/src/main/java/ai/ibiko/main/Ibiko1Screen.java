@@ -37,6 +37,26 @@ public final class Ibiko1Screen implements Ibiko1.Host {
         boolean allows(String code);
 
         void act(String message, String codeLine);
+
+        /** Whether a model is downloaded on the device. */
+        default boolean modelReady() {
+            return false;
+        }
+
+        /** Asks the device's model (blocking, off the main thread); null when it can't. */
+        default String askModel(String system, String question) {
+            return null;
+        }
+    }
+
+    @Override
+    public boolean modelReady() {
+        return parts.modelReady();
+    }
+
+    @Override
+    public String askModel(String system, String question) {
+        return parts.askModel(system, question);
     }
 
     @Override
