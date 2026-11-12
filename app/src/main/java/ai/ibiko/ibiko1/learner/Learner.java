@@ -512,11 +512,12 @@ public final class Learner {
         File f = new File(dir, name);
         try {
             dir.mkdirs();
-            Files.write(f.toPath(), line.getBytes(StandardCharsets.UTF_8), java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
-            List<String> all = Files.readAllLines(f.toPath(), StandardCharsets.UTF_8);
-            if (all.size() > most + most / 10) {
-                write(f, String.join("\n", all.subList(all.size() - most, all.size())) + "\n");
+            ai.ibiko.learn.CodeLog.append(f, line); // one line added in IBK codes, never the whole log again
+            if (f.length() > 256 * 1024) {
+                List<String> all = ai.ibiko.learn.CodeLog.lines(f);
+                if (all.size() > most + most / 10) {
+                    ai.ibiko.learn.CodeLog.write(f, new ArrayList<String>(all.subList(all.size() - most, all.size())));
+                }
             }
         } catch (IOException ignored) {
             // the next line tries again
@@ -526,19 +527,14 @@ public final class Learner {
     private List<String> lines(String name) {
         File f = dir == null ? null : new File(dir, name);
         try {
-            return f != null && f.isFile() ? Files.readAllLines(f.toPath(), StandardCharsets.UTF_8) : new ArrayList<String>();
+            return f != null && f.isFile() ? ai.ibiko.learn.CodeLog.lines(f) : new ArrayList<String>();
         } catch (IOException e) {
             return new ArrayList<String>();
         }
     }
 
     private static void write(File f, String text) throws IOException {
-        File tmp = new File(f.getPath() + ".tmp");
-        Files.write(tmp.toPath(), text.getBytes(StandardCharsets.UTF_8));
-        if (!tmp.renameTo(f)) {
-            Files.write(f.toPath(), text.getBytes(StandardCharsets.UTF_8));
-            tmp.delete();
-        }
+        ai.ibiko.learn.CodeFile.write(f, text); // IBK codes, beside the file first and then over it
     }
 
     /** Writes what it learned (called after each message, cheap: a few small files). */
@@ -633,7 +629,7 @@ public final class Learner {
     private String read(String name, String fallback) {
         File f = new File(dir, name);
         try {
-            return f.isFile() ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8) : fallback;
+            return f.isFile() ? ai.ibiko.learn.CodeFile.read(f) : fallback;
         } catch (IOException e) {
             return fallback;
         }

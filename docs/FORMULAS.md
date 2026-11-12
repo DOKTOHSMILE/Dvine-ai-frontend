@@ -159,3 +159,11 @@ by itself" shows them and forgets them.
 - A chat's conversation: `memory/codes.ibk` = IBKC 2, the fingerprint, then one record a message: length, role in one byte, the message id as its base-36 number, the sentences (number, length, codes), a CRC-32. "Hi, do you need help?" is 21 bytes of text, 15 bytes of codes, a 34-byte record with its id, role and checksum; the old script line was 59 bytes. The older script file (`codes.tsv`) is converted line by line; it is removed only when every line written in the script again gives the same characters, otherwise kept as `codes.tsv.old`.
 - Old stores: every coded file under brain/, learning/ and the chats is rewritten in format 2 at start; a plain store when it is next read. Only coded files are swept: a plain file may be a log or the dictionary.
 - Measured (bytes of the file kept, against deflate of the plain text): plain prose 27% (39%), project notes 35% (38%), an engineering plan 28% (32%); format 1 was 33%, 40%, 32%. Pack 35-90 ms, unpack 4-15 ms for 100 kB.
+
+## IBK, Ibiko Code: the brain's one language (0.99.124)
+
+- IBK is the name of the language every part of Ibiko's brain keeps what it knows in: word ids (WordBook, Symbols), short codes for people (Shorthand), the words' order by use (WordRank), and the bytes (Pack format 2). Every file starts with its kind: IBKZ a whole store, IBKL a log, IBKC a conversation, IBK 2 a pack, IBKR the order.
+- Kept in IBK: confirmed answers (Knowledge), facts read (Facts), words learned (Lexicon), meanings (Concepts), the brain box (examples, answers, shapes), the ways answers were reached (Methods), the thinking record (Thinking), reflection, the truth ledger, foresight, the pilot's profile, the learner (state, open questions, rules, words, journal, answers), the learning queue and night report, the log of model answers (LearningLog), and every chat's conversation.
+- Logs (CodeLog, IBKL): a line is added as one packed record with a CRC-32, so a 20 MB log costs the same to add to as an empty one; a cut end loses only the cut line.
+- Not in IBK, on purpose: the dictionary and the order themselves (IBK is read with them), the own-word id table (words3.tsv, the key to IBK's own words), the consented learning journal the pilot can read and export, settings, and the chat screen's own file (chats.json). An export for training is plain JSON lines.
+

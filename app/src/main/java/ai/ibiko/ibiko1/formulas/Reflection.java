@@ -206,7 +206,7 @@ public final class Reflection {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 String[] p = line.split("\t");
                 if (p.length == 3 && "s".equals(p[0])) {
                     score.put(p[1], Double.parseDouble(p[2]));
@@ -250,7 +250,7 @@ public final class Reflection {
             if (dir != null) {
                 dir.mkdirs();
             }
-            Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
         } catch (IOException e) {
             // kept in memory
         }

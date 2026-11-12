@@ -145,7 +145,7 @@ public final class PilotProfile {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 int tab = line.indexOf('\t');
                 if (tab > 0) {
                     facts.put(line.substring(0, tab), line.substring(tab + 1));
@@ -168,7 +168,7 @@ public final class PilotProfile {
             if (file.getParentFile() != null) {
                 file.getParentFile().mkdirs();
             }
-            Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
         } catch (IOException ignored) {
             // kept in memory for this run
         }

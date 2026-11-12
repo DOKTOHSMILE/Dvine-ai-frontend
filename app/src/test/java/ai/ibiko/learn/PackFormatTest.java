@@ -155,4 +155,27 @@ public class PackFormatTest {
         assertEquals(5, lines.size());
         assertArrayEquals(new String[]{"user", "m3#1", "Now pull again."}, lines.get(4));
     }
+
+    /** A log the brain adds to: one line packed and appended, plain logs converted, a damaged end loses only itself. */
+    @Test
+    public void aLogAddsOneCodedLineAtATime() throws Exception {
+        File f = new File(Files.createTempDirectory("log").toFile(), "learner-journal.txt");
+        Files.write(f.toPath(), "2026-11-11 09:00 an older plain line\n".getBytes(StandardCharsets.UTF_8));
+        CodeLog.append(f, "2026-11-12 10:00 learned that Abuja is the capital of Nigeria\n");
+        assertEquals('I', Files.readAllBytes(f.toPath())[0]);
+        long before = f.length();
+        String line = "{\"reply\":\"As fast as this device allows, with every worker running.\"}";
+        CodeLog.append(f, line);
+        assertTrue("only the new line is written", f.length() - before < line.length());
+        List<String> all = CodeLog.lines(f);
+        assertEquals(3, all.size());
+        assertEquals("2026-11-11 09:00 an older plain line", all.get(0));
+        assertEquals(line, all.get(2));
+        // a cut end (a crash mid-write) loses only the cut line
+        byte[] b = Files.readAllBytes(f.toPath());
+        Files.write(f.toPath(), java.util.Arrays.copyOf(b, b.length - 3));
+        assertEquals(2, CodeLog.lines(f).size());
+        CodeLog.write(f, CodeLog.lines(f).subList(1, 2));
+        assertEquals(java.util.Arrays.asList("2026-11-12 10:00 learned that Abuja is the capital of Nigeria"), CodeLog.lines(f));
+    }
 }

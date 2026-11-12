@@ -1,3 +1,9 @@
+# IBK, the brain's one language (0.99.124)
+
+- [x] Every store and log of the brain kept in IBK (CodeFile for whole stores, CodeLog for logs).
+- [x] The few plain files named, each with its reason (docs/FORMULAS.md).
+- [ ] A model trained on IBK tokens (only with a training budget; llama.cpp itself stays as it is).
+
 # Pack format 2; old stores converted (0.99.123)
 
 - [x] learn/WordRank: the words by use, shipped (knowledge/wordrank.bin), the same codes on every device.

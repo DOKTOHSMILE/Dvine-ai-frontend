@@ -188,7 +188,7 @@ public final class TruthLedger implements Truth.Witness {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 String[] p = line.split("\t", -1);
                 if (p.length < 8) {
                     continue;
@@ -223,9 +223,9 @@ public final class TruthLedger implements Truth.Witness {
                 parent.mkdirs();
             }
             File tmp = new File(file.getPath() + ".tmp");
-            Files.write(tmp.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(tmp.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
             if (!tmp.renameTo(file)) {
-                Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+                Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
                 tmp.delete();
             }
         } catch (java.io.IOException e) {
