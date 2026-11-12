@@ -54,6 +54,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     final ShellTurn shellTurn = new ShellTurn(this);
     final ThinkTurns thinkTurns = new ThinkTurns(this);
     final WritingTurns writingTurns = new WritingTurns(this);
+    final Brains brains = new Brains(this);
+    final AgentWork agentWorkBook = new AgentWork(this);
     /** The on-device brain-and-body control engine (primary functions; runs offline). */
     ai.ibiko.engine.Engine engine;
     /** Behaviour rate: about 10 Hz, between the 60 Hz frame loop and the slower brain. */
@@ -2507,79 +2509,44 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     };
 
-    synchronized ai.ibiko.suit.Cortex cortex() {
-        if (cortex == null) {
-            cortex = new ai.ibiko.suit.Cortex(q -> brainBox().recallTalk(q));
-        }
-        return cortex;
+    /** In {@link Brains}. */
+    ai.ibiko.suit.Cortex cortex() {
+        return brains.cortex();
     }
     /** The words the brain last acted on from what it learned, until the next message (for "no, that's wrong"). */
     String actedFromBox, boxBefore;
 
-    /**
-     * An API is selected and reachable: the user talks to it directly. It reads the meaning and decides every action
-     * of the app; no rule, learned shortcut or separate classifying call acts on the words first.
-     */
-    /** An API is the chosen brain (online or not): it decides, and no shortcut or device model answers instead. */
+    /** In {@link Brains}. */
     boolean apiDirect() {
-        return model != null && model.apiChosen();
+        return brains.apiDirect();
     }
 
-    /** Ibiko's own light brain: how the user's words became actions, learned from every model it works with. */
-    synchronized ai.ibiko.learn.BrainBox brainBox() {
-        if (brainBox == null) {
-            brainBox = new ai.ibiko.learn.BrainBox(new java.io.File(getFilesDir(), "learning/brainbox.tsv"));
-        }
-        return brainBox;
+    /** In {@link Brains}. */
+    ai.ibiko.learn.BrainBox brainBox() {
+        return brains.brainBox();
     }
 
-    /**
-     * A brain is in the suit (the device's model, or an API): it alone reads what the pilot's words mean and gives Ibiko
-     * the code of what to do. No wording runs a function then; the buttons stay the pilot's direct controls.
-     */
+    /** In {@link Brains}. */
     boolean brainReads() {
-        return modelOn() || apiDirect();
+        return brains.brainReads();
     }
 
+    /** In {@link Brains}. */
     boolean modelOn() {
-        return !ibikoOwn() && model != null && model.ready() && prefs.getBoolean("llm_on", true);
+        return brains.modelOn();
     }
 
-    /**
-     * The phone's model reads its instructions ahead of the first question: the routing call's, then the persona's
-     * (kept side by side in its memory), so a question is answered without first reading them. Off the main thread.
-     */
+    /** In {@link Brains}. */
     void warmModel() {
-        if (model == null || !model.localReady() || model.remoteOn() || stage == null || isFinishing()) {
-            return;
-        }
-        modelPrepared = 0; // just loaded: read the instructions now, whenever the last typing was
-        prepareModel();
+        brains.warmModel();
     }
 
     /** When the device's model was last made ready for a message being typed. */
     long modelPrepared;
 
-    /**
-     * The user started typing: the device's model is made ready now (loaded again if the app was away, its
-     * instructions read), as each reply's audio is made while it is read, so Send waits only for the new words.
-     * Once in a while, not on every key.
-     */
+    /** In {@link Brains}. */
     void prepareModel() {
-        if (model == null || model.remoteOn() || ibikoOwn() || !model.installed() || stage == null || isFinishing()
-                || !prefs.getBoolean("llm_on", true) || model.working()) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (now - modelPrepared < 20_000) {
-            return;
-        }
-        modelPrepared = now;
-        // the one prompt every message now uses (the persona with the orders it may give): read once, ahead of time.
-        // The separate routing prompt is gone, so it is not read into memory any more
-        final String persona = systemFor(stage.agent(), true);
-        final int threads = ai.ibiko.chat.Tuning.modelThreads(prefs);
-        hub.worker.execute(() -> model.prepare(persona, threads));
+        brains.prepareModel();
     }
 
     void carryOut(String agent, String question, ai.ibiko.llm.BrainOrder order) {
@@ -2654,63 +2621,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         new AgentSession(this).run(task, persona, onlyReading);
     }
 
-    /**
-     * The work under way, kept in the settings while it runs: its persona, chat and task (null clears it). A start
-     * that finds it means the app was closed or crashed mid-work ({@link #offerToCarryOn}).
-     */
+    /** In {@link AgentWork}. */
     void markRunning(String persona, String task) {
-        if (prefs == null) {
-            return;
-        }
-        if (persona == null) {
-            prefs.edit().remove("running_persona").remove("running_task").remove("running_chat").apply();
-            return;
-        }
-        prefs.edit().putString("running_persona", persona).putString("running_task", task)
-                .putString("running_chat", chats == null ? "" : chats.current().id).apply();
+        agentWorkBook.markRunning(persona, task);
     }
 
-    /**
-     * At start: work that was under way when the app closed or crashed. Its steps were saved one by one, so it can
-     * carry on from the last one instead of starting again; a reply cut off mid-way is put back in its chat.
-     */
+    /** In {@link AgentWork}. */
     void offerToCarryOn() {
-        if (prefs == null || chats == null) {
-            return;
-        }
-        String partial = prefs.getString("partial_reply", null), partialChat = prefs.getString("partial_chat", null);
-        if (partial != null && !partial.trim().isEmpty()) {
-            prefs.edit().remove("partial_reply").remove("partial_chat").apply();
-            String back = chats.current().id;
-            if (partialChat != null && chats.use(partialChat)) {
-                chats.add("assistant", "text", partial.trim() + "\n\n(Cut off when Ibiko closed. Say \u201cretry\u201d to ask again.)",
-                        chats.current().persona);
-                chats.use(back);
-            }
-        }
-        final String persona = prefs.getString("running_persona", null), task = prefs.getString("running_task", null),
-                chat = prefs.getString("running_chat", null);
-        if (persona == null || task == null) {
-            return;
-        }
-        markRunning(null, null);
-        String who = "Ibiko";
-        String shown = task.length() > 80 ? task.substring(0, 80) + "\u2026" : task;
-        String record = ai.ibiko.scribe.Scribe.pending(chatSpace());
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Carry on where it stopped?")
-                .setMessage(who + " was working on \u201c" + shown + "\u201d when Ibiko closed. Its work so far is saved,"
-                        + " step by step." + (record.isEmpty() ? "" : "\n\nScribe: " + record))
-                .setPositiveButton("Carry on", (d, w) -> {
-                    if (chat != null && chats.use(chat)) {
-                        chatPane.show();
-                    }
-                    selectPersona(persona);
-                    noteUser("continue");
-                    runAgent("continue", persona, !"ibiko".equals(persona));
-                })
-                .setNegativeButton("Not now", null)
-                .show();
+        agentWorkBook.offerToCarryOn();
     }
 
     boolean carryOnOffered;
@@ -2718,20 +2636,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** The reply being written, backed up every few seconds so a crash doesn't lose it. */
     long partialSavedAt;
 
+    /** In {@link AgentWork}. */
     void backupPartial(String soFar) {
-        long now = System.currentTimeMillis();
-        if (prefs == null || chats == null || soFar == null || now - partialSavedAt < 2000) {
-            return;
-        }
-        partialSavedAt = now;
-        prefs.edit().putString("partial_reply", soFar.length() > 60_000 ? soFar.substring(soFar.length() - 60_000) : soFar)
-                .putString("partial_chat", chats.current().id).apply();
+        agentWorkBook.backupPartial(soFar);
     }
 
+    /** In {@link AgentWork}. */
     void clearPartial() {
-        if (prefs != null) {
-            prefs.edit().remove("partial_reply").remove("partial_chat").apply();
-        }
+        agentWorkBook.clearPartial();
     }
 
     /** In ThinkTurns. */
@@ -2763,55 +2675,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     static final String SUM_UP = "Sum up the conversation below for your own memory, in under 150 words: the facts the"
             + " user gave, what was decided, what is being worked on, and open questions. Plain lines, no greeting. /no_think";
 
-    /**
-     * The master specification's self-audit: the gauge shows how full the model's working memory is; when it is
-     * nearly full (and no long work is running), the conversation is summed up, the memory cleared down to that
-     * summary, and the user told in one line, so replies stay quick and nothing fails for want of room.
-     */
+    /** In {@link AgentWork}. */
     void checkWorkload() {
-        final ai.ibiko.stage.WorkloadGauge g = findViewById(R.id.workload);
-        if (model == null) {
-            return;
-        }
-        // Ibiko 1 has no context window to fill; the models' is the last call's
-        final float load = ibikoOwn() ? 0f : model.workload();
-        if (g != null) {
-            g.set(load);
-        }
-        prefs.edit().putString("usage_today", model.usage.save()).apply(); // today's numbers survive a closed app
-        if (ibikoOwn() || load < ai.ibiko.stage.WorkloadGauge.HOT || compacting || model.coding || !prefs.getBoolean("auto_clear", true)) {
-            return;
-        }
-        compacting = true;
-        final String persona = stage.agent();
-        hub.worker.execute(() -> { // on the model's worker: its lock is never waited on by the screen
-            final String said = model.historyText();
-            if (said.split("\n").length < 4) {
-                handler.post(() -> compacting = false); // too little to sum up
-                return;
-            }
-            final String keeper = ai.ibiko.agent.AgentBoard.start("Memory keeper", "summing up the conversation to clear memory", brainLabel());
-            String summary;
-            try {
-                summary = model.task(SUM_UP, said.length() > 20000 ? said.substring(said.length() - 20000) : said, 400, null);
-            } finally {
-                ai.ibiko.agent.AgentBoard.end(keeper);
-            }
-            summary = summary == null ? "" : summary.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
-            model.compact(summary);
-            final boolean kept = !summary.isEmpty();
-            handler.post(() -> {
-                compacting = false;
-                if (g != null) {
-                    g.set(0.1f); // the memory is nearly empty again; the next reply measures it
-                }
-                if (chatPane != null) {
-                    chatPane.assistant(persona, "My working memory was " + Math.round(load * 100) + "% full, so I "
-                            + (kept ? "summed up our conversation and cleared the rest" : "cleared it")
-                            + " to stay quick. The chat itself is all still here.");
-                }
-            });
-        });
+        agentWorkBook.checkWorkload();
     }
 
     /** Steps in one round of long work: a progress note in the chat after each. */
@@ -2825,67 +2691,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             + " clone only there, then read, edit and run in that same folder. Memories about this chat are in memory/;"
             + " other chats' files are not here. projects/<name> is not a folder.";
 
-    /**
-     * A round of long work ended: its progress note goes into the chat now, as a message of its own, so the user
-     * sees what is happening without waiting for the end; the work goes on underneath.
-     */
+    /** In {@link AgentWork}. */
     void progressNote(int id, String persona, int round, String note) {
-        if (!alive(id) || chatPane == null || note == null || note.trim().isEmpty()) {
-            return;
-        }
-        String shown = ai.ibiko.chat.ReplyText.prepare(note);
-        if (shown.isEmpty() || shown.startsWith("(nothing:")) {
-            return;
-        }
-        if (ai.ibiko.agent.CodeAgent.unfinished(shown) || ai.ibiko.agent.CodeAgent.promise(shown)) {
-            chatPane.activityStep(shown);
-            return;
-        }
-        chatPane.assistant(persona, shown);
+        agentWorkBook.progressNote(id, persona, round, note);
     }
 
-    /** "continue", "go on", "give me the result", "what did you find": the last task goes on, not a new one. */
+    /** In {@link AgentWork}. */
     static boolean carriesOn(String said) {
-        String t = said == null ? "" : said.trim().toLowerCase(java.util.Locale.US).replaceAll("[.!?]+$", "");
-        return t.matches("^(continue|go on|keep going|carry on|proceed|resume|finish( it| the (audit|report|task|job))?|"
-                + "(now )?(give|show|send|share) me the (full |complete |final )?(result|results|report|findings|audit)( of the (audit|review|task))?|"
-                + "what did you find|what are the findings|where is the (report|result)|and\\?|so\\?)$");
+        return AgentWork.carriesOn(said);
     }
 
-    /**
-     * The agent's work so far for this persona in this chat (its tool calls and results), kept on the phone to carry
-     * on from. Kept per chat: "continue" in a new chat never picks up another chat's job.
-     */
+    /** In {@link AgentWork}. */
     String agentWork(String persona) {
-        java.io.File f = agentFile(workKey(persona));
-        try {
-            return f.isFile() ? new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8) : "";
-        } catch (java.io.IOException e) {
-            return "";
-        }
+        return agentWorkBook.agentWork(persona);
     }
 
-    /** "ibiko-c12": the persona's work in the chat open now. */
+    /** In {@link AgentWork}. */
     String workKey(String persona) {
-        return persona + "-" + (chats == null ? "" : chats.current().id);
+        return agentWorkBook.workKey(persona);
     }
 
-    java.io.File agentFile(String key) {
-        return new java.io.File(getFilesDir(), "agent-" + key.replaceAll("[^A-Za-z0-9_-]", "") + ".txt");
-    }
-
-    /** Saves the work under {@code key} ({@link #workKey}, taken when the work started, so a chat switch can't move it). */
+    /** In {@link AgentWork}. */
     void saveAgentWork(String key, String work) {
-        if (work == null || work.isEmpty()) {
-            return;
-        }
-        String w = work.length() > 400_000 ? work.substring(work.length() - 400_000) : work;
-        try {
-            java.nio.file.Files.write(agentFile(key).toPath(),
-                    w.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        } catch (java.io.IOException ignored) {
-            // carrying on is a bonus
-        }
+        agentWorkBook.saveAgentWork(key, work);
     }
 
     /** The mode pill in the header, for Ibiko: Auto (filled), Accept edits or Plan; a tap opens the choice. */
@@ -4492,79 +4320,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return b.toString();
     }
 
-    /**
-     * The brain the user chose on the AI providers sheet: an API answers while the phone is online (the phone's own
-     * brain, when installed, answers when it isn't); "On this device" uses only the phone's.
-     */
+    /** In {@link Brains}. */
     void applyProvider() {
-        if (model == null) {
-            return;
-        }
-        ai.ibiko.llm.ProviderStore providers = new ai.ibiko.llm.ProviderStore(this);
-        java.util.List<ai.ibiko.llm.RemoteBrain> brains = new java.util.ArrayList<ai.ibiko.llm.RemoteBrain>();
-        java.util.List<ai.ibiko.llm.RemoteBrain> fasts = new java.util.ArrayList<ai.ibiko.llm.RemoteBrain>();
-        java.util.List<String> names = new java.util.ArrayList<String>();
-        java.util.List<Integer> windows = new java.util.ArrayList<Integer>();
-        for (ai.ibiko.llm.Providers p : providers.usable()) { // the primary, then the backups it switches to
-            ai.ibiko.llm.RemoteBrain b = providers.brain(p);
-            if (b != null) {
-                brains.add(b);
-                fasts.add(providers.fastBrain(p));
-                names.add(p.title);
-                windows.add(providers.window(p));
-            }
-        }
-        if (!"api".equals(brainPick())) {
-            // Ibiko's own brain, or the offline model, was picked: no API is asked
-            brains.clear();
-            fasts.clear();
-            names.clear();
-            windows.clear();
-        }
-        model.useRemotes(brains, fasts, names, windows, () -> connectivity != null && connectivity.isOnline());
-        if ((model.remoteOn() || ibikoOwn()) && hub != null) {
-            // switched to an API: the offline model leaves memory now, not at the next question
-            final ai.ibiko.llm.LocalModel leaving = model;
-            hub.worker.execute(leaving::releaseIfIdle);
-        }
-        android.widget.TextView sub = findViewById(R.id.tv_header_sub);
-        if (sub != null && stage != null) {
-            sub.setText(brainLabel()); // the title already says Ibiko
-        }
+        brains.applyProvider();
     }
 
-    /** What the chat header says answers: the API's model, or the phone's brain. */
+    /** In {@link Brains}. */
     String brainLabel() {
-        if (ibikoOwn()) {
-            return IBIKO_OWN;
-        }
-        ai.ibiko.llm.ProviderStore providers = new ai.ibiko.llm.ProviderStore(this);
-        java.util.List<ai.ibiko.llm.Providers> use = providers.usable();
-        if (!use.isEmpty() && "api".equals(brainPick())) {
-            return providers.model(use.get(0)) + (use.size() > 1 ? " +" + (use.size() - 1) : "");
-        }
-        return hub == null ? "Ibiko model" : hub.chosen().weights; // the offline model on the phone, by its own name
+        return brains.brainLabel();
     }
 
-    /** No brain on the phone and no API: the setup screen (download or API key) comes first. */
+    /** In {@link Brains}. */
     void askForBrainIfNone() {
-        if (model != null && ai.ibiko.chat.ui.SetupActivity.needed(this)) {
-            startActivity(new android.content.Intent(this, ai.ibiko.chat.ui.SetupActivity.class));
-        }
+        brains.askForBrainIfNone();
     }
 
-    /**
-     * The model under the title, tapped: switch between the offline models already on the phone (any time, no
-     * download), or go to every model, or to the AI providers (API models).
-     */
-    /** Which brain the user picked: "ibiko" (Ibiko's own), "device" (the offline model) or "api" (the default). */
+    /** In {@link Brains}. */
     String brainPick() {
-        return prefs == null ? "api" : prefs.getString("brain_pick", "api");
+        return brains.brainPick();
     }
 
-    /** Ibiko 1.0: Ibiko's own intelligence (the Cortex and what it learned), with no model loaded at all. */
+    /** In {@link Brains}. */
     boolean ibikoOwn() {
-        return "ibiko".equals(brainPick());
+        return brains.ibikoOwn();
     }
 
     static final String IBIKO_OWN = "Ibiko 1 \u00B7 0.1";
@@ -4578,146 +4356,28 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
 
 
+    /** In {@link Brains}. */
     void openProviders() {
-        startActivity(new android.content.Intent(this, ai.ibiko.chat.ui.ProvidersActivity.class));
-    }
-
-    /**
-     * Before loading the phone's own model: if it is too strong for this phone (more memory than the phone has, or it
-     * stopped the app while starting last time), switch to the strongest model already on the phone that fits, and
-     * say so. False when nothing on the phone fits (then nothing is loaded).
-     */
-    boolean safeModel() {
-        ai.ibiko.llm.ModelGuard guard = new ai.ibiko.llm.ModelGuard(prefs);
-        guard.crashedWhileLoading();
-        long ram = ai.ibiko.llm.ModelGuard.ramGb(this);
-        ai.ibiko.llm.ModelSpec now = hub.chosen();
-        String why = guard.why(now, ram);
-        if (why == null) {
-            return true;
-        }
-        ai.ibiko.llm.ModelSpec instead = guard.fallback(model, ram, now.file);
-        if (instead == null) {
-            note(now.weights + " is too strong for this device (" + why + "). Choose a smaller model in Settings \u203A Change the"
-                    + " offline model, or use an API.");
-            return false;
-        }
-        hub.choose(this, instead, false); // the stronger one stays on the phone, to try again later
-        modelGeneration = hub.generation;
-        note(now.weights + " is too strong for this device (" + why + "), so Ibiko uses " + instead.weights + " instead.");
-        applyProvider();
-        return true;
+        brains.openProviders();
     }
 
     /** The model choice this screen loaded ({@link ai.ibiko.llm.ModelHub#generation}). */
     int modelGeneration;
 
+    /** In {@link Brains}. */
     void loadModel(final boolean tell) {
-        if (!tell && ibikoOwn()) {
-            return; // Ibiko 1.0 answers on its own: no model is loaded
-        }
-        if (!tell && model != null && model.remoteOn()) {
-            // an API answers (and the user didn't ask to start it): the offline model is not loaded ahead of time. It loads when an answer needs it
-            // (offline, or every API failed), and leaves memory again when an API answers
-            return;
-        }
-        if (!safeModel()) {
-            return; // nothing on the phone fits it: answers come from an API until a smaller model is chosen
-        }
-        model.context(ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(prefs)); // Settings › Advanced › Offline model memory
-        hub.worker.execute(() -> {
-            final ai.ibiko.llm.ModelGuard guard = new ai.ibiko.llm.ModelGuard(prefs);
-            final String file = model.spec.file;
-            guard.loading(file); // if the phone stops the app during this load, the next start knows which model did it
-            ai.ibiko.llm.ReplyService.hold(this); // loading runs in the foreground: full speed, not stopped off screen
-            final boolean ok;
-            try {
-                ok = model.load(ai.ibiko.chat.Tuning.modelThreads(prefs)); // the fast cores, or the user's setting
-            } finally {
-                ai.ibiko.llm.ReplyService.release(this);
-            }
-            guard.loaded();
-            if (ok) {
-                handler.post(this::warmModel); // the instructions read now, not when the first question comes
-            }
-            if (!ok && model.state() == ai.ibiko.llm.LocalModel.State.FAILED) {
-                // it didn't fit in memory: set it aside and start the strongest model that does, instead of nothing
-                guard.markTooStrong(file);
-                handler.post(() -> {
-                    if (!isFinishing() && safeModel() && model.installed()) {
-                        loadModel(false);
-                    }
-                });
-                return;
-            }
-            if (assistant != null && model.spec != null) {
-                new ai.ibiko.ops.mind.ModelAdapter(assistant.models()).report(model.spec.file, ok);
-                assistant.orchestrator()
-                        .setModel(ok ? ai.ibiko.ops.pipe.CheckedReading.of(model, piece -> {
-                            ai.ibiko.llm.ThinkPace pace = thinkPace;
-                            if (pace != null && piece != null) {
-                                pace.addText(piece);
-                                handler.post(() -> {
-                                    if (thinkPace != null)
-                                        stage.progress(thinkPace.line());
-                                });
-                            }
-                        }) : null);
-            }
-            final String memory = ok ? model.takeMemoryNote() : null;
-            handler.post(() -> {
-                if (memory != null) {
-                    note(memory); // it had to start with less memory than asked
-                }
-                stage.activity("MODEL", ok ? "ready, offline (" + model.localWindow() + " tokens of memory)" : model.problem());
-                int taught = journal == null ? 0 : journal.taughtCount();
-                if (ok) {
-                    stage.activity("BRAIN",
-                            "synced with Ibiko " + BuildConfigInfo.version(this) + ": 3 personas, "
-                                    + taught + (taught == 1 ? " taught fact" : " taught facts"));
-                }
-                if (tell) {
-                    play(LocalTurn.speakAs(stage.agent(), ok
-                            ? "My model is ready and in sync with Ibiko. It knows what this app can do"
-                                    + (taught > 0
-                                            ? ", and the "
-                                                    + (taught == 1 ? "thing" : taught + " things")
-                                                    + " you've taught me"
-                                            : "")
-                                    + ". Ask me anything, even offline."
-                            : "I couldn't start my model: " + model.problem() + "."), null);
-                }
-            });
-        });
+        brains.loadModel(tell);
     }
 
-    /** The words about the device's own model (ModelWords). */
+    /** In {@link Brains}. */
     boolean modelCommand(String said) {
-        return new ModelWords(this).handle(said);
+        return brains.modelCommand(said);
     }
 
 
+    /** In {@link Brains}. */
     void startModelDownload() {
-        if (connectivity == null || !connectivity.isOnline()) {
-            play(LocalTurn.speakAs(stage.agent(),
-                    "I'm offline right now. Connect to the internet, ideally Wi-Fi, and ask me again."),
-                    null);
-            return;
-        }
-        if (hub.downloading()) {
-            play(LocalTurn.speakAs(stage.agent(), hub.status.spoken()), null);
-            return;
-        }
-        if (checkSelfPermission(
-                android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] { android.Manifest.permission.POST_NOTIFICATIONS },
-                    NOTIFY);
-        }
-        downloadBarHidden = false;
-        hub.startDownload(this);
-        play(LocalTurn.speakAs(stage.agent(),
-                "Downloading now, in the background. You can minimise me; the notification shows how far it is."),
-                null);
+        brains.startModelDownload();
     }
 
     static boolean plain(BrainAnswer a) {
