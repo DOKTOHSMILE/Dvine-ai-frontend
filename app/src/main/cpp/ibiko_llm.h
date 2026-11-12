@@ -11,6 +11,7 @@ struct llama_model;
 struct llama_context;
 struct llama_sampler;
 struct llama_batch_ext;
+struct llama_adapter_lora;
 
 namespace ibiko {
 
@@ -36,6 +37,11 @@ public:
     // Nothing is done when memory already starts with them. False when they couldn't be read.
     bool warm(const std::string & system);
 
+    // Lays a trained adapter (LoRA, a GGUF made for this model) over the frozen weights, at this strength (1 = as
+    // trained); an empty path takes the adapter off. The model's memory of earlier text is let go, as it was read
+    // without the adapter. False (and why in error()) when the file isn't an adapter for this model.
+    bool adapter(const std::string & path, float scale);
+
     // Stops a reply in progress at the next token (safe from any thread).
     void cancel() { stop_ = true; }
 
@@ -60,6 +66,7 @@ private:
     llama_context * ctx_ = nullptr;
     llama_sampler * sampler_ = nullptr;
     llama_batch_ext * batch_ = nullptr;
+    llama_adapter_lora * lora_ = nullptr; // the adapter laid over the weights, or none
     int batch_tokens_ = 512; // prefill chunk; kept at or under the context's n_batch so the graph stays small
     float sampler_temp_ = -1.f;
     // The model's memory holds up to SLOTS conversations side by side (each a sequence): the tokens in each (its

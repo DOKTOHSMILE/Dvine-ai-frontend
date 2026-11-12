@@ -107,6 +107,18 @@ public final class Ibiko1Model {
         thread.execute(() -> model.endpoint().feedback(question, answer, right));
     }
 
+    /** The device's model Ibiko 1 may ask (system, question → answer, or null), or none. */
+    private volatile java.util.function.BiFunction<String, String, String> deviceModel;
+
+    /**
+     * Gives Ibiko 1 a language model to ask for what its own memory doesn't hold (blocking; called off the caller's
+     * thread). Its answers come back unchecked; feedback on them is what Ibiko 1 keeps. Null takes it away.
+     */
+    public Ibiko1Model withModel(java.util.function.BiFunction<String, String, String> ask) {
+        deviceModel = ask;
+        return this;
+    }
+
     /** The model itself, for an app that plugs in its own {@link Ibiko1.Host}. */
     public Ibiko1 model() {
         return model;
@@ -184,6 +196,17 @@ public final class Ibiko1Model {
         @Override
         public boolean online() {
             return Plug.web != Plug.NONE; // research only when the app plugged in the web
+        }
+
+        @Override
+        public boolean modelReady() {
+            return deviceModel != null;
+        }
+
+        @Override
+        public String askModel(String system, String question) {
+            java.util.function.BiFunction<String, String, String> m = deviceModel;
+            return m == null ? null : m.apply(system, question);
         }
 
         @Override

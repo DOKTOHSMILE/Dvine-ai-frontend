@@ -61,6 +61,18 @@ public final class NativeLlm {
     /** Reads the instructions into the model's memory ahead of the first question (null-safe: a build without it does nothing). */
     static native boolean nWarm(long handle, String system);
 
+    /** Lays a trained adapter (LoRA GGUF) over the loaded weights at this strength; an empty path takes it off. */
+    static native boolean nAdapter(long handle, String path, float scale);
+
+    /** {@link #nAdapter}, or false when the native part is older and hasn't got it. */
+    static boolean adapterIfPossible(long handle, String path, float scale) {
+        try {
+            return nAdapter(handle, path, scale);
+        } catch (UnsatisfiedLinkError older) {
+            return false;
+        }
+    }
+
     /** {@link #nWarm}, or false when the native part is older and hasn't got it. */
     static boolean warmIfPossible(long handle, String system) {
         try {

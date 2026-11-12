@@ -432,7 +432,28 @@ public final class LocalModel {
             return false;
         }
         state = State.READY;
+        adapterNote = layAdapter(file, handle);
         return true;
+    }
+
+    /** What the last load said about the trained adapter (empty when there was none). */
+    public volatile String adapterNote = "";
+
+    /**
+     * The trained adapter kept beside a model ({@code <model>.adapter.gguf}, see {@link Adapters}): laid over the
+     * frozen 4-bit weights when the model loads, so what Ibiko was trained on from its own knowledge is in every
+     * reply. One that doesn't fit this model is set aside ({@code .rejected}) and the model runs as it was.
+     */
+    static String layAdapter(File model, long handle) {
+        File a = Adapters.of(model);
+        if (!a.isFile()) {
+            return "";
+        }
+        if (NativeLlm.adapterIfPossible(handle, a.getPath(), Adapters.STRENGTH)) {
+            return "trained adapter " + a.getName() + " in use";
+        }
+        a.renameTo(new File(a.getPath() + ".rejected"));
+        return "the trained adapter " + a.getName() + " didn't fit this model and was set aside";
     }
 
     /**

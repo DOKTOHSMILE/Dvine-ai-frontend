@@ -71,6 +71,11 @@ std::string from_java(JNIEnv * env, jstring s) {
 
 extern "C" {
 
+JNIEXPORT jboolean JNICALL Java_ai_ibiko_llm_NativeLlm_nAdapter(JNIEnv * env, jclass, jlong handle, jstring path, jfloat scale) {
+    if (!handle) return JNI_FALSE;
+    return ((ibiko::Engine *) handle)->adapter(from_java(env, path), scale) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jlong JNICALL Java_ai_ibiko_llm_NativeLlm_nLoad(JNIEnv * env, jclass, jstring path, jint ctx, jint threads) {
     auto * e = new ibiko::Engine();
     if (!e->load(from_java(env, path), ctx, threads)) {
