@@ -25,10 +25,13 @@ public final class Identifier {
     public static final class Sentence {
         public final String id;
         public final String codes;
+        /** The same sentence in Ibiko's own script ({@link Glyphs}): one character a word, space or mark. */
+        public final String script;
 
-        Sentence(String id, String codes) {
+        Sentence(String id, String codes, String script) {
             this.id = id;
             this.codes = codes;
+            this.script = script;
         }
 
         /** How many words (and marks) it has. */
@@ -41,14 +44,19 @@ public final class Identifier {
     public static List<Sentence> identify(String messageId, String text) {
         List<Sentence> out = new ArrayList<Sentence>();
         for (String[] s : Codes.sentences(messageId, text)) {
-            out.add(new Sentence(s[0], Shorthand.codes(s[1])));
+            out.add(new Sentence(s[0], Shorthand.codes(s[1]), Glyphs.script(s[1])));
         }
         return out;
     }
 
-    /** The words codes stand for, read back for people ({@link Shorthand#words}). */
-    public static String read(String codes) {
-        return Shorthand.words(codes);
+    /** The words a saved sentence stands for, read back for people: from Ibiko's script, or from codes. */
+    public static String read(String saved) {
+        for (int i = 0; i < saved.length(); i++) {
+            if (Character.getType(saved.charAt(i)) == Character.PRIVATE_USE || Character.isSurrogate(saved.charAt(i))) {
+                return Glyphs.text(saved);
+            }
+        }
+        return Shorthand.words(saved);
     }
 
     private static final java.util.concurrent.ExecutorService WRITER = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
@@ -71,7 +79,7 @@ public final class Identifier {
         WRITER.execute(() -> {
             StringBuilder b = new StringBuilder();
             for (Sentence s : said) {
-                b.append(role).append('\t').append(s.id).append('\t').append(s.codes).append('\n');
+                b.append(role).append('\t').append(s.id).append('\t').append(s.script).append('\n'); // one character a word
             }
             try {
                 File f = file(filesDir, chat);

@@ -1,3 +1,10 @@
+# Ibiko's script, numbers, meaning from recurrence, a thought process (0.99.118)
+
+- [x] learn/Glyphs: one private-use character a word; numbers coded by value.
+- [x] learn/Concepts N1–N6: what recurs across answers is the meaning; its own sentence.
+- [x] learn/Mind M1–M5: Reader, Memory, Weigher, Critic, Speaker; shown as thinking steps.
+- [ ] More sections (facts, dictionary senses, the pilot's profile) feeding the same thought.
+
 # A double space is one code (0.99.117)
 
 - [x] WordBook: a fixed id for the double space; Shorthand codes it as one.

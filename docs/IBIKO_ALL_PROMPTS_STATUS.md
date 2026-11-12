@@ -363,6 +363,10 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 330 | Id the whole English dictionary; the brain thinks in short codes; an interpreter turns codes to words and back | P12 | Built (learn/WordBook, learn/Shorthand) | 0.99.116 |
 | 331 | The space between words gets a code too | P12 | Built (space, new line and tab have fixed codes; text comes back exactly) | 0.99.116 |
 | 332 | A double space is a code of its own | P12 | Built (one code for two spaces; three = double + single) | 0.99.117 |
+| 333 | New smaller characters never used before, in place of codes; numbers in the code | P12 | Built (learn/Glyphs on Unicode private-use characters; numbers by value) | 0.99.118 |
+| 334 | Show the text in the image as the codes the AI sees | P12 | Done (sample given in chat) | 0.99.118 |
+| 335 | Keep the recurring codes across answers as the meaning (football → game); form its own thoughts | P12 | Built (learn/Concepts N1–N6) | 0.99.118 |
+| 336 | A thought process: codes re-evaluated, brain sections working together, shown on the chat screen | P12 | Built (learn/Mind M1–M5; steps shown while thinking) | 0.99.118 |
 
 ## Still open, in the order that matters
 

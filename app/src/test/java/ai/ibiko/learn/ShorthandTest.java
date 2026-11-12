@@ -11,7 +11,7 @@ import org.junit.Test;
 
 /** Every English word a fixed id from the dictionary; the interpreter turns words into short codes and back. */
 public class ShorthandTest {
-    static File lexicon() {
+    public static File lexicon() {
         File f = new File("src/main/assets/knowledge/lexicon.tsv");
         return f.isFile() ? f : new File("app/src/main/assets/knowledge/lexicon.tsv");
     }

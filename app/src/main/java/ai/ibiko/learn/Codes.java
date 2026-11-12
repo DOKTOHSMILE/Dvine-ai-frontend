@@ -26,7 +26,7 @@ public final class Codes {
     private final Map<Integer, List<String>> byTag = new HashMap<Integer, List<String>>();
 
     /** Words that say nothing about the subject. */
-    static final Set<String> SMALL = new HashSet<String>(java.util.Arrays.asList(("a an the and or but if then so to of in on"
+    public static final Set<String> SMALL = new HashSet<String>(java.util.Arrays.asList(("a an the and or but if then so to of in on"
             + " at by for with from as is are was were be been being it its this that these those there here i me my you your"
             + " we our they them their he she his her what which who whom when where why how do does did done can could will"
             + " would should may might must shall not no yes ok okay please just also very more most some any all each every"
@@ -48,7 +48,7 @@ public final class Codes {
         return out;
     }
 
-    static String stem(String w) {
+    public static String stem(String w) {
         if (w.length() > 5 && w.endsWith("ing")) {
             return w.substring(0, w.length() - 3);
         }

@@ -96,7 +96,24 @@ public final class BrainBox {
      * facts about that day, not wisdom. When the same words are corrected, the newer answer wins; when they recur, the
      * older answer is strengthened (it stays, and is trusted more the next time).
      */
+    private Concepts concepts;
+
+    /** What things mean, learned from the codes that recur across answers (kept beside this box). */
+    public synchronized Concepts concepts() {
+        if (concepts == null) {
+            File f = talkFile();
+            concepts = new Concepts(f == null || f.getParentFile() == null ? null : new File(f.getParentFile(), "concepts.tsv"));
+        }
+        return concepts;
+    }
+
+    /** Ibiko's thought process over what it has gathered. */
+    public Mind mind() {
+        return new Mind(concepts());
+    }
+
     public synchronized void learnTalk(String question, String answer) {
+        concepts().observe(question, answer); // what recurs across answers is what the thing means (N1-N4)
         List<String> words = words(question);
         String a = answer == null ? "" : answer.trim();
         if (words.isEmpty() || a.length() < 2 || a.length() > ANSWER_CHARS || Corroborate.failure(a) // V1

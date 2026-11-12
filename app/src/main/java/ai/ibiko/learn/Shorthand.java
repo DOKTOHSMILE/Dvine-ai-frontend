@@ -11,7 +11,8 @@ import java.util.regex.Pattern;
  * ({@link Symbols}: an English word's fixed dictionary id, another word its own id) written short, in base 36:
  * "telephone" is word 136,258 → {@code 2x9m}; "the" is {@code 1}. A capital is marked {@code ^}, all capitals
  * {@code !}. The space between words has its own code too (a double space one code, a new line and a tab theirs), so a text comes back exactly
- * as it was written. "Abuja is the capital of Nigeria." is 12 codes (6 words, 5 spaces, the stop): what the
+ * as it was written. A number is {@code #} and its value in base 36 (1969 → {@code #1ip}), never stored as a word.
+ * "Abuja is the capital of Nigeria." is 12 codes (6 words, 5 spaces, the stop): what the
  * brain stores, files and compares; {@link #words} turns it back into the same sentence for people.
  * Pure Java.
  */
@@ -40,7 +41,7 @@ public final class Shorthand {
     }
 
     /** The tokens of a text: words (with inner apostrophes and hyphens) and single punctuation marks. */
-    static List<String> tokens(String text) {
+    public static List<String> tokens(String text) {
         List<String> out = new ArrayList<String>();
         Matcher m = TOKEN.matcher(text == null ? "" : text);
         while (m.find()) {
@@ -65,6 +66,11 @@ public final class Shorthand {
                     filed = t; // iPhone: filed as it is written
                 }
             }
+            long n = Symbols.number(t);
+            if (n >= 0) {
+                b.append(b.length() == 0 ? "" : " ").append('#').append(Long.toString(n, 36)); // 1969 → #1ip
+                continue;
+            }
             b.append(b.length() == 0 ? "" : " ").append(mark).append(code(Symbols.id(filed)));
         }
         return b.toString();
@@ -78,6 +84,14 @@ public final class Shorthand {
                 continue;
             }
             char mark = c.charAt(0);
+            if (mark == '#') {
+                try {
+                    b.append(Long.parseLong(c.substring(1), 36)); // a number's code is its value
+                } catch (NumberFormatException e) {
+                    b.append('?');
+                }
+                continue;
+            }
             String bare = mark == '^' || mark == '!' ? c.substring(1) : c;
             String w = Symbols.word(id(bare));
             if (w == null) {

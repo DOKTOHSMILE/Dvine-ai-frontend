@@ -4217,7 +4217,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 && connectivity.isOnline();
         armThink("Thinking\u2026", "Thinking\u2026");
         // and the way that worked before, and what this is likely to lead to (premeditation)
-        final String around = situation(ivie) + ibiko1().methods().hint(question) + ibiko1().premeditate(question);
+        // the thought process (learn/Mind): the brain's sections read, recall, weigh and judge what was gathered about
+        // this; each says what it did, shown as the thinking, and the thought it reaches goes to the brain as Ibiko's view
+        final ai.ibiko.learn.Mind.Thought thought = brainBox().mind().think(question);
+        if (thought.steps.size() >= 3) {
+            for (ai.ibiko.learn.Mind.Step st : thought.steps) {
+                activity(st.line());
+            }
+        }
+        final String around = situation(ivie) + ibiko1().methods().hint(question) + ibiko1().premeditate(question)
+                + (thought.said == null ? "" : "\nIbiko's own view from the answers it has gathered ("
+                        + ai.ibiko.ibiko1.formulas.Probability.words(thought.sure) + "): " + thought.said
+                        + " Use it if it helps; correct it if it is wrong.");
         hub.worker.execute(() -> {
             String asked = question;
             if (lang != null && alive(id)) {

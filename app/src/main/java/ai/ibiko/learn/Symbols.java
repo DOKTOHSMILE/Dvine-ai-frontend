@@ -15,6 +15,20 @@ public final class Symbols {
     private static final ConcurrentHashMap<String, Integer> IDS = new ConcurrentHashMap<String, Integer>();
     /** Where the ids of words outside the dictionary start ({@link WordBook} has 1 to about 153,000). */
     public static final int CUSTOM = 1_000_000;
+    /**
+     * Numbers have ids made from their value, nothing stored: 1969 is {@code NUMBER + 1969}. Whole numbers from 0 to
+     * 600,000,000 written without a leading zero; anything else ("007", "2nd") is a word of its own.
+     */
+    public static final int NUMBER = 1_500_000_000;
+
+    /** A whole number written plainly ("0", "1969", "600000000"), or -1. */
+    public static long number(String word) {
+        if (word == null || word.isEmpty() || word.length() > 9 || !word.matches("0|[1-9][0-9]*")) {
+            return -1;
+        }
+        long v = Long.parseLong(word);
+        return v <= 600_000_000L ? v : -1;
+    }
     private static final AtomicInteger NEXT = new AtomicInteger(CUSTOM);
 
     private Symbols() {
@@ -24,6 +38,10 @@ public final class Symbols {
     public static int id(String word) {
         if (word == null || word.isEmpty()) {
             return 0;
+        }
+        long n = number(word);
+        if (n >= 0) {
+            return (int) (NUMBER + n); // a number: its id is its value, never stored
         }
         Integer have = IDS.get(word);
         if (have != null) {
@@ -55,6 +73,9 @@ public final class Symbols {
 
     /** The word an id stands for, or null. */
     public static String word(int id) {
+        if (id >= NUMBER) {
+            return String.valueOf(id - NUMBER); // a number reads back as itself
+        }
         return id < CUSTOM ? WordBook.word(id) : WORDS.get(id);
     }
 
@@ -130,6 +151,10 @@ public final class Symbols {
 
     /** The id of a word only if it has one already: -1 when this word was never seen (nothing is filed under it). */
     public static int known(String word) {
+        long n = number(word);
+        if (n >= 0) {
+            return (int) (NUMBER + n);
+        }
         Integer have = word == null ? null : IDS.get(word);
         if (have != null) {
             return have;
