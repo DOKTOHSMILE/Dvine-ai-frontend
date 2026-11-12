@@ -465,9 +465,11 @@ public class LaunchTest {
         field.setText("Check trending post on x");
         c.get().findViewById(ai.ibiko.R.id.btn_send).performClick();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        java.lang.reflect.Method gate = MainActivity.class.getDeclaredMethod("messageGate");
+        java.lang.reflect.Field gates = MainActivity.class.getDeclaredField("gates");
+        gates.setAccessible(true);
+        java.lang.reflect.Method gate = BrainGate.class.getDeclaredMethod("messageGate");
         gate.setAccessible(true);
-        ai.ibiko.gate.BrainGateway g = (ai.ibiko.gate.BrainGateway) gate.invoke(c.get());
+        ai.ibiko.gate.BrainGateway g = (ai.ibiko.gate.BrainGateway) gate.invoke(gates.get(c.get()));
         // one route: the words go to the brain (here none is plugged in, so the Cortex answers what it can);
         // nothing acts on the wording itself
         org.junit.Assert.assertEquals("message \u2192 brain", g.last().toString());
@@ -872,13 +874,13 @@ public class LaunchTest {
         java.lang.reflect.Field cf = MainActivity.class.getDeclaredField("chats");
         cf.setAccessible(true);
         ai.ibiko.chat.ChatBook chats = (ai.ibiko.chat.ChatBook) cf.get(c.get());
-        java.lang.reflect.Method offer = MainActivity.class.getDeclaredMethod("offerHandoff", String.class, String.class);
-        offer.setAccessible(true);
-        offer.invoke(c.get(), "obi", "Fix the login crash in my Android app");
-        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         java.lang.reflect.Field pf = MainActivity.class.getDeclaredField("chatPane");
         pf.setAccessible(true);
         ai.ibiko.stage.ChatPane pane = (ai.ibiko.stage.ChatPane) pf.get(c.get());
+        // a hand-off card, as a plan made with Ibiko's kind of work leaves one (ThinkTurns)
+        chats.add("assistant", "handoff", "ibiko\nFix the login crash in my Android app", "obi");
+        pane.show();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.view.View button = described(pane, "Start on this task here");
         assertNotNull("the hand-off button", button);
         String obiChat = chats.current().id;
