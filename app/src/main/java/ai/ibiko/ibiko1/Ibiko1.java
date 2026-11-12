@@ -722,7 +722,7 @@ public final class Ibiko1 {
             List<String> me = host.aboutPilot();
             StringBuilder b = new StringBuilder();
             b.append(sure.isEmpty() ? "No answers confirmed yet: tap the check under an answer that's right and I keep it."
-                    : "Answers you confirmed (" + sure.size() + "):");
+                    : "Answers you confirmed (" + sure.size() + (sure.size() > 8 ? ", the latest 8" : "") + "):");
             for (int i = sure.size() - 1, n = 0; i >= 0 && n < 8; i--, n++) {
                 Knowledge.Fact f = sure.get(i);
                 String a = f.answer.replaceAll("\\s+", " ");
@@ -763,14 +763,26 @@ public final class Ibiko1 {
             host.learnTalk(q, said);
             return "Got it. When you ask “" + q + "”, I'll answer: " + said;
         }
+        // talk before the statement ("Well, ", "So ", "Oh ") is not part of what it says
+        said = said.replaceFirst("(?i)^(well|so|oh|um+|hmm+|ok|okay|yes|no|and|but|like|now)\\b[,!.]?\\s+(?=\\S)", "");
+        if (said.isEmpty()) {
+            return "Noted.";
+        }
+        said = Character.toUpperCase(said.charAt(0)) + said.substring(1);
         Matcher m = Pattern.compile("(?i)^(?:(the|a|an) )?(.{2,60}?) (is|are|was|were) (.{2,300}?)[.!]*$").matcher(said);
+        if (m.matches() && m.group(2).matches("(?i)(today|tomorrow|yesterday|tonight|now|it|this|that|he|she|they|there|here)\\b.*")) {
+            // "today is Christmas day", "it is cold": true now, or about something only the chat knows; not kept as a fact
+            return "Noted.";
+        }
         if (m.matches()) {
             String subject = (m.group(1) == null ? "" : m.group(1) + " ") + m.group(2);
             String verb = m.group(3).toLowerCase(Locale.US);
             String differs = questionReply(said, "pilot"); // G8: the pilot's word is kept, and a difference is said
             knowledge().confirm("What " + verb + " " + subject + "?", said);
             facts().learn(said, null, 2, System.currentTimeMillis()); // the pilot's own words: as good as a source
-            if (Character.isUpperCase(m.group(2).charAt(0)) && m.group(1) == null) {
+            // a name ("Abuja", "Ngozi Okonjo-Iweala") is kept for "who" too; every word starts with a capital, not only the
+            // first one, which any sentence has ("Easter rice is sweet" is a thing)
+            if (m.group(1) == null && m.group(2).matches("\\p{Lu}\\S*( \\p{Lu}\\S*)*")) {
                 knowledge().confirm("Who " + verb + " " + subject + "?", said); // a name: kept for "who" too
             }
             return "Noted. Ask me what " + verb + " " + subject + " and I'll remember."

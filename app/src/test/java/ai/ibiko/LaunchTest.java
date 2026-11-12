@@ -169,7 +169,8 @@ public class LaunchTest {
         sheet.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "Cloned me/app",
                 android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertEquals(1, found.size());
-        pane.activityStep("Wrote app/Main.java"); // live: the open sheet grows
+        pane.activityStep("Wrote app/Main.java"); // live: the open sheet grows, on the next frame (one redraw a burst)
+        ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS);
         sheet.getWindow().getDecorView().findViewsWithText(found = new java.util.ArrayList<android.view.View>(), "Wrote app/Main.java",
                 android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertEquals(1, found.size());

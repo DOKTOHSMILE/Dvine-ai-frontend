@@ -370,6 +370,7 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 337 | Replace the old brain structure with the code brain | P12 | Partial (the brain's knowledge files are kept in codes: brain box, concepts, facts, knowledge, lexicon; small state files and the learning log stay plain) | 0.99.119 |
 | 338 | Open to growth: new characters as it learns words, the same across users' engines | P12 | Built (ids from the word's own letters; unknown words spelled in packs; a pack names its dictionary) | 0.99.119 |
 | 339 | Convert a 100 kB pool of words to codes and compare sizes | P12 | Done (50% packed, 33% packed and squeezed, for plain prose) | 0.99.119 |
+| 340 | Compare (screenshot: "What have you learned?" lists junk; later short messages unanswered) | P12 | Partial (junk no longer kept and cleaned on read; every message answered in the JVM; the unanswered messages fit the main-thread stall fixed in 0.99.121, to be confirmed on the device) | 0.99.122 |
 
 ## Still open, in the order that matters
 

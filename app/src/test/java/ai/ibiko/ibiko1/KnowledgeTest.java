@@ -128,4 +128,28 @@ public class KnowledgeTest {
         assertTrue(Knowledge.notKnowledge("Good afternoon", "Hi"));
         assertFalse(Knowledge.notKnowledge("What do you know about Lagos?", "Lagos is a city."));
     }
+
+    /** From the pilot's screenshot of "What have you learned?": a job's report, talk and a "who" for a thing are not facts. */
+    @Test
+    public void reportsTalkAndThingsAsWhoAreNotKept() throws Exception {
+        assertTrue(Knowledge.notKnowledge("Pull the latest repo update", "Progress so far: the pull task is done and re-verified."));
+        assertTrue(Knowledge.notKnowledge("How fast can you go?", "Doktohsmile, I move as fast as this device allows."));
+        assertTrue(Knowledge.notKnowledge("Who is Well today?", "Well today is Christmas day"));
+        assertTrue(Knowledge.notKnowledge("What is today?", "Today is Christmas day"));
+        assertFalse(Knowledge.notKnowledge("What is Christmas day?", "Christmas day is 25th of every December."));
+        File f = File.createTempFile("knowledge", ".tsv");
+        Files.write(f.toPath(), ("+\tOTHER\tWhat is Easter rice?\tEaster rice is sweet\n"
+                + "+\tOTHER\tWho is Easter rice?\tEaster rice is sweet\n"
+                + "+\tOTHER\tWho is Abuja?\tAbuja is the capital of Nigeria\n"
+                + "+\tOTHER\tWhat is Abuja?\tAbuja is the capital of Nigeria\n").getBytes("UTF-8"));
+        Knowledge k = new Knowledge(f);
+        java.util.List<String> kept = new java.util.ArrayList<String>();
+        for (Knowledge.Fact x : k.confirmed()) {
+            kept.add(x.question);
+        }
+        assertFalse("a thing is not a who", kept.contains("Who is Easter rice?"));
+        assertTrue(kept.contains("What is Easter rice?"));
+        assertTrue("a name keeps its who", kept.contains("Who is Abuja?"));
+        f.delete();
+    }
 }
