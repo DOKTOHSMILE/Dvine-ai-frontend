@@ -21,10 +21,10 @@ public final class Shorthand {
     }
 
     /**
-     * Words, single marks, a double space (one code), and each other space, new line or tab: every character of the
-     * text is in some token.
+     * Words, a double space (one code), and every other character on its own (a mark, a space, a new line, a tab,
+     * anything else): every character of the text is in exactly one token, so nothing is ever lost.
      */
-    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+(?:['’\\-][\\p{L}\\p{N}]+)*|  |[ \\n\\t]|[^\\s\\p{L}\\p{N}]");
+    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+(?:['’\\-][\\p{L}\\p{N}]+)*|  |(?s:.)");
 
     /** One id written short: 136258 → "2x9m". */
     public static String code(int id) {

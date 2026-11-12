@@ -105,7 +105,8 @@ public class IndependentLearnerTest {
         assertEquals(1, f.strength("Abuja", "capital of", "Nigeria"));
         assertEquals(1, f.strength("quasar", "is", "a galactic nucleus"));
         f.learn("Abuja is the capital of Nigeria.", null, 1, 5);
-        List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+        // the brain's files are kept in codes now (plain when no dictionary is open): read through the code reader
+        List<String> lines = ai.ibiko.learn.CodeFile.lines(file);
         assertTrue(lines.toString(), lines.get(0).endsWith("\t2\t5"));
         assertEquals(2, new Facts(file).strength("Abuja", "capital of", "Nigeria"));
     }

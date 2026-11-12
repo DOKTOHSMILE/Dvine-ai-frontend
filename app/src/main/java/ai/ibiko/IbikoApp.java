@@ -11,6 +11,8 @@ public final class IbikoApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        // where the dictionary is: the brain's coded files are read with it, so it opens itself the first time it is needed
+        ai.ibiko.learn.WordBook.at(new java.io.File(getFilesDir(), "brain/knowledge/lexicon.tsv"));
         ai.ibiko.learn.Symbols.open(getFilesDir()); // first: word ids are read back before any is made, the same for good
         ai.ibiko.main.FormerName.move(this); // once: what an older install kept under the former name moves over
         CrashLog.install(this);

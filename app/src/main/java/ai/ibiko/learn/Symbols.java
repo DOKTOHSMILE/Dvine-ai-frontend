@@ -1,7 +1,6 @@
 package ai.ibiko.learn;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Ibiko's word ids: every word it meets gets one number, the same for good (an English word its fixed dictionary id
@@ -29,7 +28,15 @@ public final class Symbols {
         long v = Long.parseLong(word);
         return v <= 600_000_000L ? v : -1;
     }
-    private static final AtomicInteger NEXT = new AtomicInteger(CUSTOM);
+
+    /** The id a word outside the dictionary gets: worked out from its letters (the same everywhere), in CUSTOM…NUMBER. */
+    static int hashed(String word) {
+        long h = 1125899906842597L;
+        for (int i = 0; i < word.length(); i++) {
+            h = 31 * h + word.charAt(i);
+        }
+        return CUSTOM + (int) Math.floorMod(h, (long) (NUMBER - CUSTOM));
+    }
 
     private Symbols() {
     }
@@ -52,18 +59,25 @@ public final class Symbols {
             IDS.putIfAbsent(word, fixed);
             return IDS.get(word);
         }
-        final boolean[] made = {false};
-        int id = IDS.computeIfAbsent(word, w -> {
-            made[0] = true;
-            return NEXT.getAndIncrement();
-        });
-        if (made[0]) {
-            WORDS.put(id, word);
-            if (WordBook.ready()) {
-                keep(word, id); // kept for good only once the dictionary is open: a dictionary word never gets a custom id for good
+        int id;
+        boolean made = false;
+        synchronized (WORDS) {
+            Integer again = IDS.get(word);
+            if (again != null) {
+                return again;
             }
-        } else if (id < CUSTOM) {
-            return id;
+            // the id comes from the word itself, so every device gives the same word the same id; two different words
+            // landing on one id (rare) take the next free one
+            id = hashed(word);
+            while (WORDS.containsKey(id) && !word.equals(WORDS.get(id))) {
+                id = id + 1 >= NUMBER ? CUSTOM : id + 1;
+            }
+            IDS.put(word, id);
+            WORDS.put(id, word);
+            made = true;
+        }
+        if (made && WordBook.ready()) {
+            keep(word, id); // kept for good only once the dictionary is open: a dictionary word never gets an id of its own for good
         }
         return id;
     }
@@ -80,7 +94,7 @@ public final class Symbols {
     }
 
     /**
-     * Where the ids of words outside the dictionary are kept: {@code files/brain/words2.tsv}, one "word<TAB>id" a line,
+     * Where the ids of words outside the dictionary are kept: {@code files/brain/words3.tsv}, one "word<TAB>id" a line,
      * only ever added to (dictionary words need no file: their ids are fixed by {@link WordBook}).
      */
     private static volatile java.io.File kept;
@@ -98,7 +112,7 @@ public final class Symbols {
         if (kept != null || filesDir == null) {
             return;
         }
-        java.io.File f = new java.io.File(filesDir, "brain/words2.tsv"); // only words outside the dictionary
+        java.io.File f = new java.io.File(filesDir, "brain/words3.tsv"); // only words outside the dictionary
         boolean fresh = WORDS.isEmpty(); // opened first thing at start: no word outside the dictionary has an id yet
         if (fresh && f.isFile()) {
             try {
@@ -111,9 +125,6 @@ public final class Symbols {
                     int id = Integer.parseInt(line.substring(tab + 1).trim());
                     if (IDS.putIfAbsent(w, id) == null) {
                         WORDS.put(id, w);
-                    }
-                    if (id >= NEXT.get()) {
-                        NEXT.set(id + 1);
                     }
                 }
             } catch (java.io.IOException | NumberFormatException ignored) {

@@ -141,3 +141,12 @@ by itself" shows them and forgets them.
 ## Mind: the thought process (learn/Mind, 0.99.118)
 
 - M1 Reader: words to codes, the topics. M2 Memory: what recurred about the topic. M3 Weigher: (count + 1) / (answers + 2), said in matching words. M4 Critic: too few answers or nothing recurring: no view. M5 Speaker: the sentence. Each section's line is shown as a thinking step.
+
+
+## Pack: the codes as bytes (learn/Pack, learn/CodeFile, 0.99.119)
+
+- One number a token, 7 bits a byte: (id << 2 | case) for a small or dictionary word (case 0 none, 1 capital, 2 all capitals); 3 = extended: a number (its value), a spelled word (length and UTF-8), or a dictionary word and an ending (s, es, ed, d, ing, ly, er, est).
+- The single space between two words is not written.
+- Header: IBK1 and the dictionary's word count; a pack from another dictionary is refused.
+- CodeFile: IBKZ and the pack deflated. Measured on 100 kB of plain prose: 50% packed, 33% packed and deflated.
+- An own word's id is a hash of its letters into 1,000,000…1,499,999,999, the same on every device.
