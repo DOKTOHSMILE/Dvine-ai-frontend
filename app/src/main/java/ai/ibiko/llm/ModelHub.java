@@ -25,7 +25,15 @@ public final class ModelHub {
     private ModelHub(Context c) {
         model = new LocalModel(new File(c.getFilesDir(), "models"), chosen(c),
                 LocalModel.cpuSupported(android.os.Build.SUPPORTED_ABIS, cpuinfo()));
+        // the phone's heat and battery are read before its model starts a turn; one guard, so its cool-down holds
+        final Context app = c.getApplicationContext();
+        final DeviceGuard guard = new DeviceGuard();
+        model.guard(() -> guard.evaluate(DeviceReadings.read(app)));
+        model.offlineFallback(c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).getBoolean(OFFLINE_FALLBACK, false));
     }
+
+    /** Settings › Chat: the phone's model answers when the API can't be reached for want of internet. */
+    public static final String OFFLINE_FALLBACK = "offline_fallback";
 
     static final String PREF = "offline_model";
 

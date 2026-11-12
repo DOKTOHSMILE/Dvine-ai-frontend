@@ -2000,7 +2000,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** The pilot picked an API: it needs the internet to answer. */
     boolean needsInternet() {
-        return "api".equals(brainPick()) && !new ai.ibiko.llm.ProviderStore(this).usable().isEmpty();
+        return "api".equals(brainPick()) && !new ai.ibiko.llm.ProviderStore(this).usable().isEmpty()
+                && !(model != null && model.fallsBackOffline()); // the phone's model answers offline, when allowed
     }
 
     /** In {@link InternetWait}. */

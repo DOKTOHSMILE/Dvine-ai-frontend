@@ -245,6 +245,62 @@ public final class LocalModel {
         return !chain.isEmpty();
     }
 
+    /** The phone's heat and battery, read before the phone's model starts a turn ({@link DeviceGuard}); null: not checked. */
+    private volatile java.util.function.Supplier<DeviceGuard.Decision> guard;
+    /** Settings › Chat: with the API chosen and no internet, the phone's own model answers (and says so). Off by default. */
+    private volatile boolean offlineFallback;
+
+    public void guard(java.util.function.Supplier<DeviceGuard.Decision> g) {
+        guard = g;
+    }
+
+    public void offlineFallback(boolean on) {
+        offlineFallback = on;
+    }
+
+    /** Whether the phone's model may answer when the API can't be reached: the setting is on and the model is on the phone. */
+    public boolean fallsBackOffline() {
+        return offlineFallback && installed();
+    }
+
+    /**
+     * With the API out of reach: the phone's model answers instead when the user allowed it, and the reply says so
+     * (never a silent switch). False: nothing answers.
+     */
+    private boolean answerOffline() {
+        if (!fallsBackOffline()) {
+            return false;
+        }
+        problem = null;
+        switchNote = "There's no internet, so the phone's own model (" + spec.name + ") answered instead of your API.";
+        return true;
+    }
+
+    private void dropOfflineNote() {
+        String n = switchNote;
+        if (n != null && n.startsWith("There's no internet")) {
+            switchNote = null;
+        }
+    }
+
+    /** Whether the phone is cool and charged enough for its model to start a turn; when not, {@link #problem} says why. */
+    private boolean deviceMayRun() {
+        java.util.function.Supplier<DeviceGuard.Decision> g = guard;
+        DeviceGuard.Decision d = g == null ? null : g.get();
+        if (d != null && d.paused()) {
+            problem = d.why();
+            return false;
+        }
+        return true;
+    }
+
+    /** The most threads the phone's heat allows now (two when it is cool). */
+    private int threadsAllowed(int asked) {
+        java.util.function.Supplier<DeviceGuard.Decision> g = guard;
+        DeviceGuard.Decision d = g == null ? null : g.get();
+        return d == null || d.maxThreads <= 0 ? asked : Math.min(asked, d.maxThreads);
+    }
+
     /** The API is chosen but the device is offline right now: nothing answers, and the user hears why. */
     private boolean apiUnreachable() {
         if (apiChosen() && !remoteOn()) {
@@ -374,7 +430,8 @@ public final class LocalModel {
     /** Loads {@code tokens} of cache, never above the user's ceiling and never below {@link #LOCAL_WINDOW}. */
     private synchronized boolean loadSized(int threads, int tokens) {
         // Two threads is the cap. More pins the slow cores, the phone hums, and the answer waits on the slowest one.
-        threads = Math.max(1, Math.min(2, threads));
+        // A warm phone gets one (DeviceGuard); the check below then keeps a model already loaded that way.
+        threads = Math.max(1, Math.min(2, threadsAllowed(threads)));
         int want = Math.max(LOCAL_WINDOW, Math.min(contextTokens, tokens));
         if (state == State.READY && handle != 0 && loadedThreads == threads && loadedContext == want) {
             return true;
@@ -531,10 +588,11 @@ public final class LocalModel {
             // quietly take over (problem says why the API didn't answer)
             return null;
         }
-        if (apiUnreachable()) {
+        if (apiUnreachable() && !answerOffline()) {
             return null;
         }
-        if (!ensureFitted(system, asked)) {
+        if (!deviceMayRun() || !ensureFitted(system, asked)) {
+            dropOfflineNote(); // nothing answered: the next reply isn't labelled as the phone's
             return null;
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user
@@ -653,10 +711,11 @@ public final class LocalModel {
             // the device's own model never takes over behind the user's back
             return answer == null ? null : answer.trim();
         }
-        if (apiUnreachable()) {
+        if (apiUnreachable() && !answerOffline()) {
             return null;
         }
-        if (!ensureFitted(system, prompt)) {
+        if (!deviceMayRun() || !ensureFitted(system, prompt)) {
+            dropOfflineNote(); // nothing answered: the next reply isn't labelled as the phone's
             return null;
         }
         final String apiProblem = remoteOn() ? problem : null; // why the API didn't answer, kept for the user

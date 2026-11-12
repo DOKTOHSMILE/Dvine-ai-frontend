@@ -40,6 +40,10 @@ public class SettingsChatActivity extends SettingsActivity {
             chat.addView(toggle("Interpreter for Pidgin, Yoruba and French", "A message in Pidgin, Yoruba or French is put into"
                     + " English for the model, and the answer put back into your language. Models think best in English; it takes"
                     + " a little longer.", "interpreter", true, null));
+            chat.addView(toggle("Answer offline with the phone's model", "With an API chosen and no internet, the model"
+                    + " downloaded to this phone answers instead of the message waiting, and the reply says so.",
+                    ai.ibiko.llm.ModelHub.OFFLINE_FALLBACK, false,
+                    on -> ai.ibiko.llm.ModelHub.get(this).model.offlineFallback(on)));
             chat.addView(toggle("Show the working steps", "What Ibiko is doing while it answers: searches, sources, models.", "show_steps", true, null),
                     Ui.wide(this, 10));
 
