@@ -150,3 +150,12 @@ by itself" shows them and forgets them.
 - Header: IBK1 and the dictionary's word count; a pack from another dictionary is refused.
 - CodeFile: IBKZ and the pack deflated. Measured on 100 kB of plain prose: 50% packed, 33% packed and deflated.
 - An own word's id is a hash of its letters into 1,000,000…1,499,999,999, the same on every device.
+
+## Pack format 2: codes by use (learn/WordRank, learn/Pack, learn/Identifier, 0.99.123)
+
+- A word's code is its place in the words' order by use (`knowledge/wordrank.bin`): the small words, spaces and marks first, then the dictionary's words, each by how often the dictionary's own definitions use them, a tie by id. The token is (code << 2 | case), 7 bits a byte: the top 31 codes take 1 byte, the top 4,095 two, the rest three.
+- Header: IBK 2 and the order's fingerprint (the first 8 bytes of the order file's SHA-256); trailer: a CRC-32 of the text. Another order is refused; damage is caught. Format 1 (IBK1, codes = ids) is still read.
+- The order is counted once and shipped (2 s on a computer); PackFormatTest checks the shipped file is exactly what the dictionary counts to.
+- A chat's conversation: `memory/codes.ibk` = IBKC 2, the fingerprint, then one record a message: length, role in one byte, the message id as its base-36 number, the sentences (number, length, codes), a CRC-32. "Hi, do you need help?" is 21 bytes of text, 15 bytes of codes, a 34-byte record with its id, role and checksum; the old script line was 59 bytes. The older script file (`codes.tsv`) is converted line by line; it is removed only when every line written in the script again gives the same characters, otherwise kept as `codes.tsv.old`.
+- Old stores: every coded file under brain/, learning/ and the chats is rewritten in format 2 at start; a plain store when it is next read. Only coded files are swept: a plain file may be a log or the dictionary.
+- Measured (bytes of the file kept, against deflate of the plain text): plain prose 27% (39%), project notes 35% (38%), an engineering plan 28% (32%); format 1 was 33%, 40%, 32%. Pack 35-90 ms, unpack 4-15 ms for 100 kB.

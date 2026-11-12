@@ -1,10 +1,18 @@
+# Pack format 2; old stores converted (0.99.123)
+
+- [x] learn/WordRank: the words by use, shipped (knowledge/wordrank.bin), the same codes on every device.
+- [x] Pack format 2: codes by use, the order's fingerprint, a CRC-32; format 1 still read.
+- [x] Every coded store rewritten in format 2 at start; plain stores when next read.
+- [x] Each chat's conversation in memory/codes.ibk; old codes.tsv converted, removed only when every line checks.
+- [ ] The dictionary and the order change together: a new dictionary needs a new order, and packs made with the old one must be converted before the old files are replaced (no converter yet; they are refused, not misread).
+
 # What Ibiko 1 learns, cleaned (0.99.122)
 
 - [x] Job reports, questions to Ibiko about itself, and talk ("Well, today is…") are not kept; old ones are dropped on read.
 - [x] "Who is X?" only for names; old "Who is Easter rice?" copies removed.
 - [x] Every message in a row answered (test).
 - [ ] The device case from the screenshot (messages with no reply): fits the main-thread stall fixed in 0.99.121; confirm on the device.
-- [ ] Next: pack format 2 from the review (frequency-ordered codes, dictionary fingerprint, checksum).
+- [x] Pack format 2 from the review (0.99.123).
 # The phone stopped answering taps (0.99.121)
 
 - [x] A token of the reply was rebuilding the steps sheet, and each open file built a code view, on the main thread. Android then reported the app was not responding. A token now only moves the live line. A survey of the whole tree stays one banner; opening it draws a window of badges, not a row per file.
