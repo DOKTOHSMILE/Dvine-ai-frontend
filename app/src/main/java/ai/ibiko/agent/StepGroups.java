@@ -50,6 +50,26 @@ public final class StepGroups {
         }
     }
 
+    /** A group this long is one banner. A row and a code view per file, rebuilt on the main thread, froze the phone. */
+    public static final int BADGE_WINDOW = 24;
+
+    /**
+     * The group being worked on opens itself only while it is short enough to draw. A survey of the whole tree stays
+     * one banner until the user opens it.
+     */
+    public static boolean startOpen(int items, boolean running) {
+        return running && items > 0 && items <= 8;
+    }
+
+    /** How many badges to build when the group is open. The rest stay behind "and N more". */
+    public static int window(int items, int extra) {
+        if (items <= 0) {
+            return 0;
+        }
+        int want = BADGE_WINDOW + Math.max(0, extra);
+        return Math.min(items, want);
+    }
+
     private StepGroups() {
     }
 

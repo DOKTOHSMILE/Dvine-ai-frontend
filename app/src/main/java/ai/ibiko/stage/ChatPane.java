@@ -493,6 +493,13 @@ public final class ChatPane extends LinearLayout {
             workStarted = System.currentTimeMillis();
         }
         thinkingText = t;
+        // A token of the reply used to rebuild the whole steps sheet, including a code view per open file.
+        // That ran on the main thread until Android killed the tap (the app was not responding). The words move;
+        // the sheet does not.
+        if (thinkingRow != null && thinkingRow.getParent() == thread && workHere() && liveNow != null) {
+            showLive();
+            return;
+        }
         refreshActivity();
     }
 
@@ -511,6 +518,7 @@ public final class ChatPane extends LinearLayout {
         steps.add(l);
         stepAt.add(System.currentTimeMillis());
         refreshActivity();
+        sheetSoon();
     }
 
     /**
@@ -637,19 +645,24 @@ public final class ChatPane extends LinearLayout {
         if (liveBlock.getParent() instanceof android.view.ViewGroup) {
             ((android.view.ViewGroup) liveBlock.getParent()).removeView(liveBlock);
         }
+        showLive();
+        return liveBlock;
+    }
+
+    /** The live line's words, the face and the timer. No new views. */
+    private void showLive() {
+        if (liveNow == null) {
+            return;
+        }
         String now = !steps.isEmpty() ? ai.ibiko.agent.StepDetail.words(steps.get(steps.size() - 1))
                 : thinkingText != null ? stripTimer(thinkingText) : "Working";
         type(now);
         if (liveFace != null) {
-            liveFace.setMood(moodNow()); // the face follows the work: reading, writing, running, replying
+            liveFace.setMood(moodNow());
         }
         long secs = workStarted == 0 ? 0 : (System.currentTimeMillis() - workStarted) / 1000;
         liveMeta.setText((secs > 0 ? duration(secs) : "") + (steps.isEmpty() ? "" : (secs > 0 ? " \u00B7 " : "") + steps.size()
                 + " step" + (steps.size() == 1 ? "" : "s")) + "  \u203A");
-        if (stepsSheet != null && stepsSheet.isShowing() && stepsLive) {
-            fillSteps(timedSteps(System.currentTimeMillis()), false);
-        }
-        return liveBlock;
     }
 
     private LinearLayout liveBlock;
@@ -688,6 +701,23 @@ public final class ChatPane extends LinearLayout {
     private android.app.Dialog stepsSheet;
     private LinearLayout stepsList;
     private boolean stepsLive;
+    /** Extra badges the user asked to see, past the first window. Never the whole tree at once. */
+    private int badgeMore;
+    private boolean sheetDirty;
+
+    /** One redraw of the open sheet for a burst of steps, never one redraw per token. */
+    private void sheetSoon() {
+        if (stepsSheet == null || !stepsSheet.isShowing() || !stepsLive || stepsList == null || sheetDirty) {
+            return;
+        }
+        sheetDirty = true;
+        post(() -> {
+            sheetDirty = false;
+            if (stepsSheet != null && stepsSheet.isShowing() && stepsLive && stepsList != null) {
+                fillSteps(timedSteps(System.currentTimeMillis()), false);
+            }
+        });
+    }
 
     /** The steps in a bottom sheet; {@code live}: the current work, which keeps adding to it while it is open. */
     private void openSteps(String title, List<String> list, boolean live) {
@@ -696,6 +726,7 @@ public final class ChatPane extends LinearLayout {
         stepsList.setOrientation(VERTICAL);
         stepsList.setPadding(dp(20), 0, dp(20), dp(8));
         stepOpen.clear();
+        badgeMore = 0;
         fillSteps(list, !live);
         stepsSheet = ai.ibiko.chat.ui.BottomSheet.showView((Activity) getContext(), title, stepsList);
         if (live) {
@@ -872,7 +903,7 @@ public final class ChatPane extends LinearLayout {
             }
             final String key = "g" + g;
             Boolean chosen = stepOpen.get(key);
-            final boolean open = chosen != null ? chosen : running; // the group being worked on is open
+            final boolean open = chosen != null ? chosen : ai.ibiko.agent.StepGroups.startOpen(group.items.size(), running);
             if (running) {
                 long before = 0;
                 for (int k = 0; k < group.items.size() - 1; k++) {
@@ -887,7 +918,29 @@ public final class ChatPane extends LinearLayout {
             if (!open) {
                 continue;
             }
+            int stop = ai.ibiko.agent.StepGroups.window(group.items.size(), badgeMore);
+            int drawn = 0;
             for (final ai.ibiko.agent.StepGroups.Item it : group.items) {
+                if (drawn >= stop) {
+                    final int rest = group.items.size() - drawn;
+                    TextView more = plain("and " + rest + " more");
+                    more.setTextSize(13.5f);
+                    more.setTextColor(color(R.color.accent));
+                    more.setPadding(dp(28), dp(8), 0, dp(8));
+                    more.setMinHeight(dp(40));
+                    // one more window, and no further: building every file's row froze the phone
+                    if (stop < group.items.size() && badgeMore < ai.ibiko.agent.StepGroups.BADGE_WINDOW) {
+                        more.setOnClickListener(v -> {
+                            badgeMore += ai.ibiko.agent.StepGroups.BADGE_WINDOW;
+                            fillSteps(all, allDone);
+                        });
+                    } else {
+                        more.setTextColor(color(R.color.text_secondary));
+                    }
+                    stepsList.addView(more);
+                    break;
+                }
+                drawn++;
                 final ai.ibiko.agent.StepDetail.Detail d = details.get(it.index);
                 final String ckey = "c" + it.index;
                 Boolean c = stepOpen.get(ckey);

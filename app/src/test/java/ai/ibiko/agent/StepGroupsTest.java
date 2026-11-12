@@ -1,6 +1,7 @@
 package ai.ibiko.agent;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
@@ -64,5 +65,10 @@ public class StepGroupsTest {
         assertEquals("docs/BUILD_STATUS.md (lines 1–40)", g.get(0).items.get(1).target);
         assertEquals(3, g.get(0).lastIndex);
         assertEquals(StepGroups.Kind.EXPLORE, StepGroups.kind("Read app/src/Foo.java — still to read", null));
+        assertTrue("a short run still opens while it works", StepGroups.startOpen(3, true));
+        assertTrue("the whole tree stays one banner", !StepGroups.startOpen(900, true));
+        assertEquals(24, StepGroups.window(900, 0));
+        assertEquals(48, StepGroups.window(900, 24));
+        assertEquals(30, StepGroups.window(30, 24));
     }
 }

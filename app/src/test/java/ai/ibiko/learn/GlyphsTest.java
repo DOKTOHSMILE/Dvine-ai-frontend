@@ -57,4 +57,21 @@ public class GlyphsTest {
         java.nio.file.Files.write(f.toPath(), "plain\tline\n".getBytes("UTF-8"));
         assertEquals("plain\tline", CodeFile.lines(f).get(0));
     }
+
+    /** An emoji is one token. Splitting it into halves is how a custom letter corrupted the text. */
+    @Test
+    public void anEmojiIsOneTokenAndComesBackWhole() throws Exception {
+        WordBook.open(ShorthandTest.lexicon());
+        String face = "\uD83D\uDE00";
+        assertEquals(1, Shorthand.tokens(face).size());
+        String family = "\uD83D\uDC68\u200D\uD83D\uDC69";
+        assertEquals("a joined emoji is one token", 1, Shorthand.tokens(family).size());
+        assertEquals(family, Shorthand.tokens(family).get(0));
+        String accent = "cafe\u0301";
+        assertEquals("a letter and its accent are one token", 1, Shorthand.tokens(accent).size());
+        assertEquals(accent, Pack.unpack(Pack.pack(accent)));
+        assertEquals("See " + family, Pack.unpack(Pack.pack("See " + family)));
+        assertEquals(accent, Glyphs.text(Glyphs.script(accent)));
+        assertEquals("See " + family + " now", Glyphs.text(Glyphs.script("See " + family + " now")));
+    }
 }

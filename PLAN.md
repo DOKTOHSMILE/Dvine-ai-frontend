@@ -1,3 +1,8 @@
+# The phone stopped answering taps (0.99.121)
+
+- [x] A token of the reply was rebuilding the steps sheet, and each open file built a code view, on the main thread. Android then reported the app was not responding. A token now only moves the live line. A survey of the whole tree stays one banner; opening it draws a window of badges, not a row per file.
+- [x] An emoji or a letter with a combining mark is one token, so it is not stored as two halves. The pack stays the fast lossless store. Grammar, phrases and a five-layer parser are not on that path: they would throw away the unpack speed and the exact text.
+
 # The survey reads the whole tree, from the top (0.99.120)
 
 - [x] The file tree is mapped first, then every source file is read from line 1. A reader takes one file and finishes it before the next. Slices of the same file are not a stack of rows: one badge a file, ranges from the top, duplicates under that badge.
