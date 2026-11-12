@@ -859,7 +859,7 @@ public final class ChatPane extends LinearLayout {
         filledCount = allDone ? -1 : list.size();
         for (int g = 0; g < groups.size(); g++) {
             final ai.ibiko.agent.StepGroups.Group group = groups.get(g);
-            boolean holdsLast = group.items.get(group.items.size() - 1).index == lastIndex;
+            boolean holdsLast = group.lastIndex == lastIndex;
             boolean running = !allDone && holdsLast;
             if (group.kind == ai.ibiko.agent.StepGroups.Kind.OTHER) {
                 ai.ibiko.agent.StepGroups.Item it = group.items.get(0);
@@ -1254,7 +1254,7 @@ public final class ChatPane extends LinearLayout {
                     String f = group.items.get(0).target; // one file: named, as "Edited Main.java"
                     label = group.items.get(0).verb.replace(" file", "") + " " + f.substring(f.lastIndexOf('/') + 1);
                 }
-                out.add(new Row(label, from, group.items.get(group.items.size() - 1).index + 1, true));
+                out.add(new Row(label, from, group.lastIndex + 1, true));
                 g++;
                 continue;
             }

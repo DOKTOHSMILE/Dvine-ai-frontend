@@ -1,3 +1,8 @@
+# The survey reads the whole tree, from the top (0.99.120)
+
+- [x] The file tree is mapped first, then every source file is read from line 1. A reader takes one file and finishes it before the next. Slices of the same file are not a stack of rows: one badge a file, ranges from the top, duplicates under that badge.
+- [x] The map says how many of the tree are documented. A file the reader did not finish stays "still to read".
+
 # The brain's files in codes (0.99.119)
 
 - [x] learn/Pack and learn/CodeFile; BrainBox, Concepts, Facts, Knowledge, Lexicon kept in codes.

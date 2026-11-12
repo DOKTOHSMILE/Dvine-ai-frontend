@@ -119,4 +119,53 @@ public class SurveyTest {
         assertTrue("finished", !Survey.unfinished(keep));
         assertTrue(Survey.whereItStood(keep).contains("[MAP.md]"));
     }
+
+    @Test
+    public void theWholeTreeIsReadFromTheTopOneBadgeAFile() throws Exception {
+        File root = project();
+        StringBuilder big = new StringBuilder();
+        for (int i = 0; i < 500; i++) {
+            big.append("line ").append(i).append(" dictation\n");
+        }
+        Files.write(new File(root, "app/src/Dictation.java").toPath(), big.toString().getBytes("UTF-8"));
+        java.util.List<Survey.Piece> parts = Survey.piecesOf(root, new File(root, "app/src/Dictation.java"));
+        assertEquals(2, parts.size());
+        assertEquals(1, parts.get(0).from);
+        assertEquals(400, parts.get(0).to);
+        assertEquals(401, parts.get(1).from);
+        assertEquals(500, parts.get(1).to);
+        assertTrue("the rest of the tree is not dropped", Survey.tree(root, "Fix the dictation so pauses keep the words").size() >= 4);
+        File keep = Files.createTempDirectory("keep").toFile();
+        StringBuilder steps = new StringBuilder();
+        java.util.List<String> asked = java.util.Collections.synchronizedList(new java.util.ArrayList<String>());
+        String map = Survey.run(root, keep, "Fix the dictation so pauses keep the words", (system, text) -> {
+            int at = text.indexOf("File: ");
+            asked.add(text.substring(at, text.indexOf('\n', at)));
+            return "Purpose: a file";
+        }, 4, line -> {
+            synchronized (steps) {
+                steps.append(line).append('\n');
+            }
+        });
+        String shown = steps.toString();
+        assertTrue(shown, shown.contains("Mapped the tree:"));
+        assertTrue(shown, shown.contains("4 of 4 files documented"));
+        int dict = shown.indexOf("Read app/src/Dictation.java (lines 1–500)");
+        int voice = shown.indexOf("Read app/src/Voice.java (lines 1–");
+        assertTrue(shown, dict > 0 && voice > dict);
+        assertTrue("one badge, not a slice per 400 lines", shown.indexOf("Read app/src/Dictation.java") == dict);
+        assertTrue(map, map.contains("## Tree") && map.contains("app/src/Other.java"));
+        String first = null, second = null;
+        for (String a : asked) {
+            if (!a.contains("Dictation.java")) {
+                continue;
+            }
+            if (a.contains("lines 1–")) {
+                first = a;
+            } else if (a.contains("lines 401–")) {
+                second = a;
+            }
+        }
+        assertTrue(asked.toString(), first != null && second != null && asked.indexOf(first) < asked.indexOf(second));
+    }
 }

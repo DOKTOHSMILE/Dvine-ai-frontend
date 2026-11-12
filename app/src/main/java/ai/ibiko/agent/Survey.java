@@ -31,8 +31,8 @@ public final class Survey {
         String read(String system, String text);
     }
 
-    /** The most files read, the longest piece one worker reads at a time, and the most pieces in all. */
-    static final int MOST_FILES = 24, PIECE_LINES = 400, MOST_PIECES = 36;
+    /** The most files the keyword picker returns on its own. A survey that runs reads the whole tree, not this many. */
+    static final int MOST_FILES = 24, PIECE_LINES = 400;
     static final long FILE_BYTES = 400_000;
 
     static final String SYSTEM = "You are one of several readers surveying a codebase before a change is planned. Read"
@@ -256,26 +256,56 @@ public final class Survey {
         }
     }
 
-    /** The files cut into pieces a worker reads whole, each line with its number. */
+    /** The files cut into pieces a worker reads whole, from the top of each file, each line with its number. */
     static List<Piece> pieces(File root, List<File> files) {
         List<Piece> out = new ArrayList<Piece>();
         for (File f : files) {
-            List<String> lines;
-            try {
-                lines = Files.readAllLines(f.toPath(), StandardCharsets.UTF_8);
-            } catch (IOException | RuntimeException e) {
-                continue;
+            out.addAll(piecesOf(root, f));
+        }
+        return out;
+    }
+
+    /** One file, from line 1 to the end, in order. Never a slice taken from the middle first. */
+    static List<Piece> piecesOf(File root, File f) {
+        List<Piece> out = new ArrayList<Piece>();
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(f.toPath(), StandardCharsets.UTF_8);
+        } catch (IOException | RuntimeException e) {
+            return out;
+        }
+        String rel = root.toPath().relativize(f.toPath()).toString();
+        for (int from = 0; from < Math.max(1, lines.size()); from += PIECE_LINES) {
+            int to = Math.min(lines.size(), from + PIECE_LINES);
+            StringBuilder b = new StringBuilder();
+            for (int i = from; i < to; i++) {
+                b.append(i + 1).append(": ").append(lines.get(i)).append('\n');
             }
-            String rel = root.toPath().relativize(f.toPath()).toString();
-            for (int from = 0; from < Math.max(1, lines.size()) && out.size() < MOST_PIECES; from += PIECE_LINES) {
-                int to = Math.min(lines.size(), from + PIECE_LINES);
-                StringBuilder b = new StringBuilder();
-                for (int i = from; i < to; i++) {
-                    b.append(i + 1).append(": ").append(lines.get(i)).append('\n');
-                }
-                out.add(new Piece(rel, from + 1, to, b.toString()));
+            out.add(new Piece(rel, from + 1, to, b.toString()));
+        }
+        return out;
+    }
+
+    /**
+     * Every source file, in path order, when the task matches something here. Nothing when it matches nothing
+     * (a survey is not started). The keyword picker still names what to read first; the rest of the tree follows.
+     */
+    static List<File> tree(File root, String task) {
+        List<File> first = pick(root, task);
+        if (first.isEmpty()) {
+            return first;
+        }
+        java.util.Set<File> seen = new java.util.LinkedHashSet<File>(first);
+        List<File> all = new ArrayList<File>();
+        walk(root, all, 0);
+        for (File f : all) {
+            if (!NOTES.contains(f.getName())) {
+                seen.add(f);
             }
         }
+        List<File> out = new ArrayList<File>(seen);
+        Collections.sort(out, (a, b) -> root.toPath().relativize(a.toPath()).toString()
+                .compareTo(root.toPath().relativize(b.toPath()).toString()));
         return out;
     }
 
@@ -290,13 +320,24 @@ public final class Survey {
 
     /** As {@link #run(File, String, Reader, int, Consumer)}, the notes kept in {@code keep} (outside a clone, so never pushed). */
     public static String run(File root, File keep, String task, Reader reader, int workers, Consumer<String> step) {
-        List<File> files = pick(root, task);
+        List<File> files = tree(root, task);
         if (files.isEmpty()) {
             return null;
         }
         List<Piece> pieces = pieces(root, files);
         if (pieces.isEmpty()) {
             return null;
+        }
+        final List<String> paths = new ArrayList<String>();
+        final Map<String, List<Piece>> byPath = new LinkedHashMap<String, List<Piece>>();
+        for (Piece p : pieces) {
+            List<Piece> mine = byPath.get(p.path);
+            if (mine == null) {
+                mine = new ArrayList<Piece>();
+                byPath.put(p.path, mine);
+                paths.add(p.path);
+            }
+            mine.add(p);
         }
         // what was already read (an earlier run that broke off, a "continue"): kept, never read again while the lines
         // it covers are unchanged
@@ -310,99 +351,141 @@ public final class Survey {
             }
         }
         int left = pieces.size() - already.size();
-        int n = Math.max(1, Math.min(workers, Math.max(1, left)));
+        int n = Math.max(1, Math.min(workers, Math.max(1, left == 0 ? 1 : paths.size())));
         if (step != null) {
+            step.accept("Mapped the tree: " + files.size() + (files.size() == 1 ? " file" : " files"));
             step.accept("Surveying the codebase: " + files.size() + (files.size() == 1 ? " file" : " files") + ", " + n
-                    + (n == 1 ? " reader" : " readers at once")
+                    + (n == 1 ? " reader" : " readers at once") + ", one file each from the top"
                     + (already.isEmpty() ? "" : "; " + already.size() + " of " + pieces.size() + " parts already read, carrying on from there"));
         }
         progress(keep, task, pieces, already.keySet(), null);
+        final Map<Piece, String> notes = java.util.Collections.synchronizedMap(new LinkedHashMap<Piece, String>());
+        notes.putAll(already);
+        final java.util.Set<Piece> finished = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<Piece>(already.keySet()));
+        final java.util.concurrent.atomic.AtomicInteger cursor = new java.util.concurrent.atomic.AtomicInteger();
+        final Map<String, String> ready = java.util.Collections.synchronizedMap(new LinkedHashMap<String, String>());
+        final int[] announced = {0};
+        final Runnable flush = () -> {
+            if (step == null) {
+                return;
+            }
+            synchronized (ready) {
+                while (announced[0] < paths.size() && ready.containsKey(paths.get(announced[0]))) {
+                    String line = ready.get(paths.get(announced[0]));
+                    announced[0]++;
+                    if (line != null && !line.isEmpty()) {
+                        step.accept(line);
+                    }
+                }
+            }
+        };
         ExecutorService pool = Executors.newFixedThreadPool(n, r -> {
             Thread t = new Thread(r, "ibiko-survey");
             t.setDaemon(true);
             return t;
         });
-        Map<Piece, Future<String>> jobs = new LinkedHashMap<Piece, Future<String>>();
-        final java.util.Set<Piece> finished = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<Piece>(already.keySet()));
-        for (final Piece p : pieces) {
-            if (already.containsKey(p)) {
-                final String kept = already.get(p);
-                jobs.put(p, java.util.concurrent.CompletableFuture.completedFuture(kept));
-                continue;
-            }
-            jobs.put(p, pool.submit(() -> {
-                String code = AgentBoard.start("Reader", p.path + " (lines " + p.from + "–" + p.to + ")");
-                try {
-                    AgentBoard.step(code, "Reading " + p.path);
-                    String said = reader.read(SYSTEM, "Task: " + task.trim() + "\n\nFile: " + p.path + " (lines " + p.from
-                            + "–" + p.to + ")\n" + p.text);
-                    AgentBoard.end(code, said == null || said.trim().isEmpty() ? AgentBoard.Outcome.FAILED : AgentBoard.Outcome.DONE);
-                    if (step != null) {
-                        step.accept("Read " + p.path + (p.from > 1 || p.to > PIECE_LINES ? " (lines " + p.from + "–" + p.to + ")" : ""));
+        for (int w = 0; w < n; w++) {
+            pool.submit(() -> {
+                while (!Thread.currentThread().isInterrupted()) {
+                    int i = cursor.getAndIncrement();
+                    if (i >= paths.size()) {
+                        return;
                     }
-                    String note = said == null ? "" : said.trim();
-                    if (!note.isEmpty()) {
-                        String stamped = "Read " + stamp(System.currentTimeMillis()) + "\n" + note;
-                        writeKept(done, p, stamped); // kept at once: a broken connection loses nothing already read
-                        finished.add(p);
-                        progress(keep, task, pieces, finished, p);
-                        return stamped;
+                    String path = paths.get(i);
+                    List<Piece> mine = byPath.get(path);
+                    int lastLine = mine.get(mine.size() - 1).to;
+                    // Claimed in path order. Post the one badge now, in that same order, before the read — a slow
+                    // file must not hide every file after it, and a finished slice must not appear as its own row.
+                    synchronized (ready) {
+                        ready.put(path, "Read " + path + " (lines 1–" + lastLine + ")");
                     }
-                    return note;
-                } catch (RuntimeException e) {
-                    AgentBoard.end(code, AgentBoard.Outcome.FAILED);
-                    return "";
+                    flush.run();
+                    String code = AgentBoard.start("Reader", path);
+                    boolean whole = true;
+                    try {
+                        AgentBoard.step(code, "Reading " + path + " from the top");
+                        for (Piece p : mine) {
+                            String note = notes.get(p);
+                            if (note == null) {
+                                String said;
+                                try {
+                                    said = reader.read(SYSTEM, "Task: " + task.trim() + "\n\nFile: " + p.path + " (lines " + p.from
+                                            + "–" + p.to + " of " + mine.get(mine.size() - 1).to + ", from the top)\n" + p.text);
+                                } catch (RuntimeException e) {
+                                    said = "";
+                                }
+                                note = said == null ? "" : said.trim();
+                                if (!note.isEmpty()) {
+                                    note = "Read " + stamp(System.currentTimeMillis()) + "\n" + note;
+                                    writeKept(done, p, note);
+                                    finished.add(p);
+                                    notes.put(p, note);
+                                    progress(keep, task, pieces, finished, p);
+                                } else {
+                                    whole = false;
+                                }
+                            }
+                            if (note == null || note.isEmpty()) {
+                                whole = false;
+                            }
+                        }
+                        AgentBoard.end(code, whole ? AgentBoard.Outcome.DONE : AgentBoard.Outcome.FAILED);
+                    } catch (RuntimeException e) {
+                        AgentBoard.end(code, AgentBoard.Outcome.FAILED);
+                        whole = false;
+                    }
                 }
-            }));
+            });
         }
         pool.shutdown();
+        try {
+            pool.awaitTermination(6, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+            pool.shutdownNow();
+        }
+        flush.run();
         StringBuilder map = new StringBuilder("# Codebase map\n\nTask: ").append(task.trim()).append("\nMade: ")
                 .append(stamp(System.currentTimeMillis())).append("\nFiles: ").append(files.size()).append(", parts: ")
-                .append(pieces.size()).append(" (each part's own reading time is under it)\n\n");
-        Map<String, StringBuilder> byFile = new LinkedHashMap<String, StringBuilder>();
-        int read = 0;
-        for (Map.Entry<Piece, Future<String>> e : jobs.entrySet()) {
-            String said;
-            try {
-                said = e.getValue().get(10, TimeUnit.MINUTES);
-            } catch (Exception failed) {
-                said = "";
-            }
-            if (said.isEmpty()) {
-                continue;
-            }
-            read++;
-            Piece p = e.getKey();
-            StringBuilder b = byFile.get(p.path);
-            if (b == null) {
-                b = new StringBuilder();
-                byFile.put(p.path, b);
-            }
-            b.append("### Lines " + p.from + "–" + p.to + "\n").append(said).append("\n\n");
+                .append(pieces.size()).append("\n\n## Tree\n\n");
+        for (String path : paths) {
+            map.append("- ").append(path).append(" (").append(byPath.get(path).get(byPath.get(path).size() - 1).to).append(" lines)\n");
         }
-        pool.shutdownNow();
-        if (read == 0) {
+        map.append("\n");
+        Map<String, StringBuilder> byFile = new LinkedHashMap<String, StringBuilder>();
+        int documented = 0;
+        for (String path : paths) {
+            List<Piece> mine = byPath.get(path);
+            boolean whole = true;
+            StringBuilder b = new StringBuilder();
+            for (Piece p : mine) {
+                String said = notes.get(p);
+                if (said == null || said.isEmpty()) {
+                    whole = false;
+                    continue;
+                }
+                b.append("### Lines " + p.from + "–" + p.to + "\n").append(said).append("\n\n");
+            }
+            if (b.length() > 0) {
+                byFile.put(path, b);
+            }
+            if (whole) {
+                documented++;
+            }
+        }
+        if (byFile.isEmpty()) {
             return null;
         }
-        File notes = new File(keep, "notes");
-        notes.mkdirs();
-        // sorted: files by path, and inside a file the parts in line order, so the report reads straight through
-        List<String> order = new ArrayList<String>(byFile.keySet());
-        Collections.sort(order);
+        File notesDir = new File(keep, "notes");
+        notesDir.mkdirs();
         map.append("## Contents\n\n");
-        for (String f : order) {
+        for (String f : byFile.keySet()) {
             map.append("- ").append(f).append('\n');
         }
         map.append('\n');
-        java.util.LinkedHashMap<String, StringBuilder> sorted = new java.util.LinkedHashMap<String, StringBuilder>();
-        for (String f : order) {
-            sorted.put(f, byFile.get(f));
-        }
-        byFile = sorted;
         for (Map.Entry<String, StringBuilder> e : byFile.entrySet()) {
             map.append("## ").append(e.getKey()).append("\n").append(e.getValue()).append("\n");
             try {
-                Files.write(new File(notes, e.getKey().replaceAll("[\\\\/]", "__") + ".md").toPath(),
+                Files.write(new File(notesDir, e.getKey().replaceAll("[\\\\/]", "__") + ".md").toPath(),
                         ("# " + e.getKey() + "\n\n" + e.getValue()).getBytes(StandardCharsets.UTF_8));
             } catch (IOException ignored) {
                 // the map still has it
@@ -414,7 +497,8 @@ public final class Survey {
             // returned all the same
         }
         if (step != null) {
-            step.accept("Codebase map ready: " + byFile.size() + (byFile.size() == 1 ? " file" : " files") + " documented");
+            step.accept("Codebase map ready: " + documented + " of " + files.size()
+                    + (files.size() == 1 ? " file" : " files") + " documented");
         }
         return map.toString();
     }

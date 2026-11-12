@@ -38,12 +38,15 @@ public final class StepGroups {
         public final String label;
         public final List<Item> items;
         public final long secs;
+        /** The last original step this group covers, so a compressed banner still spans every line it folded. */
+        public final int lastIndex;
 
-        Group(Kind kind, String label, List<Item> items, long secs) {
+        Group(Kind kind, String label, List<Item> items, long secs, int lastIndex) {
             this.kind = kind;
             this.label = label;
             this.items = items;
             this.secs = secs;
+            this.lastIndex = lastIndex;
         }
     }
 
@@ -59,10 +62,36 @@ public final class StepGroups {
         if (w.startsWith("Edited ") || w.startsWith("Created ") || w.startsWith("Rewrote ") || w.startsWith("Made ")) {
             return Kind.EDIT;
         }
-        if (w.startsWith("Listed the files in ") || w.startsWith("Searched for ") || w.startsWith("Read ") && detailTitle != null) {
+        if (w.startsWith("Listed the files in ") || w.startsWith("Searched for ") || w.startsWith("Read ") && detailTitle != null
+                || fileRead(w)) {
             return Kind.EXPLORE;
         }
         return Kind.OTHER;
+    }
+
+    /** A survey line "Read path (lines 1–400)" is a file, even with no detail under it. "Read bbc.com" is not. */
+    static boolean fileRead(String w) {
+        if (w == null || !w.startsWith("Read ")) {
+            return false;
+        }
+        String path = pathOf(w.substring(5));
+        if (path.isEmpty() || path.indexOf(' ') >= 0) {
+            return false;
+        }
+        int dot = path.lastIndexOf('.');
+        if (dot <= 0 || dot == path.length() - 1) {
+            return false;
+        }
+        String ext = path.substring(dot + 1).toLowerCase(java.util.Locale.US);
+        return path.indexOf('/') >= 0 || ext.matches("java|kt|kts|gradle|xml|py|js|ts|tsx|jsx|go|rs|c|cc|cpp|h|hpp|swift|rb|php|cs|sh|md|json|yml|yaml|toml|html|css|sql|dart|vue|svelte");
+    }
+
+    /** The file in "path" or "path (lines 1–400)", without the ranges. */
+    static String pathOf(String target) {
+        if (target == null) {
+            return "";
+        }
+        return target.replaceFirst(" \\(lines \\d+.*$", "").replaceFirst(" — still to read$", "");
     }
 
     /**
@@ -144,7 +173,7 @@ public final class StepGroups {
                     if (i.verb.startsWith("Searched")) {
                         searches++;
                     } else {
-                        files.add(i.target);
+                        files.add(pathOf(i.target));
                     }
                 }
                 StringBuilder b = new StringBuilder("Explored");
@@ -160,6 +189,76 @@ public final class StepGroups {
             default:
                 label = run.get(0).target;
         }
-        return new Group(k, label, run, timed ? secs : -1);
+        int last = run.get(0).index;
+        for (Item i : run) {
+            if (i.index > last) {
+                last = i.index;
+            }
+        }
+        return new Group(k, label, compress(run), timed ? secs : -1, last);
+    }
+
+    /**
+     * Several reads of one file (its 400-line slices, in whatever order they finished) are one badge. The ranges
+     * are shown from the top of the file, and a gap stays visible.
+     */
+    static List<Item> compress(List<Item> run) {
+        if (run.isEmpty() || run.get(0).kind != Kind.EXPLORE) {
+            return run;
+        }
+        List<Item> out = new ArrayList<Item>();
+        java.util.Map<String, Integer> at = new java.util.LinkedHashMap<String, Integer>();
+        for (Item i : run) {
+            if (!"Read file".equals(i.verb)) {
+                out.add(i);
+                continue;
+            }
+            String path = pathOf(i.target);
+            Integer prev = at.get(path);
+            if (prev == null) {
+                at.put(path, out.size());
+                out.add(new Item(i.kind, i.verb, shown(path, ranges(i.target)), i.index, i.secs));
+            } else {
+                Item o = out.get(prev);
+                java.util.List<int[]> both = ranges(o.target);
+                both.addAll(ranges(i.target));
+                long s = o.secs < 0 ? i.secs : i.secs < 0 ? o.secs : o.secs + i.secs;
+                out.set(prev, new Item(o.kind, o.verb, shown(path, both), o.index, s));
+            }
+        }
+        return out;
+    }
+
+    static java.util.List<int[]> ranges(String target) {
+        java.util.List<int[]> out = new ArrayList<int[]>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)[–-](\\d+)").matcher(target == null ? "" : target);
+        while (m.find()) {
+            out.add(new int[] {Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2))});
+        }
+        return out;
+    }
+
+    /** Ranges from the top of the file; two that meet or overlap become one. */
+    static String shown(String path, java.util.List<int[]> ranges) {
+        if (ranges.isEmpty()) {
+            return path;
+        }
+        java.util.Collections.sort(ranges, (a, b) -> a[0] - b[0]);
+        java.util.List<int[]> merged = new ArrayList<int[]>();
+        for (int[] r : ranges) {
+            if (merged.isEmpty() || r[0] > merged.get(merged.size() - 1)[1] + 1) {
+                merged.add(new int[] {r[0], r[1]});
+            } else {
+                merged.get(merged.size() - 1)[1] = Math.max(merged.get(merged.size() - 1)[1], r[1]);
+            }
+        }
+        StringBuilder b = new StringBuilder(path).append(" (lines ");
+        for (int i = 0; i < merged.size(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(merged.get(i)[0]).append('–').append(merged.get(i)[1]);
+        }
+        return b.append(')').toString();
     }
 }
