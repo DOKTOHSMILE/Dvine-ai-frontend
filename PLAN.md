@@ -1,3 +1,10 @@
+# The brain's files in codes (0.99.119)
+
+- [x] learn/Pack and learn/CodeFile; BrainBox, Concepts, Facts, Knowledge, Lexicon kept in codes.
+- [x] Own-word ids from the word's letters; the dictionary opens on demand.
+- [ ] The dictionary must only ever be added to at its end: a changed order changes every id (packs name their dictionary and are refused, not misread).
+- [ ] Share a brain between devices (a pack is already device-independent).
+
 # Ibiko's script, numbers, meaning from recurrence, a thought process (0.99.118)
 
 - [x] learn/Glyphs: one private-use character a word; numbers coded by value.

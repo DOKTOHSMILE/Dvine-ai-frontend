@@ -518,7 +518,7 @@ public final class BrainBox {
             return;
         }
         try {
-            for (String line : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(f)) {
                 String[] p = line.split("\t", -1);
                 if (p.length == 4) {
                     templates.add(new Template(p[0], p[1], p[2], p[3]));
@@ -542,7 +542,7 @@ public final class BrainBox {
             if (f.getParentFile() != null) {
                 f.getParentFile().mkdirs();
             }
-            Files.write(f.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(f.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
         } catch (IOException ignored) {
             // kept in memory for this run
         }
@@ -651,7 +651,7 @@ public final class BrainBox {
             return;
         }
         try {
-            for (String line : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(f)) {
                 int tab = line.indexOf('\t');
                 if (tab > 0) {
                     // words TAB answer TAB hits TAB touched; files without the last two still load
@@ -703,7 +703,7 @@ public final class BrainBox {
             if (f.getParentFile() != null) {
                 f.getParentFile().mkdirs();
             }
-            Files.write(f.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(f.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
         } catch (IOException ignored) {
             // kept in memory for this run
         }
@@ -766,7 +766,7 @@ public final class BrainBox {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 int tab = line.indexOf('\t');
                 if (tab <= 0) {
                     continue;
@@ -793,9 +793,9 @@ public final class BrainBox {
                 dir.mkdirs();
             }
             File tmp = new File(file.getPath() + ".tmp");
-            Files.write(tmp.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(tmp.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
             if (!tmp.renameTo(file)) {
-                Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+                Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
                 tmp.delete();
             }
         } catch (IOException ignored) {

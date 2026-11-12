@@ -182,7 +182,7 @@ public final class Concepts {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 String[] p = line.split("\t");
                 if (p.length < 2) {
                     continue;
@@ -222,7 +222,7 @@ public final class Concepts {
             if (file.getParentFile() != null) {
                 file.getParentFile().mkdirs();
             }
-            Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
         } catch (IOException ignored) {
             // kept in memory for this run
         }

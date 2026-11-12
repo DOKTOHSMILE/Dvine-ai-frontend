@@ -367,6 +367,9 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 334 | Show the text in the image as the codes the AI sees | P12 | Done (sample given in chat) | 0.99.118 |
 | 335 | Keep the recurring codes across answers as the meaning (football → game); form its own thoughts | P12 | Built (learn/Concepts N1–N6) | 0.99.118 |
 | 336 | A thought process: codes re-evaluated, brain sections working together, shown on the chat screen | P12 | Built (learn/Mind M1–M5; steps shown while thinking) | 0.99.118 |
+| 337 | Replace the old brain structure with the code brain | P12 | Partial (the brain's knowledge files are kept in codes: brain box, concepts, facts, knowledge, lexicon; small state files and the learning log stay plain) | 0.99.119 |
+| 338 | Open to growth: new characters as it learns words, the same across users' engines | P12 | Built (ids from the word's own letters; unknown words spelled in packs; a pack names its dictionary) | 0.99.119 |
+| 339 | Convert a 100 kB pool of words to codes and compare sizes | P12 | Done (50% packed, 33% packed and squeezed, for plain prose) | 0.99.119 |
 
 ## Still open, in the order that matters
 

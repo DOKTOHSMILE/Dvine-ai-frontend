@@ -92,6 +92,22 @@ public final class WordBook {
     /** Where each different word's first line starts, in the file's (sorted) order. */
     private static volatile int[] starts;
 
+    private static volatile File where;
+
+    /** Where the dictionary is on this device: it is opened from there the first time a word is asked for. */
+    public static void at(File lexicon) {
+        where = lexicon;
+    }
+
+    /** Opens the dictionary if it isn't open and its file is there. True when it is open. */
+    public static boolean ensure() {
+        if (starts != null) {
+            return true;
+        }
+        File f = where;
+        return f != null && f.isFile() && open(f);
+    }
+
     /** Reads the dictionary in place (once, off the main thread: about a tenth of a second). */
     public static synchronized boolean open(File lexicon) {
         if (starts != null) {
@@ -100,6 +116,7 @@ public final class WordBook {
         if (lexicon == null || !lexicon.isFile() || lexicon.length() > Integer.MAX_VALUE) {
             return false;
         }
+        where = lexicon;
         try (RandomAccessFile f = new RandomAccessFile(lexicon, "r"); FileChannel ch = f.getChannel()) {
             MappedByteBuffer m = ch.map(FileChannel.MapMode.READ_ONLY, 0, ch.size());
             int size = (int) ch.size();
