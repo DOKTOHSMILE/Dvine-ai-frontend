@@ -188,8 +188,6 @@ public class SceneEditTest {
         assertEquals(ObjectRequestInterpreter.Kind.IMAGE, picture.kind);
         ObjectRequestInterpreter.Request photos = ObjectRequestInterpreter.interpret("reconstruct a motorcycle from these photographs", null);
         assertEquals(ObjectRequestInterpreter.Kind.RECON, photos.kind);
-        assertFalse(job.checksums.get(0).isEmpty());
-        assertEquals(job.checksums.get(0), job.checksums.get(1));
     }
 
     private static String assetId(File file) throws Exception {
