@@ -18,6 +18,7 @@ import java.util.List;
 
 import ai.ibiko.R;
 import ai.ibiko.chat.ChatBook;
+import ai.ibiko.voice.SentenceStream;
 
 /**
  * The transcript only. The screen around it (header, composer, empty state) is XML.
@@ -46,6 +47,14 @@ public final class ChatPane extends LinearLayout {
         /** Makes this reply's voice now and keeps it under its message; {@code ready} runs (any thread) when done. */
         default void prepareAudio(String owner, String text, Runnable ready) {
             ready.run();
+        }
+
+        /**
+         * One sentence of a reply still being written. Its voice is made now and kept under {@code owner}, so Listen
+         * plays the file the moment the reply is on screen. Not spoken out loud: that still waits for a Listen tap
+         * (or a message that was dictated).
+         */
+        default void aheadAudio(String owner, String sentence) {
         }
 
         /** Listen was tapped on this reply: what is read now is that message's own kept voice. */
@@ -224,8 +233,10 @@ public final class ChatPane extends LinearLayout {
             ChatBook.Message m = cur.messages.get(i);
             if ("user".equals(m.role)) {
                 turnOwner = null;
-            } else if (turnOwner == null) {
-                turnOwner = (cur.group != null ? cur.group : cur.id) + "/" + m.id; // filed under the chat, deleted with it
+            } else if (turnOwner == null && m.id != null
+                    && ("text".equals(m.kind) || "code".equals(m.kind) || "html".equals(m.kind))) {
+                // the reply itself, not a step above it: its voice was filed under this message
+                turnOwner = (cur.group != null ? cur.group : cur.id) + "/" + m.id;
             }
             if (foldTo[i] >= 0) {
                 // a finished turn, and the one still working: its steps are one row. The answer after them still shows.
@@ -338,14 +349,14 @@ public final class ChatPane extends LinearLayout {
                 boolean lastReply = i == cur.messages.size() - 1;
                 if (rateAnswer != null && lastReply && reply.toString().contains(rateAnswer)) {
                     // Ibiko asks whether its answer was right: check and cancel beside Copy and Listen
-                    bar = actions(reply.toString(), stripCode(reply.toString()), rateQuestion, rateAnswer);
+                    bar = actions(reply.toString(), reply.toString(), rateQuestion, rateAnswer);
                     bar.setTag("asked"); // Ibiko asked: its check and cross stay in view
                 } else if (lastReply && lastAsked != null && !reply.toString().equals(ratedReply)
                         && (ratedAnswer == null || !reply.toString().contains(ratedAnswer))) {
                     // every answer can be marked right or wrong, whichever model wrote it: Ibiko keeps learning
-                    bar = actions(reply.toString(), stripCode(reply.toString()), lastAsked, stripCode(reply.toString()).trim());
+                    bar = actions(reply.toString(), reply.toString(), lastAsked, stripCode(reply.toString()).trim());
                 } else {
-                    bar = actions(reply.toString(), stripCode(reply.toString()));
+                    bar = actions(reply.toString(), reply.toString());
                 }
                 thread.addView(bar);
                 turnBars.add(bar);
@@ -1375,7 +1386,10 @@ public final class ChatPane extends LinearLayout {
         String frozen = liveText.trim();
         setLive(null);
         heldLive = frozen; // setLive(null) must not drop this: the same stream is still writing
-        book.reply(writer(), frozen);
+        String reserved = voiceStamped ? null : voiceId;
+        if (book.reply(writer(), frozen, reserved) && reserved != null) {
+            voiceStamped = true;
+        }
     }
     /** A function line still being written at the end of a streaming reply (built once: it ran on every new word). */
     private static final java.util.regex.Pattern TRAILING_CODE =
@@ -1405,6 +1419,7 @@ public final class ChatPane extends LinearLayout {
             liveText = null;
             liveShown = 0;
             renderLive(null);
+            feedVoice(null); // the last sentence of this stretch is made too
             return;
         }
         if (liveText == null || !t.startsWith(liveText.substring(0, Math.min(liveShown, liveText.length())))) {
@@ -1413,7 +1428,94 @@ public final class ChatPane extends LinearLayout {
         liveText = t;
         removeCallbacks(typeLive);
         post(typeLive);
+        feedVoice(t); // sentences finished so far are made while the rest is still being written
     }
+
+    /**
+     * The reply being written now, reserved before its message exists ("chat/id"). The first block saved
+     * for this reply keeps that id, which is where its voice files are put.
+     */
+    public String beginVoice() {
+        ensureVoice();
+        return voiceOwner;
+    }
+
+    /** A new message from the pilot: the next reply gets its own id, and its own voice files. */
+    public void nextVoiceTurn() {
+        if (voiceCut != null && voiceOwner != null) {
+            for (String s : voiceCut.finish()) {
+                host.aheadAudio(voiceOwner, s);
+            }
+        }
+        voiceId = null;
+        voiceOwner = null;
+        voiceStamped = false;
+        voiceCut = null;
+        voiceFed = "";
+    }
+
+    /**
+     * The id reserved for this reply, once. The first message saved for it keeps that id; later parts of the same
+     * reply do not take it (Listen looks up the first message).
+     */
+    public String claimVoiceId() {
+        if (voiceId == null || voiceStamped) {
+            return null;
+        }
+        voiceStamped = true;
+        return voiceId;
+    }
+
+    private void ensureVoice() {
+        if (voiceId != null || book == null || book.current() == null) {
+            return;
+        }
+        ChatBook.Section cur = book.current();
+        voiceId = ChatBook.newMessageId();
+        voiceOwner = (cur.group != null ? cur.group : cur.id) + "/" + voiceId;
+        voiceStamped = false;
+        voiceCut = new SentenceStream();
+        voiceFed = "";
+    }
+
+    /** Feeds the live reply to the voice, only the new tail, so each finished sentence is made as it arrives. */
+    private void feedVoice(String full) {
+        if (full == null) {
+            if (voiceCut != null && voiceOwner != null) {
+                for (String s : voiceCut.finish()) {
+                    host.aheadAudio(voiceOwner, s);
+                }
+            }
+            voiceCut = null;
+            voiceFed = "";
+            return;
+        }
+        ensureVoice();
+        if (voiceOwner == null) {
+            return;
+        }
+        if (voiceCut == null || voiceFed == null || !full.startsWith(voiceFed)) {
+            if (voiceCut != null) {
+                for (String s : voiceCut.finish()) {
+                    host.aheadAudio(voiceOwner, s);
+                }
+            }
+            voiceCut = new SentenceStream();
+            voiceFed = "";
+        }
+        String more = full.substring(voiceFed.length());
+        voiceFed = full;
+        if (!more.isEmpty()) {
+            for (String s : voiceCut.add(more)) {
+                host.aheadAudio(voiceOwner, s);
+            }
+        }
+    }
+
+    /** The id of the reply being written, and how much of it the voice has already been given. */
+    private String voiceId, voiceOwner, voiceFed = "";
+    private boolean voiceStamped;
+    private SentenceStream voiceCut;
 
     /** How much of the live reply is typed out so far. */
     private int liveShown;
@@ -1898,7 +2000,20 @@ public final class ChatPane extends LinearLayout {
             keepSteps(); // a note during the work goes after the steps that led to it
         }
         int before = book.current().messages.size();
-        book.reply(persona, text);
+        String reserved = null;
+        if (text != null && !text.trim().isEmpty()) {
+            beginVoice(); // the first message of this reply keeps the id its voice is already filed under
+            if (!voiceStamped) {
+                reserved = voiceId;
+            }
+        }
+        boolean wrote = book.reply(persona, text, reserved);
+        if (wrote && reserved != null) {
+            voiceStamped = true;
+        }
+        if (wrote && voiceOwner != null && text != null && !text.trim().isEmpty()) {
+            host.prepareAudio(voiceOwner, text, () -> { }); // the saved words, in case the stream's cuts differ
+        }
         if (book.current().messages.size() != before) {
             show();
         }
@@ -2268,7 +2383,7 @@ public final class ChatPane extends LinearLayout {
         LinearLayout bar = new LinearLayout(getContext());
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setPadding(0, 0, 0, dp(6));
-        bar.addView(listenButton(stripCode(piece), "Listen to this part"));
+        bar.addView(listenButton(piece, "Listen to this part"));
         return bar;
     }
 
@@ -2324,6 +2439,9 @@ public final class ChatPane extends LinearLayout {
             listen.setAlpha(0.35f);
             listen.setContentDescription("Preparing the voice");
             host.prepareAudio(owner, spoken, () -> listen.post(() -> {
+                if (!host.audioReady(owner, spoken)) {
+                    return; // still not kept: the icon stays dim until the file is there
+                }
                 listen.setEnabled(true);
                 listen.animate().alpha(1f).setDuration(200).start();
                 listen.setContentDescription(label);

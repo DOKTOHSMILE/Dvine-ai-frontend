@@ -1510,6 +1510,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
 
             @Override
+            public void aheadAudio(String owner, String sentence) {
+                if (talk == null || owner == null || sentence == null || sentence.trim().isEmpty()) {
+                    return;
+                }
+                talk.setOwner(owner);
+                talk.prepare(true, sentence); // made while the reply is still being written, not spoken yet
+            }
+
+            @Override
             public void speakingFor(String owner) {
                 if (talk != null) {
                     talk.setOwner(owner); // Listen plays this message's own kept voice, in order
@@ -1804,10 +1813,24 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         answer(text, false);
     }
 
-    void armThink(String phase, String writing) {
-        if (talk != null) {
-            talk.setOwner(null); // a new reply: what is read as it is written belongs to no earlier message
+    /** The voice of {@code body}, made and kept under the reply it belongs to (the id that reply will be saved with). */
+    void keepVoice(String body) {
+        if (talk == null || chatPane == null || body == null || body.trim().isEmpty()) {
+            return;
         }
+        String owner = chatPane.beginVoice();
+        if (owner != null) {
+            talk.setOwner(owner);
+        }
+        talk.prepareAll(body);
+    }
+
+    /** The id reserved for the reply being written, once it is saved. Null when this reply already took it. */
+    String stampVoice() {
+        return chatPane == null ? null : chatPane.claimVoiceId();
+    }
+
+    void armThink(String phase, String writing) {
         thinkToken = readToken;
         thinkWrite = writing == null ? "Thinking\u2026" : writing;
         thinkPace = new ai.ibiko.llm.ThinkPace(phase, System.currentTimeMillis());
@@ -3039,6 +3062,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             String go = "Carry out this plan now, step by step, and check it works.\n\nThe task: " + task + "\n\nThe plan:\n" + plan;
             if (chatPane != null && chats != null) {
                 chats.add("user", "text", which == 0 ? "Carry out the plan (accept edits)" : "Carry out the plan (auto)", "ibiko");
+                chatPane.nextVoiceTurn();
                 chatPane.show();
             }
             runAgent(go, "ibiko", false);
@@ -4169,6 +4193,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             chatPane.freezeLive(); // the reply already on screen stays above this message
         }
         chats.add("user", "text", t, chats.current().persona);
+        chatPane.nextVoiceTurn(); // the next reply's voice is its own, not the one just kept
         chatPane.show();
     }
 
@@ -4341,6 +4366,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
                         @Override
                         public void speak(String sentence) {
+                            if (chatPane != null) {
+                                String owner = chatPane.beginVoice();
+                                if (owner != null) {
+                                    talk.setOwner(owner); // said as it is written, and kept under the message it will be
+                                }
+                            }
                             talk.queue(ivieVoice, sentence);
                         }
 
@@ -4470,7 +4501,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                                 + (order.arg.isEmpty() ? "" : " \u201c" + order.arg + "\u201d") + ". Ask again here to carry it out.)";
                     }
                     if (chats != null && !kept.isEmpty()) {
-                        chats.replyToPage(agent, kept);
+                        keepVoice(kept);
+                        chats.replyToPage(agent, kept, stampVoice());
                         unreadPages.add(agent); // a dot on that page's tab
                         personaTabs.update(stage.agent());
                     }
@@ -4485,8 +4517,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         chatPane.setLive(null);
                     }
                     String kept = ai.ibiko.gate.ClaimGuard.check(body, false);
+                    keepVoice(kept);
                     if (chats != null) {
-                        chats.replyToPage(agent, kept);
+                        chats.replyToPage(agent, kept, stampVoice());
                     }
                     ai.ibiko.llm.ReplyNotice.show(MainActivity.this, agent, kept);
                     final String learnQ = question, learnA = kept;
@@ -4543,10 +4576,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 } else {
                     // a reply that says it sent, saved or posted something when nothing was done says so plainly
                     body = ai.ibiko.gate.ClaimGuard.check(body, false);
-                    if (talk != null && !speakReply() && true /* every reply's voice is made ahead and kept */) {
-                        // the reply's audio is made in the background while it is read on the screen (kept for a day)
-                        talk.prepareAll(body);
-                    }
+                    keepVoice(body); // the rest of the voice, under this reply, while the words go on screen
                     TurnLine said = new TurnLine(agent, "SAY", body);
                     if (spokeLive) {
                         spokenLive.add(said);

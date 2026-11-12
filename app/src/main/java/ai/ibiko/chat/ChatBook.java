@@ -50,6 +50,10 @@ public final class ChatBook {
     private static final java.util.concurrent.atomic.AtomicLong IDS = new java.util.concurrent.atomic.AtomicLong();
 
     /** A new message id: the time it was made and a count, so ids never repeat on this device. */
+    public static String newMessageId() {
+        return newId();
+    }
+
     static String newId() {
         return "m" + Long.toString(System.currentTimeMillis(), 36) + Long.toString(IDS.incrementAndGet() & 0xFFFF, 36);
     }
@@ -378,24 +382,24 @@ public final class ChatBook {
     }
 
     public synchronized void reply(String persona, String text) {
-        boolean wrote = false;
+        reply(persona, text, null);
+    }
+
+    /**
+     * As {@link #reply(String, String)}. {@code firstId}, when set, is the id of the first block: the voice of this
+     * reply was filed under it while the words were still being written, and Listen looks it up by that same id.
+     * True when a block was saved.
+     */
+    public synchronized boolean reply(String persona, String text, String firstId) {
         Section page = pageFor(persona);
         if (ReplyText.repeats(lastAnswer(page), text)) {
-            return; // said already in this turn: a second copy is not shown
+            return false; // said already in this turn: a second copy is not shown
         }
-        for (Message m : blocks("assistant", persona, text)) {
-            if (m.body.trim().isEmpty()) {
-                continue;
-            }
-            page.messages.add(m);
-            if ("text".equals(m.kind) && file != null) {
-                ai.ibiko.learn.Identifier.save(file.getParentFile(), page.group != null ? page.group : page.id, "assistant", m.id, m.body);
-            }
-            wrote = true;
-        }
-        if (wrote) {
+        if (addReply(page, persona, text, firstId)) {
             save();
+            return true;
         }
+        return false;
     }
 
     /**
@@ -403,6 +407,11 @@ public final class ChatBook {
      * (a job that finished in the background). The open page stays open.
      */
     public synchronized void replyToPage(String persona, String text) {
+        replyToPage(persona, text, null);
+    }
+
+    /** As {@link #replyToPage(String, String)}, with the first block keeping {@code firstId} (its voice was filed there). */
+    public synchronized void replyToPage(String persona, String text, String firstId) {
         String p = personaOf(persona);
         Section cur = current();
         Section bound = workPage.containsKey(p) ? pageFor(p) : null;
@@ -418,16 +427,31 @@ public final class ChatBook {
             page.group = cur.group;
             sections.add(page);
         }
-        boolean wrote = false;
-        for (Message m : blocks("assistant", p, text)) {
-            if (!m.body.trim().isEmpty()) {
-                page.messages.add(m);
-                wrote = true;
-            }
-        }
+        boolean wrote = addReply(page, p, text, firstId);
         if (wrote) {
             save();
         }
+    }
+
+    /** Adds a reply's blocks to {@code page}. The first block keeps {@code firstId} when one was reserved for its voice. */
+    private boolean addReply(Section page, String persona, String text, String firstId) {
+        boolean wrote = false;
+        boolean stamp = firstId != null && !firstId.isEmpty();
+        for (Message m : blocks("assistant", persona, text)) {
+            if (m.body.trim().isEmpty()) {
+                continue;
+            }
+            if (stamp) {
+                m = new Message(m.role, m.kind, m.body, m.persona, m.language, firstId);
+                stamp = false;
+            }
+            page.messages.add(m);
+            if ("text".equals(m.kind) && file != null) {
+                ai.ibiko.learn.Identifier.save(file.getParentFile(), page.group != null ? page.group : page.id, "assistant", m.id, m.body);
+            }
+            wrote = true;
+        }
+        return wrote;
     }
 
     /** A fact every section can see. Empty and duplicate notes are ignored. */

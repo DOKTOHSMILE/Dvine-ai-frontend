@@ -53,6 +53,10 @@ public final class NeuralVoice {
 
     private final File filesDir;
     private final LinkedBlockingQueue<Item> queue = new LinkedBlockingQueue<Item>();
+    /** Sentences to make ahead that arrived before the voice had loaded: held, not dropped, and made once it has. */
+    private final java.util.ArrayList<Item> waitingAhead = new java.util.ArrayList<Item>();
+    /** Marks that must run only after {@link #waitingAhead} has been made. */
+    private final java.util.ArrayList<Item> waitingMarks = new java.util.ArrayList<Item>();
     private volatile int epoch;
     private volatile VoicePacks.Pack pack;
     private volatile boolean ready, closed;
@@ -218,7 +222,24 @@ public final class NeuralVoice {
         }
         Item it = new Item(null, "ahead", text, speaker, speed, 1f, AHEAD);
         it.owner = owner;
+        if (queuedAhead(key, it.owner)) {
+            return; // already waiting to be made: a second copy would make the same sentence twice
+        }
         queue.offer(it);
+    }
+
+    /** Whether this sentence is already waiting to be made ahead (the same words, voice and message). */
+    private boolean queuedAhead(String key, String who) {
+        for (Item i : queue) {
+            if (i.epoch != AHEAD) {
+                continue;
+            }
+            boolean sameOwner = who == null ? i.owner == null : who.equals(i.owner);
+            if (sameOwner && key.equals(madeKey(i.text, i.speaker, i.speed))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Stops at once: what is playing and everything waiting. */
@@ -248,6 +269,13 @@ public final class NeuralVoice {
             while (!closed) {
                 Item it = queue.take();
                 if (it.epoch == MARK) {
+                    if (!waitingAhead.isEmpty() && !ready) {
+                        if (loading) {
+                            waitingMarks.add(it); // the voice is still loading: light Listen only once the sound is kept
+                            continue;
+                        }
+                        waitingAhead.clear(); // no voice is coming: nothing will be kept
+                    }
                     try {
                         if (it.after != null) {
                             it.after.run();
@@ -258,9 +286,13 @@ public final class NeuralVoice {
                     continue;
                 }
                 if (it.epoch == AHEAD) {
-                    if (ready) {
-                        makeAhead(it);
+                    if (!ready) {
+                        if (loading) {
+                            waitingAhead.add(it); // made when the voice finishes loading, not thrown away
+                        }
+                        continue;
                     }
+                    makeAhead(it);
                     continue;
                 }
                 if (it.epoch < 0) {
@@ -288,56 +320,63 @@ public final class NeuralVoice {
         ready = false;
         VoicePacks.Pack p = key == null ? null : VoicePacks.byKey(key);
         pack = p;
-        if (p == null || !VoicePacks.installed(filesDir, p)) {
-            loading = false;
-            return;
-        }
-        File d = VoicePacks.folder(filesDir, p);
-        String data = new File(d, "espeak-ng-data").getPath(), tokens = new File(d, "tokens.txt").getPath();
-        String model = new File(d, p.model).getPath();
-        int threads = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
-        try {
-            com.k2fsa.sherpa.onnx.OfflineTtsModelConfig.Builder m = com.k2fsa.sherpa.onnx.OfflineTtsModelConfig.builder()
-                    .setNumThreads(threads).setProvider("cpu").setDebug(false);
-            if ("kokoro".equals(p.kind)) {
-                m.setKokoro(com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig.builder().setModel(model)
-                        .setVoices(new File(d, "voices.bin").getPath()).setTokens(tokens).setDataDir(data).build());
-            } else {
-                m.setVits(com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig.builder().setModel(model).setTokens(tokens)
-                        .setDataDir(data).build());
-            }
-            tts = new com.k2fsa.sherpa.onnx.OfflineTts(com.k2fsa.sherpa.onnx.OfflineTtsConfig.builder()
-                    .setModel(m.build()).setMaxNumSentences(1).build());
-            rate = tts.getSampleRate();
-            int min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT);
-            track = new AudioTrack.Builder()
-                    .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-                    .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-                            .setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                    .setBufferSizeInBytes(Math.max(min, rate * 4 / 2)).setTransferMode(AudioTrack.MODE_STREAM).build();
-            // a warm-up sentence, not played: the model's first run sets itself up, so the first real one is quick
+        if (p != null && VoicePacks.installed(filesDir, p)) {
+            File d = VoicePacks.folder(filesDir, p);
+            String data = new File(d, "espeak-ng-data").getPath(), tokens = new File(d, "tokens.txt").getPath();
+            String model = new File(d, p.model).getPath();
+            int threads = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
             try {
-                tts.generate("Hello.", 0, 1f);
-            } catch (Throwable ignored) {
-                // only a warm-up
+                com.k2fsa.sherpa.onnx.OfflineTtsModelConfig.Builder m = com.k2fsa.sherpa.onnx.OfflineTtsModelConfig.builder()
+                        .setNumThreads(threads).setProvider("cpu").setDebug(false);
+                if ("kokoro".equals(p.kind)) {
+                    m.setKokoro(com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig.builder().setModel(model)
+                            .setVoices(new File(d, "voices.bin").getPath()).setTokens(tokens).setDataDir(data).build());
+                } else {
+                    m.setVits(com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig.builder().setModel(model).setTokens(tokens)
+                            .setDataDir(data).build());
+                }
+                tts = new com.k2fsa.sherpa.onnx.OfflineTts(com.k2fsa.sherpa.onnx.OfflineTtsConfig.builder()
+                        .setModel(m.build()).setMaxNumSentences(1).build());
+                rate = tts.getSampleRate();
+                int min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT);
+                track = new AudioTrack.Builder()
+                        .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                        .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                                .setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                        .setBufferSizeInBytes(Math.max(min, rate * 4 / 2)).setTransferMode(AudioTrack.MODE_STREAM).build();
+                // a warm-up sentence, not played: the model's first run sets itself up, so the first real one is quick
+                try {
+                    tts.generate("Hello.", 0, 1f);
+                } catch (Throwable ignored) {
+                    // only a warm-up
+                }
+                failed = null;
+                ready = true;
+                new File(VoicePacks.root(filesDir), PROBLEM).delete();
+            } catch (Throwable e) {
+                // an engine that won't start says nothing in another voice; why is kept for Settings › Voice and told once
+                failed = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
+                release();
+                try {
+                    java.nio.file.Files.write(new File(VoicePacks.root(filesDir), PROBLEM).toPath(),
+                            (p.title + "\n" + failed).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } catch (java.io.IOException | RuntimeException ignored) {
+                    // nowhere to write it
+                }
             }
-            failed = null;
-            ready = true;
-            new File(VoicePacks.root(filesDir), PROBLEM).delete();
-        } catch (Throwable e) {
-            // an engine that won't start says nothing in another voice; why is kept for Settings › Voice and told once
-            failed = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
-            release();
-            try {
-                java.nio.file.Files.write(new File(VoicePacks.root(filesDir), PROBLEM).toPath(),
-                        (p.title + "\n" + failed).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            } catch (java.io.IOException | RuntimeException ignored) {
-                // nowhere to write it
-            }
-        } finally {
-            loading = false;
         }
+        loading = false;
+        if (ready) {
+            for (Item w : waitingAhead) {
+                queue.offer(w); // held while the voice loaded: made now, under the message they belong to
+            }
+        }
+        waitingAhead.clear();
+        for (Item m : waitingMarks) {
+            queue.offer(m);
+        }
+        waitingMarks.clear();
     }
 
     /** Frames written since the track was last cleared, and the speech run (epoch) they belong to. */
@@ -461,8 +500,10 @@ public final class NeuralVoice {
                     pieces.add(clean(got));
                     n += got.length;
                 }
-                if (!queue.isEmpty() && queue.peek().epoch >= 0) {
-                    return; // something to say now comes first; this one is made when it is asked for
+                Item next = queue.peek();
+                if (next != null && next.epoch >= 0) {
+                    queue.offer(it); // something to say now comes first; this sentence is made again right after
+                    return;
                 }
             }
         } catch (RuntimeException e) {

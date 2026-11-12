@@ -221,4 +221,23 @@ public class ChatBookTest {
         assertTrue(book.delete(trip));
         assertFalse("the chat's kept voice is deleted with it", new File(dir, "voices/said/" + group).exists());
     }
+
+    /** The voice is filed under an id chosen while the reply is still being written; the saved message keeps that id. */
+    @Test
+    public void aReplyKeepsTheIdItsVoiceWasFiledUnder() throws Exception {
+        File dir = java.nio.file.Files.createTempDirectory("chats").toFile();
+        ChatBook book = new ChatBook(new File(dir, "chats.json"));
+        book.add("user", "text", "Write the report", "ibiko");
+        String id = ChatBook.newMessageId();
+        assertTrue(book.reply("ibiko", "Here is the report.\n```java\nint x = 1;\n```\nThat is the whole of it.", id));
+        java.util.List<Message> msgs = book.current().messages;
+        assertEquals(id, msgs.get(1).id);
+        assertTrue(msgs.size() > 2);
+        org.junit.Assert.assertNotEquals("only the first block keeps the reserved id", id, msgs.get(2).id);
+        book.flush();
+        ChatBook again = new ChatBook(new File(dir, "chats.json"));
+        assertEquals(id, again.current().messages.get(1).id);
+        assertFalse(book.reply("ibiko", "That is the whole of it.", "m-other"));
+        assertEquals("a repeat does not take the reserved id", id, book.current().messages.get(1).id);
+    }
 }

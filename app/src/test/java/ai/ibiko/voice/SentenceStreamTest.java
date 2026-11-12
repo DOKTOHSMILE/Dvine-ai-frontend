@@ -31,6 +31,16 @@ public class SentenceStreamTest {
         assertEquals(Arrays.asList("It grew fast."), s.finish());
     }
 
+    /** Listen splits the saved reply the same way the live stream cuts it, so the files made early are the ones it plays. */
+    @Test
+    public void aReportFedAsItArrivesIsTheSameSentencesListenWillRead() {
+        String report = "The survey is done. Twelve files were read from the top.\n\nNothing failed. The build is green.";
+        SentenceStream live = new SentenceStream();
+        List<String> asItArrived = feed(live, report, 5);
+        asItArrived.addAll(live.finish());
+        assertEquals(SentenceStream.split(report), asItArrived);
+    }
+
     @Test
     public void doesNotSplitAbbreviationsOrNumbers() {
         SentenceStream s = new SentenceStream();

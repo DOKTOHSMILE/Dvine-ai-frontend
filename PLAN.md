@@ -1,3 +1,9 @@
+# The voice is ready when the reply is (0.99.131)
+
+- [x] While a reply is still being written, each finished sentence is made and kept under that reply's id.
+- [x] The saved message keeps that same id, so Listen plays the file instead of making it again.
+- [x] Listen stays dim until those files are there. A sentence that arrives before the voice has loaded is kept and made when it has, not dropped.
+
 # The device's model: room to work, no unasked actions (0.99.130)
 
 - [x] Memory estimate: weights mapped (counted once), the cache 8-bit, the guard on what is allocated: 4,096 tokens where it was 1,024.
