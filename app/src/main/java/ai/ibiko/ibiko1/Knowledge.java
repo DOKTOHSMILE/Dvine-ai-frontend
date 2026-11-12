@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -166,6 +167,14 @@ public final class Knowledge {
         String a = answer == null ? "" : answer.trim();
         return q.matches("(?s)^(hi|hello|hey|yo|good (morning|afternoon|evening|night)|thanks?|thank you|ok|okay)\\b.{0,20}")
                 || q.matches("(?s).*\\b(who are you|what can you do|what (have|did) you (learn|learned|learnt)|what do you (know|remember)\\s*\\??$).*")
+                // a question to Ibiko about itself ("how fast can you go?"): its answer is about this device, not a fact
+                || q.matches("(?s).*\\b(you|your|yourself)\\b.*") && !q.matches("(?s).*\\b(about|on|regarding)\\b \\S.*")
+                // a job asked for ("pull the latest repo update"): its answer is a report of that run, not knowledge
+                || q.matches("(?s)^(please )?(pull|push|clone|build|run|deploy|fix|install|update|upgrade|commit|merge|ship|test|sync)\\b.*")
+                || a.matches("(?is)^(progress so far|done[.:!]|i ran |i've (pushed|pulled|merged|built)).*")
+                // a statement that was only talk ("Well, today is Christmas day"): a filler, a day or a pronoun as its subject
+                || q.matches("(?s)^(what|who) (is|are|was|were) (well|so|oh|um|hmm|yes|no|and|but|like|today|tomorrow|yesterday"
+                        + "|tonight|now|it|this|that|he|she|they|there|here)\\b.*")
                 || a.startsWith("Hello, I'm Ibiko") || a.startsWith("Answers you confirmed") || a.startsWith("No answers confirmed");
     }
 
@@ -428,7 +437,23 @@ public final class Knowledge {
         } catch (IOException e) {
             facts.clear();
         }
+        // "Who is Easter rice?" kept beside "What is Easter rice?" by an older version (it read the capital at the start
+        // of a sentence as a name): a thing is not a "who", so the copy goes
+        facts.removeIf(f -> {
+            Matcher m = WHO.matcher(f.question);
+            if (!m.matches() || m.group(2).matches("\\p{Lu}\\S*( \\p{Lu}\\S*)*")) {
+                return false;
+            }
+            for (Fact g : facts) {
+                if (g != f && g.answer.equals(f.answer) && g.question.equalsIgnoreCase("What " + m.group(1) + " " + m.group(2) + "?")) {
+                    return true;
+                }
+            }
+            return false;
+        });
     }
+
+    private static final java.util.regex.Pattern WHO = java.util.regex.Pattern.compile("(?s)Who (is|are|was|were) (.+)\\?");
 
     private void save() {
         if (file == null) {

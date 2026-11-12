@@ -1,3 +1,11 @@
+# What Ibiko 1 learns, cleaned (0.99.120)
+
+- [x] Job reports, questions to Ibiko about itself, and talk ("Well, today is…") are not kept; old ones are dropped on read.
+- [x] "Who is X?" only for names; old "Who is Easter rice?" copies removed.
+- [x] Every message in a row answered (test).
+- [ ] The device case from the screenshot (messages with no reply): needs the brain in use and whether a job was running.
+- [ ] Next: pack format 2 from the review (frequency-ordered codes, dictionary fingerprint, checksum).
+
 # The brain's files in codes (0.99.119)
 
 - [x] learn/Pack and learn/CodeFile; BrainBox, Concepts, Facts, Knowledge, Lexicon kept in codes.
