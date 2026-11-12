@@ -243,7 +243,7 @@ public final class Methods {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 String[] p = line.split("\t");
                 if (p.length < 6) {
                     continue;
@@ -290,9 +290,9 @@ public final class Methods {
                 dir.mkdirs();
             }
             File tmp = new File(file.getPath() + ".tmp");
-            Files.write(tmp.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(tmp.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
             if (!tmp.renameTo(file)) {
-                Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+                Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
                 tmp.delete();
             }
         } catch (IOException e) {

@@ -142,7 +142,7 @@ public final class Foresight {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 String[] p = line.split("\t");
                 if (p.length == 4 && "n".equals(p[0])) {
                     counts.put(p[1] + "\t" + p[2], Double.parseDouble(p[3]));
@@ -171,7 +171,7 @@ public final class Foresight {
             if (dir != null) {
                 dir.mkdirs();
             }
-            Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
         } catch (IOException e) {
             // kept in memory
         }

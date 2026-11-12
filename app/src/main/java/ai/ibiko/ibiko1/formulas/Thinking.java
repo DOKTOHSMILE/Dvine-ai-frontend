@@ -189,7 +189,7 @@ public final class Thinking {
             return;
         }
         try {
-            for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)) {
+            for (String line : ai.ibiko.learn.CodeFile.lines(file)) {
                 String[] p = line.split("\t");
                 if (p.length != 3) {
                     continue;
@@ -223,7 +223,7 @@ public final class Thinking {
             if (dir != null) {
                 dir.mkdirs();
             }
-            Files.write(file.toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(file.toPath(), ai.ibiko.learn.CodeFile.encode(b.toString()));
         } catch (IOException ignored) {
             // kept in memory
         }

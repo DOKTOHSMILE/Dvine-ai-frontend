@@ -61,9 +61,7 @@ public final class LearningLog {
             if (file.length() > MAX_BYTES) {
                 dropOldestHalf();
             }
-            try (FileOutputStream o = new FileOutputStream(file, true)) {
-                o.write((MiniJson.write(r) + "\n").getBytes(StandardCharsets.UTF_8));
-            }
+            CodeLog.append(file, MiniJson.write(r)); // one answer added in IBK codes, never the whole log again
         } catch (IOException e) {
             // learning is a bonus: a full disk must not stop the answer
         }
@@ -215,7 +213,7 @@ public final class LearningLog {
             if (!file.isFile()) {
                 return new ArrayList<String>();
             }
-            return Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+            return CodeLog.lines(file);
         } catch (IOException e) {
             return new ArrayList<String>();
         }
@@ -224,7 +222,7 @@ public final class LearningLog {
     private void dropOldestHalf() throws IOException {
         List<String> all = lines();
         List<String> keep = all.subList(all.size() / 2, all.size());
-        Files.write(file.toPath(), (String.join("\n", keep) + "\n").getBytes(StandardCharsets.UTF_8));
+        CodeLog.write(file, new ArrayList<String>(keep));
     }
 
     private static final Set<String> SMALL = new HashSet<String>(java.util.Arrays.asList("the", "a", "an", "is", "are", "of",

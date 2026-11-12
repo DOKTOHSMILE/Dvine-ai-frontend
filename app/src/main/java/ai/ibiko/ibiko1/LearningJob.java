@@ -119,7 +119,7 @@ public final class LearningJob extends JobService {
 
     static List<String> read(File f) {
         try {
-            return f.isFile() ? new ArrayList<String>(Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) : new ArrayList<String>();
+            return f.isFile() ? new ArrayList<String>(ai.ibiko.learn.CodeFile.lines(f)) : new ArrayList<String>();
         } catch (IOException e) {
             return new ArrayList<String>();
         }
@@ -127,7 +127,7 @@ public final class LearningJob extends JobService {
 
     static void write(File f, List<String> lines) {
         try {
-            Files.write(f.toPath(), (String.join("\n", lines) + (lines.isEmpty() ? "" : "\n")).getBytes(StandardCharsets.UTF_8));
+            Files.write(f.toPath(), ai.ibiko.learn.CodeFile.encode(String.join("\n", lines) + (lines.isEmpty() ? "" : "\n")));
         } catch (IOException ignored) {
             // tried again tomorrow
         }
