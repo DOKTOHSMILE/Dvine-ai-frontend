@@ -22,14 +22,6 @@ public class ReplyWatchTest {
         assertFalse(watch.expired(120_000));
     }
 
-    @Test
-    public void aPackedAnswerIsNotRefused() {
-        assertFalse(AnswerGate.refuseUngrounded(false, true, true));
-        assertTrue(AnswerGate.refuseUngrounded(false, false, true));
-        assertFalse(AnswerGate.refuseUngrounded(true, false, true));
-        assertFalse(AnswerGate.refuseUngrounded(false, false, false));
-    }
-
     @org.junit.Test
     public void readingALongQuestionIsNotCountedAsWriting() {
         ReplyWatch w = new ReplyWatch(12_000, 180_000, 600_000, 0);

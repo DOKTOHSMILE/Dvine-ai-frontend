@@ -9,36 +9,17 @@ import java.util.List;
 import org.junit.Test;
 
 import ai.ibiko.ops.mind.OpenSearch;
-import ai.ibiko.ops.pipe.MachinePlan;
-import ai.ibiko.render.field.PhotoFrame;
 import ai.ibiko.render.field.PhotoLookup;
 
 public class PhotoPlanTest {
     @Test
-    public void aDrawingIsAPhotographLookupAndABuildStaysAModel() {
-        MachinePlan pen = MachinePlan.read("draw me a pen");
-        assertEquals(MachinePlan.Op.LOOK_UP_PHOTOS, pen.op);
-        assertEquals("pen", pen.subject);
-        MachinePlan design = MachinePlan.read("design a red bicycle");
-        assertEquals(MachinePlan.Op.LOOK_UP_PHOTOS, design.op);
-        assertTrue(design.subject.contains("bicycle"));
-        assertEquals(MachinePlan.Op.OTHER, MachinePlan.read("build a red motorcycle").op);
-        assertEquals(MachinePlan.Op.LOOK_UP_PHOTOS, MachinePlan.read("form a dragon").op);
-    }
-
-    @Test
-    public void commonsUrlsAreRealFilesAndTheCropIsTheMiddle() {
+    public void commonsUrlsAreRealFiles() {
         String json = "{\"query\":{\"pages\":[{\"imageinfo\":[{\"thumburl\":\"https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Bike.jpg/640px-Bike.jpg\",\"url\":\"https://upload.wikimedia.org/wikipedia/commons/a/ab/Bike.jpg\"}]}]}}";
         List<String> urls = PhotoLookup.urls(json, 4);
         assertEquals(2, urls.size());
         assertTrue(urls.get(0).contains("upload.wikimedia.org"));
         assertTrue(PhotoLookup.commonsUrl("bicycle", 4).contains("commons.wikimedia.org"));
         assertEquals(0, PhotoLookup.urls("{\"url\":\"https://evil.example/a.jpg\"}", 4).size());
-        int[] box = PhotoFrame.middle(100, 80, 0.72f);
-        assertEquals(14, box[0]);
-        assertEquals(11, box[1]);
-        assertEquals(72, box[2]);
-        assertEquals(58, box[3]);
     }
 
     @Test

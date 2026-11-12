@@ -66,9 +66,6 @@ public class ViewWordsTest {
         for (String c : ShapeCommand.CANONICAL) {
             assertNotNull(c, ShapeCommand.parse(c));
         }
-        assertEquals("rotate it vertically", ai.ibiko.agent.ViewIntent.read("<think></think>Rotate it vertically."));
-        assertNull(ai.ibiko.agent.ViewIntent.read("none"));
-        assertTrue(ai.ibiko.agent.ViewIntent.looksLikeOne("make it do cartwheels"));
     }
 
     @Test

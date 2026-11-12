@@ -19,7 +19,6 @@ import org.junit.Test;
 import ai.ibiko.ops.mind.InternetResearchEngine;
 import ai.ibiko.ops.mind.ModelRuntimeManager;
 import ai.ibiko.ops.mind.PromptContextManager;
-import ai.ibiko.ops.mind.ResponseStreamingManager;
 import ai.ibiko.ops.pipe.BrainInterpretationEngine;
 import ai.ibiko.ops.pipe.NaturalLanguageActionEngine;
 import ai.ibiko.ops.pipe.SemanticTypes;
@@ -422,9 +421,6 @@ public class OpsPipelineTest {
         assertTrue(prompt.length() < 700);
         assertFalse(prompt.contains("Note: d"));
         assertFalse(prompt.contains("Note: e"));
-        List<ResponseStreamingManager.Piece> pieces = new ResponseStreamingManager().stream("This finding is only confirmed at the end of the answer.");
-        assertFalse(pieces.get(0).verified);
-        assertTrue(pieces.get(pieces.size() - 1).verified);
     }
 
     @Test

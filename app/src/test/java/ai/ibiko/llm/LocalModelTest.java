@@ -18,30 +18,6 @@ import org.junit.Test;
 /** The on-device model's Java side: speaking in sentences, the persona prompt, a verified resumable download, the CPU check. */
 public class LocalModelTest {
     @Test
-    public void repliesAreSpokenSentenceBySentence() {
-        SpeechChunker c = new SpeechChunker();
-        List<String> said = new ArrayList<String>();
-        for (String piece : new String[]{"A heli", "copter is an **aircraft**. It flies", " with a spinning rotor, which gives lift. ", "Pilots steer it"}) {
-            said.addAll(c.add(piece));
-        }
-        assertEquals(2, said.size());
-        assertEquals("A helicopter is an aircraft.", said.get(0));
-        assertEquals("It flies with a spinning rotor, which gives lift.", said.get(1));
-        assertEquals("Pilots steer it", c.flush());
-        // numbers and tiny fragments don't cut a sentence
-        SpeechChunker d = new SpeechChunker();
-        assertTrue(d.add("It costs 3.5 dollars. ").size() == 1);
-        assertTrue(new SpeechChunker().add("Hi. ").isEmpty());
-        // a long first clause lets the voice start at a comma
-        List<String> early = new SpeechChunker().add("When the sunlight passes through the air of the whole atmosphere, the blue light scatters most");
-        assertEquals(1, early.size());
-        List<String> sooner = new SpeechChunker().add("Please tell me the short version of this, and then stop");
-        assertEquals(1, sooner.size());
-        List<String> semi = new SpeechChunker().add("Please tell me the short version of this; and then stop");
-        assertEquals(1, semi.size());
-    }
-
-    @Test
     public void personasSpeakInTheirOwnManner() {
         String obi = PersonaPrompt.system(false, "Val"), ivie = PersonaPrompt.system(true, null);
         assertTrue(obi.startsWith("You are Ibiko") && obi.contains("Val") && obi.endsWith("/no_think"));

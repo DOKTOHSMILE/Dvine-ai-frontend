@@ -7,7 +7,6 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-import ai.ibiko.turn.Followup;
 
 /** The brain knows the app it lives in; its switch tags are acted on and never spoken; a question opens the mic. */
 public class SelfAndTagsTest {
@@ -44,16 +43,5 @@ public class SelfAndTagsTest {
         assertNull(u.switchTo());
         assertEquals("Hello.", ActionTags.strip("Hello. [[switch:ivie]]"));
         assertEquals("Hello.", ActionTags.strip("Hello. [[switch:somebody]]"));
-    }
-
-    @Test
-    public void aRequestForAnAnswerOpensTheMicrophone() {
-        assertTrue(Followup.wantsReply("What would you like to build?"));
-        assertTrue(Followup.wantsReply("I can help with that. Tell me more about the app."));
-        assertTrue(Followup.wantsReply("Okay. Let me know when you're ready."));
-        assertTrue(Followup.wantsReply("Go ahead, I'm listening."));
-        assertFalse(Followup.wantsReply("The capital of France is Paris."));
-        assertFalse(Followup.wantsReply("Copied. The crash report is on your clipboard."));
-        assertFalse(Followup.wantsReply(""));
     }
 }

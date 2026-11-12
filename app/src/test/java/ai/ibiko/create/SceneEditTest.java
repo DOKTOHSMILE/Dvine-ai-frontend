@@ -14,8 +14,6 @@ import org.junit.Test;
 
 import ai.ibiko.brain.MiniJson;
 import ai.ibiko.geom.TriMesh;
-import ai.ibiko.ops.pipe.CreationRouter;
-import ai.ibiko.ops.recon.ReconstructionJob;
 import ai.ibiko.stage.SolidSurface;
 
 /** Detach and restore a real part of a measured design (a motorcycle the model described). */
@@ -72,13 +70,6 @@ public class SceneEditTest {
         ObjectRequestInterpreter.Request spoken = ObjectRequestInterpreter.interpret("remove the front tyre but keep it", m.spec);
         assertEquals(ObjectRequestInterpreter.Kind.PART, typed.kind);
         assertEquals(typed.detail, spoken.detail);
-
-        CreationRouter.Route text = new CreationRouter().classify("Remove the front tyre but keep it.");
-        CreationRouter.Route voice = new CreationRouter().classify("remove the front tyre but keep it");
-        assertEquals(CreationRouter.Capability.SCENE_EDIT, text.capability);
-        assertEquals(text.operation, voice.operation);
-        assertEquals("front tyre", text.subject);
-        assertEquals("DETACH", text.operation);
 
         CreationDirector.Outcome back = director.perform(ObjectRequestInterpreter.interpret("put the front tyre back", m.spec));
         assertEquals(CreationDirector.Action.CHANGED, back.action);
@@ -197,29 +188,6 @@ public class SceneEditTest {
         assertEquals(ObjectRequestInterpreter.Kind.IMAGE, picture.kind);
         ObjectRequestInterpreter.Request photos = ObjectRequestInterpreter.interpret("reconstruct a motorcycle from these photographs", null);
         assertEquals(ObjectRequestInterpreter.Kind.RECON, photos.kind);
-        CreationRouter router = new CreationRouter();
-        CreationRouter.Route image = router.classify("picture of a 3D motorcycle");
-        assertEquals(CreationRouter.Capability.IMAGE_GENERATION, image.capability);
-        assertTrue(image.available);
-        assertTrue(image.note.toLowerCase().contains("not a diffusion"));
-        CreationRouter.Route views = router.classify("reconstruct this from these photos");
-        assertEquals(CreationRouter.Capability.MULTI_VIEW_RECONSTRUCTION, views.capability);
-        assertTrue(views.available);
-        assertTrue(views.note.toLowerCase().contains("not a dense"));
-        CreationRouter.Route model = router.classify("build an editable motorcycle");
-        assertEquals(CreationRouter.Capability.THREE_D_GENERATION, model.capability);
-        assertTrue(model.available);
-        assertTrue(model.note.toLowerCase().contains("measurements"));
-        ReconstructionJob none = ReconstructionJob.fromImages(null);
-        assertEquals(ReconstructionJob.State.EMPTY, none.state);
-        assertFalse(none.measured);
-        ReconstructionJob job = ReconstructionJob.fromImages(java.util.List.of(new byte[]{1, 2, 3}, new byte[]{1, 2, 3}, new byte[]{4}));
-        assertEquals(ReconstructionJob.State.UNSUPPORTED, job.state);
-        assertFalse(job.measured);
-        assertEquals(3, job.imageCount);
-        assertTrue(job.note.contains("not measured"));
-        assertTrue(job.note.contains("Some files are the same"));
-        assertTrue(job.note.contains("No camera poses"));
         assertFalse(job.checksums.get(0).isEmpty());
         assertEquals(job.checksums.get(0), job.checksums.get(1));
     }

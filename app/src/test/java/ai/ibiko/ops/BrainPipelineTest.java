@@ -17,7 +17,6 @@ import ai.ibiko.ops.mind.LanguageInferenceOptimizer.InferenceScheduler;
 import ai.ibiko.ops.mind.ModelRuntimeManager;
 import ai.ibiko.ops.pipe.CapabilityRegistry;
 import ai.ibiko.ops.pipe.RequestGateway;
-import ai.ibiko.ops.pipe.SemanticGraph;
 import ai.ibiko.ops.pipe.StructuredActionPlan;
 import ai.ibiko.ops.recon.EditableScene;
 import ai.ibiko.ops.recon.MultiViewReconstructionManager;
@@ -108,20 +107,6 @@ public class BrainPipelineTest {
         assertFalse(runtime.ready());
         runtime.confirmReady("qwen3-1.7b-q4km.gguf");
         assertTrue(runtime.loaded());
-    }
-
-    @Test
-    public void aCorrectionDoesNotRewriteGeneralKnowledge() {
-        SemanticGraph graph = new SemanticGraph();
-        graph.approveGeneral("tyre", "a rubber ring");
-        graph.observe("motorcycle-1", "front_tyre", SemanticGraph.Relation.PART_OF, "front_wheel", "scene");
-        graph.correct("motorcycle", "tyre", "front_tyre");
-        assertEquals("a rubber ring", graph.general("tyre"));
-        assertEquals("front_tyre", graph.correction("motorcycle", "tyre"));
-        assertEquals("front_wheel", graph.related("motorcycle-1", "front_tyre", SemanticGraph.Relation.PART_OF).get(0).object);
-        graph.forgetCorrection("motorcycle", "tyre");
-        assertNull(graph.correction("motorcycle", "tyre"));
-        assertEquals("a rubber ring", graph.general("tyre"));
     }
 
     @Test

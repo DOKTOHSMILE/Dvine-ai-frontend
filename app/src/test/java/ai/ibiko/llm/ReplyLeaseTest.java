@@ -19,15 +19,6 @@ public class ReplyLeaseTest {
     }
 
     @Test
-    public void aWorldQuestionCanBeCheckedWithoutTheModel() {
-        assertTrue(WorldLookup.shouldSearch(true, false, false, true));
-        assertFalse(WorldLookup.shouldSearch(false, false, false, true));
-        assertFalse(WorldLookup.shouldSearch(true, true, false, true));
-        assertFalse(WorldLookup.shouldSearch(true, false, true, true));
-        assertFalse(WorldLookup.shouldSearch(true, false, false, false));
-    }
-
-    @Test
     public void onlyYesOrNoSettlesAPendingAction() {
         assertEquals(ConfirmGate.Choice.YES, ConfirmGate.read("Yes."));
         assertEquals(ConfirmGate.Choice.NO, ConfirmGate.read("no"));

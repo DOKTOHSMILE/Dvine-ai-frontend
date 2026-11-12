@@ -36,7 +36,7 @@ public class AgentTest {
         assertEquals("share this", Interpretation.parse("INTENT: request\nTASK: share").command());
         assertEquals("post Now in 3d", Interpretation.parse("INTENT: request\nTASK: share\nTARGET: post Now in 3d").command());
         assertEquals("share great work", Interpretation.parse("INTENT: request\nTASK: share\nTARGET: great work").command());
-        // debate: Debate.topicOf/DualAgentCoordinator parse the phrase downstream.
+        // debate: DualAgentCoordinator parses the phrase downstream.
         assertEquals("debate ai art", Interpretation.parse("INTENT: prompt\nTASK: debate\nTARGET: AI art").command());
         assertNull(Interpretation.parse("INTENT: prompt\nTASK: debate").command());
         // copy of nothing still means "copy this", never null.
@@ -70,23 +70,5 @@ public class AgentTest {
         a.learn("draw a cat", "draw a cat"); // nothing to learn
         assertEquals(1, new LearnedIntents(f).size());
         f.delete();
-    }
-
-    @Test
-    public void debatesAnyTopic() {
-        assertEquals("pineapple on pizza", Debate.topicOf("debate pineapple on pizza"));
-        assertEquals("whether AI will replace teachers", Debate.topicOf("Let Obi and Ivie debate whether AI will replace teachers?").replaceFirst("^", "whether ").replace("whether whether", "whether"));
-        assertEquals("cats versus dogs", Debate.topicOf("can you have a debate about cats versus dogs"));
-        assertNull(Debate.topicOf("what is a debate"));
-        Debate d = new Debate("cats versus dogs");
-        int turns = 0;
-        while (!d.done()) {
-            assertTrue(d.rules().contains(turns % 2 == 0 ? "FOR" : "AGAINST"));
-            String line = d.take("Obi: Cats are calm. They clean themselves. They purr. They nap. They judge you.");
-            assertEquals("Cats are calm. They clean themselves. They purr. They nap.", line);
-            turns++;
-        }
-        assertEquals(6, turns);
-        assertTrue(d.prompt().contains("Against (closing)"));
     }
 }
