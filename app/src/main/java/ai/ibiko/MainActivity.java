@@ -2233,6 +2233,33 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                         ibiko1().endpoint().chat(t); // Ibiko 1, through its endpoint: what it knows, or it researches and asks whether it got it right
                         return true;
                     }
+                    if (model != null && !model.remoteOn() && model.installed() && prefs.getBoolean("llm_on", true)) {
+                        // the device's model is chosen but still starting: the message waits for it, it is not answered
+                        // as if there were no brain ("No brain is connected" while the model was loading)
+                        activity("Starting " + model.spec.weights + "\u2026");
+                        final String waiting = t;
+                        hub.worker.execute(() -> {
+                            boolean ok = model.load(ai.ibiko.chat.Tuning.modelThreads(prefs));
+                            handler.post(() -> {
+                                if (isFinishing()) {
+                                    return;
+                                }
+                                if (ok && model.ready()) {
+                                    resending = true; // already in the chat: asked again now the model is up
+                                    try {
+                                        answer(waiting, false);
+                                    } finally {
+                                        resending = false;
+                                    }
+                                } else {
+                                    play(LocalTurn.speakAs(stage.agent(), model.spec.weights + " couldn't start: "
+                                            + (model.problem() == null ? "not enough memory" : model.problem())
+                                            + ". Choose a smaller model or an API in the model menu."), null);
+                                }
+                            });
+                        });
+                        return true;
+                    }
                     // no model in the suit: Ibiko's own Cortex answers what it can (exact sums, greetings, what it learned)
                     String alone = cortex().answerAlone(t);
                     if (alone != null) {
@@ -4387,7 +4414,20 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             raw = foldSteer(id, system, english, context, length, raw, sink);
             tags.flush();
-            final ai.ibiko.llm.BrainOrder order = acts ? ai.ibiko.llm.BrainOrder.leading(raw) : null;
+            ai.ibiko.llm.BrainOrder wrote = acts ? ai.ibiko.llm.BrainOrder.leading(raw) : null;
+            if (wrote != null && !model.remoteOn() && !ai.ibiko.llm.CodeFit.fits(wrote, question + " " + english)) {
+                // a small model on the device picked an action the words don't ask for (plan mode for "Hello", a share
+                // for "Can you write Java?"): nothing is carried out, and the question is answered plainly instead
+                activity("That wasn't asked for: answering instead");
+                String rest = ai.ibiko.llm.BrainOrder.withoutOrder(raw);
+                if (rest == null || rest.trim().length() < 80) {
+                    String plain = model.reply(systemFor(agent, false), english, context, length, null);
+                    rest = plain == null ? rest : plain;
+                }
+                raw = rest;
+                wrote = null;
+            }
+            final ai.ibiko.llm.BrainOrder order = wrote;
             if (order != null) {
                 final String line = String.valueOf(ai.ibiko.suit.FunctionCode.parse(raw)); // the code itself, wherever it stood
                 final String q = question;

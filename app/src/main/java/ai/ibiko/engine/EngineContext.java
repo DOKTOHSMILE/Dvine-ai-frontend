@@ -119,7 +119,8 @@ public final class EngineContext {
         int k = p.nEmbdK > 0 ? p.nEmbdK : p.nEmbd;
         int v = p.nEmbdV > 0 ? p.nEmbdV : p.nEmbd;
         if (p.nLayer > 0 && k > 0 && v > 0) {
-            return Math.max(MIN_KV_TOKEN, (long) p.nLayer * (k + v) * 2L);
+            // the cache is 8-bit (Q8_0: 34 bytes a block of 32) at every size since 0.99.125, not 16-bit
+            return Math.max(MIN_KV_TOKEN, (long) p.nLayer * (k + v) * 34L / 32L);
         }
         if (weightsBytes > 0) {
             return Math.max(MIN_KV_TOKEN, (long) (weightsBytes * KV_UNKNOWN_RATIO));
@@ -134,7 +135,9 @@ public final class EngineContext {
     public static long estimateBytes(Probe p, long weightsBytes, int nCtx) {
         long kv = kvPerToken(p, weightsBytes) * Math.max(1, nCtx);
         long compute = (long) (weightsBytes * COMPUTE_RATIO);
-        return (long) ((weightsBytes + compute + kv) * GUARD);
+        // the weights are mapped from their file, not copied: their pages are counted once, as they are (the free memory
+        // the device reports already includes the cache those pages live in). The guard is for what is allocated.
+        return weightsBytes + (long) ((compute + kv) * GUARD);
     }
 
     /**
