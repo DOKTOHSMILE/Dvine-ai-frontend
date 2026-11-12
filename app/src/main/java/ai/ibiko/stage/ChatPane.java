@@ -619,13 +619,13 @@ public final class ChatPane extends LinearLayout {
             liveBlock.setOrientation(HORIZONTAL);
             liveBlock.setGravity(Gravity.CENTER_VERTICAL);
             liveBlock.setPadding(0, dp(10), 0, dp(10));
-            liveBlock.setMinimumHeight(dp(52)); // a full-width target: one tap opens the steps
+            liveBlock.setMinimumHeight(dp(58)); // a full-width target: one tap opens the steps (room for the bigger face)
             liveBlock.setBackgroundResource(ripple());
             // the live mark: Ibiko's eyes glancing about while the work goes on (the pilot's own animation)
             View mark = thinkingEyes();
-            int side = mark instanceof ThinkingMark ? dp(18) : dp(26);
+            int side = mark instanceof ThinkingMark ? dp(18) : dp(FACE_DP);
             LayoutParams mp = new LayoutParams(side, side);
-            mp.setMarginEnd(dp(10));
+            mp.setMarginEnd(dp(12));
             liveBlock.addView(mark, mp);
             liveNow = plain("");
             liveNow.setTextColor(color(R.color.text_primary));
@@ -2853,6 +2853,9 @@ public final class ChatPane extends LinearLayout {
         liveFace = f;
         return f;
     }
+
+    /** How big Ibiko's blinking face is in the live line (it was 26 dp: too small to see it blink). */
+    static final int FACE_DP = 38;
 
     /** The face in the live line, if one is showing. */
     private LiveFace liveFace;

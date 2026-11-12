@@ -157,6 +157,10 @@ public class LaunchTest {
         android.view.View root = c.get().getWindow().getDecorView();
         android.view.View live = described(root, "What is happening now; tap for every step");
         assertNotNull(live);
+        ai.ibiko.stage.LiveFace face = findFace(live);
+        assertNotNull("Ibiko's blinking face is in the live line", face);
+        float density = c.get().getResources().getDisplayMetrics().density;
+        org.junit.Assert.assertEquals("big enough to see it blink", Math.round(38 * density), face.getLayoutParams().width);
         java.util.ArrayList<android.view.View> found = new java.util.ArrayList<android.view.View>();
         root.findViewsWithText(found, "Read app/Main.java", android.view.View.FIND_VIEWS_WITH_TEXT);
         org.junit.Assert.assertEquals(1, found.size()); // only the current step is in the chat, typed out
@@ -1319,5 +1323,21 @@ public class LaunchTest {
         org.robolectric.shadows.ShadowLooper.idleMainLooper(1200, java.util.concurrent.TimeUnit.MILLISECONDS);
         org.junit.Assert.assertEquals("Send", String.valueOf(send.getContentDescription()));
         c.pause().stop().destroy();
+    }
+
+    private static ai.ibiko.stage.LiveFace findFace(android.view.View v) {
+        if (v instanceof ai.ibiko.stage.LiveFace) {
+            return (ai.ibiko.stage.LiveFace) v;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                ai.ibiko.stage.LiveFace f = findFace(g.getChildAt(i));
+                if (f != null) {
+                    return f;
+                }
+            }
+        }
+        return null;
     }
 }
