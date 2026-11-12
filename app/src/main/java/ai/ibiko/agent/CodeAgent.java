@@ -329,7 +329,7 @@ public final class CodeAgent {
             final String who = hands ? name() + " hand " + number : mine.role != null ? mine.role.name() : persona + " worker " + number;
             String row = AgentBoard.start(hands ? who : who + (mine.role != null ? " \u00B7 " + mine.role.title : ""), part);
             CodeAgent w = new CodeAgent(workspace, quiet, host, connectorTools, budgetChars).useGit(git)
-                    .steps(Math.max(8, maxSteps)).as(who, lookOnly).compact(compact);
+                    .steps(Math.max(8, maxSteps)).as(who, lookOnly).compact(compact).checkEdits(checkEdits);
             w.worker = true;
             w.depth = depth + 1;
             w.role = hands ? null : mine.role;
@@ -502,7 +502,9 @@ public final class CodeAgent {
                 + "<tool name=\"list_files\" path=\".\"/>\n"
                 + "<tool name=\"read_file\" path=\"FOLDER/FILE\" start=\"(optional first line)\" end=\"(optional last line)\"/>\n"
                 + (readOnly ? "" : "<tool name=\"write_file\" path=\"FOLDER/FILE\">the whole new content</tool>\n"
-                        + "<tool name=\"edit_file\" path=\"FOLDER/FILE\"><old>exact text now in the file</old><new>its replacement</new></tool>\n")
+                        + "<tool name=\"edit_file\" path=\"FOLDER/FILE\"><old>exact text now in the file</old><new>its replacement</new></tool>\n"
+                        + (checkEdits ? "(After each write_file or edit_file of code, Ibiko runs the project's tests, or a syntax check of"
+                                + " the file, and adds the result to the tool's result. When it FAILED, fix that before anything else.)\n" : ""))
                 + (readOnly ? "" : "<tool name=\"make_file\" path=\"FOLDER/report.pdf\">the document in Markdown</tool> (a real PDF,"
                         + " Word .docx, Excel .xlsx from a | table |, .html, .csv or .md, by the name's ending)\n")
                 + (readOnly ? "" : "<tool name=\"zip\" path=\"FOLDER\" to=\"FOLDER.zip\"/> (a folder or file into a zip)\n"
@@ -566,6 +568,53 @@ public final class CodeAgent {
     public CodeAgent compact(boolean on) {
         compact = on;
         return this;
+    }
+
+    /** Whether each code file written or edited is checked at once ({@link EditCheck}): Settings › Coding. */
+    private boolean checkEdits;
+    /** The user declined a check in this task: the rest of its edits go unchecked rather than asking again and again. */
+    private volatile boolean checksDeclined;
+
+    /** Runs the project's tests (or a syntax check) after every code edit and hands the result to the model. */
+    public CodeAgent checkEdits(boolean on) {
+        checkEdits = on;
+        return this;
+    }
+
+    /**
+     * After a write or edit: the check {@link EditCheck} picks, run through the same gate as any command, and what it
+     * found, as a line to add to the tool's result. Empty when checks are off or there is nothing to check.
+     */
+    private String afterEdit(File f, String path) {
+        if (!checkEdits || checksDeclined || planFile(f)) {
+            return "";
+        }
+        String cmd = EditCheck.command(workspace, f);
+        if (cmd == null) {
+            return "";
+        }
+        if (!host.allowRun(cmd)) {
+            checksDeclined = true;
+            host.step("Not checked: " + clip(cmd, 60));
+            return "\nNot checked: the user didn't allow `" + cmd + "`, so the rest of this task's edits aren't checked."
+                    + " Test the work another way before you say it works.";
+        }
+        String out = host.run(cmd, workspace);
+        EditCheck.Verdict v = EditCheck.verdict(out);
+        List<String> shown = new ArrayList<String>();
+        shown.add("$ " + cmd);
+        shown.addAll(lines(out == null ? "" : clip(out, RESULT_CHARS)));
+        String said = v == EditCheck.Verdict.PASSED ? "passed" : v == EditCheck.Verdict.FAILED ? "failed" : "couldn't run";
+        host.step("Checked " + show(path) + ": " + said, "$ " + clip(cmd, 80), shown, -1, -1);
+        switch (v) {
+            case PASSED:
+                return "\nChecked with `" + cmd + "`: passed.";
+            case FAILED:
+                return "\nChecked with `" + cmd + "`: FAILED. Fix this before anything else:\n" + clipResult(out, RESULT_CHARS);
+            default:
+                return "\nNot checked: `" + cmd + "` couldn't run here (the tool isn't installed in Ibiko's Linux)."
+                        + " Check the work another way.";
+        }
     }
 
     /** How to keep scratch work apart: a sandbox folder of its own in the workspace. */
@@ -1660,7 +1709,7 @@ public final class CodeAgent {
                 ai.ibiko.connect.LineDiff.Result d = ai.ibiko.connect.LineDiff.of(before, c.body);
                 host.step((existed ? "Rewrote " : "Created ") + show(c.a("path")) + " (" + lines + (lines == 1 ? " line)" : " lines)"),
                         c.a("path"), d.lines, d.added, d.removed);
-                return "Wrote " + c.a("path") + ", " + lines + " lines.";
+                return "Wrote " + c.a("path") + ", " + lines + " lines." + afterEdit(f, c.a("path"));
             }
             case "edit_file": {
                 File f = inside(c.a("path"));
@@ -1691,7 +1740,7 @@ public final class CodeAgent {
                 note(c.a("path"));
                 ai.ibiko.connect.LineDiff.Result d = ai.ibiko.connect.LineDiff.of(text, after);
                 host.step("Edited " + show(c.a("path")), c.a("path"), d.lines, d.added, d.removed);
-                return "Edited " + c.a("path") + ".";
+                return "Edited " + c.a("path") + "." + afterEdit(f, c.a("path"));
             }
             case "make_file": {
                 File f = inside(c.a("path"));

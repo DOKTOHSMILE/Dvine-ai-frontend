@@ -39,6 +39,10 @@ public class SettingsCodingActivity extends SettingsActivity {
                             ai.ibiko.main.KeepAlive.stop(this);
                         }
                     }), Ui.wide(this, 10));
+            ibiko.addView(toggle("Check code after each edit", "When Ibiko writes or changes code it runs the project's tests"
+                    + " (npm, pytest, cargo, go, make), or checks the file's syntax, and fixes what fails before going on. The check"
+                    + " is a command, so it asks first unless commands run without asking.", ai.ibiko.agent.EditCheck.PREF, true, null),
+                    Ui.wide(this, 10));
             ibiko.addView(toggle("Keep working until done", "Long jobs run for hours if needed: plan, build, test, with a short progress"
                     + " note in the chat every few steps. Off: Ibiko stops after one batch of steps.", "ibiko_keep_going", true, null),
                     Ui.wide(this, 10));
