@@ -230,6 +230,9 @@ public final class SvgDraw {
         c.restoreToCount(saved);
     }
 
+    // androidx's PathParser is marked internal to androidx (lint: RestrictedApi), but it ships inside this APK at the
+    // pinned androidx.core version, so it can't change under us; Android's own android.util.PathParser is hidden.
+    @android.annotation.SuppressLint("RestrictedApi")
     static Path shape(String tag, Element e) {
         Path p = new Path();
         switch (tag) {
@@ -274,8 +277,7 @@ public final class SvgDraw {
             }
             case "path": {
                 try {
-                    // the platform's parser (API 30+, minSdk is 34); androidx's copy is restricted to its own library
-                    return android.util.PathParser.createPathFromPathData(e.getAttribute("d"));
+                    return androidx.core.graphics.PathParser.createPathFromPathData(e.getAttribute("d"));
                 } catch (RuntimeException bad) {
                     return null;
                 }
