@@ -274,7 +274,8 @@ public final class SvgDraw {
             }
             case "path": {
                 try {
-                    return androidx.core.graphics.PathParser.createPathFromPathData(e.getAttribute("d"));
+                    // the platform's parser (API 30+, minSdk is 34); androidx's copy is restricted to its own library
+                    return android.util.PathParser.createPathFromPathData(e.getAttribute("d"));
                 } catch (RuntimeException bad) {
                     return null;
                 }
