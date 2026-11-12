@@ -357,105 +357,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     };
     /** ANRE: the particles build researched, editable 3D objects. */
     ai.ibiko.create.CreationDirector creation;
-    /** Ivie's model-drawn 3D things: any subject as named parts, edited part by part, exported as files. */
-    ai.ibiko.create.IvieStudio studio;
-    /** The last thing on Ivie's canvas came from the studio (not the creation engine). */
-    boolean studioOnShow;
-
-    /**
-     * Ivie's studio: with a model-drawn thing on show, "take out the tyres", "make the wheels black", "add a
-     * spoiler", "put the tyres back", "undo" and "export it as an STL" act on it; "draw me a dragon" (anything the
-     * creation engine doesn't build itself) has the model plan it as parts. False when the words are none of those.
-     */
-    boolean ivieStudio(final String text) {
-        if (model == null || !model.ready()) {
-            return false;
-        }
-        if (studio == null) {
-            studio = new ai.ibiko.create.IvieStudio((system, prompt, max) -> model.task(system, prompt, max, null));
-        }
-        final int tokens = ai.ibiko.chat.Tuning.AGENT_TOKENS.get(prefs);
-        if (studioOnShow && studio.has() && ai.ibiko.create.IvieStudio.wantsExport(text)) {
-            exportStudio(text);
-            return true;
-        }
-        boolean edit = studioOnShow && studio.has()
-                && (ai.ibiko.render.field.PartEdit.parse(text) != null || ai.ibiko.create.IvieStudio.undoWord(text) != null);
-        final String subject = edit ? null : ai.ibiko.create.IvieStudio.drawSubject(text);
-        if (!edit && subject == null) {
-            return false;
-        }
-        if (!edit) {
-            ai.ibiko.create.ObjectRequestInterpreter.Request known = creation.parse(text, stage.objectShown());
-            if (known != null && known.kind != ai.ibiko.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT) {
-                return false; // the creation engine builds this kind of thing itself
-            }
-        }
-        final int id = nextAsk();
-        stopPlay();
-        armThink(edit ? "Changing the parts" : "Planning the parts of " + ai.ibiko.llm.DrawPrompt.article(subject),
-                edit ? "Changing the parts" : "Planning the parts");
-        showIvieCanvas(true);
-        buildThread.execute(() -> {
-            final ai.ibiko.create.IvieStudio.Result r = edit ? studio.edit(text, tokens) : studio.draw(subject, null, tokens);
-            handler.post(() -> {
-                if (!alive(id) || isFinishing()) {
-                    return;
-                }
-                endThink();
-                if (r != null && r.spec != null) {
-                    ai.ibiko.render.field.Shape shape = r.spec.points(ai.ibiko.render.field.ParticleDisplay.DRAWING_POINTS, 2f);
-                    if (edit && stage.pictureShown()) {
-                        stage.reshapeSolid(shape);
-                    } else {
-                        stage.showSolid(shape, studio.subject());
-                    }
-                    studioOnShow = true;
-                    currentSolid = studio.spec(); // "save this drawing" keeps it in the library
-                    lastDrawn = studio.subject();
-                }
-                play(LocalTurn.speakAs("ivie", r == null ? "I couldn't change that." : r.line), null);
-            });
-        });
-        return true;
-    }
-
-    /** Saves what is on Ivie's canvas as a GLB, OBJ (+MTL), STL or PLY file in Downloads/Ibiko, and offers to share it. */
-    void exportStudio(String said) {
-        ai.ibiko.create.IvieStudio.Export e = studio.export(said);
-        if (e == null) {
-            play(LocalTurn.speakAs("ivie", "There's nothing on my canvas to export yet."), null);
-            return;
-        }
-        final long since = System.currentTimeMillis();
-        try {
-            android.net.Uri uri = ai.ibiko.chat.ui.Downloads.save(this, e.name, e.mime, e.bytes);
-            new ai.ibiko.chat.WorkLog(this).artifact(e.name, uri.toString(), "3D model \u00B7 " + e.format.extension.toUpperCase(java.util.Locale.US),
-                    e.mime);
-            attachWork(null, since); // the model file, as a pill under this reply
-            if (e.extra != null) {
-                ai.ibiko.chat.ui.Downloads.save(this, e.extra.name, e.extra.mime, e.extra.bytes);
-            }
-            play(LocalTurn.speakAs("ivie", "Saved " + e.name + (e.extra != null ? " and " + e.extra.name : "") + " in Downloads/Ibiko. It opens in "
-                    + e.format.opensIn + "."), null);
-            android.content.Intent share = new android.content.Intent(android.content.Intent.ACTION_SEND)
-                    .setType(e.mime).putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            note("Tap to share " + e.name + ".");
-            android.view.View n = findViewById(R.id.composer_note);
-            if (n != null) {
-                n.setOnClickListener(v -> {
-                    try {
-                        startActivity(android.content.Intent.createChooser(share, "Share " + e.name));
-                    } catch (RuntimeException ignored) {
-                        // no app to share with
-                    }
-                });
-            }
-        } catch (java.io.IOException | RuntimeException ex) {
-            play(LocalTurn.speakAs("ivie", "I couldn't save the file: " + ex.getMessage() + "."), null);
-        }
-    }
 
     /** The GL scene under the stage; both go into Ivie's 3D canvas when she shows something. */
     ai.ibiko.render.PodView podView;
@@ -499,27 +400,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     void designFullScreen(boolean on) {
         ivieCanvas.fullScreen(on);
-    }
-
-    /**
-     * Ivie does the graphics: on her tab a drawing, a 3D build, an edit of what is on show ("make the wheels bigger"),
-     * a view ("turn it", "from the side"), undo, save, open or export goes to the creation engine and the canvas.
-     * False when the words aren't one of those.
-     */
-    boolean ivieGraphics(String text) {
-        if (creation == null || !"ivie".equals(stage.agent()) || ai.ibiko.chat.Attachments.has(text)) {
-            return false;
-        }
-        if (ivieStudio(text)) {
-            return true; // drawn by the model as parts: part edits, export, undo, or a new thing
-        }
-        ai.ibiko.create.ObjectRequestInterpreter.Request r = creation.parse(text, stage.objectShown());
-        if (r == null || r.kind == ai.ibiko.create.ObjectRequestInterpreter.Kind.UNKNOWN_OBJECT
-                || r.kind == ai.ibiko.create.ObjectRequestInterpreter.Kind.CREATE) {
-            return false; // a new thing to build is the brain's order (DO BUILD), like every other job
-        }
-        showIvieCanvas(true);
-        return create(text);
     }
     ai.ibiko.net.WebClient web;
     SharedPreferences prefs;
@@ -1075,7 +955,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // a clean start for all three: Ivie's and Ibiko's older chats stay in the list, but switching to them now opens
         // a new chat, not the old one
         ai.ibiko.chat.ChatBook.Section section = chats.freshForAll(StageView.OBI);
-        pendingBuild = null;
         if (chatPane != null) {
             chatPane.show();
         }
@@ -1334,11 +1213,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 ? androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
                 : "dark".equals(choice) ? androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
                         : androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
-    }
-
-    /** "always" (the default), "mic" (only after the microphone) or "off". */
-    String readAloud() {
-        return readAloudHelper.setting();
     }
 
     /** Whether this reply is read out: always, after a dictated message, or never, as chosen in the drawer. */
@@ -2870,18 +2744,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         thinkTurns.factCheck(id, persona, question, answer);
     }
 
-    /** Obi or Ivie, given Ibiko's kind of work: they say so and leave a button that hands it to him. */
-    void offerHandoff(String persona, String task) {
-        if (chatPane == null || chats == null) {
-            return;
-        }
-        String who = "Ibiko";
-        chatPane.assistant(persona, "That's Ibiko's work: he writes, runs and tests code on this device. Tap below and I'll hand it"
-                + " to him; he starts on it in a new chat of his." + (who.isEmpty() ? "" : ""));
-        chats.add("assistant", "handoff", "ibiko\n" + task, persona);
-        chatPane.show();
-    }
-
     /** The hand-off button under a plan: that persona starts on the task at once, in this same group thread. */
     void handOff(String persona, String task) {
         if (chats == null || task == null || task.trim().isEmpty()) {
@@ -3293,13 +3155,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         return "api".equals(brainPick()) && !new ai.ibiko.llm.ProviderStore(this).usable().isEmpty();
     }
 
-    /** The name of the API that would answer, for what Ibiko says. */
-    String apiName() {
-        ai.ibiko.llm.ProviderStore providers = new ai.ibiko.llm.ProviderStore(this);
-        java.util.List<ai.ibiko.llm.Providers> use = providers.usable();
-        return use.isEmpty() ? "the API" : providers.model(use.get(0));
-    }
-
     /**
      * No internet: the message is kept (it is already in the chat) and goes to the API as soon as the connection is
      * back, and Ibiko says so plainly, so a missing connection never looks like a broken API.
@@ -3338,18 +3193,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** Posts, shares and copies waiting for a yes (the spec's staged actions). */
     final ai.ibiko.brain.ActionPlanner stager = new ai.ibiko.brain.ActionPlanner();
     android.app.Dialog stagedCard;
-
-    /**
-     * A message that asks to post, share or copy something counts only when it names an app, says "that", "this" or
-     * "it", or gives the text after a colon or "saying": "share your thoughts on AI" is a question, not a post.
-     */
-    static boolean looksLikeAction(String text) {
-        String t = text == null ? "" : text.trim();
-        return t.matches("(?is)^(please )?(post|share|tweet|publish|copy)\\b.*")
-                && (t.matches("(?is).*\\b(on|to|via|in) (whatsapp|whats app|x|twitter|facebook|fb|instagram|ig|linkedin|linked in|telegram)\\b.*")
-                || t.matches("(?is)^(please )?(post|share|tweet|publish|copy) (this|that|it)\\b.*")
-                || t.contains(":") || t.matches("(?is).*\\bsaying\\b.*"));
-    }
 
     /**
      * Staged actions: something that leaves the app (a post, a share, a copy) is shown with its exact text and where
@@ -3480,62 +3323,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     void social(String question, String arg) {
         socialFlow.run(question, arg);
     }
-
-    /** The build waiting for its measurements (asked once): the user's words, or null. */
-    String pendingBuild;
-
-    /**
-     * The brain's BUILD order: Ivie designs it from its measurements and Ibiko builds it. Without any numbers in the
-     * request, the user is asked once for the measurements they have; "you choose" (or not knowing) builds it with
-     * standard real-world sizes.
-     */
-    void build(String request) {
-        if (creation == null) {
-            play(LocalTurn.speakAs(stage.agent(), "My 3D builder isn't ready yet."), null);
-            return;
-        }
-        if (!request.matches("(?s).*\\d.*") && !request.matches("(?is).*\\b(standard|you choose|any size|typical)\\b.*")) {
-            pendingBuild = request;
-            if (!"ivie".equals(stage.agent())) {
-                selectPersona("ivie"); // 3D is Ivie's work
-            }
-            play(LocalTurn.speakAs("ivie", "I'll design it. Do you have measurements: the overall size, how many floors or parts, any"
-                    + " heights? Tell me what you know, or say “you choose” and I'll use standard real-world sizes."), null);
-            return;
-        }
-        buildNow(request);
-    }
-
-    void buildNow(String request) {
-        pendingBuild = null;
-        if (!"ivie".equals(stage.agent())) {
-            selectPersona("ivie");
-        }
-        showIvieCanvas(true);
-        ai.ibiko.create.ObjectRequestInterpreter.Request r = ai.ibiko.create.ObjectRequestInterpreter.build(request);
-        runCreation(r);
-    }
-
-    /** The reply to "do you have measurements?": numbers are added to the request; "you choose", "no", "I don't know" build with standard sizes. */
-    boolean measurementsGiven(String text) {
-        if (pendingBuild == null) {
-            return false;
-        }
-        String t = text.trim().toLowerCase(java.util.Locale.US);
-        String asked = pendingBuild;
-        if (t.matches("(?s).*\\d.*")) {
-            buildNow(asked + ". Measurements: " + text.trim());
-            return true;
-        }
-        if (t.matches("^(you choose|choose|you pick|your choice|any|anything|standard|default|go ahead|just build( it)?|build it|no|nope|i don'?t know|"
-                + "not sure|i don'?t have (any|them)|use (standard|typical|normal) (sizes|measurements)|surprise me|ok|okay|yes)\\b.*")) {
-            buildNow(asked + ". The user has no measurements: use accurate standard real-world measurements for every part.");
-            return true;
-        }
-        pendingBuild = null; // something else: the build is set aside, and this message goes its own way
-        return false;
-    }
-
 
     /** In WritingTurns. */
     boolean makeDocument(final String text) {
@@ -3887,14 +3674,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     };
     final ai.ibiko.main.DirectCommands commands = new ai.ibiko.main.DirectCommands(commandHost);
-
-    /**
-     * Reads what a short message means before acting on it. A working answer from the API is not a command, and a
-     * trigger word inside a real task does not stop the work.
-     */
-    void understand(final String text) {
-        commands.read(text);
-    }
 
     /** The commands Ibiko carries out with its own actions, the same ones its buttons use. */
     void command(ai.ibiko.turn.Meaning.Command c) {
@@ -5028,7 +4807,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
         if (o.picture != null || o.model != null || stage.objectShown()) {
             showIvieCanvas(true);
-            studioOnShow = false; // the engine's thing is on show now
         }
         List<TurnLine> lines = new ArrayList<TurnLine>();
         for (String l : o.lines) {
@@ -5289,16 +5067,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         f.taughtFacts = journal == null ? 0 : journal.taughtCount();
         f.speaking = stage.agent();
         return ai.ibiko.llm.IbikoSelf.sheet(f);
-    }
-
-    static String lastSaid(List<TurnLine> said) {
-        for (int i = said.size() - 1; i >= 0; i--) {
-            TurnLine l = said.get(i);
-            if ("SAY".equals(l.cue) && l.text != null && !l.text.trim().isEmpty()) {
-                return l.text;
-            }
-        }
-        return null;
     }
 
     /** The words the voice says for a line: a model's own connect failure is said plainly when the phone is online. */

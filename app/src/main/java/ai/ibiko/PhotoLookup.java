@@ -134,7 +134,6 @@ final class PhotoLookup {
                     return;
                 }
                 a.currentSolid = null;
-                a.studioOnShow = false;
                 a.stage.showPhotograph(picture, subject);
                 if (a.chatPane != null && shot != null && shot.isFile()) {
                     a.chatPane.image(shot.getAbsolutePath());
