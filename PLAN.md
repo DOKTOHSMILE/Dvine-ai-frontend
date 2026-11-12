@@ -1,3 +1,8 @@
+# One voice (0.99.128)
+
+- [x] The child's voice only (Kokoro Sky, 1.32 higher), normal speed; Settings › Voice removed; Piper removed from the device.
+- [x] Every reply's voice made when it arrives and kept 7 days; Listen plays the kept file; read aloud by itself only after the mic.
+
 # One brain, and a model that evolves (0.99.126)
 
 - [x] Ibiko 1 asks the device's model for what its memory doesn't hold, with what it knows passed in; the pilot's check keeps the answer.

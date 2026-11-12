@@ -46,10 +46,12 @@ public final class ReadAloud {
     private int readingAt;
     private boolean readingOn;
 
-    /** "always" (the default), "mic" (only after the microphone) or "off". */
+    /**
+     * Read aloud by itself only after a message spoken into the mic; every other reply waits for its Listen button,
+     * which plays the recording kept for it. Not a setting.
+     */
     public String setting() {
-        android.content.SharedPreferences prefs = host.prefs();
-        return prefs == null ? "always" : prefs.getString("read_aloud", "always");
+        return "mic";
     }
 
     /** Whether this reply is read out: always, after a dictated message, or never, as chosen in the drawer. */

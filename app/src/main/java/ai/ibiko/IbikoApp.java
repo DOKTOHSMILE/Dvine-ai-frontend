@@ -38,10 +38,9 @@ public final class IbikoApp extends Application {
         }
         // the voice is loaded as Ibiko starts and kept on standby, so the first reply read aloud doesn't wait for it
         if (ai.ibiko.main.AppFiles.ready(getFilesDir()) && !"robolectric".equals(android.os.Build.FINGERPRINT)) {
-            String pack = getSharedPreferences("ibiko", MODE_PRIVATE).getString("voice_pack", "kokoro");
-            if (!"device".equals(pack)) {
-                ai.ibiko.voice.NeuralVoice.preload(getFilesDir(), pack);
-            }
+            ai.ibiko.voice.NeuralVoice.preload(getFilesDir(), ai.ibiko.voice.VoicePacks.KOKORO.key); // the one voice
+            final java.io.File files = getFilesDir();
+            new Thread(() -> ai.ibiko.voice.VoicePacks.dropOthers(files), "ibiko-old-voices").start(); // Piper, no longer offered
         }
         Thread t = new Thread(() -> {
             try {

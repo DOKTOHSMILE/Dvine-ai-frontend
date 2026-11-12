@@ -377,6 +377,8 @@ The backend was deferred. It is not in this table except where a prompt asked fo
 | 344 | Turn on KV cache compression and add the 4-bit model; the speed percentages | P12 | Built (8-bit cache at every size; Qwen3 1.7B Fast, Q4_0; measured: Q4_0 writes 64% faster, the cache saves 4-14% memory and delays the first word about 17%) | 0.99.125 |
 | 345 | Merge the Q4_0 model into Ibiko's own brain; is it trainable; make it evolvable | P12 | Built (Ibiko 1 asks the device's model for what it doesn't know; the frozen 4-bit weights evolve by trained LoRA adapters, exported data, install and take back; training itself is off the device, docs/TRAINING.md) | 0.99.126 |
 | 346 | Make the Colab notebook for training | P12 | Built (tools/train_adapter.ipynb; checked statically, not run here: no GPU) | 0.99.127 |
+| 347 | Keep the child voice, remove the others and the voice settings; Listen plays the saved recording | P12 | Built (one fixed child voice at normal speed; Settings › Voice gone; Piper removed; every reply's voice made and kept, Listen plays it) | 0.99.128 |
+| 348 | Which coding language is faster and smaller to build | P12 | Answered (keep Java for the app, C/C++ for the engine; size is the models and native libraries) | 0.99.128 |
 
 ## Still open, in the order that matters
 

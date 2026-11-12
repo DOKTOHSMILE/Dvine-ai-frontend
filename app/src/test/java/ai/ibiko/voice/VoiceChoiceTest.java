@@ -49,33 +49,30 @@ public class VoiceChoiceTest {
         t.shutdown();
     }
 
+    /** One voice, not a setting: the child's (Kokoro's Sky, played higher), at normal speed; no Voice page in Settings. */
     @Test
-    public void choosingAVoiceRedrawsOnlyTheVoiceOptions() {
-        android.app.Application app = RuntimeEnvironment.getApplication();
-        app.getSharedPreferences("ibiko", 0).edit().putString("voice_gender", "male").apply();
-        ActivityController<? extends ai.ibiko.chat.ui.SettingsActivity> c = Robolectric.buildActivity(ai.ibiko.chat.ui.SettingsVoiceActivity.class,
-                new android.content.Intent(app, ai.ibiko.chat.ui.SettingsVoiceActivity.class)
-                        .putExtra(ai.ibiko.chat.ui.SettingsActivity.EXTRA_SECTION, "Voice")).create().start().resume().visible();
-        ShadowLooper.idleMainLooper();
-        View root = c.get().getWindow().getDecorView();
-        ArrayList<View> found = new ArrayList<View>();
-        root.findViewsWithText(found, "Speaking speed", View.FIND_VIEWS_WITH_TEXT);
-        View speed = found.get(0);
-        found.clear();
-        root.findViewsWithText(found, "A woman's voice", View.FIND_VIEWS_WITH_TEXT);
-        assertFalse(found.isEmpty());
-        View chip = found.get(0);
-        while (!chip.hasOnClickListeners()) {
-            chip = (View) chip.getParent();
+    public void theChildsVoiceIsTheOnlyVoiceAndNotASetting() throws Exception {
+        assertEquals(java.util.Arrays.asList(VoicePacks.KOKORO), VoicePacks.ALL);
+        assertEquals("af_sky", TalkBridge.CHILD_SPEAKER);
+        assertEquals(1.32f, TalkBridge.CHILD_PITCH, 0.0001f);
+        java.lang.reflect.Field f = ai.ibiko.chat.ui.SettingsActivity.class.getDeclaredField("SECTIONS");
+        f.setAccessible(true);
+        for (String[] section : (String[][]) f.get(null)) {
+            assertFalse("no Voice page", "Voice".equals(section[0]));
         }
-        chip.performClick();
-        ShadowLooper.idleMainLooper();
-        assertEquals("female", app.getSharedPreferences("ibiko", 0).getString("voice_gender", ""));
-        assertFalse("the screen isn't rebuilt", c.get().isFinishing());
-        found.clear();
-        c.get().getWindow().getDecorView().findViewsWithText(found, "Speaking speed", View.FIND_VIEWS_WITH_TEXT);
-        assertSame("the rest of the page stays exactly as it was", speed, found.get(0));
-        assertNotNull(c.get().getWindow().getDecorView());
-        c.pause().stop().destroy();
+        java.lang.reflect.Field sc = ai.ibiko.chat.ui.SettingsActivity.class.getDeclaredField("SCREENS");
+        sc.setAccessible(true);
+        assertEquals("every section still opens its own screen", ((String[][]) f.get(null)).length, ((Class<?>[]) sc.get(null)).length);
+        // the voices an older version downloaded (Piper) are removed, Kokoro stays
+        File files = RuntimeEnvironment.getApplication().getFilesDir();
+        File piper = VoicePacks.folder(files, VoicePacks.PIPER_RYAN), kokoro = VoicePacks.folder(files, VoicePacks.KOKORO);
+        piper.mkdirs();
+        kokoro.mkdirs();
+        Files.write(new File(piper, "model.onnx").toPath(), new byte[] {1});
+        Files.write(new File(VoicePacks.root(files), VoicePacks.PIPER_RYAN.key + ".ready").toPath(), new byte[] {1});
+        assertEquals(1, VoicePacks.dropOthers(files));
+        assertFalse(piper.exists());
+        assertFalse(new File(VoicePacks.root(files), VoicePacks.PIPER_RYAN.key + ".ready").exists());
+        assertTrue(kokoro.exists());
     }
 }

@@ -1491,8 +1491,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
             @Override
             public boolean audioReady(String owner, String text) {
-                // made ahead only for the human voice, and only while Settings › Voice keeps it on
-                if (talk == null || !prefs.getBoolean("voice_prepare", true)) {
+                // every reply's voice is made ahead and kept: Listen plays the kept recording
+                if (talk == null) {
                     return true;
                 }
                 talk.setOwner(owner);
@@ -1630,7 +1630,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         talk = new TalkBridge(this);
         listen = new ListenBridge(this);
         ambient = new AmbientPad();
-        ambient.setEnabled(prefs.getBoolean("music", false)); // the low pad under the voice: off unless asked for
+        ambient.setEnabled(false); // the low pad under the voice: off unless asked for
         stage.setSubtitles(prefs.getBoolean("subtitles", true));
         stage.ensureFace(StageView.OBI, null); // Obi greets on opening
         new VoiceWiring(this).wire(); // the voice's tuning, listeners, notification and the floating player
@@ -1843,7 +1843,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (talk != null) {
             talk.refreshVoice(); // a human voice chosen or downloaded in Settings
             try {
-                talk.setRateScale(Float.parseFloat(prefs.getString("speech_rate", "1.0")));
+                talk.setRateScale(1f); // normal speed: not a setting
             } catch (NumberFormatException ignored) {
                 talk.setRateScale(1f);
             }
@@ -4503,7 +4503,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 } else {
                     // a reply that says it sent, saved or posted something when nothing was done says so plainly
                     body = ai.ibiko.gate.ClaimGuard.check(body, false);
-                    if (talk != null && !speakReply() && prefs.getBoolean("voice_prepare", true)) {
+                    if (talk != null && !speakReply() && true /* every reply's voice is made ahead and kept */) {
                         // the reply's audio is made in the background while it is read on the screen (kept for a day)
                         talk.prepareAll(body);
                     }
