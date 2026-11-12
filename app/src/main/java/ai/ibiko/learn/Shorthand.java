@@ -138,7 +138,11 @@ public final class Shorthand {
         for (int i = Character.charCount(cp); i < g.length(); ) {
             int n = g.codePointAt(i);
             int type = Character.getType(n);
-            if (type != Character.NON_SPACING_MARK && type != Character.ENCLOSING_MARK && type != Character.COMBINING_SPACING_MARK) {
+            // Letters and digits are allowed after the first too: Java 17's BreakIterator keeps an Indic conjunct
+            // (न्दी: letter, virama, letter, sign) as one cluster where Java 20+ splits it. Refusing it would cut the
+            // word in two, and Pack would read the two halves back with a space between them.
+            if (type != Character.NON_SPACING_MARK && type != Character.ENCLOSING_MARK && type != Character.COMBINING_SPACING_MARK
+                    && !Character.isLetterOrDigit(n) && n != 0x200C && n != 0x200D) {
                 return false;
             }
             i += Character.charCount(n);
