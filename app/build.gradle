@@ -43,8 +43,25 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    // Release signing comes from the environment (CI secrets); without it the release build is left unsigned
+    // instead of failing, and the debug build is unaffected.
+    signingConfigs {
+        release {
+            def ks = System.getenv("IBIKO_KEYSTORE")
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv("IBIKO_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("IBIKO_KEY_ALIAS")
+                keyPassword System.getenv("IBIKO_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (System.getenv("IBIKO_KEYSTORE")) {
+                signingConfig signingConfigs.release
+            }
             // shrink the shipped APK: R8 strips unused code/resources once tests prove the paths
             minifyEnabled true
             shrinkResources true

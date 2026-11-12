@@ -3733,7 +3733,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (net == null || !ai.ibiko.social.SocialPoster.ready(this, net)) {
             ai.ibiko.act.Actions.copy(this, p.content);
             try {
-                startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(p.target)));
+                if (p.target != null && (p.target.startsWith("https://") || p.target.startsWith("http://"))) {
+                    startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(p.target)));
+                }
             } catch (RuntimeException ignored) {
                 // no app opens it: the words are on the clipboard
             }

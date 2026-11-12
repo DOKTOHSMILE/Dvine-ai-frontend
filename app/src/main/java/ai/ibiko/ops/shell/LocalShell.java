@@ -149,7 +149,7 @@ public final class LocalShell {
                 if (parent != null) {
                     parent.mkdirs();
                 }
-                if (!out.getCanonicalPath().startsWith(dest.getCanonicalPath())) {
+                if (!out.getCanonicalPath().startsWith(dest.getCanonicalPath() + File.separator)) {
                     continue;
                 }
                 try (FileOutputStream fos = new FileOutputStream(out)) {
@@ -158,7 +158,9 @@ public final class LocalShell {
                     while ((r = in.read(buf)) > 0) {
                         total += r;
                         if (total > 20 * 1024 * 1024) {
-                            break;
+                            fos.close();
+                            out.delete(); // never leave a half-written file that looks whole
+                            throw new IOException(name + " is over 20 MB; nothing was kept of it");
                         }
                         fos.write(buf, 0, r);
                     }
