@@ -1,3 +1,7 @@
+# A bigger face (0.99.129)
+
+- [x] Ibiko's blinking face in the chat's working line: 38 dp (was 26).
+
 # One voice (0.99.128)
 
 - [x] The child's voice only (Kokoro Sky, 1.32 higher), normal speed; Settings › Voice removed; Piper removed from the device.
