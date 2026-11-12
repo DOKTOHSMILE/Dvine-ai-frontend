@@ -1,10 +1,19 @@
-# What Ibiko 1 learns, cleaned (0.99.120)
+# What Ibiko 1 learns, cleaned (0.99.122)
 
 - [x] Job reports, questions to Ibiko about itself, and talk ("Well, today is…") are not kept; old ones are dropped on read.
 - [x] "Who is X?" only for names; old "Who is Easter rice?" copies removed.
 - [x] Every message in a row answered (test).
-- [ ] The device case from the screenshot (messages with no reply): needs the brain in use and whether a job was running.
+- [ ] The device case from the screenshot (messages with no reply): fits the main-thread stall fixed in 0.99.121; confirm on the device.
 - [ ] Next: pack format 2 from the review (frequency-ordered codes, dictionary fingerprint, checksum).
+# The phone stopped answering taps (0.99.121)
+
+- [x] A token of the reply was rebuilding the steps sheet, and each open file built a code view, on the main thread. Android then reported the app was not responding. A token now only moves the live line. A survey of the whole tree stays one banner; opening it draws a window of badges, not a row per file.
+- [x] An emoji or a letter with a combining mark is one token, so it is not stored as two halves. The pack stays the fast lossless store. Grammar, phrases and a five-layer parser are not on that path: they would throw away the unpack speed and the exact text.
+
+# The survey reads the whole tree, from the top (0.99.120)
+
+- [x] The file tree is mapped first, then every source file is read from line 1. A reader takes one file and finishes it before the next. Slices of the same file are not a stack of rows: one badge a file, ranges from the top, duplicates under that badge.
+- [x] The map says how many of the tree are documented. A file the reader did not finish stays "still to read".
 
 # The brain's files in codes (0.99.119)
 

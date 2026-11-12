@@ -1,6 +1,7 @@
 package ai.ibiko.agent;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
@@ -45,5 +46,29 @@ public class StepGroupsTest {
         List<StepGroups.Group> g = StepGroups.fold(Arrays.asList("Searched for “x”"), Arrays.asList((String) null),
                 Arrays.asList(-1L));
         assertEquals("Explored 1 search", g.get(0).label);
+    }
+
+    @Test
+    public void readsOfOneFileAreOneBadgeFromTheTop() {
+        List<String> words = Arrays.asList(
+                "Read app/src/MainActivity.java (lines 2001–2400)",
+                "Read app/src/MainActivity.java (lines 1–400)",
+                "Read app/src/MainActivity.java (lines 401–800)",
+                "Read docs/BUILD_STATUS.md (lines 1–40)");
+        List<String> titles = Arrays.asList(null, null, null, null);
+        List<Long> secs = Arrays.asList(1L, 1L, 1L, 1L);
+        List<StepGroups.Group> g = StepGroups.fold(words, titles, secs);
+        assertEquals(1, g.size());
+        assertEquals("Explored 2 files", g.get(0).label);
+        assertEquals(2, g.get(0).items.size());
+        assertEquals("app/src/MainActivity.java (lines 1–800, 2001–2400)", g.get(0).items.get(0).target);
+        assertEquals("docs/BUILD_STATUS.md (lines 1–40)", g.get(0).items.get(1).target);
+        assertEquals(3, g.get(0).lastIndex);
+        assertEquals(StepGroups.Kind.EXPLORE, StepGroups.kind("Read app/src/Foo.java — still to read", null));
+        assertTrue("a short run still opens while it works", StepGroups.startOpen(3, true));
+        assertTrue("the whole tree stays one banner", !StepGroups.startOpen(900, true));
+        assertEquals(24, StepGroups.window(900, 0));
+        assertEquals(48, StepGroups.window(900, 24));
+        assertEquals(30, StepGroups.window(30, 24));
     }
 }
