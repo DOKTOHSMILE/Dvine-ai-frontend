@@ -1,7 +1,7 @@
 package ai.ibiko.llm;
 
 /**
- * A language model Ibiko can run on the phone, quantised to 4 bits (Q4_K_M) as a GGUF file for llama.cpp. The user
+ * A language model Ibiko can run on the device, quantised to 4 bits (Q4_K_M, or Q4_0 for the fast one) as a GGUF file for llama.cpp. The user
  * picks one in Settings ({@link #ALL}; Qwen3 1.7B by default). Each is downloaded once from Hugging Face at a pinned
  * revision and checked against its SHA-256 before it is ever loaded.
  */
@@ -50,6 +50,17 @@ public final class ModelSpec {
             HF + "Qwen3-1.7B-GGUF/resolve/d7f544eead698dbd1f15126ef60b45a1e1933222/Qwen3-1.7B-Q4_K_M.gguf",
             1107409472L, "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897", "Apache 2.0",
             "Qwen3", "1.7B", "Fast and light. The default.", 4, true);
+    /**
+     * The same Qwen3 1.7B in the plain 4-bit layout (Q4_0) that llama.cpp repacks, as it loads, into the
+     * processor's fastest kernels (ARM dot product, x86 AVX2). Measured against Q4_K_M on the same machine and
+     * question: 64% faster writing (13.7 against 8.35 pieces of words a second), 115 MB less memory, the first word as
+     * soon; its wording a little different, slightly less exact on hard questions.
+     */
+    public static final ModelSpec QWEN3_1_7B_FAST = new ModelSpec("Ibiko model", "qwen3-1.7b-q4_0.gguf",
+            HF + "Qwen3-1.7B-GGUF/resolve/d7f544eead698dbd1f15126ef60b45a1e1933222/Qwen3-1.7B-Q4_0.gguf",
+            1056782912L, "c876f159707a4e4f70e045106c69db15bfc935a4981706fd4f65c6e7ea1e81c5", "Apache 2.0",
+            "Qwen3", "1.7B Fast", "The default model in the layout this device reads fastest: about 60% quicker replies, a"
+                    + " little less exact.", 3, true);
     public static final ModelSpec QWEN3_4B = new ModelSpec("Ibiko model", "qwen3-4b-q4km.gguf",
             HF + "Qwen3-4B-GGUF/resolve/22c9fc8a8c7700b76a1789366280a6a5a1ad1120/Qwen3-4B-Q4_K_M.gguf",
             2497281312L, "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a", "Apache 2.0",
@@ -80,7 +91,7 @@ public final class ModelSpec {
             "Phi-4", "mini", "Microsoft's Phi: maths and step-by-step reasoning.", 6, false);
 
     /** Every model on offer, family by family, smallest first. */
-    public static final ModelSpec[] ALL = {QWEN3_0_6B, QWEN3_1_7B, QWEN3_4B, QWEN3_8B, LLAMA_3_2_1B, LLAMA_3_2_3B, GEMMA_3_1B, GEMMA_3_4B,
+    public static final ModelSpec[] ALL = {QWEN3_0_6B, QWEN3_1_7B, QWEN3_1_7B_FAST, QWEN3_4B, QWEN3_8B, LLAMA_3_2_1B, LLAMA_3_2_3B, GEMMA_3_1B, GEMMA_3_4B,
             PHI_4_MINI};
 
     /** The families, in the order shown. */
@@ -120,11 +131,16 @@ public final class ModelSpec {
         return system == null || thinks ? system : system.replace("/no_think", "").trim();
     }
     public static final String QUANT = "Q4_K_M";
+
+    /** This file's 4-bit layout: Q4_0 for the fast one, else Q4_K_M. */
+    public String quant() {
+        return file.contains("q4_0") ? "Q4_0" : QUANT;
+    }
     public static final String ENGINE = "llama.cpp";
 
     /** One sentence a person can check against the file on the phone. */
     public String runningModel() {
-        return weights + ", " + QUANT + " GGUF, through " + ENGINE + ". The file is " + file + ", " + sizeWords()
+        return weights + ", " + quant() + " GGUF, through " + ENGINE + ". The file is " + file + ", " + sizeWords()
                 + ", licence " + licence + ".";
     }
 

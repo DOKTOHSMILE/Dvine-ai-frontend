@@ -158,12 +158,15 @@ public class LocalModelTest {
             // each pinned to a revision, checked by its SHA-256, a 4-bit GGUF, its own file
             assertTrue(m.url, m.url.matches("https://huggingface\\.co/[^/]+/[^/]+/resolve/[0-9a-f]{40}/.+\\.gguf"));
             assertTrue(m.weights, m.sha256.matches("[0-9a-f]{64}") && m.bytes > 300_000_000L && files.add(m.file));
-            assertTrue(m.url.contains("Q4_K_M"));
+            assertTrue(m.url, m.url.contains(m.quant()) && (m.quant().equals("Q4_K_M") || m.quant().equals("Q4_0")));
         }
-        assertEquals(9, ModelSpec.ALL.length);
+        assertEquals(10, ModelSpec.ALL.length);
+        assertEquals("Q4_0", ModelSpec.QWEN3_1_7B_FAST.quant());
+        assertTrue(ModelSpec.QWEN3_1_7B_FAST.runningModel().contains("Q4_0 GGUF"));
         // families in sizes, as Claude comes as Haiku, Sonnet and Opus
         assertEquals(java.util.Arrays.asList("Qwen3", "Llama 3.2", "Gemma 3", "Phi-4"), ModelSpec.families());
-        assertEquals(java.util.Arrays.asList(ModelSpec.QWEN3_0_6B, ModelSpec.QWEN3_1_7B, ModelSpec.QWEN3_4B, ModelSpec.QWEN3_8B),
+        assertEquals(java.util.Arrays.asList(ModelSpec.QWEN3_0_6B, ModelSpec.QWEN3_1_7B, ModelSpec.QWEN3_1_7B_FAST, ModelSpec.QWEN3_4B,
+                ModelSpec.QWEN3_8B),
                 ModelSpec.sizes("Qwen3"));
         assertEquals("Qwen3 1.7B", ModelSpec.QWEN3_1_7B.weights);
         assertEquals(ModelSpec.WEIGHTS, ModelSpec.QWEN3_1_7B.weights);
