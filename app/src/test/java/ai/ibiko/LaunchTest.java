@@ -1320,6 +1320,35 @@ public class LaunchTest {
     }
 
     @Test
+    public void thinkStaysAsSetInANewChatAndAfterARestart() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.TextView think = c.get().findViewById(ai.ibiko.R.id.btn_think);
+        if (!think.isSelected()) {
+            think.performClick();
+        }
+        org.junit.Assert.assertTrue(think.isSelected());
+        java.lang.reflect.Method fresh = MainActivity.class.getDeclaredMethod("startNewChatSafely");
+        fresh.setAccessible(true);
+        fresh.invoke(c.get());
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertTrue("a new chat keeps Think on", think.isSelected());
+        org.junit.Assert.assertTrue(c.get().chatTools("obi").deep());
+        c.pause().stop().destroy();
+
+        ActivityController<MainActivity> again = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.TextView after = again.get().findViewById(ai.ibiko.R.id.btn_think);
+        org.junit.Assert.assertTrue("still on after a restart", after.isSelected());
+        after.performClick();
+        org.junit.Assert.assertFalse(after.isSelected());
+        fresh.invoke(again.get());
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertFalse("off stays off in a new chat too", after.isSelected());
+        again.pause().stop().destroy();
+    }
+
+    @Test
     public void theSendButtonComesBackFromStopWhenTheWorkEnds() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         MainActivity a = c.get();

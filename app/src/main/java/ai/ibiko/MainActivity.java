@@ -1078,6 +1078,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 unreadPages.clear(); // another chat: its own pages
                 selectPersona(section.persona);
+                repaintThink(); // the pill shows Think as it is, whichever chat opened
                 examiner.clearTopic();
                 handler.postDelayed(MainActivity.this::sendWaiting, 300); // a message that waited here for the internet
                 refreshSend();
@@ -1589,8 +1590,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** The tools this chat page lets its brain use (per conversation and persona), from the tools button. */
     ai.ibiko.suit.ChatTools chatTools(String persona) {
-        return ai.ibiko.suit.ChatTools.read(persona, prefs.getString(toolsKey(persona), null));
+        ai.ibiko.suit.ChatTools t = ai.ibiko.suit.ChatTools.read(persona, prefs.getString(toolsKey(persona), null));
+        // Think is one switch, kept as it was last set, for every chat (new ones too): not a per-chat setting that a new
+        // chat, another chat or a restart quietly turned off
+        t.set(ai.ibiko.suit.ChatTools.Tool.DEEP, prefs.getBoolean(THINK_ON, false));
+        return t;
     }
+
+    /** Think (the pill, and Tools › Deep thinking): on or off for every chat until it is changed. */
+    static final String THINK_ON = "think_on";
 
     /** In {@link BrainGate}. */
     String toolsKey(String persona) {

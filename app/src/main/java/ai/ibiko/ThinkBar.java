@@ -83,7 +83,7 @@ final class ThinkBar {
             ai.ibiko.suit.ChatTools tools = a.chatTools(who);
             boolean on = !tools.deep();
             tools.set(ai.ibiko.suit.ChatTools.Tool.DEEP, on);
-            a.prefs.edit().putString(a.toolsKey(who), tools.write()).apply();
+            a.prefs.edit().putString(a.toolsKey(who), tools.write()).putBoolean(MainActivity.THINK_ON, on).apply();
             paint.run();
             a.note(on ? "Think is on: Ibiko plans, checks and revises before answering (slower)." : "Think is off: quick answers.");
         });
