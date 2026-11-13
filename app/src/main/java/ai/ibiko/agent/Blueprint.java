@@ -32,47 +32,40 @@ import java.util.regex.Pattern;
 public final class Blueprint {
     public enum Phase { UNDERSTAND, PLAN, CHECK, BUILD, VERIFY, DONE }
 
-    /** What the agent is told, ahead of its tools, for a real task. */
-    public static final String RULES = "Blueprint: work in this order and do not skip ahead.\n"
-            + "1 UNDERSTAND: read before deciding. List and read the files the task touches, and search for code that"
-            + " already does something similar (search the names, the words, the screens). Change nothing yet.\n"
-            + "2 PLAN: write PLAN.md in the project folder with these sections: '# Blueprint: <the task>', 'Phase: PLAN',"
-            + " '## Repository' (when the task is on a GitHub repository: 'owner/name -> repos/<name>', the one"
-            + " folder it is cloned into; the first step is to pull it there (clone it there the first time), and every read,"
-            + " edit, command and push for it uses that same folder, never a copy elsewhere and never projects/<name> or"
-            + " memory/projects/<name>: those paths do not exist. Correcting a step from projects/<name> to repos/<name>"
-            + " keeps the step), '## Goal', '## Found' (what is there now, file:name), '## Reuse' (existing code you will use instead of"
-            + " writing it again, file:name, or 'none: <why>'), '## Steps' (numbered in order '- [ ] 1. … (files: a, b;"
-            + " check: how this step is proved done, such as the test to run or the lines to read back)', one change per"
-            + " step, small enough to check), '## Risks'"
-            + " (each with its answer after ' -> '), '## Check' (the build or test that proves it works), '## Changes'"
-            + " (what the user adds later).\n"
-            + "3 CHECK: set 'Phase: CHECK' and scrutinise the plan for loopholes: a step without files or without a check,"
-            + " steps out of order or depending on a later one, new code that"
-            + " duplicates something in Found, a risk without an answer, no test, an open question. Fix the plan. When"
-            + " nothing is missing, set 'Phase: BUILD'. Files other than PLAN.md cannot be changed before that.\n"
-            + "4 BUILD: do the steps in order, quickly. After each step run its check (read the changed lines back, run"
-            + " the test) and tick '- [x]' in PLAN.md only when the check passed; a step whose check fails is fixed before"
-            + " the next one starts. Do not re-read what"
-            + " you already read or redo a ticked step. If something fails twice, stop and fix the plan instead of trying"
-            + " the same thing again.\n"
-            + "5 VERIFY: set 'Phase: VERIFY', run the Check, fix what fails, then give the report.\n"
-            + "If the user adds something while you work: add it under '## Changes' and as new steps, set 'Phase: CHECK',"
-            + " check the whole blueprint again, then carry on building from the first unticked step.\n"
-            + "The plan is a list that grows. A new task or a new idea is ADDED to the PLAN.md that is there: never delete"
-            + " or rewrite the steps already in it, done or not, and never start a fresh plan over an old one. New steps go"
-            + " after the existing ones; only when the user says the new work is a priority do they go right after the last"
-            + " ticked step, to be done next. The only edit to an existing step is ticking it when it is finished and"
-            + " checked, or correcting projects/<name> to repos/<name> (the same step, the folder that exists);"
-            + " then move to the next one. A write that drops a step is refused.\n";
+    /**
+     * What the agent is told, ahead of its tools, for a real task. Plan as much as the task needs and no more, start
+     * as soon as the goal and the steps are clear, keep the plan a living list, prove each step, report plainly.
+     */
+    public static final String RULES = "Blueprint: how to work on this task.\n"
+            + "1 UNDERSTAND: read what the task touches before deciding: list and read those files, and search for code that"
+            + " already does something similar. Change nothing yet. Read only what the task needs.\n"
+            + "2 PLAN: write PLAN.md in the project folder: '# Blueprint: <the task>', '## Goal' (what done looks like) and"
+            + " '## Steps', numbered in order ('- [ ] 1. … (files: a, b; check: how this step is proved done, such as the"
+            + " test to run or the lines to read back)'), one change per step, small enough to check. Add only the sections"
+            + " that help: '## Found' (what is there now), '## Reuse' (existing code to use instead of writing it again),"
+            + " '## Risks' (each with its answer after ' -> '), '## Check' (the build or test that proves it all works),"
+            + " '## Changes'. When the task is on a GitHub repository add '## Repository': 'owner/name -> repos/<name>', the"
+            + " one folder it is cloned into; the first step is to pull it there (clone it the first time), and every read,"
+            + " edit, command and push uses that same folder, never projects/<name> or memory/projects/<name>: those paths"
+            + " do not exist. Building starts as soon as PLAN.md has a goal and steps.\n"
+            + "3 BUILD: one step at a time, in order, quickly. After each step run its check (read the changed lines back,"
+            + " run the test) and tick '- [x]' in PLAN.md only when the check passed; a step whose check fails is fixed"
+            + " before the next one starts. Do not re-read what you already read or redo a ticked step.\n"
+            + "4 ADAPT: the plan is a living list. When you learn that a step not yet done is wrong, unneeded or too big,"
+            + " reword, split or drop it, and say why in one line under '## Changes'. A ticked step stays as it is, and the"
+            + " plan is never replaced by a new one: new work is added as new steps (right after the last ticked one when the"
+            + " user calls it a priority). If something fails twice the same way, change the plan instead of trying again.\n"
+            + "5 VERIFY and report: run the final check, fix what fails, then report what was done, what was checked and what"
+            + " is left, saying only what you verified.\n"
+            + "If the user adds something while you work: put it under '## Changes' and as new steps in PLAN.md, then carry on"
+            + " from the first unticked step.\n";
 
     /** Told to the agent with the user's addition, instead of the plain "read it and continue". */
     public static final String CHANGE = "The user added this while you were working. Do not start over and do not redo"
             + " ticked steps. Add it to PLAN.md under '## Changes' and as new numbered steps (after the steps already there;"
-            + " right after the last ticked one only if the user calls it a priority; never remove or reword an existing"
-            + " step), set 'Phase: CHECK', check the"
-            + " whole blueprint again for gaps (does it clash with a step already built? does it reuse what is there?), set"
-            + " 'Phase: BUILD', then carry on from the first unticked step.";
+            + " right after the last ticked one only if the user calls it a priority), adjust any unfinished step it changes"
+            + " (does it clash with a step already built? does it reuse what is there?), then carry on from the first unticked"
+            + " step.";
 
     private static final Pattern PHASE = Pattern.compile("(?im)^\\s*Phase:\\s*(UNDERSTAND|PLAN|CHECK|BUILD|VERIFY|DONE)\\b");
     private static final Pattern STEP = Pattern.compile("(?m)^\\s*[-*]\\s*\\[([ xX])\\]\\s*(.+)$");
@@ -151,6 +144,11 @@ public final class Blueprint {
         return planPath;
     }
 
+    /** The plan as Ibiko holds it (its phase line as it now stands). */
+    public String text() {
+        return plan;
+    }
+
     /**
      * Whether a tool call may run now. Null: go ahead. Otherwise the reason it may not, given back to the agent as the
      * tool's result: nothing but PLAN.md is changed before the blueprint has passed its check.
@@ -163,11 +161,16 @@ public final class Blueprint {
         }
         Phase p = phase();
         if (p == Phase.UNDERSTAND || p == Phase.PLAN || p == Phase.CHECK) {
-            List<String> missing = check(plan);
-            return "Blueprint: not built yet. The phase is " + p.name() + "; files other than PLAN.md change only after"
-                    + " the blueprint passes its check and says 'Phase: BUILD'."
-                    + (missing.isEmpty() ? " Nothing is missing: set 'Phase: BUILD' in PLAN.md, then make this change."
-                            : " Still missing: " + String.join("; ", missing) + ".");
+            if (changesPending) {
+                return "Blueprint: first add the user's new request to PLAN.md (under '## Changes' and as steps), then build.";
+            }
+            List<String> missing = required(plan);
+            if (missing.isEmpty()) {
+                build(); // a goal and steps: building starts, no ceremony
+                return null;
+            }
+            return "Blueprint: not started yet. Files other than PLAN.md change once PLAN.md has a goal and steps. Still"
+                    + " missing: " + String.join("; ", missing) + ".";
         }
         return null;
     }
@@ -197,27 +200,61 @@ public final class Blueprint {
             }
         }
         plan = text == null ? "" : text;
-        if (phaseOf(before) != Phase.BUILD && phase() == Phase.BUILD) {
-            List<String> missing = check(plan);
-            if (!missing.isEmpty()) {
-                // it said BUILD with gaps left: not yet
-                plan = plan.replaceAll("(?im)^(\\s*Phase:\\s*)BUILD\\b", "$1CHECK");
-                return "Blueprint check failed, so the phase stays CHECK: " + String.join("; ", missing)
-                        + ". Fix these in PLAN.md (and set 'Phase: BUILD' again) before building.";
-            }
-            changesPending = false;
-            return "Blueprint checked: nothing missing. Build the steps in order now; tick each one in PLAN.md.";
+        if (!plan.equals(before)) {
+            changesPending = false; // the plan was written after the user's addition: it is in there now
         }
-        if (phase() == Phase.CHECK) {
-            List<String> missing = check(plan);
-            return missing.isEmpty() ? "Blueprint check: nothing missing. Set 'Phase: BUILD' and start building."
-                    : "Blueprint check, still missing: " + String.join("; ", missing) + ".";
+        List<String> missing = required(plan);
+        if (!missing.isEmpty()) {
+            if (phase() == Phase.BUILD) {
+                plan = plan.replaceAll("(?im)^(\\s*Phase:\\s*)BUILD\\b", "$1CHECK"); // it said BUILD with no plan to build
+            }
+            return "Blueprint check failed: PLAN.md still needs " + String.join("; ", missing) + ". Building starts once it has them.";
+        }
+        if (phase() == Phase.UNDERSTAND || phase() == Phase.PLAN || phase() == Phase.CHECK) {
+            build();
+            String said = "Plan noted (" + steps(plan).size() + (steps(plan).size() == 1 ? " step" : " steps")
+                    + "). Build them in order now; tick each one in PLAN.md when its check passes.";
+            List<String> worth = check(plan);
+            if (!adviceGiven && !worth.isEmpty()) {
+                adviceGiven = true; // said once, never a wall to get past
+                said += " Worth adding if it helps (not required): " + String.join("; ", worth) + ".";
+            }
+            return said;
         }
         return null;
     }
 
+    private boolean adviceGiven;
+
+    /** Building starts: the plan's phase line says BUILD (added when there is none). */
+    private void build() {
+        if (PHASE.matcher(plan).find()) {
+            plan = plan.replaceAll("(?im)^(\\s*Phase:\\s*)(UNDERSTAND|PLAN|CHECK)\\b", "$1BUILD");
+        } else {
+            plan = plan + (plan.endsWith("\n") ? "" : "\n") + "Phase: BUILD\n";
+        }
+    }
+
+    /** What building really needs: PLAN.md, a goal, and at least one step. Empty when it may start. */
+    public static List<String> required(String planText) {
+        String p = planText == null ? "" : planText;
+        List<String> out = new ArrayList<String>();
+        if (p.trim().isEmpty()) {
+            out.add("PLAN.md is not written yet (understand the code, then write the blueprint)");
+            return out;
+        }
+        if (section(p, "Goal").trim().length() < 10) {
+            out.add("a '## Goal' that says what done looks like");
+        }
+        if (steps(p).isEmpty()) {
+            out.add("numbered steps under '## Steps' ('- [ ] 1. … (files: …)')");
+        }
+        return out;
+    }
+
     /**
-     * The scrutiny: what the blueprint still lacks before building may start. Empty when it is complete.
+     * The full scrutiny, given once as advice when the plan is written: what a thorough blueprint would also have.
+     * Only {@link #required} holds building back.
      */
     public static List<String> check(String planText) {
         String p = planText == null ? "" : planText;
@@ -347,21 +384,39 @@ public final class Blueprint {
                 unticked.add(o.group(2).trim());
             }
         }
-        if (gone.isEmpty() && unticked.isEmpty()) {
+        // a living list: an unfinished step may be reworded, split or dropped. What is protected is finished work, and
+        // the plan as a whole (a new plan written over the old one)
+        List<String> goneDone = new ArrayList<String>();
+        int old = 0;
+        Matcher o2 = STEP.matcher(onDisk == null ? "" : onDisk);
+        while (o2.find()) {
+            String key = stepKey(o2.group(2));
+            if (key.isEmpty()) {
+                continue;
+            }
+            old++;
+            if (!o2.group(1).trim().isEmpty() && !now.containsKey(key)) {
+                goneDone.add(o2.group(2).trim());
+            }
+        }
+        boolean replaced = old > 0 && gone.size() == old && old > 1;
+        if (goneDone.isEmpty() && unticked.isEmpty() && !replaced) {
             return null;
         }
-        StringBuilder b = new StringBuilder("Not written: a plan is added to, never replaced.");
-        if (!gone.isEmpty()) {
-            b.append(" Your new version drops ").append(gone.size()).append(gone.size() == 1 ? " step" : " steps")
-                    .append(" that are in the plan now: ").append(String.join(" | ", gone.size() > 8 ? gone.subList(0, 8) : gone))
-                    .append(gone.size() > 8 ? " | …" : "").append('.');
+        StringBuilder b = new StringBuilder("Not written: a plan is added to and adjusted, never replaced, and finished work stays.");
+        if (replaced) {
+            b.append(" Your new version drops every step in the plan now: ")
+                    .append(String.join(" | ", gone.size() > 8 ? gone.subList(0, 8) : gone)).append(gone.size() > 8 ? " | …" : "")
+                    .append('.');
+        } else if (!goneDone.isEmpty()) {
+            b.append(" Your new version drops finished ").append(goneDone.size() == 1 ? "step" : "steps").append(": ")
+                    .append(String.join(" | ", goneDone.size() > 8 ? goneDone.subList(0, 8) : goneDone)).append('.');
         }
         if (!unticked.isEmpty()) {
             b.append(" It also unticks finished work: ").append(String.join(" | ", unticked.size() > 8 ? unticked.subList(0, 8) : unticked)).append('.');
         }
-        b.append(" Keep every step that is there, word for word, with its tick; add the new work as new steps after them. If the"
-                + " user made the new work a priority, put its steps right after the last ticked one so they are next. A step is"
-                + " only ever changed by ticking it when it is done.");
+        b.append(" Keep the ticked steps as they are. An unfinished step may be reworded, split or dropped (say why under"
+                + " '## Changes'); new work goes in as new steps.");
         return b.toString();
     }
 
@@ -473,7 +528,7 @@ public final class Blueprint {
             case CHECK:
                 return "Checking the blueprint for gaps";
             case BUILD:
-                return "Blueprint complete: building " + progress().replaceFirst("^\\d+ of ", "") + " steps";
+                return "Plan ready: building " + progress().replaceFirst("^\\d+ of ", "") + " steps";
             case VERIFY:
                 return "Verifying the build";
             default:

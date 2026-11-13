@@ -45,7 +45,7 @@ public class BlueprintTest {
     }
 
     @Test
-    public void nothingButThePlanChangesBeforeTheCheckPasses() {
+    public void nothingButThePlanChangesUntilItHasAGoalAndSteps() {
         Blueprint b = new Blueprint();
         assertEquals(Blueprint.Phase.UNDERSTAND, b.phase());
         assertNull("reading is always allowed", b.gate("read_file", "app/Main.java"));
@@ -53,13 +53,24 @@ public class BlueprintTest {
         String refused = b.gate("write_file", "app/Main.java");
         assertNotNull(refused);
         assertTrue(refused, refused.contains("PLAN.md is not written yet"));
-        b.planned("app/PLAN.md", GOOD);
-        assertEquals(Blueprint.Phase.CHECK, b.phase());
-        assertNotNull(b.gate("edit_file", "app/Main.java"));
-        String ok = b.planned("app/PLAN.md", GOOD.replace("Phase: CHECK", "Phase: BUILD"));
-        assertTrue(ok, ok.startsWith("Blueprint checked"));
-        assertEquals(Blueprint.Phase.BUILD, b.phase());
+        String said = b.planned("app/PLAN.md", GOOD);
+        assertTrue(said, said.startsWith("Plan noted (2 steps)"));
+        assertEquals("a goal and steps: building starts, nobody has to type the phase", Blueprint.Phase.BUILD, b.phase());
+        assertTrue(b.text(), b.text().contains("Phase: BUILD"));
         assertNull(b.gate("edit_file", "app/Main.java"));
+    }
+
+    @Test
+    public void aShortPlanStartsAtOnceAndTheRestIsAdviceSaidOnce() {
+        Blueprint b = new Blueprint();
+        String plan = "# Blueprint: dark mode\n## Goal\nThe settings have a dark mode switch.\n## Steps\n- [ ] 1. Add the switch\n";
+        String said = b.planned("PLAN.md", plan);
+        assertEquals(Blueprint.Phase.BUILD, b.phase());
+        assertTrue(said, said.contains("Worth adding if it helps (not required)"));
+        assertNull("no wall of format checks before the work", b.gate("write_file", "app/Settings.java"));
+        String again = b.planned("PLAN.md", plan.replace("- [ ] 1.", "- [x] 1."));
+        assertTrue("the advice is said once", again == null || !again.contains("Worth adding"));
+        assertTrue(Blueprint.required("# x\n## Goal\nshort\n").size() == 2); // a goal too short, and no steps
     }
 
     @Test
@@ -131,7 +142,7 @@ public class BlueprintTest {
         assertTrue(b.announce().startsWith("Understanding"));
         assertNull(b.announce());
         b.planned("PLAN.md", GOOD);
-        assertEquals("Checking the blueprint for gaps", b.announce());
+        assertTrue(b.announce().startsWith("Plan ready: building"));
     }
 
     @Test
@@ -151,6 +162,13 @@ public class BlueprintTest {
         assertTrue(replaced, replaced != null && replaced.contains("Save notes") && replaced.contains("never replaced"));
         String unticked = Blueprint.kept(old, old.replace("- [x] 1.", "- [ ] 1."));
         assertTrue(unticked, unticked != null && unticked.contains("unticks finished work"));
+        // a living list: a step not yet done may be reworded, split or dropped
+        assertNull("reworded", Blueprint.kept(old, old.replace("2. Save notes (files: b)", "2. Save notes to the phone (files: b, d)")));
+        assertNull("split", Blueprint.kept(old, old.replace("- [ ] 2. Save notes (files: b)\n",
+                "- [ ] 2. Write the notes file (files: b)\n- [ ] 3. Load it at start (files: e)\n")));
+        assertNull("dropped", Blueprint.kept(old, "# Blueprint: notes\n## Steps\n- [x] 1. Make the list (files: a)\n"));
+        String droppedDone = Blueprint.kept(old, "# Blueprint: notes\n## Steps\n- [ ] 2. Save notes (files: b)\n");
+        assertTrue("finished work stays: " + droppedDone, droppedDone != null && droppedDone.contains("Make the list"));
     }
 
     @Test

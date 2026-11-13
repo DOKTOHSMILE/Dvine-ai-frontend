@@ -1632,11 +1632,11 @@ public final class CodeAgent {
                 File f = inside(c.a("path"));
                 if (f.isFile()) {
                     said = blueprint.planned(c.a("path"), new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
-                    if (blueprint.phase() == Blueprint.Phase.CHECK && said != null && said.startsWith("Blueprint check failed")) {
-                        // it set BUILD with gaps left: the file says CHECK again, so a later run doesn't skip the check
-                        String now = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)
-                                .replaceAll("(?im)^(\\s*Phase:\\s*)BUILD\\b", "$1CHECK");
-                        Files.write(f.toPath(), now.getBytes(StandardCharsets.UTF_8));
+                    // the phase Ibiko moved it to (building started; or sent back for want of a goal or steps) goes in the
+                    // file too, so a later run picks up where this one is
+                    String onDisk = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+                    if (!onDisk.equals(blueprint.text())) {
+                        Files.write(f.toPath(), blueprint.text().getBytes(StandardCharsets.UTF_8));
                     }
                 }
             } catch (IOException ignored) {
