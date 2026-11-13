@@ -292,7 +292,8 @@ public final class RemoteBrain {
         if (!"auto".equals(reasoningMode)) {
             return "on".equals(reasoningMode); // the user said so on the providers sheet
         }
-        return model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gpt-5.*|o[1-9](-.*)?|.*-r1.*|.*reason.*|.*thinking.*|qwq.*)");
+        // Qwen4 thinks by default, at its slowest setting (xhigh), unless told otherwise
+        return model.toLowerCase(java.util.Locale.US).matches("(.*/)?(gpt-5.*|o[1-9](-.*)?|.*-r1.*|.*reason.*|.*thinking.*|qwq.*|qwen-?4.*)");
     }
 
     /**
@@ -640,7 +641,11 @@ public final class RemoteBrain {
                     // medium, not low: low reasoning on a large model is what came back empty. Real work thinks harder.
                     // a quick message thinks little (gpt-5 at medium spent minutes before a one-line question back);
                     // the completion room above leaves space for the thinking, so the answer is not empty
-                    req.put("reasoning_effort", "high".equals(effort) ? "high" : "low".equals(effort) ? "low" : "medium");
+                    String level = "high".equals(effort) ? "high" : "low".equals(effort) ? "low" : "medium";
+                    if ("high".equals(level) && model.toLowerCase(java.util.Locale.US).matches("(.*/)?qwen-?4.*")) {
+                        level = "xhigh"; // Qwen4 takes low, medium or xhigh
+                    }
+                    req.put("reasoning_effort", level);
                 }
             } else {
                 // a thinking model in the plain form still spends its hidden thinking from max_tokens

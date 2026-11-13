@@ -647,4 +647,18 @@ public class RemoteBrainTest {
         t.join(10000);
         assertFalse(m.working());
     }
+
+    @Test
+    public void qwen4ThinksAsHardAsTheMessageNeedsOnItsOwnScale() throws Exception {
+        RemoteBrain q = new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+                "qwen4-max-preview", "k", "", new Fake());
+        assertTrue("Qwen4 is a thinking model", q.reasoning());
+        java.util.List<String[]> turns = ask("hi");
+        q.effortFor(TaskSize.Tier.FAST);
+        String quick = new String(q.body("s", turns, 2048, 0.7f, 2), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(quick, quick.contains("\"reasoning_effort\":\"low\""));
+        q.effortFor(TaskSize.Tier.STRONG);
+        String work = new String(q.body("s", turns, 2048, 0.7f, 2), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue("its top level is xhigh, not high: " + work, work.contains("\"reasoning_effort\":\"xhigh\""));
+    }
 }

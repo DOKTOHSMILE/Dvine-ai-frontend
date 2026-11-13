@@ -118,6 +118,18 @@ public class InquiryFlowTest {
     }
 
     @Test(timeout = 60000)
+    public void aQuestionAboutIbikoItselfIsNotAskedBack() throws Exception {
+        Plug.web = WEB;
+        Store.reset();
+        Chat chat = new Chat();
+        Ibiko1 brain = new Ibiko1(chat, Files.createTempDirectory("ibiko1").toFile());
+        brain.answer("What limitations do you currently face?");
+        String said = chat.next(0);
+        assertNotNull(said);
+        assertTrue(said, !said.contains("what do you mean"));
+    }
+
+    @Test(timeout = 60000)
     public void justAnswerGivesTheFirstSearch() throws Exception {
         Plug.web = WEB;
         Store.reset();
