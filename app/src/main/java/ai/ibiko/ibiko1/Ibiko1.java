@@ -128,6 +128,23 @@ public final class Ibiko1 {
     private How how = How.OTHER;
     /** The question it last asked "accurate?" about, for a correction typed instead of tapped. */
     private String ratingQuestion;
+    /** A question waiting for the person's own explanation ({@link Inquiry}), or null. */
+    private volatile Inquiry.Pending inquiry;
+    /** The last answer worked out by asking back, open to "no, it's …" for {@link Inquiry#WAIT_MS}. */
+    private volatile String inquiryQuestion, inquiryAnswer;
+    private volatile long inquiryAnsweredAt;
+
+    /** Settings › Learning: ask what the person means before answering what it doesn't know. */
+    public static final String ASK_BACK = "ibiko1_ask_back";
+
+    private boolean asksBack() {
+        try {
+            android.content.Context c = host.context();
+            return c == null || c.getSharedPreferences("ibiko", android.content.Context.MODE_PRIVATE).getBoolean(ASK_BACK, true);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
 
     public Ibiko1(Host host, File filesDir) {
         this.host = host;
@@ -424,6 +441,9 @@ public final class Ibiko1 {
         critical = ai.ibiko.ibiko1.formulas.Critical.read(t); // K1–K8: what it asks and what it takes for granted
         times = Phrasing.heard(t); // a question asked again is answered as a person would, not word for word
         kind = Methods.kind(t);
+        if (inquiryTurn(who, t)) {
+            return; // the explanation it asked for, or a correction of what it worked out
+        }
         Grammar.Parse parse = Grammar.parse(t);
         final String sum = host.sum(t);
         if (sum != null) {
@@ -605,6 +625,13 @@ public final class Ibiko1 {
                             if (mine != token) {
                                 return; // a newer message took over
                             }
+                            if (asksBack() && host.online() && (found != null || !host.modelReady())) {
+                                // not in memory: before answering, it asks what the person means (Inquiry); when the search
+                                // found nothing and the phone has a model, that model answers instead, as before
+                                inquiry = new Inquiry.Pending(t, subject, found, System.currentTimeMillis());
+                                saysPlain(who, Inquiry.askBack(t, subject, found != null));
+                                return;
+                            }
                             if (found == null && host.modelReady()) {
                                 think(Arrays.asList("Nothing I found answers it: asking the device's model"),
                                         () -> fromModel(who, t, subject, true), false);
@@ -628,6 +655,115 @@ public final class Ibiko1 {
                         });
                     }, "ibiko-research").start();
                 });
+    }
+
+    /**
+     * The turn after it asked back: the person's explanation is searched and compared with the first search; "just
+     * answer" gives the first search's answer. A correction ("no, it's …") of an answer worked out this way replaces
+     * it. False when the message is neither (a new question goes its own way).
+     */
+    private boolean inquiryTurn(final String who, final String t) {
+        long now = System.currentTimeMillis();
+        final Inquiry.Pending p = inquiry;
+        if (p != null) {
+            inquiry = null;
+            boolean newQuestion = t.trim().endsWith("?") && p.subject != null
+                    && !t.toLowerCase(Locale.US).contains(p.subject.toLowerCase(Locale.US));
+            if (!p.expired(now) && !newQuestion) {
+                if (Inquiry.dropsIt(t)) {
+                    answerFirst(who, p);
+                } else {
+                    explained(who, p, t);
+                }
+                return true;
+            }
+        }
+        if (inquiryAnswer != null && now - inquiryAnsweredAt <= Inquiry.WAIT_MS && Inquiry.corrects(t)) {
+            corrected(who, t);
+            return true;
+        }
+        return false;
+    }
+
+    /** "Just answer": what the first search found, as it would have said it. */
+    private void answerFirst(final String who, final Inquiry.Pending p) {
+        if (p.first == null) {
+            final String none = Phrasing.unknown(p.subject, true, LearningJob.plan(host.context()).on, times);
+            think(Arrays.asList("Reading your message"), () -> saysPlain(who, none));
+            return;
+        }
+        how = How.RESEARCH;
+        think(Arrays.asList("Reading your message", "Going with what I found"), () -> {
+            saysSure(who, p.first.shown() + "\n\n" + Inquiry.MAY_BE_WRONG, ai.ibiko.ibiko1.formulas.Critical.Ground.ONE_SOURCE);
+            opened(p.question, p.first.text);
+        });
+    }
+
+    /** The explanation: searched, compared with the first search, and the closer answer given with "I may be wrong". */
+    private void explained(final String who, final Inquiry.Pending p, final String explanation) {
+        how = How.RESEARCH;
+        think(Arrays.asList("Reading what you explained", "Searching on what you said", "Comparing it with what I found first"), () -> {
+            final int mine = token;
+            new Thread(() -> {
+                ResearchAnswer second = host.online() ? LearningJob.research(host.context(), Inquiry.explanationQuery(p, explanation)) : null;
+                if (second != null && knowledge().rejected(p.question, second.shown())) {
+                    second = null;
+                }
+                final Inquiry.Outcome o = Inquiry.compare(p.question, explanation, p.first, second);
+                final long now = System.currentTimeMillis();
+                learner().read(explanation, Learner.Source.PILOT, now); // the person's own words teach it too
+                final List<Knowledge.Fact> rel = o == null ? new ArrayList<Knowledge.Fact>()
+                        : Inquiry.related(p.question, o.text, knowledge().confirmed(), 2);
+                if (o != null) {
+                    facts().learn(o.text, p.subject, 2, now);
+                }
+                host.onScreen(() -> {
+                    if (mine != token) {
+                        return; // a newer message took over
+                    }
+                    if (o == null) {
+                        LearningJob.remember(host.context(), p.question);
+                        learner().unanswered(p.question, now);
+                        saysPlain(who, Phrasing.unknown(p.subject, true, LearningJob.plan(host.context()).on, times));
+                        return;
+                    }
+                    saysSure(who, o.shown() + Inquiry.tiesIn(rel), o.agree ? ai.ibiko.ibiko1.formulas.Critical.Ground.TWO_SOURCES
+                            : ai.ibiko.ibiko1.formulas.Critical.Ground.ONE_SOURCE);
+                    opened(p.question, o.text);
+                });
+            }, "ibiko1-inquiry").start();
+        });
+    }
+
+    /** An answer worked out by asking back: open to a check, a cancel, or a typed correction. */
+    private void opened(String question, String answer) {
+        inquiryQuestion = question;
+        inquiryAnswer = answer;
+        inquiryAnsweredAt = System.currentTimeMillis();
+        rateable(question, answer);
+    }
+
+    /**
+     * "No, it's …": the answer is marked wrong for good, the person's words become the answer, and they are matched by
+     * word ids with what it already knows.
+     */
+    private void corrected(final String who, String t) {
+        final String q = inquiryQuestion, wrong = inquiryAnswer, right = Inquiry.correction(t);
+        inquiryQuestion = null;
+        inquiryAnswer = null;
+        ratingQuestion = null;
+        host.clearRating();
+        long now = System.currentTimeMillis();
+        knowledge().reject(q, wrong);
+        knowledge().confirm(q, right);
+        host.learnTalk(q, right);
+        facts().learn(right, ResearchAnswer.subject(q), 2, now);
+        learner().judged(false, now);
+        methods().judge(q, false);
+        final String ties = Inquiry.tiesIn(Inquiry.related(q, right, knowledge().confirmed(), 2));
+        think(Arrays.asList("Reading your correction", "Replacing what I said", "Matching it with what I already know"),
+                () -> saysPlain(who, "Thank you for correcting me. When you ask “" + q.replaceAll("[?.!]+$", "") + "”, I'll answer: "
+                        + right + ties));
     }
 
     /** Ibiko 1 and the device's model as one brain: what Ibiko 1 knows goes in, the model's answer comes out unchecked. */
