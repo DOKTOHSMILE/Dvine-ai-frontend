@@ -69,6 +69,11 @@ public final class WebGet {
      * and a failure says why ("404", "the site didn't answer"). Blocking; call off the main thread.
      */
     public static Page page(String url, int timeoutMs, int maxBytes) {
+        return page(url, timeoutMs, maxBytes, null);
+    }
+
+    /** The same fetch, sending the account's cookies so a signed-in plain page can be read. */
+    public static Page page(String url, int timeoutMs, int maxBytes, String cookie) {
         if (url == null || !url.startsWith("https://")) {
             return new Page(0, null, "only https addresses can be fetched");
         }
@@ -81,6 +86,9 @@ public final class WebGet {
             c.setRequestProperty("User-Agent", BROWSER);
             c.setRequestProperty("Accept", "text/html,text/plain,application/json;q=0.9,*/*;q=0.8");
             c.setRequestProperty("Accept-Language", "en");
+            if (cookie != null && !cookie.isEmpty()) {
+                c.setRequestProperty("Cookie", cookie.replace("\r", "").replace("\n", ""));
+            }
             int status = c.getResponseCode();
             InputStream in = status >= 400 ? c.getErrorStream() : c.getInputStream();
             ByteArrayOutputStream out = new ByteArrayOutputStream();

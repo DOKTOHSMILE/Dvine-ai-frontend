@@ -1,3 +1,10 @@
+# Social search after a cleared check (0.99.135)
+
+- [x] Saying the check is finished ("I cleared it", "no longer paused") lifts the 24-hour pause. A search the user just asked for still loads while a pause is on; a healthy page lifts it, a real checkpoint pauses again.
+- [x] Facebook is read from the plain page first, then the full page, then a plain HTTPS fetch with the account's cookies. Post links (including story.php) are kept, and the comment instruction is at the top so it is not cut off.
+- [x] When the signed-in page still doesn't load, public results for the same words are returned, with a post link when one is there. A comment is written only after the user says yes.
+- [ ] On the phone: say "I cleared it", then ask again for the latest Facebook post about Elon Musk and a comment.
+
 # Private repositories, and a direction for every function (0.99.134)
 
 - [x] A private GitHub zip keeps the token across GitHub's redirect, and falls back to the file API if the zip mirror refuses it.

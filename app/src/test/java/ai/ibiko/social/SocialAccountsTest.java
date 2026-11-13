@@ -47,6 +47,11 @@ public class SocialAccountsTest {
         assertFalse(Platform.X.signedIn(null));
         assertTrue(Platform.X.signedIn("guest_id=v1; auth_token=f00"));
         assertEquals("https://x.com/search?q=lagos%20flood&src=typed_query&f=live", Platform.X.searchUrl("lagos flood"));
+        assertTrue(Platform.FACEBOOK.searchUrl("Elon Musk").startsWith("https://mbasic.facebook.com/search/posts/?q="));
+        assertTrue(Platform.FACEBOOK.otherSearchUrl("Elon Musk").startsWith("https://m.facebook.com/search/posts/?q="));
+        assertTrue(Platform.REDDIT.searchUrl("a&b").contains("old.reddit.com"));
+        assertTrue(Platform.REDDIT.searchUrl("a&b").contains("a%26b"));
+        assertTrue(Platform.X.otherSearchUrl("lagos flood").contains("mobile.twitter.com"));
         assertEquals("https://www.instagram.com/explore/tags/jollofrice/", Platform.INSTAGRAM.searchUrl("Jollof rice!"));
         assertTrue(Platform.REDDIT.searchUrl("a&b").contains("a%26b"));
         assertTrue(Platform.X.owns("https://x.com/ada/status/1"));

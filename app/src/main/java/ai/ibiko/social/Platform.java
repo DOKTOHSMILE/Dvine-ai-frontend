@@ -11,9 +11,10 @@ import java.util.Locale;
  */
 public enum Platform {
     FACEBOOK("Facebook", "https://m.facebook.com/login/", "https://m.facebook.com/", new String[]{"c_user"},
-            new String[]{"https://www.facebook.com", "https://m.facebook.com", "https://facebook.com"}),
+            new String[]{"https://www.facebook.com", "https://m.facebook.com", "https://mbasic.facebook.com",
+                    "https://lm.facebook.com", "https://touch.facebook.com", "https://facebook.com"}),
     X("X", "https://x.com/i/flow/login", "https://x.com/home", new String[]{"auth_token"},
-            new String[]{"https://x.com", "https://twitter.com"}),
+            new String[]{"https://x.com", "https://twitter.com", "https://mobile.twitter.com"}),
     INSTAGRAM("Instagram", "https://www.instagram.com/accounts/login/", "https://www.instagram.com/", new String[]{"sessionid"},
             new String[]{"https://www.instagram.com", "https://instagram.com"}),
     REDDIT("Reddit", "https://www.reddit.com/login/", "https://www.reddit.com/", new String[]{"reddit_session"},
@@ -59,7 +60,8 @@ public enum Platform {
         String q = enc(query == null ? "" : query.trim());
         switch (this) {
             case FACEBOOK:
-                return "https://m.facebook.com/search/posts/?q=" + q;
+                // the plain page: the full site often never finishes in a hidden browser
+                return "https://mbasic.facebook.com/search/posts/?q=" + q;
             case X:
                 return "https://x.com/search?q=" + q + "&src=typed_query&f=live";
             case TELEGRAM: {
@@ -74,7 +76,22 @@ public enum Platform {
                 String tag = query == null ? "" : query.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", "");
                 return "https://www.instagram.com/explore/tags/" + enc(tag) + "/";
             default:
+                return "https://old.reddit.com/search/?q=" + q + "&sort=new";
+        }
+    }
+
+    /** A second page to try when {@link #searchUrl} doesn't come back (the full site, or a lighter one). */
+    public String otherSearchUrl(String query) {
+        String q = enc(query == null ? "" : query.trim());
+        switch (this) {
+            case FACEBOOK:
+                return "https://m.facebook.com/search/posts/?q=" + q;
+            case X:
+                return "https://mobile.twitter.com/search?q=" + q + "&src=typed_query&f=live";
+            case REDDIT:
                 return "https://www.reddit.com/search/?q=" + q + "&sort=new";
+            default:
+                return searchUrl(query);
         }
     }
 

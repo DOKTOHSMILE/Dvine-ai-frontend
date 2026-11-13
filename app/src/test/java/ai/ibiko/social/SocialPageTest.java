@@ -27,6 +27,40 @@ public class SocialPageTest {
         }
         long_.append("someone wrote: my account got 'unusual activity' warnings lol");
         assertEquals(SocialPage.State.OK, SocialPage.of("https://x.com/search?q=a", long_.toString()).state);
+        // a cookie-consent address is not an account lock
+        assertEquals(SocialPage.State.OK, SocialPage.of("https://www.facebook.com/privacy/consent/user_cookie_choice/", "cookie choices").state);
+    }
+
+    @Test
+    public void theUserCanSayTheCheckIsFinished() {
+        assertTrue(SocialPage.cleared("It's no longer paused I cleared it"));
+        assertTrue(SocialPage.cleared("I passed the security check"));
+        assertFalse(SocialPage.cleared("what is a security check?"));
+        assertFalse(SocialPage.cleared("hello"));
+    }
+
+    @Test
+    public void aPlainPageKeepsThePostAndItsLink() {
+        String html = "<html><body><a href=\"https://mbasic.facebook.com/story.php?story_fbid=1&id=2\">Elon Musk said the rocket landed</a>"
+                + "<div>A later note about the same launch from another page on the site today</div></body></html>";
+        String text = SocialPage.fromHtml(html);
+        assertTrue(text, text.contains("Elon Musk said the rocket landed"));
+        assertTrue(text, text.contains("LINK https://mbasic.facebook.com/story.php?story_fbid=1&id=2"));
+        assertTrue(SocialPage.usable(text + "\n" + new String(new char[80]).replace('\0', 'x')));
+        String shown = SocialPage.forModel(Platform.FACEBOOK, "search", text);
+        assertTrue(shown, shown.contains("\u00A7SO COMMENT facebook:"));
+        assertTrue(shown.contains("story.php"));
+        assertTrue(shown.indexOf("\u00A7SO COMMENT") < shown.indexOf("From Facebook"));
+    }
+
+    @Test
+    public void aCodedRelativeLinkBecomesAPostLink() {
+        String html = "<a href=\"/story.php?story_fbid=9\u0026amp;id=3\">Elon Musk posted about the new rocket today</a>";
+        String text = SocialPage.fromHtml(html, "https://mbasic.facebook.com/search/posts/?q=a");
+        assertTrue(text, text.contains("LINK https://mbasic.facebook.com/story.php?story_fbid=9&id=3"));
+        String results = SocialPage.webResults("<a class=\"result__a\" href=\"https://duckduckgo.com/l/?uddg="
+                + "https%3A%2F%2Fmbasic.facebook.com%2Fstory.php%3Fstory_fbid%3D1%26id%3D2&rut=1\">Elon Musk on the launch</a>");
+        assertTrue(results, results.contains("LINK https://mbasic.facebook.com/story.php?story_fbid=1&id=2"));
     }
 
     @Test

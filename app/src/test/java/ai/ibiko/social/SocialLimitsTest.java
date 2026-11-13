@@ -72,6 +72,8 @@ public class SocialLimitsTest {
         assertTrue(v.why.contains("paused"));
         l.resume("fb");
         assertTrue(l.check("fb", Platform.FACEBOOK, SocialLimits.Kind.READ, T0).ok);
+        l.pause("fb", "the site said \u201csecurity check\u201d", T0 + SocialLimits.DAY);
+        assertTrue("a search the user asked for still looks", l.check("fb", Platform.FACEBOOK, SocialLimits.Kind.READ, T0, false).ok);
         l.pause("fb", "x", T0 + 10);
         assertNull("a pause ends by itself", l.pausedWhy("fb", T0 + 11));
     }

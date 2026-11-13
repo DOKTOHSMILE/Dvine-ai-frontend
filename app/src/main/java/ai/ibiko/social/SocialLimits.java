@@ -81,9 +81,19 @@ public final class SocialLimits {
     }
 
     public synchronized Verdict check(String account, Platform p, Kind k, long now) {
-        String why = pausedWhy(account, now);
-        if (why != null) {
-            return new Verdict(false, -1, "This " + p.shown + " account is paused: " + why);
+        return check(account, p, k, now, true);
+    }
+
+    /**
+     * {@code honourPause} false: the user asked again, so look even if a check paused the account. Caps and the gap
+     * between reads still apply. A warning on the page pauses it again.
+     */
+    public synchronized Verdict check(String account, Platform p, Kind k, long now, boolean honourPause) {
+        if (honourPause) {
+            String why = pausedWhy(account, now);
+            if (why != null) {
+                return new Verdict(false, -1, "This " + p.shown + " account is paused: " + why);
+            }
         }
         List<Long> times = times(account, k, now);
         int inHour = 0;

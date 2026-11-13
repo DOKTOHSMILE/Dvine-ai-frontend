@@ -227,7 +227,7 @@ public final class SocialWeb {
     /** "x.com" from "https://www.x.com". */
     static String base(String site) {
         String h = site.replaceFirst("^https?://", "").replaceAll("/.*$", "");
-        return h.replaceFirst("^(www|m|old|mobile)\\.", "");
+        return h.replaceFirst("^(www|m|mbasic|lm|touch|old|mobile)\\.", "");
     }
 
     /** Whether Telegram Web is signed in on this device (seen in its page storage when signing in, or on a read). */
@@ -283,10 +283,27 @@ public final class SocialWeb {
                 out.append("Telegram: no word search. This connector only opens a chat named @name or t.me/name.\n\n");
                 continue;
             }
-            String r = read(c, p, p.searchUrl(query), "search for “" + query + "”", each);
+            String r = read(c, p, p.searchUrl(query), p.otherSearchUrl(query), "search for \u201c" + query + "\u201d", each, query);
             out.append(r).append("\n\n");
         }
         return out.toString().trim();
+    }
+
+    /** Lifts every paused account. The user said the site's check is finished. */
+    public static int resumePaused(Context c) {
+        SocialLimits lim = limits(c);
+        long now = System.currentTimeMillis();
+        int n = 0;
+        for (SocialAccounts.Account a : accounts(c).all()) {
+            if (lim.pausedWhy(a.id, now) != null) {
+                lim.resume(a.id);
+                n++;
+            }
+        }
+        if (n > 0) {
+            keepLimits(c);
+        }
+        return n;
     }
 
     /** What is trending on one network (or each signed-in one), as labelled text for the model. */
@@ -323,19 +340,24 @@ public final class SocialWeb {
         return "Only Facebook, X, Instagram, Reddit and Telegram pages are opened with the user's accounts.";
     }
 
-    /** One page, within the limits; a warning pauses the account. */
+    /** One page, within the limits; a warning pauses the account. A pause does not block a search the user just asked for. */
     static String read(Context c, Platform p, String url, String what, int most) {
+        return read(c, p, url, null, what, most, null);
+    }
+
+    static String read(Context c, Platform p, String url, String alt, String what, int most, String query) {
         SocialAccounts all = accounts(c);
         SocialAccounts.Account a = all.inUse(p);
         if (a == null) {
-            return p.shown + ": no account on this device. The user can add one: menu → Social accounts.";
+            return p.shown + ": no account on this device. The user can add one: menu \u2192 Social accounts.";
         }
         if (!all.on(p, true)) {
             return p.shown + " is switched off in Connectors, so it wasn't read.";
         }
         SocialLimits lim = limits(c);
         synchronized (READING) {
-            SocialLimits.Verdict v = lim.check(a.id, p, SocialLimits.Kind.READ, System.currentTimeMillis());
+            boolean wasPaused = lim.pausedWhy(a.id, System.currentTimeMillis()) != null;
+            SocialLimits.Verdict v = lim.check(a.id, p, SocialLimits.Kind.READ, System.currentTimeMillis(), !wasPaused);
             if (!v.ok && v.waitMs > 0 && v.waitMs <= 20_000) {
                 try {
                     Thread.sleep(v.waitMs); // a short gap, as a person would leave
@@ -343,45 +365,245 @@ public final class SocialWeb {
                     Thread.currentThread().interrupt();
                     return p.shown + ": stopped.";
                 }
-                v = lim.check(a.id, p, SocialLimits.Kind.READ, System.currentTimeMillis());
+                v = lim.check(a.id, p, SocialLimits.Kind.READ, System.currentTimeMillis(), !wasPaused);
             }
             if (!v.ok) {
                 return p.shown + ": not read. " + v.why;
             }
             lim.record(a.id, SocialLimits.Kind.READ, System.currentTimeMillis());
             keepLimits(c);
-            String[] page = load(c, p, url);
-            if (page == null) {
-                return p.shown + ": the page didn't load.";
+            String[] page = load(c, p, url, alt == null ? PAGE_MS : 12_000L);
+            if (warning(page)) {
+                return stopped(c, lim, a, p, page);
             }
-            SocialPage state = SocialPage.of(page[0], page[1]);
-            if (state.state == SocialPage.State.WARNING) {
-                lim.pause(a.id, state.why, System.currentTimeMillis() + PAUSE_MS);
-                keepLimits(c);
-                ai.ibiko.act.ActionLog.add(c.getFilesDir(), "pause", p.shown + " · " + a.label, "auto", "paused 24 h", state.why);
-                return p.shown + ": stopped and paused this account for 24 hours, because " + state.why
-                        + ". The user can check the account in the app and resume it under Social accounts.";
+            if (!posts(page) && alt != null && !alt.equals(url)) {
+                String[] next = load(c, p, alt, 10_000L);
+                if (warning(next)) {
+                    return stopped(c, lim, a, p, next);
+                }
+                if (posts(next) || (!worth(page) && worth(next))) {
+                    page = next;
+                }
             }
-            if (p == Platform.TELEGRAM && telegramSignedOut(page[1])) {
-                telegramSignedIn(c, false);
-                state = SocialPage.of("https://web.telegram.org/login", "");
+            if (!posts(page)) {
+                String[] plain = fetchPlain(c, url);
+                if (warning(plain)) {
+                    return stopped(c, lim, a, p, plain);
+                }
+                if (posts(plain)) {
+                    page = plain;
+                }
             }
-            if (state.state == SocialPage.State.SIGNED_OUT) {
-                all.signedIn(a.id, false);
-                return p.shown + ": the account “" + a.label + "” is signed out. The user can sign in again under Social accounts.";
+            if (!posts(page) && alt != null && !alt.equals(url)) {
+                String[] plain = fetchPlain(c, alt);
+                if (warning(plain)) {
+                    return stopped(c, lim, a, p, plain);
+                }
+                if (posts(plain)) {
+                    page = plain;
+                }
             }
-            all.signedIn(a.id, true);
-            String text = SocialPage.text(page[1], most);
-            java.util.function.Consumer<String> learn = onRead;
-            if (learn != null && text != null) {
-                learn.accept(text); // people's words: Ibiko 1 reads them for language only, never as facts
+            if (posts(page)) {
+                return show(c, all, lim, a, p, page, what, most, wasPaused);
             }
-            return SocialPage.forModel(p, what, text);
+            String pub = publicHits(c, p, query);
+            if (page != null && SocialPage.looksSignedOut(page[1])) {
+                String note = p.shown + ": the account \u201c" + a.label + "\u201d looks signed out, so the feed wasn't read.";
+                return pub.isEmpty() ? note + " The user can sign in again under Social accounts." : note + pub;
+            }
+            if (!pub.isEmpty()) {
+                return p.shown + ": the signed-in page didn't load." + pub;
+            }
+            return p.shown + ": the page didn't load. I tried the plain page and the full page.";
         }
     }
 
+    /** A warning or a check on the page: pause, and say so. */
+    private static boolean warning(String[] page) {
+        return page != null && page[1] != null && SocialPage.of(page[0], page[1]).state == SocialPage.State.WARNING;
+    }
+
+    /** Real posts: not a blank shell, a login form, or a warning. */
+    private static boolean posts(String[] page) {
+        if (page == null || page[1] == null) {
+            return false;
+        }
+        if (SocialPage.of(page[0], page[1]).state != SocialPage.State.OK || SocialPage.looksSignedOut(page[1])) {
+            return false;
+        }
+        return SocialPage.usable(page[1]);
+    }
+
+    /** Posts, a sign-out, or a warning: something to act on. A blank shell is not. */
+    private static boolean worth(String[] page) {
+        if (page == null || page[1] == null) {
+            return false;
+        }
+        SocialPage.State s = SocialPage.of(page[0], page[1]).state;
+        if (s != SocialPage.State.OK) {
+            return true;
+        }
+        if (SocialPage.looksSignedOut(page[1])) {
+            return true;
+        }
+        return SocialPage.usable(page[1]);
+    }
+
+    private static String stopped(Context c, SocialLimits lim, SocialAccounts.Account a, Platform p, String[] page) {
+        SocialPage state = SocialPage.of(page[0], page[1]);
+        lim.pause(a.id, state.why, System.currentTimeMillis() + PAUSE_MS);
+        keepLimits(c);
+        ai.ibiko.act.ActionLog.add(c.getFilesDir(), "pause", p.shown + " \u00b7 " + a.label, "auto", "paused 24 h", state.why);
+        return p.shown + ": stopped and paused this account for 24 hours, because " + state.why
+                + ". If you've finished the check in the " + p.shown + " app, say so (\u201cI cleared it\u201d) and I'll look again.";
+    }
+
+    private static String show(Context c, SocialAccounts all, SocialLimits lim, SocialAccounts.Account a, Platform p,
+            String[] page, String what, int most, boolean wasPaused) {
+        SocialPage state = SocialPage.of(page[0], page[1]);
+        if (p == Platform.TELEGRAM && telegramSignedOut(page[1])) {
+            telegramSignedIn(c, false);
+            state = SocialPage.of("https://web.telegram.org/login", "");
+        }
+        if (state.state == SocialPage.State.SIGNED_OUT || SocialPage.looksSignedOut(page[1])) {
+            all.signedIn(a.id, false);
+            return p.shown + ": the account \u201c" + a.label + "\u201d is signed out. The user can sign in again under Social accounts.";
+        }
+        if (wasPaused) {
+            lim.resume(a.id); // the check is gone: the account can be used again
+            keepLimits(c);
+        }
+        all.signedIn(a.id, true);
+        String links = SocialPage.linksIn(page[1]);
+        String text = SocialPage.text(page[1], Math.min(most, 2200));
+        if (!links.isEmpty()) {
+            StringBuilder extra = new StringBuilder();
+            for (String link : links.split("\n")) {
+                if (!text.contains(link)) {
+                    extra.append("LINK ").append(link).append('\n');
+                }
+            }
+            text = (text + "\n" + extra).trim();
+        }
+        java.util.function.Consumer<String> learn = onRead;
+        if (learn != null && text != null) {
+            learn.accept(text); // people's words: Ibiko 1 reads them for language only, never as facts
+        }
+        String lead = wasPaused ? p.shown + ": the pause is off, the page loaded.\n" : "";
+        return lead + SocialPage.forModel(p, what, text);
+    }
+
+    /** The plain page over HTTPS, with the account's cookies, when the signed-in browser view didn't draw. */
+    private static String[] fetchPlain(Context c, String url) {
+        if (url == null || !url.startsWith("https://")) {
+            return null;
+        }
+        String cookie = null;
+        try {
+            cookie = CookieManager.getInstance().getCookie(url);
+        } catch (RuntimeException ignored) {
+            cookie = null;
+        }
+        if (cookie != null) {
+            cookie = cookie.replace("\r", "").replace("\n", "").trim();
+            if (cookie.isEmpty()) {
+                cookie = null;
+            }
+        }
+        ai.ibiko.net.WebGet.Page got = ai.ibiko.net.WebGet.page(url, 10_000, 500_000, cookie);
+        if (got == null || got.body == null || got.body.isEmpty()) {
+            return null;
+        }
+        return new String[]{url, SocialPage.fromHtml(got.body, url)};
+    }
+
+    /** Public web results for the same words, so a comment can still be written when the account page fails. */
+    private static String publicHits(Context c, Platform p, String query) {
+        if (query == null || query.trim().isEmpty() || p == Platform.TELEGRAM) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
+        try {
+            String q = java.net.URLEncoder.encode(query + " " + p.shown, java.nio.charset.StandardCharsets.UTF_8.name()).replace("+", "%20");
+            ai.ibiko.net.WebGet.Page got = ai.ibiko.net.WebGet.page("https://html.duckduckgo.com/html/?q=" + q, 10_000, 500_000);
+            String found = got == null ? "" : SocialPage.webResults(got.body);
+            if (!found.isEmpty()) {
+                b.append("\n\nPublic pages for the same words:\n").append(found);
+            }
+        } catch (java.io.UnsupportedEncodingException | RuntimeException ignored) {
+            // the signed-in page already failed: a public lookup is only a help
+        }
+        if (c != null && b.length() == 0) {
+            try {
+                java.util.List<ai.ibiko.net.WebSearch.Hit> hits = ai.ibiko.net.GoogleWeb.search(c, query + " " + p.shown, 5);
+                StringBuilder on = new StringBuilder();
+                StringBuilder off = new StringBuilder();
+                if (hits != null) {
+                    for (ai.ibiko.net.WebSearch.Hit h : hits) {
+                        if (h.url == null || h.url.isEmpty()) {
+                            continue;
+                        }
+                        StringBuilder line = new StringBuilder();
+                        line.append("\n- ").append(h.title == null ? "" : h.title).append("\n  ");
+                        if (about(p, h.url)) {
+                            line.append("LINK ");
+                        }
+                        line.append(h.url);
+                        if (h.snippet != null && !h.snippet.isEmpty()) {
+                            line.append("\n  ").append(h.snippet);
+                        }
+                        (about(p, h.url) ? on : off).append(line);
+                    }
+                }
+                if (on.length() > 0) {
+                    b.append("\n\nPublic pages on ").append(p.shown).append(":").append(on);
+                } else if (off.length() > 0) {
+                    return "\n\nNo " + p.shown + " post link came back. These public pages mention the same words:" + off
+                            + "\nWrite the comment in the reply. Do not post it until a " + p.shown + " post link is in hand.";
+                }
+            } catch (RuntimeException ignored) {
+                // a robot check, or no browser: the caller says the page didn't load
+            }
+        }
+        if (b.length() == 0) {
+            return "";
+        }
+        b.append("\nTo comment under a post, write \u00A7SO COMMENT ").append(p.name().toLowerCase(java.util.Locale.US))
+                .append(": <the comment> <the post link>. The user says yes before it is posted.");
+        return b.toString();
+    }
+
+    /** Whether a public link is on this network (a comment has to land on its own site). */
+    private static boolean about(Platform p, String url) {
+        String u = url.toLowerCase(java.util.Locale.US);
+        switch (p) {
+            case FACEBOOK:
+                return u.contains("facebook.com") || u.contains("fb.watch");
+            case X:
+                return u.contains("x.com") || u.contains("twitter.com");
+            case REDDIT:
+                return u.contains("reddit.com");
+            case INSTAGRAM:
+                return u.contains("instagram.com");
+            default:
+                return false;
+        }
+    }
+
+    /** Text plus the post links on the page, for the model. */
+    static final String READ_PAGE = "(function(){var t=document.body?document.body.innerText:'';var links=[],seen={};"
+            + "var as=document.links||[];for(var i=0;i<as.length&&links.length<8;i++){var h=as[i].href||'';"
+            + "if(!h||seen[h])continue;var l=h.toLowerCase();"
+            + "if(l.indexOf('/posts/')>=0||l.indexOf('/permalink/')>=0||l.indexOf('story.php')>=0||l.indexOf('/status/')>=0"
+            + "||l.indexOf('/comments/')>=0||l.indexOf('/photo.php')>=0||l.indexOf('reddit.com/r/')>=0){seen[h]=1;links.push('LINK '+h);}}"
+            + "return t+(links.length?'\\n'+links.join('\\n'):'');})()";
+
     /** The page in a WebView that isn't shown: where it ended up and its text, or null when it didn't load. */
     static String[] load(Context c, final Platform p, final String url) {
+        return load(c, p, url, PAGE_MS);
+    }
+
+    static String[] load(Context c, final Platform p, final String url, long budget) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             throw new IllegalStateException("reading a page blocks: call it off the main thread");
         }
@@ -414,6 +636,17 @@ public final class SocialWeb {
                     }
 
                     @Override
+                    public void onReceivedError(WebView view, WebResourceRequest request, android.webkit.WebResourceError error) {
+                        if (request == null || !request.isForMainFrame() || started[0]) {
+                            return;
+                        }
+                        started[0] = true;
+                        out[0] = request.getUrl().toString();
+                        out[1] = "";
+                        done.countDown();
+                    }
+
+                    @Override
                     public void onPageFinished(WebView view, String at) {
                         if (started[0]) {
                             return;
@@ -421,12 +654,11 @@ public final class SocialWeb {
                         started[0] = true;
                         // sites draw their posts after the page loads: wait, scroll once, wait, then read
                         main.postDelayed(() -> view.evaluateJavascript("window.scrollBy(0, 2400);", null), SETTLE_MS);
-                        main.postDelayed(() -> view.evaluateJavascript(
-                                "(function(){return document.body ? document.body.innerText : '';})()", v -> {
-                                    out[0] = view.getUrl();
-                                    out[1] = unjson(v);
-                                    done.countDown();
-                                }), SETTLE_MS * 2);
+                        main.postDelayed(() -> view.evaluateJavascript(READ_PAGE, v -> {
+                            out[0] = view.getUrl();
+                            out[1] = unjson(v);
+                            done.countDown();
+                        }), SETTLE_MS * 2);
                     }
                 });
                 w.loadUrl(url);
@@ -435,9 +667,28 @@ public final class SocialWeb {
             }
         });
         try {
-            done.await(PAGE_MS, TimeUnit.MILLISECONDS);
+            done.await(budget, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        if (out[1] == null && holder[0] != null) {
+            CountDownLatch late = new CountDownLatch(1);
+            main.post(() -> {
+                try {
+                    holder[0].evaluateJavascript(READ_PAGE, v -> {
+                        out[0] = holder[0].getUrl();
+                        out[1] = unjson(v);
+                        late.countDown();
+                    });
+                } catch (RuntimeException e) {
+                    late.countDown();
+                }
+            });
+            try {
+                late.await(3, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         main.post(() -> {
             if (holder[0] != null) {

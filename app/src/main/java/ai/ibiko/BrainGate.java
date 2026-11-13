@@ -44,6 +44,9 @@ final class BrainGate {
 
     void answer(String text) {
         a.askedAt = System.currentTimeMillis(); // a reply to this may be read out (speakReply)
+        if (ai.ibiko.social.SocialPage.cleared(text)) {
+            ai.ibiko.social.SocialWeb.resumePaused(a); // the site's check is done: the 24-hour pause comes off
+        }
         answer(text, false);
     }
 
