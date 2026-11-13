@@ -195,6 +195,8 @@ final class AgentSession {
                     })
                     .checkEdits(a.prefs.getBoolean(ai.ibiko.agent.EditCheck.PREF, true)) // Settings › Coding: test each code edit at once
                     .forTask(task) // the blueprint is decided on the person's words, not the notes added to them
+                    .lessons(new java.io.File(a.getFilesDir(), "learning/coding_lessons.tsv")) // what fixed errors before, every chat
+                    .docsCache(new java.io.File(a.getFilesDir(), "docs")) // the language documentation read, kept for offline
                     .compact(a.model.window() < 6000); // a small model's memory goes to the work, not the walkthroughs
             ai.ibiko.llm.ReplyService.hold(a);
             a.markRunning(persona, task); // if the app is closed or crashes, the next start offers to carry on

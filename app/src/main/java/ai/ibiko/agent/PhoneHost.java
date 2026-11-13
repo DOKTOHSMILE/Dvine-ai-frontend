@@ -143,6 +143,13 @@ public final class PhoneHost implements CodeAgent.Host {
         return b.trim().startsWith("<") ? SandboxShell.text(b) : b; // a script or JSON stays as it is
     }
 
+    /** The raw text (an index file, a page's HTML with its anchors), or null when it couldn't be fetched. */
+    @Override
+    public String fetchRaw(String url, int maxBytes) {
+        WebGet.Page p = WebGet.page(url, 30_000, maxBytes);
+        return p.body == null || p.status >= 400 ? null : p.body;
+    }
+
     @Override
     public String connector(String call) {
         String[] c = Connectors.parseCall(call);

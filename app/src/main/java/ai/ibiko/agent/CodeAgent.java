@@ -67,6 +67,11 @@ public final class CodeAgent {
         /** An https page as text, or null. */
         String fetch(String url);
 
+        /** A URL's raw text, up to {@code maxBytes} (an index file, a page's HTML), or null. By default, {@link #fetch}. */
+        default String fetchRaw(String url, int maxBytes) {
+            return fetch(url);
+        }
+
         /** A connector's tool ("github.issues owner/repo"); its result. */
         String connector(String call);
 
@@ -151,6 +156,11 @@ public final class CodeAgent {
             @Override
             public String fetch(String url) {
                 return h.fetch(url);
+            }
+
+            @Override
+            public String fetchRaw(String url, int maxBytes) {
+                return h.fetchRaw(url, maxBytes);
             }
 
             @Override
@@ -331,6 +341,8 @@ public final class CodeAgent {
             CodeAgent w = new CodeAgent(workspace, quiet, host, connectorTools, budgetChars).useGit(git)
                     .steps(Math.max(8, maxSteps)).as(who, lookOnly).compact(compact).checkEdits(checkEdits);
             w.worker = true;
+            w.lessons = lessons; // the same memory of fixes and the same kept docs as the lead
+            w.docsCache = docsCache;
             w.depth = depth + 1;
             w.role = hands ? null : mine.role;
             w.scope = kept;
@@ -527,10 +539,15 @@ public final class CodeAgent {
                         + " Alpine Linux as run, inside Ibiko. The Termux app is not opened. path is the folder it runs in."
                         + " pkg install python3 git openssh adds what is missing. Asked first, like run.)\n")
                 + "<tool name=\"fetch\" url=\"https://...\"/>\n"
+                + "<tool name=\"docs\" lang=\"python|javascript|typescript|node|java|kotlin|go|rust|c|cpp|php|ruby|bash|git|html|css|dom|react\""
+                + " query=\"json.loads\"/> (the language's official reference for a function, class, method or keyword; kept"
+                + " on the phone once read. Look it up instead of guessing an API, and when an error names something you"
+                + " don't know)\n"
                 + (!squad || depth >= 2 ? "" : depth == 1 ? Squad.HANDS : Squad.TOOL)
                 + (worker || !handoverOn ? "" : "<tool name=\"handover\" to=\"obi|ivie\"/> (only when the message is not yours at all:"
                         + " ordinary talk, a question about the world, research or a report; a story, a script, a drawing or a"
                         + " design. It is answered as a reply instead. Code, commands, files, repositories and Linux are yours.)\n")
+                + (git == null || readOnly ? "" : compact ? GitPlaybook.SHORT : GitPlaybook.RULES)
                 + (git == null || readOnly ? "" : PhoneSuite.NOTE
                         + "<tool name=\"git\" action=\"clone\" repo=\"owner/name\" branch=\"(optional)\"/> (into repos/<name>, the chat's folder for pulled code that the workspace screen shows. That folder is where you read, edit, run and pull for this repository: write it in PLAN.md under '## Repository')\n"
                         + "<tool name=\"git\" action=\"status|diff|log|branches|pull\" path=\"folder\"/>\n"
@@ -580,6 +597,86 @@ public final class CodeAgent {
     public CodeAgent forTask(String words) {
         usersWords = words;
         return this;
+    }
+
+    /** What fixed errors before, in every chat and project ({@link CodingLessons}); null keeps none. */
+    private CodingLessons lessons;
+    /** Where the language documentation read is kept ({@link DocsLookup}); null keeps none. */
+    private File docsCache;
+
+    public CodeAgent lessons(File file) {
+        lessons = file == null ? null : new CodingLessons(file);
+        return this;
+    }
+
+    public CodeAgent docsCache(File dir) {
+        docsCache = dir;
+        return this;
+    }
+
+    /** The error the last failed check or command showed, until something passes: its signature. */
+    private String failedSig;
+    /** The edits made since that failure: the fix, once a check passes. */
+    private final List<String> editsSinceFailure = new ArrayList<String>();
+
+    /**
+     * After a tool call: a failure has its errors read ({@link ErrorReader}: file, line, the likely cause, what to look at
+     * next) and what fixed the same error before ({@link CodingLessons}); a pass after a failure keeps the edits that
+     * fixed it, for next time.
+     */
+    String readErrors(Call c, String result) {
+        if (result == null) {
+            return null;
+        }
+        String n = c.name;
+        boolean edit = n.equals("write_file") || n.equals("edit_file");
+        if (edit && (result.startsWith("Wrote ") || result.startsWith("Edited "))) {
+            editsSinceFailure.add(describeEdit(c));
+        }
+        boolean shell = n.equals("run") || n.equals("termux");
+        EditCheck.Verdict v = shell ? EditCheck.verdict(result) : null;
+        boolean failed = v == EditCheck.Verdict.FAILED || edit && result.contains(": FAILED.")
+                || n.equals("git") && (result.startsWith("Error:") || result.contains("\nConflicts ("));
+        boolean passed = v == EditCheck.Verdict.PASSED || edit && result.contains(": passed.");
+        if (failed) {
+            List<ErrorReader.Problem> ps = ErrorReader.read(result);
+            if (ps.isEmpty()) {
+                return result;
+            }
+            String sig = ErrorReader.signature(ps.get(0));
+            String seen = lessons == null ? null : lessons.recall(sig);
+            if (!sig.equals(failedSig)) {
+                editsSinceFailure.clear(); // a new error: the fix starts from here
+            }
+            failedSig = sig;
+            return result + "\n" + ErrorReader.summary(result) + (seen == null ? "" : "\nSeen before, and fixed by: " + seen);
+        }
+        if (passed && failedSig != null && !editsSinceFailure.isEmpty()) {
+            if (lessons != null) {
+                lessons.learn(failedSig, String.join("; ", editsSinceFailure));
+            }
+            failedSig = null;
+            editsSinceFailure.clear();
+        }
+        return result;
+    }
+
+    /** One edit in a few words: "in calc.py, `def add(a, b)` → `def add(a, b):`". */
+    static String describeEdit(Call c) {
+        String path = c.a("path");
+        if (c.name.equals("edit_file") && c.body != null) {
+            Matcher o = Pattern.compile("(?s)<old>\\n?(.*?)</old>\\s*<new>\\n?(.*?)</new>").matcher(c.body);
+            if (o.find()) {
+                return "in " + path + ", `" + clip(firstLine(o.group(1)), 70) + "` → `" + clip(firstLine(o.group(2)), 70) + "`";
+            }
+        }
+        return "rewrote " + path;
+    }
+
+    private static String firstLine(String s) {
+        String t = s.trim();
+        int nl = t.indexOf('\n');
+        return nl < 0 ? t : t.substring(0, nl).trim() + " …";
     }
 
     /** Whether each code file written or edited is checked at once ({@link EditCheck}): Settings › Coding. */
@@ -882,6 +979,7 @@ public final class CodeAgent {
                         result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
                     }
                     result = blueprintAfter(call, result);
+                    result = readErrors(call, result);
                 }
                 if (!modelSaid && narrate) {
                     // never silent: what it was doing and what came back, in the chat between the steps
@@ -1871,6 +1969,12 @@ public final class CodeAgent {
             }
             case "git":
                 return git(c);
+            case "docs": {
+                String lang = c.a("lang").isEmpty() ? c.a("language") : c.a("lang");
+                String q = c.a("query").isEmpty() ? c.a("name") : c.a("query");
+                host.step("Read the " + (lang.isEmpty() ? "" : lang + " ") + "docs: " + clip(q, 50));
+                return DocsLookup.lookup(lang, q, docsCache, host::fetchRaw);
+            }
             default:
                 return "There is no tool called " + c.name + ".";
         }
