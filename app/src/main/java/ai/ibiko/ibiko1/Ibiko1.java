@@ -301,6 +301,7 @@ public final class Ibiko1 {
     /** G8: the witnesses a sentence is asked of, most trusted first (the built-in reference, then facts held firmly). */
     public List<ai.ibiko.ibiko1.formulas.Truth.Witness> witnesses() {
         List<ai.ibiko.ibiko1.formulas.Truth.Witness> w = new ArrayList<ai.ibiko.ibiko1.formulas.Truth.Witness>();
+        w.add(knowledge()::check); // what the pilot confirmed or corrected comes first: their word over any reference
         w.add(builtIn()::check);
         w.add(facts()::check);
         w.add(ledger()); // G9: what was judged before, when nothing above speaks to it now

@@ -44,6 +44,9 @@ public class SettingsChatActivity extends SettingsActivity {
                     + " downloaded to this phone answers instead of the message waiting, and the reply says so.",
                     ai.ibiko.llm.ModelHub.OFFLINE_FALLBACK, false,
                     on -> ai.ibiko.llm.ModelHub.get(this).model.offlineFallback(on)));
+            chat.addView(toggle("Fix typos in my messages", "Clear spelling mistakes are fixed before Ibiko reads them (the chat"
+                    + " keeps what you typed), and a note says what it read differently: tap it to keep your spelling. Names,"
+                    + " Pidgin, code and words you use often are left alone.", ai.ibiko.AutoCorrect.TYPOS, true, null));
             chat.addView(toggle("Show the working steps", "What Ibiko is doing while it answers: searches, sources, models.", "show_steps", true, null),
                     Ui.wide(this, 10));
 

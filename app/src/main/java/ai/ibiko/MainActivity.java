@@ -54,6 +54,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     final ShellTurn shellTurn = new ShellTurn(this);
     final ThinkTurns thinkTurns = new ThinkTurns(this);
     final WritingTurns writingTurns = new WritingTurns(this);
+    final AutoCorrect autoCorrect = new AutoCorrect(this);
     final Commands commands_ = new Commands(this);
     final VoiceInput voiceInput = new VoiceInput(this);
     final LocalAsk localAsk = new LocalAsk(this);
@@ -1475,6 +1476,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (n == null) {
             return;
         }
+        n.setOnClickListener(null); // a tap on this note does only what this note offers (set after it, if anything)
+        n.setClickable(false);
         n.setText(text);
         n.setVisibility(android.view.View.VISIBLE);
         handler.removeCallbacks(hideNote);
