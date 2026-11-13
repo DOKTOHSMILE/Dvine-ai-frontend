@@ -75,4 +75,18 @@ public class VoiceChoiceTest {
         assertFalse(new File(VoicePacks.root(files), VoicePacks.PIPER_RYAN.key + ".ready").exists());
         assertTrue(kokoro.exists());
     }
+
+    @Test
+    public void aNewPlayerSpeedPlaysTheKeptSoundFasterAndNeverMakesItAgain() throws Exception {
+        TalkBridge t = new TalkBridge(RuntimeEnvironment.getApplication());
+        float made = t.madeRate(1f);
+        String key = NeuralVoice.madeKey("Hello there.", 4, made);
+        for (float speed : new float[] {0.75f, 1.25f, 1.5f, 2f}) {
+            t.setPlayerSpeed(speed);
+            assertEquals("the sound is made and kept at the voice's own speed", made, t.madeRate(1f), 0f);
+            assertEquals("so the kept sound is found again", key, NeuralVoice.madeKey("Hello there.", 4, t.madeRate(1f)));
+        }
+        assertEquals(2f, t.playerSpeed(), 0f);
+        t.shutdown();
+    }
 }

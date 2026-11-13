@@ -331,11 +331,25 @@ public final class TalkBridge extends UtteranceProgressListener {
         }
     }
 
-    /** The player's speed (1x, 1.25x, 1.5x, 2x, 0.75x), on top of the setting: from the next sentence. */
+    /**
+     * The player's speed (1x, 1.25x, 1.5x, 2x, 0.75x). The human voice is always made at its normal speed and kept;
+     * this speed is applied as it plays ({@link NeuralVoice#setTempo}), so a change never makes the sound again.
+     */
     private volatile float playerSpeed = 1f;
 
     public void setPlayerSpeed(float s) {
         playerSpeed = Math.max(0.5f, Math.min(2.5f, s));
+        if (neural != null) {
+            neural.setTempo(playerSpeed);
+        }
+    }
+
+    /**
+     * The speed the human voice is made at, and kept under: the voice's own, never the player's (that is applied as it
+     * plays), so the kept sound is found again whatever speed is picked.
+     */
+    float madeRate(float voiceRate) {
+        return voiceRate * rateScale;
     }
 
     public float playerSpeed() {
@@ -482,7 +496,7 @@ public final class TalkBridge extends UtteranceProgressListener {
             return;
         }
         VoiceTuning t = tuning[ivie ? 1 : 0];
-        neural.prepare(said, speakerFor(ivie), t.rate * rateScale * playerSpeed);
+        neural.prepare(said, speakerFor(ivie), madeRate(t.rate));
     }
 
     /**
@@ -530,7 +544,7 @@ public final class TalkBridge extends UtteranceProgressListener {
         for (String sentence : SentenceStream.split(text)) {
             String said = SentenceStream.speakable(sentence);
             if (said != null && !said.trim().isEmpty()
-                    && !neural.has(said, speakerFor(ivie), t.rate * rateScale * playerSpeed)) {
+                    && !neural.has(said, speakerFor(ivie), madeRate(t.rate))) {
                 return false;
             }
         }
@@ -576,7 +590,7 @@ public final class TalkBridge extends UtteranceProgressListener {
                 preparing(true);
             }
             neural.speak(voiceEvents, (ivie ? "IVIE-" : "OBI-") + token, text, speakerFor(ivie),
-                    (thought ? t.thoughtRate() : t.rate) * rateScale * playerSpeed, thought ? VoiceTuning.THOUGHT_VOLUME : 1f, true);
+                    madeRate(thought ? t.thoughtRate() : t.rate), thought ? VoiceTuning.THOUGHT_VOLUME : 1f, true);
             return;
         }
         Voice v = t.voice == null ? null : byName.get(t.voice);
@@ -633,7 +647,7 @@ public final class TalkBridge extends UtteranceProgressListener {
             if (!sounding) {
                 preparing(true);
             }
-            neural.speak(voiceEvents, id, text, speakerFor(ivie), t.rate * rateScale * playerSpeed, 1f, false);
+            neural.speak(voiceEvents, id, text, speakerFor(ivie), madeRate(t.rate), 1f, false);
             return;
         }
         Voice v = t.voice == null ? null : byName.get(t.voice);
