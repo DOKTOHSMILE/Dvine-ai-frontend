@@ -25,6 +25,12 @@ public class BlueprintTest {
         assertFalse(Blueprint.applies("what does this repo do"));
         assertFalse(Blueprint.applies("git status"));
         assertFalse("a quick job is done directly", Blueprint.applies("make a hello script"));
+        StringBuilder notes = new StringBuilder();
+        for (int i = 0; i < 12; i++) {
+            notes.append("A note Ibiko 1 adds about what it already knows of this request. ");
+        }
+        assertFalse("notes under a clone don't turn it into a planned job",
+                Blueprint.applies("Clone or pull the ibiko git repo\n\n" + notes));
     }
 
     @Test

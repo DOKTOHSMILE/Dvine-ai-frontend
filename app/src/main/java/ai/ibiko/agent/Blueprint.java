@@ -90,7 +90,8 @@ public final class Blueprint {
             return false; // a compiler error that names the file: one edit, not a survey of the repo
         }
         String t = task == null ? "" : task.toLowerCase(Locale.US);
-        if (t.trim().matches("(?s)^(please\\s+)?(clone|pull|fetch|download|install|update local|sync)\\b.{0,200}")) {
+        String first = t.trim().split("\\n\\s*\\n", 2)[0]; // the request itself, before any notes added under it
+        if (first.matches("(?s)^(please\\s+)?(clone|pull|fetch|download|install|update local|sync)\\b.{0,200}")) {
             return false; // a repository to fetch or packages to install: one command, nothing to plan
         }
         if (t.trim().length() > 240) {

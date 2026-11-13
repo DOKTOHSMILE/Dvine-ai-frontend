@@ -475,6 +475,11 @@ public final class Ibiko1 {
             think(Arrays.asList("Reading your question", "Looking through my memory"), () -> saysPlain(who, self));
             return;
         }
+        if (t.trim().matches("(?i)(stop|cancel|halt|wait|pause)( it| that| please)?[.!]*")) {
+            // "Stop" with nothing of Ibiko 1's running: said plainly, not kept as a fact ("Noted.")
+            think(Arrays.asList("Reading your message"), () -> saysPlain(who, "Nothing is running right now, so there's nothing to stop."));
+            return;
+        }
         if (parse.intent == Grammar.Intent.THANKS) {
             think(Arrays.asList("Reading your message"), () -> saysPlain(who, "You're welcome."));
             return;

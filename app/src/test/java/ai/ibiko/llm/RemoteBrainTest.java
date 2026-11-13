@@ -621,4 +621,30 @@ public class RemoteBrainTest {
                 .chat("sys", ask("hi"), 100, 0.7f, null));
         assertEquals(1, fixed.urls.size());
     }
+
+    @Test(timeout = 20000)
+    public void aStoppedCallStopsCountingAsWorkAtOnce() throws Exception {
+        LocalModel m = new LocalModel(java.nio.file.Files.createTempDirectory("models").toFile(), ModelSpec.QWEN3_1_7B, true);
+        final java.util.concurrent.CountDownLatch inside = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        m.useRemote(new RemoteBrain(RemoteBrain.Protocol.OPENAI, "https://api.openai.com/v1", "gpt-5-mini", "k", "",
+                (url, headers, body, timeoutMs) -> {
+                    inside.countDown();
+                    try {
+                        release.await(); // a network read that is slow to give up
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw new java.io.IOException("gone");
+                }), 400_000, () -> true);
+        Thread t = new Thread(() -> m.reply("sys", "hi", 48, null));
+        t.start();
+        assertTrue(inside.await(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertTrue("the call is running", m.working());
+        m.cancel();
+        assertFalse("Stop: the screen treats it as over at once", m.working());
+        release.countDown();
+        t.join(10000);
+        assertFalse(m.working());
+    }
 }

@@ -570,6 +570,18 @@ public final class CodeAgent {
         return this;
     }
 
+    /**
+     * The person's own message, when the task handed to {@link #run} carries more (Ibiko 1's notes, where the work
+     * stood). Whether the work gets a blueprint is judged on these words alone: the notes made a one-line "clone the
+     * repo" look like a long job, and it was planned, checked and argued over for minutes.
+     */
+    private String usersWords;
+
+    public CodeAgent forTask(String words) {
+        usersWords = words;
+        return this;
+    }
+
     /** Whether each code file written or edited is checked at once ({@link EditCheck}): Settings › Coding. */
     private boolean checkEdits;
     /** The user declined a check in this task: the rest of its edits go unchecked rather than asking again and again. */
@@ -1511,7 +1523,7 @@ public final class CodeAgent {
         }
         boolean carryOn = resume != null && !resume.trim().isEmpty();
         File kept = carryOn ? latestBlueprint() : null;
-        if (kept == null && !Blueprint.applies(task)) {
+        if (kept == null && !Blueprint.applies(usersWords != null ? usersWords : task)) {
             blueprint = null;
             return;
         }
