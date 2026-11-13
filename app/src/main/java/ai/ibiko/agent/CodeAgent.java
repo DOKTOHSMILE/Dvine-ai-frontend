@@ -649,7 +649,14 @@ public final class CodeAgent {
                 editsSinceFailure.clear(); // a new error: the fix starts from here
             }
             failedSig = sig;
-            return result + "\n" + ErrorReader.summary(result) + (seen == null ? "" : "\nSeen before, and fixed by: " + seen);
+            // a small model (the device's) rarely thinks to call the docs tool: the entry for what the error names is
+            // read for it, from the phone when kept
+            String docs = compact && docsCache != null ? DocsLookup.forError(ps.get(0), docsCache, host::fetchRaw, 700) : "";
+            if (!docs.isEmpty()) {
+                host.step("Read the docs for the error");
+            }
+            return result + "\n" + ErrorReader.summary(result) + (seen == null ? "" : "\nSeen before, and fixed by: " + seen)
+                    + (docs.isEmpty() ? "" : "\nFrom the docs: " + docs);
         }
         if (passed && failedSig != null && !editsSinceFailure.isEmpty()) {
             if (lessons != null) {

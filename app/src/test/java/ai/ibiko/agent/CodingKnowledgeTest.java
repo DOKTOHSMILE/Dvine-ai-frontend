@@ -163,7 +163,7 @@ public class CodingKnowledgeTest {
         }
     }
 
-    private static final class Phone implements CodeAgent.Host {
+    private static class Phone implements CodeAgent.Host {
         final List<String> outputs;
 
         Phone(String... o) {
@@ -199,5 +199,37 @@ public class CodingKnowledgeTest {
         new CodeAgent(ws2, later, new Phone(failing), "", 20_000).lessons(lessons).run("run calc", "");
         assertTrue(later.seen.get(1), later.seen.get(1).contains("Seen before, and fixed by: in calc.py, `print(mth.pi)` → `print(math.pi)`"));
         assertTrue("the docs tool is offered", later.systems.get(0).contains("<tool name=\"docs\""));
+    }
+
+    @Test
+    public void aCodingQuestionGetsTheOfficialEntryForTheModelWithoutTools() throws Exception {
+        File cache = Files.createTempDirectory("docs").toFile();
+        DocsLookup.Fetch web = (url, max) -> url.endsWith("index.json") ? INDEX : url.endsWith("library/json.html") ? PAGE : null;
+        String brief = DocsLookup.brief("How do I use json.loads in Python to read a config.json file?", cache, web, 900);
+        assertTrue(brief, brief.startsWith("From the official documentation"));
+        assertTrue(brief, brief.contains("json.loads(s, *, cls=None)"));
+        assertEquals("no language named: nothing looked up", "", DocsLookup.brief("how do I use json.loads", cache, web, 900));
+        assertEquals("no API named: nothing", "", DocsLookup.brief("is Python a good first language?", cache, web, 900));
+        // offline afterwards: what was read is still there
+        assertTrue(DocsLookup.brief("python json.loads example", cache, (u, m) -> null, 900).contains("Deserialize"));
+        assertEquals("python", DocsLookup.languageOfFile("/w/calc.py"));
+        assertEquals("kotlin", DocsLookup.languageOfText("my Kotlin app crashes"));
+    }
+
+    @Test
+    public void theDevicesModelGetsTheDocsUnderAnErrorWithoutAsking() throws Exception {
+        File docs = Files.createTempDirectory("docs").toFile();
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        String failing = "Traceback (most recent call last):\n  File \"/w/app.py\", line 2, in <module>\n"
+                + "TypeError: json.loads() missing 1 required positional argument: 's'\n[exit 1]";
+        Script brain = new Script("<tool name=\"run\" command=\"python3 app.py\"/>", "Done.");
+        Phone phone = new Phone(failing) {
+            @Override
+            public String fetchRaw(String url, int maxBytes) {
+                return url.endsWith("index.json") ? INDEX : url.endsWith("library/json.html") ? PAGE : null;
+            }
+        };
+        new CodeAgent(ws, brain, phone, "", 20_000).compact(true).docsCache(docs).run("run app", "");
+        assertTrue(brain.seen.get(1), brain.seen.get(1).contains("From the docs: Python 3.13 reference, json.loads()"));
     }
 }

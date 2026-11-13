@@ -225,4 +225,107 @@ public final class DocsLookup {
         }
         return got;
     }
+
+    /** A file's language for the docs, from its extension ("calc.py" → python), or null. */
+    static String languageOfFile(String file) {
+        if (file == null) {
+            return null;
+        }
+        String f = file.toLowerCase(Locale.US);
+        String[][] ext = {{".py", "python"}, {".js", "javascript"}, {".mjs", "javascript"}, {".cjs", "javascript"},
+                {".jsx", "react"}, {".ts", "typescript"}, {".tsx", "typescript"}, {".java", "java"}, {".kt", "kotlin"},
+                {".kts", "kotlin"}, {".go", "go"}, {".rs", "rust"}, {".c", "c"}, {".h", "c"}, {".cpp", "cpp"}, {".cc", "cpp"},
+                {".hpp", "cpp"}, {".php", "php"}, {".rb", "ruby"}, {".sh", "bash"}, {".html", "html"}, {".css", "css"}};
+        for (String[] e : ext) {
+            if (f.endsWith(e[0])) {
+                return e[1];
+            }
+        }
+        return null;
+    }
+
+    /** The language a question names ("in Python", "my kotlin code"), or null. */
+    static String languageOfText(String text) {
+        String t = " " + (text == null ? "" : text.toLowerCase(Locale.US)).replaceAll("[^a-z0-9+#.]+", " ") + " ";
+        for (String name : SETS.keySet()) {
+            if (name.length() >= 2 && !name.equals("go") && !name.equals("c") && t.contains(" " + name + " ")) {
+                return name;
+            }
+        }
+        if (t.matches(".* golang .*|.* in go .*|.* go code .*")) {
+            return "go";
+        }
+        return null;
+    }
+
+    /** The names a text asks about: "json.loads", "Array.prototype.map", "String.format", "useEffect()". At most two. */
+    static List<String> namesIn(String text) {
+        List<String> out = new ArrayList<String>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "\\b([A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)+|[A-Za-z_$][\\w$]*(?=\\(\\)))").matcher(text == null ? "" : text);
+        while (m.find() && out.size() < 2) {
+            String n = m.group(1);
+            // a file name or an address is not an API ("config.json", "example.com")
+            if (n.matches("(?i).*\\.(json|txt|md|py|js|ts|java|kt|xml|html|css|png|jpg|com|org|net|io|ng|apk|zip|gradle)$")) {
+                continue;
+            }
+            if (!out.contains(n)) {
+                out.add(n);
+            }
+        }
+        return out;
+    }
+
+    /** One entry for a model's context, about {@code chars} long, or "" when the docs have nothing for it. */
+    public static String entry(String lang, String name, File cacheDir, Fetch fetch, int chars) {
+        String got = lookup(lang, name, cacheDir, fetch);
+        if (!got.contains(" reference, ")) {
+            return ""; // not found, or the docs couldn't be read: nothing rather than noise
+        }
+        got = got.replaceAll("\\n\\(From DevDocs; kept on this phone\\.\\)$", "");
+        return got.length() > chars ? got.substring(0, chars) + " …" : got;
+    }
+
+    /**
+     * For a model with no tools of its own (the device's model in the chat): the official entries for the names a coding
+     * question asks about, when it names its language; "" otherwise. Read from the phone when kept, else fetched.
+     */
+    public static String brief(String question, File cacheDir, Fetch fetch, int chars) {
+        String lang = languageOfText(question);
+        if (lang == null) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
+        for (String name : namesIn(question)) {
+            String e = entry(lang, name, cacheDir, fetch, chars);
+            if (!e.isEmpty()) {
+                b.append(b.length() == 0 ? "From the official documentation (use it; don't guess the API):\n" : "\n").append(e);
+            }
+        }
+        return b.toString();
+    }
+
+    /** For an error the agent hit: the docs entry for the name it names, in the file's language; "" when there is none. */
+    public static String forError(ErrorReader.Problem p, File cacheDir, Fetch fetch, int chars) {
+        String lang = languageOfFile(p.file);
+        if (lang == null) {
+            return "";
+        }
+        java.util.List<String> names = new ArrayList<String>();
+        java.util.regex.Matcher q = java.util.regex.Pattern.compile("['`\"]([A-Za-z_$][\\w$.]*)['`\"]|\\b([A-Za-z_$][\\w$.]*)\\(\\)|symbol:\\s+\\w+\\s+([A-Za-z_$][\\w$]*)")
+                .matcher(p.message);
+        while (q.find() && names.size() < 3) {
+            String n = q.group(1) != null ? q.group(1) : q.group(2) != null ? q.group(2) : q.group(3);
+            if (n != null && n.length() >= 2 && !names.contains(n)) {
+                names.add(n);
+            }
+        }
+        for (String n : names) {
+            String e = entry(lang, n, cacheDir, fetch, chars);
+            if (!e.isEmpty()) {
+                return e;
+            }
+        }
+        return "";
+    }
 }
