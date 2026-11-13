@@ -2107,6 +2107,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
 
         @Override
+        public void commentOnLatest(String app, String query, String what) {
+            MainActivity.this.commentOnLatest(app, query, what);
+        }
+
+        @Override
         public int chatTokens() {
             return ai.ibiko.chat.Tuning.CHAT_TOKENS.get(prefs);
         }
@@ -2165,6 +2170,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** In {@link SocialPosts}. */
     void offerOrPost(PendingAction p) {
         socialPosts.offerOrPost(p);
+    }
+
+    /** In {@link SocialPosts}. */
+    void commentOnLatest(final String app, final String query, final String what) {
+        socialPosts.commentOnLatest(app, query, what);
     }
 
     /** In {@link SocialPosts}. */

@@ -89,9 +89,22 @@ final class BrainGate {
                     // to it, pause / continue / show the download). Without it there is nothing to read the words.
                     return a.modelCommand(a.control(t));
                 })
-                // with a brain in the suit no wording runs anything: the brain reads the sizes (\u00A7BD) and the yes or no
+                // with a brain in the suit no wording runs anything, except a comment on the latest
+                // post (that is the social accounts, not a coding job): the brain reads the sizes (\u00A7BD) and the yes or no
                 // to an action shown waiting (\u00A7YS, \u00A7CX); the card's own buttons are the pilot's direct control
                 .route("post, share or copy", t -> !a.brainReads() && a.stagedAction(t))
+                // "latest Facebook post about X and write a comment" is the social accounts, not a coding job
+                .route("comment on the latest post", t -> {
+                    if (a.backgroundTask != null) {
+                        return false;
+                    }
+                    String[] latest = ai.ibiko.social.PostDrafts.commentOnLatest(t);
+                    if (latest == null) {
+                        return false;
+                    }
+                    a.commentOnLatest(latest[0], latest[1], latest[2]);
+                    return true;
+                })
                 // no "make a file", "retry" or "read the meaning" by wording: the brain gives those as codes
                 .route("brain", t -> {
                     askTheBrain(t);

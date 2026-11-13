@@ -104,6 +104,63 @@ public final class PostDrafts {
         return new String[] {app, link, what};
     }
 
+    /**
+     * "latest Facebook post about Elon Musk and write a comment": no link yet. {network app, what to search, how the
+     * comment should sound}. Null when it isn't that, or when {@link #comment} already has a link.
+     */
+    public static String[] commentOnLatest(String said) {
+        if (said == null || comment(said) != null) {
+            return null;
+        }
+        String t = said.trim();
+        String low = t.toLowerCase(Locale.US);
+        if (!low.matches("(?s).*\\b(comment|reply)\\b.*") || !low.matches("(?s).*\\b(latest|newest|recent|post|tweet)\\b.*")) {
+            return null;
+        }
+        Matcher net = Pattern.compile("(?i)\\b(facebook|fb|twitter|\\bx\\b)\\b").matcher(t);
+        if (!net.find()) {
+            return null;
+        }
+        Platform p = Platform.named(net.group(1));
+        if (p != Platform.FACEBOOK && p != Platform.X) {
+            return null;
+        }
+        String head = t.replaceFirst("(?i)\\s+and\\s+\\b(write|draft|leave|make|post)\\b[\\s\\S]*$", "");
+        Matcher markers = Pattern.compile("(?i)\\b(about|concerning|mentioning|regarding)\\b").matcher(head);
+        int at = -1;
+        while (markers.find()) {
+            at = markers.end();
+        }
+        String query;
+        if (at >= 0) {
+            query = head.substring(at).trim();
+        } else {
+            Matcher after = Pattern.compile("(?i)\\b(?:post|tweet)\\b\\s*(?:on\\s+\\w+\\s+)?(.+)$").matcher(head);
+            if (!after.find()) {
+                return null;
+            }
+            query = after.group(1).trim();
+        }
+        query = query.replaceAll("(?i)^(or\\s+)+", "")
+                .replaceAll("(?i)^(the\\s+)?(latest|newest|recent)\\s+(post|tweet)\\s*(on\\s+\\w+\\s+)?", "")
+                .replaceAll("[.?!]+$", "")
+                .replaceAll("(?i)\\s+\\b(and|on|in)\\s+(facebook|fb|x|twitter)\\b.*$", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (query.length() < 2 || query.matches("(?i)(it|this|that|the topic|the post|a comment|an interesting comment)")) {
+            return null;
+        }
+        String what = "an interesting comment related to the post";
+        Matcher want = Pattern.compile("(?i)\\b(?:write|draft|leave)\\s+((?:an?|the)\\s+.+)$").matcher(t);
+        if (want.find()) {
+            String w = want.group(1).trim().replaceAll("[.?!]+$", "");
+            if (w.length() >= 8 && !w.toLowerCase(Locale.US).matches("(?s).*\\b(latest|newest|recent|about|concerning)\\b.*")) {
+                what = w;
+            }
+        }
+        return new String[] {p == Platform.X ? "x" : "facebook", query, what};
+    }
+
     /** What the model is asked for a comment: short, in the pilot's voice, adding something. */
     public static String commentPrompt(String postText, String what) {
         return "Write one comment the pilot will post under this post, in their own voice: short, friendly, adding something"

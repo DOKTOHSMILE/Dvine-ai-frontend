@@ -214,6 +214,28 @@ public final class SocialPage {
         return b.toString().trim();
     }
 
+    /** The first post link in a search result (a {@code LINK} line, or a bare post address). */
+    public static String firstPostLink(String text) {
+        if (text == null) {
+            return null;
+        }
+        for (String line : text.split("\n")) {
+            String l = line.trim();
+            if (l.regionMatches(true, 0, "LINK ", 0, 5)) {
+                l = l.substring(5).trim();
+            }
+            l = l.replaceFirst("^[\\-\\s]+", "");
+            if (!l.startsWith("https://") && !l.startsWith("http://")) {
+                continue;
+            }
+            String url = l.replaceAll("[).,]+$", "");
+            if (postLink(url)) {
+                return url;
+            }
+        }
+        return null;
+    }
+
     /** Post links from a public results page (including a DuckDuckGo redirect). */
     public static String webResults(String html) {
         if (html == null || html.isEmpty()) {

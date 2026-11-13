@@ -1,3 +1,9 @@
+# A comment on the latest post (0.99.136)
+
+- [x] "Latest Facebook post about X and write a comment" is read as that, including the wording from the chat (Facebook, latest post, concerning or mentioning, and write a comment). It is not handed to the coding agent.
+- [x] Ibiko searches that network, takes the first post link, and drafts a comment. Nothing is posted until the user says yes.
+- [ ] On the phone: ask again for the latest Facebook post about Elon Musk and a comment.
+
 # Social search after a cleared check (0.99.135)
 
 - [x] Saying the check is finished ("I cleared it", "no longer paused") lifts the 24-hour pause. A search the user just asked for still loads while a pause is on; a healthy page lifts it, a real checkpoint pauses again.

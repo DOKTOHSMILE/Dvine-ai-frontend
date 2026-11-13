@@ -41,6 +41,14 @@ public final class SocialFlow {
         default void writeComment(String app, String link, String what) {
         }
 
+        /**
+         * No link yet: find the latest post about {@code query} on {@code app} and draft a comment. The default asks
+         * for a link, for a host that can't search.
+         */
+        default void commentOnLatest(String app, String query, String what) {
+            say("Send me the link of the post to comment under (Share, then Copy link).");
+        }
+
         int chatTokens();
 
         void search(String question, String call);
@@ -102,11 +110,21 @@ public final class SocialFlow {
                 return;
             case "comment": {
                 java.util.regex.Matcher link = java.util.regex.Pattern.compile("https?://\\S+").matcher(p.words);
-                if (!link.find()) {
-                    host.say("Send me the link of the post to comment under (Share, then Copy link).");
+                if (link.find()) {
+                    host.writeComment(p.net, link.group(), (p.words.substring(0, link.start()) + p.words.substring(link.end())).trim());
                     return;
                 }
-                host.writeComment(p.net, link.group(), (p.words.substring(0, link.start()) + p.words.substring(link.end())).trim());
+                String[] latest = ai.ibiko.social.PostDrafts.commentOnLatest(question);
+                if (latest != null) {
+                    host.commentOnLatest(latest[0], latest[1], latest[2]);
+                    return;
+                }
+                if (platform != null && !p.words.isEmpty() && !p.words.contains("<")) {
+                    String app = platform == ai.ibiko.social.Platform.X ? "x" : platform.name().toLowerCase(java.util.Locale.US);
+                    host.commentOnLatest(app, p.words, p.words);
+                    return;
+                }
+                host.say("Send me the link of the post to comment under (Share, then Copy link).");
                 return;
             }
             case "post": {

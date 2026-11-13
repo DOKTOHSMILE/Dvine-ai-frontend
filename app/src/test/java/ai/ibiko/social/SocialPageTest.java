@@ -61,6 +61,7 @@ public class SocialPageTest {
         String results = SocialPage.webResults("<a class=\"result__a\" href=\"https://duckduckgo.com/l/?uddg="
                 + "https%3A%2F%2Fmbasic.facebook.com%2Fstory.php%3Fstory_fbid%3D1%26id%3D2&rut=1\">Elon Musk on the launch</a>");
         assertTrue(results, results.contains("LINK https://mbasic.facebook.com/story.php?story_fbid=1&id=2"));
+        assertEquals("https://mbasic.facebook.com/story.php?story_fbid=1&id=2", SocialPage.firstPostLink(results));
     }
 
     @Test

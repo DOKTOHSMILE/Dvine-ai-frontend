@@ -264,6 +264,47 @@ final class SocialPosts {
     }
 
     /**
+     * "Latest post about X and write a comment": search that network, then draft a comment under the first post.
+     * The comment still waits for the pilot's yes.
+     */
+    void commentOnLatest(final String app, final String query, final String what) {
+        final String agent = act.stage.agent();
+        final ai.ibiko.social.Platform net = ai.ibiko.social.Platform.named(app);
+        if (net == null) {
+            act.play(LocalTurn.speakAs(agent, "Say which network: Facebook or X."), null);
+            return;
+        }
+        if (ai.ibiko.social.SocialWeb.accounts(act).inUse(net) == null) {
+            act.play(LocalTurn.speakAs(agent, "I need you signed in to " + net.shown + " first: open the menu, then Connectors."), null);
+            return;
+        }
+        act.armThink("Finding the latest post", "Writing a comment");
+        new Thread(() -> {
+            String found;
+            try {
+                found = ai.ibiko.social.SocialWeb.search(act, net, query, 4000);
+            } catch (RuntimeException e) {
+                found = net.shown + ": the search couldn't run.";
+            }
+            final String page = found == null ? "" : found;
+            final String link = ai.ibiko.social.SocialPage.firstPostLink(page);
+            act.handler.post(() -> {
+                if (act.isFinishing()) {
+                    return;
+                }
+                act.endThink();
+                if (link == null) {
+                    String said = page.trim().isEmpty() ? "I couldn't find a " + net.shown + " post about " + query + "."
+                            : (page.length() > 1500 ? page.substring(0, 1500) : page);
+                    act.play(LocalTurn.speakAs(agent, said), null);
+                    return;
+                }
+                commentDraft(app, link, what);
+            });
+        }, "ibiko-comment-latest").start();
+    }
+
+    /**
      * "Comment under this post: <link>": the post is read with the pilot's account, the model writes a comment in
      * their voice, and it waits for their yes before Ibiko posts it there.
      */
