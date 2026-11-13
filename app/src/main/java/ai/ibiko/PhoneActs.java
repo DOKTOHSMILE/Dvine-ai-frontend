@@ -186,6 +186,20 @@ final class PhoneActs {
             case SETTINGS:
                 a.command(ai.ibiko.turn.Meaning.Command.OPEN_SETTINGS);
                 return;
+            case STEER: {
+                String note = order.arg == null ? "" : order.arg.trim();
+                if (a.backgroundTask == null || note.isEmpty()) {
+                    a.play(LocalTurn.speakAs(agent, note.isEmpty()
+                            ? "Tell me what the running job should do."
+                            : "Nothing is running in the background, so there's no job to tell."), null);
+                    return;
+                }
+                a.steer.add(ai.ibiko.agent.Intake.STEER + note);
+                a.handler.removeCallbacks(a.releaseUnseenSteer);
+                a.handler.postDelayed(a.releaseUnseenSteer, 500);
+                a.play(LocalTurn.speakAs(agent, "Passed to the running job."), null);
+                return;
+            }
             case CANNOT:
             default:
                 String why = order.speech == null || order.speech.isEmpty()

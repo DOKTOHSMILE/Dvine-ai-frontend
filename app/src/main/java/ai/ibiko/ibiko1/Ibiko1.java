@@ -773,9 +773,11 @@ public final class Ibiko1 {
                         + right + ties));
     }
 
-    /** Ibiko 1 and the device's model as one brain: what Ibiko 1 knows goes in, the model's answer comes out unchecked. */
+    /** Ibiko 1 and the device's model as one brain: what Ibiko 1 knows goes in, and the model can run a function. */
     static final String MODEL_SYSTEM = "You are Ibiko, answering for Ibiko's own brain. Answer in a few plain sentences."
-            + " Use what Ibiko already knows when it is given. If you don't know, say so. /no_think";
+            + " Use what Ibiko already knows when it is given. If you don't know, say so. "
+            + ai.ibiko.suit.FunctionCode.directions()
+            + " /no_think";
 
     private void fromModel(final String who, final String t, final String subject, final boolean online) {
         final int mine = token;
@@ -795,9 +797,32 @@ public final class Ibiko1 {
                     saysPlain(who, Phrasing.unknown(subject, online, LearningJob.plan(host.context()).on, times));
                     return;
                 }
+                ai.ibiko.suit.FunctionCode.Call call = ai.ibiko.suit.FunctionCode.parse(said);
+                ai.ibiko.llm.BrainOrder order = call == null ? null : ai.ibiko.llm.BrainOrder.fromCode(call);
+                if (order != null && ai.ibiko.llm.CodeFit.fits(order, t)) {
+                    if (!host.allows(call.code.name())) {
+                        saysPlain(who, "That control is turned off for this chat.");
+                        return;
+                    }
+                    host.stepsDone();
+                    if (worker != null) {
+                        Plug.workers.end(worker, true);
+                        worker = null;
+                    }
+                    host.answered(How.OTHER);
+                    host.act(t, call.toString());
+                    return;
+                }
+                String shown = call == null ? said : ai.ibiko.suit.FunctionCode.withoutCode(said);
+                if (shown == null || shown.trim().isEmpty()) {
+                    LearningJob.remember(host.context(), t);
+                    learner().unanswered(t, System.currentTimeMillis());
+                    saysPlain(who, Phrasing.unknown(subject, online, LearningJob.plan(host.context()).on, times));
+                    return;
+                }
                 how = How.OTHER;
-                saysSure(who, said + "\n(From the device's model; not checked yet.)", ai.ibiko.ibiko1.formulas.Critical.Ground.UNCHECKED);
-                rateable(t, said); // the pilot's check keeps it in Ibiko 1's memory (and in the next adapter's training)
+                saysSure(who, shown.trim() + "\n(From the device's model; not checked yet.)", ai.ibiko.ibiko1.formulas.Critical.Ground.UNCHECKED);
+                rateable(t, shown.trim()); // the pilot's check keeps it in Ibiko 1's memory (and in the next adapter's training)
             });
         }, "ibiko1-model").start();
     }

@@ -33,6 +33,11 @@ public class CodeTasksTest {
         assertEquals("§SH cat -- 'notes.txt'", code("read the file notes.txt"));
         assertEquals("§SH cd /workspace && git clone 'https://github.com/DOKTOHSMILE/Dvine-ai-backend'",
                 code("clone DOKTOHSMILE/Dvine-ai-backend"));
+        assertEquals("§SH cd /workspace && git clone 'https://github.com/DOKTOHSMILE/Ibiko-ai'",
+                code("clone the private repository DOKTOHSMILE/Ibiko-ai"));
+        assertEquals("§SH git -C /workspace/repos/Ibiko-ai pull", code("pull the private repo Ibiko-ai"));
+        assertEquals("§SH git pull", code("pull"));
+        assertNull("not a repository name", code("pull the latest"));
         assertEquals("§SH pkg install nodejs", code("install nodejs"));
         assertEquals("§SH mkdir -p -- 'demo'", code("make a folder called demo"));
         assertEquals("§SH python3 --version", code("is python installed?"));

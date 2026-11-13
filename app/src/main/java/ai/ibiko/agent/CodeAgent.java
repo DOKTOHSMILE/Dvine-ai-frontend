@@ -1902,9 +1902,21 @@ public final class CodeAgent {
                 return stepped("Git log of " + show(c.a("path")), git.log(inside(folderOf(c))));
             case "branches":
                 return stepped("Branches of " + show(c.a("path")), git.branches(inside(folderOf(c))));
-            case "pull":
+            case "pull": {
+                File dir = inside(folderOf(c));
                 host.step("Pulling " + show(c.a("path")));
-                return git.pull(inside(folderOf(c)));
+                try {
+                    return git.pull(dir);
+                } catch (IOException e) {
+                    // a folder git itself cloned (a private repository, with its own .git) has no Ibiko record
+                    String why = e.getMessage() == null ? "" : e.getMessage();
+                    if (why.contains("isn't a cloned repository") && new File(dir, ".git").isDirectory()) {
+                        String out = host.run("git pull", dir);
+                        return out == null || out.trim().isEmpty() ? "git pull gave nothing back." : out;
+                    }
+                    throw e;
+                }
+            }
             case "fetch":
                 return stepped("Fetched " + branchOf(c), git.fetch(inside(folderOf(c)), c.a("branch")));
             case "merge":

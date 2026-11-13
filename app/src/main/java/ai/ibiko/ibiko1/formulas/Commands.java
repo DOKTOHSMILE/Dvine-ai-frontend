@@ -72,6 +72,10 @@ public final class Commands {
             String arg = raw.substring(Math.min(raw.length(), m.start(g)), Math.min(raw.length(), m.end(g))).replaceAll("\\?+$", "");
             return "§" + code + " " + ("SW".equals(code) || "MF".equals(code) ? arg.toLowerCase(Locale.US) : arg);
         }
+        String more = extra(raw, low, allowed);
+        if (more != null) {
+            return more;
+        }
         // a code task Ibiko 1 can carry out itself: one shell command, approved by the pilot before it runs
         String shell = CodeTasks.command(message);
         if (shell != null && (allowed == null || allowed.test("SH"))) {
@@ -81,5 +85,76 @@ public final class Commands {
             return "§WK";
         }
         return null;
+    }
+
+    /** Controls the short rules do not cover: handing work on, a running job, social, a scheduled post, GitHub tools. */
+    private static String extra(String raw, String low, java.util.function.Predicate<String> allowed) {
+        Matcher m = HO.matcher(low);
+        if (m.matches() && ok(allowed, "HO")) {
+            return "§HO " + m.group(1);
+        }
+        m = ST.matcher(low);
+        if (m.matches() && ok(allowed, "ST")) {
+            return "§ST " + slice(raw, m, 1);
+        }
+        m = SO_SEARCH.matcher(low);
+        if (m.matches() && ok(allowed, "SO")) {
+            return "§SO SEARCH " + net(m.group(1)) + ": " + slice(raw, m, 2);
+        }
+        m = SO_TREND.matcher(low);
+        if (m.matches() && ok(allowed, "SO")) {
+            return "§SO TRENDING " + net(m.group(1));
+        }
+        m = SO_CONNECT.matcher(low);
+        if (m.matches() && ok(allowed, "SO")) {
+            return "§SO CONNECT " + net(m.group(1));
+        }
+        m = SP.matcher(low);
+        if (m.matches() && ok(allowed, "SP")) {
+            return "§SP " + net(m.group(1)) + " " + slice(raw, m, 2) + ": " + slice(raw, m, 3);
+        }
+        if (TL_REPOS.matcher(low).matches() && ok(allowed, "TL")) {
+            return "§TL github.repos";
+        }
+        m = TL_ISSUES.matcher(low);
+        if (m.matches() && ok(allowed, "TL")) {
+            return "§TL github.issues " + slice(raw, m, 1);
+        }
+        m = SI_POST.matcher(low);
+        if (m.matches() && ok(allowed, "SI")) {
+            return "§SI social.post.investigate " + slice(raw, m, 1);
+        }
+        m = SI_FEEL.matcher(low);
+        if (m.matches() && ok(allowed, "SI")) {
+            return "§SI social.sentiment.analyze " + slice(raw, m, 1);
+        }
+        if (SI_ACCOUNTS.matcher(low).matches() && ok(allowed, "SI")) {
+            return "§SI social.accounts.list";
+        }
+        return null;
+    }
+
+    private static final Pattern HO = Pattern.compile("^(?:please )?(?:hand|pass|give) (?:this|that|it) to (ivie|obi|ibiko)$");
+    private static final Pattern ST = Pattern.compile("^(?:please )?(?:tell|steer) the (?:job|task)(?::| to)? (.{2,400})$");
+    private static final Pattern SO_SEARCH = Pattern.compile("^(?:please )?search (x|twitter|facebook|instagram|reddit) for (.{2,200})$");
+    private static final Pattern SO_TREND = Pattern.compile("^(?:please )?(?:what's|what is) trending on (x|twitter|facebook|instagram|reddit)$");
+    private static final Pattern SO_CONNECT = Pattern.compile("^(?:please )?connect (?:my )?(x|twitter|facebook|instagram|reddit)(?: account)?$");
+    private static final Pattern SP = Pattern.compile("^(?:please )?schedule (?:a )?post on (x|twitter|facebook|instagram|reddit|linkedin|telegram|whatsapp) (.+?): (.{1,2000})$");
+    private static final Pattern TL_REPOS = Pattern.compile("^(?:please )?list my github (?:repos|repositories)$");
+    private static final Pattern TL_ISSUES = Pattern.compile("^(?:please )?(?:list|show)(?: me)?(?: the)?(?: open)? github issues (?:in|for|on) ([\\w.-]+/[\\w.-]+)$");
+    private static final Pattern SI_POST = Pattern.compile("^(?:please )?investigate (?:this |the )?(?:post|message):? (.{2,500})$");
+    private static final Pattern SI_FEEL = Pattern.compile("^(?:please )?(?:what's|what is) the (?:public )?sentiment (?:on|about|of) (.{2,200})$");
+    private static final Pattern SI_ACCOUNTS = Pattern.compile("^(?:please )?list my (?:connected )?social accounts$");
+
+    private static boolean ok(java.util.function.Predicate<String> allowed, String code) {
+        return allowed == null || allowed.test(code);
+    }
+
+    private static String slice(String raw, Matcher m, int g) {
+        return raw.substring(Math.min(raw.length(), m.start(g)), Math.min(raw.length(), m.end(g))).replaceAll("\\?+$", "").trim();
+    }
+
+    private static String net(String name) {
+        return "twitter".equals(name) ? "x" : name;
     }
 }

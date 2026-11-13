@@ -25,7 +25,7 @@ public final class CodeFit {
             + "|instagram|linkedin|telegram|tiktok|x\\.com");
     static final Pattern PICTURE = p("draw|picture|image|photo\\w*|logo|icon|illustration|artwork|paint\\w*|sketch|wallpaper|poster");
     static final Pattern FILE = p("pdf|docx?|word (document|file)|excel|spreadsheet|xlsx|csv|markdown|txt|file|download|export|save (it|this|that)");
-    static final Pattern SHELL = p("run|install|command|terminal|shell|bash|execute|ls|git|pip|npm|python3?|node|gcc|version|compile|uninstall");
+    static final Pattern SHELL = p("run|install|command|terminal|shell|bash|execute|ls|git|clone|pull|fetch|push|pip|npm|python3?|node|gcc|version|compile|uninstall");
     static final Pattern WORK = p("code|coding|program|app|website|web ?page|page|site|html|css|javascript|java|kotlin|python|script"
             + "|build|fix|bug|repo|repository|project|function|class|test|deploy|refactor|audit|commit|push|pull request|landing");
     static final Pattern WRITING = p("write|story|essay|report|article|script|book|chapter|letter|speech|proposal|plan");
@@ -83,6 +83,8 @@ public final class CodeFit {
                 return AGAIN.matcher(t).matches();
             case SETTINGS:
                 return SETTINGS.matcher(t).matches();
+            case STEER:
+                return p("tell the (job|task)|steer|focus on|skip the").matcher(t).matches();
             case CONFIRM: case CANCEL:
                 // a yes or a no of the user's own; "say yes or no" (the question read back, or heard by the mic) is neither
                 return YES_NO.matcher(t).matches() && !t.matches("(?is).*\\byes\\b.*\\bor\\b.*\\bno\\b.*");

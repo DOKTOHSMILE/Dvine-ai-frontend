@@ -909,39 +909,88 @@ public final class GitHubGit {
         return n;
     }
 
-    /** The real download: https, the token, redirects followed (GitHub hands zips to codeload), 300 MB at most. */
+    /**
+     * The real download: https, the token, redirects followed by hand. GitHub sends a private repository's zip to
+     * codeload.github.com, and the phone's client drops the token on that hop, so a private repository came back 404
+     * while a public one cloned. The token is sent again, and only to a github.com address.
+     */
     public static Zips httpsZips() {
-        return (url, headers, to) -> {
-            javax.net.ssl.HttpsURLConnection c = (javax.net.ssl.HttpsURLConnection) new java.net.URL(url).openConnection();
-            c.setInstanceFollowRedirects(true);
-            c.setConnectTimeout(20_000);
-            c.setReadTimeout(60_000);
-            for (Map.Entry<String, String> h : headers.entrySet()) {
-                c.setRequestProperty(h.getKey(), h.getValue());
-            }
-            int status = c.getResponseCode();
-            if (status == 401 || status == 403 || status == 404) {
-                throw new IOException("GitHub said " + status + " (the token may lack access to this repository)");
-            }
-            if (status < 200 || status >= 300) {
+        return (url, headers, to) -> fetchZip(url, headers, to, 0);
+    }
+
+    /** True for github.com and its download hosts (codeload), never for anywhere else a redirect might point. */
+    static boolean githubHost(String url) {
+        try {
+            String host = new java.net.URL(url).getHost();
+            if (host == null) {
                 return false;
             }
-            long total = 0;
-            try (java.io.InputStream in = c.getInputStream(); java.io.OutputStream out = new java.io.FileOutputStream(to)) {
-                byte[] b = new byte[65536];
-                int n;
-                while ((n = in.read(b)) > 0) {
-                    total += n;
-                    if (total > 300L * 1024 * 1024) {
-                        throw new IOException("the repository is over 300 MB, too big for the device");
-                    }
-                    out.write(b, 0, n);
-                }
-            } finally {
-                c.disconnect();
+            host = host.toLowerCase(java.util.Locale.US);
+            return "github.com".equals(host) || host.endsWith(".github.com");
+        } catch (java.net.MalformedURLException e) {
+            return false;
+        }
+    }
+
+    private static boolean fetchZip(String url, Map<String, String> headers, File to, int hops) throws IOException {
+        if (hops > 5) {
+            throw new IOException("GitHub redirected too many times");
+        }
+        javax.net.ssl.HttpsURLConnection c = (javax.net.ssl.HttpsURLConnection) new java.net.URL(url).openConnection();
+        c.setInstanceFollowRedirects(false);
+        c.setConnectTimeout(20_000);
+        c.setReadTimeout(120_000);
+        for (Map.Entry<String, String> h : headers.entrySet()) {
+            c.setRequestProperty(h.getKey(), h.getValue());
+        }
+        int status = c.getResponseCode();
+        if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
+            String loc = c.getHeaderField("Location");
+            c.disconnect();
+            if (loc == null) {
+                throw new IOException("GitHub redirected without an address");
             }
-            return true;
-        };
+            try {
+                loc = new java.net.URL(new java.net.URL(url), loc).toString();
+            } catch (java.net.MalformedURLException e) {
+                throw new IOException("GitHub redirected to a bad address");
+            }
+            if (!githubHost(loc)) {
+                throw new IOException("GitHub redirected somewhere the token must not follow");
+            }
+            Map<String, String> next = new java.util.LinkedHashMap<String, String>(headers);
+            if (loc.contains("codeload.github.com")) {
+                next.put("Accept", "application/octet-stream"); // the zip, not another JSON description of it
+            }
+            return fetchZip(loc, next, to, hops + 1);
+        }
+        if (status == 404 && url.contains("codeload.github.com")) {
+            c.disconnect();
+            return false; // the mirror refused the zip: the file-by-file API, which keeps the token, clones instead
+        }
+        if (status == 401 || status == 403 || status == 404) {
+            c.disconnect();
+            throw new IOException("GitHub said " + status + " (the token may lack access to this repository)");
+        }
+        if (status < 200 || status >= 300) {
+            c.disconnect();
+            return false;
+        }
+        long total = 0;
+        try (java.io.InputStream in = c.getInputStream(); java.io.OutputStream out = new java.io.FileOutputStream(to)) {
+            byte[] b = new byte[65536];
+            int n;
+            while ((n = in.read(b)) > 0) {
+                total += n;
+                if (total > 300L * 1024 * 1024) {
+                    throw new IOException("the repository is over 300 MB, too big for the device");
+                }
+                out.write(b, 0, n);
+            }
+        } finally {
+            c.disconnect();
+        }
+        return true;
     }
 
     // ------------------------------------------------------------ the diff

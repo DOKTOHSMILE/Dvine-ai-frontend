@@ -69,8 +69,115 @@ public enum FunctionCode {
         }
         b.append("\nExamples: `\u00A7SR weather in Lagos` \u00B7 `\u00A7SW ibiko` \u00B7 `\u00A7MF pdf` \u00B7 `\u00A7SP x 9am daily: Good morning`"
                 + " \u00B7 `\u00A7AC post on x: We're live`.\n\nRules: one code a reply; arithmetic goes to `\u00A7CA`; never claim a function ran"
-                + " (Ibiko runs it after the code and shows the result); shell commands, posts and shares wait for the user's yes.\n");
+                + " (Ibiko runs it after the code and shows the result); shell commands, posts and shares wait for the user's yes.\n\n"
+                + "## How to call each function\n\n");
+        b.append(directions());
         return b.toString();
+    }
+
+    /**
+     * The go-to sheet a model reads: where it is, and for every function when to write the code, the line to write,
+     * and what Ibiko does next. {@link #document()} includes this, so docs/APP_FUNCTIONS.md stays the same text.
+     */
+    public static String directions() {
+        StringBuilder b = new StringBuilder();
+        b.append("Where you are: the Ibiko app on the user's phone. Linux is Alpine, one shell."
+                + " This chat's files are /workspace. A clone lives in /workspace/repos/<name>."
+                + " A private GitHub repository clones and pulls when Connectors, GitHub, is signed in"
+                + " (a classic token needs the repo scope; a fine-grained token needs Contents)."
+                + " Never put a token in a command, a URL, or git config. The app supplies it."
+                + " One function a reply: its code alone on the first line, then one short sentence."
+                + " Do not say the function already ran. A shell command, a post and a share wait for the user's yes.\n");
+        for (FunctionCode c : values()) {
+            b.append("- ").append(c.code());
+            if (!c.args.isEmpty()) {
+                b.append(' ').append(c.args);
+            }
+            b.append(" — ").append(use(c)).append('\n');
+        }
+        return b.toString();
+    }
+
+    /** When to write this code, the line to write, and what happens next. One line, for every function. */
+    private static String use(FunctionCode c) {
+        switch (c) {
+            case SR:
+                return "when they want the web searched. Write \u00A7SR weather in Lagos. Ibiko searches; answer from the pages.";
+            case SH:
+                return "one Linux command they approve first. Write \u00A7SH cd /workspace && git clone 'https://github.com/owner/name'."
+                        + " A private repository uses the signed-in token; do not add it. Pull is \u00A7SH git -C /workspace/repos/name pull.";
+            case TL:
+                return "a connector tool that is on for this chat. Write \u00A7TL github.repos or \u00A7TL github.issues owner/name"
+                        + " or \u00A7TL github.file owner/name/path. Skip a tool that was not listed.";
+            case CA:
+                return "exact arithmetic. Write \u00A7CA (12+7)*3. Do not work the sum out yourself.";
+            case PH:
+                return "a real photograph of something that exists. Write \u00A7PH a red panda. A picture to invent is \u00A7IM.";
+            case IM:
+                return "a picture to make (icon, logo, illustration, artwork), not a real photo. Write \u00A7IM a blue call icon, flat.";
+            case SO:
+                return "their social accounts. Write \u00A7SO SEARCH x: cats, \u00A7SO TRENDING x, \u00A7SO CONNECT reddit,"
+                        + " \u00A7SO POST x: hello, or \u00A7SO COMMENT x: <link> nice. Networks: x, facebook, instagram, reddit.";
+            case SI:
+                return "social intelligence. Write \u00A7SI social.post.investigate <text>, \u00A7SI social.search.posts x cats,"
+                        + " \u00A7SI social.search.similar <text>, \u00A7SI social.sentiment.analyze <topic>,"
+                        + " \u00A7SI social.accounts.list, \u00A7SI social.profile.read_public x <user>,"
+                        + " or \u00A7SI social.profile.read_own x.";
+            case SP:
+                return "schedule a post they confirm first. Write \u00A7SP x 9am daily: Good morning"
+                        + " (time is yyyy-MM-dd HH:mm, HH:mm, 9am, or in 2h; repeat is daily, weekly, weekdays, or every 6h)."
+                        + " \u00A7SP LIST shows what is scheduled.";
+            case MF:
+                return "a file of the last answer. Write \u00A7MF pdf (also docx, xlsx, csv, md, html, txt).";
+            case AC:
+                return "share, post or copy through the phone, shown first. Write \u00A7AC post on x: We're live,"
+                        + " \u00A7AC share: hello, or \u00A7AC copy: hello.";
+            case TM:
+                return "the time and date on this phone. Write \u00A7TM.";
+            case NM:
+                return "what to call the user. Write \u00A7NM Valentine.";
+            case UZ:
+                return "unzip the zip they just shared. Write \u00A7UZ.";
+            case FZ:
+                return "find zip files on this phone. Write \u00A7FZ.";
+            case NC:
+                return "start a new chat. Write \u00A7NC.";
+            case SW:
+                return "switch persona. Write \u00A7SW ibiko (also ivie or obi).";
+            case HO:
+                return "pass this message to the persona whose work it is, and only when it is not yours."
+                        + " Write \u00A7HO ibiko for code, commands, files, repositories and Linux;"
+                        + " \u00A7HO ivie for stories, scripts, poems, drawings and design; \u00A7HO obi for questions, research and plans.";
+            case WK:
+                return "real code work for the agents: write, fix, build, run, test or audit, or work a repository."
+                        + " Write \u00A7WK. The user's message is the task.";
+            case WP:
+                return "a long piece (story, script, report, essay): outline, then write section by section. Write \u00A7WP.";
+            case TT:
+                return "a weighty decision: plan it, check it, then answer once. Write \u00A7TT.";
+            case RF:
+                return "read the files in this chat's workspace to answer. Write \u00A7RF.";
+            case CO:
+                return "carry on with unfinished work in this chat. Write \u00A7CO.";
+            case ST:
+                return "only while a job is already running: pass an instruction to that job. Write \u00A7ST focus on the api first.";
+            case YS:
+                return "they agree to the action that is waiting. Write \u00A7YS.";
+            case CX:
+                return "they do not want the action that is waiting. Write \u00A7CX.";
+            case PM:
+                return "plan mode: ask before changing anything. Write \u00A7PM.";
+            case AO:
+                return "auto mode: commands, pushes and pull requests without asking. Write \u00A7AO.";
+            case AF:
+                return "auto mode off: ask before commands, pushes and pull requests. Write \u00A7AF.";
+            case RT:
+                return "ask the last question again. Write \u00A7RT.";
+            case OS:
+                return "open Settings. Write \u00A7OS.";
+            default:
+                return c.does;
+        }
     }
 
     /** The mark that starts a code. */

@@ -125,6 +125,26 @@ public final class LinuxHub {
     }
 
     /**
+     * The GitHub token, only when this command talks to a remote and Connectors has GitHub signed in. Null otherwise
+     * (a public repository needs nothing). The token is not returned to the caller of {@link #run}.
+     */
+    private static String gitToken(android.content.Context c, String command) {
+        if (c == null || !ai.ibiko.connect.GitAsk.network(command)) {
+            return null;
+        }
+        try {
+            ai.ibiko.connect.ConnectorStore store = new ai.ibiko.connect.ConnectorStore(c);
+            if (!store.ready(ai.ibiko.connect.ConnectorStore.Kind.GITHUB)) {
+                return null;
+            }
+            String token = store.token(ai.ibiko.connect.ConnectorStore.Kind.GITHUB);
+            return token == null || token.trim().isEmpty() ? null : token.trim();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
      * The one way every part of the app runs a Linux command: chat, Ibiko, the task system. It is always the same
      * Alpine (the one the Shell screen shows): installed the first time it is needed, then run in the open terminal at
      * its prompt, or on its own in the same Alpine when a program is busy there. {@code where} is the folder on the
@@ -154,31 +174,52 @@ public final class LinuxHub {
             }
             command = CloneFolder.settle() + "\n" + CloneFolder.place(command);
             String placed = where == null ? command : GuestPath.at(where, command);
+            String token = gitToken(c, placed);
+            if (token != null) {
+                try {
+                    ai.ibiko.connect.GitAsk.install(LinuxRoot.root(c), token);
+                } catch (Exception ignored) {
+                    token = null; // no ask-pass: a public repository still clones, a private one says so
+                }
+            }
+            if (token != null) {
+                placed = ai.ibiko.connect.GitAsk.prefix() + placed;
+            }
             if (where != null && ai.ibiko.main.ChatSpace.chatOf(where) != null) {
                 // a chat's command: its own Alpine run with only that chat's folder as /workspace, so it can't see,
                 // change or delete another chat's files (the shared terminal sees every chat)
                 LinuxEngine.Result own = AlpineRun.run(c, placed, where);
                 if (own != null) {
-                    return CloneFolder.quiet(own.text);
+                    return finish(own.text, token, placed);
                 }
                 // never handed to the shared shell instead: it sees every chat's folder
                 return "(the command couldn't start in this chat's own Linux; nothing else ran it)";
             }
             String shared = ask(c, placed);
             if (shared != null) {
-                return CloneFolder.quiet(shared);
+                return finish(shared, token, placed);
             }
             // a program is running in the terminal: the same Alpine, its own shell for this one command
             String script = where == null ? LinuxCwd.script(LinuxRoot.root(c), command) : placed;
+            if (token != null && script != null && !script.startsWith("export GIT_ASKPASS=")) {
+                script = ai.ibiko.connect.GitAsk.prefix() + script;
+            }
             LinuxEngine.Result alone = AlpineRun.run(c, script, where == null ? linux : where);
             if (alone != null) {
-                return CloneFolder.quiet(alone.text);
+                return finish(alone.text, token, script == null ? placed : script);
             }
         }
         LinuxEngine.Result own = LinuxEngine.run(command, where == null ? linux : where, null);
-        return (own == null ? "The shell didn't run that." : own.text)
+        String plain = (own == null ? "The shell didn't run that." : own.text)
                 + "\n(Linux isn't installed yet" + (why == null ? "" : ": " + why) + ". Ibiko's small built-in shell ran this;"
                 + " open Shell when you're online to install Alpine.)";
+        return ai.ibiko.connect.GitAsk.network(command) ? ai.ibiko.connect.GitAsk.note(plain, false) : plain;
+    }
+
+    /** The command's text, with a token taken out and a private-repository note when the remote refused it. */
+    private static String finish(String text, String token, String command) {
+        String out = ai.ibiko.connect.GitAsk.quiet(CloneFolder.quiet(text), token);
+        return ai.ibiko.connect.GitAsk.network(command) ? ai.ibiko.connect.GitAsk.note(out, token != null) : out;
     }
 
     /**

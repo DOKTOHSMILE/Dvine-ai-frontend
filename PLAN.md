@@ -1,3 +1,12 @@
+# Private repositories, and a direction for every function (0.99.134)
+
+- [x] A private GitHub zip keeps the token across GitHub's redirect, and falls back to the file API if the zip mirror refuses it.
+- [x] Shell git clone, fetch, pull, push and gh use the signed-in token through ask-pass and a credential helper. The token is not in the command.
+- [x] A folder git itself cloned (a .git, no Ibiko record) pulls with that same shell.
+- [x] docs/APP_FUNCTIONS.md tells, for every function, when to write the code and what Ibiko does next. Ibiko 1's device model reads that sheet and a fitting code is carried out.
+- [x] Plain words for a private clone, a pull, handing work on, steering a running job, a social search, a scheduled post, and GitHub tools.
+- [ ] On the phone: Connectors, GitHub, signed in, then clone and pull a private repository.
+
 # Room under the chat (0.99.133)
 
 - [x] 35% of the chat's height empty under the last message: new messages rest mid-screen.

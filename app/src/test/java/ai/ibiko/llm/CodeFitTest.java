@@ -29,5 +29,8 @@ public class CodeFitTest {
         assertTrue(CodeFit.fits(code("§YS"), "yes"));
         assertTrue("a look-up is always fine", CodeFit.fits(code("§SR weather Lagos"), "Hello"));
         assertTrue(CodeFit.fits(null, "anything"));
+        assertTrue(CodeFit.fits(code("§SH git clone https://github.com/a/b"), "clone the private repository a/b"));
+        assertTrue(CodeFit.fits(code("§ST focus on the api"), "tell the job to focus on the api"));
+        assertFalse(CodeFit.fits(code("§ST focus on the api"), "What is the capital of Nigeria?"));
     }
 }

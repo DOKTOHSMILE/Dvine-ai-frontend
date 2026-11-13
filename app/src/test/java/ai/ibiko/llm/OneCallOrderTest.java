@@ -17,6 +17,8 @@ public class OneCallOrderTest {
         assertEquals(BrainOrder.Kind.NEWCHAT, BrainOrder.leading("[[NC]]").kind);
         assertEquals("ibiko", BrainOrder.leading("§SW Ibiko").arg);
         assertEquals("pdf", BrainOrder.leading("§MF").arg);
+        assertEquals(BrainOrder.Kind.STEER, BrainOrder.leading("§ST focus on the api").kind);
+        assertEquals("focus on the api", BrainOrder.leading("§ST focus on the api").arg);
     }
 
     @Test

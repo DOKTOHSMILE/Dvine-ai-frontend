@@ -36,7 +36,9 @@ public final class CodeTasks {
     private static final Pattern DOLLAR = Pattern.compile("^\\$ (.{1,500})$");
     private static final Pattern LIST = Pattern.compile("^(?:please )?(?:list|show)(?: me)? (?:all )?(?:the |my )?files(?: (?:in|inside|under) (?:the )?(?:folder )?(\\S+))?$|^what(?:'s| is) in (?:the )?(?:folder |directory )?(\\S+)$");
     private static final Pattern READ = Pattern.compile("^(?:please )?(?:show|read|open|print|display)(?: me)? (?:the )?(?:file|contents of(?: the file)?) (\\S+)$");
-    private static final Pattern CLONE = Pattern.compile("^(?:please )?clone (?:the )?(?:repo(?:sitory)? )?(https://github\\.com/[\\w.-]+/[\\w.-]+?|[\\w.-]+/[\\w.-]+?)(?:\\.git)?/?$");
+    private static final Pattern CLONE = Pattern.compile("^(?:please )?clone (?:the )?(?:private )?(?:github )?(?:repo(?:sitory)? )?(https://github\\.com/[\\w.-]+/[\\w.-]+?|[\\w.-]+/[\\w.-]+?)(?:\\.git)?/?$");
+    private static final Pattern PULL_NAMED = Pattern.compile("^(?:please )?pull (?:my |the )?(?:private )?(?:github )?(?:repo(?:sitory)? )([\\w.-]+)$");
+    private static final Pattern PULL_HERE = Pattern.compile("^(?:please )?pull$|^(?:please )?pull (?:the |my )?(?:private )?(?:github )?(?:repo(?:sitory)?)$");
     private static final Pattern INSTALL = Pattern.compile("^(?:please )?install (?:the )?(?:package )?([a-z0-9][a-z0-9.+_-]{0,60})(?: package)?$");
     private static final Pattern MKDIR = Pattern.compile("^(?:please )?(?:make|create) (?:a )?(?:new )?(?:folder|directory)(?: called| named)? (\\S+)$");
     private static final Pattern TOUCH = Pattern.compile("^(?:please )?(?:make|create) (?:a )?(?:new )?(?:empty )?file(?: called| named)? (\\S+)$");
@@ -79,6 +81,12 @@ public final class CodeTasks {
             String repo = path(one, m.group(1)).replaceAll("\\.git/?$|/$", "");
             String url = repo.startsWith("https://") ? repo : "https://github.com/" + repo;
             return "cd /workspace && git clone " + q(url);
+        }
+        if ((m = PULL_NAMED.matcher(low)).matches()) {
+            return "git -C /workspace/repos/" + path(one, m.group(1)) + " pull";
+        }
+        if (PULL_HERE.matcher(low).matches()) {
+            return "git pull";
         }
         if ((m = INSTALL.matcher(low)).matches()) {
             return "pkg install " + m.group(1);
