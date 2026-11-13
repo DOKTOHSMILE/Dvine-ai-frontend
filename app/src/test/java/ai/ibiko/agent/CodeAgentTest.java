@@ -657,4 +657,17 @@ public class CodeAgentTest {
         assertTrue(agent.work(), agent.work().contains("Check the work of the other worker"));
         assertTrue(ai.ibiko.suit.ChatTools.defaults("ibiko").workers());
     }
+
+    @Test
+    public void notesAddedUnderAQuickTaskDontStartABlueprint() throws Exception {
+        StringBuilder notes = new StringBuilder("make a hello script\n\n");
+        for (int i = 0; i < 12; i++) {
+            notes.append("A note Ibiko 1 adds about what it already knows of this request. ");
+        }
+        File ws = Files.createTempDirectory("ibiko").toFile();
+        Script brain = new Script("<tool name=\"write_file\" path=\"hello.py\">print(\"hi\")\n</tool>", "Done: wrote hello.py.");
+        new CodeAgent(ws, brain, new Phone(), "", 20_000).forTask("make a hello script").run(notes.toString(), "");
+        assertTrue("written at once, no plan first", new File(ws, "hello.py").isFile());
+        assertFalse(brain.seen.get(1), brain.seen.get(1).contains("Blueprint: not built yet"));
+    }
 }

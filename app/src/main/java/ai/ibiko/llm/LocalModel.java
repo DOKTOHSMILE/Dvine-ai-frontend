@@ -73,8 +73,13 @@ public final class LocalModel {
     private volatile boolean inCall;
 
     public boolean working() {
-        return inCall;
+        // a call stopped with cancel() is over for the screen at once, though its thread may take a while to unwind
+        // (a network read giving up): Stop turns back into Send then, not when the old call finally returns
+        return inCall && callTicket == epoch.get();
     }
+
+    /** The {@link #epoch} the running call started in. */
+    private volatile int callTicket;
 
     /** The longest pause between words before a reply counts as stuck. */
     static final long IDLE_MS = 60_000;
@@ -790,6 +795,7 @@ public final class LocalModel {
         long read = watchReadMs > 0 ? watchReadMs : READ_MS;
         final ReplyWatch watch = new ReplyWatch(idle, cap, read, System.currentTimeMillis());
         final int ticket = epoch.get();
+        callTicket = ticket;
         inCall = true;
         NativeLlm.Sink wrapped = text -> {
             if (ticket != epoch.get()) {

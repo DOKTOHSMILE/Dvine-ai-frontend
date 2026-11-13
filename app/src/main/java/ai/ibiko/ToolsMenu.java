@@ -218,7 +218,11 @@ final class ToolsMenu {
             }
             boolean on = !tools.isOn(t);
             tools.set(t, on);
-            a.prefs.edit().putString(a.toolsKey(persona), tools.write()).apply();
+            android.content.SharedPreferences.Editor e = a.prefs.edit().putString(a.toolsKey(persona), tools.write());
+            if (t == ai.ibiko.suit.ChatTools.Tool.DEEP) {
+                e.putBoolean(MainActivity.THINK_ON, on); // the same switch as the Think pill
+            }
+            e.apply();
             paint.run();
             count.run();
             if (on && t == ai.ibiko.suit.ChatTools.Tool.GITHUB && tools.repos().isEmpty()) {

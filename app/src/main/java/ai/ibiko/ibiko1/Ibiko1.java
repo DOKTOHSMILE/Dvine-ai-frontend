@@ -475,6 +475,11 @@ public final class Ibiko1 {
             think(Arrays.asList("Reading your question", "Looking through my memory"), () -> saysPlain(who, self));
             return;
         }
+        if (t.trim().matches("(?i)(stop|cancel|halt|wait|pause)( it| that| please)?[.!]*")) {
+            // "Stop" with nothing of Ibiko 1's running: said plainly, not kept as a fact ("Noted.")
+            think(Arrays.asList("Reading your message"), () -> saysPlain(who, "Nothing is running right now, so there's nothing to stop."));
+            return;
+        }
         if (parse.intent == Grammar.Intent.THANKS) {
             think(Arrays.asList("Reading your message"), () -> saysPlain(who, "You're welcome."));
             return;
@@ -625,7 +630,9 @@ public final class Ibiko1 {
                             if (mine != token) {
                                 return; // a newer message took over
                             }
-                            if (asksBack() && host.online() && (found != null || !host.modelReady())) {
+                            // only a question with a subject to explain ("what is a zorblat"): one about Ibiko itself
+                            // ("what limitations do you face") or with nothing named goes the usual way
+                            if (asksBack() && host.online() && subject != null && (found != null || !host.modelReady())) {
                                 // not in memory: before answering, it asks what the person means (Inquiry); when the search
                                 // found nothing and the phone has a model, that model answers instead, as before
                                 inquiry = new Inquiry.Pending(t, subject, found, System.currentTimeMillis());

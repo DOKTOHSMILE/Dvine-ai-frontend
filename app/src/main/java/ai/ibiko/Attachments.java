@@ -178,22 +178,20 @@ final class Attachments {
     }
 
     void showAttachMenu(android.view.View anchor) {
+        // no Speak here: the mic is already in the message box
         ai.ibiko.chat.ui.BottomSheet.Item[] items = {
-                new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_mic, "Speak", "Say it; the words go into the message box"),
                 new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_image, "Photo", "From your gallery"),
                 new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_video, "Video", null),
                 new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_audio, "Audio", null),
                 new ai.ibiko.chat.ui.BottomSheet.Item(R.drawable.ic_file, "Files", "Any kind, several at once") };
         ai.ibiko.chat.ui.BottomSheet.show(a, "Add to the chat", items, which -> {
             if (which == 0) {
-                a.toggleDictation();
-            } else if (which == 1) {
                 a.openContentPicker("image", false);
-            } else if (which == 2) {
+            } else if (which == 1) {
                 a.openContentPicker("video", false);
-            } else if (which == 3) {
+            } else if (which == 2) {
                 a.openContentPicker("audio", false);
-            } else if (which == 4) {
+            } else if (which == 3) {
                 a.openContentPicker("document", false);
             }
         });

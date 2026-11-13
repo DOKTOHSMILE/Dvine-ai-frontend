@@ -201,6 +201,28 @@ public final class NeuralVoice {
     /** How high the voice is played (1 normal; above 1 the child's voice): applied as it plays, the speed unchanged. */
     private volatile float pitch = 1f;
     private float pitchSet = 1f;
+    /** How fast the kept sound is played (the player's 0.75x … 2x): time-stretched as it plays, the pitch kept. */
+    private volatile float tempo = 1f;
+    private float tempoSet = 1f;
+
+    public void setTempo(float s) {
+        tempo = Math.max(0.5f, Math.min(2.5f, s));
+    }
+
+    /** Pitch and speed for the track, when either changed since it was last set. */
+    private void applyParams(AudioTrack t) {
+        float p = pitch, s = tempo;
+        if (p == pitchSet && s == tempoSet) {
+            return;
+        }
+        try {
+            t.setPlaybackParams(new android.media.PlaybackParams().setPitch(p).setSpeed(s));
+        } catch (RuntimeException ignored) {
+            // this device can't change them: played as it is
+        }
+        pitchSet = p;
+        tempoSet = s;
+    }
 
     public void setPitch(float p) {
         pitch = Math.max(0.5f, Math.min(2f, p));
@@ -651,20 +673,12 @@ public final class NeuralVoice {
                 it.events.onStart(it.id);
             }
             t.setVolume(it.volume);
-            float want = pitch;
-            if (want != pitchSet) {
-                try {
-                    // the child's voice: the same voice played higher, at the same speed
-                    t.setPlaybackParams(new android.media.PlaybackParams().setPitch(want).setSpeed(1f));
-                    pitchSet = want;
-                } catch (RuntimeException ignored) {
-                    pitchSet = want; // this device can't change the pitch: played as it is
-                }
-            }
+            applyParams(t); // the child's voice played higher, and the player's speed: neither makes the sound again
             t.play();
             sounding = true;
             int step = rate / 10; // a tenth of a second at a time, so a stop is heard at once
             for (int i = 0; i < c.samples.length && mine == epoch; i += step) {
+                applyParams(t); // a speed picked mid-sentence is heard within a tenth of a second
                 int len = Math.min(step, c.samples.length - i);
                 t.write(c.samples, i, len, AudioTrack.WRITE_BLOCKING);
                 totalWritten += len;
