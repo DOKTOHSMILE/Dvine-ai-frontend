@@ -37,6 +37,9 @@ public class SettingsLearningActivity extends SettingsActivity {
                     + " goes online and learns from what you asked. Set the hours from the model menu.", "learn_schedule_on", plan.on,
                     on -> ai.ibiko.ibiko1.LearningJob.setPlan(this, new ai.ibiko.ibiko1.LearningSchedule.Plan(on, plan.start, plan.end,
                             plan.wifiOnly, plan.chargingOnly, plan.most))), Ui.wide(this, 10));
+            own.addView(toggle("Ask what you mean before answering", "When " + ai.ibiko.ibiko1.Ibiko1.NAME + " doesn't know something,"
+                    + " it looks it up, asks you to explain in your own words, looks that up too, compares the two, and answers"
+                    + " with “I may be wrong”, so you can correct it.", ai.ibiko.ibiko1.Ibiko1.ASK_BACK, true, null), Ui.wide(this, 10));
             own.addView(Ui.text(this, ai.ibiko.ibiko1.Ibiko1.NAME + " learns from every message, every model's answer, what it researches"
                     + " and the social pages it reads (language only: people's words are never taken as facts). "
                     + ai.ibiko.ibiko1.Ibiko1.scoreLine(getFilesDir()) + ". See it under Memory.", 13, Ui.SUB, false), Ui.wide(this, 10));
