@@ -171,7 +171,27 @@ final class LocalAsk {
                     act.model.remoteOn() ? 2400 : 900);
             String older = !recalled.isEmpty() ? "Earlier in this chat, about this (by memory code):\n" + recalled
                     : act.chats == null ? "" : act.chats.olderNotes(ai.ibiko.llm.LocalModel.HISTORY_TURNS + 1, act.model.remoteOn() ? 2400 : 1200);
-            String gathered = ai.ibiko.llm.PersonaPrompt.context(taught, reference, around)
+            // the device's model has no tools in the chat: a coding question that names its language and an API gets the
+            // official entry read for it (kept on the phone, so offline too once read)
+            String docs = "";
+            if (!act.model.remoteOn() && act.alive(id)) {
+                final boolean net = act.connectivity != null && act.connectivity.isOnline(); // docs need only a connection
+                docs = ai.ibiko.agent.DocsLookup.brief(english, new java.io.File(act.getFilesDir(), "docs"), (url, max) -> {
+                    if (!net) {
+                        return null;
+                    }
+                    ai.ibiko.net.WebGet.Page p = ai.ibiko.net.WebGet.page(url, 15_000, max);
+                    return p.body == null || p.status >= 400 ? null : p.body;
+                }, 900);
+                if (!docs.isEmpty()) {
+                    act.handler.post(() -> {
+                        if (act.alive(id)) {
+                            act.activity("Read the official docs");
+                        }
+                    });
+                }
+            }
+            String gathered = (docs.isEmpty() ? "" : docs + "\n") + ai.ibiko.llm.PersonaPrompt.context(taught, reference, around)
                     + (older.isEmpty() ? "" : "\n" + older)
                     + "\n" + act.cortex().context(english) // Ibiko's reading of the message and any exact arithmetic
                     + act.pilotProfile().brief() // what the pilot said about themselves, for every brain

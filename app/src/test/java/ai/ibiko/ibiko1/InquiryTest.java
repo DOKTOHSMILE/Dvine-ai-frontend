@@ -97,4 +97,22 @@ public class InquiryTest {
     private static Knowledge.Fact fact(String q, String a) {
         return new Knowledge.Fact(q, a, Knowledge.kind(q), Knowledge.meaning(q), true);
     }
+
+    @Test
+    public void aReplyThatContradictsWhatThePilotConfirmedIsCorrected() throws Exception {
+        java.io.File f = java.nio.file.Files.createTempFile("knowledge", ".tsv").toFile();
+        Knowledge k = new Knowledge(f);
+        k.confirm("What is a zorblat?", "A wedding dance from Ibadan.");
+        ai.ibiko.ibiko1.formulas.Truth.Checked wrong = k.check("A zorblat is a dance from Lagos.");
+        assertEquals(ai.ibiko.ibiko1.formulas.Truth.Verdict.FALSE, wrong.verdict);
+        assertEquals("You told me zorblat is: A wedding dance from Ibadan.", wrong.correction);
+        assertEquals(ai.ibiko.ibiko1.formulas.Truth.Verdict.TRUE, k.check("The zorblat is a wedding dance from Ibadan.").verdict);
+        assertEquals("not about it: not judged", ai.ibiko.ibiko1.formulas.Truth.Verdict.UNKNOWN, k.check("Lagos is a big city.").verdict);
+        // through the whole check every reply gets: the pilot's word comes first and the correction is said
+        java.util.List<ai.ibiko.ibiko1.formulas.Truth.Witness> w = new java.util.ArrayList<ai.ibiko.ibiko1.formulas.Truth.Witness>();
+        w.add(k::check);
+        String said = ai.ibiko.ibiko1.formulas.Truth.correction(ai.ibiko.ibiko1.formulas.Truth.question(
+                "Sure. A zorblat is a dance from Lagos. People love it.", w));
+        assertTrue(said, said != null && said.contains("You told me zorblat is: A wedding dance from Ibadan."));
+    }
 }

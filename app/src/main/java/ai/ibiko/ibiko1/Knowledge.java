@@ -203,6 +203,51 @@ public final class Knowledge {
     }
 
     /** The confirmed answer for a question with this intent, however it is worded, or null. */
+    /**
+     * G8 witness, the first one heard: a sentence that says what something is ("A zorblat is a dance from Lagos."),
+     * judged against what the pilot confirmed it is. Most of the confirmed answer's own words in it: true; otherwise
+     * false, and the correction is the pilot's own answer. Anything else is not judged here.
+     */
+    public synchronized ai.ibiko.ibiko1.formulas.Truth.Checked check(String sentence) {
+        ai.ibiko.ibiko1.formulas.Truth.Checked unknown = ai.ibiko.ibiko1.formulas.Truth.Checked.unknown(sentence);
+        if (sentence == null || !ai.ibiko.ibiko1.formulas.Truth.claims(sentence)) {
+            return unknown;
+        }
+        String s = sentence.trim().replaceAll("[.!]+$", "");
+        for (int i = facts.size() - 1; i >= 0; i--) { // the newest word first
+            Fact f = facts.get(i);
+            if (!f.sure || !f.right) {
+                continue;
+            }
+            String subject = ResearchAnswer.subject(f.question);
+            if (subject == null) {
+                continue;
+            }
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)^(?:the |a |an )?" + java.util.regex.Pattern.quote(subject)
+                    + "(?:e?s)?(?:\\s*\\([^)]*\\))?\\s+(?:is|are|means|refers to)\\s+(.+)$").matcher(s);
+            if (!m.matches()) {
+                continue;
+            }
+            List<String> right = meaning(f.answer), said = meaning(m.group(1));
+            right.removeAll(meaning(subject)); // "a zorblat is ...": the subject itself says nothing
+            if (right.isEmpty()) {
+                continue;
+            }
+            int hit = 0;
+            for (String w : right) {
+                if (said.contains(w)) {
+                    hit++;
+                }
+            }
+            if (hit * 10 >= right.size() * 6) {
+                return new ai.ibiko.ibiko1.formulas.Truth.Checked(ai.ibiko.ibiko1.formulas.Truth.Verdict.TRUE, sentence, null, "what you told me");
+            }
+            return new ai.ibiko.ibiko1.formulas.Truth.Checked(ai.ibiko.ibiko1.formulas.Truth.Verdict.FALSE, sentence,
+                    "You told me " + subject + " is: " + f.answer.trim().replaceAll("[.!]+$", "") + ".", "your correction");
+        }
+        return unknown;
+    }
+
     public synchronized Fact recall(String question) {
         List<String> m = meaning(question);
         if (m.isEmpty()) {

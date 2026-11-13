@@ -397,7 +397,9 @@ final class BrainGate {
             return;
         }
         if (!interpreted && !a.resending) {
-            a.noteUser(text);
+            a.autoCorrect.correction(text); // "no, it's …" after a reply: kept as the right answer, for every brain
+            a.noteUser(text); // the chat keeps what was typed
+            text = a.autoCorrect.typos(text); // the brain reads it with the clear typos fixed
             final String said = text;
             new Thread(() -> {
                 a.pilotProfile().notice(said); // what the pilot says about themselves
