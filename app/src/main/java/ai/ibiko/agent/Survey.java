@@ -31,8 +31,8 @@ public final class Survey {
         String read(String system, String text);
     }
 
-    /** The most files the keyword picker returns on its own. A survey that runs reads the whole tree, not this many. */
-    static final int MOST_FILES = 24, PIECE_LINES = 400;
+    /** The most files a survey sends to a model, and the most model calls one survey makes. The rest of the tree is listed, not read. */
+    static final int MOST_FILES = 24, MOST_CALLS = 32, PIECE_LINES = 400;
     static final long FILE_BYTES = 400_000;
 
     static final String SYSTEM = "You are one of several readers surveying a codebase before a change is planned. Read"
@@ -171,6 +171,32 @@ public final class Survey {
         }
     }
 
+    /**
+     * Whether this survey is enough to plan and build from. True when the map is written and the parts this survey
+     * chose to read are finished. A later run must not read the tree again. When {@code task} is given, the map has to
+     * be for that task.
+     */
+    public static boolean enough(File keep, String task) {
+        if (keep == null || unfinished(keep)) {
+            return false;
+        }
+        File map = new File(keep, "MAP.md");
+        if (!map.isFile() || map.length() < 40) {
+            return false;
+        }
+        if (task == null) {
+            return true;
+        }
+        try {
+            String s = new String(Files.readAllBytes(map.toPath()), StandardCharsets.UTF_8);
+            String want = "Task: " + task.trim();
+            int at = s.indexOf(want);
+            return at >= 0 && at < 400;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     /** Whether a reading kept in {@code keep} broke off with parts still to read. */
     public static boolean unfinished(File keep) {
         File f = new File(keep, "SURVEY.md");
@@ -287,8 +313,9 @@ public final class Survey {
     }
 
     /**
-     * Every source file, in path order, when the task matches something here. Nothing when it matches nothing
-     * (a survey is not started). The keyword picker still names what to read first; the rest of the tree follows.
+     * Every source file, in path order, when the task matches something here. Nothing when it matches nothing.
+     * This is the listing. A survey sends only the relevant files to a model ({@link #pick}), at most {@link #MOST_CALLS}
+     * pieces; the rest are named in the map and not read.
      */
     static List<File> tree(File root, String task) {
         List<File> first = pick(root, task);
@@ -309,10 +336,27 @@ public final class Survey {
         return out;
     }
 
+    /** Every source file under {@code root}, path order, Ibiko's own notes left out. The listing, not the reading. */
+    static List<File> outline(File root) {
+        List<File> all = new ArrayList<File>();
+        walk(root, all, 0);
+        List<File> out = new ArrayList<File>();
+        for (File f : all) {
+            if (!NOTES.contains(f.getName())) {
+                out.add(f);
+            }
+        }
+        Collections.sort(out, (a, b) -> root.toPath().relativize(a.toPath()).toString()
+                .compareTo(root.toPath().relativize(b.toPath()).toString()));
+        return out;
+    }
+
     /**
-     * Surveys the code under {@code root} for {@code task}: {@code workers} read at once. The notes are written under
-     * {@code root/.blueprint}; the map (every file's key points) is returned, or null when nothing was relevant.
-     * {@code step} hears each file as it is read.
+     * Surveys the code under {@code root} for {@code task}: {@code workers} read at once. Only the files the task
+     * touches are sent to a model (at most {@link #MOST_FILES}, and {@link #MOST_CALLS} pieces); the rest of the tree
+     * is listed in the map so it can be opened later, not audited up front. The notes are written under
+     * {@code root/.blueprint}; the map is returned, or null when nothing was relevant. {@code step} hears each file
+     * as it is read. Once the map is finished, the next step is the plan and the build, not another survey.
      */
     public static String run(File root, String task, Reader reader, int workers, Consumer<String> step) {
         return run(root, new File(root, ".blueprint"), task, reader, workers, step);
@@ -320,14 +364,21 @@ public final class Survey {
 
     /** As {@link #run(File, String, Reader, int, Consumer)}, the notes kept in {@code keep} (outside a clone, so never pushed). */
     public static String run(File root, File keep, String task, Reader reader, int workers, Consumer<String> step) {
-        List<File> files = tree(root, task);
+        List<File> files = pick(root, task);
         if (files.isEmpty()) {
             return null;
         }
-        List<Piece> pieces = pieces(root, files);
-        if (pieces.isEmpty()) {
+        Collections.sort(files, (a, b) -> root.toPath().relativize(a.toPath()).toString()
+                .compareTo(root.toPath().relativize(b.toPath()).toString()));
+        List<File> listed = outline(root);
+        List<Piece> cut = pieces(root, files);
+        if (cut.size() > MOST_CALLS) {
+            cut = new ArrayList<Piece>(cut.subList(0, MOST_CALLS));
+        }
+        if (cut.isEmpty()) {
             return null;
         }
+        final List<Piece> pieces = cut;
         final List<String> paths = new ArrayList<String>();
         final Map<String, List<Piece>> byPath = new LinkedHashMap<String, List<Piece>>();
         for (Piece p : pieces) {
@@ -353,7 +404,8 @@ public final class Survey {
         int left = pieces.size() - already.size();
         int n = Math.max(1, Math.min(workers, Math.max(1, left == 0 ? 1 : paths.size())));
         if (step != null) {
-            step.accept("Mapped the tree: " + files.size() + (files.size() == 1 ? " file" : " files"));
+            step.accept("Mapped the tree: " + listed.size() + (listed.size() == 1 ? " file" : " files")
+                    + "; reading " + files.size() + " the task touches");
             step.accept("Surveying the codebase: " + files.size() + (files.size() == 1 ? " file" : " files") + ", " + n
                     + (n == 1 ? " reader" : " readers at once") + ", one file each from the top"
                     + (already.isEmpty() ? "" : "; " + already.size() + " of " + pieces.size() + " parts already read, carrying on from there"));
@@ -445,10 +497,22 @@ public final class Survey {
         }
         flush.run();
         StringBuilder map = new StringBuilder("# Codebase map\n\nTask: ").append(task.trim()).append("\nMade: ")
-                .append(stamp(System.currentTimeMillis())).append("\nFiles: ").append(files.size()).append(", parts: ")
-                .append(pieces.size()).append("\n\n## Tree\n\n");
-        for (String path : paths) {
-            map.append("- ").append(path).append(" (").append(byPath.get(path).get(byPath.get(path).size() - 1).to).append(" lines)\n");
+                .append(stamp(System.currentTimeMillis())).append("\nFiles read: ").append(paths.size())
+                .append(" of ").append(listed.size()).append(" in the tree, parts: ").append(pieces.size())
+                .append("\n\n## Tree\n\nThe files the task touches were read. The rest are listed so they can be opened"
+                        + " when a step needs them. This is enough to write PLAN.md and build. Do not survey the tree again.\n\n");
+        for (File f : listed) {
+            String rel = root.toPath().relativize(f.toPath()).toString();
+            map.append("- ").append(rel);
+            if (!paths.contains(rel)) {
+                map.append(" (listed)");
+            } else {
+                List<Piece> mine = byPath.get(rel);
+                if (mine != null) {
+                    map.append(" (").append(mine.get(mine.size() - 1).to).append(" lines)");
+                }
+            }
+            map.append('\n');
         }
         map.append("\n");
         Map<String, StringBuilder> byFile = new LinkedHashMap<String, StringBuilder>();

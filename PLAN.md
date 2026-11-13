@@ -1,3 +1,10 @@
+# The audit stops, then the build starts (0.99.137)
+
+- [x] A survey reads the files the task touches (at most 24, and 32 pieces), and lists the rest of the tree. It does not send every file in a clone to the model.
+- [x] Once that map is written, continue does not survey the repository again. A plan that already has a goal and steps goes to build, including one whose phase line still says check.
+- [x] After the survey, look-only workers are refused, and further reading is refused, until PLAN.md is written. A numbered step list counts, not only checkboxes.
+- [ ] On the phone: give a build task on a cloned repository, let the survey finish, and confirm the next steps edit files instead of reading the tree again for hours.
+
 # A comment on the latest post (0.99.136)
 
 - [x] "Latest Facebook post about X and write a comment" is read as that, including the wording from the chat (Facebook, latest post, concerning or mentioning, and write a comment). It is not handed to the coding agent.

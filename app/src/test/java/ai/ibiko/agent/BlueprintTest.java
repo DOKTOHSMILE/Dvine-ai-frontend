@@ -100,6 +100,29 @@ public class BlueprintTest {
         assertTrue(String.join("|", Blueprint.check(github)).contains("'## Repository'"));
         assertTrue(Blueprint.check(github.replace("## Goal\n", "## Repository\nDOKTOHSMILE/app -> memory/projects/app\n## Goal\n")).isEmpty());
         assertTrue("a step is ticked only when its check passed", Blueprint.RULES.contains("only when the check passed"));
+        assertTrue(Blueprint.RULES.contains("do not survey the repository again"));
+    }
+
+    @Test
+    public void aNumberedPlanStartsTheBuildAndASurveyIsNotReadAgain() {
+        Blueprint b = new Blueprint();
+        String plan = "# Blueprint: dark mode\n## Goal\nThe settings have a dark mode switch.\n## Steps\n1. Add the switch in Settings.java\n";
+        String said = b.planned("PLAN.md", plan);
+        assertEquals(Blueprint.Phase.BUILD, b.phase());
+        assertTrue(said, said.startsWith("Plan noted (1 step)"));
+        assertNull(b.gate("write_file", "app/Settings.java"));
+        Blueprint resumed = new Blueprint();
+        resumed.resume("PLAN.md", "# Blueprint: dark mode\nPhase: CHECK\n## Goal\nThe settings have a dark mode switch.\n"
+                + "## Steps\n- [ ] 1. Add the switch (files: Settings.java)\n");
+        assertEquals(Blueprint.Phase.CHECK, resumed.phase());
+        assertTrue(resumed.startBuilding());
+        assertEquals(Blueprint.Phase.BUILD, resumed.phase());
+        assertNull(Blueprint.afterSurvey(true, Blueprint.Phase.PLAN, "read_file", 2));
+        assertEquals(Blueprint.BUILD_NOW, Blueprint.afterSurvey(true, Blueprint.Phase.PLAN, "read_file", 3));
+        assertEquals(Blueprint.BUILD_NOW, Blueprint.afterSurvey(true, Blueprint.Phase.CHECK, "workers", 0));
+        assertNull("building may use workers", Blueprint.afterSurvey(true, Blueprint.Phase.BUILD, "workers", 0));
+        assertNull("before the survey, workers may look", Blueprint.afterSurvey(false, Blueprint.Phase.PLAN, "workers", 0));
+        assertNull(Blueprint.afterSurvey(true, Blueprint.Phase.PLAN, "write_file", 9));
     }
 
     @Test

@@ -58,7 +58,9 @@ public final class Blueprint {
             + "5 VERIFY and report: run the final check, fix what fails, then report what was done, what was checked and what"
             + " is left, saying only what you verified.\n"
             + "If the user adds something while you work: put it under '## Changes' and as new steps in PLAN.md, then carry on"
-            + " from the first unticked step.\n";
+            + " from the first unticked step.\n"
+            + "Once a codebase map has been written for this task, the survey is finished: do not survey the repository again"
+            + " and do not start workers to read it. Write PLAN.md (a goal and steps) and build.\n";
 
     /** Told to the agent with the user's addition, instead of the plain "read it and continue". */
     public static final String CHANGE = "The user added this while you were working. Do not start over and do not redo"
@@ -66,6 +68,50 @@ public final class Blueprint {
             + " right after the last ticked one only if the user calls it a priority), adjust any unfinished step it changes"
             + " (does it clash with a step already built? does it reuse what is there?), then carry on from the first unticked"
             + " step.";
+
+    /** Told once the repository has been surveyed, so the next reply writes the plan and builds instead of reading again. */
+    public static final String BUILD_NOW = "The repository is already surveyed. Do not read it again and do not start readers."
+            + " Write PLAN.md now, exactly in this shape, then build step 1 (other files can be written as soon as this plan"
+            + " is saved):\n"
+            + "# Blueprint: <the task>\n## Goal\n<what done looks like>\n## Steps\n"
+            + "- [ ] 1. <one change> (files: path; check: how you prove it)\n";
+
+    /**
+     * After the survey, more reading is the loop that never builds. Null when this call may run. Otherwise the words
+     * to hand back: write the plan and build. A few reads are still allowed. Another audit, and any worker started
+     * only to look, is not.
+     */
+    public static String afterSurvey(boolean surveyed, Phase phase, String tool, int looksSoFar) {
+        if (!surveyed || tool == null) {
+            return null;
+        }
+        if (phase == Phase.BUILD || phase == Phase.VERIFY || phase == Phase.DONE) {
+            return null;
+        }
+        boolean workers = tool.equals("workers");
+        boolean looking = workers || tool.equals("read_file") || tool.equals("list_files") || tool.equals("search")
+                || tool.equals("fetch");
+        if (!looking) {
+            return null;
+        }
+        if (!workers && looksSoFar < 3) {
+            return null;
+        }
+        return BUILD_NOW;
+    }
+
+    /** A resumed plan that already has a goal and steps is built, not surveyed again. False when it was not moved. */
+    public boolean startBuilding() {
+        if (!required(plan).isEmpty()) {
+            return false;
+        }
+        Phase p = phase();
+        if (p == Phase.BUILD || p == Phase.VERIFY || p == Phase.DONE) {
+            return false;
+        }
+        build();
+        return true;
+    }
 
     private static final Pattern PHASE = Pattern.compile("(?im)^\\s*Phase:\\s*(UNDERSTAND|PLAN|CHECK|BUILD|VERIFY|DONE)\\b");
     private static final Pattern STEP = Pattern.compile("(?m)^\\s*[-*]\\s*\\[([ xX])\\]\\s*(.+)$");
@@ -341,9 +387,18 @@ public final class Blueprint {
     /** The steps: {done ("x" or " "), text}. */
     public static List<String[]> steps(String planText) {
         List<String[]> out = new ArrayList<String[]>();
-        Matcher m = STEP.matcher(section(planText == null ? "" : planText, "Steps"));
+        String body = section(planText == null ? "" : planText, "Steps");
+        Matcher m = STEP.matcher(body);
         while (m.find()) {
             out.add(new String[] { m.group(1).trim().isEmpty() ? " " : "x", m.group(2).trim() });
+        }
+        if (!out.isEmpty()) {
+            return out;
+        }
+        // a numbered list is still a plan: building waits on a goal and steps, not on the checkbox characters
+        Matcher n = Pattern.compile("(?m)^\\s*(?:[-*]\\s+)?(\\d+)[.)]\\s+(.+)$").matcher(body);
+        while (n.find()) {
+            out.add(new String[] { " ", n.group(1) + ". " + n.group(2).trim() });
         }
         return out;
     }

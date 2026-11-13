@@ -272,9 +272,13 @@ public final class CodeAgent {
                     : "Workers are switched off for this chat (Tools \u203A Workers). Do the parts yourself, one after another.";
         }
         // before the plan is checked (or when this run only reads) workers still help, at once, on parts that change
-        // nothing: surveying the code, researching on the web, running checks and tests, reading and reporting
+        // nothing: surveying the code, researching on the web, running checks and tests, reading and reporting.
+        // Once the repository has been surveyed, more of those only go in circles: the lead writes the plan and builds.
         final boolean lookOnly = readOnly || (blueprint != null && blueprint.phase() != Blueprint.Phase.BUILD
                 && blueprint.phase() != Blueprint.Phase.VERIFY);
+        if (lookOnly && surveyDone) {
+            return Blueprint.BUILD_NOW;
+        }
         List<Squad.Part> given = Squad.assignments(c.body);
         if (depth == 1 && given.size() > Squad.MOST_HANDS) {
             given = new ArrayList<Squad.Part>(given.subList(0, Squad.MOST_HANDS));
@@ -872,16 +876,26 @@ public final class CodeAgent {
                 String result;
                 lastStep = null;
                 placePaths(call); // projects/<name> is the clone at repos/<name>
-                String refused = blueprint == null ? null : blueprint.gate(call.name, call.a("path"));
-                if (refused != null) {
-                    result = refused; // plan first: nothing but PLAN.md changes before the blueprint passes its check
+                String held = blueprint == null ? null
+                        : Blueprint.afterSurvey(surveyDone, blueprint.phase(), call.name, looksAfterSurvey);
+                if (held != null) {
+                    result = held; // the survey is done: another read or another look-only squad is the loop
                 } else {
-                    try {
-                        result = carryOut(call);
-                    } catch (IOException | RuntimeException e) {
-                        result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+                    if (surveyDone && (call.name.equals("read_file") || call.name.equals("list_files")
+                            || call.name.equals("search") || call.name.equals("fetch"))) {
+                        looksAfterSurvey++;
                     }
-                    result = blueprintAfter(call, result);
+                    String refused = blueprint == null ? null : blueprint.gate(call.name, call.a("path"));
+                    if (refused != null) {
+                        result = refused; // plan first: nothing but PLAN.md changes before the blueprint passes its check
+                    } else {
+                        try {
+                            result = carryOut(call);
+                        } catch (IOException | RuntimeException e) {
+                            result = "Error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+                        }
+                        result = blueprintAfter(call, result);
+                    }
                 }
                 if (!modelSaid && narrate) {
                     // never silent: what it was doing and what came back, in the chat between the steps
@@ -1508,10 +1522,16 @@ public final class CodeAgent {
     }
 
     private int blueprintNudges;
+    /** The survey for this task already wrote a map: do not read the tree again, write the plan and build. */
+    private boolean surveyDone;
+    /** Reads allowed after that map, before further reading is refused. */
+    private int looksAfterSurvey;
 
     /** A real task gets a blueprint; one carried on picks up its PLAN.md where it was. */
     private void startBlueprint(String task, StringBuilder work) {
         blueprintNudges = 0;
+        surveyDone = false;
+        looksAfterSurvey = 0;
         if (ownBlueprint == null) {
             // only this project's reading notes may be read (a worker is given its lead's)
             File project = projectOf(task);
@@ -1540,36 +1560,54 @@ public final class CodeAgent {
         if (line != null) {
             host.step(line);
         }
+        // a plan that already has a goal and steps is built now, even when the file still says CHECK or PLAN
+        if (blueprint.startBuilding()) {
+            String built = blueprint.announce();
+            if (built != null) {
+                host.step(built);
+            }
+        }
+        boolean building = blueprint.phase() == Blueprint.Phase.BUILD || blueprint.phase() == Blueprint.Phase.VERIFY
+                || blueprint.phase() == Blueprint.Phase.DONE;
         File root = projectOf(task);
         String rel = ".blueprint/" + (root.equals(workspace) ? "workspace" : root.getName()) + "/";
         File keep = new File(workspace, rel);
-        boolean unfinished = Survey.unfinished(keep);
+        String asked = task;
         if (carryOn) {
-            // carried on after the device closed or the connection broke: where the work stood is read first, from
-            // the blueprint folder, before anything is read again
-            String stood = Survey.whereItStood(keep);
-            if (!stood.isEmpty()) {
-                host.step("Read where the work stood (" + rel + "SURVEY.md)");
-                work.append("\nWhere this task stood before the break, from ").append(rel)
-                        .append(" (your own progress record: what was read, what is still to read, what was found):\n")
-                        .append(clip(stood, Math.max(3000, budgetChars / 4))).append('\n');
+            String earlier = firstTask(resume);
+            if (earlier != null && !earlier.isEmpty()) {
+                asked = earlier;
             }
         }
-        if ((kept == null || unfinished) && !host.stopped()) {
-            // understand first: several readers go through the code at once, line by line, and write down what is there;
-            // a reading the break cut off carries on with only the parts still to read
+        boolean unfinished = Survey.unfinished(keep);
+        if (!building && !Survey.enough(keep, asked) && (kept == null || unfinished) && !host.stopped()) {
+            // the files the task touches, not the whole tree: a map that already covers them is not read again
             String map = null;
             try {
-                map = Survey.run(root, keep, task, brain::askQuiet, brain.readers(), host::step);
+                map = Survey.run(root, keep, asked, brain::askQuiet, brain.readers(), host::step);
             } catch (RuntimeException e) {
                 map = null;
             }
             if (map != null) {
-                work.append("\nCodebase map, written by the survey readers (each file read line by line; the notes are in ")
-                        .append(rel).append("). This is what the code is now: use it for '## Found' and '## Reuse',"
-                                + " and read a file yourself only where a note is not enough.\n")
+                work.append("\nCodebase map, written by the survey readers (the files the task touches, read line by line;"
+                        + " the rest of the tree is only listed; the notes are in ")
+                        .append(rel).append("). Use it for '## Found' and '## Reuse'. Do not survey the repository again.\n")
                         .append(clip(map, Math.max(4000, budgetChars / 3))).append('\n');
             }
+        }
+        if (carryOn) {
+            // where the work stood, after this run's survey so a half-finished audit of the whole tree is not the instruction
+            String stood = Survey.whereItStood(keep);
+            if (!stood.isEmpty()) {
+                host.step("Read where the work stood (" + rel + "SURVEY.md)");
+                work.append("\nWhere this task stood, from ").append(rel)
+                        .append(" (what was read, what is still to read, what was found):\n")
+                        .append(clip(stood, Math.max(3000, budgetChars / 4))).append('\n');
+            }
+        }
+        if (!building && Survey.enough(keep, asked)) {
+            surveyDone = true;
+            work.append("\n").append(Blueprint.BUILD_NOW).append('\n');
         }
     }
 

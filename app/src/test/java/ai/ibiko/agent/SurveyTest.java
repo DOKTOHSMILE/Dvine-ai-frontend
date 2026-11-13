@@ -138,7 +138,8 @@ public class SurveyTest {
         File keep = Files.createTempDirectory("keep").toFile();
         StringBuilder steps = new StringBuilder();
         java.util.List<String> asked = java.util.Collections.synchronizedList(new java.util.ArrayList<String>());
-        String map = Survey.run(root, keep, "Fix the dictation so pauses keep the words", (system, text) -> {
+        String task = "Fix the dictation so pauses keep the words";
+        String map = Survey.run(root, keep, task, (system, text) -> {
             int at = text.indexOf("File: ");
             asked.add(text.substring(at, text.indexOf('\n', at)));
             return "Purpose: a file";
@@ -149,12 +150,14 @@ public class SurveyTest {
         });
         String shown = steps.toString();
         assertTrue(shown, shown.contains("Mapped the tree:"));
-        assertTrue(shown, shown.contains("4 of 4 files documented"));
+        assertTrue(shown, shown.contains("3 of 3 files documented"));
         int dict = shown.indexOf("Read app/src/Dictation.java (lines 1–500)");
         int voice = shown.indexOf("Read app/src/Voice.java (lines 1–");
         assertTrue(shown, dict > 0 && voice > dict);
         assertTrue("one badge, not a slice per 400 lines", shown.indexOf("Read app/src/Dictation.java") == dict);
-        assertTrue(map, map.contains("## Tree") && map.contains("app/src/Other.java"));
+        assertTrue(map, map.contains("## Tree") && map.contains("app/src/Other.java (listed)"));
+        assertTrue("an unrelated file is listed, not sent to a reader", !asked.toString().contains("Other.java"));
+        assertTrue("enough to plan", Survey.enough(keep, task) && !Survey.unfinished(keep));
         String first = null, second = null;
         for (String a : asked) {
             if (!a.contains("Dictation.java")) {
@@ -167,5 +170,35 @@ public class SurveyTest {
             }
         }
         assertTrue(asked.toString(), first != null && second != null && asked.indexOf(first) < asked.indexOf(second));
+    }
+
+    @Test
+    public void aLargeTreeIsListedAndNotReadAgainOnceTheMapIsEnough() throws Exception {
+        File root = project();
+        new File(root, "bulk").mkdirs();
+        for (int i = 0; i < 40; i++) {
+            Files.write(new File(root, String.format("bulk/Pad%02d.java", i)).toPath(),
+                    ("class Pad" + i + " { // dictation }\n").getBytes("UTF-8"));
+        }
+        String task = "Fix the dictation so pauses keep the words";
+        assertTrue(Survey.tree(root, task).size() > Survey.MOST_FILES);
+        File keep = Files.createTempDirectory("keep").toFile();
+        java.util.List<String> asked = java.util.Collections.synchronizedList(new java.util.ArrayList<String>());
+        String map = Survey.run(root, keep, task, (system, text) -> {
+            int at = text.indexOf("File: ");
+            asked.add(text.substring(at, text.indexOf('\n', at)));
+            return "Purpose: a file";
+        }, 4, null);
+        assertTrue(asked.toString(), asked.size() <= Survey.MOST_FILES && asked.size() <= Survey.MOST_CALLS);
+        assertTrue(map, map.contains("(listed)") && map.contains("Do not survey the tree again"));
+        assertTrue(!asked.toString().contains("Other.java"));
+        assertTrue(Survey.enough(keep, task));
+        assertTrue("a different task is not this map", !Survey.enough(keep, "Add a dark mode to the settings screen"));
+        int before = asked.size();
+        Survey.run(root, keep, task, (system, text) -> {
+            asked.add("AGAIN");
+            return "Purpose: again";
+        }, 4, null);
+        assertEquals("a finished survey is not read again", before, asked.size());
     }
 }
