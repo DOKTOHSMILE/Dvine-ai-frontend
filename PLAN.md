@@ -1,3 +1,10 @@
+# Java only, and several models on one question (0.99.138)
+
+- [x] A project that is Java and has no Kotlin is told so. A `.kt` read or write is refused, and a search for Kotlin is told those files are not on disk.
+- [x] With an API on, the server's model list is read once and models of a similar size are added to that provider's list.
+- [x] A real question (not a greeting, a tool order, or a coding job) is analysed by the selected model, answered by the next, seen from another angle, then each model adds what it would change. The selected model writes one answer.
+- [ ] On the phone: ask a question with an API connected. The steps should name more than one model, and the agent must not create or open `.kt` files in this app.
+
 # The audit stops, then the build starts (0.99.137)
 
 - [x] A survey reads the files the task touches (at most 24, and 32 pieces), and lists the rest of the tree. It does not send every file in a clone to the model.

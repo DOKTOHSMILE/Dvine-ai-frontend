@@ -253,8 +253,24 @@ final class LocalAsk {
                 }
                 return act.alive(id);
             };
-            String raw;
-            if (pageTools.deep()) {
+            String raw = null;
+            // an API question: the selected model analyses, similar models add a solution and another view, then one answer
+            boolean ring = act.model.remoteOn() && !pageTools.deep()
+                    && ai.ibiko.llm.RoundThink.worth(english)
+                    && !ai.ibiko.llm.TaskSize.mayNeedAction(english)
+                    && !ai.ibiko.agent.Blueprint.applies(english);
+            if (ring) {
+                raw = ai.ibiko.llm.RoundThink.run((model, sys, prompt) -> act.model.askNamed(model, sys, prompt, Math.max(length, 800)),
+                        act.model.ring(), english, context, system, line -> act.handler.post(() -> {
+                            if (act.alive(id)) {
+                                act.activity(line);
+                            }
+                        }), () -> !act.alive(id));
+                if (raw != null) {
+                    sink.onText(raw);
+                }
+            }
+            if (raw == null && act.alive(id) && pageTools.deep()) {
                 // deep thinking, switched on for this chat: the same brain plans, drafts, checks and revises
                 raw = ai.ibiko.suit.DeepThink.think((sys, prompt) -> act.model.task(sys, prompt, length, null), system,
                         context + "\n\nThe user says: " + english, 3,
@@ -271,7 +287,7 @@ final class LocalAsk {
                 if (raw != null) {
                     sink.onText(raw);
                 }
-            } else {
+            } else if (raw == null && act.alive(id)) {
                 raw = act.model.reply(system, english, context, length, sink);
             }
             raw = foldSteer(id, system, english, context, length, raw, sink);

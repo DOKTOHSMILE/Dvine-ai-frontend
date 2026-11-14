@@ -226,6 +226,51 @@ public final class LocalModel {
         }
     }
 
+    /** Models this provider offers, so a question can be passed to similar ones ({@link ModelRing}). */
+    private volatile List<String> bench = new ArrayList<String>();
+
+    public void bench(List<String> models) {
+        bench = models == null ? new ArrayList<String>() : new ArrayList<String>(models);
+    }
+
+    /** The selected model, then up to two of a similar size from {@link #bench}. */
+    public List<String> ring() {
+        String selected = "";
+        List<Slot> now = chain;
+        if (!now.isEmpty() && now.get(0).brain != null && now.get(0).brain.model != null) {
+            selected = now.get(0).brain.model;
+        }
+        return ModelRing.choose(selected, bench);
+    }
+
+    /**
+     * One named model on the first API, not the fast/strong switch. Null when no API is on or the call failed.
+     * Used by {@link RoundThink}, which asks several models one after another.
+     */
+    public String askNamed(String model, String system, String prompt, int maxTokens) {
+        if (!remoteOn() || model == null || model.trim().isEmpty()) {
+            return null;
+        }
+        Slot sl;
+        synchronized (this) {
+            if (chain.isEmpty()) {
+                return null;
+            }
+            sl = chain.get(0);
+        }
+        RemoteBrain r = sl.brain.withModel(model.trim());
+        r.effortFor(TaskSize.Tier.STRONG);
+        List<String[]> turns = new ArrayList<String[]>();
+        turns.add(new String[] {"user", prompt == null ? "" : prompt});
+        final int ticket = epoch.get();
+        parkNative();
+        String answer = withTimeout(null, wrapped -> r.chat(system, turns, maxTokens, 0.4f, wrapped), true);
+        if (ticket != epoch.get()) {
+            return null;
+        }
+        return answer == null ? null : answer.trim();
+    }
+
     /** The first API in the order, or null. */
     public RemoteBrain remote() {
         List<Slot> c = chain;

@@ -37,6 +37,8 @@ import ai.ibiko.voice.TalkBridge;
 /** Which brain answers: the provider in use, its label, preparing and loading the model, and the model commands. Moved out of MainActivity. */
 final class Brains {
     private final MainActivity a;
+    /** The provider whose live model list was already fetched this run. */
+    private String listedFor;
 
     Brains(MainActivity a) {
         this.a = a;
@@ -142,6 +144,26 @@ final class Brains {
             windows.clear();
         }
         a.model.useRemotes(brains, fasts, names, windows, () -> a.connectivity != null && a.connectivity.isOnline());
+        if (!brains.isEmpty() && "api".equals(brainPick())) {
+            ai.ibiko.llm.Providers primary = providers.usable().get(0);
+            a.model.bench(providers.models(primary));
+            // once per provider: the server's live list, and similar models kept on the picker
+            if (a.hub != null && !primary.name().equals(listedFor)) {
+                listedFor = primary.name();
+                final ai.ibiko.llm.Providers which = primary;
+                a.hub.worker.execute(() -> {
+                    try {
+                        java.util.List<String> live = providers.fetchModels(which);
+                        for (String m : ai.ibiko.llm.ModelRing.choose(providers.model(which), live)) {
+                            providers.addModel(which, m);
+                        }
+                        a.model.bench(providers.models(which));
+                    } catch (java.io.IOException ignored) {
+                        // the models already saved still stand
+                    }
+                });
+            }
+        }
         if ((a.model.remoteOn() || ibikoOwn()) && a.hub != null) {
             // switched to an API: the offline model leaves memory now, not at the next question
             final ai.ibiko.llm.LocalModel leaving = a.model;

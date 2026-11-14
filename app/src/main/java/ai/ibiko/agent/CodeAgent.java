@@ -252,6 +252,8 @@ public final class CodeAgent {
     private long deadline;
     /** The one folder this worker may read and write (the project it is on); null: the whole workspace. */
     private File scope;
+    /** Which languages this folder really has, so a Java tree is not searched for Kotlin. Counted once a run. */
+    private ProjectLang tongue;
 
     /** Every worker started in this run, for the count in the summary. */
     private int workersUsed;
@@ -486,6 +488,14 @@ public final class CodeAgent {
         return this;
     }
 
+    /** The languages actually in this folder, counted once. A worker uses its own folder. */
+    private ProjectLang tongue() {
+        if (tongue == null) {
+            tongue = ProjectLang.of(scope != null ? scope : workspace);
+        }
+        return tongue;
+    }
+
     public String system() {
         return (role != null ? role.brief() + "\n" : depth == 0 && squad && !readOnly && !planning ? Org.lead() : "")
                 + (planning ? "You are " + persona + ", Ibiko's coding agent, working like Claude Code on the user's device. "
@@ -501,6 +511,7 @@ public final class CodeAgent {
                 + (readOnly || planning ? "" : compact ? WorkingMethod.SHORT : WorkingMethod.RULES) // how a careful engineer works
                 + (compact ? "" : ai.ibiko.ibiko1.formulas.Probability.AGENT) // decisions by likelihood and cost
                 + (shipping && !readOnly ? Shipping.RULES : "") // batch by batch to the repository
+                + tongue().rule()
                 + " Each reply is EITHER exactly one tool call OR your final answer, never both.\n"
                 + "Tools (use this exact form; FOLDER/FILE stands for a real path from the workspace list, never a file that isn't there):\n"
                 + "<tool name=\"list_files\" path=\".\"/>\n"
@@ -1716,6 +1727,11 @@ public final class CodeAgent {
 
     private String carryOut(Call c) throws IOException {
         placePaths(c);
+        String wrongLang = tongue().blocked(c.a("path"), c.name);
+        if (wrongLang != null) {
+            host.step(wrongLang.startsWith("Not written") ? "Not written: this project is Java, not Kotlin" : "No Kotlin file here");
+            return wrongLang;
+        }
         if (readOnly && (c.name.equals("write_file") || c.name.equals("edit_file") || c.name.equals("run") || c.name.equals("git")
                 || c.name.equals("make_file") || c.name.equals("zip") || c.name.equals("unzip"))) {
             return planning ? "Plan mode: nothing is changed yet. Put this change in the plan; it runs once the user approves."
@@ -1826,7 +1842,9 @@ public final class CodeAgent {
             }
             case "search": {
                 host.step("Searched for \u201c" + clip(c.a("query"), 40) + "\u201d");
-                return SourceRead.search(workspace, c.a("query"), c.a("path"));
+                String found = SourceRead.search(workspace, c.a("query"), c.a("path"));
+                String note = tongue().searchNote(c.a("query"));
+                return note == null ? found : note + "\n" + found;
             }
             case "run": {
                 String cmd = c.a("command").trim();

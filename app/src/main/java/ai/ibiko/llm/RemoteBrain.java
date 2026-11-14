@@ -236,6 +236,19 @@ public final class RemoteBrain {
         this.transport = transport;
     }
 
+    /** The same provider and key, asking {@code other} instead of this brain's model. */
+    public RemoteBrain withModel(String other) {
+        RemoteBrain n = new RemoteBrain(protocol, baseUrl, other, key, backupKey, transport);
+        n.autoFormat = autoFormat;
+        n.vision = vision;
+        n.reasoningMode = reasoningMode;
+        n.maxOutput = maxOutput;
+        n.timeoutMs = timeoutMs;
+        n.extra = new LinkedHashMap<String, Object>(extra);
+        n.effort = effort;
+        return n;
+    }
+
     /** "api.openai.com/v1/" → "https://api.openai.com/v1"; a full ".../chat/completions" or ".../messages" is cut back. */
     public static String normalise(String url) {
         if (url == null) {
