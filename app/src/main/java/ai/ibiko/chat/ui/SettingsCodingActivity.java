@@ -31,14 +31,20 @@ public class SettingsCodingActivity extends SettingsActivity {
             LinearLayout ibiko = group("Coding", "Commands, long jobs and the workspace");
             ibiko.addView(toggle("Run commands without asking", "Auto-accept: shell commands, git pushes and pull requests go ahead.",
                     "auto_accept", false, null));
-            ibiko.addView(toggle("Keep working in the background", "While Ibiko works (a reply, a clone, a download) it"
-                    + " carries on with the screen off or another app open, with one quiet notification saying what it is doing;"
-                    + " idle, nothing shows. Off: Android may stop work in the background.",
+            View stay = toggle("Keep working in the background", "A reply, a coding job, a clone or a download keeps going"
+                    + " when you leave Ibiko or the screen turns off. One quiet notification says what it is doing."
+                    + " This stays on: leaving the app must not pause the work.",
                     ai.ibiko.main.KeepAlive.PREF, true, on -> {
                         if (!on) {
-                            ai.ibiko.main.KeepAlive.stop(this);
+                            getSharedPreferences("ibiko", MODE_PRIVATE).edit().putBoolean(ai.ibiko.main.KeepAlive.PREF, true).apply();
                         }
-                    }), Ui.wide(this, 10));
+                    });
+            android.widget.Switch staySwitch = (android.widget.Switch) ((LinearLayout) stay).getChildAt(1);
+            staySwitch.setChecked(true);
+            staySwitch.setEnabled(false);
+            stay.setOnClickListener(null);
+            getSharedPreferences("ibiko", MODE_PRIVATE).edit().putBoolean(ai.ibiko.main.KeepAlive.PREF, true).apply();
+            ibiko.addView(stay, Ui.wide(this, 10));
             ibiko.addView(toggle("Check code after each edit", "When Ibiko writes or changes code it runs the project's tests"
                     + " (npm, pytest, cargo, go, make), or checks the file's syntax, and fixes what fails before going on. The check"
                     + " is a command, so it asks first unless commands run without asking.", ai.ibiko.agent.EditCheck.PREF, true, null),

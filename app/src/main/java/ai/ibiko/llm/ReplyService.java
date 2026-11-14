@@ -33,15 +33,23 @@ public final class ReplyService extends Service {
 
     /**
      * Model work starts: the app is kept in the foreground (full speed, not throttled or stopped when it leaves the
-     * screen) until every piece of work that held it has let go.
+     * screen) until every piece of work that held it has let go. A start is asked again if one is already held, so a
+     * service the system dropped comes back without waiting for the next piece of work.
      */
     public static synchronized void hold(Context context) {
-        if (holders++ == 0) {
-            try {
-                context.startForegroundService(new Intent(context, ReplyService.class).setAction(ACTION_START));
-            } catch (RuntimeException e) {
-                // not allowed to start now (rare): the work still runs, only without the foreground guarantee
-            }
+        holders++;
+        nudge(context);
+    }
+
+    /** The service is brought back up if work still holds it. Does not take another hold. */
+    public static synchronized void nudge(Context context) {
+        if (holders <= 0) {
+            return;
+        }
+        try {
+            context.startForegroundService(new Intent(context, ReplyService.class).setAction(ACTION_START));
+        } catch (RuntimeException e) {
+            // not allowed to start now (the app is already off screen): the work still runs if a start earlier succeeded
         }
     }
 
@@ -79,7 +87,7 @@ public final class ReplyService extends Service {
             ai.ibiko.main.KeepAlive.mark("reply", "Ibiko is thinking", "The reply will be in the chat when you come back.", -2);
         }
         startForeground(ai.ibiko.main.KeepAlive.NOTE_ID, ai.ibiko.main.KeepAlive.note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        if (stopping) {
+        if (stopping || !held()) {
             unlock();
             boolean shared = ai.ibiko.main.KeepAlive.running();
             ai.ibiko.main.KeepAlive.done(this, "reply");
@@ -88,7 +96,23 @@ public final class ReplyService extends Service {
             return START_NOT_STICKY;
         }
         lock();
-        return START_NOT_STICKY;
+        return START_STICKY;
+    }
+
+    /** Home or a swipe while a reply is still being written: stay up, or the phone freezes the task. */
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        if (held()) {
+            try {
+                startForeground(ai.ibiko.main.KeepAlive.NOTE_ID, ai.ibiko.main.KeepAlive.note(this),
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } catch (RuntimeException ignored) {
+                // already in front
+            }
+            lock();
+            return;
+        }
+        super.onTaskRemoved(rootIntent);
     }
 
     @Override
@@ -99,14 +123,15 @@ public final class ReplyService extends Service {
 
     private void lock() {
         if (wake != null && wake.isHeld()) {
-            return;
+            wake.release(); // a fresh hold, so a job longer than the last stretch is not cut off
         }
         PowerManager pm = getSystemService(PowerManager.class);
         if (pm == null) {
             return;
         }
         wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:reply");
-        wake.acquire(30 * 60 * 1000L); // a long API answer (up to 10 minutes) and its tools fit
+        wake.setReferenceCounted(false);
+        wake.acquire(ai.ibiko.main.KeepAlive.AWAKE_MS); // a long job keeps the processor; released when the reply ends
         // no high-performance Wi-Fi lock: it holds the radio at full power for the whole task and warms the device;
         // the foreground service already keeps the connection alive
     }

@@ -1,3 +1,10 @@
+# Work keeps going when Ibiko leaves the screen (0.99.140)
+
+- [x] A reply, a coding job, a clone or a download stays a foreground service with a wake lock. Leaving the app or turning the screen off does not freeze it.
+- [x] Home and swiping the app away do not stop that service while work is still going. Close is the notification's Close button.
+- [x] The background switch cannot be turned off.
+- [ ] On the phone: start a long reply or a coding job, leave Ibiko, and come back. The work should have carried on.
+
 # Three levels of thinking, and a work log that no longer crashes (0.99.139)
 
 - [x] The Think button is a menu, not an on/off switch. Ordinary is the default (one answer). Think 1 is the old Think (plan, check, revise). Think 2 is several API models on one question, then one answer.

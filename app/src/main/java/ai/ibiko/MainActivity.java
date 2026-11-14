@@ -4,6 +4,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -2904,25 +2905,82 @@ public final class MainActivity extends AppCompatActivity implements StageListen
      */
     static final long RELEASE_AFTER_MS = 5 * 60_000L;
     final Runnable releaseModel = () -> {
-        if (model != null && hub != null && hub.worker != null && !model.working() && !inFront) {
+        if (model != null && hub != null && hub.worker != null && !model.working() && !inFront && !workInHand()) {
             final ai.ibiko.llm.LocalModel leaving = model;
             hub.worker.execute(leaving::releaseIfIdle);
         }
     };
 
+    /** A reply, a coding job or a download is still going: leaving the screen must not pause it. */
+    boolean workInHand() {
+        if (generating || streamOpen || backgroundTask != null || !writing.isEmpty()) {
+            return true;
+        }
+        return model != null && (model.working() || model.coding);
+    }
+
+    /** Keeps the processor on while work continues off screen, until the screen is back or the work ends. */
+    PowerManager.WakeLock awayLock;
+
+    void holdAway() {
+        if (awayLock != null && awayLock.isHeld()) {
+            return;
+        }
+        PowerManager pm = getSystemService(PowerManager.class);
+        if (pm == null) {
+            return;
+        }
+        awayLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:away");
+        awayLock.setReferenceCounted(false);
+        awayLock.acquire(ai.ibiko.main.KeepAlive.AWAKE_MS);
+    }
+
+    void dropAway() {
+        if (awayLock != null && awayLock.isHeld()) {
+            awayLock.release();
+        }
+        awayLock = null;
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
         handler.removeCallbacks(releaseModel); // back within five minutes: the model and what it read are still there
+        dropAway();
+        if (podView != null) {
+            try {
+                podView.onResume(); // the picture starts again; the task itself never stopped
+            } catch (RuntimeException ignored) {
+                // a surface that was never paused
+            }
+        }
         connectivity.start();
         ambient.start();
+        if (!workInHand()) {
+            ai.ibiko.main.KeepAlive.done(this, "reply"); // a notice left up after the work had already finished
+        }
     }
 
     @Override
     protected void onStop() {
         inFront = false;
         handler.removeCallbacks(releaseModel);
-        handler.postDelayed(releaseModel, RELEASE_AFTER_MS); // let go if the app stays away
+        if (workInHand()) {
+            // the phone freezes a background app that is not in front: say the work is still going, and stay awake
+            ai.ibiko.llm.ReplyService.nudge(this);
+            ai.ibiko.main.KeepAlive.mark("reply", "Ibiko is working", "It keeps going while you're in another app.", -2);
+            ai.ibiko.main.KeepAlive.ensure(this);
+            holdAway();
+        } else {
+            handler.postDelayed(releaseModel, RELEASE_AFTER_MS); // let go if the app stays away and nothing is running
+        }
+        if (podView != null) {
+            try {
+                podView.onPause(); // the picture pauses; a live picture is a reason some phones freeze the whole app
+            } catch (RuntimeException ignored) {
+                // already paused
+            }
+        }
 
         // the connection is watched off screen too: a message waiting for the internet goes as soon as it is back
         ambient.stop();
@@ -3032,6 +3090,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         handler.removeCallbacks(engineTick);
         talk.shutdown();
         keepAwake(false);
+        dropAway();
         listen.stop();
         sync.shutdown();
         connectivity.stop();
