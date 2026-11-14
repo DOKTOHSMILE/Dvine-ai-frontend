@@ -254,8 +254,15 @@ final class LocalAsk {
                 return act.alive(id);
             };
             String raw = null;
-            // an API question: the selected model analyses, similar models add a solution and another view, then one answer
-            boolean ring = act.model.remoteOn() && !pageTools.deep()
+            // Think 2, and an API is on: the selected model analyses, similar models add a solution and another view, then one answer
+            if (pageTools.round() && !act.model.remoteOn()) {
+                act.handler.post(() -> {
+                    if (act.alive(id)) {
+                        act.activity("Think 2 needs an API model; answering once");
+                    }
+                });
+            }
+            boolean ring = pageTools.round() && act.model.remoteOn()
                     && ai.ibiko.llm.RoundThink.worth(english)
                     && !ai.ibiko.llm.TaskSize.mayNeedAction(english)
                     && !ai.ibiko.agent.Blueprint.applies(english);

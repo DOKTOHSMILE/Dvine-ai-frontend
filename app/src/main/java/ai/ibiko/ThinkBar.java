@@ -61,31 +61,46 @@ final class ThinkBar {
      * the files and the Linux shell; Media pictures, video, sound and files to attach; Explore the social accounts,
      * the connectors and scheduled posts; More the rest of the app.
      */
-    /** The Think pill: deep thinking for this chat, on or off in one tap; lit while on (the same switch as Tools › Deep thinking). */
+    /** The Think button: a tap opens Ordinary, Think 1, or Think 2. Lit for Think 1 and Think 2. */
     void bindThink() {
         final android.widget.TextView think = a.findViewById(R.id.btn_think);
         if (think == null) {
             return;
         }
         final Runnable paint = () -> {
-            boolean on = a.chatTools(a.stage == null ? "ibiko" : a.stage.agent()).deep();
+            ai.ibiko.suit.ChatTools tools = a.chatTools(a.stage == null ? "ibiko" : a.stage.agent());
+            int level = tools.think();
+            boolean on = level > 0;
             think.setSelected(on);
+            think.setText(tools.thinkLabel());
             think.setTextColor(a.getColor(on ? R.color.accent : R.color.text_secondary));
             android.graphics.drawable.Drawable[] d = think.getCompoundDrawablesRelative();
-            if (d[0] != null) {
-                d[0].mutate().setTint(a.getColor(on ? R.color.accent : R.color.icon));
+            int tint = a.getColor(on ? R.color.accent : R.color.icon);
+            for (int i = 0; i < d.length; i++) {
+                if (d[i] != null) {
+                    d[i].mutate().setTint(tint);
+                }
             }
-            think.setStateDescription(on ? "On" : "Off");
+            think.setStateDescription(tools.thinkLabel());
+            think.setContentDescription("Thinking level, " + tools.thinkLabel());
         };
         paint.run();
         think.setOnClickListener(v -> {
-            String who = a.stage == null ? "ibiko" : a.stage.agent();
-            ai.ibiko.suit.ChatTools tools = a.chatTools(who);
-            boolean on = !tools.deep();
-            tools.set(ai.ibiko.suit.ChatTools.Tool.DEEP, on);
-            a.prefs.edit().putString(a.toolsKey(who), tools.write()).putBoolean(MainActivity.THINK_ON, on).apply();
-            paint.run();
-            a.note(on ? "Think is on: Ibiko plans, checks and revises before answering (slower)." : "Think is off: quick answers.");
+            int now = a.chatTools(a.stage == null ? "ibiko" : a.stage.agent()).think();
+            androidx.appcompat.widget.PopupMenu menu = new androidx.appcompat.widget.PopupMenu(a, think);
+            menu.getMenu().add(0, 0, 0, "Ordinary");
+            menu.getMenu().add(0, 1, 1, "Think 1");
+            menu.getMenu().add(0, 2, 2, "Think 2");
+            menu.getMenu().setGroupCheckable(0, true, true);
+            android.view.MenuItem current = menu.getMenu().findItem(now);
+            if (current != null) {
+                current.setChecked(true);
+            }
+            menu.setOnMenuItemClickListener(item -> {
+                a.setThink(item.getItemId());
+                return true;
+            });
+            menu.show();
         });
         a.thinkPaint = paint;
     }

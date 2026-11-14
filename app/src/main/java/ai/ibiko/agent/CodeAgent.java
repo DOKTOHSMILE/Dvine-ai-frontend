@@ -444,6 +444,7 @@ public final class CodeAgent {
     }
 
     private void saved() {
+        fitWork(); // the log is what gets carried into the next round: keep it inside the budget before it is copied
         if (checkpoint != null && work != null) {
             try {
                 checkpoint.accept(work.toString());
@@ -769,9 +770,12 @@ public final class CodeAgent {
         this.task = task == null ? "" : task;
         outOfSteps = false;
         StringBuilder work = new StringBuilder();
-        if (resume != null && !resume.trim().isEmpty()) {
+        // a carried-on log can be tens of megabytes; trim() would copy all of it and run the phone out of memory
+        String prior = WorkLog.kept(resume, budgetChars);
+        this.resume = prior.isEmpty() ? null : prior;
+        if (resume != null) {
             // "continue", "give me the result": the same work goes on, with everything already read
-            work.append(resume.trim()).append("\n\nThe user now says: ").append(task.trim()).append('\n');
+            work.append(resume).append("\n\nThe user now says: ").append(task.trim()).append('\n');
         } else {
             if (earlier != null && !earlier.trim().isEmpty()) {
                 work.append("Earlier in this chat:\n").append(earlier.trim()).append("\n\n");
@@ -802,7 +806,8 @@ public final class CodeAgent {
                 takeNotes(incoming);
                 saved();
             }
-            String reply = brain.ask(system(), trimmed(work.toString()));
+            fitWork();
+            String reply = brain.ask(system(), work.toString());
             String text = reply == null ? "" : reply.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
             if (text.isEmpty()) {
                 String failed = brain.why();
@@ -968,7 +973,8 @@ public final class CodeAgent {
             // a round of long work is over: a short note for the user, and the work goes on from here
             outOfSteps = true;
             work.append("\n<result>\n").append(PROGRESS_NOW).append("\n</result>\n");
-            String note = brain.ask(system(), trimmed(work.toString()));
+            fitWork();
+            String note = brain.ask(system(), work.toString());
             note = note == null ? "" : note.replaceAll("(?s)<think>.*?(</think>|$)", "").trim();
             String fin = finalOf(note);
             note = fin != null && !fin.isEmpty() ? fin : note;
@@ -1022,7 +1028,8 @@ public final class CodeAgent {
     /** The report written from everything done so far (a big allowance); null when the model gave nothing usable. */
     private String report(StringBuilder work, String last) {
         work.append("\n").append(last).append("\n<result>\n").append(REPORT_NOW).append("\n</result>\n");
-        String full = brain.askLong(system(), trimmed(work.toString()));
+        fitWork();
+        String full = brain.askLong(system(), work.toString());
         if (full == null) {
             return null;
         }
@@ -1080,6 +1087,16 @@ public final class CodeAgent {
 
     private String summary() {
         return changed.isEmpty() ? "" : "\n\nChanged: " + String.join(", ", changed);
+    }
+
+    /** Drops the middle of the work log once it passes the budget, without copying the part that is left out. */
+    private void fitWork() {
+        if (work == null || work.length() <= budgetChars) {
+            return;
+        }
+        String small = WorkLog.kept(work, budgetChars);
+        work = new StringBuilder(small.length() + 256);
+        work.append(small);
     }
 
     /** Keeps the start (the task) and as much of the latest work as fits. */
@@ -1552,7 +1569,7 @@ public final class CodeAgent {
             blueprint = null; // plan mode has its own rules; reading answers no build; a worker follows the lead's plan
             return;
         }
-        boolean carryOn = resume != null && !resume.trim().isEmpty();
+        boolean carryOn = !WorkLog.blank(resume);
         File kept = carryOn ? latestBlueprint() : null;
         if (kept == null && !Blueprint.applies(usersWords != null ? usersWords : task)) {
             blueprint = null;

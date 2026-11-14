@@ -47,7 +47,19 @@ public class ChatToolsTest {
         ChatTools back = ChatTools.read("ibiko", t.write());
         assertEquals(Arrays.asList("doktohsmile/dvine-ai-frontend", "doktohsmile/dvine-ai-backend"), back.repos());
         assertTrue(back.deep());
+        assertEquals(1, back.think());
         assertTrue(back.brief().contains("doktohsmile/dvine-ai-backend"));
         assertTrue("a broken line gives the defaults", ChatTools.read("obi", "garbage").isOn(ChatTools.Tool.WEB));
+        t.think(2);
+        assertFalse(t.deep());
+        assertTrue(t.round());
+        assertTrue(t.isOn(ChatTools.Tool.DEEP));
+        assertEquals("Think 2", t.thinkLabel());
+        ChatTools round = ChatTools.read("ibiko", t.write());
+        assertEquals(2, round.think());
+        assertFalse("Think 2 is not the old deep-thinking pass", round.deep());
+        round.set(ChatTools.Tool.DEEP, false);
+        assertEquals("the tools card off is ordinary", 0, round.think());
+        assertEquals("Ordinary", ChatTools.defaults("obi").thinkLabel());
     }
 }

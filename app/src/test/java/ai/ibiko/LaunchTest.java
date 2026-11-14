@@ -1308,14 +1308,21 @@ public class LaunchTest {
         org.junit.Assert.assertEquals("I", String.valueOf(((android.widget.TextView) c.get().findViewById(ai.ibiko.R.id.empty_mark)).getText()));
         org.junit.Assert.assertEquals("no paperclip: Media attaches", 0, c.get().getResources().getIdentifier("btn_attach", "id",
                 c.get().getPackageName()));
-        // the Think pill turns deep thinking on and off, and says which
+        // the Think button is a level: Ordinary, Think 1, Think 2
         android.widget.TextView think = c.get().findViewById(ai.ibiko.R.id.btn_think);
-        boolean was = think.isSelected();
-        think.performClick();
-        org.junit.Assert.assertEquals(!was, think.isSelected());
-        org.junit.Assert.assertEquals(!was ? "On" : "Off", String.valueOf(think.getStateDescription()));
-        think.performClick();
-        org.junit.Assert.assertEquals(was, think.isSelected());
+        org.junit.Assert.assertEquals("Ordinary", String.valueOf(think.getText()));
+        org.junit.Assert.assertFalse(think.isSelected());
+        c.get().setThink(1);
+        org.junit.Assert.assertEquals("Think 1", String.valueOf(think.getText()));
+        org.junit.Assert.assertTrue(think.isSelected());
+        org.junit.Assert.assertEquals("Think 1", String.valueOf(think.getStateDescription()));
+        c.get().setThink(2);
+        org.junit.Assert.assertEquals("Think 2", String.valueOf(think.getText()));
+        org.junit.Assert.assertTrue(c.get().chatTools("obi").round());
+        org.junit.Assert.assertFalse(c.get().chatTools("obi").deep());
+        c.get().setThink(0);
+        org.junit.Assert.assertEquals("Ordinary", String.valueOf(think.getText()));
+        org.junit.Assert.assertFalse(think.isSelected());
         c.pause().stop().destroy();
     }
 
@@ -1324,28 +1331,33 @@ public class LaunchTest {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.widget.TextView think = c.get().findViewById(ai.ibiko.R.id.btn_think);
-        if (!think.isSelected()) {
-            think.performClick();
-        }
+        c.get().setThink(1);
         org.junit.Assert.assertTrue(think.isSelected());
         java.lang.reflect.Method fresh = MainActivity.class.getDeclaredMethod("startNewChatSafely");
         fresh.setAccessible(true);
         fresh.invoke(c.get());
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        org.junit.Assert.assertTrue("a new chat keeps Think on", think.isSelected());
+        org.junit.Assert.assertEquals("a new chat keeps Think 1", "Think 1", String.valueOf(think.getText()));
         org.junit.Assert.assertTrue(c.get().chatTools("obi").deep());
         c.pause().stop().destroy();
 
         ActivityController<MainActivity> again = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
         ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
         android.widget.TextView after = again.get().findViewById(ai.ibiko.R.id.btn_think);
-        org.junit.Assert.assertTrue("still on after a restart", after.isSelected());
-        after.performClick();
-        org.junit.Assert.assertFalse(after.isSelected());
-        fresh.invoke(again.get());
-        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
-        org.junit.Assert.assertFalse("off stays off in a new chat too", after.isSelected());
+        org.junit.Assert.assertEquals("still Think 1 after a restart", "Think 1", String.valueOf(after.getText()));
+        again.get().setThink(2);
+        org.junit.Assert.assertTrue(again.get().chatTools("obi").round());
         again.pause().stop().destroy();
+
+        ActivityController<MainActivity> third = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        android.widget.TextView later = third.get().findViewById(ai.ibiko.R.id.btn_think);
+        org.junit.Assert.assertEquals("Think 2 stays after a restart", "Think 2", String.valueOf(later.getText()));
+        third.get().setThink(0);
+        fresh.invoke(third.get());
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        org.junit.Assert.assertEquals("ordinary stays ordinary in a new chat too", "Ordinary", String.valueOf(later.getText()));
+        third.pause().stop().destroy();
     }
 
     @Test

@@ -1591,14 +1591,29 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** The tools this chat page lets its brain use (per conversation and persona), from the tools button. */
     ai.ibiko.suit.ChatTools chatTools(String persona) {
         ai.ibiko.suit.ChatTools t = ai.ibiko.suit.ChatTools.read(persona, prefs.getString(toolsKey(persona), null));
-        // Think is one switch, kept as it was last set, for every chat (new ones too): not a per-chat setting that a new
-        // chat, another chat or a restart quietly turned off
-        t.set(ai.ibiko.suit.ChatTools.Tool.DEEP, prefs.getBoolean(THINK_ON, false));
+        // Thinking level is one choice for every chat (new ones too), not a per-chat setting a new chat quietly drops.
+        // An older install stored only on/off: on is Think 1.
+        int level = prefs.contains(THINK_LEVEL) ? prefs.getInt(THINK_LEVEL, 0) : (prefs.getBoolean(THINK_ON, false) ? 1 : 0);
+        t.think(level);
         return t;
     }
 
-    /** Think (the pill, and Tools › Deep thinking): on or off for every chat until it is changed. */
+    /** Think 1, kept so an install from before the three levels still opens on Think 1. */
     static final String THINK_ON = "think_on";
+    /** 0 ordinary, 1 Think 1, 2 Think 2. The Think button and Tools › Deep thinking share this. */
+    static final String THINK_LEVEL = "think_level";
+
+    /** Ordinary, Think 1, or Think 2, for every chat until it is changed. */
+    void setThink(int level) {
+        int n = level >= 2 ? 2 : level == 1 ? 1 : 0;
+        String who = stage == null ? "ibiko" : stage.agent();
+        ai.ibiko.suit.ChatTools tools = chatTools(who);
+        tools.think(n);
+        prefs.edit().putString(toolsKey(who), tools.write()).putInt(THINK_LEVEL, n).putBoolean(THINK_ON, n == 1).apply();
+        repaintThink();
+        note(n == 2 ? "Think 2: several models think it through, then one answer."
+                : n == 1 ? "Think 1: Ibiko plans, checks and revises before answering (slower)." : "Ordinary: a direct answer.");
+    }
 
     /** In {@link BrainGate}. */
     String toolsKey(String persona) {

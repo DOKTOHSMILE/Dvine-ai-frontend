@@ -1,4 +1,12 @@
+# Three levels of thinking, and a work log that no longer crashes (0.99.139)
+
+- [x] The Think button is a menu, not an on/off switch. Ordinary is the default (one answer). Think 1 is the old Think (plan, check, revise). Think 2 is several API models on one question, then one answer.
+- [x] The choice is kept for every chat. Tools › Deep thinking is the same choice: off is Ordinary, on is Think 1.
+- [x] A continued coding job no longer copies its whole work log. The task line and the latest steps are kept; the middle is left out. That copy was the out-of-memory crash (about 32 MB, on a 256 MB heap).
+- [ ] On the phone: tap Think and choose Ordinary, Think 1, then Think 2. Ask a question on an API with Think 2. Continue a long coding job and confirm it does not crash.
+
 # Java only, and several models on one question (0.99.138)
+
 
 - [x] A project that is Java and has no Kotlin is told so. A `.kt` read or write is refused, and a search for Kotlin is told those files are not on disk.
 - [x] With an API on, the server's model list is read once and models of a similar size are added to that provider's list.

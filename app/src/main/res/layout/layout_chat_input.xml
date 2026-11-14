@@ -195,20 +195,21 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Think: one tap for deep thinking in this chat (plan, check, revise before answering); attaching is the Media chip -->
+            <!-- Thinking level: a tap opens Ordinary, Think 1, or Think 2 -->
             <TextView
                 android:id="@+id/btn_think"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:layout_marginStart="4dp"
                 android:background="@drawable/bg_think"
-                android:contentDescription="Think deeper"
+                android:contentDescription="Thinking level, Ordinary"
                 android:drawableStart="@drawable/ic_think_small"
-                android:drawablePadding="5dp"
+                android:drawableEnd="@drawable/ic_chevron_down"
+                android:drawablePadding="4dp"
                 android:gravity="center"
                 android:paddingStart="10dp"
-                android:paddingEnd="12dp"
-                android:text="Think"
+                android:paddingEnd="8dp"
+                android:text="Ordinary"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
