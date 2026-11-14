@@ -14,11 +14,7 @@ import android.os.IBinder;
 import android.os.PowerManager;
 
 /**
- * Keeps Ibiko working in the background while it has work: a reply being written, a clone, a download. One quiet
- * notification says what is going on (with its bar) and has a Close button; when the work ends the service stops and
- * the notification goes. Idle, nothing runs and nothing shows: there is no work to keep, and the chats are saved.
- * Leaving the app (Home, the screen off, or swiping it away) does not pause that work. Closing is the notification's
- * Close button.
+ * Keeps Ibiko working in the background while it has work: a reply being written, a clone, a download. One quiet notification says what is going on (with its bar) and has a Close button; when the work ends the service stops and the notification goes. Idle, nothing runs and nothing shows: there is no work to keep, and the chats are saved. Leaving the app (Home, the screen off, or swiping it away) does not pause that work. Closing is the notification's Close button.
  */
 public final class KeepAlive extends Service {
     static final String CHANNEL = "running-work";
@@ -46,7 +42,7 @@ public final class KeepAlive extends Service {
     }
 
     /** How long the phone stays awake for one stretch of work. A new start refreshes it. */
-    static final long AWAKE_MS = 6L * 60 * 60 * 1000;
+    public static final long AWAKE_MS = 6L * 60 * 60 * 1000;
 
     private PowerManager.WakeLock wake;
 
@@ -65,8 +61,7 @@ public final class KeepAlive extends Service {
     }
 
     /**
-     * Shows work in the one running notification instead of a notification of its own. {@code percent} -1 is a moving
-     * bar, -2 no bar. False when Ibiko isn't running in the background: the caller shows its own notification then.
+     * Shows work in the one running notification instead of a notification of its own. {@code percent} -1 is a moving bar, -2 no bar. False when Ibiko isn't running in the background: the caller shows its own notification then.
      */
     public static boolean status(Context c, String key, String title, String line, int percent) {
         if (!allowed(c)) {
@@ -162,7 +157,8 @@ public final class KeepAlive extends Service {
 
     /** Opening Ibiko again clears an earlier Close. Nothing starts: the service runs only while there is work. */
     public static void opened(Context c) {
-        c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).edit().putBoolean("closed_by_pilot", false).apply();
+        c.getSharedPreferences("ibiko", Context.MODE_PRIVATE).edit()
+                .putBoolean("closed_by_pilot", false).apply();
     }
 
     @Override
@@ -196,15 +192,15 @@ public final class KeepAlive extends Service {
         synchronized (now) {
             now.clear();
         }
-        getSharedPreferences("ibiko", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true).apply();
+        getSharedPreferences("ibiko", MODE_PRIVATE).edit().putBoolean("closed_by_pilot", true)
+                .apply();
         sendBroadcast(new Intent(CLOSED).setPackage(getPackageName()));
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
 
     /**
-     * The app left the recent apps. Work that is still going stays: Home and a swipe both used to freeze the process,
-     * which paused every task. Idle, there is nothing to keep.
+     * The app left the recent apps. Work that is still going stays: Home and a swipe both used to freeze the process, which paused every task. Idle, there is nothing to keep.
      */
     @Override
     public void onTaskRemoved(Intent rootIntent) {
@@ -236,8 +232,10 @@ public final class KeepAlive extends Service {
     }
 
     public static void channel(Context c) {
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "Ibiko working", NotificationManager.IMPORTANCE_LOW);
-        ch.setDescription("Shown while Ibiko works in the background, so the phone does not pause the task");
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "Ibiko working",
+                NotificationManager.IMPORTANCE_LOW);
+        ch.setDescription(
+                "Shown while Ibiko works in the background, so the phone does not pause the task");
         ch.setShowBadge(false);
         ch.setSound(null, null);
         c.getSystemService(NotificationManager.class).createNotificationChannel(ch);
@@ -250,8 +248,10 @@ public final class KeepAlive extends Service {
             open = new Intent();
         }
         open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent tap = PendingIntent.getActivity(c, 10, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        PendingIntent close = PendingIntent.getService(c, 11, new Intent(c, KeepAlive.class).setAction(ACTION_CLOSE),
+        PendingIntent tap = PendingIntent.getActivity(c, 10, open,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent close = PendingIntent.getService(c, 11,
+                new Intent(c, KeepAlive.class).setAction(ACTION_CLOSE),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Status top = null;
         int more;
@@ -268,7 +268,8 @@ public final class KeepAlive extends Service {
         if (top == null) {
             b.setContentTitle("Ibiko is working").setContentText("Tap to open.");
         } else {
-            b.setContentTitle(top.percent >= 0 ? top.title + " \u00B7 " + top.percent + "%" : top.title)
+            b.setContentTitle(
+                    top.percent >= 0 ? top.title + " \u00B7 " + top.percent + "%" : top.title)
                     .setContentText(top.line);
             if (top.percent != -2) {
                 b.setProgress(100, Math.max(0, top.percent), top.percent < 0);
@@ -277,10 +278,7 @@ public final class KeepAlive extends Service {
                 b.setSubText(more + " more running");
             }
         }
-        return b
-                .setOngoing(true)
-                .setShowWhen(false)
-                .setContentIntent(tap)
+        return b.setOngoing(true).setShowWhen(false).setContentIntent(tap)
                 .addAction(new Notification.Action.Builder(null, "Close Ibiko", close).build())
                 .build();
     }
@@ -309,7 +307,8 @@ public final class KeepAlive extends Service {
     /** Asks once to be left out of battery saving, so the system doesn't freeze Ibiko in the background. */
     public static void askBatteryOnce(Activity a) {
         SharedPreferences p = a.getSharedPreferences("ibiko", Context.MODE_PRIVATE);
-        if (p.getBoolean("battery_asked", false) || "robolectric".equals(android.os.Build.FINGERPRINT)) {
+        if (p.getBoolean("battery_asked", false)
+                || "robolectric".equals(android.os.Build.FINGERPRINT)) {
             return;
         }
         android.os.PowerManager pm = a.getSystemService(android.os.PowerManager.class);
@@ -318,7 +317,8 @@ public final class KeepAlive extends Service {
         }
         p.edit().putBoolean("battery_asked", true).apply();
         try {
-            a.startActivity(new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            a.startActivity(new Intent(
+                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
                     .setData(android.net.Uri.parse("package:" + a.getPackageName())));
         } catch (RuntimeException e) {
             // no such screen on this device

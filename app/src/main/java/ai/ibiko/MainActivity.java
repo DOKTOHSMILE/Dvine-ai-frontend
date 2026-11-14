@@ -103,7 +103,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** The message came from the microphone: the reply is spoken too, sentence by sentence as it is written. */
     boolean voiceTurn;
     /** Lines already read out while they were being written (not read again when shown). */
-    final java.util.Set<TurnLine> spokenLive = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<TurnLine, Boolean>());
+    final java.util.Set<TurnLine> spokenLive = java.util.Collections
+            .newSetFromMap(new java.util.IdentityHashMap<TurnLine, Boolean>());
     /** Showing a reply: the lines, the voice, and which walk is still live. Owned here so a merge can't drop it. */
     final ai.ibiko.main.PlayStep.Host walkHost = new ai.ibiko.main.PlayStep.Host() {
         @Override
@@ -236,10 +237,10 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         switch (phase) {
             case DONE:
                 stage.activity("DOWNLOAD", "verified");
-                stage.setDownload(true, "Model downloaded", 100, false,
-                        "verified, starting now");
+                stage.setDownload(true, "Model downloaded", 100, false, "verified, starting now");
                 if (downloadStrip != null) {
-                    downloadStrip.model("Model downloaded", 100, false, "verified, starting now", true);
+                    downloadStrip.model("Model downloaded", 100, false, "verified, starting now",
+                            true);
                 }
                 handler.postDelayed(() -> {
                     stage.setDownload(false, "", 100, false, "");
@@ -259,7 +260,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             case FAILED:
                 if (wasRunning) {
                     // a note, not a chat reply: a reply here would cut off whatever Ibiko is doing
-                    note("The model download stopped at " + st.percent() + "%. Resume it in Settings.");
+                    note("The model download stopped at " + st.percent()
+                            + "%. Resume it in Settings.");
                 }
                 break;
             default:
@@ -280,7 +282,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     final java.util.Map<Integer, String> jobOf = new java.util.concurrent.ConcurrentHashMap<Integer, String>();
     final java.util.Map<String, Integer> latestOf = new java.util.concurrent.ConcurrentHashMap<String, Integer>();
     /** Jobs still writing a reply (to show "Still working" when their page is opened again). */
-    final java.util.Set<Integer> writing = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<Integer, Boolean>());
+    final java.util.Set<Integer> writing = java.util.Collections
+            .newSetFromMap(new java.util.concurrent.ConcurrentHashMap<Integer, Boolean>());
 
     /** A new job for the page on screen. It replaces that page's earlier job, never another page's. */
     synchronized int nextAsk() {
@@ -326,6 +329,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             model.cancel(); // the call running is this page's (no other page has a reply being written)
         }
     }
+
     String activeQuestion;
     volatile int readToken;
     volatile ai.ibiko.llm.ThinkPace thinkPace;
@@ -352,8 +356,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     };
     /**
-     * True while a 3D design runs: the model is asked several times (the specification, the brief, every part, the
-     * fixes), each a long answer with no words shown, so the 3-minute "no first word" limit for a reply doesn't apply.
+     * True while a 3D design runs: the model is asked several times (the specification, the brief, every part, the fixes), each a long answer with no words shown, so the 3-minute "no first word" limit for a reply doesn't apply.
      */
     volatile boolean designing;
 
@@ -385,37 +388,38 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     ai.ibiko.render.PodView podView;
 
     /** Ivie's 3D canvas and its full-screen mode ({@link ai.ibiko.main.IvieCanvas}). */
-    final ai.ibiko.main.IvieCanvas ivieCanvas = new ai.ibiko.main.IvieCanvas(new ai.ibiko.main.IvieCanvas.Host() {
-        @Override
-        public <T extends android.view.View> T find(int id) {
-            return findViewById(id);
-        }
+    final ai.ibiko.main.IvieCanvas ivieCanvas = new ai.ibiko.main.IvieCanvas(
+            new ai.ibiko.main.IvieCanvas.Host() {
+                @Override
+                public <T extends android.view.View> T find(int id) {
+                    return findViewById(id);
+                }
 
-        @Override
-        public android.content.res.Resources getResources() {
-            return MainActivity.this.getResources();
-        }
+                @Override
+                public android.content.res.Resources getResources() {
+                    return MainActivity.this.getResources();
+                }
 
-        @Override
-        public int color(int id) {
-            return getColor(id);
-        }
+                @Override
+                public int color(int id) {
+                    return getColor(id);
+                }
 
-        @Override
-        public android.view.Window getWindow() {
-            return MainActivity.this.getWindow();
-        }
+                @Override
+                public android.view.Window getWindow() {
+                    return MainActivity.this.getWindow();
+                }
 
-        @Override
-        public ai.ibiko.stage.StageView stage() {
-            return stage;
-        }
+                @Override
+                public ai.ibiko.stage.StageView stage() {
+                    return stage;
+                }
 
-        @Override
-        public ai.ibiko.render.PodView podView() {
-            return podView;
-        }
-    });
+                @Override
+                public ai.ibiko.render.PodView podView() {
+                    return podView;
+                }
+            });
 
     void showIvieCanvas(boolean on) {
         ivieCanvas.show(on);
@@ -424,6 +428,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     void designFullScreen(boolean on) {
         ivieCanvas.fullScreen(on);
     }
+
     ai.ibiko.net.WebClient web;
     SharedPreferences prefs;
 
@@ -438,8 +443,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     boolean awaitingName;
 
     /**
-     * The crash banner ({@link ai.ibiko.main.CrashReport}): every crash is saved to files/crash.txt and to
-     * Download/Ibiko, and on the next start the banner offers that report once. This is the screen it serves.
+     * The crash banner ({@link ai.ibiko.main.CrashReport}): every crash is saved to files/crash.txt and to Download/Ibiko, and on the next start the banner offers that report once. This is the screen it serves.
      */
     final ai.ibiko.main.CrashReport.Host crashHost = new ai.ibiko.main.CrashReport.Host() {
         @Override
@@ -474,22 +478,23 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** The XML chat screen owns sizing; these views fill their dedicated hosts ({@link ai.ibiko.main.ChatFit}). */
-    final ai.ibiko.main.ChatFit chatFit = new ai.ibiko.main.ChatFit(new ai.ibiko.main.ChatFit.Host() {
-        @Override
-        public android.view.View typeBar() {
-            return typeBar;
-        }
+    final ai.ibiko.main.ChatFit chatFit = new ai.ibiko.main.ChatFit(
+            new ai.ibiko.main.ChatFit.Host() {
+                @Override
+                public android.view.View typeBar() {
+                    return typeBar;
+                }
 
-        @Override
-        public android.view.View chatPane() {
-            return chatPane;
-        }
+                @Override
+                public android.view.View chatPane() {
+                    return chatPane;
+                }
 
-        @Override
-        public android.content.res.Resources getResources() {
-            return MainActivity.this.getResources();
-        }
-    });
+                @Override
+                public android.content.res.Resources getResources() {
+                    return MainActivity.this.getResources();
+                }
+            });
 
     void fitTypeBar() {
         chatFit.fitTypeBar();
@@ -654,8 +659,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     String runAgent;
 
     /**
-     * The chat is a group: one thread for Obi, Ivie and Ibiko, like a group of people. Everyone's messages are in the
-     * one conversation and the words choose who answers. It is the only kind of chat (the three separate pages are gone).
+     * The chat is a group: one thread for Obi, Ivie and Ibiko, like a group of people. Everyone's messages are in the one conversation and the words choose who answers. It is the only kind of chat (the three separate pages are gone).
      */
     boolean groupChat() {
         return true;
@@ -788,60 +792,61 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         composerRow.toggleDictation();
     }
 
-
     /** In {@link ComposerRow}. */
     void startNewChatSafely() {
         composerRow.startNewChatSafely();
     }
 
     /** The drawer, dragged open and shut like any Android drawer (main/DrawerController). */
-    final ai.ibiko.main.DrawerController drawer = new ai.ibiko.main.DrawerController(new ai.ibiko.main.DrawerController.Host() {
-        @Override
-        public android.view.View drawer() {
-            return findViewById(R.id.historyDrawer);
-        }
+    final ai.ibiko.main.DrawerController drawer = new ai.ibiko.main.DrawerController(
+            new ai.ibiko.main.DrawerController.Host() {
+                @Override
+                public android.view.View drawer() {
+                    return findViewById(R.id.historyDrawer);
+                }
 
-        @Override
-        public android.view.View scrim() {
-            return findViewById(R.id.drawerScrim);
-        }
+                @Override
+                public android.view.View scrim() {
+                    return findViewById(R.id.drawerScrim);
+                }
 
-        @Override
-        public boolean blocked() {
-            return ivieCanvas.isFull();
-        }
+                @Override
+                public boolean blocked() {
+                    return ivieCanvas.isFull();
+                }
 
-        @Override
-        public void beforeOpen() {
-            hideKeyboard();
-            if (chatPane != null) {
-                chatPane.show();
-            }
-        }
+                @Override
+                public void beforeOpen() {
+                    hideKeyboard();
+                    if (chatPane != null) {
+                        chatPane.show();
+                    }
+                }
 
-        @Override
-        public void cancel(android.view.MotionEvent e) {
-            android.view.MotionEvent cancel = android.view.MotionEvent.obtain(e);
-            cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
-            MainActivity.super.dispatchTouchEvent(cancel);
-            cancel.recycle();
-        }
+                @Override
+                public void cancel(android.view.MotionEvent e) {
+                    android.view.MotionEvent cancel = android.view.MotionEvent.obtain(e);
+                    cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
+                    MainActivity.super.dispatchTouchEvent(cancel);
+                    cancel.recycle();
+                }
 
-        @Override
-        public android.view.View root() {
-            return getWindow().getDecorView();
-        }
+                @Override
+                public android.view.View root() {
+                    return getWindow().getDecorView();
+                }
 
-        @Override
-        public float density() {
-            return getResources().getDisplayMetrics().density;
-        }
+                @Override
+                public float density() {
+                    return getResources().getDisplayMetrics().density;
+                }
 
-        @Override
-        public int touchSlop() {
-            return android.view.ViewConfiguration.get(MainActivity.this).getScaledTouchSlop();
-        }
-    });
+                @Override
+                public int touchSlop() {
+                    return android.view.ViewConfiguration.get(MainActivity.this)
+                            .getScaledTouchSlop();
+                }
+            });
 
     /** In {@link Drawer}. */
     void toggleDrawer() {
@@ -946,12 +951,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** Whether this reply is read out: always, after a dictated message, or never, as chosen in the drawer. */
     /**
-     * Whether a line is read out by itself. Only a reply to something the pilot just asked, while the chat is on
-     * screen: a morning report, a job that ends in the background, a note or a message that waited are shown, not
-     * spoken (the play button under any reply still reads it). Then the read-aloud setting decides.
+     * Whether a line is read out by itself. Only a reply to something the pilot just asked, while the chat is on screen: a morning report, a job that ends in the background, a note or a message that waited are shown, not spoken (the play button under any reply still reads it). Then the read-aloud setting decides.
      */
     boolean speakReply() {
-        return inFront && System.currentTimeMillis() - askedAt < SPEAK_WINDOW_MS && readAloudHelper.speakReply();
+        return inFront && System.currentTimeMillis() - askedAt < SPEAK_WINDOW_MS
+                && readAloudHelper.speakReply();
     }
 
     /** When the pilot last sent a message, and how long a reply to it may still be read out by itself. */
@@ -959,21 +963,19 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     static final long SPEAK_WINDOW_MS = 3 * 60_000L;
 
     /**
-     * Makes a picture with the image tool (\u00A7IM, from any brain): an image model on one of the pilot's providers
-     * draws it, it is saved and shown in the chat. While it is made, the working line says so.
+     * Makes a picture with the image tool (\u00A7IM, from any brain): an image model on one of the pilot's providers draws it, it is saved and shown in the chat. While it is made, the working line says so.
      */
     /**
-     * This chat's own folder (files/ibiko/chats/<chat>): its pulled repositories (repos/), its memories (memory/) and
-     * pictures (images/). Every file tool, agent and Linux command of this chat works in it and sees nothing else.
+     * This chat's own folder (files/ibiko/chats/<chat>): its pulled repositories (repos/), its memories (memory/) and pictures (images/). Every file tool, agent and Linux command of this chat works in it and sees nothing else.
      */
     public java.io.File chatSpace() {
         ai.ibiko.chat.ChatBook.Section s = chats == null ? null : chats.current();
-        return ai.ibiko.main.ChatSpace.of(getFilesDir(), s == null ? "chat" : s.group != null ? s.group : s.id);
+        return ai.ibiko.main.ChatSpace.of(getFilesDir(),
+                s == null ? "chat" : s.group != null ? s.group : s.id);
     }
 
     /**
-     * The reason a reply failed, only when it tells the person something they can act on (credit, a key, a limit), in a
-     * few words; never a raw host name, status code or stack of provider text.
+     * The reason a reply failed, only when it tells the person something they can act on (credit, a key, a limit), in a few words; never a raw host name, status code or stack of provider text.
      */
     static String detail(String why) {
         String w = why == null ? "" : why.toLowerCase(java.util.Locale.US);
@@ -991,15 +993,15 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** The API couldn't be reached at all (its address, the network path), not a refusal or an empty answer. */
     public static boolean unreachable(String why) {
-        return why != null && why.matches("(?is).*(couldn't reach|could not reach|unable to resolve host|no address associated"
-                + "|failed to connect|connection refused|timed out|timeout|unreachable).*");
+        return why != null && why.matches(
+                "(?is).*(couldn't reach|could not reach|unable to resolve host|no address associated"
+                        + "|failed to connect|connection refused|timed out|timeout|unreachable).*");
     }
 
     /** Makes a picture in the background and pastes it into the chat when ready (ImageTurn). */
     void makeImage(final String agent, final String what) {
         new ImageTurn(this).make(agent, what);
     }
-
 
     /** This start only handed over to the first-start download (AppFilesActivity). */
     boolean waitingForFiles;
@@ -1008,10 +1010,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     protected void onCreate(Bundle savedInstanceState) {
         applyTheme(getSharedPreferences("ibiko", MODE_PRIVATE).getString("theme", "system"));
         super.onCreate(savedInstanceState);
-        if (!"robolectric".equals(android.os.Build.FINGERPRINT) && !ai.ibiko.main.AppFiles.ready(getFilesDir())) {
+        if (!"robolectric".equals(android.os.Build.FINGERPRINT)
+                && !ai.ibiko.main.AppFiles.ready(getFilesDir())) {
             // the first start: the app files are downloaded before anything opens, and without them it doesn't open
-            android.content.Intent then = new android.content.Intent(getIntent()).setClass(this, MainActivity.class);
-            startActivity(new android.content.Intent(this, ai.ibiko.chat.ui.AppFilesActivity.class).putExtra("then", then));
+            android.content.Intent then = new android.content.Intent(getIntent()).setClass(this,
+                    MainActivity.class);
+            startActivity(new android.content.Intent(this, ai.ibiko.chat.ui.AppFilesActivity.class)
+                    .putExtra("then", then));
             waitingForFiles = true;
             finish();
             return;
@@ -1019,19 +1024,22 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         crash.install();
         // the splash (Ibiko's face, glancing and blinking) stays while the start-up work finishes, at most a moment
         final android.view.View splashHold = findViewById(android.R.id.content);
-        splashHold.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
-            @Override
-            public boolean onPreDraw() {
-                if (!ai.ibiko.main.Warmup.done()) {
-                    return false;
-                }
-                splashHold.getViewTreeObserver().removeOnPreDrawListener(this);
-                return true;
-            }
-        });
+        splashHold.getViewTreeObserver()
+                .addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+                    @Override
+                    public boolean onPreDraw() {
+                        if (!ai.ibiko.main.Warmup.done()) {
+                            return false;
+                        }
+                        splashHold.getViewTreeObserver().removeOnPreDrawListener(this);
+                        return true;
+                    }
+                });
         // kept running in the background until the pilot closes it (main/KeepAlive); opening Ibiko clears a Close
         ai.ibiko.main.KeepAlive.opened(this);
-        registerReceiver(closedByPilot, new android.content.IntentFilter(ai.ibiko.main.KeepAlive.CLOSED), RECEIVER_NOT_EXPORTED);
+        registerReceiver(closedByPilot,
+                new android.content.IntentFilter(ai.ibiko.main.KeepAlive.CLOSED),
+                RECEIVER_NOT_EXPORTED);
         handler.postDelayed(() -> {
             if (!isFinishing()) {
                 ai.ibiko.main.KeepAlive.askBatteryOnce(this); // once: so the system doesn't freeze Ibiko in the background
@@ -1045,7 +1053,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         // The chat is laid out inside the status and navigation bars. It does not draw under them.
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
 
-        ai.ibiko.social.SocialWeb.onRead = text -> new Thread(() -> ibiko1().readSocial(text), "ibiko-read").start();
+        ai.ibiko.social.SocialWeb.onRead = text -> new Thread(() -> ibiko1().readSocial(text),
+                "ibiko-read").start();
         stage = new StageView(this);
         stage.setListener(this);
         podView = new ai.ibiko.render.PodView(this);
@@ -1115,7 +1124,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
             @Override
             public void aheadAudio(String owner, String sentence) {
-                if (talk == null || owner == null || sentence == null || sentence.trim().isEmpty()) {
+                if (talk == null || owner == null || sentence == null
+                        || sentence.trim().isEmpty()) {
                     return;
                 }
                 talk.setOwner(owner);
@@ -1141,8 +1151,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                     return;
                 }
                 // learned as we go, from every brain's work: how the answer was reached, not only what it was
-                new Thread(() -> ibiko1().learnWay(ai.ibiko.chat.Attachments.withoutImages(asked)
-                        .replaceAll("(?s)<attachment.*?</attachment>", "").trim(), steps), "ibiko-method").start();
+                new Thread(
+                        () -> ibiko1().learnWay(
+                                ai.ibiko.chat.Attachments.withoutImages(asked)
+                                        .replaceAll("(?s)<attachment.*?</attachment>", "").trim(),
+                                steps),
+                        "ibiko-method").start();
             }
 
             @Override
@@ -1255,7 +1269,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
         KnowledgeStore store = new KnowledgeStore(this);
         journal = LearningJournal.open(new File(getFilesDir(), "learning"));
-        learned = ai.ibiko.agent.LearnedIntents.open(new File(getFilesDir(), "learned_intents.txt"));
+        learned = ai.ibiko.agent.LearnedIntents
+                .open(new File(getFilesDir(), "learned_intents.txt"));
         library = new ai.ibiko.library.DrawingLibrary(new File(getFilesDir(), "drawings"));
         assistant = new ai.ibiko.ops.AssistantCore(new File(getFilesDir(), "ops"),
                 new ai.ibiko.ops.termux.TermuxCapabilityDetector.Probe() {
@@ -1277,16 +1292,21 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 }, (argv, timeoutMs) -> {
                     if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
                         // never wait for Linux on the screen's thread: the task uses its own quick reading instead
-                        return new ai.ibiko.ops.termux.TermuxExecutionService.Result(127, "", "on the main thread", false, false);
+                        return new ai.ibiko.ops.termux.TermuxExecutionService.Result(127, "",
+                                "on the main thread", false, false);
                     }
                     StringBuilder line = new StringBuilder();
                     for (String a : argv) {
-                        line.append(line.length() == 0 ? "" : " ").append(ai.ibiko.linux.Guest.quote(a));
+                        line.append(line.length() == 0 ? "" : " ")
+                                .append(ai.ibiko.linux.Guest.quote(a));
                     }
-                    String text = ai.ibiko.linux.LinuxHub.run(MainActivity.this, line.toString(), chatSpace()); // this chat's files only
-                    java.util.regex.Matcher exit = java.util.regex.Pattern.compile("\\[exit (\\d+)\\]\\s*$").matcher(text.trim());
+                    String text = ai.ibiko.linux.LinuxHub.run(MainActivity.this, line.toString(),
+                            chatSpace()); // this chat's files only
+                    java.util.regex.Matcher exit = java.util.regex.Pattern
+                            .compile("\\[exit (\\d+)\\]\\s*$").matcher(text.trim());
                     int code = exit.find() ? Integer.parseInt(exit.group(1)) : 0;
-                    return new ai.ibiko.ops.termux.TermuxExecutionService.Result(code, text, "", false, false);
+                    return new ai.ibiko.ops.termux.TermuxExecutionService.Result(code, text, "",
+                            false, false);
                 }, null, null);
         String restored = assistant.restoredSummary();
         if (restored != null) {
@@ -1316,7 +1336,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         modelGeneration = hub.generation;
         model = hub.model;
         model.onStep = this::activity;
-        model.learning = ai.ibiko.chat.ui.UsageActivity.learningOn(prefs) ? new ai.ibiko.learn.LearningLog(new java.io.File(getFilesDir(), "learning")) : null;
+        model.learning = ai.ibiko.chat.ui.UsageActivity.learningOn(prefs)
+                ? new ai.ibiko.learn.LearningLog(new java.io.File(getFilesDir(), "learning"))
+                : null;
         model.usage.restore(prefs.getString("usage_today", null), System.currentTimeMillis());
         hub.addListener(onDownload);
         reportModel();
@@ -1591,10 +1613,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     /** The tools this chat page lets its brain use (per conversation and persona), from the tools button. */
     ai.ibiko.suit.ChatTools chatTools(String persona) {
-        ai.ibiko.suit.ChatTools t = ai.ibiko.suit.ChatTools.read(persona, prefs.getString(toolsKey(persona), null));
+        ai.ibiko.suit.ChatTools t = ai.ibiko.suit.ChatTools.read(persona,
+                prefs.getString(toolsKey(persona), null));
         // Thinking level is one choice for every chat (new ones too), not a per-chat setting a new chat quietly drops.
         // An older install stored only on/off: on is Think 1.
-        int level = prefs.contains(THINK_LEVEL) ? prefs.getInt(THINK_LEVEL, 0) : (prefs.getBoolean(THINK_ON, false) ? 1 : 0);
+        int level = prefs.contains(THINK_LEVEL) ? prefs.getInt(THINK_LEVEL, 0)
+                : (prefs.getBoolean(THINK_ON, false) ? 1 : 0);
         t.think(level);
         return t;
     }
@@ -1610,10 +1634,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         String who = stage == null ? "ibiko" : stage.agent();
         ai.ibiko.suit.ChatTools tools = chatTools(who);
         tools.think(n);
-        prefs.edit().putString(toolsKey(who), tools.write()).putInt(THINK_LEVEL, n).putBoolean(THINK_ON, n == 1).apply();
+        prefs.edit().putString(toolsKey(who), tools.write()).putInt(THINK_LEVEL, n)
+                .putBoolean(THINK_ON, n == 1).apply();
         repaintThink();
         note(n == 2 ? "Think 2: several models think it through, then one answer."
-                : n == 1 ? "Think 1: Ibiko plans, checks and revises before answering (slower)." : "Ordinary: a direct answer.");
+                : n == 1 ? "Think 1: Ibiko plans, checks and revises before answering (slower)."
+                        : "Ordinary: a direct answer.");
     }
 
     /** In {@link BrainGate}. */
@@ -1633,8 +1659,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     static final int QUICK_CONTEXT_CHARS = 400;
 
     /**
-     * How the brain engages on the pilot's behalf: replies and comments as the pilot, in the open, each one approved.
-     * Never fake accounts, hidden paid promotion, mass identical replies, or pretending to be an independent fan.
+     * How the brain engages on the pilot's behalf: replies and comments as the pilot, in the open, each one approved. Never fake accounts, hidden paid promotion, mass identical replies, or pretending to be an independent fan.
      */
     static final String ENGAGE = " Engagement for the pilot: read the comments on their posts or a trend (§SI or §SO), then"
             + " draft replies in the pilot's own voice that add something (an answer, thanks, a useful link) and offer each with"
@@ -1664,10 +1689,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         socialPosts.useSocialIntel(question, call);
     }
 
-
-
-
-
     ai.ibiko.learn.BrainBox brainBox;
     ai.ibiko.suit.Cortex cortex;
 
@@ -1677,7 +1698,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** What the pilot has said about themselves, kept on the device and told to every brain. */
     synchronized ai.ibiko.learn.PilotProfile pilotProfile() {
         if (pilotProfile == null) {
-            pilotProfile = ai.ibiko.learn.PilotProfile.at(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
+            pilotProfile = ai.ibiko.learn.PilotProfile
+                    .at(new java.io.File(getFilesDir(), "brain/pilot.tsv"));
         }
         return pilotProfile;
     }
@@ -1690,13 +1712,13 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         }
     }
 
-
     ai.ibiko.ibiko1.Ibiko1 ibiko1;
 
     /** Ibiko 1 · 0.1, Ibiko's own model (its whole code is in the ibiko1 folder), plugged into this screen. */
     synchronized ai.ibiko.ibiko1.Ibiko1 ibiko1() {
         if (ibiko1 == null) {
-            ibiko1 = new ai.ibiko.ibiko1.Ibiko1(new ai.ibiko.main.Ibiko1Screen(this, ibikoScreen), getFilesDir());
+            ibiko1 = new ai.ibiko.ibiko1.Ibiko1(new ai.ibiko.main.Ibiko1Screen(this, ibikoScreen),
+                    getFilesDir());
         }
         return ibiko1;
     }
@@ -1727,7 +1749,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public boolean online() {
             // Settings › Web and services: with web look-ups off, Ibiko 1 answers from what it already knows
-            return (connectivity == null || connectivity.isOnline()) && prefs.getBoolean("fresh_facts", true);
+            return (connectivity == null || connectivity.isOnline())
+                    && prefs.getBoolean("fresh_facts", true);
         }
 
         @Override
@@ -1738,13 +1761,16 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public boolean modelReady() {
             // a model downloaded on the device: Ibiko 1 asks it for what its own memory doesn't hold
-            return model != null && model.installed() && prefs.getBoolean("ibiko1_uses_model", true);
+            return model != null && model.installed()
+                    && prefs.getBoolean("ibiko1_uses_model", true);
         }
 
         @Override
         public String askModel(String system, String question) {
             try {
-                return model == null ? null : model.task(system, question, ai.ibiko.chat.Tuning.CHAT_TOKENS.get(prefs), null);
+                return model == null ? null
+                        : model.task(system, question, ai.ibiko.chat.Tuning.CHAT_TOKENS.get(prefs),
+                                null);
             } catch (RuntimeException e) {
                 return null;
             }
@@ -1758,8 +1784,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public void answered(ai.ibiko.ibiko1.Ibiko1.How how) {
             if (model != null) {
-                model.usage.recordOwn(how == ai.ibiko.ibiko1.Ibiko1.How.MEMORY ? ai.ibiko.llm.UsageLog.Own.MEMORY
-                        : how == ai.ibiko.ibiko1.Ibiko1.How.RESEARCH ? ai.ibiko.llm.UsageLog.Own.RESEARCH : ai.ibiko.llm.UsageLog.Own.OTHER,
+                model.usage.recordOwn(
+                        how == ai.ibiko.ibiko1.Ibiko1.How.MEMORY ? ai.ibiko.llm.UsageLog.Own.MEMORY
+                                : how == ai.ibiko.ibiko1.Ibiko1.How.RESEARCH
+                                        ? ai.ibiko.llm.UsageLog.Own.RESEARCH
+                                        : ai.ibiko.llm.UsageLog.Own.OTHER,
                         System.currentTimeMillis());
             }
             checkWorkload();
@@ -1778,7 +1807,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         @Override
         public boolean allows(String code) {
             try {
-                return chatTools(stage.agent()).allowedCodes().contains(ai.ibiko.suit.FunctionCode.valueOf(code));
+                return chatTools(stage.agent()).allowedCodes()
+                        .contains(ai.ibiko.suit.FunctionCode.valueOf(code));
             } catch (IllegalArgumentException e) {
                 return false;
             }
@@ -1798,6 +1828,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     ai.ibiko.suit.Cortex cortex() {
         return brains.cortex();
     }
+
     /** The words the brain last acted on from what it learned, until the next message (for "no, that's wrong"). */
     String actedFromBox, boxBefore;
 
@@ -1847,9 +1878,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /**
-     * Ibiko as a coding agent (Claude Code style): it plans, reads and writes files in its workspace, runs commands
-     * (asking first unless Auto-accept is on), fetches pages and uses connectors, step by step, then answers. Each
-     * step shows in the chat. The strong model does the work; the stop button stops it between steps.
+     * Ibiko as a coding agent (Claude Code style): it plans, reads and writes files in its workspace, runs commands (asking first unless Auto-accept is on), fetches pages and uses connectors, step by step, then answers. Each step shows in the chat. The strong model does the work; the stop button stops it between steps.
      */
     void runIbiko(final String task) {
         String repos = chatTools("ibiko").brief();
@@ -1862,8 +1891,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /**
-     * An agent at work on the phone's files: Ibiko with every tool (write, run, git), or Obi or Ivie only reading
-     * ({@code readOnly}). Each step shows in the chat; the stop button stops it between steps.
+     * An agent at work on the phone's files: Ibiko with every tool (write, run, git), or Obi or Ivie only reading ({@code readOnly}). Each step shows in the chat; the stop button stops it between steps.
      */
     void runAgent(final String task, final String persona, final boolean onlyReading) {
         new AgentSession(this).run(task, persona, onlyReading);
@@ -2055,9 +2083,11 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     /** "make a PDF of that", "save this as a Word document", "write a spreadsheet of …": a file to make. */
     public static boolean asksForFile(String text) {
         String t = text == null ? "" : text.trim().toLowerCase(java.util.Locale.US);
-        return t.matches("(?s)^(please |can you |could you )?(make|create|save|export|turn|convert|put|write|generate|give me|produce)\\b.*"
-                + "\\b(pdf|word (document|file|doc)|docx|excel|spreadsheet|xlsx|html (file|page)|web page|csv|markdown|text file|json file)\\b.*")
-                && !t.matches("(?s).*\\b(parser|reader|library|code|class|function|script|app|program|converter)\\b.*");
+        return t.matches(
+                "(?s)^(please |can you |could you )?(make|create|save|export|turn|convert|put|write|generate|give me|produce)\\b.*"
+                        + "\\b(pdf|word (document|file|doc)|docx|excel|spreadsheet|xlsx|html (file|page)|web page|csv|markdown|text file|json file)\\b.*")
+                && !t.matches(
+                        "(?s).*\\b(parser|reader|library|code|class|function|script|app|program|converter)\\b.*");
     }
 
     static final String WRITE_DOC = "Write the document the user asks for, in Markdown: a # title, ## sections, short"
@@ -2065,84 +2095,86 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             + " greeting, no note about the file). /no_think";
 
     /** The brain's SOCIAL order ({@link ai.ibiko.main.SocialFlow}). */
-    final ai.ibiko.main.SocialFlow socialFlow = new ai.ibiko.main.SocialFlow(new ai.ibiko.main.SocialFlow.Host() {
-        @Override
-        public String agent() {
-            return stage.agent();
-        }
+    final ai.ibiko.main.SocialFlow socialFlow = new ai.ibiko.main.SocialFlow(
+            new ai.ibiko.main.SocialFlow.Host() {
+                @Override
+                public String agent() {
+                    return stage.agent();
+                }
 
-        @Override
-        public void say(String line) {
-            play(LocalTurn.speakAs(stage.agent(), line), null);
-        }
+                @Override
+                public void say(String line) {
+                    play(LocalTurn.speakAs(stage.agent(), line), null);
+                }
 
-        @Override
-        public void openAccounts() {
-            startActivityForResult(new android.content.Intent(MainActivity.this, ai.ibiko.chat.ui.SocialActivity.class), SOCIAL);
-        }
+                @Override
+                public void openAccounts() {
+                    startActivityForResult(new android.content.Intent(MainActivity.this,
+                            ai.ibiko.chat.ui.SocialActivity.class), SOCIAL);
+                }
 
-        @Override
-        public void openLogin(ai.ibiko.social.Platform platform) {
-            startActivity(new android.content.Intent(MainActivity.this, ai.ibiko.chat.ui.SocialLoginActivity.class)
-                    .putExtra(ai.ibiko.chat.ui.SocialLoginActivity.EXTRA_PLATFORM, platform.name()));
-        }
+                @Override
+                public void openLogin(ai.ibiko.social.Platform platform) {
+                    startActivity(new android.content.Intent(MainActivity.this,
+                            ai.ibiko.chat.ui.SocialLoginActivity.class)
+                            .putExtra(ai.ibiko.chat.ui.SocialLoginActivity.EXTRA_PLATFORM,
+                                    platform.name()));
+                }
 
-        @Override
-        public boolean signedIn(ai.ibiko.social.Platform platform) {
-            return ai.ibiko.social.SocialWeb.accounts(MainActivity.this).inUse(platform) != null;
-        }
+                @Override
+                public boolean signedIn(ai.ibiko.social.Platform platform) {
+                    return ai.ibiko.social.SocialWeb.accounts(MainActivity.this)
+                            .inUse(platform) != null;
+                }
 
-        @Override
-        public boolean anySignedIn() {
-            return !ai.ibiko.social.SocialWeb.accounts(MainActivity.this).ready().isEmpty();
-        }
+                @Override
+                public boolean anySignedIn() {
+                    return !ai.ibiko.social.SocialWeb.accounts(MainActivity.this).ready().isEmpty();
+                }
 
-        @Override
-        public boolean online() {
-            return connectivity == null || connectivity.isOnline();
-        }
+                @Override
+                public boolean online() {
+                    return connectivity == null || connectivity.isOnline();
+                }
 
-        @Override
-        public void writePost(String prompt, int tokens) {
-            askLocal(prompt, null, false, tokens);
-        }
+                @Override
+                public void writePost(String prompt, int tokens) {
+                    askLocal(prompt, null, false, tokens);
+                }
 
-        @Override
-        public boolean versions() {
-            return prefs.getBoolean("post_versions", true);
-        }
+                @Override
+                public boolean versions() {
+                    return prefs.getBoolean("post_versions", true);
+                }
 
-        @Override
-        public void writeVersions(ai.ibiko.social.Platform platform, String words) {
-            postVersions(platform, words);
-        }
+                @Override
+                public void writeVersions(ai.ibiko.social.Platform platform, String words) {
+                    postVersions(platform, words);
+                }
 
-        @Override
-        public void writeComment(String app, String link, String what) {
-            commentDraft(app, link, what);
-        }
+                @Override
+                public void writeComment(String app, String link, String what) {
+                    commentDraft(app, link, what);
+                }
 
-        @Override
-        public void commentOnLatest(String app, String query, String what) {
-            MainActivity.this.commentOnLatest(app, query, what);
-        }
+                @Override
+                public void commentOnLatest(String app, String query, String what) {
+                    MainActivity.this.commentOnLatest(app, query, what);
+                }
 
-        @Override
-        public int chatTokens() {
-            return ai.ibiko.chat.Tuning.CHAT_TOKENS.get(prefs);
-        }
+                @Override
+                public int chatTokens() {
+                    return ai.ibiko.chat.Tuning.CHAT_TOKENS.get(prefs);
+                }
 
-        @Override
-        public void search(String question, String call) {
-            useConnector(question, call);
-        }
-    });
+                @Override
+                public void search(String question, String call) {
+                    useConnector(question, call);
+                }
+            });
 
     /**
-     * The brain's SOCIAL order, carried out: connect (the sign-in page), help (how to use the accounts), post (the
-     * model writes it; "post it on …" then opens the app with it), search and trending (read with the user's own
-     * accounts, within the limits that keep them safe, answered from what people posted, labelled as their claims).
-     * {@code arg}: "connect facebook", "help", "post facebook: our sale", "search x: fuel price", "trending reddit".
+     * The brain's SOCIAL order, carried out: connect (the sign-in page), help (how to use the accounts), post (the model writes it; "post it on …" then opens the app with it), search and trending (read with the user's own accounts, within the limits that keep them safe, answered from what people posted, labelled as their claims). {@code arg}: "connect facebook", "help", "post facebook: our sale", "search x: fuel price", "trending reddit".
      */
     void social(String question, String arg) {
         socialFlow.run(question, arg);
@@ -2161,7 +2193,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         java.util.List<ai.ibiko.chat.ChatBook.Message> ms = chats.current().messages;
         for (int i = ms.size() - 1; i >= 0; i--) {
             ai.ibiko.chat.ChatBook.Message m = ms.get(i);
-            if ("assistant".equals(m.role) && "text".equals(m.kind) && m.body != null && !m.body.trim().isEmpty()) {
+            if ("assistant".equals(m.role) && "text".equals(m.kind) && m.body != null
+                    && !m.body.trim().isEmpty()) {
                 return m.body.trim();
             }
         }
@@ -2174,7 +2207,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** In {@link SocialPosts}. */
-    void pickVersion(final ai.ibiko.social.Platform platform, java.util.List<String> versions, final java.util.List<String> tags) {
+    void pickVersion(final ai.ibiko.social.Platform platform, java.util.List<String> versions,
+            final java.util.List<String> tags) {
         socialPosts.pickVersion(platform, versions, tags);
     }
 
@@ -2228,7 +2262,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     ai.ibiko.turn.Meaning.Memory meanings() {
         if (meanings == null) {
-            meanings = ai.ibiko.turn.Meaning.Memory.read(prefs == null ? null : prefs.getString("meanings", null));
+            meanings = ai.ibiko.turn.Meaning.Memory
+                    .read(prefs == null ? null : prefs.getString("meanings", null));
         }
         return meanings;
     }
@@ -2358,8 +2393,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     volatile String backgroundTask;
 
     /**
-     * A message sent in a chat that was not the one running. When that run ends, and this chat is the one on screen,
-     * it is asked. The other chat was not cancelled to make room.
+     * A message sent in a chat that was not the one running. When that run ends, and this chat is the one on screen, it is asked. The other chat was not cancelled to make room.
      */
     final Runnable releaseHeld = new Runnable() {
         @Override
@@ -2388,8 +2422,7 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     };
 
     /**
-     * A steered message the task never read (it finished, or it was never a multi-step run). It goes out as its own
-     * turn. While work is still going this waits, so it is not delivered twice and the task is not cancelled to send it.
+     * A steered message the task never read (it finished, or it was never a multi-step run). It goes out as its own turn. While work is still going this waits, so it is not delivered twice and the task is not cancelled to send it.
      */
     final Runnable releaseUnseenSteer = new Runnable() {
         @Override
@@ -2414,7 +2447,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** In {@link LocalAsk}. */
-    String foldSteer(int id, String system, String question, String context, int length, String soFar, ai.ibiko.llm.NativeLlm.Sink sink) {
+    String foldSteer(int id, String system, String question, String context, int length,
+            String soFar, ai.ibiko.llm.NativeLlm.Sink sink) {
         return localAsk.foldSteer(id, system, question, context, length, soFar, sink);
     }
 
@@ -2427,7 +2461,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     String situation(boolean ivie) {
         return steering.situation(ivie);
     }
-
 
     /** In {@link Steering}. */
     void reportModel() {
@@ -2450,12 +2483,14 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /** In {@link LocalAsk}. */
-    boolean askLocal(final String question, final BrainAnswer offline, final boolean research, final int length) {
+    boolean askLocal(final String question, final BrainAnswer offline, final boolean research,
+            final int length) {
         return localAsk.askLocal(question, offline, research, length);
     }
 
     /** In {@link LocalAsk}. */
-    boolean askLocal(final String question, final BrainAnswer offline, final boolean research, final int length, final boolean acts) {
+    boolean askLocal(final String question, final BrainAnswer offline, final boolean research,
+            final int length, final boolean acts) {
         return localAsk.askLocal(question, offline, research, length, acts);
     }
 
@@ -2515,14 +2550,9 @@ public final class MainActivity extends AppCompatActivity implements StageListen
 
     static final String IBIKO_OWN = "Ibiko 1 \u00B7 0.1";
 
-
     int dp(int v) {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
-
-
-
-
 
     /** In {@link Brains}. */
     void openProviders() {
@@ -2541,7 +2571,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     boolean modelCommand(String said) {
         return brains.modelCommand(said);
     }
-
 
     /** In {@link Brains}. */
     void startModelDownload() {
@@ -2566,7 +2595,6 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     ai.ibiko.turn.DualAgentCoordinator.Agent agentFor(final String persona, final boolean online) {
         return localAsk.agentFor(persona, online);
     }
-
 
     void saveName(String name) {
         saveName(name, name);
@@ -2804,7 +2832,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             }
             for (android.net.Uri uri : uris) {
                 try {
-                    getContentResolver().takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    getContentResolver().takePersistableUriPermission(uri,
+                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 } catch (SecurityException ignored) {
                 }
             }
@@ -2881,7 +2910,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (requestCode == TERMUX) {
             String[] waiting = shellWaiting;
             shellWaiting = null;
-            if (waiting != null && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (waiting != null && results.length > 0
+                    && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 runShell(waiting[0], waiting[1]); // allowed: the command the user asked for runs now
             } else if (waiting != null) {
                 note("Not run: that command needs the permission. It is asked again next time.");
@@ -2900,12 +2930,12 @@ public final class MainActivity extends AppCompatActivity implements StageListen
     }
 
     /**
-     * The offline model is let go five minutes after the app leaves the screen, not at once: freeing it on every
-     * glance at another app threw away everything it had read, and the next question read it all again.
+     * The offline model is let go five minutes after the app leaves the screen, not at once: freeing it on every glance at another app threw away everything it had read, and the next question read it all again.
      */
     static final long RELEASE_AFTER_MS = 5 * 60_000L;
     final Runnable releaseModel = () -> {
-        if (model != null && hub != null && hub.worker != null && !model.working() && !inFront && !workInHand()) {
+        if (model != null && hub != null && hub.worker != null && !model.working() && !inFront
+                && !workInHand()) {
             final ai.ibiko.llm.LocalModel leaving = model;
             hub.worker.execute(leaving::releaseIfIdle);
         }
@@ -2926,12 +2956,18 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (awayLock != null && awayLock.isHeld()) {
             return;
         }
+
         PowerManager pm = getSystemService(PowerManager.class);
         if (pm == null) {
             return;
         }
-        awayLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:away");
-        awayLock.setReferenceCounted(false);
+
+        // Initialize the WakeLock only once if it hasn't been created yet
+        if (awayLock == null) {
+            awayLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:away");
+            awayLock.setReferenceCounted(false);
+        }
+
         awayLock.acquire(ai.ibiko.main.KeepAlive.AWAKE_MS);
     }
 
@@ -2968,7 +3004,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
         if (workInHand()) {
             // the phone freezes a background app that is not in front: say the work is still going, and stay awake
             ai.ibiko.llm.ReplyService.nudge(this);
-            ai.ibiko.main.KeepAlive.mark("reply", "Ibiko is working", "It keeps going while you're in another app.", -2);
+            ai.ibiko.main.KeepAlive.mark("reply", "Ibiko is working",
+                    "It keeps going while you're in another app.", -2);
             ai.ibiko.main.KeepAlive.ensure(this);
             holdAway();
         } else {
@@ -3021,7 +3058,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
             carryOnOffered = true; // once a start: work cut off by a crash or a close can carry on
             handler.postDelayed(this::offerToCarryOn, 600);
         }
-        if (model != null && model.context(ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(prefs)) && prefs.getBoolean("llm_on", true)) {
+        if (model != null && model.context(ai.ibiko.chat.Tuning.OFFLINE_CONTEXT.get(prefs))
+                && prefs.getBoolean("llm_on", true)) {
             loadModel(false); // the offline model's memory was changed in Settings: it starts again with the new size
         }
         if (hub != null && hub.generation != modelGeneration) {
@@ -3060,7 +3098,8 @@ public final class MainActivity extends AppCompatActivity implements StageListen
                 default:
                     readAloudHelper.stop();
                     talk.stop();
-                    ai.ibiko.voice.ReadAloudNotice.show(MainActivity.this, false, false, null, "", MainActivity.class);
+                    ai.ibiko.voice.ReadAloudNotice.show(MainActivity.this, false, false, null, "",
+                            MainActivity.class);
             }
         }
     };

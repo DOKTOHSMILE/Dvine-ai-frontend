@@ -7,10 +7,8 @@ import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.os.PowerManager;
 
-
 /**
- * Keeps the phone from freezing the brain while a reply is being written and the app is not on screen.
- * A quiet notification and a partial wake lock, dropped as soon as the reply is finished.
+ * Keeps the phone from freezing the brain while a reply is being written and the app is not on screen. A quiet notification and a partial wake lock, dropped as soon as the reply is finished.
  */
 public final class ReplyService extends Service {
     static final String ACTION_START = "ai.ibiko.action.KEEP_THINKING";
@@ -32,9 +30,7 @@ public final class ReplyService extends Service {
     }
 
     /**
-     * Model work starts: the app is kept in the foreground (full speed, not throttled or stopped when it leaves the
-     * screen) until every piece of work that held it has let go. A start is asked again if one is already held, so a
-     * service the system dropped comes back without waiting for the next piece of work.
+     * Model work starts: the app is kept in the foreground (full speed, not throttled or stopped when it leaves the screen) until every piece of work that held it has let go. A start is asked again if one is already held, so a service the system dropped comes back without waiting for the next piece of work.
      */
     public static synchronized void hold(Context context) {
         holders++;
@@ -47,7 +43,8 @@ public final class ReplyService extends Service {
             return;
         }
         try {
-            context.startForegroundService(new Intent(context, ReplyService.class).setAction(ACTION_START));
+            context.startForegroundService(
+                    new Intent(context, ReplyService.class).setAction(ACTION_START));
         } catch (RuntimeException e) {
             // not allowed to start now (the app is already off screen): the work still runs if a start earlier succeeded
         }
@@ -61,7 +58,8 @@ public final class ReplyService extends Service {
         }
         if (--holders == 0) {
             try {
-                context.startService(new Intent(context, ReplyService.class).setAction(ACTION_STOP));
+                context.startService(
+                        new Intent(context, ReplyService.class).setAction(ACTION_STOP));
             } catch (RuntimeException ignored) {
                 // already stopped
             }
@@ -84,14 +82,17 @@ public final class ReplyService extends Service {
         boolean stopping = intent != null && ACTION_STOP.equals(intent.getAction());
         // one notification only, shared with the background work's (main/KeepAlive): "Ibiko is thinking"
         if (!stopping) {
-            ai.ibiko.main.KeepAlive.mark("reply", "Ibiko is thinking", "The reply will be in the chat when you come back.", -2);
+            ai.ibiko.main.KeepAlive.mark("reply", "Ibiko is thinking",
+                    "The reply will be in the chat when you come back.", -2);
         }
-        startForeground(ai.ibiko.main.KeepAlive.NOTE_ID, ai.ibiko.main.KeepAlive.note(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        startForeground(ai.ibiko.main.KeepAlive.NOTE_ID, ai.ibiko.main.KeepAlive.note(this),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         if (stopping || !held()) {
             unlock();
             boolean shared = ai.ibiko.main.KeepAlive.running();
             ai.ibiko.main.KeepAlive.done(this, "reply");
-            stopForeground(shared && ai.ibiko.main.KeepAlive.running() ? STOP_FOREGROUND_DETACH : STOP_FOREGROUND_REMOVE);
+            stopForeground(shared && ai.ibiko.main.KeepAlive.running() ? STOP_FOREGROUND_DETACH
+                    : STOP_FOREGROUND_REMOVE);
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -122,18 +123,27 @@ public final class ReplyService extends Service {
     }
 
     private void lock() {
-        if (wake != null && wake.isHeld()) {
-            wake.release(); // a fresh hold, so a job longer than the last stretch is not cut off
-        }
         PowerManager pm = getSystemService(PowerManager.class);
         if (pm == null) {
             return;
         }
-        wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:reply");
-        wake.setReferenceCounted(false);
-        wake.acquire(ai.ibiko.main.KeepAlive.AWAKE_MS); // a long job keeps the processor; released when the reply ends
-        // no high-performance Wi-Fi lock: it holds the radio at full power for the whole task and warms the device;
-        // the foreground service already keeps the connection alive
+
+        // Initialize the WakeLock only once
+        if (wake == null) {
+            wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ibiko:reply");
+            wake.setReferenceCounted(false);
+        }
+
+        // If it's currently held, release it first so a fresh stretch is applied
+        if (wake.isHeld()) {
+            wake.release();
+        }
+
+        wake.acquire(ai.ibiko.main.KeepAlive.AWAKE_MS);
+        // A long job keeps the processor; released when the reply ends.
+        // No high-performance Wi-Fi lock: it holds the radio at full power
+        // for the whole task and warms the device; the foreground service
+        // already keeps the connection alive.
     }
 
     private void unlock() {
